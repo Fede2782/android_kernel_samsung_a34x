@@ -255,19 +255,6 @@ char *HW_TX_RATE_BW[] = {"BW20", "BW40", "BW80", "BW160/BW8080", "N/A"};
  *                              F U N C T I O N S
  *******************************************************************************
  */
-/**
- * nicGetPhyRateByMcsRate() - Get PHY rate from MCS rate
- * @ucIdx: MCS index.
- * @ucBw: Bandwodth.
- * @ucGI: GI value.
- *
- * This function called by TX or RX to get the PHY rate from MCS index.
- * In the case of 11n(RX_VT_MIXED_MODE) 2x2, the MCS index shall be adjusted
- * before query, and the result shall multiply by 2.
- *
- * Return: Mapped PHY rate.
- */
-
 uint32_t
 nicGetPhyRateByMcsRate(
 	IN uint8_t ucIdx,
@@ -282,7 +269,7 @@ nicGetPhyRateByMcsRate(
 		return 0;
 	}
 
-	return arMcsRate2PhyRate[ucIdx].u4PhyRate[ucBw][ucGI];
+	return	arMcsRate2PhyRate[ucIdx].u4PhyRate[ucBw][ucGI];
 }
 
 uint32_t
@@ -374,21 +361,24 @@ nicRateCode2PhyRate(
 	u2TxMode = u2RateCode & RATE_TX_MODE_MASK;
 	ucRateNss = ucRateNss + AR_SS_1; /* change to be base=1 */
 
-	if (u2TxMode == TX_MODE_HT_GF || u2TxMode == TX_MODE_HT_MM) {
+	if ((u2TxMode == TX_MODE_HT_GF)
+	    || (u2TxMode == TX_MODE_HT_MM)) {
 
 		if (ucPhyRate > PHY_RATE_MCS7)
-			u2RateCode %= 8;
+			u2RateCode = u2RateCode - HT_RATE_MCS7_INDEX;
 		else
 			ucRateNss = AR_SS_1;
 
-	} else if (u2TxMode == TX_MODE_OFDM || u2TxMode == TX_MODE_CCK) {
+	} else if ((u2TxMode == TX_MODE_OFDM)
+		   || (u2TxMode == TX_MODE_CCK)) {
 		ucRateNss = AR_SS_1;
 	}
 	DBGLOG(NIC, LOUD,
 	       "Coex:nicRateCode2PhyRate,RC:%x,B:%d,I:%d\n",
 	       u2RateCode, ucBandwidth, ucGI);
 
-	u4PhyRateBy1SS = nicRateCode2DataRate(u2RateCode, ucBandwidth, ucGI);
+	u4PhyRateBy1SS = nicRateCode2DataRate(u2RateCode,
+					      ucBandwidth, ucGI);
 	u4PhyRateIn100Kbps = u4PhyRateBy1SS * ucRateNss;
 
 	DBGLOG(NIC, LOUD,

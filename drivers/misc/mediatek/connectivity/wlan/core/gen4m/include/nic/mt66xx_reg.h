@@ -1381,6 +1381,9 @@ struct mt66xx_chip_info {
 	u_int8_t is_support_dma_shdl;
 	u_int8_t get_rxv_from_rxrpt;
 	u_int8_t rx_event_port;
+#if CFG_SUPPORT_LLS
+	const u_int8_t is_supported_full_lls;
+#endif
 #if defined(_HIF_USB)
 	void (*asicUsbInit)(IN struct ADAPTER *prAdapter,
 			    IN struct mt66xx_chip_info *prChipInfo);

@@ -150,7 +150,7 @@ wpabuf_put_be32(struct wpabuf *buf, u32 data) {
 
 static inline void
 wpabuf_put_data(struct wpabuf *buf, const void *data, size_t len) {
-	if (data && wpabuf_put(buf, len))
+	if (data)
 		os_memcpy(wpabuf_put(buf, len), data, len);
 }
 

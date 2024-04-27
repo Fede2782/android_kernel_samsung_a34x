@@ -58,13 +58,10 @@ struct consys_emi_addr_info {
 	/* MCIF EMI get from MD */
 	phys_addr_t md_emi_phy_addr;
 	unsigned int md_emi_size;
-	/* GPS EMI */
-	phys_addr_t gps_emi_phy_addr;
-	unsigned int gps_emi_size;
 };
 
 typedef int(*CONSYS_IC_EMI_MPU_SET_REGION_PROTECTION) (void);
-typedef unsigned int(*CONSYS_IC_EMI_SET_REMAPPING_REG) (phys_addr_t, phys_addr_t, phys_addr_t);
+typedef unsigned int(*CONSYS_IC_EMI_SET_REMAPPING_REG) (phys_addr_t, phys_addr_t);
 typedef void(*CONSYS_IC_EMI_GET_MD_SHARED_EMI) (phys_addr_t* phy_addr, unsigned int *size);
 
 struct consys_platform_emi_ops {

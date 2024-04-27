@@ -177,11 +177,10 @@ void gps_dl_link_open_ack(enum gps_dl_link_id_enum link_id, bool okay, bool hw_r
 		if (gps_each_link_change_state_from(link_id, LINK_OPENING, LINK_CLOSING))
 			send_msg = true;
 	}
+	gps_each_link_give_big_lock(link_id);
 
 	gps_each_link_set_bool_flag(link_id, LINK_OPEN_RESULT_OKAY, okay);
 	gps_dl_link_wake_up(&p->waitables[GPS_DL_WAIT_OPEN_CLOSE]);
-
-	gps_each_link_give_big_lock(link_id);
 
 	if (send_msg) {
 		gps_dl_link_event_send(GPS_DL_EVT_LINK_CLOSE, link_id);
@@ -216,9 +215,10 @@ void gps_dl_link_close_ack(enum gps_dl_link_id_enum link_id, bool hw_suspend)
 		gps_each_link_change_state_from(link_id, LINK_SUSPENDING, LINK_SUSPENDED);
 	else
 		gps_each_link_change_state_from(link_id, LINK_CLOSING, LINK_CLOSED);
+	gps_each_link_give_big_lock(link_id);
 
 	gps_dl_link_wake_up(&p->waitables[GPS_DL_WAIT_OPEN_CLOSE]);
-	gps_each_link_give_big_lock(link_id);
+
 }
 
 static bool gps_dl_link_try_to_clear_both_resetting_status(void)

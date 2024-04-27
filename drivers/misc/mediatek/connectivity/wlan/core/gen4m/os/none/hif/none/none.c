@@ -296,7 +296,7 @@ u_int8_t halIsPendingRx(IN struct ADAPTER *prAdapter)
 uint32_t
 halRxWaitResponse(struct ADAPTER *prAdapter, uint8_t ucPortIdx,
 	uint8_t *pucRspBuffer, uint32_t u4MaxRespBufferLen, uint32_t *pu4Length,
-	uint32_t u4WaitingInterval, uint32_t u4TimeoutValue)
+	uint32_t u4WaitingInterval)
 {
 	return KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__, prAdapter);
 }

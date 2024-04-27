@@ -65,14 +65,14 @@ static void connlog_test_event_handler(void)
 	pr_info("connlog_test_event_handler\n");
 
 	read = connsys_log_read(CONN_DEBUG_TYPE_WIFI, test_buf, TEST_LOG_BUF_SIZE);
-	pr_info("Read %lu:\n", read);
+	pr_info("Read %u:\n", read);
 	connsys_log_dump_buf("log_test", test_buf, read);
 	pr_info("============================================\n");
 }
 
 int connlog_test_init(void)
 {
-	phys_addr_t emi_addr = 0;
+	unsigned int emi_addr = 0;
 	unsigned int emi_size = 0;
 	int ret;
 

@@ -36,10 +36,10 @@
 #define MT6885_DMASHDL_PKT_PLE_MAX_PAGE                (0x1)
 #define MT6885_DMASHDL_PKT_PSE_MAX_PAGE                (0x0)
 #define MT6885_DMASHDL_GROUP_0_REFILL_EN               (1)
-#define MT6885_DMASHDL_GROUP_1_REFILL_EN               (0)
+#define MT6885_DMASHDL_GROUP_1_REFILL_EN               (1)
 #define MT6885_DMASHDL_GROUP_2_REFILL_EN               (1)
 #define MT6885_DMASHDL_GROUP_3_REFILL_EN               (0)
-#define MT6885_DMASHDL_GROUP_4_REFILL_EN               (1)
+#define MT6885_DMASHDL_GROUP_4_REFILL_EN               (0)
 #define MT6885_DMASHDL_GROUP_5_REFILL_EN               (0)
 #define MT6885_DMASHDL_GROUP_6_REFILL_EN               (0)
 #define MT6885_DMASHDL_GROUP_7_REFILL_EN               (0)
@@ -52,10 +52,10 @@
 #define MT6885_DMASHDL_GROUP_14_REFILL_EN              (0)
 #define MT6885_DMASHDL_GROUP_15_REFILL_EN              (0)
 #define MT6885_DMASHDL_GROUP_0_MAX_QUOTA               (0x15D)
-#define MT6885_DMASHDL_GROUP_1_MAX_QUOTA               (0x0)
+#define MT6885_DMASHDL_GROUP_1_MAX_QUOTA               (0x15D)
 #define MT6885_DMASHDL_GROUP_2_MAX_QUOTA               (0x15D)
 #define MT6885_DMASHDL_GROUP_3_MAX_QUOTA               (0x0)
-#define MT6885_DMASHDL_GROUP_4_MAX_QUOTA               (0x15D)
+#define MT6885_DMASHDL_GROUP_4_MAX_QUOTA               (0x0)
 #define MT6885_DMASHDL_GROUP_5_MAX_QUOTA               (0x0)
 #define MT6885_DMASHDL_GROUP_6_MAX_QUOTA               (0x0)
 #define MT6885_DMASHDL_GROUP_7_MAX_QUOTA               (0x0)
@@ -68,10 +68,10 @@
 #define MT6885_DMASHDL_GROUP_14_MAX_QUOTA              (0x0)
 #define MT6885_DMASHDL_GROUP_15_MAX_QUOTA              (0x0)
 #define MT6885_DMASHDL_GROUP_0_MIN_QUOTA               (0x10)
-#define MT6885_DMASHDL_GROUP_1_MIN_QUOTA               (0x0)
+#define MT6885_DMASHDL_GROUP_1_MIN_QUOTA               (0x10)
 #define MT6885_DMASHDL_GROUP_2_MIN_QUOTA               (0x10)
 #define MT6885_DMASHDL_GROUP_3_MIN_QUOTA               (0x0)
-#define MT6885_DMASHDL_GROUP_4_MIN_QUOTA               (0x10)
+#define MT6885_DMASHDL_GROUP_4_MIN_QUOTA               (0x0)
 #define MT6885_DMASHDL_GROUP_5_MIN_QUOTA               (0x0)
 #define MT6885_DMASHDL_GROUP_6_MIN_QUOTA               (0x0)
 #define MT6885_DMASHDL_GROUP_7_MIN_QUOTA               (0x0)
@@ -86,35 +86,35 @@
 #define MT6885_DMASHDL_QUEUE_0_TO_GROUP                (0x0)   /* LMAC AC00 */
 #define MT6885_DMASHDL_QUEUE_1_TO_GROUP                (0x0)   /* LMAC AC01 */
 #define MT6885_DMASHDL_QUEUE_2_TO_GROUP                (0x0)   /* LMAC AC02 */
-#define MT6885_DMASHDL_QUEUE_3_TO_GROUP                (0x0)   /* LMAC AC03 */
-#define MT6885_DMASHDL_QUEUE_4_TO_GROUP                (0x2)   /* LMAC AC10 */
-#define MT6885_DMASHDL_QUEUE_5_TO_GROUP                (0x2)   /* LMAC AC11 */
-#define MT6885_DMASHDL_QUEUE_6_TO_GROUP                (0x2)   /* LMAC AC12 */
+#define MT6885_DMASHDL_QUEUE_3_TO_GROUP                (0x2)   /* LMAC AC03 */
+#define MT6885_DMASHDL_QUEUE_4_TO_GROUP                (0x1)   /* LMAC AC10 */
+#define MT6885_DMASHDL_QUEUE_5_TO_GROUP                (0x1)   /* LMAC AC11 */
+#define MT6885_DMASHDL_QUEUE_6_TO_GROUP                (0x1)   /* LMAC AC12 */
 #define MT6885_DMASHDL_QUEUE_7_TO_GROUP                (0x2)   /* LMAC AC13 */
 #define MT6885_DMASHDL_QUEUE_8_TO_GROUP                (0x0)   /* LMAC AC20 */
 #define MT6885_DMASHDL_QUEUE_9_TO_GROUP                (0x0)   /* LMAC AC21 */
 #define MT6885_DMASHDL_QUEUE_10_TO_GROUP               (0x0)   /* LMAC AC22 */
-#define MT6885_DMASHDL_QUEUE_11_TO_GROUP               (0x0)   /* LMAC AC23 */
-#define MT6885_DMASHDL_QUEUE_12_TO_GROUP               (0x2)   /* LMAC AC30 */
-#define MT6885_DMASHDL_QUEUE_13_TO_GROUP               (0x2)   /* LMAC AC31 */
-#define MT6885_DMASHDL_QUEUE_14_TO_GROUP               (0x2)   /* LMAC AC32 */
+#define MT6885_DMASHDL_QUEUE_11_TO_GROUP               (0x2)   /* LMAC AC23 */
+#define MT6885_DMASHDL_QUEUE_12_TO_GROUP               (0x1)   /* LMAC AC30 */
+#define MT6885_DMASHDL_QUEUE_13_TO_GROUP               (0x1)   /* LMAC AC31 */
+#define MT6885_DMASHDL_QUEUE_14_TO_GROUP               (0x1)   /* LMAC AC32 */
 #define MT6885_DMASHDL_QUEUE_15_TO_GROUP               (0x2)   /* LMAC AC33 */
 #define MT6885_DMASHDL_QUEUE_16_TO_GROUP               (0x0)   /* ALTX */
 #define MT6885_DMASHDL_QUEUE_17_TO_GROUP               (0x0)   /* BMC */
 #define MT6885_DMASHDL_QUEUE_18_TO_GROUP               (0x0)   /* BCN */
-#define MT6885_DMASHDL_QUEUE_19_TO_GROUP               (0x2)   /* HW Reserved */
-#define MT6885_DMASHDL_QUEUE_20_TO_GROUP               (0x2)   /* HW Reserved */
-#define MT6885_DMASHDL_QUEUE_21_TO_GROUP               (0x2)   /* HW Reserved */
-#define MT6885_DMASHDL_QUEUE_22_TO_GROUP               (0x2)   /* HW Reserved */
-#define MT6885_DMASHDL_QUEUE_23_TO_GROUP               (0x2)   /* HW Reserved */
+#define MT6885_DMASHDL_QUEUE_19_TO_GROUP               (0x1)   /* HW Reserved */
+#define MT6885_DMASHDL_QUEUE_20_TO_GROUP               (0x1)   /* HW Reserved */
+#define MT6885_DMASHDL_QUEUE_21_TO_GROUP               (0x1)   /* HW Reserved */
+#define MT6885_DMASHDL_QUEUE_22_TO_GROUP               (0x1)   /* HW Reserved */
+#define MT6885_DMASHDL_QUEUE_23_TO_GROUP               (0x1)   /* HW Reserved */
 #define MT6885_DMASHDL_QUEUE_24_TO_GROUP               (0x0)   /* NAF */
 #define MT6885_DMASHDL_QUEUE_25_TO_GROUP               (0x0)   /* NBCN */
 #define MT6885_DMASHDL_QUEUE_26_TO_GROUP               (0x0)   /* FIXFID */
-#define MT6885_DMASHDL_QUEUE_27_TO_GROUP               (0x2)   /* Reserved */
-#define MT6885_DMASHDL_QUEUE_28_TO_GROUP               (0x2)   /* Reserved */
-#define MT6885_DMASHDL_QUEUE_29_TO_GROUP               (0x2)   /* Reserved */
-#define MT6885_DMASHDL_QUEUE_30_TO_GROUP               (0x2)   /* Reserved */
-#define MT6885_DMASHDL_QUEUE_31_TO_GROUP               (0x2)   /* Reserved */
+#define MT6885_DMASHDL_QUEUE_27_TO_GROUP               (0x1)   /* Reserved */
+#define MT6885_DMASHDL_QUEUE_28_TO_GROUP               (0x1)   /* Reserved */
+#define MT6885_DMASHDL_QUEUE_29_TO_GROUP               (0x1)   /* Reserved */
+#define MT6885_DMASHDL_QUEUE_30_TO_GROUP               (0x1)   /* Reserved */
+#define MT6885_DMASHDL_QUEUE_31_TO_GROUP               (0x1)   /* Reserved */
 #define MT6885_DMASHDL_PRIORITY0_GROUP                 (0x0)
 #define MT6885_DMASHDL_PRIORITY1_GROUP                 (0x1)
 #define MT6885_DMASHDL_PRIORITY2_GROUP                 (0x2)
@@ -133,8 +133,8 @@
 #define MT6885_DMASHDL_PRIORITY15_GROUP                (0xF)
 /* 3 rings are used */
 #define MT6885_DMASHDL_HIF_ACK_CNT_TH                  (0x3)
-/* Ring 0/2/4 are used */
-#define MT6885_DMASHDL_HIF_GUP_ACT_MAP                 (0x0015)
+/* Ring 0/1/2 are used */
+#define MT6885_DMASHDL_HIF_GUP_ACT_MAP                 (0x0007)
 
 #endif /* defined(_HIF_PCIE) || defined(_HIF_AXI) */
 

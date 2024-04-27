@@ -178,12 +178,7 @@ struct MSDU_INFO *cnmPktAllocWrapper(struct ADAPTER *prAdapter,
 {
 	struct MSDU_INFO *prMsduInfo;
 
-#if CFG_DBG_MGT_BUF
-	prMsduInfo = cnmPktAllocX(prAdapter, u4Length, pucStr);
-#else
 	prMsduInfo = cnmPktAlloc(prAdapter, u4Length);
-#endif
-
 	log_dbg(MEM, LOUD, "Alloc MSDU_INFO[0x%p] by [%s]\n",
 		prMsduInfo, pucStr);
 
@@ -217,12 +212,7 @@ void cnmPktFreeWrapper(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
  * \return none
  */
 /*----------------------------------------------------------------------------*/
-#if CFG_DBG_MGT_BUF
-struct MSDU_INFO *cnmPktAllocX(struct ADAPTER *prAdapter, uint32_t u4Length,
-	uint8_t *fileAndLine)
-#else
 struct MSDU_INFO *cnmPktAlloc(struct ADAPTER *prAdapter, uint32_t u4Length)
-#endif
 {
 	struct MSDU_INFO *prMsduInfo;
 	struct QUE *prQueList;
@@ -239,13 +229,8 @@ struct MSDU_INFO *cnmPktAlloc(struct ADAPTER *prAdapter, uint32_t u4Length)
 
 	if (prMsduInfo) {
 		if (u4Length) {
-#if CFG_DBG_MGT_BUF
-			prMsduInfo->prPacket = cnmMemAllocX(prAdapter,
-				RAM_TYPE_BUF, u4Length, fileAndLine);
-#else
 			prMsduInfo->prPacket = cnmMemAlloc(prAdapter,
 				RAM_TYPE_BUF, u4Length);
-#endif
 			prMsduInfo->eSrc = TX_PACKET_MGMT;
 			prMsduInfo->ucControlFlag = 0;
 
@@ -698,12 +683,8 @@ struct STA_RECORD *cnmStaRecAlloc(struct ADAPTER *prAdapter,
 	/* Sync to chip to allocate WTBL resource */
 	if (i < CFG_STA_REC_NUM) {
 		COPY_MAC_ADDR(prStaRec->aucMacAddr, pucMacAddr);
-		if (secPrivacySeekForEntry(prAdapter, prStaRec)) {
+		if (secPrivacySeekForEntry(prAdapter, prStaRec))
 			cnmStaSendUpdateCmd(prAdapter, prStaRec, NULL, FALSE);
-#if CFG_SUPPORT_LIMITED_PKT_PID
-			nicTxInitPktPID(prAdapter, prStaRec->ucWlanIndex);
-#endif /* CFG_SUPPORT_LIMITED_PKT_PID */
-		}
 #if DBG
 		else {
 			prStaRec->fgIsInUse = FALSE;

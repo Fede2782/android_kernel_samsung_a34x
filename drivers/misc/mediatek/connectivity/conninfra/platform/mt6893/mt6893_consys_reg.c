@@ -641,7 +641,7 @@ unsigned long consys_reg_validate_idx_n_offset(unsigned int idx, unsigned long o
 {
 	unsigned long res;
 
-	if (idx >= CONSYS_BASE_ADDR_MAX) {
+	if (idx < 0 || idx >= CONSYS_BASE_ADDR_MAX) {
 		pr_warn("ConsysReg failed: No support the base %d\n", idx);
 		return 0;
 	}

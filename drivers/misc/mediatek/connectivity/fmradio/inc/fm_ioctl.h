@@ -103,5 +103,7 @@
 
 #define FM_IOCTL_PMIC_RDWR  _IOWR(FM_IOC_MAGIC, 65, struct fm_pmic_rw_parm*)
 
+#define FM_IOCTL_SET_ATJ    _IOWR(FM_IOC_MAGIC, 71, uint16_t*)
+
 #define FM_IOCTL_DUMP_REG   _IO(FM_IOC_MAGIC, 0xFF)
 #endif /* __FM_IOCTL_H__ */

@@ -334,6 +334,12 @@
 #endif
 
 #include "ie_sort.h"
+
+#if CFG_SUPPORT_CABLE_DETECT
+#include <linux/of_platform.h>
+#include <linux/of_device.h>
+#include <linux/of_gpio.h>
+#endif
 /*******************************************************************************
  *                              C O N S T A N T S
  *******************************************************************************

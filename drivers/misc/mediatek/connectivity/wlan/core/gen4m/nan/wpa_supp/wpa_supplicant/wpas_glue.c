@@ -579,6 +579,7 @@ wpa_supplicant_init_wpa(struct wpa_supplicant *wpa_s) {
 	wpa_s->wpa = wpa_sm_init(ctx);
 	if (wpa_s->wpa == NULL) {
 		wpa_printf(MSG_ERROR, "Failed to initialize WPA state machine");
+		os_free(ctx);
 		return -1;
 	}
 

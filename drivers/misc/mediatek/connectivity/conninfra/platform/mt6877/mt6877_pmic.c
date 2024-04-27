@@ -27,13 +27,6 @@
 #include "mt6877_consys_reg_offset.h"
 #include "mt6877_pos.h"
 
-#ifdef OPLUS_BUG_STABILITY
-//modify for vcn13/vs2
-#include <soc/oplus/system/oplus_project.h>
-extern int is_fan53870_pmic(void);
-extern unsigned int is_project(int project);
-#endif /* OPLUS_BUG_STABILITY */
-
 /*******************************************************************************
 *                         C O M P I L E R   F L A G S
 ********************************************************************************
@@ -54,22 +47,11 @@ extern unsigned int is_project(int project);
 *                              C O N S T A N T S
 ********************************************************************************
 */
-
-#ifdef OPLUS_BUG_STABILITY
-//mtk patch modify for vcn13/vs2
-enum vcn13_state {
-	vcn13_1_3v = 0,
-	vcn13_1_32v = 1,
-	vcn13_1_33v = 2,
-	vcn13_1_37v = 3,
-};
-#else
 enum vcn13_state {
 	vcn13_1_3v = 0,
 	vcn13_1_32v = 1,
 	vcn13_1_37v = 2,
 };
-#endif /* OPLUS_BUG_STABILITY */
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************
@@ -500,22 +482,7 @@ int consys_plt_pmic_raise_voltage_mt6877(unsigned int drv_type, bool raise, bool
 		return 0;
 	}
 	if (bt_raise) {
-#ifdef OPLUS_BUG_STABILITY
-//mtk patch modify for vcn13/vs2, minimize the negative effects.
-		unsigned int pcbversion = get_PCB_Version();
-		//1 = fan53870, otherwise is wl2868c
-		int isFan53870 = is_fan53870_pmic();
-
-		if (is_project(20181) && (pcbversion == 10) && (isFan53870 != 1)) {
-			pr_err("[%s] vcn13 = 1.33v\n", __func__);
-			next_state = vcn13_1_33v;
-		} else {
-			pr_err("[%s] vcn13 = 1.37v\n", __func__);
-			next_state = vcn13_1_37v;
-		}
-#else
 		next_state = vcn13_1_37v;
-#endif /* OPLUS_BUG_STABILITY*/
 	} else {
 		next_state = vcn13_1_3v;
 	}
@@ -592,19 +559,6 @@ int consys_plt_pmic_raise_voltage_mt6877(unsigned int drv_type, bool raise, bool
 			KERNEL_pmic_set_register_value(PMIC_RG_VCN13_VOCAL, 0x2);
 #endif
 			break;
-#ifdef OPLUS_BUG_STABILITY
-//mtk patch modify for vcn13/vs2
-		case vcn13_1_33v:
-			/* Set VS2 to 1.375V */
-			KERNEL_pmic_set_register_value(PMIC_RG_BUCK_VS2_VOSEL, 0x2E);
-			/* request VS2 to 1.375V by VS2 VOTER (use bit 4) */
-			KERNEL_pmic_set_register_value(PMIC_RG_BUCK_VS2_VOTER_EN_SET, 0x10);
-			/* Restore VS2 sleep voltage to 1.35V */
-			KERNEL_pmic_set_register_value(PMIC_RG_BUCK_VS2_VOSEL_SLEEP, 0x2C);
-			/* Set VCN13 to 1.33V */
-			KERNEL_pmic_set_register_value(PMIC_RG_VCN13_VOCAL, 0x3);
-			break;
-#endif /* OPLUS_BUG_STABILITY*/
 		case vcn13_1_37v:
 #if COMMON_KERNEL_PMIC_SUPPORT
 			/* Set VS2 to 1.4625V */

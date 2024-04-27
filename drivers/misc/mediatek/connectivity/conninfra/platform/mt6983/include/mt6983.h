@@ -48,6 +48,5 @@ int consys_platform_spm_conn_ctrl_mt6983(unsigned int enable);
 int consys_co_clock_type_mt6983(void);
 void update_thermal_data_mt6983(struct consys_plat_thermal_data_mt6983* input);
 unsigned int consys_get_adie_chipid_mt6983(void);
-int consys_pre_cal_restore_mt6983(void);
 
 #endif /* _PLATFORM_MT6983_H_ */

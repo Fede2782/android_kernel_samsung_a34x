@@ -111,7 +111,6 @@
 #define IOC_AP_SET_CFG          (SIOCIWFIRSTPRIV+23)
 #define IOC_AP_STA_DISASSOC     (SIOCIWFIRSTPRIV+25)
 #define IOC_AP_SET_NSS           (SIOCIWFIRSTPRIV+27)
-#define IOC_AP_SET_BW           (SIOCIWFIRSTPRIV+29)
 
 #define PRIV_CMD_REG_DOMAIN             0
 #define PRIV_CMD_BEACON_PERIOD          1
@@ -489,9 +488,21 @@ priv_ate_set(IN struct net_device *prNetDev,
 #endif
 
 #if CFG_SUPPORT_NAN
-int priv_nan_struct(IN struct net_device *prNetDev,
-		    IN struct iw_request_info *prIwReqInfo,
-		    IN union iwreq_data *prIwReqData, IN char *pcExtra);
+int priv_nan_struct(struct net_device *prNetDev,
+		    struct iw_request_info *prIwReqInfo,
+		    union iwreq_data *prIwReqData, char *pcExtra);
+int priv_driver_set_nan_start(struct net_device *prNetDev,
+	char *pcCommand, int i4TotalLen);
+int priv_driver_get_master_ind(struct net_device *prNetDev,
+	char *pcCommand, int i4TotalLen);
+int priv_driver_get_range(struct net_device *prNetDev,
+	char *pcCommand, int i4TotalLen);
+int priv_driver_set_faw_reset(struct net_device *prNetDev,
+	char *pcCommand, int i4TotalLen);
+int priv_driver_set_faw_config(struct net_device *prNetDev,
+	char *pcCommand, int i4TotalLen);
+int priv_driver_set_faw_apply(struct net_device *prNetDev,
+	char *pcCommand, int i4TotalLen);
 #endif
 /*******************************************************************************
  *                              F U N C T I O N S

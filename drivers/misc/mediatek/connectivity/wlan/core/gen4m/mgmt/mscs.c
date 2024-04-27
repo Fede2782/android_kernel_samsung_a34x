@@ -331,24 +331,6 @@ uint8_t fpIsPortAuthorized(IN struct ADAPTER *prAdapter)
 	return TRUE;
 }
 
-uint8_t mscsIsFpSupport(IN struct ADAPTER *prAdapter)
-{
-	struct MSCS_CAP_FAST_PATH *prFastPathCap = &prAdapter->rFastPathCap;
-
-	DBGLOG(TX, TRACE,
-		"Fast path version(%d) support(%d) vendor key(0x%x) group key(0x%x)\n",
-		prFastPathCap->ucVersion, prFastPathCap->fgSupportFastPath,
-		prFastPathCap->u4KeyBitmap[0], prFastPathCap->u4KeyBitmap[2]);
-
-	/* Check if Fast Path and key supported */
-	if (prFastPathCap->fgSupportFastPath &&
-	    (prFastPathCap->u4KeyBitmap[0] > 0 ||
-		 prFastPathCap->u4KeyBitmap[2] > 0))
-		return TRUE;
-
-	return FALSE;
-}
-
 uint8_t mscsIsTcpNeedMonitor(IN struct ADAPTER *prAdapter, IN uint8_t *pucPkt)
 {
 	uint8_t *pucEthBody = &pucPkt[ETH_HLEN];

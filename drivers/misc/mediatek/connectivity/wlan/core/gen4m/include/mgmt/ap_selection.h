@@ -59,6 +59,12 @@
 #define AX_SEL_DEF_DIVIDER		(1)
 #endif
 
+#define AP_SELECTION_AMSDU_HT_3K	(3839)
+#define AP_SELECTION_AMSDU_HT_8K	(7935)
+#define AP_SELECTION_AMSDU_VHT_HE_3K	(3895)
+#define AP_SELECTION_AMSDU_VHT_HE_8K	(7991)
+#define AP_SELECTION_AMSDU_VHT_HE_11K	(11454)
+
 enum ROAM_TYPE {
 	ROAM_TYPE_RCPI,
 	ROAM_TYPE_PER,
@@ -74,6 +80,12 @@ typedef uint8_t(*PFN_SELECTION_POLICY_FUNC) (
 struct NETWORK_SELECTION_POLICY_BY_BAND {
 	enum ENUM_BAND eCandidateBand;
 	PFN_SELECTION_POLICY_FUNC pfnNetworkSelection;
+};
+
+struct CU_INFO_BY_FREQ {
+	uint32_t ucTotalApHaveCu;
+	uint32_t ucTotalCu;
+	enum ENUM_BAND eBand;
 };
 
 #if (CFG_SUPPORT_AVOID_DESENSE == 1)

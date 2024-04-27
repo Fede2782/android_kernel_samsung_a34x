@@ -34,6 +34,34 @@ enum {
 	FM_PUS_MAX
 };
 
+enum SOFT_MUTE_GAIN_STATE {
+	SOFT_MUTE_GAIN_DEFAULT = 0,
+	SOFT_MUTE_GAIN_DISABLE,
+	SOFT_MUTE_GAIN_ENABLE,
+	SOFT_MUTE_GAIN_SET,
+	SOFT_MUTE_GAIN_MAX
+};
+
+struct mt6631_smg_control {
+	enum SOFT_MUTE_GAIN_STATE state;
+	int value;
+};
+
+enum BLENDING_STATE {
+	BLENDING_DEFAULT = 0,
+	BLENDING_DISABLE,
+	BLENDING_ENABLE,
+	BLENDING_SET,
+	BLENDING_MAX
+};
+
+struct mt6631_blend_control {
+	enum BLENDING_STATE state;
+	int rssi_value;
+	int pamd_value;
+	int blend_value;
+};
+
 enum {
 	mt6631_E1 = 0,
 	mt6631_E2

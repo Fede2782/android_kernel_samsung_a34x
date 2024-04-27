@@ -98,11 +98,13 @@ struct BSS_TRANSITION_MGT_PARAM {
 	/* for Request */
 	uint8_t ucDialogToken;
 	uint8_t ucRequestMode;
-	uint16_t u2DisassocTimer;
+	uint32_t u4ReauthDelay;
 	uint16_t u2TermDuration;
 	uint8_t aucTermTsf[8];
 	uint8_t ucSessionURLLen;
 	uint8_t aucSessionURL[255];
+	uint8_t ucDisImmiState;
+	uint8_t aucBSSID[MAC_ADDR_LEN];
 	/* for Respone */
 	uint8_t fgPendingResponse:1;
 	uint8_t fgIsMboPresent:1;

@@ -768,11 +768,6 @@ int mtk_cfg_get_txpower(struct wiphy *wiphy,
 int mtk_cfg80211_update_ft_ies(struct wiphy *wiphy, struct net_device *dev,
 				struct cfg80211_update_ft_ies_params *ftie);
 
-#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
-int mtk_cfg80211_set_monitor_channel(struct wiphy *wiphy,
-				struct cfg80211_chan_def *chandef);
-#endif
-
 #if CFG_SUPPORT_WPA3
 int mtk_cfg80211_external_auth(struct wiphy *wiphy, struct net_device *dev,
 			       struct cfg80211_external_auth_params *params);

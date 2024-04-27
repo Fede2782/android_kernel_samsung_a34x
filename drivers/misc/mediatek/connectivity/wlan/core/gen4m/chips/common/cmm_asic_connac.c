@@ -186,13 +186,8 @@ void asicCapInit(IN struct ADAPTER *prAdapter)
 #if defined(_HIF_PCIE) || defined(_HIF_AXI)
 	case MT_DEV_INF_PCIE:
 	case MT_DEV_INF_AXI:
-#if CFG_TRI_TX_RING
-		prChipInfo->u2TxInitCmdPort = TX_RING_FWDL_IDX_5;
-		prChipInfo->u2TxFwDlPort = TX_RING_FWDL_IDX_5;
-#else
 		prChipInfo->u2TxInitCmdPort = TX_RING_FWDL_IDX_4;
 		prChipInfo->u2TxFwDlPort = TX_RING_FWDL_IDX_4;
-#endif /* CFG_TRI_TX_RING */
 		prChipInfo->ucPacketFormat = TXD_PKT_FORMAT_TXD;
 		prChipInfo->u4HifDmaShdlBaseAddr = PCIE_HIF_DMASHDL_BASE;
 
@@ -237,7 +232,9 @@ uint32_t asicGetFwDlInfo(struct ADAPTER *prAdapter,
 
 	prComTailer = &prAdapter->rVerInfo.rCommonTailer;
 
-	kalSnprintf(aucBuf, sizeof(aucBuf), "%10s", prComTailer->aucRamVersion);
+	kalMemZero(aucBuf, sizeof(aucBuf));
+	kalStrnCpy(aucBuf, prComTailer->aucRamVersion,
+			sizeof(prComTailer->aucRamVersion)+1);
 	u4Offset += snprintf(pcBuf + u4Offset, i4TotalLen - u4Offset,
 			     "Tailer Ver[%u:%u] %s (%s) info %u:E%u\n",
 			     prComTailer->ucFormatVer,
@@ -419,6 +416,13 @@ void fillTxDescAppendByHostV2(IN struct ADAPTER *prAdapter,
 			((u8Addr >> TXD_ADDR2_OFFSET) & TXD_ADDR2_MASK);
 		prPtrLen->u2Len1 |= TXD_LEN_ML_V2;
 	}
+
+	NIC_DUMP_TXD_HEADER(prAdapter, "Dump DATA TXD:\n");
+	NIC_DUMP_TXD(prAdapter, pucBuffer, NIC_TX_DESC_LONG_FORMAT_LENGTH);
+
+	NIC_DUMP_TXP_HEADER(prAdapter, "Dump DATA TXP:\n");
+	NIC_DUMP_TXP(prAdapter, (uint8_t *)prHwTxDescAppend,
+			sizeof(prHwTxDescAppend->CONNAC_APPEND));
 }
 
 void fillTxDescAppendByCR4(IN struct ADAPTER *prAdapter,
@@ -488,9 +492,6 @@ void asicPcieDmaShdlInit(IN struct ADAPTER *prAdapter)
 	uint32_t u4BaseAddr, u4MacVal = 0;
 	uint32_t u4GroupCtrl0 = 0, u4GroupCtrl1 = 0, u4GroupCtrl2 = 0,
 		u4DmashdlQMap0 = 0;
-#if CFG_TRI_TX_RING
-	uint32_t u4GroupCtrl3 = 0;
-#endif
 	struct mt66xx_chip_info *prChipInfo;
 	struct BUS_INFO *prBusInfo;
 	uint32_t u4FreePageCnt = 0;
@@ -534,12 +535,6 @@ void asicPcieDmaShdlInit(IN struct ADAPTER *prAdapter)
 		u4MacVal &=
 		~CONN_HIF_DMASHDL_TOP_REFILL_CONTROL_GROUP2_REFILL_DISABLE_MASK;
 	}
-#if CFG_TRI_TX_RING
-	if (prBusInfo->tx_ring3_data_idx) {
-		u4MacVal &=
-		~CONN_HIF_DMASHDL_TOP_REFILL_CONTROL_GROUP3_REFILL_DISABLE_MASK;
-	}
-#endif
 	HAL_MCR_WR(prAdapter,
 		   CONN_HIF_DMASHDL_REFILL_CONTROL(u4BaseAddr), u4MacVal);
 
@@ -563,32 +558,18 @@ void asicPcieDmaShdlInit(IN struct ADAPTER *prAdapter)
 		u4DmashdlQMap0 &= 0x0FFF0FFF;
 		u4DmashdlQMap0 |= 0x20002000;
 	}
-#if CFG_TRI_TX_RING
-	if (prBusInfo->tx_ring3_data_idx) {
-		u4GroupCtrl3 = DMASHDL_MIN_QUOTA_NUM(0x3);
-		u4GroupCtrl3 |= DMASHDL_MAX_QUOTA_NUM(0xFFF);
-		u4DmashdlQMap0 &= 0x0FFF0FFF;
-		u4DmashdlQMap0 |= 0x20002000;
-	}
-#endif
 	HAL_MCR_WR(prAdapter,
 		CONN_HIF_DMASHDL_GROUP0_CTRL(u4BaseAddr), u4GroupCtrl0);
 	HAL_MCR_WR(prAdapter,
 		CONN_HIF_DMASHDL_GROUP1_CTRL(u4BaseAddr), u4GroupCtrl1);
 	HAL_MCR_WR(prAdapter,
 		CONN_HIF_DMASHDL_GROUP2_CTRL(u4BaseAddr), u4GroupCtrl2);
-#if CFG_TRI_TX_RING
-	HAL_MCR_WR(prAdapter,
-		CONN_HIF_DMASHDL_GROUP3_CTRL(u4BaseAddr), u4GroupCtrl3);
-#endif
 	HAL_MCR_WR(prAdapter,
 		CONN_HIF_DMASHDL_Q_MAP0(u4BaseAddr), u4DmashdlQMap0);
 
 	u4MacVal = 0;
-#if (CFG_TRI_TX_RING == 0)
 	HAL_MCR_WR(prAdapter,
 		   CONN_HIF_DMASHDL_GROUP3_CTRL(u4BaseAddr), u4MacVal);
-#endif
 	HAL_MCR_WR(prAdapter,
 		   CONN_HIF_DMASHDL_GROUP4_CTRL(u4BaseAddr), u4MacVal);
 	HAL_MCR_WR(prAdapter,
@@ -660,53 +641,38 @@ static void configPdmaRxRingThreshold(struct GLUE_INFO *prGlueInfo)
 }
 
 void asicPdmaIntMaskConfig(struct GLUE_INFO *prGlueInfo,
-	uint8_t ucType,
-	u_int8_t fgEnable)
+		u_int8_t fgEnable)
 {
 	struct BUS_INFO *prBusInfo =
 			prGlueInfo->prAdapter->chip_info->bus_info;
-	union WPDMA_INT_MASK IntMask = {0};
+	union WPDMA_INT_MASK IntMask;
 
 	kalDevRegRead(prGlueInfo, WPDMA_INT_MSK, &IntMask.word);
 
 	if (fgEnable == TRUE) {
-		if (ucType & BIT(DMA_INT_TYPE_MCU2HOST))
-			IntMask.field_conn.mcu2host_sw_int_ena = 1;
-		if (ucType & BIT(DMA_INT_TYPE_TRX)) {
-			IntMask.field.rx_done_0 = 1;
-			IntMask.field.rx_done_1 = 1;
-			IntMask.field.tx_done =
-				BIT(prBusInfo->tx_ring_fwdl_idx) |
-				BIT(prBusInfo->tx_ring_cmd_idx) |
-				BIT(prBusInfo->tx_ring0_data_idx) |
-				BIT(prBusInfo->tx_ring1_data_idx) |
-#if CFG_TRI_TX_RING
-				BIT(prBusInfo->tx_ring2_data_idx) |
-				BIT(prBusInfo->tx_ring3_data_idx);
-#else
-				BIT(prBusInfo->tx_ring2_data_idx);
-#endif
-			IntMask.field_conn.tx_coherent = 0;
-			IntMask.field_conn.rx_coherent = 0;
-			IntMask.field_conn.tx_dly_int = 0;
-			IntMask.field_conn.rx_dly_int = 0;
-		}
+		IntMask.field.rx_done_0 = 1;
+		IntMask.field.rx_done_1 = 1;
+		IntMask.field.tx_done =
+			BIT(prBusInfo->tx_ring_fwdl_idx) |
+			BIT(prBusInfo->tx_ring_cmd_idx) |
+			BIT(prBusInfo->tx_ring0_data_idx) |
+			BIT(prBusInfo->tx_ring1_data_idx) |
+			BIT(prBusInfo->tx_ring2_data_idx);
+		IntMask.field_conn.tx_coherent = 0;
+		IntMask.field_conn.rx_coherent = 0;
+		IntMask.field_conn.tx_dly_int = 0;
+		IntMask.field_conn.rx_dly_int = 0;
+		IntMask.field_conn.mcu2host_sw_int_ena = 1;
 	} else {
-		if (ucType & BIT(DMA_INT_TYPE_MCU2HOST))
-			IntMask.field_conn.mcu2host_sw_int_ena = 0;
-		if (ucType & BIT(DMA_INT_TYPE_TRX)) {
-			IntMask.field_conn.rx_done_0 = 0;
-			IntMask.field_conn.rx_done_1 = 0;
-			IntMask.field_conn.tx_done = 0;
-			IntMask.field_conn.tx_coherent = 0;
-			IntMask.field_conn.rx_coherent = 0;
-			IntMask.field_conn.tx_dly_int = 0;
-			IntMask.field_conn.rx_dly_int = 0;
-		}
+		IntMask.field_conn.rx_done_0 = 0;
+		IntMask.field_conn.rx_done_1 = 0;
+		IntMask.field_conn.tx_done = 0;
+		IntMask.field_conn.tx_coherent = 0;
+		IntMask.field_conn.rx_coherent = 0;
+		IntMask.field_conn.tx_dly_int = 0;
+		IntMask.field_conn.rx_dly_int = 0;
+		IntMask.field_conn.mcu2host_sw_int_ena = 0;
 	}
-
-	DBGLOG(HAL, INFO, "type:0x%x, enable:%u, mask:0x%08x\n",
-		ucType, fgEnable, IntMask.word);
 
 	kalDevRegWrite(prGlueInfo, WPDMA_INT_MSK, IntMask.word);
 }
@@ -719,9 +685,7 @@ void asicPdmaConfig(struct GLUE_INFO *prGlueInfo, u_int8_t fgEnable,
 	union WPDMA_GLO_CFG_STRUCT GloCfg;
 	uint32_t u4Val = 0;
 
-	asicPdmaIntMaskConfig(prGlueInfo,
-		BIT(DMA_INT_TYPE_MCU2HOST) | BIT(DMA_INT_TYPE_TRX),
-		fgEnable);
+	asicPdmaIntMaskConfig(prGlueInfo, fgEnable);
 	kalDevRegRead(prGlueInfo, WPDMA_GLO_CFG, &GloCfg.word);
 
 	if (fgEnable == TRUE) {
@@ -804,11 +768,6 @@ uint32_t asicUpdatTxRingMaxQuota(IN struct ADAPTER *prAdapter,
 	case TX_RING_DATA2_IDX_2:
 		u4GroupIdx = 2;
 		break;
-#if CFG_TRI_TX_RING
-	case TX_RING_DATA3_IDX_3:
-		u4GroupIdx = 3;
-		break;
-#endif
 	default:
 		return WLAN_STATUS_NOT_ACCEPTED;
 	}

@@ -959,9 +959,6 @@ wlanoidSetP2PMulticastList(IN struct ADAPTER *prAdapter,
 	/* TODO: */
 	rCmdMacMcastAddr.ucBssIndex = prAdapter->ucP2PDevBssIdx;
 	kalMemCopy(rCmdMacMcastAddr.arAddress, pvSetBuffer, u4SetBufferLen);
-	rCmdMacMcastAddr.aucReserved[0] = 0;
-	rCmdMacMcastAddr.aucReserved[1] = 0;
-	rCmdMacMcastAddr.aucReserved[2] = 0;
 
 	return wlanoidSendSetQueryP2PCmd(prAdapter,
 				CMD_ID_MAC_MCAST_ADDR,
@@ -1478,6 +1475,8 @@ wlanoidSetUApsdParam(IN struct ADAPTER *prAdapter,
 	prUapsdParam = (struct PARAM_CUSTOM_UAPSD_PARAM_STRUCT *) pvSetBuffer;
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prUapsdParam->ucBssIdx);
+	if (!prBssInfo)
+		return WLAN_STATUS_NOT_SUPPORTED;
 	prPmProfSetupInfo = &prBssInfo->rPmProfSetupInfo;
 
 	kalMemZero(&rCmdUapsdParam,

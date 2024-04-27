@@ -62,8 +62,8 @@
 /*----------------------------------------------------------------------------*/
 
 uint32_t
-nanTxUtTxDone(IN struct ADAPTER *prAdapter, IN struct MSDU_INFO *prMsduInfo,
-	      IN enum ENUM_TX_RESULT_CODE rTxDoneStatus) {
+nanTxUtTxDone(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
+	      enum ENUM_TX_RESULT_CODE rTxDoneStatus) {
 
 	if (!prMsduInfo) {
 		DBGLOG(NAN, ERROR, "prMsduInfo error!\n");

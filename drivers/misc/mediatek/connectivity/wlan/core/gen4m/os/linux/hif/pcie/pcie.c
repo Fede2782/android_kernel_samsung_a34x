@@ -271,7 +271,7 @@ static irqreturn_t mtk_pci_interrupt(int irq, void *dev_instance)
 
 	halDisableInterrupt(prGlueInfo->prAdapter);
 
-	if (test_bit(GLUE_FLAG_HALT_BIT, &prGlueInfo->ulFlag)) {
+	if (prGlueInfo->ulFlag & GLUE_FLAG_HALT) {
 		DBGLOG(HAL, INFO, "GLUE_FLAG_HALT skip INT\n");
 		return IRQ_NONE;
 	}
@@ -705,9 +705,6 @@ static void *pcieAllocRxBuf(struct GL_HIF_INFO *prHifInfo,
 		return NULL;
 	}
 
-#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
-	skb_reserve(pkt, CFG_RADIOTAP_HEADROOM);
-#endif
 	prDmaBuf->AllocVa = (void *)pkt->data;
 	memset(prDmaBuf->AllocVa, 0, prDmaBuf->AllocSize);
 

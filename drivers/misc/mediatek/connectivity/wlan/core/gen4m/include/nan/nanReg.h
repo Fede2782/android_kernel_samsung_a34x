@@ -39,5 +39,9 @@ nanRegGenNanChnlInfo(uint8_t ucPriChannel,
 union _NAN_BAND_CHNL_CTRL
 nanRegGenNanChnlInfoByPriChannel(uint8_t ucPriChannel,
 		uint8_t ucBw);
+
+enum ENUM_BAND
+nanRegGetNanChnlBand(union _NAN_BAND_CHNL_CTRL rNanChnlInfo);
+
 #endif
 #endif /* _NAN_REG_H_ */

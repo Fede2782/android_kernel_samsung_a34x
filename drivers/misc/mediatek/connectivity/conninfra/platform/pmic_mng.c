@@ -105,7 +105,6 @@ static struct platform_driver consys_mt6363_dev_drv = {
 #ifdef CONFIG_OF
 		.of_match_table = consys_pmic_mt6363_of_ids,
 #endif
-		.probe_type = PROBE_FORCE_SYNCHRONOUS,
 		},
 };
 static struct platform_driver consys_mt6373_dev_drv = {
@@ -115,7 +114,6 @@ static struct platform_driver consys_mt6373_dev_drv = {
 #ifdef CONFIG_OF
 		.of_match_table = consys_pmic_mt6373_of_ids,
 #endif
-		.probe_type = PROBE_FORCE_SYNCHRONOUS,
 		},
 };
 static struct platform_driver consys_mt6368_dev_drv = {
@@ -125,7 +123,6 @@ static struct platform_driver consys_mt6368_dev_drv = {
 #ifdef CONFIG_OF
 		.of_match_table = consys_pmic_mt6368_of_ids,
 #endif
-		.probe_type = PROBE_FORCE_SYNCHRONOUS,
 		},
 };
 #endif

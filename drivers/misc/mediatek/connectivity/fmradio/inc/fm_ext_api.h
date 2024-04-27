@@ -70,7 +70,6 @@ struct fm_ext_interface {
 	int (*get_hw_version)(void);
 	unsigned char (*get_top_index)(void);
 	unsigned int (*get_get_adie)(void);
-	bool (*is_aoc_support)(void);
 	int (*spi_clock_switch)(enum fm_spi_speed speed);
 	bool (*is_bus_hang)(void);
 	int (*spi_hopping)(void);

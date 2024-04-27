@@ -33,7 +33,7 @@
 #define MT6637E1 0x66378A00
 #define MT6637E2 0x66378A01
 
-#define SEMA_HOLD_TIME_THRESHOLD 5 //5 ms
+#define SEMA_HOLD_TIME_THRESHOLD 10 //10 ms
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************
@@ -54,9 +54,6 @@ struct a_die_reg_config {
 ********************************************************************************
 */
 static u64 sema_get_time[CONN_SEMA_NUM_MAX];
-static u64 log_sema_time[10];
-static unsigned int sema_count = 0;
-static unsigned long g_sema_irq_flags = 0;
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 static const char* get_spi_sys_name(enum sys_spi_subsystem subsystem);
@@ -65,11 +62,9 @@ static int connsys_adie_clock_buffer_setting(unsigned int curr_status, unsigned 
 
 unsigned int consys_emi_set_remapping_reg_mt6983(
 	phys_addr_t con_emi_base_addr,
-	phys_addr_t md_shared_emi_base_addr,
-	phys_addr_t gps_emi_base_addr)
+	phys_addr_t md_shared_emi_base_addr)
 {
-	return consys_emi_set_remapping_reg_mt6983_gen(con_emi_base_addr, md_shared_emi_base_addr,
-							gps_emi_base_addr, 16);
+	return consys_emi_set_remapping_reg_mt6983_gen(con_emi_base_addr, md_shared_emi_base_addr, 16);
 }
 
 int consys_conninfra_on_power_ctrl_mt6983(unsigned int enable)
@@ -268,6 +263,8 @@ int connsys_a_die_cfg_mt6983(void)
 		consys_sema_release_mt6983(CONN_SEMA_RFSPI_INDEX);
 		return -1;
 	}
+	pr_info("[%s] A-die chip id: 0x%08x\n", __func__, adie_id);
+
 	conn_hw_env.adie_hw_version = adie_id;
 	/* Write to conninfra sysram */
 	CONSYS_REG_WRITE(CONN_INFRA_SYSRAM_SW_CR_A_DIE_CHIP_ID, adie_id);
@@ -291,6 +288,7 @@ int connsys_a_die_cfg_mt6983(void)
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 
 	sleep_mode = consys_get_sleep_mode_mt6983();
+	pr_info("sleep_mode = %d\n", sleep_mode);
 	connsys_wt_slp_top_power_saving_ctrl_adie6637_mt6983_gen(adie_id, sleep_mode);
 	return 0;
 }
@@ -302,13 +300,6 @@ void connsys_afe_sw_patch_mt6983(void)
 
 int connsys_afe_wbg_cal_mt6983(void)
 {
-	static int first_cal = 1;
-
-	/* DAC cal should be executed only once. */
-	/* The result will be stored in always-on domain. */
-	if (first_cal == 0)
-		return 0;
-	first_cal = 0;
 	return connsys_afe_wbg_cal_mt6983_gen(CONN_SEMA_RFSPI_INDEX, CONN_SEMA_TIMEOUT);
 }
 
@@ -349,6 +340,7 @@ static int consys_sema_acquire(unsigned int index)
 int consys_sema_acquire_timeout_mt6983(unsigned int index, unsigned int usec)
 {
 	int i;
+	unsigned long flags = 0;
 
 	if (index >= CONN_SEMA_NUM_MAX)
 		return CONN_SEMA_GET_FAIL;
@@ -356,7 +348,7 @@ int consys_sema_acquire_timeout_mt6983(unsigned int index, unsigned int usec)
 		if (consys_sema_acquire(index) == CONN_SEMA_GET_SUCCESS) {
 			sema_get_time[index] = jiffies;
 			if (index == CONN_SEMA_RFSPI_INDEX)
-				local_irq_save(g_sema_irq_flags);
+				local_irq_save(flags);
 			return CONN_SEMA_GET_SUCCESS;
 		}
 		udelay(1);
@@ -378,6 +370,7 @@ int consys_sema_acquire_timeout_mt6983(unsigned int index, unsigned int usec)
 void consys_sema_release_mt6983(unsigned int index)
 {
 	u64 duration;
+	unsigned long flags = 0;
 
 	if (index >= CONN_SEMA_NUM_MAX)
 		return;
@@ -385,25 +378,10 @@ void consys_sema_release_mt6983(unsigned int index)
 		(CONN_SEMAPHORE_CONN_SEMA00_M2_OWN_REL_ADDR + index*4), 0x1);
 
 	duration = jiffies_to_msecs(jiffies - sema_get_time[index]);
-	if (index == CONN_SEMA_RFSPI_INDEX) {
-		local_irq_restore(g_sema_irq_flags);
-
-		if (sema_count == 10)
-			sema_count = 0;
-
-		log_sema_time[sema_count] = duration;
-		sema_count++;
-		/* delay for firmware to take semaphore */
-		udelay(2);
-	}
-
-	if (duration > SEMA_HOLD_TIME_THRESHOLD) {
+	if (index == CONN_SEMA_RFSPI_INDEX)
+		local_irq_restore(flags);
+	if (duration > SEMA_HOLD_TIME_THRESHOLD)
 		pr_notice("%s hold semaphore (%d) for %llu ms\n", __func__, index, duration);
-		pr_notice("[%s] log_sema_time: [%llu][%llu][%llu][%llu][%llu][%llu][%llu][%llu][%llu][%llu]\n",
-			__func__, log_sema_time[0], log_sema_time[1], log_sema_time[2], log_sema_time[3],
-			log_sema_time[4], log_sema_time[5], log_sema_time[6],
-			log_sema_time[7], log_sema_time[8], log_sema_time[9]);
-	}
 }
 
 struct spi_op {
@@ -531,10 +509,6 @@ int consys_spi_read_nolock_mt6983(enum sys_spi_subsystem subsystem, unsigned int
 int consys_spi_read_mt6983(enum sys_spi_subsystem subsystem, unsigned int addr, unsigned int *data)
 {
 	int ret = 0;
-
-	if (subsystem == SYS_SPI_FM || subsystem == SYS_SPI_GPS)
-		return consys_spi_read_nolock_mt6983(subsystem, addr, data);
-
 	/* Get semaphore before read */
 	if (consys_sema_acquire_timeout_mt6983(CONN_SEMA_RFSPI_INDEX, CONN_SEMA_TIMEOUT) == CONN_SEMA_GET_FAIL) {
 		pr_err("[SPI READ] Require semaphore fail\n");
@@ -588,17 +562,12 @@ int consys_spi_write_nolock_mt6983(enum sys_spi_subsystem subsystem, unsigned in
 		return CONNINFRA_SPI_OP_FAIL;
 	}
 #endif
-
 	return 0;
 }
 
 int consys_spi_write_mt6983(enum sys_spi_subsystem subsystem, unsigned int addr, unsigned int data)
 {
 	int ret = 0;
-
-	if (subsystem == SYS_SPI_FM || subsystem == SYS_SPI_GPS)
-		return consys_spi_write_nolock_mt6983(subsystem, addr, data);
-
 	/* Get semaphore before read */
 	if (consys_sema_acquire_timeout_mt6983(CONN_SEMA_RFSPI_INDEX, CONN_SEMA_TIMEOUT) == CONN_SEMA_GET_FAIL) {
 		pr_err("[SPI WRITE] Require semaphore fail\n");
@@ -618,19 +587,16 @@ int consys_spi_update_bits_mt6983(enum sys_spi_subsystem subsystem, unsigned int
 	unsigned int new_val = 0;
 	bool change = false;
 
-	if (subsystem != SYS_SPI_FM && subsystem != SYS_SPI_GPS) {
-		/* Get semaphore before updating bits */
-		if (consys_sema_acquire_timeout_mt6983(CONN_SEMA_RFSPI_INDEX, CONN_SEMA_TIMEOUT) == CONN_SEMA_GET_FAIL) {
-			pr_notice("[SPI WRITE] Require semaphore fail\n");
-			return CONNINFRA_SPI_OP_FAIL;
-		}
+	/* Get semaphore before updating bits */
+	if (consys_sema_acquire_timeout_mt6983(CONN_SEMA_RFSPI_INDEX, CONN_SEMA_TIMEOUT) == CONN_SEMA_GET_FAIL) {
+		pr_err("[SPI WRITE] Require semaphore fail\n");
+		return CONNINFRA_SPI_OP_FAIL;
 	}
 
 	ret = consys_spi_read_nolock_mt6983(subsystem, addr, &curr_val);
 
 	if (ret) {
-		if (subsystem != SYS_SPI_FM && subsystem != SYS_SPI_GPS)
-			consys_sema_release_mt6983(CONN_SEMA_RFSPI_INDEX);
+		consys_sema_release_mt6983(CONN_SEMA_RFSPI_INDEX);
 #ifndef CONFIG_FPGA_EARLY_PORTING
 		pr_err("[%s][%s] Get 0x%08x error, ret=%d",
 			__func__, get_spi_sys_name(subsystem), addr, ret);
@@ -645,8 +611,7 @@ int consys_spi_update_bits_mt6983(enum sys_spi_subsystem subsystem, unsigned int
 		ret = consys_spi_write_nolock_mt6983(subsystem, addr, new_val);
 	}
 
-	if (subsystem != SYS_SPI_FM && subsystem != SYS_SPI_GPS)
-		consys_sema_release_mt6983(CONN_SEMA_RFSPI_INDEX);
+	consys_sema_release_mt6983(CONN_SEMA_RFSPI_INDEX);
 
 	return ret;
 }
@@ -729,12 +694,6 @@ int consys_subsys_status_update_mt6983(bool on, int radio)
 	}
 
 	consys_sema_release_mt6983(CONN_SEMA_CONN_INFRA_COMMON_SYSRAM_INDEX);
-
-	/* BT is on but wifi is not on */
-	if (on && (radio == CONNDRV_TYPE_BT) &&
-	    (CONSYS_REG_READ_BIT(CONN_INFRA_SYSRAM_SW_CR_RADIO_STATUS, (0x1 << CONNDRV_TYPE_WIFI)) == 0x0))
-		consys_pre_cal_restore_mt6983();
-
 	return 0;
 }
 
@@ -806,7 +765,7 @@ const char* get_spi_sys_name(enum sys_spi_subsystem subsystem)
 		"SYS_SPI_WF2",
 		"SYS_SPI_WF3",
 	};
-	if (subsystem < SYS_SPI_MAX)
+	if (subsystem >= SYS_SPI_WF1 && subsystem < SYS_SPI_MAX)
 		return spi_system_name[subsystem];
 	return "UNKNOWN";
 }

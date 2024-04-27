@@ -171,8 +171,6 @@ typedef enum {
 	CONNINFRA_OPID_DUMP_POWER_STATE		= 15,
 	CONNINFRA_OPID_RAISE_VOLTAGE		= 16,
 	CONNINFRA_OPID_RFSPI_UPDATE_BITS	= 17,
-	CONNINFRA_OPID_PRE_CAL_BACKUP		= 18,
-	CONNINFRA_OPID_PRE_CAL_CLEAN_DATA	= 19,
 	CONNINFRA_OPID_MAX
 } conninfra_core_opid;
 
@@ -221,8 +219,6 @@ int conninfra_core_pre_cal_start(void);
 #if ENABLE_PRE_CAL_BLOCKING_CHECK
 void conninfra_core_pre_cal_blocking(void);
 #endif
-int conninfra_core_pre_cal_backup(unsigned int offset, unsigned int size);
-int conninfra_core_pre_cal_clean_data(void);
 
 /*       reg control      */
 /* NOTE: NOT thread-safe
@@ -258,7 +254,7 @@ int conninfra_core_force_conninfra_sleep(void);
 int conninfra_core_spi_clock_switch(enum connsys_spi_speed_type type);
 
 int conninfra_core_reset_power_state(void);
-int conninfra_core_dump_power_state(char *buf, unsigned int size);
+int conninfra_core_dump_power_state(void);
 int conninfra_core_pmic_event_cb(unsigned int, unsigned int);
 
 void conninfra_core_config_setup(void);

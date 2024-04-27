@@ -744,6 +744,9 @@ int32_t MT_ATESetTxCount(struct net_device *prNetDev,
 	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetTxCount=%d\n",
 	       u4TxCount);
 
+	if (u4TxCount < 0)
+		return -EINVAL;
+
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_PKTCNT;
 	rRfATInfo.u4FuncData = u4TxCount;
 

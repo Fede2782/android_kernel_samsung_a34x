@@ -14,13 +14,6 @@
 
 #include <connectivity_build_in_adapter.h>
 
-#ifdef OPLUS_FEATURE_CONN_POWER_MONITOR
-//CONNECTIVITY.WIFI.HARDWARE.POWER, 2022/06/30
-//add for mtk connectivity power monitor
-#include <oplus_conn_event.h>
-#include <linux/string.h>
-#endif /* OPLUS_FEATURE_CONN_POWER_MONITOR */
-
 #include "osal.h"
 #include "conninfra.h"
 #include "conninfra_conf.h"
@@ -66,11 +59,6 @@
 *                  F U N C T I O N   D E C L A R A T I O N S
 ********************************************************************************
 */
-#ifdef OPLUS_FEATURE_CONN_POWER_MONITOR
-//CONNECTIVITY.WIFI.HARDWARE.POWER, 2022/06/30
-//add for mtk connectivity power monitor
-static char mUevent[256] = {'\0'};
-#endif /* OPLUS_FEATURE_CONN_POWER_MONITOR */
 static int consys_clk_get_from_dts_mt6877(struct platform_device *pdev);
 static int consys_clock_buffer_ctrl_mt6877(unsigned int enable);
 static unsigned int consys_soc_chipid_get_mt6877(void);
@@ -80,7 +68,7 @@ static int consys_thermal_query_mt6877(void);
 /* Power state relative */
 static int consys_enable_power_dump_mt6877(void);
 static int consys_reset_power_state_mt6877(void);
-static int consys_power_state_dump_mt6877(char *buf, unsigned int size);
+static int consys_power_state_dump_mt6877(void);
 
 static unsigned long long consys_soc_timestamp_get_mt6877(void);
 
@@ -329,28 +317,15 @@ void consys_power_state(void)
 		}
 	}
 	pr_info("[%s] [0x%x] %s", __func__, r, buf);
-#ifdef OPLUS_FEATURE_CONN_POWER_MONITOR
-	//CONNECTIVITY.WIFI.HARDWARE.POWER, 2022/06/30
-	//add for mtk connectivity power monitor
-	snprintf(mUevent, sizeof(mUevent), "consys=power_state:%s;", buf);
-#endif /* OPLUS_FEATURE_CONN_POWER_MONITOR */
 
 }
 
-int consys_power_state_dump_mt6877(char *buf, unsigned int size)
+int consys_power_state_dump_mt6877(void)
 {
 	unsigned int conninfra_sleep_cnt, conninfra_sleep_time;
 	unsigned int wf_sleep_cnt, wf_sleep_time;
 	unsigned int bt_sleep_cnt, bt_sleep_time;
 	unsigned int gps_sleep_cnt, gps_sleep_time;
-#ifdef OPLUS_FEATURE_CONN_POWER_MONITOR
-	//CONNECTIVITY.WIFI.HARDWARE.POWER, 2022/06/30
-	//add for mtk connectivity power monitor
-	static u64 t_conninfra_sleep_cnt = 0, t_conninfra_sleep_time = 0;
-	static u64 t_wf_sleep_cnt = 0, t_wf_sleep_time = 0;
-	static u64 t_bt_sleep_cnt = 0, t_bt_sleep_time = 0;
-	static u64 t_gps_sleep_cnt = 0, t_gps_sleep_time = 0;
-#endif /* OPLUS_FEATURE_CONN_POWER_MONITOR */
 
 	/* Sleep count */
 	/* 1. Setup read select: 0x1806_0380[3:1]
@@ -403,58 +378,8 @@ int consys_power_state_dump_mt6877(char *buf, unsigned int size)
 		bt_sleep_time, bt_sleep_cnt,
 		gps_sleep_time, gps_sleep_cnt);
 
-#ifdef OPLUS_FEATURE_CONN_POWER_MONITOR
-	//CONNECTIVITY.WIFI.HARDWARE.POWER, 2022/06/30
-	//add for mtk connectivity power monitor
-	memset(mUevent, '\0', sizeof(mUevent));
-#endif /* OPLUS_FEATURE_CONN_POWER_MONITOR */
 	/* Power state */
 	consys_power_state();
-#ifdef OPLUS_FEATURE_CONN_POWER_MONITOR
-	//CONNECTIVITY.WIFI.HARDWARE.POWER, 2022/06/30
-	//add for mtk connectivity power monitor
-#define CONN_32K_TICKS_PER_SEC (32768)
-#define CONN_TICK_TO_SEC(TICK) (TICK / CONN_32K_TICKS_PER_SEC)
-	t_conninfra_sleep_time += conninfra_sleep_time;
-	t_conninfra_sleep_cnt += conninfra_sleep_cnt;
-	t_wf_sleep_time += wf_sleep_time;
-	t_wf_sleep_cnt += wf_sleep_cnt;
-	t_bt_sleep_time += bt_sleep_time;
-	t_bt_sleep_cnt += bt_sleep_cnt;
-	t_gps_sleep_time += gps_sleep_time;
-	t_gps_sleep_cnt += gps_sleep_cnt;
-	if (strlen(mUevent) > 0) {
-		snprintf(&(mUevent[strlen(mUevent)]), sizeof(mUevent)-strlen(mUevent),
-				"conninfra:%u.%03u,%u;wf:%u.%03u,%u;bt:%u.%03u,%u;gps:%u.%03u,%u;"
-				"[total]conninfra:%llu.%03llu,%llu;wf:%llu.%03llu,%llu;"
-				"bt:%llu.%03llu,%llu;gps:%llu.%03llu,%llu;",
-			CONN_TICK_TO_SEC(conninfra_sleep_time),
-			CONN_TICK_TO_SEC((conninfra_sleep_time % CONN_32K_TICKS_PER_SEC)* 1000),
-			conninfra_sleep_cnt,
-			CONN_TICK_TO_SEC(wf_sleep_time),
-			CONN_TICK_TO_SEC((wf_sleep_time % CONN_32K_TICKS_PER_SEC)* 1000),
-			wf_sleep_cnt,
-			CONN_TICK_TO_SEC(bt_sleep_time),
-			CONN_TICK_TO_SEC((bt_sleep_time % CONN_32K_TICKS_PER_SEC)* 1000),
-			bt_sleep_cnt,
-			CONN_TICK_TO_SEC(gps_sleep_time),
-			CONN_TICK_TO_SEC((gps_sleep_time % CONN_32K_TICKS_PER_SEC)* 1000),
-			gps_sleep_cnt,
-			CONN_TICK_TO_SEC(t_conninfra_sleep_time),
-			CONN_TICK_TO_SEC((t_conninfra_sleep_time % CONN_32K_TICKS_PER_SEC)* 1000),
-			t_conninfra_sleep_cnt,
-			CONN_TICK_TO_SEC(t_wf_sleep_time),
-			CONN_TICK_TO_SEC((t_wf_sleep_time % CONN_32K_TICKS_PER_SEC)* 1000),
-			t_wf_sleep_cnt,
-			CONN_TICK_TO_SEC(t_bt_sleep_time),
-			CONN_TICK_TO_SEC((t_bt_sleep_time % CONN_32K_TICKS_PER_SEC)* 1000),
-			t_bt_sleep_cnt,
-			CONN_TICK_TO_SEC(t_gps_sleep_time),
-			CONN_TICK_TO_SEC((t_gps_sleep_time % CONN_32K_TICKS_PER_SEC)* 1000),
-			t_gps_sleep_cnt);
-		oplusConnSendUevent(mUevent);
-	}
-#endif /* OPLUS_FEATURE_CONN_POWER_MONITOR */
 	return 0;
 }
 
@@ -504,7 +429,8 @@ int consys_thermal_query_mt6877(void)
 #define CONN_GPT2_CTRL_AP_EN	0x38
 
 	void __iomem *addr = NULL;
-	int cal_val, res = 0;
+	int cal_val;
+	static int res = 0;
 	/* Base: 0x1800_2000, CONN_TOP_THERM_CTL */
 	const unsigned int thermal_dump_crs[THERMAL_DUMP_NUM] = {
 		0x00, 0x04, 0x08, 0x0c,
@@ -543,6 +469,15 @@ int consys_thermal_query_mt6877(void)
 	udelay(500);
 	/* get thermal value */
 	cal_val = CONSYS_REG_READ(CONN_THERM_CTL_THERMEN3_ADDR);
+	if (cal_val == 0xdeadfeed) {
+		pr_err("[%s] cal_val get 0xdeadfeed\n", __func__);
+		consys_reg_mng_is_bus_hang();
+		consys_sema_release_mt6877(CONN_SEMA_THERMAL_INDEX);
+		connsys_adie_top_ck_en_ctl_mt6877(false);
+		iounmap(addr);
+		return res;
+	}
+
 	cal_val = (cal_val >> 8) & 0x7f;
 
 	/* thermal debug dump */

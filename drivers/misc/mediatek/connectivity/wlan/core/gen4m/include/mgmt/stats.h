@@ -40,6 +40,10 @@
  *            D A T A   T Y P E S
  *******************************************************************************
  */
+enum EVENT_TYPE {
+	EVENT_RX,
+	EVENT_TX,
+};
 
 enum ENUM_STATS_TX_TLV_TAG_ID_T {
 	STATS_TX_TAG_QUEUE          = 0,
@@ -67,7 +71,7 @@ struct STATS_TRX_TLV_T {
 };
 
 typedef void(*PFN_STATS_HANDLE)(struct GLUE_INFO*,
-	void *, uint32_t);
+	struct STATS_TRX_TLV_T*, uint32_t);
 typedef uint32_t(*PFN_STATS_GET_LENGTH)(void);
 
 /* Tx Queue statistics */
@@ -120,6 +124,7 @@ struct STATS_TLV_HDLR_T {
  *******************************************************************************
  */
 /* common tlv length */
+uint32_t statsGetTlvU2Len(void);
 uint32_t statsGetTlvU4Len(void);
 uint32_t statsGetTlvU8Len(void);
 
@@ -132,19 +137,19 @@ uint32_t statsTxGetTimeLen(void);
 uint32_t statsCgsGetAirLatLen(void);
 
 void statsTxQueueHdlr(struct GLUE_INFO *prGlueInfo,
-	void *prTlvBuf, uint32_t u4TlvLen);
+	struct STATS_TRX_TLV_T *prTlvList, uint32_t u4TlvLen);
 void statsTxTlvBss0Hdlr(struct GLUE_INFO *prGlueInfo,
-	void *prTlvBuf, uint32_t u4TlvLen);
+	struct STATS_TRX_TLV_T *prTlvList, uint32_t u4TlvLen);
 void statsTxTimeHdlr(struct GLUE_INFO *prGlueInfo,
-	void *prTlvBuf, uint32_t u4TlvLen);
+	struct STATS_TRX_TLV_T *prTlvList, uint32_t u4TlvLen);
 
 void statsRxReorderDropHdlr(struct GLUE_INFO *prGlueInfo,
-	void *prTlvBuf, uint32_t u4TlvLen);
+	struct STATS_TRX_TLV_T *prTlvList, uint32_t u4TlvLen);
 
 void statsCgsB0IdleSlotHdlr(struct GLUE_INFO *prGlueInfo,
-	void *prTlvBuf, uint32_t u4TlvLen);
+	struct STATS_TRX_TLV_T *prTlvList, uint32_t u4TlvLen);
 void statsCgsAirLatHdlr(struct GLUE_INFO *prGlueInfo,
-	void *prTlvBuf, uint32_t u4TlvLen);
+	struct STATS_TRX_TLV_T *prTlvList, uint32_t u4TlvLen);
 
 /*******************************************************************************
  *						P R I V A T E   D A T A
@@ -178,9 +183,11 @@ void StatsEnvRxTime2Host(IN struct ADAPTER *prAdapter,
 			 struct sk_buff *prSkb,
 			 struct net_device *prNetDev);
 
-void StatsRxPktInfoDisplay(struct SW_RFB *prSwRfb);
+void StatsRxPktInfoDisplay(struct SW_RFB *prSwRfb,
+	struct ADAPTER *prAdapter, uint8_t ucBssIndex);
 
-void StatsTxPktInfoDisplay(struct sk_buff *prSkb);
+void StatsTxPktInfoDisplay(struct sk_buff *prSkb,
+	struct ADAPTER *prAdapter, uint8_t ucBssIndex);
 
 void StatsResetTxRx(void);
 
@@ -197,10 +204,17 @@ void StatsEnvGetPktDelay(OUT uint8_t *pucTxRxFlag,
 
 uint32_t statsTxGetTlvStatTotalLen(void);
 uint32_t statsRxGetTlvStatTotalLen(void);
+uint32_t statsCgstnGetTlvStatTotalLen(void);
+
+uint32_t statsTxGetTlvStatTotalLen(void);
+uint32_t statsRxGetTlvStatTotalLen(void);
 uint32_t statsCgsGetTlvStatTotalLen(void);
 
-void statsGetTxInfoHdlr(struct GLUE_INFO *prGlueInfo, void *prTlvBuf);
-void statsGetRxInfoHdlr(struct GLUE_INFO *prGlueInfo, void *prTlvBuf);
-void statsGetCgsInfoHdlr(struct GLUE_INFO *prGlueInfo, void *prTlvBuf);
+void statsGetTxInfoHdlr(struct GLUE_INFO *prGlueInfo,
+	struct STATS_TRX_TLV_T *paucTxTlvList);
+void statsGetRxInfoHdlr(struct GLUE_INFO *prGlueInfo,
+	struct STATS_TRX_TLV_T *paucRxTlvList);
+void statsGetCgsInfoHdlr(struct GLUE_INFO *prGlueInfo,
+	struct STATS_TRX_TLV_T *paucCgsTlvList);
 
 /* End of stats.h */

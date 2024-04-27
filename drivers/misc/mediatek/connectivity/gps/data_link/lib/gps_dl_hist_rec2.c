@@ -37,7 +37,7 @@ struct gps_dl_hist_rec2_log_list g_gps_dl_hist_rec_log_list[GPS_DATA_LINK_NUM];
 
 struct gps_dl_hist_rec2_log_list *gps_dl_hist_rec2_log_list_get(enum gps_dl_link_id_enum link_id)
 {
-	if ((unsigned int)link_id < (unsigned int)GPS_DATA_LINK_NUM)
+	if (link_id >= 0 && link_id < GPS_DATA_LINK_NUM)
 		return &g_gps_dl_hist_rec_log_list[link_id];
 
 	return NULL;

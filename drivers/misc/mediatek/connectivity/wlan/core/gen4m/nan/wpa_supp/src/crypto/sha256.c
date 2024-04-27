@@ -42,11 +42,6 @@ hmac_sha256_vector(const u8 *key, size_t key_len, size_t num_elem,
 	int ret = 0;
 
 	k_pad = os_zalloc(64);
-
-	if (!k_pad) {
-		DBGLOG(NAN, ERROR, "k_pad is null!\n");
-		return -1;
-	}
 	tk = os_zalloc(32);
 
 	if (num_elem > 5) {
@@ -147,13 +142,6 @@ void caculate_pmkid(u8 *key, u8 *IMAC, u8 *RMAC, u8 *serviceName, u8 *pmkid)
 	u8 *pmkIdSrc = os_malloc(pmkIdSrcLen);
 	int i = 0;
 	int post = 0;
-
-	os_memset(auc_tk, 0, sizeof(auc_tk));
-
-	if (!pmkIdSrc) {
-		DBGLOG(NAN, ERROR, "pmkIdSrc is null!\n");
-		return;
-	}
 
 	for (i = 0; i < strlen(serviceName); i++) {
 		if ((serviceName[i] >= 'A') && (serviceName[i] <= 'Z'))

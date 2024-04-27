@@ -98,6 +98,19 @@ static uint8_t *apucDebugRoamingState[ROAMING_STATE_NUM] = {
 	(uint8_t *) DISP_STRING("ROAM")
 };
 
+static uint8_t apucRoamingReasonToLog[ROAMING_REASON_NUM] = {
+	1, /* Low RSSI     - map to ROAMING_REASON_POOR_RCPI(0) */
+	0, /* Unspecific   - map to ROAMING_REASON_TX_ERR(1) */
+	0, /* Unspecific   - map to ROAMING_REASON_RETRY(2) */
+	6, /* Idle roaming - map to ROAMING_REASON_IDLE(3) */
+	2, /* High CU      - map to ROAMING_REASON_HIGH_CU(4)*/
+	3, /* Beacon lost  - map to ROAMING_REASON_BEACON_TIMEOUT(5) */
+	3, /* Beacon lost  - map to ROAMING_REASON_BEACON_TIMEOUT_TX_ERR(6) */
+	0, /* Unspecific   - map to ROAMING_REASON_INACTIVE(7) */
+	4, /* Unspecific   - map to ROAMING_REASON_SAA_FAIL(8) */
+	0, /* Unspecific   - map to ROAMING_REASON_UPPER_LAYER_TRIGGER(9) */
+	5, /* Unspecific   - map to ROAMING_REASON_BTM(10) */
+};
 
 /*******************************************************************************
  *                                 M A C R O S
@@ -143,11 +156,10 @@ void roamingFsmInit(IN struct ADAPTER *prAdapter, IN uint8_t ucBssIndex)
 	prRoamingFsmInfo->eCurrentState = ROAMING_STATE_IDLE;
 	prRoamingFsmInfo->rRoamingDiscoveryUpdateTime = 0;
 	prRoamingFsmInfo->fgDrvRoamingAllow = TRUE;
-#if CFG_SUPPORT_802_11V_BTM_OFFLOAD
-	kalMemZero(&prRoamingFsmInfo->rSkipBtmInfo,
-		sizeof(struct ROAMING_SKIP_BTM));
-	kalMemZero(&prRoamingFsmInfo->rSkipPerInfo,
-		sizeof(struct ROAMING_SKIP_PER));
+#if (CFG_TC10_FEATURE == 1)
+	LINK_INITIALIZE(&prRoamingFsmInfo->rCandidateApList);
+	LINK_INITIALIZE(&prRoamingFsmInfo->rRoamingHistory);
+	prRoamingFsmInfo->fgIsGBandCoex = FALSE;
 #endif
 }				/* end of roamingFsmInit() */
 
@@ -173,8 +185,74 @@ void roamingFsmUninit(IN struct ADAPTER *prAdapter, IN uint8_t ucBssIndex)
 		aisGetRoamingInfo(prAdapter, ucBssIndex);
 
 	prRoamingFsmInfo->eCurrentState = ROAMING_STATE_IDLE;
+#if (CFG_TC10_FEATURE == 1)
+	LINK_INITIALIZE(&prRoamingFsmInfo->rCandidateApList);
+	roamingClearHistory(prRoamingFsmInfo);
+#endif
 } /* end of roamingFsmUninit() */
 
+#if (CFG_TC10_FEATURE == 1)
+struct CONNECTED_BSS *roamingGetBss(struct ROAMING_INFO *prRoamingFsmInfo,
+	struct BSS_DESC *prTarget)
+{
+	struct LINK *history = &prRoamingFsmInfo->rRoamingHistory;
+	struct CONNECTED_BSS *bss;
+
+	if (!prTarget)
+		return NULL;
+	LINK_FOR_EACH_ENTRY(bss, history, rLinkEntry, struct CONNECTED_BSS)
+	{
+		if (EQUAL_MAC_ADDR(bss->aucBssid, prTarget->aucBSSID))
+			return bss;
+	}
+	return NULL;
+}
+
+uint8_t roamingIsBssInHistory(struct ROAMING_INFO *prRoamingFsmInfo,
+	struct BSS_DESC *prTarget)
+{
+	struct LINK *history = &prRoamingFsmInfo->rRoamingHistory;
+	struct CONNECTED_BSS *bss;
+
+	LINK_FOR_EACH_ENTRY(bss, history, rLinkEntry, struct CONNECTED_BSS)
+	{
+		if (EQUAL_MAC_ADDR(bss->aucBssid, prTarget->aucBSSID))
+			return TRUE;
+	}
+	return FALSE;
+}
+
+void roamingAddBssToHistory(struct ROAMING_INFO *prRoamingFsmInfo,
+	struct BSS_DESC *prTarget) {
+	struct LINK *history = &prRoamingFsmInfo->rRoamingHistory;
+	struct CONNECTED_BSS *bss;
+
+	if (!prTarget || roamingIsBssInHistory(prRoamingFsmInfo, prTarget))
+		return;
+
+	bss = kalMemAlloc(sizeof(struct CONNECTED_BSS), VIR_MEM_TYPE);
+	if (!bss) {
+		DBGLOG(ROAMING, WARN, "no resource for " MACSTR "\n",
+			MAC2STR(prTarget->aucBSSID));
+		return;
+	}
+	kalMemZero(bss, sizeof(struct CONNECTED_BSS));
+
+	COPY_MAC_ADDR(bss->aucBssid, prTarget->aucBSSID);
+	LINK_INSERT_TAIL(history, &bss->rLinkEntry);
+}
+
+void roamingClearHistory(struct ROAMING_INFO *prRoamingFsmInfo) {
+	struct LINK *history = &prRoamingFsmInfo->rRoamingHistory;
+	struct CONNECTED_BSS *bss;
+
+	while (!LINK_IS_EMPTY(history)) {
+		LINK_REMOVE_HEAD(history, bss, struct CONNECTED_BSS *);
+		kalMemFree(bss, VIR_MEM_TYPE, sizeof(struct CONNECTED_BSS));
+	}
+	LINK_INITIALIZE(&prRoamingFsmInfo->rRoamingHistory);
+}
+#endif
 /*----------------------------------------------------------------------------*/
 /*!
  * @brief Send commands to firmware
@@ -447,6 +525,9 @@ void roamingFsmRunEventStart(IN struct ADAPTER *prAdapter,
 	enum ENUM_ROAMING_STATE eNextState;
 	struct BSS_INFO *prAisBssInfo;
 	struct CMD_ROAMING_TRANSIT rTransit;
+#if (CFG_TC10_FEATURE == 1)
+	struct WIFI_VAR *prWifiVar = &prAdapter->rWifiVar;
+#endif
 
 	prRoamingFsmInfo =
 		aisGetRoamingInfo(prAdapter, ucBssIndex);
@@ -455,7 +536,6 @@ void roamingFsmRunEventStart(IN struct ADAPTER *prAdapter,
 	/* Check Roaming Conditions */
 	if (!(prRoamingFsmInfo->fgIsEnableRoaming))
 		return;
-
 
 	prAisBssInfo = aisGetAisBssInfo(prAdapter,
 		ucBssIndex);
@@ -484,6 +564,38 @@ void roamingFsmRunEventStart(IN struct ADAPTER *prAdapter,
 		/* Step to next state */
 		roamingFsmSteps(prAdapter, eNextState, ucBssIndex);
 	}
+
+#if (CFG_TC10_FEATURE == 1)
+	/* Dump configurations */
+#define TEMP_LOG_TEMPLATE \
+	"[Roam][Common]MinRoamDelta:%u Delta:%u [Idle]Delta:%u " \
+	"[BeaconLost/Emergency]MinRssi:%d [BTM]Delta:%u " \
+	"[AP Scoring]RssiWeight:%u CUWeight:%u " \
+	"Band1-Rssi-Factor-Val-Score(1/2/3/4):%d/%d/%d/%d-%u/%u/%u/%u " \
+	"Band2-Rssi-Factor-Val-Score(1/2/3/4):%d/%d/%d/%d-%u/%u/%u/%u " \
+	"Band1-CU-Factor-Val-Score(1/2):%d/%d-%u/%u " \
+	"Band2-CU-Factor-Val-Score(1/2):%d/%d-%u/%u " \
+
+	DBGLOG(ROAMING, EVENT, TEMP_LOG_TEMPLATE,
+	       prWifiVar->ucRCMinRoamDetla, prWifiVar->ucRCDelta,
+	       prWifiVar->ucRIDelta, prWifiVar->cRBMinRssi,
+	       prWifiVar->ucRBTMDelta, prWifiVar->ucRssiWeight,
+	       prWifiVar->ucCUWeight, prWifiVar->cB1RssiFactorVal1,
+	       prWifiVar->cB1RssiFactorVal2, prWifiVar->cB1RssiFactorVal3,
+	       prWifiVar->cB1RssiFactorVal4, prWifiVar->ucB1RssiFactorScore1,
+	       prWifiVar->ucB1RssiFactorScore2, prWifiVar->ucB1RssiFactorScore3,
+	       prWifiVar->ucB1RssiFactorScore4, prWifiVar->cB2RssiFactorVal1,
+	       prWifiVar->cB2RssiFactorVal2, prWifiVar->cB2RssiFactorVal3,
+	       prWifiVar->cB2RssiFactorVal4, prWifiVar->ucB2RssiFactorScore1,
+	       prWifiVar->ucB2RssiFactorScore2, prWifiVar->ucB2RssiFactorScore3,
+	       prWifiVar->ucB2RssiFactorScore4, prWifiVar->ucB1CUFactorVal1,
+	       prWifiVar->ucB1CUFactorVal2, prWifiVar->ucB1CUFactorScore1,
+	       prWifiVar->ucB1CUFactorScore2, prWifiVar->ucB2CUFactorVal1,
+	       prWifiVar->ucB2CUFactorVal2, prWifiVar->ucB2CUFactorScore1,
+	       prWifiVar->ucB2CUFactorScore2);
+
+#undef TEMP_LOG_TEMPLATE
+#endif
 }				/* end of roamingFsmRunEventStart() */
 
 /*----------------------------------------------------------------------------*/
@@ -617,7 +729,6 @@ void roamingFsmRunEventRoam(IN struct ADAPTER *prAdapter,
 	if (!(prRoamingFsmInfo->fgIsEnableRoaming))
 		return;
 
-
 	DBGLOG(ROAMING, EVENT,
 	       "[%d] EVENT-ROAMING ROAM: Current Time = %d\n",
 	       ucBssIndex,
@@ -700,7 +811,6 @@ void roamingFsmRunEventFail(IN struct ADAPTER *prAdapter,
 	/* Check Roaming Conditions */
 	if (!(prRoamingFsmInfo->fgIsEnableRoaming))
 		return;
-
 
 	DBGLOG(ROAMING, STATE,
 	       "[%d] EVENT-ROAMING FAIL: reason %x Current Time = %d\n",
@@ -827,7 +937,137 @@ uint8_t roamingFsmInDecision(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 	       roam->eCurrentState == ROAMING_STATE_DECISION &&
 	       policy != CONNECT_BY_BSSID ?
 	       TRUE : FALSE;
-
 }
 
+uint8_t roamingFsmIsDiscovering(IN struct ADAPTER *prAdapter,
+	IN uint8_t ucBssIndex)
+{
+	struct BSS_INFO *prAisBssInfo = NULL;
+	struct ROAMING_INFO *prRoamingFsmInfo = NULL;
+	uint8_t fgIsDiscovering = FALSE;
+
+	prAisBssInfo = aisGetAisBssInfo(prAdapter, ucBssIndex);
+	prRoamingFsmInfo = aisGetRoamingInfo(prAdapter, ucBssIndex);
+
+	fgIsDiscovering =
+		(prAisBssInfo->eConnectionState == MEDIA_STATE_CONNECTED &&
+		(prRoamingFsmInfo->eCurrentState == ROAMING_STATE_DISCOVERY ||
+		prRoamingFsmInfo->eCurrentState == ROAMING_STATE_ROAM)) ||
+		aisFsmIsInProcessPostpone(prAdapter, ucBssIndex);
+
+	return fgIsDiscovering;
+}
+
+void roamingFsmLogScanStart(IN struct ADAPTER *prAdapter,
+	IN uint8_t ucBssIndex, IN uint8_t fgIsFullScn,
+	IN struct BSS_DESC *prBssDesc)
+{
+	struct ROAMING_INFO *prRoamInfo;
+	uint32_t u4CannelUtilization = 0;
+	uint8_t ucIsValidCu = FALSE;
+	char aucLog[256] = {0};
+
+	prRoamInfo = aisGetRoamingInfo(prAdapter, ucBssIndex);
+	ucIsValidCu = (prBssDesc && prBssDesc->fgExistBssLoadIE);
+	if (ucIsValidCu)
+		u4CannelUtilization = prBssDesc->ucChnlUtilization * 100 / 255;
+
+	kalSprintf(aucLog,
+		"[ROAM] SCAN_START reason=%d rssi=%d cu=%d full_scan=%d rssi_thres=%d",
+		apucRoamingReasonToLog[prRoamInfo->eReason],
+		RCPI_TO_dBm(prRoamInfo->ucRcpi),
+		ucIsValidCu ? u4CannelUtilization : -1,
+		fgIsFullScn, RCPI_TO_dBm(prRoamInfo->ucThreshold));
+
+	kalReportWifiLog(prAdapter, ucBssIndex, aucLog);
+}
+
+void roamingFsmLogScanDone(IN struct ADAPTER *prAdapter,
+	IN uint8_t ucBssIndex)
+{
+	struct ROAMING_INFO *prRoamInfo;
+	struct SCAN_INFO *prScanInfo;
+	struct LINK *prCurEssLink;
+	char aucLog[256] = {0};
+	char aucScanChannel[200] = {0};
+	uint8_t ucIdx = 0, ucPos = 0, ucAvailableLen = 195, ucMaxLen = 195;
+
+	prRoamInfo = aisGetRoamingInfo(prAdapter, ucBssIndex);
+	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
+	prCurEssLink = &(aisGetAisSpecBssInfo(
+			prAdapter, ucBssIndex)->rCurEssLink);
+
+	DBGLOG(ROAMING, INFO, "Start to log scan done(%d)",
+			prScanInfo->ucSparseChannelArrayValidNum);
+	for (ucIdx = 0; (ucIdx < prScanInfo->ucSparseChannelArrayValidNum &&
+		ucAvailableLen > 0); ucIdx++) {
+		ucPos += kalSnprintf(aucScanChannel + ucPos, ucMaxLen - ucPos,
+			"%d ", KHZ_TO_MHZ(nicChannelNum2Freq(
+				prScanInfo->aucChannelNum[ucIdx],
+				prScanInfo->aeChannelBand[ucIdx])));
+
+		ucAvailableLen = (ucMaxLen > ucPos) ? (ucMaxLen - ucPos) : 0;
+		if (!ucAvailableLen)
+			aucScanChannel[199] = '\0';
+	}
+
+	kalSprintf(aucLog,
+		"[ROAM] SCAN_DONE ap_count=%d freq[%d]=%s",
+		prCurEssLink->u4NumElem,
+		prScanInfo->ucSparseChannelArrayValidNum,
+		aucScanChannel);
+
+	kalReportWifiLog(prAdapter, ucBssIndex, aucLog);
+}
+
+void roamingFsmLogSocre(IN struct ADAPTER *prAdapter, uint8_t *prefix,
+	IN uint8_t ucBssIndex, struct BSS_DESC *prBssDesc, uint32_t u4Score,
+	uint32_t u4Tput)
+{
+	char aucLog[256] = {0};
+	char aucTput[24] = {0};
+
+	if (!prBssDesc)
+		return;
+
+	if (u4Tput)
+		kalSprintf(aucTput, " tp=%dkbps", u4Tput / 1000);
+	kalSprintf(aucLog,
+		"[ROAM] %s bssid=" RPTMACSTR
+		" freq=%d rssi=%d cu=%d score=%d.%d%s",
+		prefix, RPTMAC2STR(prBssDesc->aucBSSID),
+		KHZ_TO_MHZ(nicChannelNum2Freq(prBssDesc->ucChannelNum,
+			prBssDesc->eBand)), RCPI_TO_dBm(prBssDesc->ucRCPI),
+		(prBssDesc->fgExistBssLoadIE ?
+			(prBssDesc->ucChnlUtilization * 100 / 255) : -1),
+			u4Score / 100, u4Score % 100, aucTput);
+
+	kalReportWifiLog(prAdapter, ucBssIndex, aucLog);
+}
+
+void roamingFsmLogResult(IN struct ADAPTER *prAdapter,
+	IN uint8_t ucBssIndex, struct BSS_DESC *prSelectedBssDesc)
+{
+	char aucLog[256] = {0};
+	uint8_t fgIsRoam =
+		(prSelectedBssDesc && !prSelectedBssDesc->fgIsConnected);
+	struct BSS_DESC *prBssDesc = (fgIsRoam ? prSelectedBssDesc :
+		aisGetTargetBssDesc(prAdapter, ucBssIndex));
+
+	kalSprintf(aucLog, "[ROAM] RESULT %s bssid=" RPTMACSTR,
+		fgIsRoam ? "ROAM" : "NO_ROAM",
+		RPTMAC2STR(prBssDesc->aucBSSID));
+
+	kalReportWifiLog(prAdapter, ucBssIndex, aucLog);
+}
+
+void roamingFsmLogCancel(IN struct ADAPTER *prAdapter,
+	IN uint8_t ucBssIndex, uint8_t *pucReason)
+{
+	char aucLog[256] = {0};
+
+	kalSprintf(aucLog, "[ROAM] CANCELED [%s]", pucReason);
+
+	kalReportWifiLog(prAdapter, ucBssIndex, aucLog);
+}
 #endif

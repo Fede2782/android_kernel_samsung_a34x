@@ -191,7 +191,11 @@ struct TIMER {
 
 /* monotonic time since boot, which also includes the time spent in suspend */
 #define GET_BOOT_SYSTIME(_systime_p)			\
-	*(_systime_p) = kal_div64_u64(kalGetBootTime(), USEC_PER_MSEC)
+	{ *(_systime_p) =				\
+		({uint64_t __ret = kalGetBootTime();	\
+		do_div(__ret, USEC_PER_MSEC);		\
+		(OS_SYSTIME) __ret; });			\
+	}
 
 /* The macro to copy the system time */
 #define COPY_SYSTIME(_destTime, _srcTime)	{(_destTime) = (_srcTime); }

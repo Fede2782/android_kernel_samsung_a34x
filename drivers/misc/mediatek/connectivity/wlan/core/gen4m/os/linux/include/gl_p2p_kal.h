@@ -225,9 +225,6 @@ void kalP2PGenP2P_IE(IN struct GLUE_INFO *prGlueInfo,
 void kalP2PTxCarrierOn(IN struct GLUE_INFO *prGlueInfo,
 		IN struct BSS_INFO *prBssInfo);
 
-u_int8_t kalP2PIsTxCarrierOn(IN struct GLUE_INFO *prGlueInfo,
-		IN struct BSS_INFO *prBssInfo);
-
 void kalP2PEnableNetDev(IN struct GLUE_INFO *prGlueInfo,
 		IN struct BSS_INFO *prBssInfo);
 

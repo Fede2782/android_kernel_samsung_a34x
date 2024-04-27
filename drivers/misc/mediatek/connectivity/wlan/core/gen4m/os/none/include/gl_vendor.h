@@ -82,8 +82,10 @@
 
 #define NL80211_VENDOR_SUBCMD_GET_PREFER_FREQ_LIST 103
 #define NL80211_VENDOR_SUBCMD_DFS_CAPABILITY 11
-#define QCA_NL80211_VENDOR_SUBCMD_ROAMING 9
 #define QCA_NL80211_VENDOR_SUBCMD_ROAM 64
+#define QCA_WLAN_VENDOR_ATTR_SETBAND_VALUE 12
+#define QCA_WLAN_VENDOR_ATTR_SETBAND_MASK 43
+#define QCA_WLAN_VENDOR_ATTR_MAX 44
 #define QCA_NL80211_VENDOR_SUBCMD_SETBAND 105
 
 enum ANDROID_VENDOR_SUB_COMMAND {
@@ -277,32 +279,9 @@ enum QCA_ATTR_ROAMING_PARAMS {
 	QCA_ATTR_ROAMING_PARAM_AFTER_LAST - 1,
 };
 
-enum QCA_WLAN_ATTR {
+enum QCA_ATTR_DFS_PARAMS {
 	/* used by NL80211_VENDOR_SUBCMD_DFS_CAPABILITY */
 	QCA_ATTR_DFS_CAPAB = 1,
-	/* used by QCA_NL80211_VENDOR_SUBCMD_ROAMING, u32 with values defined
-	 * by enum qca_roaming_policy.
-	 */
-	QCA_WLAN_VENDOR_ATTR_ROAMING_POLICY = 5,
-	QCA_WLAN_VENDOR_ATTR_MAC_ADDR = 6,
-	/* Unsigned 32-bit value from enum qca_set_band. The allowed values for
-	 * this attribute are limited to QCA_SETBAND_AUTO, QCA_SETBAND_5G, and
-	 * QCA_SETBAND_2G. This attribute is deprecated. Recommendation is to
-	 * use QCA_WLAN_VENDOR_ATTR_SETBAND_MASK instead.
-	 */
-	QCA_WLAN_VENDOR_ATTR_SETBAND_VALUE = 12,
-	/* Unsigned 32-bitmask value from enum qca_set_band. Substitutes the
-	 * attribute QCA_WLAN_VENDOR_ATTR_SETBAND_VALUE for which only a subset
-	 * of single values from enum qca_set_band are valid. This attribute
-	 * uses bitmask combinations to define the respective allowed band
-	 * combinations and this attributes takes precedence over
-	 * QCA_WLAN_VENDOR_ATTR_SETBAND_VALUE if both attributes are included.
-	 */
-	QCA_WLAN_VENDOR_ATTR_SETBAND_MASK = 43,
-
-	/* keep last */
-	QCA_WLAN_VENDOR_ATTR_AFTER_LAST,
-	QCA_WLAN_VENDOR_ATTR_MAX = QCA_WLAN_VENDOR_ATTR_AFTER_LAST - 1,
 };
 
 enum WIFI_VENDOR_ATTR_PREFERRED_FREQ_LIST {
@@ -326,13 +305,6 @@ enum WIFI_VENDOR_ATTR_PREFERRED_FREQ_LIST {
  *                            P U B L I C   D A T A
  *******************************************************************************
  */
-#if CFG_SUPPORT_WAPI
-extern uint8_t
-keyStructBuf[1024];	/* add/remove key shared buffer */
-#else
-extern uint8_t
-keyStructBuf[100];	/* add/remove key shared buffer */
-#endif
 
 /*******************************************************************************
  *                           MACROS

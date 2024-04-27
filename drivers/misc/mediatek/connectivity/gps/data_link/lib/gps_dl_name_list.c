@@ -21,7 +21,7 @@
 #define RETURN_NAME_IN_LIST(list, num, index, retval)                          \
 	do {                                                                   \
 		MUST_BE_CONST(num);                                            \
-		if ((unsigned int)(index) < (unsigned int)(num)) {                     \
+		if (((index) >= 0) && ((index) < (num))) {                     \
 			if ((list)[index])                                     \
 				retval = (list)[index];                        \
 			else {                                                 \

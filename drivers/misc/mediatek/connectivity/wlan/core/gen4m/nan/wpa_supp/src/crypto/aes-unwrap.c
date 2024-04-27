@@ -36,8 +36,6 @@ aes_unwrap_supp(const u8 *kek, size_t kek_len, int n, const u8 *cipher,
 	void *ctx;
 	unsigned int t;
 
-	os_memset(a, 0, sizeof(a));
-
 	/* 1) Initialize variables. */
 	os_memcpy(a, cipher, 8);
 	r = plain;

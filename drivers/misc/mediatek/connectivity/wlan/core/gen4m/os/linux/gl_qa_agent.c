@@ -357,8 +357,7 @@ static int32_t ResponseToQA(struct HQA_CMD_FRAME
 				   sizeof((HqaCmdFrame)->Sequence) +
 				   ntohs((HqaCmdFrame)->Length);
 
-	if (prIwReqData->data.length == 0 ||
-	    prIwReqData->data.length > sizeof(*HqaCmdFrame))
+	if (prIwReqData->data.length == 0)
 		return -EFAULT;
 
 	if (copy_to_user(prIwReqData->data.pointer,
@@ -2118,10 +2117,6 @@ static int32_t HQA_MACBbpRegBulkRead(struct net_device
 	DBGLOG(RFTEST, INFO, "Offset = 0x%08x, Len = 0x%08x\n",
 				u4Offset, u2Len);
 
-	if ((2 + (u2Len * 4)) > sizeof(HqaCmdFrame->Data)) {
-		return -EINVAL;
-	}
-
 	for (u4Index = 0; u4Index < u2Len; u4Index++) {
 		rMcrInfo.u4McrOffset = u4Offset + u4Index * 4;
 		rMcrInfo.u4McrData = 0;
@@ -2322,7 +2317,6 @@ static int32_t HQA_ReadEEPROM(struct net_device *prNetDev,
 			Len);
 		return WLAN_STATUS_FAILURE;
 	}
-
 
 #if  (CFG_EEPROM_PAGE_ACCESS == 1)
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
@@ -2536,8 +2530,6 @@ static int32_t HQA_ReadBulkEEPROM(struct net_device
 	       "QA_AGENT HQA_ReadBulkEEPROM Offset : %d\n", Offset);
 	DBGLOG(INIT, INFO, "QA_AGENT HQA_ReadBulkEEPROM Len : %d\n",
 	       Len);
-
-
 
 #if  (CFG_EEPROM_PAGE_ACCESS == 1)
 	rAccessEfuseInfo.u4Address = (Offset / EFUSE_BLOCK_SIZE) *
@@ -7619,6 +7611,8 @@ static int32_t HQA_MUSetMUTable(struct net_device *prNetDev,
 
 	ResponseToQA(HqaCmdFrame, prIwReqData, 2, i4Ret);
 
+	kfree(prTable);
+
 	return i4Ret;
 }
 
@@ -9629,7 +9623,7 @@ int priv_qa_agent(IN struct net_device *prNetDev,
 		MT_ATEStart(prNetDev, "ATESTART");
 
 	if (!prIwReqData || prIwReqData->data.length == 0 ||
-		prIwReqData->data.length > sizeof(*HqaCmdFrame)) {
+		   prIwReqData->data.length > sizeof(*HqaCmdFrame)) {
 		i4Status = -EINVAL;
 		goto ERROR0;
 	}
@@ -9642,10 +9636,6 @@ int priv_qa_agent(IN struct net_device *prNetDev,
 	}
 
 	memset(HqaCmdFrame, 0, sizeof(*HqaCmdFrame));
-
-	if (prIwReqData->data.length > sizeof(*HqaCmdFrame))
-		prIwReqData->data.length = sizeof(*HqaCmdFrame);
-
 	if (copy_from_user(HqaCmdFrame, prIwReqData->data.pointer,
 			   prIwReqData->data.length)) {
 		i4Status = -EFAULT;
@@ -9677,10 +9667,6 @@ int priv_qa_agent(IN struct net_device *prNetDev,
 				+ sizeof((HqaCmdFrame)->Length)
 				+ sizeof((HqaCmdFrame)->Sequence)
 				+ ntohs((HqaCmdFrame)->Length);
-
-			if (prIwReqData->data.length == 0 ||
-			    prIwReqData->data.length > sizeof(*HqaCmdFrame))
-				return -EFAULT;
 
 			if (copy_to_user(prIwReqData->data.pointer
 				, (uint8_t *) (HqaCmdFrame)

@@ -34,9 +34,6 @@ sha256_vector(size_t num_elem, const u8 *addr[], const size_t *len, u8 *mac) {
 
 	ctx = os_zalloc(sizeof(struct nan_rdf_sha256_state));
 
-	if (ctx == NULL)
-		return -1;
-
 	nan_rdf_sha256_init(ctx);
 	for (i = 0; i < num_elem; i++)
 		if (sha256_process(ctx, addr[i], len[i])) {
@@ -105,10 +102,6 @@ sha256_compress(struct nan_rdf_sha256_state *md, unsigned char *buf) {
 
 	S = os_zalloc(8 * sizeof(u32));
 	W = os_zalloc(64 * sizeof(u32));
-	if (!S || !W) {
-		DBGLOG(NAN, ERROR, "sha256 compress parameter is null!\n");
-		return -1;
-	}
 
 	/* copy state into S */
 	for (i = 0; i < 8; i++)

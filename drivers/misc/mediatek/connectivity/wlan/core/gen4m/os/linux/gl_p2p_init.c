@@ -79,7 +79,12 @@
  */
 
 #define P2P_INF_NAME "p2p%d"
+
+#if CFG_TC10_FEATURE
+#define AP_INF_NAME  "swlan%d"
+#else
 #define AP_INF_NAME  "ap%d"
+#endif
 
 /******************************************************************************
  *                             D A T A   T Y P E S
@@ -155,61 +160,7 @@ void p2pSetSuspendMode(struct GLUE_INFO *prGlueInfo, u_int8_t fgEnable)
 
 	kalSetNetAddressFromInterface(prGlueInfo, prDev, fgEnable);
 	wlanNotifyFwSuspend(prGlueInfo, prDev, fgEnable);
-
-#if CFG_ENABLE_PER_STA_STATISTICS_LOG
-	/*
-	 * For case P2pRoleFsmGetStatisticsTimer is stopped by system suspend.
-	 * We need to recall P2pRoleFsmGetStatisticsTimer when system resumes.
-	 */
-	p2pResumeStatisticsTimer(prGlueInfo, prDev);
-#endif
 }
-
-#if CFG_ENABLE_PER_STA_STATISTICS_LOG
-void p2pResumeStatisticsTimer(struct GLUE_INFO *prGlueInfo,
-	struct net_device *prNetDev)
-{
-	struct BSS_INFO *prP2pBssInfo = (struct BSS_INFO *) NULL;
-	struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo =
-		(struct P2P_ROLE_FSM_INFO *) NULL;
-	uint8_t ucBssIndex = 0;
-
-	if (!prGlueInfo)
-		return;
-
-	ucBssIndex = wlanGetBssIdx(prNetDev);
-
-	if (!IS_BSS_INDEX_VALID(ucBssIndex)) {
-		DBGLOG(P2P, ERROR,
-			"StatisticsTimer resume failed. ucBssIndex is invalid\n");
-		return;
-	}
-
-	prP2pBssInfo = GET_BSS_INFO_BY_INDEX(prGlueInfo->prAdapter, ucBssIndex);
-	if (!prP2pBssInfo) {
-		DBGLOG(P2P, ERROR,
-			"StatisticsTimer resume failed. prP2pBssInfo is NULL\n");
-		return;
-	}
-
-	prP2pRoleFsmInfo =
-		P2P_ROLE_INDEX_2_ROLE_FSM_INFO(prGlueInfo->prAdapter,
-			(uint8_t) prP2pBssInfo->u4PrivateData);
-
-	if (!prP2pRoleFsmInfo) {
-		DBGLOG(P2P, ERROR,
-			"StatisticsTimer resume failed. prP2pRoleFsmInfo is NULL\n");
-		return;
-	}
-
-	if (prGlueInfo->prAdapter->rWifiVar.rWfdConfigureSettings.ucWfdEnable &&
-		!prGlueInfo->fgIsInSuspendMode) {
-		cnmTimerStartTimer(prGlueInfo->prAdapter,
-			&(prP2pRoleFsmInfo->rP2pRoleFsmGetStatisticsTimer),
-			P2P_ROLE_GET_STATISTICS_TIME);
-	}
-}
-#endif
 
 /*---------------------------------------------------------------------------*/
 /*!
@@ -221,40 +172,20 @@ void p2pResumeStatisticsTimer(struct GLUE_INFO *prGlueInfo,
 /*---------------------------------------------------------------------------*/
 u_int8_t p2pLaunch(struct GLUE_INFO *prGlueInfo)
 {
-	struct ADAPTER *prAdapter = NULL;
-
-	GLUE_SPIN_LOCK_DECLARATION();
-
-	prAdapter = prGlueInfo->prAdapter;
-
-	ASSERT(prGlueInfo);
-	ASSERT(prAdapter);
-
-	GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
-	if (prAdapter->rP2PRegState != ENUM_P2P_REG_STATE_UNREGISTERED) {
-		DBGLOG(P2P, INFO, "skip launch, p2p_state=%d, net_state=%d\n",
-			prAdapter->rP2PRegState,
-			prAdapter->rP2PNetRegState);
-		GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
+	if (prGlueInfo->prAdapter->fgIsP2PRegistered == TRUE) {
+		DBGLOG(P2P, INFO, "p2p is already registered\n");
 		return FALSE;
 	}
-
-	prAdapter->rP2PRegState = ENUM_P2P_REG_STATE_REGISTERING;
-	GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 
 	if (!glRegisterP2P(prGlueInfo, ifname, ifname2, mode)) {
 		DBGLOG(P2P, ERROR, "Launch failed\n");
-		prAdapter->rP2PRegState = ENUM_P2P_REG_STATE_UNREGISTERED;
 		return FALSE;
 	}
 
-	GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
-	prAdapter->fgIsP2PRegistered = TRUE;
-	prAdapter->p2p_scan_report_all_bss = CFG_P2P_SCAN_REPORT_ALL_BSS;
-	prAdapter->rP2PRegState = ENUM_P2P_REG_STATE_REGISTERED;
-	DBGLOG(P2P, INFO, "Launch success, fgIsP2PRegistered TRUE\n");
-	GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
-
+	prGlueInfo->prAdapter->fgIsP2PRegistered = TRUE;
+	prGlueInfo->prAdapter->p2p_scan_report_all_bss =
+		CFG_P2P_SCAN_REPORT_ALL_BSS;
+	DBGLOG(P2P, TRACE, "Launch success, fgIsP2PRegistered TRUE\n");
 	return TRUE;
 }
 
@@ -314,70 +245,22 @@ void p2pSetMode(IN uint8_t ucAPMode)
 /*---------------------------------------------------------------------------*/
 u_int8_t p2pRemove(struct GLUE_INFO *prGlueInfo)
 {
-	struct ADAPTER *prAdapter = NULL;
 	u_int8_t idx = 0;
-	u_int32_t wait = 0;
 
 	GLUE_SPIN_LOCK_DECLARATION();
-
-	prAdapter = prGlueInfo->prAdapter;
-
-	ASSERT(prGlueInfo);
-	ASSERT(prAdapter);
+	GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 
 	g_P2pPrDev = NULL;
 
-	/* We must guarantee that all p2p net devices are unregistered with
-	 * kernel before the net devices are freed. Otherwise, when p2pLaunch
-	 * is invoked next time, we will get kernel exception because the old
-	 * p2p net devices registered to kernel were volatile.
-	 */
-retry:
-	wait = 0;
-	while (wait < 2000) {
-		/* p2p net devices are unregistered */
-		if (prAdapter->rP2PRegState == ENUM_P2P_REG_STATE_REGISTERED &&
-			prAdapter->rP2PNetRegState ==
-				ENUM_NET_REG_STATE_UNREGISTERED)
-			break;
-
-		/* p2p net devices are not unregistered yet */
-		if (prAdapter->rP2PRegState == ENUM_P2P_REG_STATE_REGISTERED &&
-			prAdapter->rP2PNetRegState ==
-				ENUM_NET_REG_STATE_REGISTERED) {
-			p2pNetUnregister(prGlueInfo, FALSE);
-			break;
-		}
-
-		kalMsleep(100);
-		wait += 100;
-	}
-
-	if (wait >= 2000) {
-		DBGLOG(P2P, INFO, "skip remove, p2p_state=%d, net_state=%d\n",
-			prAdapter->rP2PRegState,
-			prAdapter->rP2PNetRegState);
+	if (prGlueInfo->prAdapter->fgIsP2PRegistered == FALSE) {
+		DBGLOG(P2P, INFO, "p2p is not registered\n");
+		GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 		return FALSE;
 	}
 
-	/* Make sure that p2p is in registered state and p2p net is in
-	 * unregistered state before continuing the removal procedure.
-	 */
-	GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
-	if (prAdapter->rP2PRegState == ENUM_P2P_REG_STATE_REGISTERED &&
-		prAdapter->rP2PNetRegState == ENUM_NET_REG_STATE_UNREGISTERED)
-		prAdapter->rP2PRegState = ENUM_P2P_REG_STATE_UNREGISTERING;
-	else {
-		/* Someone has changed p2p net register state. Try again. */
-		DBGLOG(P2P, INFO, "retry remove, p2p_state=%d, net_state=%d\n",
-			prAdapter->rP2PRegState,
-			prAdapter->rP2PNetRegState);
-		GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
-		goto retry;
-	}
+	prGlueInfo->prAdapter->fgIsP2PRegistered = FALSE;
+	prGlueInfo->prAdapter->p2p_scan_report_all_bss = FALSE;
 	GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
-
-	prAdapter->p2p_scan_report_all_bss = FALSE;
 
 	glUnregisterP2P(prGlueInfo, 0xff);
 
@@ -420,11 +303,6 @@ retry:
 	if (gprP2pWdev[0] != NULL)
 		set_wiphy_dev(gprP2pWdev->wiphy, NULL);
 #endif
-
-	GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
-	prAdapter->rP2PRegState = ENUM_P2P_REG_STATE_UNREGISTERED;
-	prAdapter->fgIsP2PRegistered = FALSE;
-	GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 
 	return TRUE;
 }

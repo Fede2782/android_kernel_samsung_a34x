@@ -9,7 +9,6 @@
 #include <linux/of_gpio.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/iio/consumer.h>
-#include <linux/slab.h>
 #include "connfem.h"
 
 /*******************************************************************************

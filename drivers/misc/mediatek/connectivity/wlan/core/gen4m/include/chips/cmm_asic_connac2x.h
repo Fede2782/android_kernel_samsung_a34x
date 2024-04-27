@@ -408,55 +408,6 @@
 #define CONNAC2X_TXV_GET_TX_PWR(_x)	(((_x)->u4TxV[0] & (0xff << 16)) >> 16)
 #define CONNAC2X_TXV_GET_TX_SGI(_x)	(((_x)->u4TxV[1] & (0x3 << 26)) >> 26)
 
-#if (CFG_SUPPORT_PERF_IND == 1)
-#define PERF_IND_RX_VT_RX_RATE_MASK         BITS(0, 6)
-#define PERF_IND_RX_VT_RX_RATE_OFFSET       0
-#define PERF_IND_RX_VT_NSTS_MASK            BITS(7, 9)
-#define PERF_IND_RX_VT_NSTS_OFFSET          7
-#define PERF_IND_RX_VT_BF_MASK              BIT(10)
-#define PERF_IND_RX_VT_BF_OFFSET            10
-#define PERF_IND_RX_VT_LDPC_MASK            BIT(11)
-#define PERF_IND_RX_VT_LDPC_OFFSET          11
-#define PERF_IND_RX_VT_FR_MODE_MASK         BITS(12, 14)
-#define PERF_IND_RX_VT_FR_MODE_OFFSET       12
-#define PERF_IND_RX_VT_GI_MASK              BITS(15, 16)
-#define PERF_IND_RX_VT_GI_OFFSET            15
-#define PERF_IND_RX_VT_DCM_MASK             BIT(17)
-#define PERF_IND_RX_VT_DCM_OFFSET           17
-#define PERF_IND_RX_VT_NUMRX_MASK           BITS(18, 20)
-#define PERF_IND_RX_VT_NUMRX_OFFSET         18
-#define PERF_IND_RX_VT_MUMIMO_MASK          BIT(21)
-#define PERF_IND_RX_VT_MUMIMO_OFFSET        21
-#define PERF_IND_RX_VT_STBC_MASK            BITS(22, 23)
-#define PERF_IND_RX_VT_STBC_OFFSET          22
-#define PERF_IND_RX_VT_TXMODE_MASK          BITS(24, 27)
-#define PERF_IND_RX_VT_TXMODE_OFFSET        24
-
-#define PERF_IND_RXV_GET_RX_RATE(_prRxVector)				\
-		(((_prRxVector) & PERF_IND_RX_VT_RX_RATE_MASK)	\
-			 >> PERF_IND_RX_VT_RX_RATE_OFFSET)
-
-#define PERF_IND_RXV_GET_RX_NSTS(_prRxVector)				\
-		(((_prRxVector) & PERF_IND_RX_VT_NSTS_MASK)	\
-			 >> PERF_IND_RX_VT_NSTS_OFFSET)
-
-#define PERF_IND_RXV_GET_FR_MODE(_prRxVector)				\
-		(((_prRxVector) & PERF_IND_RX_VT_FR_MODE_MASK)	\
-			 >> PERF_IND_RX_VT_FR_MODE_OFFSET)
-
-#define PERF_IND_RXV_GET_GI(_prRxVector)				\
-		(((_prRxVector) & PERF_IND_RX_VT_GI_MASK)	\
-			 >> PERF_IND_RX_VT_GI_OFFSET)
-
-#define PERF_IND_RXV_GET_STBC(_prRxVector)				\
-		(((_prRxVector) & PERF_IND_RX_VT_STBC_MASK)	\
-			 >> PERF_IND_RX_VT_STBC_OFFSET)
-
-#define PERF_IND_RXV_GET_TXMODE(_prRxVector)				\
-		(((_prRxVector) & PERF_IND_RX_VT_TXMODE_MASK)	\
-			 >> PERF_IND_RX_VT_TXMODE_OFFSET)
-#endif
-
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************
@@ -1093,7 +1044,6 @@ enum {
 	SW_INT_SUBSYS_RESET,
 	SW_INT_WHOLE_RESET,
 	SW_INT_SW_WFDMA,
-	SW_INT_TIME_SYNC,
 };
 
 #if (CFG_SUPPORT_CONNINFRA == 1)
@@ -1147,14 +1097,6 @@ uint8_t asicConnac2xWfdmaWaitIdle(
 	uint8_t index,
 	uint32_t round,
 	uint32_t wait_us);
-void asicConnac2xWfdmaTxRingBasePtrExtCtrl(
-	struct GLUE_INFO *prGlueInfo,
-	struct RTMP_TX_RING *tx_ring,
-	u_int32_t index);
-void asicConnac2xWfdmaRxRingBasePtrExtCtrl(
-	struct GLUE_INFO *prGlueInfo,
-	struct RTMP_RX_RING *rx_ring,
-	u_int32_t index);
 void asicConnac2xWfdmaTxRingExtCtrl(
 	struct GLUE_INFO *prGlueInfo,
 	struct RTMP_TX_RING *tx_ring,

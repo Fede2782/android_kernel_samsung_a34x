@@ -12,14 +12,10 @@
 #include "osal.h"
 #include "mtk_wcn_consys_hw.h"
 
-#ifdef MTK_GENERIC_HAL
-#define GPS_FWCTL_SUPPORT
-#else
 #if defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6779) \
 || defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6873) \
 || defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6781)
 #define GPS_FWCTL_SUPPORT
-#endif
 #endif
 
 #ifdef GPS_FWCTL_SUPPORT
@@ -27,18 +23,11 @@
 
 #define GPS_HW_SUSPEND_SUPPORT
 #endif /* GPS_FWCTL_SUPPORT */
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0)
-struct timeval {
-	long tv_sec;
-	long tv_usec;
+struct boot_time_info {
+	int64_t now_time;
+	int64_t arch_counter;
 };
-#define do_gettimeofday(_tv) {\
-	 UINT64 _ns = ktime_get_ns();\
-	(_tv)->tv_sec = _ns>>32;\
-	(_tv)->tv_usec = (long)(_ns&0xFFFFFFFFUL);\
-}
-#endif
+
 enum gps_ctrl_status_enum {
 	GPS_CLOSED,
 	GPS_OPENED,
@@ -73,7 +62,8 @@ enum gps_data_link_id_enum {
 	GPS_DATA_LINK_ID1	= 1,
 	GPS_DATA_LINK_NUM	= 2,
 };
-extern int gps_stp_get_md_status(struct device *dev);
+extern int gps_stp_get_reserved_memory_lk(struct device *dev);
+
 extern void GPS_reference_count(enum gps_reference_count_cmd cmd, bool flag, enum gps_data_link_id_enum user);
 
 extern phys_addr_t gConEmiPhyBase;

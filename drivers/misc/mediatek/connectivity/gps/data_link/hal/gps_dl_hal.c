@@ -289,7 +289,6 @@ bool gps_dl_hal_mcub_flag_handler(enum gps_dl_link_id_enum link_id)
 	struct gps_dl_hal_mcub_info d2a;
 	bool conninfra_okay = false;
 
-	memset(&d2a, 0, sizeof(d2a));
 	/* Todo: while condition make sure DSP is on and session ID */
 	while (1) {
 		conninfra_okay = gps_dl_conninfra_is_okay_or_handle_it(NULL, true);

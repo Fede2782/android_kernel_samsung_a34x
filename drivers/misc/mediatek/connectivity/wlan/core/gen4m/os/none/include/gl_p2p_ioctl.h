@@ -335,6 +335,16 @@ extern const uint32_t mtk_cipher_suites[6];
 	.flags      = (_flags),             \
 }
 
+#define CHAN2G(_channel, _freq, _flags)             \
+{                                               \
+	.band               = KAL_BAND_2GHZ,  \
+	.center_freq        = (_freq),              \
+	.hw_value           = (_channel),           \
+	.flags              = (_flags),             \
+	.max_antenna_gain   = 0,                    \
+	.max_power          = 30,                   \
+}
+
 /*******************************************************************************
 *                  F U N C T I O N   D E C L A R A T I O N S
 ********************************************************************************

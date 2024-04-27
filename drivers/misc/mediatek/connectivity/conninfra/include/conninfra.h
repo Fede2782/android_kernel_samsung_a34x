@@ -124,7 +124,6 @@ enum connsys_ic_info_type
 };
 
 #define CONNINFRA_SPI_OP_FAIL	0x1
-#define CONNINFRA_SPI_ADDR_INVALID	-0x777
 
 #define CONNINFRA_CB_RET_CAL_PASS_POWER_OFF 0x0
 #define CONNINFRA_CB_RET_CAL_PASS_POWER_ON  0x2
@@ -189,7 +188,7 @@ int conninfra_spi_write(enum sys_spi_subsystem subsystem, unsigned int addr, uns
 int conninfra_spi_update_bits(enum sys_spi_subsystem subsystem, unsigned int addr, unsigned int data, unsigned int mask);
 
 /* EMI */
-void conninfra_get_phy_addr(phys_addr_t *addr, unsigned int *size);
+void conninfra_get_phy_addr(unsigned int *addr, unsigned int *size);
 void conninfra_get_emi_phy_addr(enum connsys_emi_type type, phys_addr_t* base, unsigned int *size);
 
 /* power on/off */
@@ -256,7 +255,6 @@ struct whole_chip_rst_cb {
 struct pre_calibration_cb {
 	int (*pwr_on_cb)(void);
 	int (*do_cal_cb)(void);
-	int (*get_cal_result_cb)(unsigned int* offset, unsigned int* size);
 };
 
 struct sub_drv_ops_cb {

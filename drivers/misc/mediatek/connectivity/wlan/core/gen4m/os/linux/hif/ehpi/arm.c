@@ -523,7 +523,7 @@ static irqreturn_t glEhpiInterruptHandler(int irq, void *dev_id)
 	wlanISR(prGlueInfo->prAdapter, TRUE);
 
 	/* 1.1 Halt flag Checking */
-	if (test_bit(GLUE_FLAG_HALT_BIT, &prGlueInfo->ulFlag))
+	if (prGlueInfo->ulFlag & GLUE_FLAG_HALT)
 		return IRQ_HANDLED;
 
 	/* 2. Flag marking for interrupt */

@@ -125,10 +125,6 @@
 		(((_prRxVector) & SOC7_0_RX_VT_TXMODE_MASK)	\
 			 >> SOC7_0_RX_VT_TXMODE_OFFSET)
 
-#define RXV_GET_MUMIMO(_prRxVector)				\
-		(((_prRxVector) & SOC7_0_RX_VT_MUMIMO_MASK)	\
-			 >> SOC7_0_RX_VT_MUMIMO_OFFSET)
-
 extern struct PLE_TOP_CR rSoc7_0_PleTopCr;
 extern struct PSE_TOP_CR rSoc7_0_PseTopCr;
 extern struct PP_TOP_CR rSoc7_0_PpTopCr;

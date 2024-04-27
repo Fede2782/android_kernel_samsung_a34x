@@ -30,9 +30,6 @@
 #define TEST_DBDC_BAND_NUM		1
 #endif
 
-#define SEGPARANUM_MAX      50
-#define CR_NUM_MAX			100
-
 /* Packet */
 #define SERV_LENGTH_802_11		24
 

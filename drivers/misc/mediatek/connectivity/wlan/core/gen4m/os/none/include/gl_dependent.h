@@ -881,16 +881,6 @@ void *kal_skb_push(struct sk_buff *skb, unsigned int len);
 #define skb_push(_skb, _len) kal_skb_push(_skb, _len)
 
 /*
- * kal_skb_headroom - bytes at buffer head
- * @skb: buffer to use
- * Return the number of bytes of free space at the head of an &sk_buff.
- *
- * needed by nic_rx.c
- */
-uint32_t kal_skb_headroom(struct sk_buff *skb);
-#define skb_headroom(_skb) kal_skb_headroom(_skb)
-
-/*
  * needed by nic_tx.c
  * __skb_dequeue - remove from the head of the queue
  * @list: list to dequeue from

@@ -199,7 +199,6 @@ struct GL_HIF_INFO {
 	u_int8_t fgMbxReadClear;
 
 	uint32_t u4IntStatus;
-	uint32_t u4IntStatus1;
 	unsigned long ulIntFlag;
 
 	struct MSDU_TOKEN_INFO rTokenInfo;
@@ -208,17 +207,14 @@ struct GL_HIF_INFO {
 	struct timer_list rSerTimer;
 	u_int64_t rSerTimerData;
 	struct list_head rTxCmdQ;
-	struct list_head rTxDataQ[NUM_OF_TX_RING];
-	uint32_t u4TxDataQLen[NUM_OF_TX_RING];
+	struct list_head rTxDataQ;
+	uint32_t u4TxDataQLen;
 
 	bool fgIsPowerOff;
 	bool fgIsDumpLog;
 
 	uint32_t u4WakeupIntSta;
 	bool fgIsBackupIntSta;
-
-	uint32_t u4TxRingPrefetchDefaultVal;
-	u_int8_t fgTxRingPrefetchEn[NUM_OF_TX_RING];
 };
 
 struct BUS_INFO {
@@ -230,9 +226,6 @@ struct BUS_INFO {
 	const uint32_t tx_ring0_data_idx;
 	const uint32_t tx_ring1_data_idx;
 	const uint32_t tx_ring2_data_idx;
-#if CFG_TRI_TX_RING
-	const uint32_t tx_ring3_data_idx;
-#endif
 	const uint32_t max_static_map_addr;
 	const uint32_t fw_own_clear_addr;
 	const uint32_t fw_own_clear_bit;
@@ -339,13 +332,8 @@ struct BUS_INFO {
 	bool (*wfdmaAllocRxRing)(
 		struct GLUE_INFO *prGlueInfo,
 		bool fgAllocMem);
-	void (*setDmaIntMask)(struct GLUE_INFO *prGlueInfo,
-		uint8_t ucType, u_int8_t fgEnable);
+	void (*setPdmaIntMask)(struct GLUE_INFO *prGlueInfo, u_int8_t fgEnable);
 	void (*enableFwDlMode)(struct ADAPTER *prAdapter);
-
-	void (*enableTxDataRingPrefetch)(
-		struct GLUE_INFO *prGlueInfo, uint32_t u4Port);
-	void (*resetTxDataRingPrefetch)(struct GLUE_INFO *prGlueInfo);
 
 	struct SW_WFDMA_INFO rSwWfdmaInfo;
 };
@@ -444,10 +432,6 @@ void glGetHifDev(struct GL_HIF_INFO *prHif, struct device **dev);
 struct mt66xx_hif_driver_data *get_platform_driver_data(void);
 
 void glGetChipInfo(void **prChipInfo);
-
-struct mt66xx_chip_info *glGetChipInfoV2(void);
-
-struct mt66xx_hif_driver_data *glGetDriverData(void);
 
 /*******************************************************************************
  *                              F U N C T I O N S

@@ -22,38 +22,20 @@
 #define DOMAIN_CONN	2
 #endif
 
-#define DEFAULT_CPU_FREQ (-1)
+#define MAX_CPU_FREQ (3 * 1024 * 1024) /* in kHZ */
+#define MAX_CLUSTER_NUM  3
 #define CPU_ALL_CORE (0xff)
 #define CPU_BIG_CORE (0xf0)
-#define CPU_X_CORE (0x80)
-#define CPU_HP_CORE (CPU_BIG_CORE - CPU_X_CORE)
 #define CPU_LITTLE_CORE (CPU_ALL_CORE - CPU_BIG_CORE)
-
-#if (KERNEL_VERSION(5, 10, 0) <= CFG80211_VERSION_CODE)
-#include <linux/regulator/consumer.h>
-#endif
-#include <linux/platform_device.h>
 
 enum ENUM_CPU_BOOST_STATUS {
 	ENUM_CPU_BOOST_STATUS_INIT = 0,
-#if CFG_SUPPORT_LITTLE_CPU_BOOST
-	ENUM_CPU_BOOST_STATUS_START_LITTLE,
-#endif /* CFG_SUPPORT_LITTLE_CPU_BOOST */
-	ENUM_CPU_BOOST_STATUS_START_ALL,
+	ENUM_CPU_BOOST_STATUS_START,
 	ENUM_CPU_BOOST_STATUS_STOP,
 	ENUM_CPU_BOOST_STATUS_NUM
 };
 
 static uint32_t u4EmiMetOffset = 0x45D400;
-
-#if CFG_SUPPORT_LITTLE_CPU_BOOST
-uint32_t kalGetLittleCpuBoostThreshold(void)
-{
-	DBGLOG(SW4, TRACE, "enter kalGetLittleCpuBoostThreshold\n");
-	/* 3, stands for 100Mbps */
-	return 3;
-}
-#endif /* CFG_SUPPORT_LITTLE_CPU_BOOST */
 
 uint32_t kalGetCpuBoostThreshold(void)
 {
@@ -80,9 +62,9 @@ int32_t kalCheckTputLoad(IN struct ADAPTER *prAdapter,
 	       TRUE : FALSE;
 }
 
-#if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
 void kalSetTaskUtilMinPct(IN int pid, IN unsigned int min)
 {
+#if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
 	int ret = 0;
 	unsigned int blc_1024;
 	struct task_struct *p;
@@ -120,17 +102,22 @@ void kalSetTaskUtilMinPct(IN int pid, IN unsigned int min)
 		ret = sched_setattr(p, &attr);
 		put_task_struct(p);
 	}
+#else
+	set_task_util_min_pct(pid, min);
+#endif
 }
 
+#if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
 static LIST_HEAD(wlan_policy_list);
 struct wlan_policy {
 	struct freq_qos_request	qos_req;
 	struct list_head	list;
-	int cpu;
 };
+#endif
 
-void kalSetCpuFreq(IN int32_t freq, IN uint32_t set_mask)
+void kalSetCpuFreq(IN int32_t freq)
 {
+#if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
 	int cpu, ret;
 	struct cpufreq_policy *policy;
 	struct wlan_policy *wReq;
@@ -144,7 +131,6 @@ void kalSetCpuFreq(IN int32_t freq, IN uint32_t set_mask)
 			wReq = kzalloc(sizeof(struct wlan_policy), GFP_KERNEL);
 			if (!wReq)
 				break;
-			wReq->cpu = cpu;
 
 			ret = freq_qos_add_request(&policy->constraints,
 				&wReq->qos_req, FREQ_QOS_MIN, 0);
@@ -161,14 +147,51 @@ void kalSetCpuFreq(IN int32_t freq, IN uint32_t set_mask)
 	}
 
 	list_for_each_entry(wReq, &wlan_policy_list, list) {
-		if ((0x1 << wReq->cpu) & set_mask)
-			freq_qos_update_request(&wReq->qos_req, freq);
+		freq_qos_update_request(&wReq->qos_req, freq);
 	}
+#else
+	int32_t i = 0;
+	struct ppm_limit_data *freq_to_set;
+	uint32_t u4ClusterNum = topo_ctrl_get_nr_clusters();
+
+	freq_to_set = kmalloc_array(u4ClusterNum, sizeof(struct ppm_limit_data),
+			GFP_KERNEL);
+	if (freq_to_set)
+		return;
+
+	for (i = 0; i < u4ClusterNum; i++) {
+		freq_to_set[i].min = freq;
+		freq_to_set[i].max = freq;
+	}
+
+	update_userlimit_cpu_freq(CPU_KIR_WIFI,
+		u4ClusterNum, freq_to_set);
+
+	kfree(freq_to_set);
+#endif
 }
 
 void kalSetDramBoost(IN struct ADAPTER *prAdapter, IN u_int8_t onoff)
 {
+#if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
 	/* TODO */
+#else
+	static struct pm_qos_request wifi_qos_request;
+
+	KAL_ACQUIRE_MUTEX(prAdapter, MUTEX_BOOST_CPU);
+	if (onoff == TRUE) {
+		pr_info("Max Dram Freq start\n");
+		pm_qos_add_request(&wifi_qos_request,
+				   PM_QOS_DDR_OPP,
+				   DDR_OPP_2);
+		pm_qos_update_request(&wifi_qos_request, DDR_OPP_2);
+	} else {
+		pr_info("Max Dram Freq end\n");
+		pm_qos_update_request(&wifi_qos_request, DDR_OPP_UNREQ);
+		pm_qos_remove_request(&wifi_qos_request);
+	}
+	KAL_RELEASE_MUTEX(prAdapter, MUTEX_BOOST_CPU);
+#endif
 }
 
 static int kalSetCpuMask(struct task_struct *task, uint32_t set_mask)
@@ -195,18 +218,17 @@ static int kalSetCpuMask(struct task_struct *task, uint32_t set_mask)
 	return r;
 }
 
+#if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
 int32_t kalBoostCpu(IN struct ADAPTER *prAdapter,
 		    IN uint32_t u4TarPerfLevel,
 		    IN uint32_t u4BoostCpuTh)
 {
 	struct GLUE_INFO *prGlueInfo = NULL;
+	int32_t i4Freq = -1;
 	static u_int8_t fgRequested = ENUM_CPU_BOOST_STATUS_INIT;
-	uint32_t u4CpuFreq = prAdapter->rWifiVar.au4CpuBoostMinFreq * 1000;
-#if CFG_SUPPORT_LITTLE_CPU_BOOST
-	uint32_t u4BoostLittleCpuTh = prAdapter->rWifiVar.u4BoostLittleCpuTh;
-#endif /* CFG_SUPPORT_LITTLE_CPU_BOOST */
 
 	WIPHY_PRIV(wlanGetWiphy(), prGlueInfo);
+	i4Freq = (u4TarPerfLevel >= u4BoostCpuTh) ? MAX_CPU_FREQ : -1;
 
 	if (fgRequested == ENUM_CPU_BOOST_STATUS_INIT) {
 		/* initially enable rps working at small cores */
@@ -214,92 +236,42 @@ int32_t kalBoostCpu(IN struct ADAPTER *prAdapter,
 		fgRequested = ENUM_CPU_BOOST_STATUS_STOP;
 	}
 
-#if CFG_SUPPORT_LITTLE_CPU_BOOST
-	if (u4TarPerfLevel >= u4BoostLittleCpuTh &&
-		u4TarPerfLevel < u4BoostCpuTh &&
-		fgRequested == ENUM_CPU_BOOST_STATUS_STOP) {
-		pr_info("Boost little (%u>=%u) freq=%u\n",
-			u4TarPerfLevel, u4BoostLittleCpuTh, u4CpuFreq/1000);
-		fgRequested = ENUM_CPU_BOOST_STATUS_START_LITTLE;
+	if (u4TarPerfLevel >= u4BoostCpuTh) {
+		if (fgRequested == ENUM_CPU_BOOST_STATUS_STOP) {
+			pr_info("kalBoostCpu start (%d>=%d)\n",
+				u4TarPerfLevel, u4BoostCpuTh);
+			fgRequested = ENUM_CPU_BOOST_STATUS_START;
 
-		kalSetCpuFreq(u4CpuFreq, CPU_LITTLE_CORE);
-		kalSetCpuMask(prGlueInfo->hif_thread, CPU_ALL_CORE);
-		kalSetCpuMask(prGlueInfo->main_thread, CPU_ALL_CORE);
-		kalSetCpuMask(prGlueInfo->rx_thread, CPU_ALL_CORE);
+			kalSetCpuMask(prGlueInfo->hif_thread, CPU_BIG_CORE);
+			kalSetCpuMask(prGlueInfo->main_thread, CPU_BIG_CORE);
+			kalSetCpuMask(prGlueInfo->rx_thread, CPU_BIG_CORE);
 
-		kalSetRpsMap(prGlueInfo, CPU_LITTLE_CORE);
-		kalSetDramBoost(prAdapter, TRUE);
-	} else if (u4TarPerfLevel >= u4BoostCpuTh &&
-		(fgRequested == ENUM_CPU_BOOST_STATUS_STOP ||
-		 fgRequested == ENUM_CPU_BOOST_STATUS_START_LITTLE)) {
-#else /* CFG_SUPPORT_LITTLE_CPU_BOOST */
-	if (u4TarPerfLevel >= u4BoostCpuTh &&
-		fgRequested == ENUM_CPU_BOOST_STATUS_STOP) {
-#endif /* CFG_SUPPORT_LITTLE_CPU_BOOST */
-		pr_info("Boost and migrate big (%u>=%u) freq=%u\n",
-			u4TarPerfLevel, u4BoostCpuTh, u4CpuFreq/1000);
-		fgRequested = ENUM_CPU_BOOST_STATUS_START_ALL;
+			kalSetTaskUtilMinPct(prGlueInfo->u4TxThreadPid, 100);
+			kalSetTaskUtilMinPct(prGlueInfo->u4RxThreadPid, 100);
+			kalSetTaskUtilMinPct(prGlueInfo->u4HifThreadPid, 100);
+			kalSetRpsMap(prGlueInfo, CPU_BIG_CORE);
+			kalSetCpuFreq(i4Freq);
+			kalSetDramBoost(prAdapter, TRUE);
+		}
+	} else {
+		if (fgRequested == ENUM_CPU_BOOST_STATUS_START) {
+			pr_info("kalBoostCpu stop (%d<%d)\n",
+				u4TarPerfLevel, u4BoostCpuTh);
+			fgRequested = ENUM_CPU_BOOST_STATUS_STOP;
 
-		kalSetCpuFreq(u4CpuFreq, CPU_BIG_CORE);
-		kalSetCpuMask(prGlueInfo->hif_thread, CPU_BIG_CORE);
-		kalSetCpuMask(prGlueInfo->main_thread, CPU_BIG_CORE);
-		kalSetCpuMask(prGlueInfo->rx_thread, CPU_BIG_CORE);
-		kalSetCpuFreq(DEFAULT_CPU_FREQ, CPU_LITTLE_CORE);
+			kalSetCpuMask(prGlueInfo->hif_thread, CPU_ALL_CORE);
+			kalSetCpuMask(prGlueInfo->main_thread, CPU_ALL_CORE);
+			kalSetCpuMask(prGlueInfo->rx_thread, CPU_ALL_CORE);
 
-		kalSetTaskUtilMinPct(prGlueInfo->u4TxThreadPid, 100);
-		kalSetTaskUtilMinPct(prGlueInfo->u4RxThreadPid, 100);
-		kalSetTaskUtilMinPct(prGlueInfo->u4HifThreadPid, 100);
-		kalSetRpsMap(prGlueInfo, CPU_BIG_CORE);
-		kalSetDramBoost(prAdapter, TRUE);
-#if CFG_SUPPORT_LITTLE_CPU_BOOST
-	} else if (u4TarPerfLevel < u4BoostCpuTh &&
-		u4TarPerfLevel >= u4BoostLittleCpuTh &&
-		fgRequested == ENUM_CPU_BOOST_STATUS_START_ALL) {
-		pr_info("kalBoostCpu stop big core (%u<%u)\n",
-			u4TarPerfLevel, u4BoostCpuTh);
-		fgRequested = ENUM_CPU_BOOST_STATUS_START_LITTLE;
-
-		kalSetCpuMask(prGlueInfo->hif_thread, CPU_LITTLE_CORE);
-		kalSetCpuMask(prGlueInfo->main_thread, CPU_LITTLE_CORE);
-		kalSetCpuMask(prGlueInfo->rx_thread, CPU_LITTLE_CORE);
-
-		kalSetTaskUtilMinPct(prGlueInfo->u4TxThreadPid, 0);
-		kalSetTaskUtilMinPct(prGlueInfo->u4RxThreadPid, 0);
-		kalSetTaskUtilMinPct(prGlueInfo->u4HifThreadPid, 0);
-
-		kalSetRpsMap(prGlueInfo, CPU_LITTLE_CORE);
-		kalSetCpuFreq(DEFAULT_CPU_FREQ, CPU_BIG_CORE);
-	} else if (u4TarPerfLevel < u4BoostLittleCpuTh &&
-		(fgRequested == ENUM_CPU_BOOST_STATUS_START_ALL ||
-		 fgRequested == ENUM_CPU_BOOST_STATUS_START_LITTLE)) {
-#else /* CFG_SUPPORT_LITTLE_CPU_BOOST */
-	} else if (u4TarPerfLevel < u4BoostCpuTh &&
-		fgRequested == ENUM_CPU_BOOST_STATUS_START_ALL) {
-#endif /* CFG_SUPPORT_LITTLE_CPU_BOOST */
-		pr_info("kalBoostCpu stop all (%u<%u)\n",
-			u4TarPerfLevel,
-#if CFG_SUPPORT_LITTLE_CPU_BOOST
-			u4BoostLittleCpuTh
-#else
-			u4BoostCpuTh
-#endif /* CFG_SUPPORT_LITTLE_CPU_BOOST */
-		);
-		fgRequested = ENUM_CPU_BOOST_STATUS_STOP;
-
-		kalSetCpuMask(prGlueInfo->hif_thread, CPU_ALL_CORE);
-		kalSetCpuMask(prGlueInfo->main_thread, CPU_ALL_CORE);
-		kalSetCpuMask(prGlueInfo->rx_thread, CPU_ALL_CORE);
-
-		kalSetTaskUtilMinPct(prGlueInfo->u4TxThreadPid, 0);
-		kalSetTaskUtilMinPct(prGlueInfo->u4RxThreadPid, 0);
-		kalSetTaskUtilMinPct(prGlueInfo->u4HifThreadPid, 0);
-		kalSetRpsMap(prGlueInfo, CPU_LITTLE_CORE);
-		kalSetCpuFreq(DEFAULT_CPU_FREQ, CPU_ALL_CORE);
-		kalSetDramBoost(prAdapter, FALSE);
+			kalSetTaskUtilMinPct(prGlueInfo->u4TxThreadPid, 0);
+			kalSetTaskUtilMinPct(prGlueInfo->u4RxThreadPid, 0);
+			kalSetTaskUtilMinPct(prGlueInfo->u4HifThreadPid, 0);
+			kalSetRpsMap(prGlueInfo, CPU_LITTLE_CORE);
+			kalSetCpuFreq(i4Freq);
+			kalSetDramBoost(prAdapter, FALSE);
+		}
 	}
-
-	kalTraceInt(fgRequested == ENUM_CPU_BOOST_STATUS_START_ALL,
-		"kalBoostCpu");
+	kalTraceInt(fgRequested == ENUM_CPU_BOOST_STATUS_START, "kalBoostCpu");
 
 	return 0;
 }
@@ -349,51 +321,3 @@ void kalSetDrvEmiMpuProtection(phys_addr_t emiPhyBase, uint32_t offset,
 	mtk_emimpu_free_region(&region);
 }
 #endif
-
-int32_t kalCheckVcoreBoost(IN struct ADAPTER *prAdapter,
-		IN uint8_t uBssIndex)
-{
-#if (KERNEL_VERSION(5, 10, 0) <= CFG80211_VERSION_CODE) && \
-	(CFG_SUPPORT_802_11AX == 1)
-	struct BSS_INFO *prBssInfo;
-	uint8_t ucPhyType;
-	struct GL_HIF_INFO *prHifInfo = NULL;
-	struct platform_device *pdev = NULL;
-	struct regulator *dvfsrc_vcore_power;
-
-	prBssInfo = prAdapter->aprBssInfo[uBssIndex];
-	ucPhyType = prBssInfo->ucPhyTypeSet;
-	prHifInfo = &prAdapter->prGlueInfo->rHifInfo;
-	pdev = prHifInfo->pdev;
-	DBGLOG(BSS, INFO, "Vcore boost checking: AX + BW160\n");
-	if (prBssInfo->eConnectionState == MEDIA_STATE_CONNECTED
-		&& ucPhyType & PHY_TYPE_SET_802_11AX
-		&& (prBssInfo->ucVhtChannelWidth ==
-				VHT_OP_CHANNEL_WIDTH_160)) {
-		if (prAdapter->ucVcoreBoost == FALSE) {
-			DBGLOG(BSS, INFO, "Vcore boost to 0.65v\n");
-			prAdapter->ucVcoreBoost = TRUE;
-			dvfsrc_vcore_power = regulator_get(&pdev->dev,
-					"dvfsrc-vcore");
-			/* Raise VCORE to 0.65v */
-			regulator_set_voltage(dvfsrc_vcore_power,
-					650000, INT_MAX);
-			return TRUE;
-		}
-	} else {
-		if (prAdapter->ucVcoreBoost == TRUE) {
-			DBGLOG(BSS, INFO, "Vcore back to 0.575v\n");
-			prAdapter->ucVcoreBoost = FALSE;
-			dvfsrc_vcore_power = regulator_get(&pdev->dev,
-					"dvfsrc-vcore");
-			/* Adjust VCORE back to normal*/
-			regulator_set_voltage(dvfsrc_vcore_power,
-					575000, INT_MAX);
-			return FALSE;
-		}
-	}
-	return FALSE;
-#else
-	return FALSE;
-#endif
-}

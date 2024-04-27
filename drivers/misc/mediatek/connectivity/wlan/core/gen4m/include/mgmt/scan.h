@@ -134,8 +134,11 @@
 #define BITS_OF_BYTE                            (8)
 
 /* dwell time setting, should align FW setting */
-#define SCAN_CHANNEL_DWELL_TIME_MIN_MSEC        (42)
+#define SCAN_CHANNEL_DWELL_TIME_MIN_MSEC         (42)
 #define SCAN_SPLIT_PACKETS_THRESHOLD		(30)
+#define SCAN_CHANNEL_DWELL_TIME_LISTEN_MIN_MSEC	 (8)
+/* dwell time for beacon timeout scan */
+#define SCAN_BEACON_TIMEOUT_DWELL_TIME_MSEC      (100)
 
 /* dwell time setting, reduce APP trigger scan dwell time to 20 */
 #define SCAN_CHANNEL_MIN_DWELL_TIME_MSEC_APP	(20)
@@ -144,8 +147,6 @@
 /* dwell time setting for OCE certification */
 #define SCAN_CHANNEL_DWELL_TIME_OCE         (42 + 28)
 
-/* dwell time setting for VOE certification */
-#define SCAN_CHANNEL_DWELL_TIME_VOE         (42 + 8)
 
 /*----------------------------------------------------------------------------*/
 /* MSG_SCN_SCAN_REQ                                                           */
@@ -287,6 +288,7 @@ struct BSS_DESC {
 	struct LINK_ENTRY rLinkEntry;
 	/* Support AP Selection*/
 	struct LINK_ENTRY rLinkEntryEss[KAL_AIS_NUM];
+	struct LINK_ENTRY rLinkEntryEss1[KAL_AIS_NUM];
 
 	uint8_t aucBSSID[MAC_ADDR_LEN];
 
@@ -304,6 +306,12 @@ struct BSS_DESC {
 	 * Is a Bitmap, Bit0: BSS0, Bit1: Bss1
 	 */
 	u_int8_t fgIsConnected;
+
+	/* If we are in beacon timeout procedure, don't removed
+	 * this record from BSS list to keep its channel. And we should not
+	 * take the BSS as connection candidate for AP selection.
+	 */
+	u_int8_t fgIsInBTO;
 
 	/* When this flag is TRUE, means the SSID of this
 	 * BSS is not known yet.
@@ -446,6 +454,11 @@ struct BSS_DESC {
 	 */
 	uint8_t ucIsAdaptive11r;
 
+	/* for Cistco CCX AP that supports single PMK
+	 * don't use PMKID thus always use auth SAE
+	 */
+	uint8_t ucIsCiscoCCXIePresent;
+
 	/* The received IE length exceed the maximum IE buffer size */
 	u_int8_t fgIsIEOverflow;
 
@@ -478,7 +491,7 @@ struct BSS_DESC {
 	uint8_t ucChnlUtilization;
 	uint8_t ucSNR;
 	u_int8_t fgSeenProbeResp;
-	u_int8_t fgExsitBssLoadIE;
+	u_int8_t fgExistBssLoadIE;
 	u_int8_t fgMultiAnttenaAndSTBC;
 	uint32_t u4UpdateIdx;
 	uint8_t fgIotApActionValid;
@@ -486,6 +499,18 @@ struct BSS_DESC {
 #if CFG_SUPPORT_RSN_SCORE
 	u_int8_t fgIsRSNSuitableBss;
 #endif
+	uint32_t u4ApSelectionScore;
+	uint32_t u4EstimatedTputByCu;
+	uint32_t u4EstimatedTputByEsp;
+	uint16_t u2MaximumMpdu;
+	uint8_t fgIsRWMValid;
+	uint16_t u2ReducedWanMetrics;
+	uint8_t ucATF;
+	uint8_t ucBaSize;
+	uint16_t u2AMsduByte;
+	uint8_t ucPpduDuration;
+	uint32_t u4RssiFactor;
+	uint32_t u4CUFactor;
 	/* end Support AP Selection */
 	int8_t cPowerLimit;
 	uint8_t aucRrmCap[5];
@@ -525,6 +550,9 @@ struct SCAN_PARAM {	/* Used by SCAN FSM */
 	uint16_t u2ChannelDwellTime;
 	uint16_t u2ChannelMinDwellTime;
 	uint16_t u2TimeoutValue;
+	uint16_t u2OpChStayTime;	/* ms unit */
+	uint8_t ucDfsChDwellTime;	/* ms unit */
+	uint8_t ucPerScanChCnt;
 
 	uint8_t aucBSSID[CFG_SCAN_OOB_MAX_NUM][MAC_ADDR_LEN];
 
@@ -549,7 +577,6 @@ struct SCAN_PARAM {	/* Used by SCAN FSM */
 	/* For 6G OOB discovery*/
 	uint8_t ucBssidMatchCh[CFG_SCAN_OOB_MAX_NUM];
 	uint8_t ucBssidMatchSsidInd[CFG_SCAN_OOB_MAX_NUM];
-	u_int8_t fg6gOobRnrParseEn;
 
 	/* Information Element */
 	uint16_t u2IELen;
@@ -638,8 +665,14 @@ struct SCAN_INFO {
 #endif
 	/*Skip DFS channel scan or not */
 	u_int8_t	fgSkipDFS;
-	uint8_t		fgIsScanTimeout;
-	OS_SYSTIME rLastScanStartTime;
+
+	/* Support beacon report */
+	uint8_t fgWipsBcnReport;
+#if CFG_SUPPORT_SCAN_NO_AP_RECOVERY
+	uint8_t		ucScnZeroChannelCnt;
+	uint8_t		ucScnZeroChSubsysResetCnt;
+#endif
+
 };
 
 /* Incoming Mailbox Messages */
@@ -678,6 +711,9 @@ struct MSG_SCN_SCAN_REQ_V2 {
 	uint16_t u2ChannelDwellTime;	/* In TU. 1024us. */
 	uint16_t u2ChannelMinDwellTime;	/* In TU. 1024us. */
 	uint16_t u2TimeoutValue;	/* ms unit */
+	uint16_t u2OpChStayTime;	/* ms unit */
+	uint8_t ucDfsChDwellTime;	/* ms unit */
+	uint8_t ucPerScanChCnt;
 
 	uint8_t aucBSSID[MAC_ADDR_LEN];
 	enum ENUM_SCAN_CHANNEL eScanChannel;
@@ -692,8 +728,6 @@ struct MSG_SCN_SCAN_REQ_V2 {
 	/* For 6G OOB discovery*/
 	uint8_t ucBssidMatchCh[CFG_SCAN_OOB_MAX_NUM];
 	uint8_t ucBssidMatchSsidInd[CFG_SCAN_OOB_MAX_NUM];
-	u_int8_t fg6gOobRnrParseEn;
-
 	uint16_t u2IELen;
 	uint8_t aucIE[MAX_IE_LENGTH];
 };
@@ -888,7 +922,8 @@ void scanReportBss2Cfg80211(IN struct ADAPTER *prAdapter,
 			    IN struct BSS_DESC *SpecificprBssDesc);
 
 bool scnEnableSplitScan(struct ADAPTER *prAdapter,
-				uint8_t ucBssIndex);
+				uint8_t ucBssIndex,
+				struct CMD_SCAN_REQ_V2 *prCmdScanReq);
 
 /*----------------------------------------------------------------------------*/
 /* Routines in scan_fsm.c                                                     */
@@ -975,7 +1010,8 @@ u_int8_t scnFsmSchedScanSetCmd(IN struct ADAPTER *prAdapter,
 			IN struct CMD_SCHED_SCAN_REQ *prSchedScanCmd);
 
 void scnSetSchedScanPlan(IN struct ADAPTER *prAdapter,
-			IN struct CMD_SCHED_SCAN_REQ *prSchedScanCmd);
+			IN struct CMD_SCHED_SCAN_REQ *prSchedScanCmd,
+			IN uint16_t u2ScanInterval);
 
 #endif /* CFG_SUPPORT_SCHED_SCAN */
 
@@ -983,14 +1019,14 @@ void scnSetSchedScanPlan(IN struct ADAPTER *prAdapter,
 void scnDoZeroMdrdyRecoveryCheck(IN struct ADAPTER *prAdapter,
 			IN struct EVENT_SCAN_DONE *prScanDone,
 			IN struct SCAN_INFO *prScanInfo, IN uint8_t ucBssIndex);
+
 void scnDoScanTimeoutRecoveryCheck(IN struct ADAPTER *prAdapter,
 			IN uint8_t ucBssIndex);
 
+void scnDoZeroChRecoveryCheck(IN struct ADAPTER *prAdapter,
+			IN struct SCAN_INFO *prScanInfo);
 #endif
 
-void scnFsmNotifyEvent(IN struct ADAPTER *prAdapter,
-			IN enum ENUM_SCAN_STATUS eStatus,
-			IN uint8_t ucBssIndex);
 void scanLogEssResult(struct ADAPTER *prAdapter);
 void scanInitEssResult(struct ADAPTER *prAdapter);
 #if CFG_SUPPORT_SCAN_CACHE_RESULT
@@ -1027,6 +1063,7 @@ void scanParseVHTCapIE(IN uint8_t *pucIE, IN struct BSS_DESC *prBssDesc);
 void scanParseVHTOpIE(IN uint8_t *pucIE, IN struct BSS_DESC *prBssDesc);
 
 void scanCheckAdaptive11rIE(IN uint8_t *pucBuf, IN struct BSS_DESC *prBssDesc);
+void scanCheckCiscoCCXIE(IN uint8_t *pucBuf, IN struct BSS_DESC *prBssDesc);
 
 void scanHandleOceIE(IN struct SCAN_PARAM *prScanParam,
 	IN struct CMD_SCAN_REQ_V2 *prCmdScanReq);
@@ -1038,6 +1075,12 @@ void scnFsmDumpScanDoneInfo(IN struct ADAPTER *prAdapter,
 void scanParseHEOpIE(IN uint8_t *pucIE, IN struct BSS_DESC *prBssDesc,
 	IN enum ENUM_BAND eHwBand);
 #endif
+
+void scanUpdateSWIPSBcn(IN struct ADAPTER *prAdapter,
+			IN struct BSS_DESC *prBss, IN uint8_t ucBssIndex);
+
+void scanAbortBeaconRecv(IN struct ADAPTER *prAdapter, IN uint8_t ucBssIndex,
+			 IN enum SWPIS_ABORT_REASON abortReason);
 
 void updateLinkStatsApRec(struct ADAPTER *prAdapter,
 		struct BSS_DESC *prBssDesc);

@@ -326,7 +326,7 @@ static signed int cfg_item_handler(signed char *grp, signed char *key, signed ch
 	signed int ret = 0;
 	struct fm_rx_cust_cfg *rx_cfg = &cfg->rx_cfg;
 	struct fm_tx_cust_cfg *tx_cfg = &cfg->tx_cfg;
-
+	struct fm_other_cust_cfg *other_cfg = &cfg->other_cfg;
 
 	ret = cfg_item_match(key, val, "FM_RX_RSSI_TH_LONG", &rx_cfg->long_ana_rssi_th);
 	if (ret >= 0)
@@ -380,6 +380,9 @@ static signed int cfg_item_handler(signed char *grp, signed char *key, signed ch
 	if (ret >= 0)
 		return ret;
 
+	ret = cfg_item_match(key, val, "FM_VOL", &other_cfg->vol);
+	if (ret >= 0)
+		return ret;
 
 	WCN_DBG(FM_WAR | MAIN, "invalid key\n");
 	return -1;
@@ -458,6 +461,10 @@ static signed int fm_cust_config_default(struct fm_cust_cfg *cfg)
 		cfg->aud_cfg.i2s_info.rate = FM_I2S_SR_ERR;
 		cfg->aud_cfg.i2s_pad = FM_I2S_PAD_ERR;
 	}
+
+	/* vol config */
+	cfg->other_cfg.vol = FM_VOL_MAX;
+
 	return 0;
 }
 
@@ -514,6 +521,7 @@ static signed int fm_cust_config_print(struct fm_cust_cfg *cfg)
 		cfg->aud_cfg.i2s_info.mode,
 		cfg->aud_cfg.i2s_info.rate,
 		cfg->aud_cfg.i2s_pad);
+	WCN_DBG(FM_NTC | MAIN, "volume:\t%d\n", cfg->other_cfg.vol);
 	return 0;
 }
 
@@ -608,6 +616,10 @@ unsigned short fm_cust_config_fetch(enum fm_cust_cfg_op op_code)
 		break;
 	case FM_CFG_TX_SMG_TH:
 		tmp = fm_config.tx_cfg.smg_th;
+		break;
+
+	case FM_CFG_VOL:
+		tmp = fm_config.other_cfg.vol;
 		break;
 	default:
 		break;

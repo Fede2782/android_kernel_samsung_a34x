@@ -212,22 +212,9 @@ void rlmBssUpdateChannelParams(struct ADAPTER *prAdapter,
 		rlmFillVhtOpInfoByBssOpBw(prBssInfo, ucMaxBw);
 
 		/* If the S1 is invalid, force to change bandwidth */
-		if (prBssInfo->ucVhtChannelFrequencyS1 == 0) {
-			/* Give GO/AP another chance to use BW80
-			 * if failed to get S1 for BW160.
-			 */
-			if (prBssInfo->eCurrentOPMode == OP_MODE_ACCESS_POINT &&
-				ucMaxBw == MAX_BW_160MHZ) {
-				rlmFillVhtOpInfoByBssOpBw(prBssInfo,
-					MAX_BW_80MHZ);
-			}
-
-			/* fallback to BW20/40 */
-			if (prBssInfo->ucVhtChannelFrequencyS1 == 0) {
-				prBssInfo->ucVhtChannelWidth =
-					VHT_OP_CHANNEL_WIDTH_20_40;
-			}
-		}
+		if (prBssInfo->ucVhtChannelFrequencyS1 == 0)
+			prBssInfo->ucVhtChannelWidth =
+				VHT_OP_CHANNEL_WIDTH_20_40;
 	} else {
 		prBssInfo->ucVhtChannelWidth = VHT_OP_CHANNEL_WIDTH_20_40;
 		prBssInfo->ucVhtChannelFrequencyS1 = 0;
@@ -617,7 +604,8 @@ void rlmHandleObssStatusEventPkt(struct ADAPTER *prAdapter,
 
 	prBssInfo =
 		GET_BSS_INFO_BY_INDEX(prAdapter, prObssStatus->ucBssIndex);
-
+	if (!prBssInfo)
+		return;
 	if (prBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT)
 		return;
 
@@ -1591,13 +1579,7 @@ void rlmGetChnlInfoForCSA(struct ADAPTER *prAdapter,
 	/* temp replace BSS eBand to get BW of CSA band */
 	eBandOrig = prBssInfo->eBand;
 	prBssInfo->eBand = eBandCsa;
-	if (prRfChnlInfo->eBand == BAND_5G &&
-		prRfChnlInfo->ucChannelNum == 165)
-		prRfChnlInfo->ucChnlBw =
-			cnmOpModeGetMaxBw(prAdapter, prBssInfo);
-	else
-		prRfChnlInfo->ucChnlBw =
-			cnmGetBssMaxBw(prAdapter, ucBssIdx);
+	prRfChnlInfo->ucChnlBw = cnmGetBssMaxBw(prAdapter, ucBssIdx);
 	prBssInfo->eBand = eBandOrig; /* Restore BSS eBand */
 
 	prRfChnlInfo->u2PriChnlFreq =
@@ -1608,10 +1590,4 @@ void rlmGetChnlInfoForCSA(struct ADAPTER *prAdapter,
 			prRfChnlInfo->ucChannelNum,
 			rlmGetVhtOpBwByBssOpBw(prRfChnlInfo->ucChnlBw));
 	prRfChnlInfo->u4CenterFreq2 = 0;
-
-	if ((eBand == BAND_5G) &&
-		(ucCh >= 52 && ucCh <= 144))
-		prRfChnlInfo->eDFS = NL80211_DFS_USABLE;
-	else
-		prRfChnlInfo->eDFS = NL80211_DFS_AVAILABLE;
 }

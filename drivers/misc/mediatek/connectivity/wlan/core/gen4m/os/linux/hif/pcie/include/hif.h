@@ -175,8 +175,8 @@ struct GL_HIF_INFO {
 	struct ERR_RECOVERY_CTRL_T rErrRecoveryCtl;
 	struct timer_list rSerTimer;
 	struct list_head rTxCmdQ;
-	struct list_head rTxDataQ[NUM_OF_TX_RING];
-	uint32_t u4TxDataQLen[NUM_OF_TX_RING];
+	struct list_head rTxDataQ;
+	uint32_t u4TxDataQLen;
 
 	bool fgIsPowerOff;
 	bool fgIsDumpLog;
@@ -184,9 +184,6 @@ struct GL_HIF_INFO {
 
 	uint32_t u4WakeupIntSta;
 	bool fgIsBackupIntSta;
-
-	uint32_t u4TxRingPrefetchDefaultVal;
-	u_int8_t fgTxRingPrefetchEn[NUM_OF_TX_RING];
 };
 
 struct BUS_INFO {
@@ -198,9 +195,6 @@ struct BUS_INFO {
 	const uint32_t tx_ring0_data_idx;
 	const uint32_t tx_ring1_data_idx;
 	const uint32_t tx_ring2_data_idx;
-#if CFG_TRI_TX_RING
-	const uint32_t tx_ring3_data_idx;
-#endif
 	const unsigned int max_static_map_addr;
 	const uint32_t fw_own_clear_addr;
 	const uint32_t fw_own_clear_bit;
@@ -308,13 +302,8 @@ struct BUS_INFO {
 	bool (*wfdmaAllocRxRing)(
 		struct GLUE_INFO *prGlueInfo,
 		bool fgAllocMem);
-	void (*setDmaIntMask)(struct GLUE_INFO *prGlueInfo,
-		uint8_t ucType, u_int8_t fgEnable);
+	void (*setPdmaIntMask)(struct GLUE_INFO *prGlueInfo, u_int8_t fgEnable);
 	void (*enableFwDlMode)(struct ADAPTER *prAdapter);
-
-	void (*enableTxDataRingPrefetch)(
-		struct GLUE_INFO *prGlueInfo, uint32_t u4Port);
-	void (*resetTxDataRingPrefetch)(struct GLUE_INFO *prGlueInfo);
 
 	struct SW_WFDMA_INFO rSwWfdmaInfo;
 };

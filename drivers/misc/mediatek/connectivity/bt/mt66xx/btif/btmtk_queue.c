@@ -103,7 +103,7 @@ int32_t rx_skb_enqueue(struct sk_buff *skb)
 	int32_t ret = 0;
 	struct btmtk_btif_dev *cif_dev = (struct btmtk_btif_dev *)g_sbdev->cif_dev;
 
-	if ( !skb || skb->len == 0) {
+	if (!skb || skb->len == 0) {
 		BTMTK_WARN("Inavlid data event, skip, skb = NULL or skb len = 0");
 		ret = -1;
 		goto end;
@@ -381,7 +381,6 @@ void cmd_list_destory(void)
 	BTMTK_DBG("%s",__func__);
 
 	p_queue = &cif_dev->cmd_queue;
-	spin_lock(&p_queue->lock);
 	curr = p_queue->head;
 	while(curr){
 		curr = cmd_free_node(curr);
@@ -389,7 +388,6 @@ void cmd_list_destory(void)
 	p_queue->head = NULL;
 	p_queue->tail = NULL;
 	p_queue->size = 0;
-	spin_unlock(&p_queue->lock);
 }
 
 void command_response_timeout(struct work_struct *pwork)
@@ -408,12 +406,7 @@ void command_response_timeout(struct work_struct *pwork)
 		btmtk_cif_dump_rxd_backtrace();
 		btmtk_cif_dump_fw_no_rsp(BT_BTIF_DUMP_REG);
 		if (cif_dev->cmd_timeout_count == 4) {
-			spin_lock(&p_queue->lock);
-			if (p_queue->head)
-				BTMTK_ERR("%s,  !!!! Command Timeout !!!!  opcode 0x%4X", __func__, p_queue->head->opcode);
-			else
-				BTMTK_ERR("%s,  p_queue head is NULL", __func__);
-			spin_unlock(&p_queue->lock);
+			BTMTK_ERR("%s,  !!!! Command Timeout !!!!  opcode 0x%4X", __func__, p_queue->head->opcode);
 			// To-do : Need to consider if it has any condition to check
 			cif_dev->cmd_timeout_count = 0;
 			bt_trigger_reset();
@@ -452,12 +445,7 @@ void update_command_response_workqueue(void)
 		BTMTK_DBG("command queue size = 0");
 		cancel_delayed_work(&work);
 	} else {
-		spin_lock(&p_queue->lock);
-		if (p_queue->head)
-			BTMTK_DBG("update new command queue : %4X" , p_queue->head->opcode);
-		else
-			BTMTK_ERR("%s,  p_queue head is NULL", __func__);
-		spin_unlock(&p_queue->lock);
+		BTMTK_DBG("update new command queue : %4X" , p_queue->head->opcode);
 		cif_dev->cmd_timeout_count = 0;
 		cancel_delayed_work(&work);
 		down(&cif_dev->cmd_tout_sem);
@@ -471,12 +459,13 @@ void update_command_response_workqueue(void)
 void cmd_workqueue_exit(void)
 {
 	struct btmtk_btif_dev *cif_dev = (struct btmtk_btif_dev *)g_sbdev->cif_dev;
-	int ret_a = 0, ret_b = 0;
+	int ret = 0;
 	if(workqueue_task != NULL) {
-		ret_b = cancel_delayed_work(&work);
+		ret = cancel_delayed_work(&work);
+		BTMTK_INFO("cancel workqueue before flush ret[%d]", ret);
 		flush_workqueue(workqueue_task);
-		ret_a = cancel_delayed_work(&work);
-		BTMTK_INFO("cancel workqueue before[%d] after[%d] flush", ret_b, ret_a);
+		ret = cancel_delayed_work(&work);
+		BTMTK_INFO("cancel workqueue after flush ret[%d]", ret);
 		down(&cif_dev->cmd_tout_sem);
 		destroy_workqueue(workqueue_task);
 		workqueue_task = NULL;

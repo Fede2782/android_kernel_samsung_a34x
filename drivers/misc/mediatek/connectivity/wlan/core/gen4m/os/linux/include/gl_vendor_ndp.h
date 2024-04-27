@@ -222,7 +222,6 @@ enum mtk_wlan_vendor_attr_ndp_cfg_security {
 extern const struct nla_policy
 	mtk_wlan_vendor_ndp_policy[MTK_WLAN_VENDOR_ATTR_NDP_PARAMS_MAX + 1];
 
-
 /*******************************************************************************
  *                  F U N C T I O N   D E C L A R A T I O N S
  *******************************************************************************
@@ -242,29 +241,30 @@ uint32_t nanNdpResponderRspEvent(struct ADAPTER *prAdapter,
 				 uint32_t rTxDoneStatus);
 
 uint32_t nanNdpEndRspEvent(struct ADAPTER *prAdapter,
-			   struct _NAN_NDP_INSTANCE_T *prNDP,
-			   uint32_t rTxDoneStatus);
+				 enum _ENUM_DP_PROTOCOL_REASON_CODE_T eReason,
+				 uint16_t u2TransId,
+				 uint32_t rTxDoneStatus);
 
-uint32_t nanNdiCreateHandler(struct GLUE_INFO *prGlueInfo, struct nlattr **tb);
+int32_t nanNdiCreateHandler(struct GLUE_INFO *prGlueInfo, struct nlattr **tb);
 
-uint32_t nanNdiDeleteHandler(struct GLUE_INFO *prGlueInfo, struct nlattr **tb);
+int32_t nanNdiDeleteHandler(struct GLUE_INFO *prGlueInfo, struct nlattr **tb);
 
-uint32_t nanNdpInitiatorReqHandler(struct GLUE_INFO *prGlueInfo,
+int32_t nanNdpInitiatorReqHandler(struct GLUE_INFO *prGlueInfo,
 				   struct nlattr **tb);
 
-uint32_t nanNdpResponderReqHandler(struct GLUE_INFO *prGlueInfo,
+int32_t nanNdpResponderReqHandler(struct GLUE_INFO *prGlueInfo,
 				   struct nlattr **tb);
 
-uint32_t nanNdpEndReqHandler(struct GLUE_INFO *prGlueInfo, struct nlattr **tb);
+int32_t nanNdpEndReqHandler(struct GLUE_INFO *prGlueInfo, struct nlattr **tb);
 
-uint32_t nanNdpDataIndEvent(IN struct ADAPTER *prAdapter,
+uint32_t nanNdpDataIndEvent(struct ADAPTER *prAdapter,
 			    struct _NAN_NDP_INSTANCE_T *prNDP,
 			    struct _NAN_NDL_INSTANCE_T *prNDL);
 
-uint32_t nanNdpDataConfirmEvent(IN struct ADAPTER *prAdapter,
+uint32_t nanNdpDataConfirmEvent(struct ADAPTER *prAdapter,
 				struct _NAN_NDP_INSTANCE_T *prNDP);
 
-uint32_t nanNdpDataTerminationEvent(IN struct ADAPTER *prAdapter,
+uint32_t nanNdpDataTerminationEvent(struct ADAPTER *prAdapter,
 				    struct _NAN_NDP_INSTANCE_T *prNDP);
 
 int mtk_cfg80211_vendor_ndp(struct wiphy *wiphy, struct wireless_dev *wdev,

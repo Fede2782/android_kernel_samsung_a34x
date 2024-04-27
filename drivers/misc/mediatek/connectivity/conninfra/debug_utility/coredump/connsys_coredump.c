@@ -277,7 +277,7 @@ static void conndump_timeout_handler(timer_handler_arg arg)
 	GET_HANDLER_DATA(arg, data);
 	ctx = (struct connsys_dump_ctx*)data;
 	if (ctx) {
-		pr_info("[%d] coredump timeout\n", ctx->conn_type);
+		pr_info("[%s] coredump timeout\n", ctx->conn_type);
 		conndump_set_dump_state(ctx, CORE_DUMP_TIMEOUT);
 	}
 }
@@ -559,9 +559,9 @@ static void conndump_info_analysis(
 					pr_err("parser ' ' is not find\n");
 					pTemp2 = pTemp + 1;
 				}
-				pr_info("(pTemp2 - pTemp)=%ld\n", (pTemp2 - pTemp));
+				pr_info("(pTemp2 - pTemp)=%d\n", (pTemp2 - pTemp));
 				if ((remain_array_len) > (pTemp2 - pTemp)) {
-					pr_info("Copy %ld\n", pTemp2 - pTemp);
+					pr_info("Copy %d\n", pTemp2 - pTemp);
 					memcpy(
 						&ctx->info.assert_info[idx],
 						pTemp,
@@ -1283,7 +1283,7 @@ static void conndump_exception_show(struct connsys_dump_ctx* ctx, bool full_dump
 	}
 
 #if defined(CONNINFRA_PLAT_ALPS) && CONNINFRA_PLAT_ALPS
-	pr_info("par1: [%s] pars: [%s] par3: [%lu]\n",
+	pr_info("par1: [%s] pars: [%s] par3: [%d]\n",
 		ctx->hw_config.exception_tag_name,
 		ctx->info.exception_log,
 		strlen(ctx->info.exception_log));
@@ -1414,12 +1414,11 @@ int connsys_coredump_start(
 	struct timespec64 begin, end, put_done;
 	struct timespec64 mem_start, mem_end, cr_start, cr_end, emi_dump_start, emi_dump_end;
 	unsigned int coredump_mode = 0;
+
 	static DEFINE_RATELIMIT_STATE(_rs, HZ, 1);
 
 	if (ctx == NULL || ctx->conn_type < 0 || ctx->conn_type > CONN_DEBUG_TYPE_BT)
 		return 0;
-
-	ratelimit_set_flags(&_rs, RATELIMIT_MSG_ON_RELEASE);
 
 	/* TODO: Check coredump mode */
 	coredump_mode = connsys_coredump_get_mode();
@@ -1461,7 +1460,6 @@ int connsys_coredump_start(
 			conndump_send_fake_coredump(ctx);
 			goto partial_dump;
 		}
-
 		if (__ratelimit(&_rs)) {
 			pr_info("Wait coredump state, EMI[0]=0x%x EMI[4]=0x%x\n",
 				conndump_get_dmp_info(ctx, 0, false),
@@ -1623,7 +1621,7 @@ void* connsys_coredump_init(
 	/* EMI init */
 	conninfra_get_emi_phy_addr(CONNSYS_EMI_FW, &emi_base, &emi_size);
 	conninfra_get_emi_phy_addr(CONNSYS_EMI_MCIF, NULL, &mcif_emi_size);
-	pr_info("conn_type=%d Get emi_base=0x%llx emi_size=%d\n", conn_type, emi_base, emi_size);
+	pr_info("conn_type=%d Get emi_base=0x%x emi_size=%d\n", conn_type, emi_base, emi_size);
 	ctx->full_emi_size = emi_size;
 	ctx->emi_phy_addr_base = config->start_offset + emi_base;
 	ctx->emi_size = config->size;
@@ -1632,7 +1630,7 @@ void* connsys_coredump_init(
 	ctx->emi_virt_addr_base =
 		ioremap(ctx->emi_phy_addr_base, ctx->emi_size);
 	if (ctx->emi_virt_addr_base == 0) {
-		pr_notice("Remap emi fail (0x%llx) size=%d",
+		pr_err("Remap emi fail (0x%08x) size=%d",
 			ctx->emi_phy_addr_base, ctx->emi_size);
 		goto error_exit;
 	}

@@ -225,23 +225,6 @@ uint8_t get_pre_cal_status(void)
 EXPORT_SYMBOL(get_pre_cal_status);
 #endif
 
-int32_t update_wr_mtx_down_up_status(uint8_t ucDownUp, uint8_t ucIsBlocking)
-{
-	if (ucDownUp == 0) {
-		WIFI_INFO_FUNC("Try to down wr_mtx\n");
-		if (ucIsBlocking == 1)
-			down(&wr_mtx);
-		else if (ucIsBlocking == 0)
-			return down_trylock(&wr_mtx);
-	} else if (ucDownUp == 1) {
-		up(&wr_mtx);
-		WIFI_INFO_FUNC("Up wr_mtx\n");
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(update_wr_mtx_down_up_status);
-
 enum ENUM_WLAN_DRV_BUF_TYPE_T {
 	BUF_TYPE_NVRAM,
 	BUF_TYPE_DRV_CFG,
@@ -418,10 +401,10 @@ ssize_t WIFI_write(struct file *filp, const char __user *buf, size_t count, loff
 	struct net_device *netdev = NULL;
 	struct PARAM_CUSTOM_P2P_SET_STRUCT p2pmode;
 	int32_t wait_cnt = 0;
-	uint32_t copy_size = 0;
+	int copy_size = 0;
 
 	down(&wr_mtx);
-	if (count <= 0) {
+	if (count == 0) {
 		WIFI_ERR_FUNC("WIFI_write invalid param\n");
 		goto done;
 	}
@@ -431,12 +414,14 @@ ssize_t WIFI_write(struct file *filp, const char __user *buf, size_t count, loff
 		goto done;
 	}
 #endif
-	copy_size = (sizeof(local) - 1) < (uint32_t) count ?
-		(sizeof(local) - 1) : (uint32_t) count;
-
+	copy_size = min(sizeof(local) - 1, count);
+	if (copy_size < 0) {
+		WIFI_ERR_FUNC("Invalid copy_size: %d\n", copy_size);
+		goto done;
+	}
 	if (copy_from_user(local, buf, copy_size) == 0) {
 		local[copy_size] = '\0';
-		WIFI_INFO_FUNC("WIFI_write %s, length %zu, copy_size %u\n",
+		WIFI_INFO_FUNC("WIFI_write %s, length %zu, copy_size %d\n",
 			local, count, copy_size);
 
 		if (local[0] == '0') {
@@ -841,6 +826,12 @@ static int WIFI_init(void)
 		WIFI_INFO_FUNC("connsys debug node init failed!!\n");
 		goto error;
 	}
+#if CFG_TC10_FEATURE
+	if (fw_log_write_log_to_file_init() < 0) {
+		WIFI_INFO_FUNC("connsys debug node write to file init failed!!\n");
+		goto error;
+	}
+#endif
 	if (fw_log_ics_init() < 0) {
 		WIFI_INFO_FUNC("ics log node init failed!!\n");
 		goto error;
@@ -888,6 +879,9 @@ static void WIFI_exit(void)
 
 #ifdef CONFIG_MTK_CONNSYS_DEDICATED_LOG_PATH
 	fw_log_wifi_deinit();
+#if CFG_TC10_FEATURE
+	fw_log_write_log_to_file_deinit();
+#endif
 	fw_log_ics_deinit();
 #endif
 #if (CFG_ANDORID_CONNINFRA_SUPPORT == 1)

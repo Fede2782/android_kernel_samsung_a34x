@@ -13,6 +13,11 @@
 uint8_t g_ucInstanceID;
 struct _NAN_DISC_ENGINE_T g_rNanDiscEngine;
 
+struct _CMD_NAN_CANCEL_REQUEST {
+	uint16_t publish_or_subscribe;
+	uint16_t publish_subscribe_id;
+};
+
 void
 nanConvertMatchFilter(uint8_t *pucFilterDst, uint8_t *pucFilterSrc,
 		      uint8_t ucFilterSrcLen, uint16_t *pucFilterDstLen) {
@@ -98,18 +103,22 @@ nanConvertUccMatchFilter(uint8_t *pucFilterDst, uint8_t *pucFilterSrc,
 }
 
 uint32_t
-nanCancelPublishRequest(struct ADAPTER *prAdapter,
-			struct NanPublishCancelRequest *msg) {
+nanCancelPublishRequest(
+	struct ADAPTER *prAdapter,
+	struct NanPublishCancelRequest *msg)
+{
+	uint8_t i;
 	uint32_t rStatus;
 	void *prCmdBuffer;
 	uint32_t u4CmdBufferLen;
 	struct _CMD_EVENT_TLV_COMMOM_T *prTlvCommon = NULL;
 	struct _CMD_EVENT_TLV_ELEMENT_T *prTlvElement = NULL;
-	uint16_t *pu2CancelPubID;
+	struct _CMD_NAN_CANCEL_REQUEST *prNanUniCmdCancelReq = NULL;
+	struct _NAN_PUBLISH_SPECIFIC_INFO_T *prPubSpecificInfo = NULL;
 
 	u4CmdBufferLen = sizeof(struct _CMD_EVENT_TLV_COMMOM_T) +
 			 sizeof(struct _CMD_EVENT_TLV_ELEMENT_T) +
-			 sizeof(uint16_t);
+			 sizeof(struct _CMD_NAN_CANCEL_REQUEST);
 	prCmdBuffer = cnmMemAlloc(prAdapter, RAM_TYPE_BUF, u4CmdBufferLen);
 	if (!prCmdBuffer) {
 		DBGLOG(CNM, ERROR, "Memory allocation fail\n");
@@ -120,7 +129,8 @@ nanCancelPublishRequest(struct ADAPTER *prAdapter,
 
 	prTlvCommon->u2TotalElementNum = 0;
 
-	rStatus = nicAddNewTlvElement(NAN_CMD_CANCEL_PUBLISH, sizeof(uint16_t),
+	rStatus = nicAddNewTlvElement(NAN_CMD_CANCEL_PUBLISH,
+				      sizeof(struct _CMD_NAN_CANCEL_REQUEST),
 				      u4CmdBufferLen, prCmdBuffer);
 
 	if (rStatus != WLAN_STATUS_SUCCESS) {
@@ -135,10 +145,26 @@ nanCancelPublishRequest(struct ADAPTER *prAdapter,
 		cnmMemFree(prAdapter, prCmdBuffer);
 		return WLAN_STATUS_FAILURE;
 	}
+	prNanUniCmdCancelReq =
+		(struct _CMD_NAN_CANCEL_REQUEST *)prTlvElement->aucbody;
+	kalMemZero(prNanUniCmdCancelReq,
+		sizeof(struct _CMD_NAN_CANCEL_REQUEST));
+	prNanUniCmdCancelReq->publish_or_subscribe = 1;
+	prNanUniCmdCancelReq->publish_subscribe_id = msg->publish_id;
 
-	pu2CancelPubID = (uint16_t *)prTlvElement->aucbody;
-	*pu2CancelPubID = msg->publish_id;
-	prAdapter->ucNanPubNum--;
+	/* If FW will send terminate,
+	 * decrease ucNanPubNum at terminate event handler
+	 */
+	for (i = 0; i < NAN_MAX_PUBLISH_NUM; i++) {
+		prPubSpecificInfo =
+			&prAdapter->rPublishInfo.rPubSpecificInfo[i];
+		if (prPubSpecificInfo->ucPublishId == msg->publish_id) {
+			prPubSpecificInfo->ucUsed = FALSE;
+			if (!prPubSpecificInfo->ucReportTerminate)
+				prAdapter->rPublishInfo.ucNanPubNum--;
+		}
+	}
+
 	wlanSendSetQueryCmd(prAdapter,		  /* prAdapter */
 			    CMD_ID_NAN_EXT_CMD,   /* ucCID */
 			    TRUE,		  /* fgSetQuery */
@@ -151,6 +177,7 @@ nanCancelPublishRequest(struct ADAPTER *prAdapter,
 			    NULL,		  /* pvSetQueryBuffer */
 			    0 /* u4SetQueryBufferLen */);
 	cnmMemFree(prAdapter, prCmdBuffer);
+
 	return WLAN_STATUS_SUCCESS;
 }
 
@@ -199,9 +226,6 @@ nanUpdatePublishRequest(struct ADAPTER *prAdapter,
 
 	DBGLOG(INIT, INFO, "nan: service_name_len = %d\n",
 	       msg->service_name_len);
-	prPublishReq->service_name_len = msg->service_name_len;
-	kalMemCopy(prPublishReq->service_name, msg->service_name,
-		   msg->service_name_len);
 
 	prPublishReq->service_specific_info_len =
 		msg->service_specific_info_len;
@@ -280,19 +304,16 @@ nanSetPublishPmkid(struct ADAPTER *prAdapter, struct NanPublishRequest *msg) {
 
 uint32_t
 nanPublishRequest(struct ADAPTER *prAdapter, struct NanPublishRequest *msg) {
-
-	uint32_t rStatus;
+	uint8_t i, auc_tk[32];
+	uint16_t u2PublishId = 0;
+	uint32_t u4CmdBufferLen, rStatus, u4Idx;
 	void *prCmdBuffer;
-	uint32_t u4CmdBufferLen;
 	struct _CMD_EVENT_TLV_COMMOM_T *prTlvCommon = NULL;
 	struct _CMD_EVENT_TLV_ELEMENT_T *prTlvElement = NULL;
 	struct NanFWPublishRequest *prPublishReq = NULL;
-	char aucServiceName[NAN_FW_MAX_SERVICE_NAME_LEN + 1];
+	char aucServiceName[NAN_MAX_SERVICE_NAME_LEN + 1];
 	struct nan_rdf_sha256_state r_SHA_256_state;
-	uint8_t auc_tk[32];
-	uint32_t u4Idx;
-
-	kalMemZero(auc_tk, sizeof(auc_tk));
+	struct _NAN_PUBLISH_SPECIFIC_INFO_T *prPubSpecificInfo = NULL;
 
 	u4CmdBufferLen = sizeof(struct _CMD_EVENT_TLV_COMMOM_T) +
 			 sizeof(struct _CMD_EVENT_TLV_ELEMENT_T) +
@@ -325,19 +346,46 @@ nanPublishRequest(struct ADAPTER *prAdapter, struct NanPublishRequest *msg) {
 	prPublishReq = (struct NanFWPublishRequest *)prTlvElement->aucbody;
 	kalMemZero(prPublishReq, sizeof(struct NanFWPublishRequest));
 
-	if (prAdapter->ucNanPubNum < NAN_MAX_PUBLISH_NUM) {
-		if (msg->publish_id == 0)
+	if (prAdapter->rPublishInfo.ucNanPubNum < NAN_MAX_PUBLISH_NUM) {
+		if (msg->publish_id == 0) {
 			prPublishReq->publish_id = ++g_ucInstanceID;
-		else
+			prAdapter->rPublishInfo.ucNanPubNum++;
+		} else {
 			prPublishReq->publish_id = msg->publish_id;
-		prAdapter->ucNanPubNum++;
+			for (i = 0; i < NAN_MAX_PUBLISH_NUM; i++) {
+				prPubSpecificInfo =
+					&prAdapter->rPublishInfo.
+					rPubSpecificInfo[i];
+				if (prPubSpecificInfo->ucPublishId ==
+					msg->publish_id &&
+					!prPubSpecificInfo->ucUsed) {
+					DBGLOG(NAN, INFO,
+						"PID%d might be timeout, update FAIL!\n",
+						prPublishReq->publish_id);
+					return 0;
+				}
+			}
+		}
 	} else {
 		DBGLOG(NAN, INFO, "Exceed max number, allocate fail\n");
-		prPublishReq->publish_id = 0;
-		return prPublishReq->publish_id;
+		cnmMemFree(prAdapter, prCmdBuffer);
+		return 0;
 	}
+	u2PublishId = prPublishReq->publish_id;
 	if (g_ucInstanceID == 255)
 		g_ucInstanceID = 0;
+
+	/* Find available Publish Info */
+	for (i = 0; i < NAN_MAX_PUBLISH_NUM; i++) {
+		prPubSpecificInfo =
+			&prAdapter->rPublishInfo.rPubSpecificInfo[i];
+		if (!prPubSpecificInfo->ucUsed) {
+			prPubSpecificInfo->ucUsed = TRUE;
+			prPubSpecificInfo->ucPublishId =
+				prPublishReq->publish_id;
+			break;
+		}
+	}
 
 	prPublishReq->tx_type = msg->tx_type;
 	prPublishReq->publish_type = msg->publish_type;
@@ -345,21 +393,16 @@ nanPublishRequest(struct ADAPTER *prAdapter, struct NanPublishRequest *msg) {
 	prPublishReq->ttl = msg->ttl;
 	prPublishReq->rssi_threshold_flag = msg->rssi_threshold_flag;
 	prPublishReq->recv_indication_cfg = msg->recv_indication_cfg;
+	/* Bit0 of recv_indication_cfg indicate report terminate event or not */
+	if (prPublishReq->recv_indication_cfg & BIT(0))
+		prPubSpecificInfo->ucReportTerminate = FALSE;
+	else
+		prPubSpecificInfo->ucReportTerminate = TRUE;
 
-	if (msg->service_name_len > NAN_FW_MAX_SERVICE_NAME_LEN) {
-		DBGLOG(NAN, ERROR,
-			"Service name length error:%d\n",
-			msg->service_name_len);
-		msg->service_name_len = NAN_FW_MAX_SERVICE_NAME_LEN;
-	}
-	prPublishReq->service_name_len = msg->service_name_len;
-	kalMemCopy(prPublishReq->service_name, msg->service_name,
-		   msg->service_name_len);
 	kalMemZero(aucServiceName, sizeof(aucServiceName));
 	kalMemCopy(aucServiceName,
 			msg->service_name,
-			msg->service_name_len);
-	aucServiceName[msg->service_name_len] = '\0';
+			NAN_MAX_SERVICE_NAME_LEN);
 	for (u4Idx = 0; u4Idx < kalStrLen(aucServiceName); u4Idx++) {
 		if ((aucServiceName[u4Idx] >= 'A') &&
 		    (aucServiceName[u4Idx] <= 'Z'))
@@ -368,6 +411,7 @@ nanPublishRequest(struct ADAPTER *prAdapter, struct NanPublishRequest *msg) {
 	nan_rdf_sha256_init(&r_SHA_256_state);
 	sha256_process(&r_SHA_256_state, aucServiceName,
 		       kalStrLen(aucServiceName));
+	kalMemZero(auc_tk, sizeof(auc_tk));
 	sha256_done(&r_SHA_256_state, auc_tk);
 	kalMemCopy(prPublishReq->service_name_hash, auc_tk,
 		   NAN_SERVICE_HASH_LENGTH);
@@ -453,7 +497,7 @@ nanPublishRequest(struct ADAPTER *prAdapter, struct NanPublishRequest *msg) {
 
 	cnmMemFree(prAdapter, prCmdBuffer);
 
-	return prPublishReq->publish_id;
+	return u2PublishId;
 }
 
 uint32_t
@@ -496,8 +540,11 @@ nanTransmitRequest(struct ADAPTER *prAdapter,
 
 	prTransmitReq =
 		(struct NanFWTransmitFollowupRequest *)prTlvElement->aucbody;
+	kalMemZero(prTransmitReq, sizeof(struct NanFWTransmitFollowupRequest));
+
 	prTransmitReq->publish_subscribe_id = msg->publish_subscribe_id;
 	prTransmitReq->requestor_instance_id = msg->requestor_instance_id;
+	prTransmitReq->transaction_id = msg->transaction_id;
 	kalMemCopy(prTransmitReq->addr, msg->addr, MAC_ADDR_LEN);
 	prTransmitReq->service_specific_info_len =
 		msg->service_specific_info_len;
@@ -539,16 +586,18 @@ nanTransmitRequest(struct ADAPTER *prAdapter,
 uint32_t
 nanCancelSubscribeRequest(struct ADAPTER *prAdapter,
 			  struct NanSubscribeCancelRequest *msg) {
+	uint8_t i;
 	uint32_t rStatus;
 	void *prCmdBuffer;
 	uint32_t u4CmdBufferLen;
 	struct _CMD_EVENT_TLV_COMMOM_T *prTlvCommon = NULL;
 	struct _CMD_EVENT_TLV_ELEMENT_T *prTlvElement = NULL;
-	uint16_t *pu2CancelSubID;
+	struct _CMD_NAN_CANCEL_REQUEST *prNanUniCmdCancelReq = NULL;
+	struct _NAN_SUBSCRIBE_SPECIFIC_INFO_T *prSubSpecificInfo = NULL;
 
 	u4CmdBufferLen = sizeof(struct _CMD_EVENT_TLV_COMMOM_T) +
 			 sizeof(struct _CMD_EVENT_TLV_ELEMENT_T) +
-			 sizeof(uint16_t);
+			 sizeof(struct _CMD_NAN_CANCEL_REQUEST);
 	prCmdBuffer = cnmMemAlloc(prAdapter, RAM_TYPE_BUF, u4CmdBufferLen);
 	if (!prCmdBuffer) {
 		DBGLOG(CNM, ERROR, "Memory allocation fail\n");
@@ -560,7 +609,8 @@ nanCancelSubscribeRequest(struct ADAPTER *prAdapter,
 	prTlvCommon->u2TotalElementNum = 0;
 
 	rStatus = nicAddNewTlvElement(NAN_CMD_CANCEL_SUBSCRIBE,
-			sizeof(uint16_t), u4CmdBufferLen, prCmdBuffer);
+			sizeof(struct _CMD_NAN_CANCEL_REQUEST),
+			u4CmdBufferLen, prCmdBuffer);
 
 	if (rStatus != WLAN_STATUS_SUCCESS) {
 		DBGLOG(TX, ERROR, "Add new Tlv element fail\n");
@@ -575,9 +625,27 @@ nanCancelSubscribeRequest(struct ADAPTER *prAdapter,
 		return WLAN_STATUS_FAILURE;
 	}
 
-	pu2CancelSubID = (uint16_t *)prTlvElement->aucbody;
-	*pu2CancelSubID = msg->subscribe_id;
-	prAdapter->ucNanSubNum--;
+	prNanUniCmdCancelReq =
+		(struct _CMD_NAN_CANCEL_REQUEST *)prTlvElement->aucbody;
+	kalMemZero(prNanUniCmdCancelReq,
+		sizeof(struct _CMD_NAN_CANCEL_REQUEST));
+	prNanUniCmdCancelReq->publish_or_subscribe = 0;
+	prNanUniCmdCancelReq->publish_subscribe_id =
+		msg->subscribe_id;
+
+	/* Decrease ucNanPubNum if FW will not send terminate,
+	 * or ucNanPubNum will decrease in terminate event handler.
+	 */
+	for (i = 0; i < NAN_MAX_SUBSCRIBE_NUM; i++) {
+		prSubSpecificInfo =
+			&prAdapter->rSubscribeInfo.rSubSpecificInfo[i];
+		if (prSubSpecificInfo->ucSubscribeId == msg->subscribe_id) {
+			prSubSpecificInfo->ucUsed = FALSE;
+			if (!prSubSpecificInfo->ucReportTerminate)
+				prAdapter->rSubscribeInfo.ucNanSubNum--;
+		}
+	}
+
 	wlanSendSetQueryCmd(prAdapter,		  /* prAdapter */
 			    CMD_ID_NAN_EXT_CMD,   /* ucCID */
 			    TRUE,		  /* fgSetQuery */
@@ -596,19 +664,16 @@ nanCancelSubscribeRequest(struct ADAPTER *prAdapter,
 uint32_t
 nanSubscribeRequest(struct ADAPTER *prAdapter,
 		    struct NanSubscribeRequest *msg) {
-	uint32_t rStatus;
+	uint8_t i, auc_tk[32];
+	uint16_t u2SubscribeId = 0;
+	uint32_t u4CmdBufferLen, rStatus, u4Idx;
 	void *prCmdBuffer;
-	uint32_t u4CmdBufferLen;
 	struct _CMD_EVENT_TLV_COMMOM_T *prTlvCommon = NULL;
 	struct _CMD_EVENT_TLV_ELEMENT_T *prTlvElement = NULL;
 	struct NanFWSubscribeRequest *prSubscribeReq = NULL;
-
-	char aucServiceName[NAN_FW_MAX_SERVICE_NAME_LEN + 1];
+	struct _NAN_SUBSCRIBE_SPECIFIC_INFO_T *prSubSpecificInfo = NULL;
+	char aucServiceName[NAN_MAX_SERVICE_NAME_LEN + 1];
 	struct nan_rdf_sha256_state r_SHA_256_state;
-	uint8_t auc_tk[32];
-	uint32_t u4Idx;
-
-	kalMemZero(auc_tk, sizeof(auc_tk));
 
 	u4CmdBufferLen = sizeof(struct _CMD_EVENT_TLV_COMMOM_T) +
 			 sizeof(struct _CMD_EVENT_TLV_ELEMENT_T) +
@@ -641,47 +706,69 @@ nanSubscribeRequest(struct ADAPTER *prAdapter,
 	}
 	prSubscribeReq = (struct NanFWSubscribeRequest *) prTlvElement->aucbody;
 
-	if (prAdapter->ucNanSubNum < NAN_MAX_SUBSCRIBE_NUM) {
-		if (msg->subscribe_id == 0)
+	if (prAdapter->rSubscribeInfo.ucNanSubNum < NAN_MAX_SUBSCRIBE_NUM) {
+		if (msg->subscribe_id == 0) {
 			prSubscribeReq->subscribe_id = ++g_ucInstanceID;
-		else
+			prAdapter->rSubscribeInfo.ucNanSubNum++;
+		} else {
 			prSubscribeReq->subscribe_id = msg->subscribe_id;
-		prAdapter->ucNanSubNum++;
+			for (i = 0; i < NAN_MAX_SUBSCRIBE_NUM; i++) {
+				prSubSpecificInfo =
+					&prAdapter->rSubscribeInfo.
+					rSubSpecificInfo[i];
+				if (prSubSpecificInfo->ucSubscribeId ==
+					msg->subscribe_id &&
+					!prSubSpecificInfo->ucUsed) {
+					DBGLOG(NAN, INFO,
+						"SID%d might be timeout, update FAIL!\n",
+						prSubscribeReq->subscribe_id);
+					return 0;
+				}
+			}
+		}
 	} else {
-		prSubscribeReq->subscribe_id = 0;
-		return prSubscribeReq->subscribe_id;
+		cnmMemFree(prAdapter, prCmdBuffer);
+		return 0;
 	}
+	u2SubscribeId = prSubscribeReq->subscribe_id;
 	if (g_ucInstanceID == 255)
 		g_ucInstanceID = 0;
+
+	/* Find available Subscribe Info */
+	for (i = 0; i < NAN_MAX_PUBLISH_NUM; i++) {
+		prSubSpecificInfo =
+			&prAdapter->rSubscribeInfo.rSubSpecificInfo[i];
+		if (!prSubSpecificInfo->ucUsed) {
+			prSubSpecificInfo->ucUsed = TRUE;
+			prSubSpecificInfo->ucSubscribeId =
+				prSubscribeReq->subscribe_id;
+			break;
+		}
+	}
 
 	prSubscribeReq->subscribe_type = msg->subscribe_type;
 	prSubscribeReq->ttl = msg->ttl;
 	prSubscribeReq->rssi_threshold_flag = msg->rssi_threshold_flag;
 	prSubscribeReq->recv_indication_cfg = msg->recv_indication_cfg;
+	/* Bit0 of recv_indication_cfg indicate report terminate event or not */
+	if (prSubscribeReq->recv_indication_cfg & BIT(0))
+		prSubSpecificInfo->ucReportTerminate = FALSE;
+	else
+		prSubSpecificInfo->ucReportTerminate = TRUE;
+
 	prSubscribeReq->period = msg->period;
 
-	if (msg->service_name_len > NAN_FW_MAX_SERVICE_NAME_LEN) {
-		DBGLOG(NAN, ERROR,
-			"Service name length error:%d\n",
-			msg->service_name_len);
-		msg->service_name_len = NAN_FW_MAX_SERVICE_NAME_LEN;
-	}
-	prSubscribeReq->service_name_len = msg->service_name_len;
-	kalMemCopy(prSubscribeReq->service_name, msg->service_name,
-		   msg->service_name_len);
 	kalMemZero(aucServiceName, sizeof(aucServiceName));
 	kalMemCopy(aucServiceName,
 			msg->service_name,
-			msg->service_name_len);
-	aucServiceName[msg->service_name_len] = '\0';
-	for (u4Idx = 0; u4Idx < kalStrLen(aucServiceName); u4Idx++) {
-		if ((aucServiceName[u4Idx] >= 'A') &&
-		    (aucServiceName[u4Idx] <= 'Z'))
-			aucServiceName[u4Idx] = aucServiceName[u4Idx] + 32;
-	}
+			NAN_MAX_SERVICE_NAME_LEN);
+	for (u4Idx = 0; u4Idx < kalStrLen(aucServiceName); u4Idx++)
+		aucServiceName[u4Idx] = tolower(aucServiceName[u4Idx]);
+
 	nan_rdf_sha256_init(&r_SHA_256_state);
 	sha256_process(&r_SHA_256_state, aucServiceName,
 		       kalStrLen(aucServiceName));
+	kalMemZero(auc_tk, sizeof(auc_tk));
 	sha256_done(&r_SHA_256_state, auc_tk);
 	kalMemCopy(prSubscribeReq->service_name_hash, auc_tk,
 		   NAN_SERVICE_HASH_LENGTH);
@@ -704,8 +791,9 @@ nanSubscribeRequest(struct ADAPTER *prAdapter,
 	    NAN_FW_SDEA_SPECIFIC_INFO_LEN)
 		prSubscribeReq->sdea_service_specific_info_len =
 			NAN_FW_SDEA_SPECIFIC_INFO_LEN;
-	DBGLOG(INIT, INFO, "nan: sdea_service_specific_info_len = %d\n",
-	       prSubscribeReq->sdea_service_specific_info_len);
+	DBGLOG(INIT, INFO,
+		"nan: sdea_service_specific_info_len = %d\n",
+		prSubscribeReq->sdea_service_specific_info_len);
 	kalMemCopy(prSubscribeReq->sdea_service_specific_info,
 		   msg->sdea_service_specific_info,
 		   prSubscribeReq->sdea_service_specific_info_len);
@@ -765,11 +853,12 @@ nanSubscribeRequest(struct ADAPTER *prAdapter,
 			    NULL,		  /* pvSetQueryBuffer */
 			    0 /* u4SetQueryBufferLen */);
 	cnmMemFree(prAdapter, prCmdBuffer);
-	return prSubscribeReq->subscribe_id;
+
+	return u2SubscribeId;
 }
 
 void
-nanCmdAddCsid(IN struct ADAPTER *prAdapter, uint8_t ucPubID, uint8_t ucNumCsid,
+nanCmdAddCsid(struct ADAPTER *prAdapter, uint8_t ucPubID, uint8_t ucNumCsid,
 	      uint8_t *pucCsidList) {
 	uint32_t rStatus;
 	void *prCmdBuffer;
@@ -825,7 +914,7 @@ nanCmdAddCsid(IN struct ADAPTER *prAdapter, uint8_t ucPubID, uint8_t ucNumCsid,
 }
 
 void
-nanCmdManageScid(IN struct ADAPTER *prAdapter, unsigned char fgAddDelete,
+nanCmdManageScid(struct ADAPTER *prAdapter, unsigned char fgAddDelete,
 		 uint8_t ucPubID, uint8_t *pucScid) {
 	uint32_t rStatus;
 	void *prCmdBuffer;

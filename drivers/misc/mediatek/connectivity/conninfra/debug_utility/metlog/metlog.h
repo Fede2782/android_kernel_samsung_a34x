@@ -22,9 +22,9 @@
 */
 struct conn_metlog_info {
 	int type;
-	phys_addr_t read_cr;
-	phys_addr_t write_cr;
-	phys_addr_t met_base_ap;
+	unsigned int read_cr;
+	unsigned int write_cr;
+	unsigned int met_base_ap;
 	unsigned int met_base_fw;
 	unsigned int met_size;
 	unsigned int output_len;

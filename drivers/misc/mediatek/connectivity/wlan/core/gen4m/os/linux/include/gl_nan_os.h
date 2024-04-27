@@ -83,9 +83,9 @@ struct _GL_NAN_INFO_T {
  *                           P R I V A T E   D A T A
  *******************************************************************************
  */
-int mtk_nan_wext_get_priv(IN struct net_device *prDev,
-			  IN struct iw_request_info *info,
-			  IN OUT union iwreq_data *wrqu, IN OUT char *extra);
+int mtk_nan_wext_get_priv(struct net_device *prDev,
+			  struct iw_request_info *info,
+			  union iwreq_data *wrqu, char *extra);
 
 unsigned char nanLaunch(struct GLUE_INFO *prGlueInfo);
 
@@ -106,7 +106,7 @@ unsigned char nanNetRegister(struct GLUE_INFO *prGlueInfo,
 unsigned char nanNetUnregister(struct GLUE_INFO *prGlueInfo,
 			 unsigned char fgIsRtnlLockAcquired);
 
-unsigned char nanAllocInfo(IN struct GLUE_INFO *prGlueInfo, uint8_t ucRoleIdx);
+unsigned char nanAllocInfo(struct GLUE_INFO *prGlueInfo, uint8_t ucRoleIdx);
 unsigned char nanFreeInfo(struct GLUE_INFO *prGlueInfo, uint8_t ucRoleIdx);
 
 /* VOID p2pSetSuspendMode(P_GLUE_INFO_T prGlueInfo, BOOLEAN fgEnable); */

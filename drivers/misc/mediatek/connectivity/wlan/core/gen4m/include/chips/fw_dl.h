@@ -125,9 +125,6 @@ extern unsigned long long gConEmiSize;
 #define PATCH_SEC_TYPE_MASK	0x0000ffff
 #define PATCH_SEC_TYPE_BIN_INFO	0x2
 
-/* Used for sanity check */
-#define FW_MAX_SECTION_NUM	1024
-
 enum ENUM_IMG_DL_IDX_T {
 	IMG_DL_IDX_N9_FW,
 	IMG_DL_IDX_CR4_FW,
@@ -419,14 +416,12 @@ void fwDlGetReleaseInfoSection(struct WIFI_VER_INFO *prVerInfo,
 void fwDlGetReleaseManifest(struct WIFI_VER_INFO *prVerInfo,
 			    struct HEADER_RELEASE_INFO *prRelInfo,
 			    uint8_t *pucStartPtr);
-
 void wlanReadRamCodeReleaseManifest(uint8_t *pucManifestBuffer,
 		uint32_t *pu4ManifestSize, uint32_t u4BufferMaxSize);
-
 #endif
 
 #if (CFG_SUPPORT_CONNINFRA == 1)
-extern void conninfra_get_phy_addr(phys_addr_t *addr, unsigned int *size);
+extern void conninfra_get_phy_addr(unsigned int *addr, unsigned int *size);
 #endif
 
 #endif /* _FW_DL_H */

@@ -78,11 +78,17 @@
  *******************************************************************************
  */
 /* Roaming Discovery interval, SCAN result need to be updated */
-#define ROAMING_DISCOVER_TIMEOUT_SEC                10	/* Seconds. */
+#if (CFG_TC10_FEATURE == 1)
+#define ROAMING_DISCOVER_TIMEOUT_SEC                0   /* Seconds. */
+#else
+#define ROAMING_DISCOVER_TIMEOUT_SEC                10  /* Seconds. */
+#endif
 #define ROAMING_INACTIVE_TIMEOUT_SEC                10	/* Seconds. */
 #if CFG_SUPPORT_ROAMING_SKIP_ONE_AP
 #define ROAMING_ONE_AP_SKIP_TIMES		3
 #endif
+
+#define ROAMING_BTM_DELTA			    0   /* % */
 
 /* #define ROAMING_NO_SWING_RCPI_STEP                  5 //rcpi */
 /*******************************************************************************
@@ -107,16 +113,21 @@ enum ENUM_ROAMING_EVENT {
 };
 
 enum ENUM_ROAMING_REASON {
+	/* FW defined */
 	ROAMING_REASON_POOR_RCPI = 0,
-	ROAMING_REASON_TX_ERR, /*Lowest rate, high PER*/
+	ROAMING_REASON_TX_ERR, /*Lowest rate, high PER */
 	ROAMING_REASON_RETRY,
 	ROAMING_REASON_IDLE,
+	ROAMING_REASON_HIGH_CU,
+
+	/* driver defined */
 	ROAMING_REASON_BEACON_TIMEOUT,
+	ROAMING_REASON_BEACON_TIMEOUT_TX_ERR,
 	ROAMING_REASON_INACTIVE,
-	ROAMING_REASON_SAA_FAIL,
+	ROAMING_REASON_SAA_FAIL, /* A.K.A. emergency roaming */
 	ROAMING_REASON_UPPER_LAYER_TRIGGER,
 	ROAMING_REASON_BTM,
-	ROAMING_REASON_BTM_DISASSOC,
+	ROAMING_REASON_REASSOC,
 	ROAMING_REASON_NUM
 };
 
@@ -171,17 +182,11 @@ struct ROAMING_EVENT_INFO {
 	uint8_t ucSupportStbc;
 };
 
-#if CFG_SUPPORT_802_11V_BTM_OFFLOAD
-struct ROAMING_SKIP_BTM {
-	uint8_t ucConsecutiveBtmCount;
-	OS_SYSTIME rFrstReqTime;
+struct CONNECTED_BSS {
+	struct LINK_ENTRY rLinkEntry;
+	uint8_t aucBssid[MAC_ADDR_LEN];
+	uint8_t fgQueriedCandidates;
 };
-
-struct ROAMING_SKIP_PER {
-	uint8_t ucConsecutivePerCount;
-	OS_SYSTIME rFrstPerTime;
-};
-#endif
 
 struct ROAMING_INFO {
 	u_int8_t fgIsEnableRoaming;
@@ -199,11 +204,10 @@ struct ROAMING_INFO {
 	uint8_t ucRcpi;
 	uint8_t ucThreshold;
 	struct ROAMING_EVENT_INFO rEventInfo;
-#if CFG_SUPPORT_802_11V_BTM_OFFLOAD
-	struct ROAMING_SKIP_BTM rSkipBtmInfo;
-	struct ROAMING_SKIP_PER rSkipPerInfo;
-	uint8_t fgDisallowBtmRoaming;
-	uint8_t fgDisallowPERRoaming;
+#if (CFG_TC10_FEATURE == 1)
+	struct LINK rCandidateApList;
+	struct LINK rRoamingHistory;
+	uint8_t fgIsGBandCoex;
 #endif
 };
 
@@ -232,6 +236,19 @@ void roamingFsmInit(IN struct ADAPTER *prAdapter,
 
 void roamingFsmUninit(IN struct ADAPTER *prAdapter,
 	IN uint8_t ucBssIndex);
+
+#if (CFG_TC10_FEATURE == 1)
+struct CONNECTED_BSS *roamingGetBss(struct ROAMING_INFO *prRoamingFsmInfo,
+	struct BSS_DESC *prTarget);
+
+uint8_t roamingIsBssInHistory(struct ROAMING_INFO *prRoamingFsmInfo,
+	struct BSS_DESC *prTarget);
+
+void roamingClearHistory(struct ROAMING_INFO *prRoamingFsmInfo);
+
+void roamingAddBssToHistory(struct ROAMING_INFO *prRoamingFsmInfo,
+	struct BSS_DESC *prTarget);
+#endif
 
 void roamingFsmSendCmd(IN struct ADAPTER *prAdapter,
 	IN struct CMD_ROAMING_TRANSIT *prTransit);
@@ -267,4 +284,23 @@ uint32_t roamingFsmProcessEvent(IN struct ADAPTER *prAdapter,
 
 uint8_t roamingFsmInDecision(struct ADAPTER *prAdapter, uint8_t ucBssIndex);
 
+uint8_t roamingFsmIsDiscovering(IN struct ADAPTER *prAdapter,
+	IN uint8_t ucBssIndex);
+
+void roamingFsmLogScanStart(IN struct ADAPTER *prAdapter,
+	IN uint8_t ucBssIndex, IN uint8_t fgIsFullScn,
+	IN struct BSS_DESC *prBssDesc);
+
+void roamingFsmLogScanDone(IN struct ADAPTER *prAdapter,
+	IN uint8_t ucBssIndex);
+
+void roamingFsmLogSocre(IN struct ADAPTER *prAdapter, uint8_t *prefix,
+	IN uint8_t ucBssIndex, struct BSS_DESC *prBssDesc, uint32_t u4Score,
+	uint32_t u4Tput);
+
+void roamingFsmLogResult(IN struct ADAPTER *prAdapter,
+	IN uint8_t ucBssIndex, struct BSS_DESC *prSelectedBssDesc);
+
+void roamingFsmLogCancel(IN struct ADAPTER *prAdapter,
+	IN uint8_t ucBssIndex, uint8_t *pucReason);
 #endif /* _ROAMING_FSM_H */

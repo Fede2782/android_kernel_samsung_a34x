@@ -8,7 +8,7 @@
 
 #include <linux/types.h>
 
-unsigned int consys_emi_set_remapping_reg_mt6895(phys_addr_t, phys_addr_t, phys_addr_t);
+unsigned int consys_emi_set_remapping_reg_mt6895(phys_addr_t, phys_addr_t);
 
 int consys_conninfra_on_power_ctrl_mt6895(unsigned int enable);
 int consys_conninfra_wakeup_mt6895(void);

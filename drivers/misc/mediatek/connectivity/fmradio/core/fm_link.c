@@ -28,8 +28,6 @@ static struct fm_trace_fifo_t *cmd_fifo;
 
 static struct fm_trace_fifo_t *evt_fifo;
 
-unsigned int g_fm_cmd_timeout_cnt;
-
 signed int fm_link_setup(void *data)
 {
 	signed int ret = 0;
@@ -171,19 +169,15 @@ signed int fm_cmd_tx(unsigned char *buf, unsigned short len, signed int mask, si
 	ret_time = FM_EVENT_WAIT_TIMEOUT(link_event->ln_event, mask, timeout);
 
 	if (!ret_time) {
-		g_fm_cmd_timeout_cnt++;
 		if (cnt-- > 0) {
-			WCN_DBG(FM_WAR | LINK,
-				"wait event timeout, [retry_cnt=%d], pid=%d total_fail=%u\n",
-				cnt, task->pid, g_fm_cmd_timeout_cnt);
+			WCN_DBG(FM_WAR | LINK, "wait event timeout, [retry_cnt=%d], pid=%d\n", cnt, task->pid);
 			fm_print_cmd_fifo();
 			fm_print_evt_fifo();
 		} else
 			WCN_DBG(FM_ALT | LINK, "fatal error, SW retry failed, reset HW\n");
 
 		return -FM_EFW;
-	} else
-		g_fm_cmd_timeout_cnt = 0;
+	}
 
 	FM_EVENT_CLR(link_event->ln_event, mask);
 

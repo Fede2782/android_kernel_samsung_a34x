@@ -154,10 +154,6 @@
 		(((_prRxVector) & SOC5_0_RX_VT_TXMODE_MASK)	\
 			 >> SOC5_0_RX_VT_TXMODE_OFFSET)
 
-#define RXV_GET_MUMIMO(_prRxVector)				\
-		(((_prRxVector) & SOC5_0_RX_VT_MUMIMO_MASK)	\
-			 >> SOC5_0_RX_VT_MUMIMO_OFFSET)
-
 /*******************************************************************************
 *                         D A T A   T Y P E S
 ********************************************************************************

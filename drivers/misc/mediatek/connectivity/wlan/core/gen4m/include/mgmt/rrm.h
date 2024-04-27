@@ -37,6 +37,7 @@
 #define RM_BCN_REQ_PASSIVE_MODE                     0
 #define RM_BCN_REQ_ACTIVE_MODE                      1
 #define RM_BCN_REQ_TABLE_MODE                       2
+#define RM_BCN_REQ_MODE_MAX                         3
 
 /*******************************************************************************
  *                             D A T A   T Y P E S
@@ -55,17 +56,9 @@ enum RM_REQ_PRIORITY {
 	RM_PRI_UNICAST
 };
 
-struct NORMAL_SCAN_PARAMS {
-	struct PARAM_SCAN_REQUEST_ADV rScanRequest;
-	uint8_t aucScanIEBuf[MAX_IE_LENGTH];
-	u_int8_t fgExist;
-};
-
 /* Beacon RM related parameters */
 struct BCN_RM_PARAMS {
 	enum BCN_RM_STATE eState;
-	struct NORMAL_SCAN_PARAMS rNormalScan;
-
 	uint8_t token;
 	uint8_t lastIndication;
 	u8 ssid[ELEM_MAX_LEN_SSID];
@@ -73,7 +66,7 @@ struct BCN_RM_PARAMS {
 	enum BEACON_REPORT_DETAIL reportDetail;
 	uint8_t *reportIeIds;
 	uint8_t reportIeIdsLen;
-	uint8_t *apChannels;
+	uint8_t apChannels[64];
 	uint8_t apChannelsLen;
 };
 

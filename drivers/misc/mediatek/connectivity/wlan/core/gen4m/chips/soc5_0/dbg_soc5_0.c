@@ -1040,7 +1040,6 @@ int soc5_0_get_rx_rate_info(IN struct ADAPTER *prAdapter,
 	uint32_t stbc = 0, nss = 0;
 	uint32_t u4RxVector0 = 0;
 	uint8_t ucWlanIdx, ucStaIdx;
-	uint32_t mu_mimo = 0;
 
 	if ((!pu4Rate) || (!pu4Nss) || (!pu4RxMode) || (!pu4FrMode) ||
 		(!pu4Sgi))
@@ -1058,7 +1057,7 @@ int soc5_0_get_rx_rate_info(IN struct ADAPTER *prAdapter,
 		WLAN_STATUS_SUCCESS) {
 		u4RxVector0 = prAdapter->arStaRec[ucStaIdx].u4RxVector0;
 		if (u4RxVector0 == 0) {
-			DBGLOG_LIMITED(SW4, WARN, "u4RxVector0 is 0\n");
+			DBGLOG(SW4, WARN, "u4RxVector0 is 0\n");
 			return -1;
 		}
 	} else {
@@ -1071,9 +1070,6 @@ int soc5_0_get_rx_rate_info(IN struct ADAPTER *prAdapter,
 				>> SOC5_0_RX_VT_RX_RATE_OFFSET;
 	nsts = ((u4RxVector0 & SOC5_0_RX_VT_NSTS_MASK)
 				>> SOC5_0_RX_VT_NSTS_OFFSET);
-	mu_mimo = ((u4RxVector0 & SOC5_0_RX_VT_MUMIMO_MASK)
-				>> SOC5_0_RX_VT_MUMIMO_OFFSET);
-
 	/* C-B-0 */
 	rxmode = (u4RxVector0 & SOC5_0_RX_VT_TXMODE_MASK)
 				>> SOC5_0_RX_VT_TXMODE_OFFSET;
@@ -1084,15 +1080,7 @@ int soc5_0_get_rx_rate_info(IN struct ADAPTER *prAdapter,
 	stbc = (u4RxVector0 & SOC5_0_RX_VT_STBC_MASK)
 				>> SOC5_0_RX_VT_STBC_OFFSET;
 
-	/* HE-SU: set to the number of space time streams minus 1
-	 * HE_ER: 0 for 1 space time stream when STBC == 0
-	 *        1 for 2 space time stream when STBC == 1
-	 * HE_MU MU-MIMO: set to the number of space time streams (no minus 1);
-	 * HE_MU Non-MU-MIMO: set to the number of space time streams minus 1
-	 */
-	if (!(rxmode == TX_RATE_MODE_HE_MU && mu_mimo))
-		nsts += 1;
-
+	nsts += 1;
 	if (nsts == 1)
 		nss = nsts;
 	else
@@ -1110,8 +1098,9 @@ int soc5_0_get_rx_rate_info(IN struct ADAPTER *prAdapter,
 	*pu4Sgi = sgi;
 
 	DBGLOG(SW4, TRACE,
-		   "rxvec0=0x%x rxmode=%u, rate=%u, bw=%u, sgi=%u, nss=%u mu_mimo=%u\n",
-		   u4RxVector0, rxmode, rate, frmode, sgi, nss, mu_mimo);
+		   "rxvec0=[0x%x] rxmode=[%u], rate=[%u], bw=[%u], sgi=[%u], nss=[%u]\n",
+		   u4RxVector0, rxmode, rate, frmode, sgi, nss
+	);
 
 	return 0;
 }
@@ -1173,12 +1162,12 @@ void soc5_0_get_rx_link_stats(IN struct ADAPTER *prAdapter,
 			rate.nss /= 2;
 	}
 
-	rate.rateMcsIdx = RXV_GET_RX_RATE(u4RxVector0) & 0xF; /* 0 ~ 15 */
+	rate.rateMcsIdx = RXV_GET_RX_RATE(u4RxVector0);
 
 	if (rate.preamble == LLS_MODE_CCK)
 		rate.rateMcsIdx &= 0x3; /* 0: 1M; 1: 2M; 2: 5.5M; 3: 11M  */
 	else if (rate.preamble == LLS_MODE_OFDM)
-		rate.rateMcsIdx = OFDM_RATE[(uint8_t)(rate.rateMcsIdx & 0x7)];
+		rate.rateMcsIdx = OFDM_RATE[rate.rateMcsIdx & 0x7];
 
 	if (rate.nss >= STATS_LLS_MAX_NSS_NUM)
 		goto wrong_rate;
@@ -1220,8 +1209,7 @@ void soc5_0_get_rx_link_stats(IN struct ADAPTER *prAdapter,
 	return;
 
 wrong_rate:
-	DBGLOG_LIMITED(RX, WARN,
-			"Invalid rate preamble=%u, nss=%u, bw=%u, mcsIdx=%u",
+	DBGLOG(RX, WARN, "Invalid rate preamble=%u, nss=%u, bw=%u, mcsIdx=%u",
 			rate.preamble, rate.nss, rate.bw, rate.rateMcsIdx);
 #endif
 }

@@ -146,7 +146,9 @@ saaFsmSteps(IN struct ADAPTER *prAdapter,
 
 	do {
 
-		if (prStaRec->eAuthAssocState < AA_STATE_NUM
+		if (prStaRec->eAuthAssocState >= 0
+				&& prStaRec->eAuthAssocState < AA_STATE_NUM
+				&& eNextState >= 0
 				&& eNextState < AA_STATE_NUM) {
 			DBGLOG(SAA, STATE, "[SAA]TRANSITION: [%s] -> [%s]\n",
 				apucDebugAAState[prStaRec->eAuthAssocState],
@@ -416,7 +418,7 @@ saaFsmSendEventJoinComplete(IN struct ADAPTER *prAdapter,
 	/* Store limitation about 40Mhz bandwidth capability during
 	 * association.
 	 */
-	if (prStaRec->ucBssIndex < prAdapter->ucHwBssIdNum) {
+	if (prStaRec->ucBssIndex < MAX_BSS_INDEX) {
 		prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 						  prStaRec->ucBssIndex);
 
@@ -613,10 +615,12 @@ void saaFsmRunEventStart(IN struct ADAPTER *prAdapter,
 	}
 	/* 4 <7> Trigger SAA FSM */
 	if (prStaRec->ucStaState == STA_STATE_1) {
-		if (prStaRec->ucAuthAlgNum == AUTH_ALGORITHM_NUM_SAE)
+		if (prStaRec->ucAuthAlgNum == AUTH_ALGORITHM_NUM_SAE) {
+			prStaRec->u2StatusCode = WPA3_AUTH_SAE_NO_RESP;
 			saaFsmSteps(prAdapter, prStaRec,
 				    SAA_STATE_EXTERNAL_AUTH,
 				    (struct SW_RFB *) NULL);
+		}
 		else
 			saaFsmSteps(prAdapter, prStaRec, SAA_STATE_SEND_AUTH1,
 				    (struct SW_RFB *) NULL);
@@ -667,6 +671,15 @@ void saaFsmRunEventFTContinue(IN struct ADAPTER *prAdapter,
 	}
 }				/* end of saaFsmRunEventFTContinue() */
 
+static char *tx_status_text(uint8_t rTxDoneStatus)
+{
+	switch (rTxDoneStatus) {
+	case TX_RESULT_SUCCESS: return "ACK";
+	case TX_RESULT_MPDU_ERROR: return "NO_ACK";
+	default: return "TX_FAIL";
+	}
+}
+
 /*----------------------------------------------------------------------------*/
 /*!
  * @brief This function will handle TxDone(Auth1/Auth3/AssocReq) Event of SAA
@@ -686,11 +699,18 @@ saaFsmRunEventTxDone(IN struct ADAPTER *prAdapter,
 
 	struct STA_RECORD *prStaRec;
 	enum ENUM_AA_STATE eNextState;
+	struct CONNECTION_SETTINGS *prConnSettings;
+	char log[256] = {0};
+	struct BSS_DESC *prBssDesc = NULL;
 
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prMsduInfo->ucStaRecIndex);
 
 	if (!prStaRec)
 		return WLAN_STATUS_INVALID_PACKET;
+
+	prConnSettings = aisGetConnSettings(prAdapter, prStaRec->ucBssIndex);
+	prBssDesc = scanSearchBssDescByBssid(prAdapter,
+		prStaRec->aucMacAddr);
 
 	if (rTxDoneStatus)
 		DBGLOG(SAA, INFO,
@@ -710,6 +730,26 @@ saaFsmRunEventTxDone(IN struct ADAPTER *prAdapter,
 						 WLAN_STATUS_SUCCESS)
 				break;
 
+			if (IS_STA_IN_AIS(prStaRec) && prBssDesc) {
+				struct WLAN_AUTH_FRAME *prAuthFrame;
+				uint16_t u2AuthStatusCode;
+
+				prAuthFrame = (struct WLAN_AUTH_FRAME *)
+					prMsduInfo->prPacket;
+				u2AuthStatusCode = prAuthFrame->u2StatusCode;
+				kalSprintf(log,
+					"[CONN] AUTH REQ bssid=" RPTMACSTR
+					" rssi=%d auth_algo=%d sn=%d status=%d tx_status=%s",
+					RPTMAC2STR(prStaRec->aucMacAddr),
+					RCPI_TO_dBm(prBssDesc->ucRCPI),
+					prStaRec->ucAuthAlgNum,
+					prMsduInfo->u2HwSeqNum,
+					u2AuthStatusCode,
+					tx_status_text(rTxDoneStatus));
+				kalReportWifiLog(prAdapter,
+					prMsduInfo->ucBssIndex, log);
+			}
+
 			if (rTxDoneStatus == TX_RESULT_SUCCESS) {
 				eNextState = SAA_STATE_WAIT_AUTH2;
 
@@ -726,6 +766,23 @@ saaFsmRunEventTxDone(IN struct ADAPTER *prAdapter,
 				    &prStaRec->rTxReqDoneOrRxRespTimer,
 				    TU_TO_MSEC(
 				    DOT11_AUTHENTICATION_RESPONSE_TIMEOUT_TU));
+			} else {
+				if (prConnSettings
+					->rRsnInfo.au4AuthKeyMgtSuite[0]
+					== WLAN_AKM_SUITE_SAE
+					&& prStaRec->ucAuthAlgNum
+					== AUTH_ALGORITHM_NUM_OPEN_SYSTEM) {
+					DBGLOG(SAA, INFO,
+						"WPA3 auth open TX fail!");
+					if (rTxDoneStatus
+						== TX_RESULT_MPDU_ERROR) {
+						prStaRec->u2StatusCode
+						= WPA3_AUTH_OPEN_NO_ACK;
+					} else {
+						prStaRec->u2StatusCode
+						= WPA3_AUTH_OPEN_SENDING_FAIL;
+					}
+				}
 			}
 
 			/* if TX was successful, change to next state.
@@ -774,6 +831,23 @@ saaFsmRunEventTxDone(IN struct ADAPTER *prAdapter,
 
 	case SAA_STATE_SEND_ASSOC1:
 		{
+			if (IS_STA_IN_AIS(prStaRec) && prBssDesc) {
+				if (prStaRec->fgIsReAssoc)
+					kalSprintf(log, "[CONN] REASSOC");
+				else
+					kalSprintf(log, "[CONN] ASSOC");
+
+				kalSprintf(log + strlen(log),
+				" REQ bssid=" RPTMACSTR
+				" rssi=%d sn=%d tx_status=%s",
+					RPTMAC2STR(prStaRec->aucMacAddr),
+					RCPI_TO_dBm(prBssDesc->ucRCPI),
+					prMsduInfo->u2HwSeqNum,
+					tx_status_text(rTxDoneStatus));
+				kalReportWifiLog(prAdapter,
+					prMsduInfo->ucBssIndex, log);
+			}
+
 			/* Strictly check the outgoing frame is matched with
 			 * current SAA STATE
 			 */
@@ -867,6 +941,7 @@ void saaFsmRunEventRxRespTimeOut(IN struct ADAPTER *prAdapter,
 {
 	struct STA_RECORD *prStaRec = (struct STA_RECORD *) ulParamPtr;
 	enum ENUM_AA_STATE eNextState;
+	struct CONNECTION_SETTINGS *prConnSettings;
 
 	DBGLOG(SAA, LOUD, "EVENT-TIMER: RX RESP TIMEOUT, Current Time = %d\n",
 	       kalGetTimeTick());
@@ -879,13 +954,21 @@ void saaFsmRunEventRxRespTimeOut(IN struct ADAPTER *prAdapter,
 		prAdapter->total_mgmtRX_timeout_count++;
 #endif /* fos_change end */
 
+	prConnSettings = aisGetConnSettings(prAdapter, prStaRec->ucBssIndex);
+
 	eNextState = prStaRec->eAuthAssocState;
 
 	switch (prStaRec->eAuthAssocState) {
 	case SAA_STATE_WAIT_AUTH2:
 		/* Record the Status Code of Authentication Request */
 		prStaRec->u2StatusCode = STATUS_CODE_AUTH_TIMEOUT;
-
+		if (prConnSettings->rRsnInfo.au4AuthKeyMgtSuite[0]
+			== WLAN_AKM_SUITE_SAE
+			&& prStaRec->ucAuthAlgNum
+			== AUTH_ALGORITHM_NUM_OPEN_SYSTEM) {
+			DBGLOG(SAA, INFO, "WPA3 auth open no response!");
+			prStaRec->u2StatusCode = WPA3_AUTH_OPEN_NO_RESP;
+		}
 		/* Pull back to earlier state to do retry */
 		eNextState = SAA_STATE_SEND_AUTH1;
 		break;
@@ -901,6 +984,12 @@ void saaFsmRunEventRxRespTimeOut(IN struct ADAPTER *prAdapter,
 	case SAA_STATE_WAIT_ASSOC2:
 		/* Record the Status Code of Authentication Request */
 		prStaRec->u2StatusCode = STATUS_CODE_ASSOC_TIMEOUT;
+
+		if (prConnSettings->rRsnInfo.au4AuthKeyMgtSuite[0]
+			== WLAN_AKM_SUITE_SAE) {
+			DBGLOG(SAA, INFO, "WPA3 assoc no response!");
+			prStaRec->u2StatusCode = WPA3_ASSOC_NO_RESP;
+		}
 
 		/* Pull back to earlier state to do retry */
 		eNextState = SAA_STATE_SEND_ASSOC1;
@@ -932,15 +1021,23 @@ void saaFsmRunEventRxAuth(IN struct ADAPTER *prAdapter,
 	uint16_t u2StatusCode;
 	enum ENUM_AA_STATE eNextState;
 	uint8_t ucWlanIdx;
+	uint8_t ucStaRecIdx;
 
-	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
+	ucStaRecIdx = prSwRfb->ucStaRecIdx;
+	prStaRec = cnmGetStaRecByIndex(prAdapter, ucStaRecIdx);
 	ucWlanIdx = prSwRfb->ucWlanIdx;
 
 	/* We should have the corresponding Sta Record. */
 	if (!prStaRec) {
+		struct WLAN_MAC_MGMT_HEADER *mgmt =
+			(struct WLAN_MAC_MGMT_HEADER *)prSwRfb->pvHeader;
 		DBGLOG(SAA, WARN,
-		       "Received a AuthResp: wlanIdx[%d] w/o corresponding staRec\n",
-		       ucWlanIdx);
+			"Received a AuthResp: DA[" MACSTR "] bssid[" MACSTR
+			"] wlanIdx[%d] staRecIdx[%d] w/o corresponding staRec\n",
+			MAC2STR(mgmt->aucDestAddr),
+			MAC2STR(mgmt->aucBSSID),
+			ucWlanIdx,
+			ucStaRecIdx);
 		return;
 	}
 
@@ -1077,9 +1174,10 @@ void saaFsmRunEventRxAuth(IN struct ADAPTER *prAdapter,
 		break;
 
 	case SAA_STATE_EXTERNAL_AUTH:
+		/* SAE commit */
 		if (authCheckRxAuthFrameStatus(prAdapter,
 					       prSwRfb,
-					       AUTH_TRANSACTION_SEQ_2,
+					       AUTH_TRANSACTION_SEQ_1,
 					       &u2StatusCode) ==
 					       WLAN_STATUS_SUCCESS) {
 			/* Record join fail status code only*/
@@ -1092,8 +1190,29 @@ void saaFsmRunEventRxAuth(IN struct ADAPTER *prAdapter,
 				prStaRec->u2StatusCode = u2StatusCode;
 			}
 		}
-		kalIndicateRxMgmtFrame(prAdapter, prAdapter->prGlueInfo,
+		/* for testing only,
+		 * deliberately making STA unable to receive SAE confirm
+		 */
+		if (IS_FEATURE_DISABLED(prAdapter->rWifiVar.ucSAEAuthNoResp)) {
+			/* SAE confirm */
+			if (authCheckRxAuthFrameStatus(prAdapter,
+					       prSwRfb,
+					       AUTH_TRANSACTION_SEQ_2,
+					       &u2StatusCode) ==
+					       WLAN_STATUS_SUCCESS) {
+				/* Record join fail status code only*/
+				if (u2StatusCode != STATUS_CODE_SUCCESSFUL) {
+					DBGLOG(SAA, INFO,
+				       "Auth Req was rejected by [" MACSTR
+				       "], Status Code = %d\n",
+				       MAC2STR(prStaRec->aucMacAddr),
+				       u2StatusCode);
+					prStaRec->u2StatusCode = u2StatusCode;
+				}
+			}
+			kalIndicateRxMgmtFrame(prAdapter, prAdapter->prGlueInfo,
 				prSwRfb, prStaRec->ucBssIndex);
+		}
 		break;
 
 	default:
@@ -1122,16 +1241,24 @@ uint32_t saaFsmRunEventRxAssoc(IN struct ADAPTER *prAdapter,
 	uint32_t rStatus = WLAN_STATUS_SUCCESS;
 	uint8_t ucWlanIdx;
 	struct WLAN_MAC_MGMT_HEADER *prWlanMgmtHdr;
+	uint8_t ucStaRecIdx;
 
+	ucStaRecIdx = prSwRfb->ucStaRecIdx;
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
 	ucWlanIdx = prSwRfb->ucWlanIdx;
 
 	/* We should have the corresponding Sta Record. */
 	if (!prStaRec) {
-		/* ASSERT(0); */
+		struct WLAN_MAC_MGMT_HEADER *mgmt =
+			(struct WLAN_MAC_MGMT_HEADER *)prSwRfb->pvHeader;
 		DBGLOG(SAA, WARN,
-		       "Received a AssocResp: wlanIdx[%d] w/o corresponding staRec\n",
-		       ucWlanIdx);
+			"Received a AssocResp: DA[" MACSTR "] bssid[" MACSTR
+			"] wlanIdx[%d] staRecIdx[%d] w/o corresponding staRec\n",
+			MAC2STR(mgmt->aucDestAddr),
+			MAC2STR(mgmt->aucBSSID),
+			ucWlanIdx,
+			ucStaRecIdx);
+
 		return rStatus;
 	}
 
@@ -1225,8 +1352,14 @@ uint32_t saaFsmRunEventRxDeauth(IN struct ADAPTER *prAdapter,
 	struct STA_RECORD *prStaRec;
 	struct WLAN_DEAUTH_FRAME *prDeauthFrame;
 	uint8_t ucWlanIdx;
+#if CFG_SUPPORT_802_11W
+	struct AIS_SPECIFIC_BSS_INFO *prAisSpecBssInfo;
+#endif
+	char log[256] = {0};
+	uint8_t ucStaRecIdx;
 
-	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
+	ucStaRecIdx = prSwRfb->ucStaRecIdx;
+	prStaRec = cnmGetStaRecByIndex(prAdapter, ucStaRecIdx);
 	prDeauthFrame = (struct WLAN_DEAUTH_FRAME *) prSwRfb->pvHeader;
 	ucWlanIdx = prSwRfb->ucWlanIdx;
 
@@ -1241,8 +1374,8 @@ uint32_t saaFsmRunEventRxDeauth(IN struct ADAPTER *prAdapter,
 		/* We should have the corresponding Sta Record. */
 		if (!prStaRec) {
 			DBGLOG(SAA, WARN,
-			       "Received a Deauth: wlanIdx[%d] w/o corresponding staRec\n",
-			       ucWlanIdx);
+			       "Received a Deauth: wlanIdx[%d] staRecIdx[%d] w/o corresponding staRec\n",
+			       ucWlanIdx, ucStaRecIdx);
 			break;
 		}
 
@@ -1278,7 +1411,21 @@ uint32_t saaFsmRunEventRxDeauth(IN struct ADAPTER *prAdapter,
 				break;
 
 			if (prStaRec->ucStaState > STA_STATE_1) {
+				prBssDesc = scanSearchBssDescByBssid(prAdapter,
+					prDeauthFrame->aucSrcAddr);
+				if (prBssDesc) {
+					kalSprintf(log,
+					"[CONN] DEAUTH RX bssid=" RPTMACSTR
+						" rssi=%d sn=%d reason=%d",
+					RPTMAC2STR(prDeauthFrame->aucSrcAddr),
+					RCPI_TO_dBm(prBssDesc->ucRCPI),
+					(prSwRfb->u2SequenceControl
+						>> MASK_SC_SEQ_NUM_OFFSET),
+					prDeauthFrame->u2ReasonCode);
 
+					kalReportWifiLog(prAdapter,
+						prStaRec->ucBssIndex, log);
+				}
 				/* Check if this is the AP we are associated
 				 * or associating with
 				 */
@@ -1287,10 +1434,17 @@ uint32_t saaFsmRunEventRxDeauth(IN struct ADAPTER *prAdapter,
 					    &prStaRec->u2ReasonCode)
 						    == WLAN_STATUS_SUCCESS) {
 
-#if CFG_SUPPORT_802_11W
-					struct AIS_SPECIFIC_BSS_INFO
-							*prAisSpecBssInfo;
+#if CFG_SUPPORT_ASSURANCE
+					kalUpdateDeauthInfo(
+						prAdapter->prGlueInfo,
+						(uint8_t *) &
+						prDeauthFrame->u2ReasonCode,
+						prSwRfb->u2PacketLen -
+						prSwRfb->u2HeaderLen,
+						ucBssIndex);
+#endif
 
+#if CFG_SUPPORT_802_11W
 					prAisSpecBssInfo =
 						aisGetAisSpecBssInfo(prAdapter,
 						ucBssIndex);
@@ -1464,8 +1618,14 @@ uint32_t saaFsmRunEventRxDisassoc(IN struct ADAPTER *prAdapter,
 	struct STA_RECORD *prStaRec;
 	struct WLAN_DISASSOC_FRAME *prDisassocFrame;
 	uint8_t ucWlanIdx;
+#if CFG_SUPPORT_802_11W
+	struct AIS_SPECIFIC_BSS_INFO *prAisSpecBssInfo;
+#endif
+	char log[256] = {0};
+	uint8_t ucStaRecIdx;
 
-	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
+	ucStaRecIdx = prSwRfb->ucStaRecIdx;
+	prStaRec = cnmGetStaRecByIndex(prAdapter, ucStaRecIdx);
 	prDisassocFrame = (struct WLAN_DISASSOC_FRAME *) prSwRfb->pvHeader;
 	ucWlanIdx = prSwRfb->ucWlanIdx;
 
@@ -1482,8 +1642,8 @@ uint32_t saaFsmRunEventRxDisassoc(IN struct ADAPTER *prAdapter,
 		/* We should have the corresponding Sta Record. */
 		if (!prStaRec) {
 			DBGLOG(SAA, WARN,
-			       "Received a DisAssoc: wlanIdx[%d] w/o corresponding staRec\n",
-			       ucWlanIdx);
+			       "Received a DisAssoc: wlanIdx[%d] staRecIdx[%d] w/o corresponding staRec\n",
+			       ucWlanIdx, ucStaRecIdx);
 			break;
 		}
 
@@ -1513,7 +1673,19 @@ uint32_t saaFsmRunEventRxDisassoc(IN struct ADAPTER *prAdapter,
 			}
 
 			if (prStaRec->ucStaState > STA_STATE_1) {
+				if (prBssDesc) {
+					kalSprintf(log,
+					"[CONN] DISASSOC RX bssid=" RPTMACSTR
+					" rssi=%d sn=%d reason=%d",
+					RPTMAC2STR(prDisassocFrame->aucSrcAddr),
+					RCPI_TO_dBm(prBssDesc->ucRCPI),
+					WLAN_GET_SEQ_SEQ(
+						prDisassocFrame->u2SeqCtrl),
+					prDisassocFrame->u2ReasonCode);
 
+					kalReportWifiLog(prAdapter,
+						prStaRec->ucBssIndex, log);
+				}
 				/* Check if this is the AP we are associated
 				 * or associating with
 				 */
@@ -1521,10 +1693,17 @@ uint32_t saaFsmRunEventRxDisassoc(IN struct ADAPTER *prAdapter,
 				    prSwRfb, prStaRec->aucMacAddr, &prStaRec->
 				    u2ReasonCode) == WLAN_STATUS_SUCCESS) {
 
-#if CFG_SUPPORT_802_11W
-					struct AIS_SPECIFIC_BSS_INFO
-							*prAisSpecBssInfo;
+#if CFG_SUPPORT_ASSURANCE
+					kalUpdateDeauthInfo(
+						prAdapter->prGlueInfo,
+						(uint8_t *) &
+						prDisassocFrame->u2ReasonCode,
+						prSwRfb->u2PacketLen -
+						prSwRfb->u2HeaderLen,
+						ucBssIndex);
+#endif
 
+#if CFG_SUPPORT_802_11W
 					prAisSpecBssInfo =
 						aisGetAisSpecBssInfo(prAdapter,
 						ucBssIndex);
@@ -1662,7 +1841,8 @@ void saaFsmRunEventAbort(IN struct ADAPTER *prAdapter,
 	cnmTimerStopTimer(prAdapter, &prStaRec->rTxReqDoneOrRxRespTimer);
 
 	if (prStaRec->eAuthAssocState != AA_STATE_IDLE) {
-		if (prStaRec->eAuthAssocState < AA_STATE_NUM) {
+		if (prStaRec->eAuthAssocState >= 0
+				&& prStaRec->eAuthAssocState < AA_STATE_NUM) {
 			DBGLOG(SAA, LOUD,
 			"EVENT-ABORT: Previous Auth/Assoc State == %s.\n",
 			apucDebugAAState[prStaRec->eAuthAssocState]);
@@ -1693,15 +1873,18 @@ void saaFsmRunEventExternalAuthDone(IN struct ADAPTER *prAdapter,
 
 	cnmMemFree(prAdapter, prMsgHdr);
 
-	if (status != WLAN_STATUS_SUCCESS)
+	if (status != WLAN_STATUS_SUCCESS) {
 		saaFsmSteps(prAdapter, prStaRec, AA_STATE_IDLE,
 			    (struct SW_RFB *)NULL);
+	}
 	else if (prStaRec->eAuthAssocState != SAA_STATE_EXTERNAL_AUTH)
 		DBGLOG(SAA, WARN,
 		       "Receive External Auth DONE at wrong state\n");
-	else
+	else {
+		prStaRec->u2StatusCode = STATUS_CODE_SUCCESSFUL;
 		saaFsmSteps(prAdapter, prStaRec, SAA_STATE_SEND_ASSOC1,
 			    (struct SW_RFB *)NULL);
+	}
 }				/* end of saaFsmRunEventExternalAuthDone() */
 
 /* TODO(Kevin): following code will be modified and move to AIS FSM */

@@ -101,3 +101,12 @@ void kalSetDrvEmiMpuProtection(phys_addr_t emiPhyBase, uint32_t offset,
 	emi_mpu_set_protection(&region_info);
 }
 #endif
+
+#if defined(MTK_TC10_IN_HOUSE)
+int32_t kalGetFwFlavorByPlat(uint8_t *flavor)
+{
+	*flavor = 'c';
+	return 1;
+}
+
+#endif

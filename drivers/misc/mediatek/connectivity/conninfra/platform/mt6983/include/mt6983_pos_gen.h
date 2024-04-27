@@ -11,9 +11,9 @@
  * It should not be modified by hand.
  *
  * Reference POS file,
- * - Lxxxn_power_on_sequence_20211124.xlsx
- * - Lxxxn_conn_infra_sub_task_211117.xlsx
- * - conn_infra_cmdbt_instr_autogen_20220216.txt
+ * - Lxxxn_power_on_sequence_20211007.xlsx
+ * - Lxxxn_conn_infra_sub_task_210811.xlsx
+ * - conn_infra_cmdbt_instr_autogen_20210902.txt
  */
 
 
@@ -28,7 +28,6 @@ int consys_polling_chipid_mt6983_gen(unsigned int *pconsys_ver_id);
 unsigned int consys_emi_set_remapping_reg_mt6983_gen(
 		phys_addr_t con_emi_base_addr,
 		phys_addr_t md_shared_emi_base_addr,
-		phys_addr_t gps_emi_base_addr,
 		unsigned int emi_base_addr_offset);
 void consys_init_conninfra_sysram_mt6983_gen(void);
 void connsys_get_d_die_efuse_mt6983_gen(unsigned int *p_d_die_efuse);
@@ -172,12 +171,6 @@ int consys_conninfra_sleep_mt6983_gen(void);
 #define CONSYS_GEN_CLK_CFG_20_CLR_OFFSET_ADDR                                               0x158
 
 /****************************************************************************************************/
-/* Base: CONSYS_GEN_CONN_DBG_CTL_BASE_ADDR (0x1802_3000)                                            */
-/****************************************************************************************************/
-#define CONSYS_GEN_CONN_DBG_CTL_BASE_ADDR                                                   0x18023000
-#define CONSYS_GEN_CLOCK_DETECT_OFFSET_ADDR                                                 0x0
-
-/****************************************************************************************************/
 /* Base: CONN_CFG_BASE (0x1801_1000)                                                                */
 /****************************************************************************************************/
 #define CONSYS_GEN_IP_VERSION_OFFSET_ADDR                                                   0x0
@@ -198,18 +191,11 @@ int consys_conninfra_sleep_mt6983_gen(void);
 #define CONSYS_GEN_CONN_INFRA_CONN2AP_EMI_PATH_ADDR_END_OFFSET_ADDR                         0x74
 #define CONSYS_GEN_CONN2AP_REMAP_MCU_EMI_BASE_ADDR_OFFSET_ADDR                              0x354
 #define CONSYS_GEN_CONN2AP_REMAP_MD_SHARE_EMI_BASE_ADDR_OFFSET_ADDR                         0x35C
-#define CONSYS_GEN_CONN2AP_REMAP_GPS_EMI_BASE_ADDR_OFFSET_ADDR                              0x360
 #define CONSYS_GEN_CONN2AP_REMAP_WF_PERI_BASE_ADDR_OFFSET_ADDR                              0x364
 #define CONSYS_GEN_CONN2AP_REMAP_BT_PERI_BASE_ADDR_OFFSET_ADDR                              0x368
 #define CONSYS_GEN_CONN2AP_REMAP_GPS_PERI_BASE_ADDR_OFFSET_ADDR                             0x36C
 #define CONSYS_GEN_SCPSYS_SRAM_BASE_ADDR_OFFSET_ADDR                                        0x370
 #define CONSYS_GEN_LIGHT_SECURITY_CTRL_OFFSET_ADDR                                          0x374
-#define CONSYS_GEN_WF_LIGHT_SECURITY_START_ADDR_4_OFFSET_ADDR                               0x398
-#define CONSYS_GEN_WF_LIGHT_SECURITY_END_ADDR_4_OFFSET_ADDR                                 0x39C
-#define CONSYS_GEN_BT_LIGHT_SECURITY_START_ADDR_4_OFFSET_ADDR                               0x3C0
-#define CONSYS_GEN_BT_LIGHT_SECURITY_END_ADDR_4_OFFSET_ADDR                                 0x3C4
-#define CONSYS_GEN_M3_LIGHT_SECURITY_START_ADDR_4_OFFSET_ADDR                               0x3E8
-#define CONSYS_GEN_M3_LIGHT_SECURITY_END_ADDR_4_OFFSET_ADDR                                 0x3EC
 
 /****************************************************************************************************/
 /* Base: CONSYS_GEN_CONN_INFRA_SYSRAM_BASE_OFFSET_ADDR (0x1805_0000)                                */
@@ -368,7 +354,6 @@ int consys_conninfra_sleep_mt6983_gen(void);
 /****************************************************************************************************/
 /* Base: CONN_BUS_CR_ON_BASE (0x1800_E000)                                                          */
 /****************************************************************************************************/
-#define CONSYS_GEN_CONN_INFRA_VON_BUS_TIMEOUT_CTRL_OFFSET_ADDR                              0x24
 #define CONSYS_GEN_CONN_INFRA_ON_BUS_TIMEOUT_CTRL_OFFSET_ADDR                               0x38
 #define CONSYS_GEN_CONN_VON_BUS_DCM_CTL_1_OFFSET_ADDR                                       0x104
 #define CONSYS_GEN_CONN_OFF_BUS_DCM_CTL_1_OFFSET_ADDR                                       0x110

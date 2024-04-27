@@ -18,6 +18,10 @@
 #ifdef CONFIG_MTK_CONNSYS_DEDICATED_LOG_PATH
 int fw_log_wifi_init(void);
 int fw_log_wifi_deinit(void);
+#if CFG_TC10_FEATURE
+int fw_log_write_log_to_file_init(void);
+int fw_log_write_log_to_file_deinit(void);
+#endif
 #endif /* CONFIG_MTK_CONNSYS_DEDICATED_LOG_PATH */
 
 #if (CFG_ANDORID_CONNINFRA_SUPPORT == 1)

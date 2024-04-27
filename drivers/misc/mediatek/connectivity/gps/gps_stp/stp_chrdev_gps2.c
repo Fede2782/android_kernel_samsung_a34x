@@ -67,6 +67,7 @@
 #define COMBO_IOC_GPS2_HW_SUSPEND     18
 #define COMBO_IOC_GPS2_HW_RESUME      19
 #define COMBO_IOC_GPS2_LISTEN_RST_EVT 20
+#define COMBO_IOC_GPS2_GET_BOOT_TIME  28
 
 static UINT32 g2DbgLevel = GPS2_LOG_DBG;
 
@@ -741,8 +742,8 @@ static int GPS2_open(struct inode *inode, struct file *file)
 #if 1				/* GeorgeKuo: turn on function before check stp ready */
 	/* turn on BT */
 #ifdef MTK_GENERIC_HAL
-	if (!IS_ERR(g_gps_lna_pinctrl_ptr))
-		gps_lna_pin_ctrl(GPS_DATA_LINK_ID1, true, false);
+	if (IS_ERR(g_gps_lna_pinctrl_ptr))
+	gps_lna_pin_ctrl(GPS_DATA_LINK_ID1, true, false);
 #else
 #ifdef CONFIG_GPS_CTRL_LNA_SUPPORT
 	gps_lna_pin_ctrl(GPS_DATA_LINK_ID1, true, false);
@@ -820,8 +821,8 @@ static int GPS2_close(struct inode *inode, struct file *file)
 	up(&fwctl_mtx);
 #endif
 #ifdef MTK_GENERIC_HAL
-	if (!IS_ERR(g_gps_lna_pinctrl_ptr))
-		gps_lna_pin_ctrl(GPS_DATA_LINK_ID1, false, false);
+	if (IS_ERR(g_gps_lna_pinctrl_ptr))
+	gps_lna_pin_ctrl(GPS_DATA_LINK_ID1, false, false);
 #else
 #ifdef CONFIG_GPS_CTRL_LNA_SUPPORT
 	gps_lna_pin_ctrl(GPS_DATA_LINK_ID1, false, false);

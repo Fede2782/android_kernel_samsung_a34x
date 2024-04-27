@@ -120,8 +120,7 @@ const char* get_spi_sys_name(enum sys_spi_subsystem subsystem)
 
 unsigned int consys_emi_set_remapping_reg_mt6885(
 	phys_addr_t con_emi_base_addr,
-	phys_addr_t md_shared_emi_base_addr,
-	phys_addr_t gps_emi_base_addr)
+	phys_addr_t md_shared_emi_base_addr)
 {
 	/* EMI Registers remapping */
 	CONSYS_REG_WRITE_OFFSET_RANGE(CON_REG_HOST_CSR_ADDR + CONN2AP_REMAP_MCU_EMI_BASE_ADDR_OFFSET,

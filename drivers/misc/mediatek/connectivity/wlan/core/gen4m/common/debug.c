@@ -859,21 +859,6 @@ void wlanPrintFwLog(uint8_t *pucLogContent,
 			*(pucChr - 1) = '\0';
 
 		LOG_FUNC("<FW>%s\n", pucLogContent);
-#ifdef OPLUS_FEATURE_CONN_POWER_MONITOR
-		//CONNECTIVITY.WIFI.HARDWARE.POWER, 2022/06/30
-		//add for mtk connectivity power monitor
-		if (0 == kalStrnCmp(pucLogContent, "PWR RATIO-1", kalStrLen("PWR RATIO-1"))) {
-			pucChr = kalStrChr(pucLogContent, ':');
-			if (pucChr != NULL) {
-				*pucChr = '=';
-				kalSendUevent(pucLogContent);
-			} else {
-				if (kalStrChr(pucLogContent, '=') != NULL) {
-					kalSendUevent(pucLogContent);
-				}
-			}
-		}
-#endif /* OPLUS_FEATURE_CONN_POWER_MONITOR */
 	}
 	break;
 	case DEBUG_MSG_TYPE_DRIVER:

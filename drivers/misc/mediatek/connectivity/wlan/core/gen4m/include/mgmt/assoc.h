@@ -136,9 +136,6 @@ uint32_t assocProcessRxAssocReqFrame(IN struct ADAPTER
 uint32_t assocSendReAssocRespFrame(IN struct ADAPTER
 				*prAdapter, IN struct STA_RECORD *prStaRec);
 
-struct MSDU_INFO *assocComposeReAssocRespFrame(IN struct ADAPTER *prAdapter,
-				IN struct STA_RECORD *prStaRec);
-
 uint16_t assocBuildCapabilityInfo(IN struct ADAPTER
 				*prAdapter, IN struct STA_RECORD *prStaRec);
 
@@ -157,4 +154,13 @@ uint32_t assocCalculateConnIELen(struct ADAPTER *prAdapter, uint8_t ucBssIdx,
 void assocGenerateConnIE(struct ADAPTER *prAdapter,
 			   struct MSDU_INFO *prMsduInfo);
 
+#if CFG_SUPPORT_ASSURANCE
+
+uint32_t assocCalculateRoamReasonLen(struct ADAPTER *prAdapter,
+		uint8_t ucBssIdx, struct STA_RECORD *prStaRec);
+
+void assocGenerateRoamReason(struct ADAPTER *prAdapter,
+	struct MSDU_INFO *prMsduInfo);
+
+#endif
 #endif /* _ASSOC_H */

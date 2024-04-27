@@ -225,6 +225,8 @@ void aaaFsmRunEventTxReqTimeOut(IN struct ADAPTER *prAdapter,
 
 	if (!prStaRec)
 		return;
+	if (prStaRec->ucBssIndex > MAX_BSSID_NUM)
+		return;
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prStaRec->ucBssIndex);
 
@@ -652,7 +654,8 @@ uint32_t aaaFsmRunEventRxAssoc(IN struct ADAPTER *prAdapter,
 				GET_BSS_INFO_BY_INDEX(prAdapter,
 					prStaRec->ucBssIndex);
 
-			if (prBssInfo->fgIsNetActive) {
+			if (prBssInfo &&
+				prBssInfo->fgIsNetActive) {
 
 				/* 4 <2.1> Validate Assoc Req Frame and
 				 * get Status Code
@@ -692,7 +695,8 @@ uint32_t aaaFsmRunEventRxAssoc(IN struct ADAPTER *prAdapter,
 			prBssInfo =
 				GET_BSS_INFO_BY_INDEX(prAdapter,
 					prStaRec->ucBssIndex);
-
+			if (!prBssInfo)
+				break;
 			if ((prBssInfo->fgIsNetActive)
 				&& (prBssInfo->eCurrentOPMode == OP_MODE_BOW)) {
 
@@ -961,8 +965,7 @@ aaaFsmRunEventTxDone(IN struct ADAPTER *prAdapter,
 	ASSERT(prStaRec->ucBssIndex <= prAdapter->ucHwBssIdNum);
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prStaRec->ucBssIndex);
-	if (!prBssInfo)
-		return WLAN_STATUS_SUCCESS;
+
 	DBGLOG(AAA, TRACE, "TxDone ucStaState:%d, eAuthAssocState:%d\n",
 		prStaRec->ucStaState, prStaRec->eAuthAssocState);
 
@@ -1031,11 +1034,6 @@ aaaFsmRunEventTxDone(IN struct ADAPTER *prAdapter,
 			 */
 			if (assocCheckTxReAssocRespFrame(prAdapter,
 				prMsduInfo) != WLAN_STATUS_SUCCESS)
-				break;
-			if (prBssInfo &&
-					!kalP2PIsTxCarrierOn(prAdapter
-					->prGlueInfo,
-					prBssInfo))
 				break;
 
 			if (prStaRec->u2StatusCode == STATUS_CODE_SUCCESSFUL) {

@@ -305,7 +305,8 @@ void nic_rxd_v1_fill_rfb(
 #endif
 }
 
-void nic_rxd_v1_parse_drop_pkt(struct SW_RFB *prSwRfb)
+void nic_rxd_v1_parse_drop_pkt(struct SW_RFB *prSwRfb,
+	struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 {
 	uint16_t *pu2EtherType;
 
@@ -317,7 +318,7 @@ void nic_rxd_v1_parse_drop_pkt(struct SW_RFB *prSwRfb)
 		prSwRfb->u2PacketLen, prSwRfb->ucSecMode,
 		prSwRfb->ucWlanIdx, prSwRfb->ucStaRecIdx
 	);
-	STATS_RX_PKT_INFO_DISPLAY(prSwRfb);
+	STATS_RX_PKT_INFO_DISPLAY(prSwRfb, prAdapter, ucBssIndex);
 }
 
 u_int8_t nic_rxd_v1_sanity_check(
@@ -327,9 +328,7 @@ u_int8_t nic_rxd_v1_sanity_check(
 	struct mt66xx_chip_info *prChipInfo;
 	struct HW_MAC_RX_DESC *prRxStatus;
 	u_int8_t fgDrop = FALSE;
-	struct RX_CTRL *prRxCtrl;
-
-	prRxCtrl = &prAdapter->rRxCtrl;
+	uint8_t ucBssIndex = 0;
 
 	prChipInfo = prAdapter->chip_info;
 	prRxStatus = (struct HW_MAC_RX_DESC *)prSwRfb->prRxStatus;
@@ -353,13 +352,14 @@ u_int8_t nic_rxd_v1_sanity_check(
 		fgDrop = TRUE;
 		if (!HAL_RX_STATUS_IS_ICV_ERROR(prRxStatus)
 		    && HAL_RX_STATUS_IS_TKIP_MIC_ERROR(prRxStatus)) {
-			uint8_t ucBssIndex =
-				secGetBssIdxByWlanIdx(prAdapter,
-				HAL_RX_STATUS_GET_WLAN_IDX(prRxStatus));
 			struct STA_RECORD *prStaRec = NULL;
 			struct PARAM_BSSID_EX *prCurrBssid =
 				aisGetCurrBssId(prAdapter,
 				ucBssIndex);
+
+			ucBssIndex =
+				secGetBssIdxByWlanIdx(prAdapter,
+				HAL_RX_STATUS_GET_WLAN_IDX(prRxStatus));
 
 			if (prCurrBssid)
 				prStaRec = cnmGetStaRecByAddress(prAdapter,
@@ -408,20 +408,6 @@ u_int8_t nic_rxd_v1_sanity_check(
 		}
 #endif
 
-		if (fgDrop) {
-			if (HAL_RX_STATUS_IS_FCS_ERROR(prRxStatus))
-				RX_INC_CNT(prRxCtrl, RX_FCS_ERR_DROP_COUNT);
-
-			if (HAL_RX_STATUS_IS_ICV_ERROR(prRxStatus))
-				RX_INC_CNT(prRxCtrl, RX_ICV_ERR_DROP_COUNT);
-
-#if CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION
-			if (HAL_RX_STATUS_IS_TKIP_MIC_ERROR(prRxStatus))
-				RX_INC_CNT(prRxCtrl,
-					RX_TKIP_MIC_ERROR_DROP_COUNT);
-#endif /* CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION */
-		}
-
 		DBGLOG(RSN, TRACE, "Sanity check to drop:%d\n", fgDrop);
 	}
 
@@ -442,7 +428,8 @@ u_int8_t nic_rxd_v1_sanity_check(
 			DBGLOG(RSN, INFO,
 				"Don't drop eapol or wpi packet\n");
 		} else {
-			nic_rxd_v1_parse_drop_pkt(prSwRfb);
+			nic_rxd_v1_parse_drop_pkt(prSwRfb,
+				prAdapter, ucBssIndex);
 
 			fgDrop = TRUE;
 			DBGLOG(RSN, INFO,
@@ -489,10 +476,6 @@ void nic_rxd_v1_check_wakeup_reason(
 	struct HW_MAC_RX_DESC *prRxStatus;
 	uint16_t u2PktLen = 0;
 	uint32_t u4HeaderOffset;
-#ifdef OPLUS_FEATURE_CONN_POWER_MONITOR
-	//add for mtk connectivity power monitor
-	char pucLogContent[256] = {'\0'};
-#endif /* OPLUS_FEATURE_CONN_POWER_MONITOR */
 
 	prChipInfo = prAdapter->chip_info;
 
@@ -554,15 +537,6 @@ void nic_rxd_v1_check_wakeup_reason(
 				"IP Pkt [" IPV4STR ",IPID:0x%04x] wakeup host",
 				IPV4TOSTR(&pvHeader[ETH_HLEN + 12]),
 				u2Temp);
-#ifdef OPLUS_FEATURE_CONN_POWER_MONITOR
-			//add for mtk connectivity power monitor
-			snprintf(pucLogContent, sizeof(pucLogContent), "wakeup_reason=%d;%d.%d.%d.%d;%u;%d.%d.%d.%d;%u;", pvHeader[ETH_HLEN + 9],
-				pvHeader[ETH_HLEN + 12], pvHeader[ETH_HLEN + 13], pvHeader[ETH_HLEN + 14], pvHeader[ETH_HLEN + 15],
-				(pvHeader[ETH_HLEN + 20] << 8) | pvHeader[ETH_HLEN + 21],
-				pvHeader[ETH_HLEN + 16], pvHeader[ETH_HLEN + 17], pvHeader[ETH_HLEN + 18], pvHeader[ETH_HLEN + 19],
-				(pvHeader[ETH_HLEN + 22] << 8) | pvHeader[ETH_HLEN + 23]);
-			kalSendUevent(pucLogContent);
-#endif /* OPLUS_FEATURE_CONN_POWER_MONITOR */
 			break;
 		case ETH_P_ARP:
 			break;
@@ -573,17 +547,6 @@ void nic_rxd_v1_check_wakeup_reason(
 #endif
 		case ETH_P_AARP:
 		case ETH_P_IPV6:
-#ifdef OPLUS_FEATURE_CONN_POWER_MONITOR
-                        //add for mtk connectivity power monitor
-                        if (u2Temp == ETH_P_IPV6) {
-                                snprintf(pucLogContent, sizeof(pucLogContent), "wakeup_reason=%d;%pI6;%u;%pI6;%u;", pvHeader[ETH_HLEN + 6],
-                                        &(pvHeader[ETH_HLEN + 8]),
-                                        (pvHeader[ETH_HLEN + 40] << 8) | pvHeader[ETH_HLEN + 41],
-                                        &(pvHeader[ETH_HLEN + 24]),
-                                        (pvHeader[ETH_HLEN + 42] << 8) | pvHeader[ETH_HLEN + 43]);
-                                kalSendUevent(pucLogContent);
-                        }
-#endif /* OPLUS_FEATURE_CONN_POWER_MONITOR */
 		case ETH_P_IPX:
 		case 0x8100: /* VLAN */
 		case 0x890d: /* TDLS */
@@ -604,19 +567,11 @@ void nic_rxd_v1_check_wakeup_reason(
 				}
 			} else {
 				DBGLOG(RX, WARN,
-					"EthType 0x%04x packet BMU[%d%d%d] TRS[%d] wakeup host\n",
-					u2Temp,
-					HAL_RX_STATUS_IS_BC(prRxStatus),
-					HAL_RX_STATUS_IS_MC(prRxStatus),
-					HAL_RX_STATUS_IS_UC2ME(prRxStatus),
-					HAL_RX_STATUS_IS_HEADER_TRAN(prRxStatus)
-					);
+					"abnormal packet, EthType 0x%04x wakeup host\n",
+					u2Temp);
+				DBGLOG_MEM8(RX, INFO,
+					pvHeader, u2PktLen > 50 ? 50:u2PktLen);
 			}
-			DBGLOG_MEM8(RX, INFO, (uint8_t *)prSwRfb->prRxStatus,
-				prChipInfo->rxd_size);
-
-			DBGLOG_MEM8(RX, INFO,
-				pvHeader, u2PktLen > 50 ? 50:u2PktLen);
 			break;
 		}
 		break;

@@ -68,8 +68,5 @@ extern struct consys_base_addr conn_reg_mt6983;
 #define CONN_REG_SPM_ADDR				conn_reg_mt6983.reg_base_addr[SPM_BASE_INDEX].vir_addr
 #define CONN_REG_TOP_RGU_ADDR				conn_reg_mt6983.reg_base_addr[TOP_RGU_BASE_INDEX].vir_addr
 
-int consys_check_conninfra_on_domain_mt6983(void);
-int consys_print_debug_mt6983(int level);
-
 #endif /* _PLATFORM_MT6983_CONSYS_REG_H_ */
 

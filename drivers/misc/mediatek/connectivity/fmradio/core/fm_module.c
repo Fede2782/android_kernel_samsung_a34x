@@ -106,6 +106,9 @@ static const struct file_operations fm_proc_ops = {
 #endif
 
 #ifdef CONFIG_COMPAT
+
+#define IOCTL_NR(x) (x & 0xff)
+
 static long fm_ops_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	long ret;
@@ -121,7 +124,10 @@ static long fm_ops_compat_ioctl(struct file *filp, unsigned int cmd, unsigned lo
 		break;
 		}
 	default:
-		ret = filp->f_op->unlocked_ioctl(filp, ((cmd & 0xFF) | (FM_IOCTL_POWERUP & 0xFFFFFF00)), arg);
+		if ((cmd & 0xFF) == IOCTL_NR(FM_IOCTL_PRE_SEARCH))
+			ret = filp->f_op->unlocked_ioctl(filp, FM_IOCTL_PRE_SEARCH, arg);
+		else
+			ret = filp->f_op->unlocked_ioctl(filp, ((cmd & 0xFF) | (FM_IOCTL_POWERUP & 0xFFFFFF00)), arg);
 		break;
 	}
 	return ret;
@@ -266,6 +272,8 @@ static long fm_ops_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		{
 			struct fm_softmute_tune_t parm;
 
+			WCN_DBG(FM_DBG | MAIN, "FM_IOCTL_SOFT_MUTE_TUNE:0\n");
+
 			fm_cqi_log();	/* cqi log tool */
 			if (copy_from_user(&parm, (void *)arg, sizeof(struct fm_softmute_tune_t))) {
 				ret = -EFAULT;
@@ -280,16 +288,26 @@ static long fm_ops_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				ret = -EFAULT;
 				goto out;
 			}
+
+			WCN_DBG(FM_DBG | MAIN, "FM_IOCTL_SOFT_MUTE_TUNE:1\n");
 			break;
 		}
 	case FM_IOCTL_PRE_SEARCH:
 		{
+			WCN_DBG(FM_DBG | MAIN, "FM_IOCTL_PRE_SEARCH:0\n");
+
 			ret = fm_pre_search(fm);
+
+			WCN_DBG(FM_DBG | MAIN, "FM_IOCTL_PRE_SEARCH:1\n");
 			break;
 		}
 	case FM_IOCTL_RESTORE_SEARCH:
 		{
+			WCN_DBG(FM_DBG | MAIN, "FM_IOCTL_RESTORE_SEARCH:0\n");
+
 			ret = fm_restore_search(fm);
+
+			WCN_DBG(FM_DBG | MAIN, "FM_IOCTL_RESTORE_SEARCH:1\n");
 			break;
 		}
 	case FM_IOCTL_CQI_GET:{
@@ -712,6 +730,41 @@ static long fm_ops_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 
+	case FM_IOCTL_FM_SET_STATUS:{
+			struct fm_status_t fm_stat;
+
+			WCN_DBG(FM_DBG | MAIN, "FM_IOCTL_FM_SET_STATUS");
+
+			if (copy_from_user(&fm_stat, (void *)arg, sizeof(struct fm_status_t))) {
+				ret = -EFAULT;
+				goto out;
+			}
+
+			fm_set_stat(fm, fm_stat.which, fm_stat.stat);
+
+			break;
+		}
+
+	case FM_IOCTL_FM_GET_STATUS:{
+			struct fm_status_t fm_stat;
+
+			WCN_DBG(FM_DBG | MAIN, "FM_IOCTL_FM_GET_STATUS");
+
+			if (copy_from_user(&fm_stat, (void *)arg, sizeof(struct fm_status_t))) {
+				ret = -EFAULT;
+				goto out;
+			}
+
+			fm_get_stat(fm, fm_stat.which, &fm_stat.stat);
+
+			if (copy_to_user((void *)arg, &fm_stat, sizeof(struct fm_status_t))) {
+				ret = -EFAULT;
+				goto out;
+			}
+
+			break;
+		}
+
 	case FM_IOCTL_RDS_ONOFF:{
 			unsigned short rdson_off = 0;
 
@@ -865,6 +918,21 @@ static long fm_ops_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				goto out;
 			}
 
+			break;
+		}
+
+	case FM_IOCTL_SET_ATJ:{
+			unsigned short value = 0;
+
+			WCN_DBG(FM_DBG | MAIN, "FM_IOCTL_SET_ATJ\n");
+
+			if (copy_from_user(&value, (void *)arg, sizeof(unsigned short))) {
+				WCN_DBG(FM_ALT | MAIN, "is set atj, copy_from_user err\n");
+				ret = -EFAULT;
+				goto out;
+			}
+
+			ret = fm_atj_set(10400, value);
 			break;
 		}
 
@@ -1175,6 +1243,9 @@ out:
 		}
 	}
 
+	WCN_DBG(FM_DBG | MAIN, "%s---pid(%d)---cmd(0x%08x)---ret(%d)\n", current->comm,
+		current->pid, cmd, (signed int) ret);
+
 	return ret;
 }
 
@@ -1275,16 +1346,17 @@ static signed int fm_ops_flush(struct file *filp, fl_owner_t Id)
 
 static ssize_t fm_proc_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 {
+#define PROC_READ_BUF_SIZE 3
 	struct fm *fm = g_fm;
 	ssize_t length = 0;
-	char tmpbuf[3];
+	char tmpbuf[PROC_READ_BUF_SIZE];
 	unsigned long pos = *ppos;
 
 	WCN_DBG(FM_NTC | MAIN, "Enter fm_proc_read.\n");
 	/* WCN_DBG(FM_NTC | MAIN, "count = %d\n", count); */
 	/* WCN_DBG(FM_NTC | MAIN, "ppos = %d\n", pos); */
 
-	if (pos != 0)
+	if (pos != 0 || count < PROC_READ_BUF_SIZE)
 		return 0;
 
 	if (!fm) {
@@ -1313,6 +1385,7 @@ static ssize_t fm_proc_read(struct file *file, char __user *buf, size_t count, l
 	WCN_DBG(FM_NTC | MAIN, "Leave fm_proc_read. length = %zu\n", length);
 
 	return length;
+#undef PROC_READ_BUF_SIZE
 }
 
 static ssize_t fm_proc_write(struct file *file, const char *buffer, size_t count, loff_t *ppos)

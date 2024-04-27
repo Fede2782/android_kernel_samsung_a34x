@@ -108,8 +108,8 @@ static int met_thread(void *pvData)
 
 	info = &data->info;
 	pr_info("type %d\n", info->type);
-	pr_info("read_cr %llx, write_cr %llx\n", info->read_cr, info->write_cr);
-	pr_info("met_base_ap %llx met_base_fw 0x%x, met_size 0x%x, output_len %d\n",
+	pr_info("read_cr 0x%x, write_cr 0x%x\n", info->read_cr, info->write_cr);
+	pr_info("met_base_ap 0x%x met_base_fw 0x%x, met_size 0x%x, output_len %d\n",
 		info->met_base_ap, info->met_base_fw, info->met_size, info->output_len);
 
 	if (info->read_cr == 0 || info->write_cr == 0 || info->met_base_ap == 0 ||

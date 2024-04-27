@@ -248,7 +248,7 @@ static int conndump_nl_bind_internal(struct dump_netlink_ctx* ctx, struct sk_buf
 	if (port_na) {
 		port = (unsigned int)nla_get_u32(port_na);
 	} else {
-		pr_notice("%s:-> no port_na found\n", __func__);
+		pr_err("%s:-> no port_na found\n");
 		return -1;
 	}
 
@@ -524,8 +524,8 @@ int conndump_netlink_send_to_native(int conn_type, char* tag, char* buf, unsigne
 	unsigned int remain_len = length;
 	int ret;
 
-	pr_info("[%s] conn_type=%d tag=%s length=%d\n",
-		__func__, conn_type, tag, length);
+	pr_info("[%s] conn_type=%d tag=%s buf=0x%x length=%d\n",
+		__func__, conn_type, tag, buf, length);
 	if ((conn_type < CONN_DEBUG_TYPE_WIFI || conn_type > CONN_DEBUG_TYPE_BT) || tag == NULL) {
 		pr_err("Incorrect type (%d), tag = %s\n", conn_type, tag);
 		return -1;

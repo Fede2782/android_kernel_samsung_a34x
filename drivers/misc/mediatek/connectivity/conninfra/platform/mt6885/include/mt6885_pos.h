@@ -20,7 +20,7 @@
 #define _PLATFORM_MT6885_POS_H_
 
 
-unsigned int consys_emi_set_remapping_reg_mt6885(phys_addr_t, phys_addr_t, phys_addr_t);
+unsigned int consys_emi_set_remapping_reg_mt6885(phys_addr_t, phys_addr_t);
 
 int consys_conninfra_on_power_ctrl_mt6885(unsigned int enable);
 int consys_conninfra_wakeup_mt6885(void);

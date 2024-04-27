@@ -279,6 +279,14 @@ struct PMKID_ENTRY *rsnSearchPmkidEntry(IN struct ADAPTER *prAdapter,
 					IN uint8_t *pucBssid,
 					IN uint8_t ucBssIndex);
 
+struct PMKID_ENTRY *rsnSearchPmkidEntryBySsid(IN struct ADAPTER *prAdapter,
+			     IN struct PARAM_SSID *prSsid,
+			     IN uint8_t ucBssIndex);
+
+struct PMKID_ENTRY *rsnSearchPmkid_impl(IN struct ADAPTER *prAdapter,
+				IN struct BSS_DESC *prBssDesc,
+				IN uint8_t ucBssIndex);
+
 void rsnCheckPmkidCache(IN struct ADAPTER *prAdapter,
 			IN struct BSS_DESC *prBss,
 			IN uint8_t ucBssIndex);
@@ -292,6 +300,12 @@ uint32_t rsnSetPmkid(IN struct ADAPTER *prAdapter,
 
 uint32_t rsnDelPmkid(IN struct ADAPTER *prAdapter,
 		     IN struct PARAM_PMKID *prPmkid);
+
+uint32_t rsnDelPmkidBySsid(IN struct ADAPTER *prAdapter,
+		    IN struct PARAM_SSID *prSsid, IN uint8_t ucBssIndex);
+
+uint32_t rsnDelPmkid_impl(IN struct ADAPTER *prAdapter,
+	IN struct PMKID_ENTRY *entry, IN struct BSS_DESC *prBssDesc);
 
 uint32_t rsnFlushPmkid(IN struct ADAPTER *prAdapter,
 	IN uint8_t ucBssIndex);

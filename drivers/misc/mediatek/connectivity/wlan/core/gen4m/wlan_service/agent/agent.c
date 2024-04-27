@@ -979,7 +979,7 @@ static s_int32 hqa_mac_bbp_reg_write(
 	s_int32 ret = SERV_STATUS_SUCCESS;
 	struct test_register *test_regs = &serv_test->test_reg;
 	u_char *data = hqa_frame->data;
-	u_int32 cr_val = 0;
+	u_int32 cr_val;
 
 	SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_TRACE, ("%s\n", __func__));
 
@@ -1032,9 +1032,6 @@ static s_int32 hqa_mac_bbp_reg_bulk_read(
 				&data, (u_char *)&test_regs->cr_addr);
 	get_param_and_shift_buf(TRUE, sizeof(test_regs->cr_num),
 				&data, (u_char *)&test_regs->cr_num);
-
-	if (test_regs->cr_num >= CR_NUM_MAX)
-		test_regs->cr_num = CR_NUM_MAX;
 
 	/* Allocate cr_val memory */
 	cr_total_len = test_regs->cr_num << 2;
@@ -1156,8 +1153,6 @@ static s_int32 hqa_rf_reg_bulk_write(
 				&data, (u_char *)&test_regs->cr_addr);
 	get_param_and_shift_buf(TRUE, sizeof(u_int32),
 				&data, (u_char *)&test_regs->cr_num);
-	if (test_regs->cr_num >= CR_NUM_MAX)
-		test_regs->cr_num = CR_NUM_MAX;
 
 	if (test_regs->cr_num == 0) {
 		SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_ERROR,
@@ -1256,7 +1251,7 @@ static s_int32 hqa_write_eeprom(
 	s_int32 ret = SERV_STATUS_SUCCESS;
 	struct test_eeprom *test_eprms = &serv_test->test_eprm;
 	u_char *data = hqa_frame->data;
-	u_int16 value = 0;
+	u_int16 value;
 
 	SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_TRACE, ("%s\n", __func__));
 
@@ -1830,7 +1825,7 @@ static s_int32 hqa_get_cfg_on_off(
 	get_param_and_shift_buf(TRUE, sizeof(band_idx),
 				&data, (u_char *)&band_idx);
 
-	if (band_idx >= TEST_DBDC_BAND_NUM)
+	if (band_idx >= TEST_DBDC_BAND_NUM || band_idx < 0)
 		band_idx = 0;
 
 	ret = mt_serv_get_cfg_on_off(serv_test, type, &result);
@@ -1897,7 +1892,7 @@ static s_int32 hqa_ca53_reg_write(
 	s_int32 ret = SERV_STATUS_SUCCESS;
 	struct test_register *test_regs = &serv_test->test_reg;
 	u_char *data = hqa_frame->data;
-	u_int32 cr_val = 0;
+	u_int32 cr_val;
 
 	SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_TRACE, ("%s\n", __func__));
 
@@ -2202,29 +2197,21 @@ static s_int32 hqa_get_rx_statistics_leg(
 	struct service_test *serv_test, struct hqa_frame *hqa_frame)
 {
 	s_int32 ret = SERV_STATUS_SUCCESS;
-	struct hqa_rx_stat_leg *rx_stat = NULL;
-	struct test_rx_stat_leg *test_rx_stat = NULL;
+	struct hqa_rx_stat_leg rx_stat;
+	struct test_rx_stat_leg test_rx_stat;
 	u_char dw_cnt = 0, dw_idx = 0;
 	u_char *ptr2 = NULL;
 	u_int32 *ptr = NULL;
 	u_int32 buf;
 
 	SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_TRACE, ("%s\n", __func__));
-	ret = sys_ad_alloc_mem((u_char **)&rx_stat,
-		sizeof(struct hqa_rx_stat_leg));
-	if (ret != SERV_STATUS_SUCCESS)
-		goto error1;
-	ret = sys_ad_alloc_mem((u_char **)&test_rx_stat,
-		sizeof(struct hqa_rx_stat_leg));
-	if (ret != SERV_STATUS_SUCCESS)
-		goto error1;
 
-	ret = mt_serv_get_rx_stat_leg(serv_test, test_rx_stat);
-	sys_ad_move_mem(rx_stat, test_rx_stat,
+	ret = mt_serv_get_rx_stat_leg(serv_test, &test_rx_stat);
+	sys_ad_move_mem(&rx_stat, &test_rx_stat,
 			sizeof(struct hqa_rx_stat_leg));
 	dw_cnt = sizeof(struct hqa_rx_stat_leg) >> 2;
 
-	for (dw_idx = 0, ptr = (u_int32 *)rx_stat, ptr2 = hqa_frame->data + 2;
+	for (dw_idx = 0, ptr = (u_int32 *)&rx_stat, ptr2 = hqa_frame->data + 2;
 			dw_idx < dw_cnt; dw_idx++, ptr++, ptr2 += 4) {
 		buf = SERV_OS_HTONL(*ptr);
 		sys_ad_move_mem(ptr2, &buf, sizeof(u_int32));
@@ -2233,21 +2220,6 @@ static s_int32 hqa_get_rx_statistics_leg(
 	/* Update hqa_frame with response: status (2 bytes) */
 	update_hqa_frame(hqa_frame, 2 + sizeof(struct hqa_rx_stat_leg), ret);
 
-	if (rx_stat)
-		sys_ad_free_mem(rx_stat);
-	if (test_rx_stat)
-		sys_ad_free_mem(test_rx_stat);
-	return ret;
-error1:
-	SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_ERROR,
-		("%s: memory allocation fail for rx stat.\n",
-		__func__));
-	update_hqa_frame(hqa_frame, 2, ret);
-
-	if (rx_stat)
-		sys_ad_free_mem(rx_stat);
-	if (test_rx_stat)
-		sys_ad_free_mem(test_rx_stat);
 	return ret;
 }
 
@@ -3339,7 +3311,7 @@ static s_int32 hqa_icap_ctrl(
 	u_int32 control = 0, resp_len = 2;
 	u_int32 value = 0, i = 0;
 	u_long max_data_len = 1024;
-	u_char src_addr[SERV_MAC_ADDR_LEN] = {0};
+	u_char src_addr[SERV_MAC_ADDR_LEN];
 	s_int32 *icap_data = NULL;
 	s_int32 *icap_data_cnt = NULL;
 	struct hqa_rbist_cap_start icap_info;
@@ -3871,7 +3843,7 @@ static s_int32 hqa_set_ru_info(
 	s_int32 ret = SERV_STATUS_SUCCESS;
 	u_int32 resp_len = 2;
 	u_int32 band_idx = 0;
-	u_int32 len = 0, seg_sta_cnt[2] = {0, 0}, sta_seq = 0, value = 0;
+	u_int32 len = 0, seg_sta_cnt[2] = {0}, sta_seq = 0, value = 0;
 	u_char param_cnt = 0, segment_idx = 0, param_loop = 0;
 	u_char *data = hqa_frame->data;
 	u_int32 mpdu_length = 0;
@@ -4048,6 +4020,7 @@ static s_int32 hqa_set_ru_info(
 
 	return ret;
 }
+
 
 static struct hqa_cmd_entry CMD_SET5[] = {
 	/* cmd id start from 0x1500 */
@@ -4631,9 +4604,6 @@ static s_int32 hqa_listmode_tx_seg(
 		get_param_and_shift_buf(TRUE, sizeof(u_int32), &data,
 			(u_char *)&ParserSegHeader.u4SegParaNum);
 
-		if (ParserSegHeader.u4SegParaNum >= SEGPARANUM_MAX)
-			ParserSegHeader.u4SegParaNum = SEGPARANUM_MAX;
-
 		SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_TRACE,
 			("%s ExtId(%d) FC(%d) Dur(%d) Dur(%d) TxLen(%d)\n",
 			__func__, ParserSegHeader.u4ExtId,
@@ -4899,9 +4869,6 @@ static s_int32 hqa_listmode_rx_seg(
 		get_param_and_shift_buf(TRUE, sizeof(u_int32),
 				&data,
 				(u_char *)&ParserSegHeader.u4SegParaNum);
-
-		if (ParserSegHeader.u4SegParaNum >= SEGPARANUM_MAX)
-			ParserSegHeader.u4SegParaNum = SEGPARANUM_MAX;
 
 		SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_TRACE,
 			("%s OwnMac[%x][%x][%x][%x][%x][%x]\n",

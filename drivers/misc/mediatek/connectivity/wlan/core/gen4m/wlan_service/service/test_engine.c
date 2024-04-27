@@ -1454,10 +1454,6 @@ static u_int32 mt_engine_add_allocation(
 		return SERV_STATUS_ENGINE_INVALID_PARAM;
 	}
 
-	if (sub_band_idx + 1 < 0 || sub_band_idx + 2 < 0
-		|| sub_band_idx + 3 < 0)
-		return SERV_STATUS_ENGINE_INVALID_PARAM;
-
 	SERV_LOG(SERV_DBG_CAT_ENGN, SERV_DBG_LVL_TRACE,
 		("%s: ru index:%d (%d), ",
 		__func__, ru_index, sub_band_idx));

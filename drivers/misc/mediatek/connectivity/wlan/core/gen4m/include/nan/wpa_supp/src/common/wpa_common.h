@@ -184,7 +184,7 @@ struct wpa_eapol_key_192 {
 } STRUCT_PACKED;
 
 #define WPA_EAPOL_KEY_MIC_MAX_LEN 24
-#define WPA_KCK_MAX_LEN 128
+#define WPA_KCK_MAX_LEN 24
 #define WPA_KEK_MAX_LEN 32
 #define WPA_TK_MAX_LEN 32
 

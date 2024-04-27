@@ -100,7 +100,7 @@ typedef int(*CONSYS_PLT_THERMAL_QUERY)(void);
 
 typedef int(*CONSYS_PLT_ENABLE_POWER_DUMP)(void);
 typedef int(*CONSYS_PLT_RESET_POWER_STATE)(void);
-typedef int(*CONSYS_PLT_POWER_STATE)(char *buf, unsigned int size);
+typedef int(*CONSYS_PLT_POWER_STATE)(void);
 
 typedef void(*CONSYS_PLT_CONFIG_SETUP)(void);
 
@@ -110,9 +110,6 @@ typedef u64(*CONSYS_PLT_SOC_TIMESTAMP_GET)(void);
 typedef unsigned int (*CONSYS_PLT_ADIE_DETECTION)(void);
 
 typedef void (*CONSYS_PLT_SET_MCU_CONTROL)(int type, bool onoff);
-
-typedef int (*CONSYS_PLT_PRE_CAL_BACKUP)(unsigned int offset, unsigned int size);
-typedef int (*CONSYS_PLT_PRE_CAL_CLEAN_DATA)(void);
 
 struct consys_hw_ops_struct {
 	/* load from dts */
@@ -178,9 +175,6 @@ struct consys_hw_ops_struct {
 	CONSYS_PLT_ADIE_DETECTION consys_plt_adie_detection;
 
 	CONSYS_PLT_SET_MCU_CONTROL consys_plt_set_mcu_control;
-
-	CONSYS_PLT_PRE_CAL_BACKUP consys_plt_pre_cal_backup;
-	CONSYS_PLT_PRE_CAL_CLEAN_DATA consys_plt_pre_cal_clean_data;
 };
 
 struct conninfra_dev_cb {
@@ -278,7 +272,7 @@ void consys_hw_clock_fail_dump(void);
 /* Low debug */
 int consys_hw_enable_power_dump(void);
 int consys_hw_reset_power_state(void);
-int consys_hw_dump_power_state(char *buf, unsigned int size);
+int consys_hw_dump_power_state(void);
 
 
 void consys_hw_config_setup(void);
@@ -302,11 +296,6 @@ int consys_hw_set_platform_config(int value);
 int consys_hw_get_platform_config(void);
 
 void consys_hw_set_mcu_control(int type, bool onoff);
-
-/* Pre-cal */
-int consys_hw_pre_cal_backup(unsigned int offset, unsigned int size);
-int consys_hw_pre_cal_clean_data(void);
-
 /*******************************************************************************
 *                              F U N C T I O N S
 ********************************************************************************

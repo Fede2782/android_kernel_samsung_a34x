@@ -255,12 +255,7 @@ static void axiDumpRx(struct GL_HIF_INFO *prHifInfo,
 
 struct mt66xx_hif_driver_data *get_platform_driver_data(void)
 {
-	ASSERT(g_prPlatDev);
-	if (!g_prPlatDev)
-		return NULL;
-
-	return (struct mt66xx_hif_driver_data *) platform_get_drvdata(
-			g_prPlatDev);
+	return (struct mt66xx_hif_driver_data *)mtk_axi_ids[0].driver_data;
 }
 
 static int hifAxiProbe(void)
@@ -421,7 +416,6 @@ static void register_conninfra_cb(void)
 	/* Register conninfra call back */
 	conninfra_wf_cb.pre_cal_cb.pwr_on_cb = wlanPreCalPwrOn;
 	conninfra_wf_cb.pre_cal_cb.do_cal_cb = wlanPreCal;
-	conninfra_wf_cb.pre_cal_cb.get_cal_result_cb = wlanGetCalResultCb;
 #endif /* (CFG_SUPPORT_PRE_ON_PHY_ACTION == 1) */
 
 	conninfra_sub_drv_ops_register(CONNDRV_TYPE_WIFI,
@@ -797,7 +791,7 @@ static irqreturn_t mtk_axi_interrupt(int irq, void *dev_instance)
 	GLUE_INC_REF_CNT(prGlueInfo->prAdapter->rHifStats.u4HwIsrCount);
 	halDisableInterrupt(prGlueInfo->prAdapter);
 
-	if (test_bit(GLUE_FLAG_HALT_BIT, &prGlueInfo->ulFlag)) {
+	if (prGlueInfo->ulFlag & GLUE_FLAG_HALT) {
 #if AXI_ISR_DEBUG_LOG
 		DBGLOG(HAL, INFO, "GLUE_FLAG_HALT skip INT\n");
 #endif
@@ -1322,11 +1316,7 @@ static bool axiAllocTxCmdBuf(struct RTMP_DMABUF *prDmaBuf,
 			     uint32_t u4Num, uint32_t u4Idx)
 {
 	/* only for cmd & fw download ring */
-#if CFG_TRI_TX_RING
-	if (u4Num == TX_RING_CMD_IDX_4 || u4Num == TX_RING_FWDL_IDX_5) {
-#else
 	if (u4Num == TX_RING_CMD_IDX_3 || u4Num == TX_RING_FWDL_IDX_4) {
-#endif
 		prDmaBuf->AllocSize = AXI_TX_CMD_BUFF_SIZE;
 		prDmaBuf->AllocPa = grMem.rTxCmdBuf[u4Idx].pa;
 		prDmaBuf->AllocVa = grMem.rTxCmdBuf[u4Idx].va;
@@ -1465,7 +1455,7 @@ static void axiDumpTx(struct GL_HIF_INFO *prHifInfo,
 		prAddr = prDmaBuf->AllocVa;
 
 	if (prAddr)
-		DBGLOG_MEM128(HAL, INFO, prAddr, u4DumpLen);
+		DBGLOG_MEM32(HAL, INFO, prAddr, u4DumpLen);
 }
 
 static void axiDumpRx(struct GL_HIF_INFO *prHifInfo,
@@ -1478,8 +1468,8 @@ static void axiDumpRx(struct GL_HIF_INFO *prHifInfo,
 	prRxCell = &prRxRing->Cell[u4Idx];
 	prDmaBuf = &prRxCell->DmaBuf;
 
-	if (prDmaBuf->AllocVa)
-		DBGLOG_MEM128(HAL, INFO, prDmaBuf->AllocVa, u4DumpLen);
+	if (prRxCell->pPacket)
+		DBGLOG_MEM32(HAL, INFO, prRxCell->pPacket, u4DumpLen);
 }
 #else /* AXI_CFG_PREALLOC_MEMORY_BUFFER */
 static void axiAllocDesc(struct GL_HIF_INFO *prHifInfo,

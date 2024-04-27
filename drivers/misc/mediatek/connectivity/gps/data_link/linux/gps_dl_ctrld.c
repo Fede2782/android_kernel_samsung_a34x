@@ -83,7 +83,7 @@ static int gps_dl_core_opid(struct gps_dl_osal_op_dat *pOpDat)
 	opid_duration = gps_dl_tick_get_ms() - pOpDat->op_enq;
 	/* if op duration more than 0.5s(default value, can be set dynamically), print warning*/
 	if (opid_duration >= gps_dl_opid_enque_timeout_get())
-		GDL_LOGI("warning enque timeout: link_id (%lu), evt (%lu), OPID (%d), opid_duration = %lu",
+		GDL_LOGI("warning enque timeout: link_id (%d), evt (%d), OPID (%d), opid_duration = %lu",
 			pOpDat->au4OpData[0], pOpDat->au4OpData[1], pOpDat->opId, opid_duration);
 
 	opfunc_j0 = gps_dl_tick_get_ms();
@@ -94,7 +94,7 @@ static int gps_dl_core_opid(struct gps_dl_osal_op_dat *pOpDat)
 		opfunc_duration = gps_dl_tick_get_ms() - opfunc_j0;
 		/* if op duration more than 0.5s(default value, can be set dynamically), print warning*/
 		if (opfunc_duration >= gps_dl_opid_opfunc_timeout_get())
-			GDL_LOGI("warning opfunc timeout: link_id (%lu), evt (%lu), OPID (%d), opfunc_duration = %lu",
+			GDL_LOGI("warning opfunc timeout: link_id (%d), evt (%d), OPID (%d), opfunc_duration = %lu",
 				pOpDat->au4OpData[0], pOpDat->au4OpData[1], pOpDat->opId, opfunc_duration);
 
 		return ret;
