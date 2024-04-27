@@ -74,7 +74,7 @@
 */
 
 struct work_struct rst_worker;
-struct msg_thread_ctx g_ctx;
+struct msg_thread_ctx g_evt_ctx;
 
 typedef enum {
 	INFRA_TEST_OPID_1 = 0,
@@ -108,10 +108,10 @@ int opfunc_test_2(struct msg_op_data *op)
 
 static void msg_thrd_handler(struct work_struct *work)
 {
-	msg_thread_send_1(&g_ctx, INFRA_TEST_OPID_2, 2011);
+	msg_thread_send_1(&g_evt_ctx, INFRA_TEST_OPID_2, 2011);
 	osal_sleep_ms(5);
-	msg_thread_send_wait_1(&g_ctx, INFRA_TEST_OPID_2, 0, 2022);
-	msg_thread_send_wait_1(&g_ctx, INFRA_TEST_OPID_2, 0, 2033);
+	msg_thread_send_wait_1(&g_evt_ctx, INFRA_TEST_OPID_2, 0, 2022);
+	msg_thread_send_wait_1(&g_evt_ctx, INFRA_TEST_OPID_2, 0, 2033);
 }
 
 int msg_evt_test(void)
@@ -120,7 +120,7 @@ int msg_evt_test(void)
 
 	INIT_WORK(&rst_worker, msg_thrd_handler);
 
-	ret = msg_thread_init(&g_ctx, "TestThread",
+	ret = msg_thread_init(&g_evt_ctx, "TestThread",
 					test_op_func, INFRA_TEST_OPID_MAX);
 	if (ret) {
 		pr_err("inti msg_thread fail ret=[%d]\n", ret);
@@ -129,20 +129,20 @@ int msg_evt_test(void)
 
 	schedule_work(&rst_worker);
 
-	msg_thread_send_wait_1(&g_ctx, INFRA_TEST_OPID_2, 0, 1011);
+	msg_thread_send_wait_1(&g_evt_ctx, INFRA_TEST_OPID_2, 0, 1011);
 	//osal_sleep_ms(10);
-	msg_thread_send_1(&g_ctx, INFRA_TEST_OPID_2, 1022);
+	msg_thread_send_1(&g_evt_ctx, INFRA_TEST_OPID_2, 1022);
 	osal_sleep_ms(10);
-	msg_thread_send_wait_1(&g_ctx, INFRA_TEST_OPID_2, 0, 1033);
+	msg_thread_send_wait_1(&g_evt_ctx, INFRA_TEST_OPID_2, 0, 1033);
 
 	osal_sleep_ms(1000);
 
 	pr_info("<<<<<>>>>>>> freeOpq=[%u][%u] ActiveQ=[%u][%u]",
-			g_ctx.free_op_q.write, g_ctx.free_op_q.read,
-			g_ctx.active_op_q.write, g_ctx.active_op_q.read);
+			g_evt_ctx.free_op_q.write, g_evt_ctx.free_op_q.read,
+			g_evt_ctx.active_op_q.write, g_evt_ctx.active_op_q.read);
 	osal_sleep_ms(500);
 
-	ret = msg_thread_deinit(&g_ctx);
+	ret = msg_thread_deinit(&g_evt_ctx);
 	pr_info("[%s] msg_thread_deinit\n", __func__);
 
 	pr_info("[%s] test PASS\n", __func__);
