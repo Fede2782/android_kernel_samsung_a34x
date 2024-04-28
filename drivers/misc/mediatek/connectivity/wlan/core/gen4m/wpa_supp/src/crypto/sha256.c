@@ -132,7 +132,7 @@ hmac_sha256_vector(const u8 *key, size_t key_len, size_t num_elem,
  * Returns: 0 on success, -1 on failure
  */
 int
-hmac_sha256(const u8 *key, size_t key_len, const u8 *data, size_t data_len,
+hmac_sha256_sm(const u8 *key, size_t key_len, const u8 *data, size_t data_len,
 	    u8 *mac) {
 	return hmac_sha256_vector(key, key_len, 1, &data, &data_len, mac);
 }
@@ -172,7 +172,7 @@ void caculate_pmkid(u8 *key, u8 *IMAC, u8 *RMAC, u8 *serviceName, u8 *pmkid)
 	os_memcpy(pmkIdSrc+post, RMAC, 6);
 	post += 6;
 	os_memcpy(pmkIdSrc+post, aucServiceID, 6);
-	hmac_sha256(key, 32, pmkIdSrc, pmkIdSrcLen, pmkid);
+	hmac_sha256_sm(key, 32, pmkIdSrc, pmkIdSrcLen, pmkid);
 	os_free(pmkIdSrc);
 
 }
