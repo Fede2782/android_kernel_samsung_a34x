@@ -129,7 +129,7 @@ ccflags-y += -Werror
 
 $(MOD_NAME)-objs := $(CFILES:.c=.o)
 
-obj-m += $(MOD_NAME).o
+obj-y += $(MOD_NAME).o
 
 ifneq ($(TARGET_BUILD_VARIANT), user)
 ccflags-y += -DBTMTK_DEBUG_SOP
