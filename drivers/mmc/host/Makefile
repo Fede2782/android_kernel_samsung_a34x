@@ -23,7 +23,8 @@ obj-$(CONFIG_MMC_SDHCI_F_SDH30)	+= sdhci_f_sdh30.o
 obj-$(CONFIG_MMC_SDHCI_SPEAR)	+= sdhci-spear.o
 obj-$(CONFIG_MMC_WBSD)		+= wbsd.o
 obj-$(CONFIG_MMC_AU1X)		+= au1xmmc.o
-obj-$(CONFIG_MMC_MTK)		+= mtk-sd.o
+obj-$(CONFIG_MMC_MTK)		+= mtk-sd.o mtk-sd-dbg.o
+obj-$(CONFIG_MMC_MTK)		+= mmc-sec-sysfs.o
 obj-$(CONFIG_MMC_OMAP)		+= omap.o
 obj-$(CONFIG_MMC_OMAP_HS)	+= omap_hsmmc.o
 obj-$(CONFIG_MMC_ATMELMCI)	+= atmel-mci.o
@@ -91,11 +92,25 @@ obj-$(CONFIG_MMC_SDHCI_ST)		+= sdhci-st.o
 obj-$(CONFIG_MMC_SDHCI_MICROCHIP_PIC32)	+= sdhci-pic32.o
 obj-$(CONFIG_MMC_SDHCI_BRCMSTB)		+= sdhci-brcmstb.o
 obj-$(CONFIG_MMC_SDHCI_OMAP)		+= sdhci-omap.o
-obj-$(CONFIG_MMC_CQHCI)			+= cqhci.o
+obj-$(CONFIG_MMC_CQHCI)			+= cqhci-core.o
+cqhci-core-y				+= cqhci.o
+cqhci-core-$(CONFIG_MMC_CRYPTO)		+= cqhci-crypto.o
 
 ifeq ($(CONFIG_CB710_DEBUG),y)
 	CFLAGS-cb710-mmc	+= -DDEBUG
 endif
+
+obj-$(CONFIG_MMC_MTK_PRO)		+= mediatek/
+ifeq ($(CONFIG_MTK_EMMC_HW_CQ), y)
+ccflags-y += -I$(srctree)/drivers/mmc/core
+ccflags-y += -I$(srctree)/drivers/mmc/host/mediatek/ComboA
+ccflags-y += -I$(srctree)/drivers/mmc/host/mediatek/ComboA/$(CONFIG_MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
+ccflags-y += -I$(srctree)/drivers/devfreq
+obj-y		+= cmdq_hci.o
+endif
+ccflags-y += -I$(srctree)/drivers/char/rpmb/
 
 obj-$(CONFIG_MMC_SDHCI_XENON)	+= sdhci-xenon-driver.o
 sdhci-xenon-driver-y		+= sdhci-xenon.o sdhci-xenon-phy.o

@@ -147,6 +147,9 @@ struct mmc_host_ops {
 	/* Prepare HS400 target operating frequency depending host driver */
 	int	(*prepare_hs400_tuning)(struct mmc_host *host, struct mmc_ios *ios);
 
+	/* Execute HS400 tuning depending host driver */
+	int (*execute_hs400_tuning)(struct mmc_host *host, struct mmc_card *card);
+
 	/* Prepare for switching from HS400 to HS200 */
 	void	(*hs400_downgrade)(struct mmc_host *host);
 
@@ -214,9 +217,23 @@ struct mmc_cqe_ops {
 	void	(*cqe_recovery_finish)(struct mmc_host *host);
 };
 
+struct keyslot_mgmt_ll_ops;
+struct mmc_crypto_variant_ops {
+	void (*host_init_crypto)(struct mmc_host *host);
+	int (*get_crypto_capabilities)(struct mmc_host *host);
+	int (*prepare_mqr_crypto)(struct mmc_host *host,
+		u64 data_unit_num, int ddir, int tag, int slot);
+	void (*host_program_key)(struct mmc_host *host,
+			u32 *key, u32 *tkey, u32 config);
+	int (*complete_mqr_crypto)(struct mmc_host *host);
+};
+
 struct mmc_async_req {
 	/* active mmc request */
 	struct mmc_request	*mrq;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	struct mmc_request	*mrq_que;
+#endif
 	/*
 	 * Check error status of completed mmc request.
 	 * Returns 0 if success otherwise non zero.
@@ -255,6 +272,10 @@ struct mmc_context_info {
 	wait_queue_head_t	wait;
 };
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+#define EMMC_MAX_QUEUE_DEPTH		(32)
+#define EMMC_MIN_RT_CLASS_TAG_COUNT	(4)
+#endif
 struct regulator;
 struct mmc_pwrseq;
 
@@ -267,10 +288,70 @@ struct mmc_ctx {
 	struct task_struct *task;
 };
 
+/* CCAP - Crypto Capability 100h */
+union swcqhci_crypto_capabilities {
+	__le32 reg_val;
+	struct {
+		u8 num_crypto_cap;
+		u8 config_count;
+		u8 reserved;
+		u8 config_array_ptr;
+	};
+};
+
+enum swcqhci_crypto_key_size {
+	SWCQHCI_CRYPTO_KEY_SIZE_128		= 0,
+	SWCQHCI_CRYPTO_KEY_SIZE_192		= 1,
+	SWCQHCI_CRYPTO_KEY_SIZE_256		= 2,
+	SWCQHCI_CRYPTO_KEY_SIZE_512		= 3,
+	SWCQHCI_CRYPTO_KEY_SIZE_INVALID	= 4,
+};
+
+enum swcqhci_crypto_alg {
+	SWCQHCI_CRYPTO_ALG_AES_XTS				= 4,
+	SWCQHCI_CRYPTO_ALG_BITLOCKER_AES_CBC	= 3,
+	SWCQHCI_CRYPTO_ALG_AES_ECB				= 2,
+	SWCQHCI_CRYPTO_ALG_ESSIV_AES_CBC		= 1,
+	SWCQHCI_CRYPTO_ALG_INVALID				= 0,
+};
+
+/* x-CRYPTOCAP - Crypto Capability X */
+union swcqhci_crypto_cap_entry {
+	__le32 reg_val;
+	struct {
+		u8 algorithm_id;
+		u8 sdus_mask; /* Supported data unit size mask */
+		u8 key_size;
+		u8 reserved;
+	};
+};
+
+/* Please note that enable bit @ bit15 for spec */
+#define MMC_CRYPTO_CONFIGURATION_ENABLE (1 << 7)
+#define MMC_CRYPTO_KEY_MAX_SIZE 64
+/* x-CRYPTOCFG - Crypto Configuration X */
+/* key info will be fill in here, find slot will use, # of array == # of slot */
+union swcqhci_crypto_cfg_entry {
+	__le32 reg_val[32];
+	struct {
+		u8 crypto_key[MMC_CRYPTO_KEY_MAX_SIZE];
+		/* 4KB/512 = 8 */
+		u8 data_unit_size;
+		u8 crypto_cap_idx;
+		u8 reserved_1;
+		u8 config_enable;
+		u8 reserved_multi_host;
+		u8 reserved_2;
+		u8 vsb[2];
+		u8 reserved_3[56];
+	};
+};
+
 struct mmc_host {
 	struct device		*parent;
 	struct device		class_dev;
-	int			index;
+	int index;
+	int host_function;	/* define host function */
 	const struct mmc_host_ops *ops;
 	struct mmc_pwrseq	*pwrseq;
 	unsigned int		f_min;
@@ -304,6 +385,12 @@ struct mmc_host {
 #define MMC_VDD_33_34		0x00200000	/* VDD voltage 3.3 ~ 3.4 */
 #define MMC_VDD_34_35		0x00400000	/* VDD voltage 3.4 ~ 3.5 */
 #define MMC_VDD_35_36		0x00800000	/* VDD voltage 3.5 ~ 3.6 */
+
+#define MMC_VDD_EMMC		(MMC_VDD_165_195 |MMC_VDD_20_21| \
+	MMC_VDD_21_22|MMC_VDD_22_23|MMC_VDD_23_24|MMC_VDD_24_25| \
+	MMC_VDD_25_26|MMC_VDD_26_27|MMC_VDD_27_28| \
+	MMC_VDD_28_29 | MMC_VDD_29_30)
+#define MMC_VDD_SD		(MMC_VDD_28_29 | MMC_VDD_29_30)
 
 	u32			caps;		/* Host capabilities */
 
@@ -369,6 +456,7 @@ struct mmc_host {
 #define MMC_CAP2_CQE_DCMD	(1 << 24)	/* CQE can issue a direct command */
 #define MMC_CAP2_AVOID_3_3V	(1 << 25)	/* Host must negotiate down from 3.3V */
 #define MMC_CAP2_CRYPTO		(1 << 27)	/* Host supports inline encryption */
+#define MMC_CAP2_SWCQ		(1 << 30)	/* CAP_SW_CMDQ */
 
 	int			fixed_drv_type;	/* fixed driver type for non-removable media */
 
@@ -442,7 +530,48 @@ struct mmc_host {
 
 	/* Ongoing data transfer that allows commands during transfer */
 	struct mmc_request	*ongoing_mrq;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	struct mmc_async_req	*areq_que[EMMC_MAX_QUEUE_DEPTH];
+	struct mmc_async_req	*areq_cur;
+	atomic_t		areq_cnt;
 
+	spinlock_t		cmd_que_lock;
+	spinlock_t		dat_que_lock;
+	spinlock_t		que_lock;
+	struct list_head	cmd_que;
+	struct list_head	dat_que;
+
+	unsigned long		state;
+	wait_queue_head_t	cmp_que;
+	wait_queue_head_t	cmdq_que;
+	struct mmc_request	*done_mrq;
+	struct mmc_command	chk_cmd;
+	struct mmc_request	chk_mrq;
+	struct mmc_command	que_cmd;
+	struct mmc_request	que_mrq;
+	struct mmc_command	deq_cmd;
+	struct mmc_request	deq_mrq;
+
+	struct mmc_queue_req	*mqrq_cur;
+	struct mmc_queue_req	*mqrq_prev;
+	struct mmc_request	*prev_mrq;
+
+	struct task_struct	*cmdq_thread;
+	atomic_t		cq_rw;
+	atomic_t		cq_w;
+	unsigned int		wp_error;
+	atomic_t		cq_wait_rdy;
+	atomic_t		cq_rdy_cnt;
+	unsigned long		task_id_index;
+	int			cur_rw_task;
+#define CQ_TASK_IDLE 99
+	atomic_t		is_data_dma;
+	atomic_t		cq_tuning_now;
+	unsigned int		data_mrq_queued[EMMC_MAX_QUEUE_DEPTH];
+	unsigned int		cmdq_support_changed;
+	int			align_size;
+	bool		swcq_enabled;
+#endif
 #ifdef CONFIG_FAIL_MMC_REQUEST
 	struct fault_attr	fail_mmc_request;
 #endif
@@ -461,9 +590,16 @@ struct mmc_host {
 	bool			cqe_enabled;
 	bool			cqe_on;
 #ifdef CONFIG_MMC_CRYPTO
-	struct keyslot_manager	*ksm;
+	/* crypto */
+	const struct mmc_crypto_variant_ops *crypto_vops;
+	union swcqhci_crypto_capabilities crypto_capabilities;
+	union swcqhci_crypto_cap_entry *crypto_cap_array;
+	u8 crypto_cfg_register;
+	union swcqhci_crypto_cfg_entry *crypto_cfgs;
+	struct keyslot_manager *ksm;
 #endif /* CONFIG_MMC_CRYPTO */
-
+    unsigned int        card_detect_cnt;
+	int (*sdcard_uevent)(struct mmc_card *card);
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
@@ -492,7 +628,13 @@ void mmc_request_done(struct mmc_host *, struct mmc_request *);
 void mmc_command_done(struct mmc_host *host, struct mmc_request *mrq);
 
 void mmc_cqe_request_done(struct mmc_host *host, struct mmc_request *mrq);
-
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+int mmc_blk_end_queued_req(struct mmc_host *host,
+	struct mmc_async_req *areq_active, int index);
+/* add for emmc reset when error happen */
+extern int current_mmc_part_type;
+extern int emmc_resetting_when_cmdq;
+#endif
 /*
  * May be called from host driver's system/runtime suspend/resume callbacks,
  * to know if SDIO IRQs has been claimed.
@@ -591,5 +733,6 @@ static inline enum dma_data_direction mmc_get_dma_dir(struct mmc_data *data)
 
 int mmc_send_tuning(struct mmc_host *host, u32 opcode, int *cmd_error);
 int mmc_abort_tuning(struct mmc_host *host, u32 opcode);
+int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd);
 
 #endif /* LINUX_MMC_HOST_H */

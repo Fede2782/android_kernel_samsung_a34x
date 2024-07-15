@@ -155,12 +155,16 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
 void ip_list_rcv(struct list_head *head, struct packet_type *pt,
 		 struct net_device *orig_dev);
 int ip_local_deliver(struct sk_buff *skb);
+void ip_protocol_deliver_rcu(struct net *net, struct sk_buff *skb, int proto);
 int ip_mr_input(struct sk_buff *skb);
 int ip_output(struct net *net, struct sock *sk, struct sk_buff *skb);
 int ip_mc_output(struct net *net, struct sock *sk, struct sk_buff *skb);
 int ip_do_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
 		   int (*output)(struct net *, struct sock *, struct sk_buff *));
 void ip_send_check(struct iphdr *ip);
+int ip_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+	    unsigned int mtu,
+	    int (*output)(struct net *, struct sock *, struct sk_buff *));
 int __ip_local_out(struct net *net, struct sock *sk, struct sk_buff *skb);
 int ip_local_out(struct net *net, struct sock *sk, struct sk_buff *skb);
 

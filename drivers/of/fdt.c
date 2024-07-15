@@ -765,6 +765,7 @@ void __init early_init_fdt_scan_reserved_mem(void)
 		if (!size)
 			break;
 		early_init_dt_reserve_memory_arch(base, size, 0);
+		record_memsize_reserved(NULL, base, size, 0, 0);
 	}
 
 	of_scan_flat_dt(__fdt_scan_reserved_mem, NULL);
@@ -1359,6 +1360,7 @@ void __init early_init_dt_scan_nodes(void)
 
 	/* Setup memory, calling early_init_dt_add_memory_arch */
 	of_scan_flat_dt(early_init_dt_scan_memory, NULL);
+	record_memsize_memory_hole();
 }
 
 bool __init early_init_dt_scan(void *params)

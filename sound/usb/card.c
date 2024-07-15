@@ -69,6 +69,10 @@
 #include "power.h"
 #include "stream.h"
 
+#ifdef CONFIG_USB_AUDIO_ENHANCED_DETECT_TIME
+#include <linux/usb_notify.h>
+#endif
+
 MODULE_AUTHOR("Takashi Iwai <tiwai@suse.de>");
 MODULE_DESCRIPTION("USB Audio");
 MODULE_LICENSE("GPL");
@@ -655,6 +659,10 @@ static int usb_audio_probe(struct usb_interface *intf,
 	int ifnum;
 	u32 id;
 
+#ifdef CONFIG_USB_DEBUG_DETAILED_LOG
+	pr_info("%s\n", __func__);
+#endif
+
 	alts = &intf->altsetting[0];
 	ifnum = get_iface_desc(alts)->bInterfaceNumber;
 	id = USB_ID(le16_to_cpu(dev->descriptor.idVendor),
@@ -718,6 +726,14 @@ static int usb_audio_probe(struct usb_interface *intf,
 		}
 	}
 	dev_set_drvdata(&dev->dev, chip);
+#ifdef CONFIG_USB_AUDIO_ENHANCED_DETECT_TIME
+	set_usb_audio_cardnum(chip->card->number, 0, 1);
+	send_usb_audio_uevent(chip->dev, chip->card->number, 1);
+#endif
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+	/*trace_android_vh_audio_usb_offload_connect(intf, chip);*/
+	sound_usb_connect(intf, chip);
+#endif
 
 	/*
 	 * For devices with more than one control interface, we assume the
@@ -758,8 +774,17 @@ static int usb_audio_probe(struct usb_interface *intf,
 	usb_chip[chip->index] = chip;
 	chip->num_interfaces++;
 	usb_set_intfdata(intf, chip);
+
+	/* enable auto suspend */
+	if (snd_usb_support_autosuspend_quirk(dev))
+		usb_enable_autosuspend(dev);
+	device_wakeup_enable(&dev->dev);
+
 	atomic_dec(&chip->active);
 	mutex_unlock(&register_mutex);
+#ifdef CONFIG_USB_DEBUG_DETAILED_LOG
+	pr_info("%s done\n", __func__);
+#endif
 	return 0;
 
  __error:
@@ -781,6 +806,9 @@ static int usb_audio_probe(struct usb_interface *intf,
  */
 static void usb_audio_disconnect(struct usb_interface *intf)
 {
+#ifdef CONFIG_USB_AUDIO_ENHANCED_DETECT_TIME
+	struct usb_device *udev = interface_to_usbdev(intf);
+#endif
 	struct snd_usb_audio *chip = usb_get_intfdata(intf);
 	struct snd_card *card;
 	struct list_head *p;
@@ -789,6 +817,14 @@ static void usb_audio_disconnect(struct usb_interface *intf)
 		return;
 
 	card = chip->card;
+#ifdef CONFIG_USB_AUDIO_ENHANCED_DETECT_TIME
+	send_usb_audio_uevent(udev, chip->card->number, 0);
+	set_usb_audio_cardnum(chip->card->number, 0, 0);
+#endif
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+	/*trace_android_rvh_audio_usb_offload_disconnect(intf);*/
+	sound_usb_disconnect(intf);
+#endif
 
 	mutex_lock(&register_mutex);
 	if (atomic_inc_return(&chip->shutdown) == 1) {

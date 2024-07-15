@@ -28,6 +28,13 @@ config SUSPEND_SKIP_SYNC
 	  of suspend, or they are content with invoking sync() from
 	  user-space before invoking suspend.  Say Y if that's your case.
 
+config FOTA_LIMIT
+	bool "Fota limit information node"
+	default n
+	help
+	  Add sysfs to notify limit information to recovery module
+	  /sys/power/fota_limit
+
 config HIBERNATE_CALLBACKS
 	bool
 
@@ -313,3 +320,15 @@ config ENERGY_MODEL
 	  The exact usage of the energy model is subsystem-dependent.
 
 	  If in doubt, say N.
+
+config SEC_PM
+	bool "Samsung PowerManagement Feature"
+	default n
+	help
+	  Samsung PowerManagement Feature.
+
+config SEC_PM_IDLE_DEBUG
+	bool "MTK chipset time in idle state debug Feature"
+	default n
+    help
+      This config supports mtk idle state debug feature.

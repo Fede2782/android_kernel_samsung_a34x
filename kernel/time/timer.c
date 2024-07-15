@@ -1314,6 +1314,7 @@ EXPORT_SYMBOL(del_timer_sync);
 static void call_timer_fn(struct timer_list *timer, void (*fn)(struct timer_list *))
 {
 	int count = preempt_count();
+	unsigned long long ts;
 
 #ifdef CONFIG_LOCKDEP
 	/*
@@ -1335,7 +1336,9 @@ static void call_timer_fn(struct timer_list *timer, void (*fn)(struct timer_list
 	lock_map_acquire(&lockdep_map);
 
 	trace_timer_expire_entry(timer);
+	check_start_time(ts);
 	fn(timer);
+	check_process_time("timer %ps", ts, fn);
 	trace_timer_expire_exit(timer);
 
 	lock_map_release(&lockdep_map);

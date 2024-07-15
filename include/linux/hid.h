@@ -834,6 +834,11 @@ static inline bool hid_is_using_ll_driver(struct hid_device *hdev,
 	return hdev->ll_driver == driver;
 }
 
+static inline bool hid_is_usb(struct hid_device *hdev)
+{
+	return hid_is_using_ll_driver(hdev, &usb_hid_driver);
+}
+
 #define	PM_HINT_FULLON	1<<5
 #define PM_HINT_NORMAL	1<<1
 
@@ -992,7 +997,7 @@ static inline void hid_map_usage(struct hid_input *hidinput,
 
 	if (unlikely(c > limit || !bmap)) {
 		pr_warn_ratelimited("%s: Invalid code %d type %d\n",
-				    input->name, c, type);
+				input->name, c, type);
 		*bit = NULL;
 		return;
 	}

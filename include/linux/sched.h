@@ -328,6 +328,13 @@ struct sched_info {
 # define SCHED_CAPACITY_SHIFT		SCHED_FIXEDPOINT_SHIFT
 # define SCHED_CAPACITY_SCALE		(1L << SCHED_CAPACITY_SHIFT)
 
+static inline unsigned int scale_from_percent(unsigned int pct)
+{
+	WARN_ON(pct > 100);
+
+	return ((SCHED_FIXEDPOINT_SCALE * pct) / 100);
+}
+
 struct load_weight {
 	unsigned long			weight;
 	u32				inv_weight;
@@ -633,6 +640,10 @@ union rcu_special {
 	u32 s; /* Set of bits. */
 };
 
+#ifdef CONFIG_FIVE
+struct task_integrity;
+#endif
+
 enum perf_event_task_context {
 	perf_invalid_context = -1,
 	perf_hw_context = 0,
@@ -689,6 +700,9 @@ struct task_struct {
 	int				wake_cpu;
 #endif
 	int				on_rq;
+#ifdef CONFIG_MTK_SCHED_CPU_PREFER
+	int				cpu_prefer;
+#endif
 
 	int				prio;
 	int				static_prio;
@@ -704,6 +718,7 @@ struct task_struct {
 	int				boost;
 	u64				boost_period;
 	u64				boost_expires;
+	u64				last_enqueued_ts;
 
 #ifdef CONFIG_CGROUP_SCHED
 	struct task_group		*sched_task_group;
@@ -1274,6 +1289,9 @@ struct task_struct {
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
 	unsigned long			task_state_change;
 #endif
+#ifdef CONFIG_FIVE
+	struct task_integrity		*integrity;
+#endif
 	int				pagefault_disabled;
 #ifdef CONFIG_MMU
 	struct task_struct		*oom_reaper_list;
@@ -1315,6 +1333,13 @@ struct task_struct {
 
 	ANDROID_KABI_RESERVE(7);
 	ANDROID_KABI_RESERVE(8);
+#ifdef CONFIG_MTK_TASK_TURBO
+	unsigned short turbo:1;
+	unsigned short render:1;
+	unsigned short inherit_cnt:14;
+	short nice_backup;
+	atomic_t inherit_types;
+#endif
 
 	/*
 	 * New fields for task_struct should be added above here, so that
@@ -1515,6 +1540,7 @@ extern struct pid *cad_pid;
 #define PF_MEMSTALL		0x01000000	/* Stalled due to lack of memory */
 #define PF_NO_SETAFFINITY	0x04000000	/* Userland is not allowed to meddle with cpus_allowed */
 #define PF_MCE_EARLY		0x08000000      /* Early kill for mce process policy */
+#define PF_MEMALLOC_NOCMA	0x10000000	/* All allocation request will have _GFP_MOVABLE cleared */
 #define PF_MUTEX_TESTER		0x20000000	/* Thread belongs to the rt mutex tester */
 #define PF_FREEZER_SKIP		0x40000000	/* Freezer should not count it as freezable */
 #define PF_SUSPEND_TASK		0x80000000      /* This thread called freeze_processes() and should not be frozen */

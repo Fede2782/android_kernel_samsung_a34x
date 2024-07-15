@@ -29,6 +29,11 @@
 #include "thermal_core.h"
 #include "thermal_hwmon.h"
 
+#if IS_ENABLED(CONFIG_SEC_THERMAL_LOG)
+/* cooling device state */
+static struct delayed_work cdev_print_work;
+#endif
+
 MODULE_AUTHOR("Zhang Rui");
 MODULE_DESCRIPTION("Generic thermal management sysfs support");
 MODULE_LICENSE("GPL v2");
@@ -247,6 +252,10 @@ static int __init thermal_register_governors(void)
 {
 	int result;
 
+	result = thermal_gov_backward_compatible_register();
+	if (result)
+		return result;
+
 	result = thermal_gov_step_wise_register();
 	if (result)
 		return result;
@@ -268,6 +277,7 @@ static int __init thermal_register_governors(void)
 
 static void thermal_unregister_governors(void)
 {
+	thermal_gov_backward_compatible_unregister();
 	thermal_gov_step_wise_unregister();
 	thermal_gov_fair_share_unregister();
 	thermal_gov_bang_bang_unregister();
@@ -1014,6 +1024,7 @@ __thermal_cooling_device_register(struct device_node *np,
 		kfree(cdev);
 		return ERR_PTR(result);
 	}
+	pr_info("register cooling_device%d-%s\n", cdev->id, cdev->type);
 
 	/* Add 'this' new cdev to the global cdev list */
 	mutex_lock(&thermal_list_lock);
@@ -1302,6 +1313,7 @@ thermal_zone_device_register(const char *type, int trips, int mask,
 		if (result)
 			goto unregister;
 	}
+	INIT_DELAYED_WORK(&tz->poll_queue, thermal_zone_device_check);
 
 	mutex_lock(&thermal_list_lock);
 	list_add_tail(&tz->node, &thermal_tz_list);
@@ -1310,7 +1322,6 @@ thermal_zone_device_register(const char *type, int trips, int mask,
 	/* Bind cooling devices for this zone */
 	bind_tz(tz);
 
-	INIT_DELAYED_WORK(&tz->poll_queue, thermal_zone_device_check);
 
 	thermal_zone_device_reset(tz);
 	/* Update the new thermal zone and mark it as already updated. */
@@ -1359,6 +1370,8 @@ void thermal_zone_device_unregister(struct thermal_zone_device *tz)
 		mutex_unlock(&thermal_list_lock);
 		return;
 	}
+	/* force stop pending/running delayed work */
+	cancel_delayed_work_sync(&(tz->poll_queue));
 	list_del(&tz->node);
 
 	/* Unbind all cdevs associated with 'this' thermal zone */
@@ -1559,6 +1572,37 @@ static inline int genetlink_init(void) { return 0; }
 static inline void genetlink_exit(void) {}
 #endif /* !CONFIG_NET */
 
+#if IS_ENABLED(CONFIG_SEC_THERMAL_LOG)
+#define BUF_SIZE	SZ_1K
+static void __ref cdev_print(struct work_struct *work)
+{
+	struct thermal_cooling_device *cdev;
+	unsigned long cur_state = 0;
+	int added = 0, ret = 0;
+	char buffer[BUF_SIZE] = { 0, };
+
+	mutex_lock(&thermal_list_lock);
+	list_for_each_entry(cdev, &thermal_cdev_list, node) {
+		if (cdev->ops->get_cur_state)
+			cdev->ops->get_cur_state(cdev, &cur_state);
+
+		if (cur_state) {
+			ret = snprintf(buffer + added, sizeof(buffer) - added,
+					   "[%s:%ld]", cdev->type, cur_state);
+			added += ret;
+
+			if (added >= BUF_SIZE)
+				break;
+		}
+	}
+	mutex_unlock(&thermal_list_lock);
+
+	pr_info("thermal: cdev%s\n", buffer);
+
+	schedule_delayed_work(&cdev_print_work, HZ * 5);
+}
+#endif
+
 static int thermal_pm_notify(struct notifier_block *nb,
 			     unsigned long mode, void *_unused)
 {
@@ -1568,11 +1612,15 @@ static int thermal_pm_notify(struct notifier_block *nb,
 	case PM_HIBERNATION_PREPARE:
 	case PM_RESTORE_PREPARE:
 	case PM_SUSPEND_PREPARE:
+#if IS_ENABLED(CONFIG_SEC_THERMAL_LOG)
+		cancel_delayed_work(&cdev_print_work);
+#endif
 		atomic_set(&in_suspend, 1);
 		break;
 	case PM_POST_HIBERNATION:
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
+		mutex_lock(&thermal_list_lock);
 		atomic_set(&in_suspend, 0);
 		list_for_each_entry(tz, &thermal_tz_list, node) {
 			if (tz->ops && tz->ops->is_wakeable &&
@@ -1582,6 +1630,10 @@ static int thermal_pm_notify(struct notifier_block *nb,
 			thermal_zone_device_update(tz,
 						   THERMAL_EVENT_UNSPECIFIED);
 		}
+		mutex_unlock(&thermal_list_lock);
+#if IS_ENABLED(CONFIG_SEC_THERMAL_LOG)
+		schedule_delayed_work(&cdev_print_work, 0);
+#endif
 		break;
 	default:
 		break;
@@ -1619,6 +1671,14 @@ static int __init thermal_init(void)
 		pr_warn("Thermal: Can not register suspend notifier, return %d\n",
 			result);
 
+#if IS_ENABLED(CONFIG_SEC_THERMAL_LOG)
+	INIT_DELAYED_WORK(&cdev_print_work, cdev_print);
+	schedule_delayed_work(&cdev_print_work, 0);
+
+	/* SS THERMAL LOGGING */
+	ss_thermal_log_init();
+#endif
+
 	return 0;
 
 exit_netlink:
@@ -1638,6 +1698,9 @@ error:
 
 static void __exit thermal_exit(void)
 {
+#if IS_ENABLED(CONFIG_SEC_THERMAL_LOG)
+	cancel_delayed_work(&cdev_print_work);
+#endif
 	unregister_pm_notifier(&thermal_pm_nb);
 	of_thermal_destroy_zones();
 	genetlink_exit();

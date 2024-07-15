@@ -61,6 +61,8 @@
 #define DEFAULT_THERMAL_GOVERNOR       "user_space"
 #elif defined(CONFIG_THERMAL_DEFAULT_GOV_POWER_ALLOCATOR)
 #define DEFAULT_THERMAL_GOVERNOR       "power_allocator"
+#elif defined(CONFIG_THERMAL_DEFAULT_GOV_BACKWARD_COMPATIBLE)
+#define DEFAULT_THERMAL_GOVERNOR       "backward_compatible"
 #endif
 
 struct thermal_zone_device;
@@ -626,6 +628,12 @@ static inline int thermal_generate_netlink_event(struct thermal_zone_device *tz,
 {
 	return 0;
 }
+#endif
+
+/* SS THERMAL LOG */
+#if IS_ENABLED(CONFIG_SEC_THERMAL_LOG)
+void ss_thermal_log_init(void);
+void ss_thermal_print(const char *fmt, ...);
 #endif
 
 #endif /* __THERMAL_H__ */

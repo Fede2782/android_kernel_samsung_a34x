@@ -96,6 +96,7 @@ obj-$(CONFIG_DRM_MEDIATEK) += mediatek/
 obj-$(CONFIG_DRM_MESON)	+= meson/
 obj-y			+= i2c/
 obj-y			+= panel/
+obj-$(CONFIG_DRM_MEDIATEK)	+= panel/smcdsd_panel/
 obj-y			+= bridge/
 obj-$(CONFIG_DRM_FSL_DCU) += fsl-dcu/
 obj-$(CONFIG_DRM_ETNAVIV) += etnaviv/

@@ -11,6 +11,8 @@
 #include <linux/usb/composite.h>
 
 #include "mtu3.h"
+#include "mtu3_debug.h"
+#include "mtu3_trace.h"
 
 /* ep0 is always mtu3->in_eps[0] */
 #define	next_ep0_request(mtu)	next_request((mtu)->ep0)
@@ -458,6 +460,13 @@ static int handle_standard_request(struct mtu3 *mtu,
 		handled = 1;
 		break;
 	case USB_REQ_SET_CONFIGURATION:
+#if defined(CONFIG_BATTERY_SAMSUNG)
+		if (mtu->g.speed == USB_SPEED_SUPER)
+			mtu->vbus_current = USB_CURRENT_SUPER_SPEED;
+		else
+			mtu->vbus_current = USB_CURRENT_HIGH_SPEED;
+		schedule_work(&mtu->set_vbus_current_work);
+#endif
 		if (state == USB_STATE_ADDRESS) {
 			usb_gadget_set_state(&mtu->g,
 					USB_STATE_CONFIGURED);
@@ -633,7 +642,9 @@ __acquires(mtu->lock)
 	void __iomem *mbase = mtu->mac_base;
 	int handled = 0;
 
+	memset(&setup, 0, sizeof(setup));
 	ep0_read_setup(mtu, &setup);
+	trace_mtu3_handle_setup(&setup);
 
 	if ((setup.bRequestType & USB_TYPE_MASK) == USB_TYPE_STANDARD)
 		handled = handle_standard_request(mtu, &setup);
@@ -692,8 +703,12 @@ irqreturn_t mtu3_ep0_isr(struct mtu3 *mtu)
 	mtu3_writel(mbase, U3D_EPISR, int_status); /* W1C */
 
 	/* only handle ep0's */
-	if (!(int_status & EP0ISR))
+	if (!(int_status & (EP0ISR | SETUPENDISR)))
 		return IRQ_NONE;
+
+	/* abort current SETUP, and process new one */
+	if (int_status & SETUPENDISR)
+		mtu->ep0_state = MU3D_EP0_STATE_SETUP;
 
 	csr = mtu3_readl(mbase, U3D_EP0CSR);
 
@@ -706,6 +721,7 @@ irqreturn_t mtu3_ep0_isr(struct mtu3 *mtu)
 		ret = IRQ_HANDLED;
 	}
 	dev_dbg(mtu->dev, "ep0_state: %s\n", decode_ep0_state(mtu));
+	mtu3_dbg_trace(mtu->dev, "ep0_state %s", decode_ep0_state(mtu));
 
 	switch (mtu->ep0_state) {
 	case MU3D_EP0_STATE_TX:

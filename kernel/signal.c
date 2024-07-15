@@ -55,6 +55,10 @@
 #include <asm/cacheflush.h>
 #include "audit.h"	/* audit_signal_info() */
 
+#ifdef CONFIG_SAMSUNG_FREECESS
+#include <linux/freecess.h>
+#endif
+
 /*
  * SLAB caches for signal bits.
  */
@@ -899,8 +903,11 @@ static bool prepare_signal(int sig, struct task_struct *p, bool force)
 	sigset_t flush;
 
 	if (signal->flags & (SIGNAL_GROUP_EXIT | SIGNAL_GROUP_COREDUMP)) {
-		if (!(signal->flags & SIGNAL_GROUP_EXIT))
-			return sig == SIGKILL;
+		if (signal->flags & SIGNAL_GROUP_COREDUMP) {
+			pr_debug("[%d:%s] is in the middle of doing coredump so skip sig %d\n",
+				p->pid, p->comm, sig);
+			return 0;
+		}
 		/*
 		 * The process is in the middle of dying, nothing to do.
 		 */
@@ -1267,6 +1274,17 @@ int do_send_sig_info(int sig, struct siginfo *info, struct task_struct *p,
 {
 	unsigned long flags;
 	int ret = -ESRCH;
+
+#ifdef CONFIG_SAMSUNG_FREECESS
+	/*
+	 * System will send SIGIO to the app that locked the file when other apps access the file.
+	 * Report SIGIO to prevent other apps from getting stuck
+	 */
+	 if ((sig == SIGKILL || sig == SIGTERM || sig == SIGABRT || sig == SIGQUIT || sig == SIGIO)) {
+ 		// Report pid if process is killed/stopped.
+ 		sig_report(p, sig != SIGIO);
+ 	}
+#endif
 
 	if (lock_task_sighand(p, &flags)) {
 		ret = send_signal(sig, info, p, type);

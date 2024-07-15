@@ -8,6 +8,8 @@
 #include <linux/sched/numa_balancing.h>
 #include <linux/tracepoint.h>
 #include <linux/binfmts.h>
+#include "eas_plus.h"
+
 
 /*
  * Tracepoint for calling kthread_stop, performed to end a kthread:
@@ -151,6 +153,12 @@ TRACE_EVENT(sched_switch,
 		__array(	char,	next_comm,	TASK_COMM_LEN	)
 		__field(	pid_t,	next_pid			)
 		__field(	int,	next_prio			)
+#if defined(CONFIG_MTK_SCHED_TRACERS) && defined(CONFIG_CGROUPS)
+		__field(int,	prev_cgrp_id)
+		__field(int,	next_cgrp_id)
+		__field(int,	prev_st_cgrp_id)
+		__field(int,	next_st_cgrp_id)
+#endif
 	),
 
 	TP_fast_assign(
@@ -161,9 +169,45 @@ TRACE_EVENT(sched_switch,
 		memcpy(__entry->prev_comm, prev->comm, TASK_COMM_LEN);
 		__entry->next_pid	= next->pid;
 		__entry->next_prio	= next->prio;
+#if defined(CONFIG_MTK_SCHED_TRACERS) && defined(CONFIG_CGROUPS)
+#ifdef CONFIG_CPUSETS
+		__entry->prev_cgrp_id	= prev->cgroups->subsys[0]->cgroup->id;
+		__entry->next_cgrp_id	= next->cgroups->subsys[0]->cgroup->id;
+#else
+		__entry->prev_cgrp_id	= 0;
+		__entry->next_cgrp_id	= 0;
+#endif
+#ifdef CONFIG_SCHED_TUNE
+		__entry->prev_st_cgrp_id = prev->cgroups->subsys[3]->cgroup->id;
+		__entry->next_st_cgrp_id = next->cgroups->subsys[3]->cgroup->id;
+#else
+		__entry->prev_st_cgrp_id = 0;
+		__entry->next_st_cgrp_id = 0;
+#endif
+#endif
 		/* XXX SCHED_DEADLINE */
 	),
 
+#if defined(CONFIG_MTK_SCHED_TRACERS) && defined(CONFIG_CGROUPS)
+	TP_printk("prev_comm=%s prev_pid=%d prev_prio=%d prev_state=%s%s ==> next_comm=%s next_pid=%d next_prio=%d prev->cgrp=%d next->cgrp=%d prev->st=%d next->st=%d",
+		__entry->prev_comm, __entry->prev_pid, __entry->prev_prio,
+
+		(__entry->prev_state & (TASK_REPORT_MAX - 1)) ?
+		  __print_flags(__entry->prev_state & (TASK_REPORT_MAX - 1), "|",
+				{ 0x01, "S" }, { 0x02, "D" }, { 0x04, "T" },
+				{ 0x08, "t" }, { 0x10, "X" }, { 0x20, "Z" },
+				{ 0x40, "P" }, { 0x80, "I" }) :
+		  "R",
+
+		__entry->prev_state & TASK_REPORT_MAX ? "+" : "",
+		__entry->next_comm, __entry->next_pid, __entry->next_prio
+		, __entry->prev_cgrp_id
+		, __entry->next_cgrp_id
+		, __entry->prev_st_cgrp_id
+		, __entry->next_st_cgrp_id
+	)
+
+#else
 	TP_printk("prev_comm=%s prev_pid=%d prev_prio=%d prev_state=%s%s ==> next_comm=%s next_pid=%d next_prio=%d",
 		__entry->prev_comm, __entry->prev_pid, __entry->prev_prio,
 
@@ -181,6 +225,7 @@ TRACE_EVENT(sched_switch,
 
 		__entry->prev_state & TASK_REPORT_MAX ? "+" : "",
 		__entry->next_comm, __entry->next_pid, __entry->next_prio)
+#endif
 );
 
 /*
@@ -363,6 +408,28 @@ DECLARE_EVENT_CLASS(sched_stat_template,
 			(unsigned long long)__entry->delay)
 );
 
+/*
+ * Tracepoint for schedutil governor
+ */
+TRACE_EVENT(sched_util,
+	TP_PROTO(int cid, unsigned int next_freq, u64 time),
+	TP_ARGS(cid, next_freq, time),
+	TP_STRUCT__entry(
+		__field(int, cid)
+		__field(unsigned int, next_freq)
+		__field(u64, time)
+	),
+	TP_fast_assign(
+		__entry->cid		= cid;
+		__entry->next_freq	= next_freq;
+		__entry->time		= time;
+	),
+	TP_printk("cid=%d next=%u last_freq_update_time=%lld",
+		__entry->cid,
+		__entry->next_freq,
+		__entry->time
+	)
+);
 
 /*
  * Tracepoint for accounting wait time (time the task is runnable
@@ -1029,6 +1096,38 @@ TRACE_EVENT(sched_overutilized,
 );
 
 #endif /* CONFIG_SMP */
+
+#ifdef CONFIG_UCLAMP_TASK
+
+struct rq;
+
+TRACE_EVENT(schedutil_uclamp_util,
+
+	TP_PROTO(int cpu, unsigned long util),
+
+	TP_ARGS(cpu, util),
+
+	TP_STRUCT__entry(
+		__field(int,		cpu)
+		__field(unsigned long,	util)
+		__field(unsigned int,	util_min)
+		__field(unsigned int,	util_max)
+	),
+
+	TP_fast_assign(
+		__entry->cpu			= cpu;
+		__entry->util		= util;
+		__entry->util_min	= uclamp_value(cpu, UCLAMP_MIN);
+		__entry->util_max	= uclamp_value(cpu, UCLAMP_MAX);
+	),
+
+	TP_printk("cpu=%d util=%lu util_min=%u util_max=%u",
+		  __entry->cpu,
+		  __entry->util,
+		  __entry->util_min,
+		  __entry->util_max)
+);
+#endif /* CONFIG_UCLAMP_TASK */
 #endif /* _TRACE_SCHED_H */
 
 /* This part must be outside protection */

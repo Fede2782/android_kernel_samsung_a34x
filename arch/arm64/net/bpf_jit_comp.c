@@ -28,6 +28,10 @@
 #include <asm/debug-monitors.h>
 #include <asm/set_memory.h>
 
+#ifdef CONFIG_RKP
+#include <linux/rkp.h>
+#endif
+
 #include "bpf_jit.h"
 
 #define TMP_REG_1 (MAX_BPF_JIT_REG + 0)
@@ -936,6 +940,10 @@ skip_init_ctx:
 	prog->bpf_func = (void *)ctx.image;
 	prog->jited = 1;
 	prog->jited_len = image_size;
+	
+#ifdef CONFIG_RKP
+	uh_call(UH_APP_RKP, RKP_BPF_LOAD, (u64)header, (u64)(header->pages * 0x1000), 0, 0);
+#endif
 
 	if (!prog->is_func || extra_pass) {
 out_off:

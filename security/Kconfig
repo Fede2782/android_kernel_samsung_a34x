@@ -18,6 +18,15 @@ config SECURITY_DMESG_RESTRICT
 
 	  If you are unsure how to answer this question, answer N.
 
+config SECURITY_PERF_EVENTS_RESTRICT
+	bool "Restrict unprivileged use of performance events"
+	depends on PERF_EVENTS
+	help
+	  If you say Y here, the kernel.perf_event_paranoid sysctl
+	  will be set to 3 by default, and no unprivileged use of the
+	  perf_event_open syscall will be permitted unless it is
+	  changed.
+
 config SECURITY
 	bool "Enable different security models"
 	depends on SYSFS
@@ -278,5 +287,10 @@ config DEFAULT_SECURITY
 
 source "security/Kconfig.hardening"
 
+source "security/samsung/defex_lsm/Kconfig" # ADDED BY LEGO AUTOMATICALLY: DO NOT SUBMIT
+source "security/samsung/proca/Kconfig" # ADDED BY LEGO AUTOMATICALLY: DO NOT SUBMIT
+source "security/samsung/proca/gaf/Kconfig" # ADDED BY LEGO AUTOMATICALLY: DO NOT SUBMIT
+source "security/samsung/dsms/Kconfig" # ADDED BY LEGO AUTOMATICALLY: DO NOT SUBMIT
+source "security/samsung/five/Kconfig" # ADDED BY LEGO AUTOMATICALLY: DO NOT SUBMIT
 endmenu
 

@@ -69,11 +69,32 @@ config F2FS_FS_SECURITY
 
 config F2FS_CHECK_FS
 	bool "F2FS consistency checking feature"
-	depends on F2FS_FS
+	depends on F2FS_FS && SEC_FACTORY
+	default y
 	help
 	  Enables BUG_ONs which check the filesystem consistency in runtime.
 
 	  If you want to improve the performance, say N.
+
+config F2FS_ML_BASED_STREAM_SEPARATION
+	bool "F2FS STREAMID"
+	depends on F2FS_FS
+	default y
+
+config F2FS_ML_STREAMID_FORCE_COLD
+	bool "F2FS STREAMID force cold feature"
+	depends on F2FS_FS && F2FS_ML_BASED_STREAM_SEPARATION
+	default y
+
+config F2FS_STRICT_BUG_ON
+	bool "F2FS consistency checking feature"
+	depends on F2FS_FS
+	default y
+	help
+	  Use BUG_ON() instead of WARN_ON(), when there is an error
+	  in the filesystem consistency.
+
+	  Default Y.
 
 config F2FS_FS_ENCRYPTION
 	bool "F2FS Encryption"
@@ -135,3 +156,36 @@ config F2FS_FS_ZSTD
 	default y
 	help
 	  Support ZSTD compress algorithm, if unsure, say Y.
+
+config F2FS_SEC_BLOCK_OPERATIONS_DEBUG
+	bool "SEC Collect logs for debugging block_operations()"
+	depends on F2FS_FS
+	default y
+	help
+	  Collect block_operations() log for debugging
+
+	  If unsure, say N.
+
+config F2FS_SEC_SYSFS_DISCARD_SLAB_THRESHOLD
+	bool "F2FS discard threshold sysfs node"
+	depends on F2FS_FS
+	default n
+	help
+	  Support configurable discard slab and size threshold through sysfs
+
+config F2FS_SEC_DEBUG_NODE
+	bool "SEC DEBUG NODE"
+	depends on F2FS_FS && DEBUG_FS
+	default y
+	help
+	  Sys nodes for SEC debugging
+
+	  If unsure, say N.
+
+config F2FS_SEC_ENC_STRICT_MODE
+	bool "SEC casefold encoding strict mode"
+	depends on F2FS_FS
+	depends on UNICODE
+	default y
+	help
+	  Avoid generating invalid hash for CI directory entries

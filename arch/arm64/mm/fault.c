@@ -45,6 +45,9 @@
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
 #include <asm/traps.h>
+#ifdef CONFIG_SEC_DEBUG_EXTRA_INFO
+#include <linux/sec_debug.h>
+#endif
 
 #include <acpi/ghes.h>
 
@@ -273,8 +276,18 @@ static void die_kernel_fault(const char *msg, unsigned long addr,
 {
 	bust_spinlocks(1);
 
+#ifdef CONFIG_SEC_DEBUG_AUTO_COMMENT
+	pr_auto(ASL1, "Unable to handle kernel %s at virtual address %016lx\n", msg,
+		 addr);
+#else
 	pr_alert("Unable to handle kernel %s at virtual address %016lx\n", msg,
 		 addr);
+#endif
+
+#ifdef CONFIG_SEC_DEBUG_EXTRA_INFO
+	sec_debug_set_extra_info_fault(addr, regs);
+	sec_debug_set_extra_info_esr(esr);
+#endif
 
 	mem_abort_decode(esr);
 
@@ -485,6 +498,14 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 	perf_sw_event(PERF_COUNT_SW_PAGE_FAULTS, 1, regs, addr);
 
 	/*
+	 * let's try a speculative page fault without grabbing the
+	 * mmap_sem.
+	 */
+	fault = handle_speculative_fault(mm, addr, mm_flags, vm_flags);
+	if (fault != VM_FAULT_RETRY)
+		goto done;
+
+	/*
 	 * As per x86, we may deadlock here. However, since the kernel only
 	 * validly references user space from well defined areas of the code,
 	 * we can bug out early if this is from code which shouldn't.
@@ -533,6 +554,8 @@ retry:
 		}
 	}
 	up_read(&mm->mmap_sem);
+
+done:
 
 	/*
 	 * Handle the "normal" (no error) case first.
@@ -662,7 +685,6 @@ static int do_sea(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 	const struct fault_info *inf;
 
 	inf = esr_to_fault_info(esr);
-
 	/*
 	 * Synchronous aborts may interrupt code which had interrupts masked.
 	 * Before calling out into the wider kernel tell the interested
@@ -677,6 +699,13 @@ static int do_sea(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 		if (interrupts_enabled(regs))
 			nmi_exit();
 	}
+
+#ifdef CONFIG_SEC_DEBUG_EXTRA_INFO
+	if (!user_mode(regs)) {
+		sec_debug_set_extra_info_fault(addr, regs);
+		sec_debug_set_extra_info_esr(esr);
+	}
+#endif
 
 	clear_siginfo(&info);
 	info.si_signo = inf->sig;
@@ -773,7 +802,16 @@ asmlinkage void __exception do_mem_abort(unsigned long addr, unsigned int esr,
 		return;
 
 	if (!user_mode(regs)) {
+#ifdef CONFIG_SEC_DEBUG_AUTO_COMMENT
+		pr_auto(ASL1, "Unhandled fault: %s (0x%08x) at 0x%016lx\n",
+		 						inf->name, esr, addr);
+#else
 		pr_alert("Unhandled fault at 0x%016lx\n", addr);
+#endif
+#ifdef CONFIG_SEC_DEBUG_EXTRA_INFO
+		sec_debug_set_extra_info_fault(addr, regs);
+		sec_debug_set_extra_info_esr(esr);
+#endif
 		mem_abort_decode(esr);
 		show_pte(addr);
 	}
@@ -822,6 +860,21 @@ asmlinkage void __exception do_sp_pc_abort(unsigned long addr,
 	}
 
 	clear_siginfo(&info);
+
+#ifdef CONFIG_SEC_DEBUG_AUTO_COMMENT
+	if (!user_mode(regs))
+		pr_auto(ASL1, "%s exception: pc=0x%016llx sp=0x%016llx\n",
+				esr_get_class_string(esr),
+				regs->pc, regs->sp);
+#endif
+
+#ifdef CONFIG_SEC_DEBUG_EXTRA_INFO
+	if (!user_mode(regs)) {
+		sec_debug_set_extra_info_fault(addr, regs);
+		sec_debug_set_extra_info_esr(esr);
+	}
+#endif
+
 	info.si_signo = SIGBUS;
 	info.si_errno = 0;
 	info.si_code  = BUS_ADRALN;

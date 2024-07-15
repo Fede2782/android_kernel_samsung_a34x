@@ -62,6 +62,7 @@
 #include <linux/nsproxy.h>
 #include <linux/poll.h>
 #include <linux/debugfs.h>
+#include <linux/delay.h>
 #include <linux/rbtree.h>
 #include <linux/sched/signal.h>
 #include <linux/sched/mm.h>
@@ -74,6 +75,14 @@
 
 #include <uapi/linux/android/binder.h>
 #include <uapi/linux/sched/types.h>
+
+#ifdef CONFIG_SAMSUNG_FREECESS
+#include <linux/freecess.h>
+#endif
+
+#ifdef CONFIG_MTK_TASK_TURBO
+#include <mt-plat/turbo_common.h>
+#endif
 
 #include <asm/cacheflush.h>
 
@@ -459,6 +468,9 @@ struct binder_priority {
  * @files                 files_struct for process
  *                        (protected by @files_lock)
  * @files_lock            mutex to protect @files
+ * @cred                  struct cred associated with the `struct file`
+ *                        in binder_open()
+ *                        (invariant after initialized)
  * @deferred_work_node:   element for binder_deferred_list
  *                        (protected by binder_deferred_lock)
  * @deferred_work:        bitmap of deferred work to perform
@@ -506,6 +518,7 @@ struct binder_proc {
 	struct task_struct *tsk;
 	struct files_struct *files;
 	struct mutex files_lock;
+	const struct cred *cred;
 	struct hlist_node deferred_work_node;
 	int deferred_work;
 	bool is_dead;
@@ -617,7 +630,58 @@ struct binder_transaction {
 	 * during thread teardown
 	 */
 	spinlock_t lock;
+#ifdef CONFIG_ANDROID_BINDER_USER_TRACKING
+	struct timespec timestamp;
+	struct timeval tv;
+#endif
+#ifdef CONFIG_MTK_TASK_TURBO
+	struct task_struct *inherit_task;
+#endif
 };
+
+#ifdef CONFIG_ANDROID_BINDER_USER_TRACKING
+/*
+ * binder_print_delay - Output info of a delay transaction
+ * @t:          pointer to the over-time transaction
+ */
+static void binder_print_delay(struct binder_transaction *t)
+{
+	struct rtc_time tm;
+	struct timespec *startime;
+	struct timespec cur, sub_t;
+
+	ktime_get_ts(&cur);
+	startime = &t->timestamp;
+	sub_t = timespec_sub(cur, *startime);
+	/* if transaction time is over than 2 sec,
+	 * show timeout warning log.
+	 */
+	if (sub_t.tv_sec < 2)
+		return;
+	rtc_time_to_tm(t->tv.tv_sec, &tm);
+	spin_lock(&t->lock);
+	pr_info_ratelimited("%d: from %d:%d to %d:%d",
+			t->debug_id,
+			t->from ? t->from->proc->pid : 0,
+			t->from ? t->from->pid : 0,
+			t->to_proc ? t->to_proc->pid : 0,
+			t->to_thread ? t->to_thread->pid : 0);
+	spin_unlock(&t->lock);
+	pr_info_ratelimited(" total %u.%03ld s code %u start %lu.%03ld android %d-%02d-%02d %02d:%02d:%02d.%03lu\n",
+			(unsigned int)sub_t.tv_sec,
+			(sub_t.tv_nsec / NSEC_PER_MSEC),
+			t->code,
+			(unsigned long)startime->tv_sec,
+			(startime->tv_nsec / NSEC_PER_MSEC),
+			(tm.tm_year + 1900), (tm.tm_mon + 1), tm.tm_mday,
+			tm.tm_hour, tm.tm_min, tm.tm_sec,
+			(unsigned long)(t->tv.tv_usec / USEC_PER_MSEC));
+}
+#else
+static void binder_print_delay(struct binder_transaction *t)
+{
+}
+#endif
 
 /**
  * struct binder_object - union of flat binder object types
@@ -1936,6 +2000,18 @@ static int binder_inc_ref_for_node(struct binder_proc *proc,
 	}
 	ret = binder_inc_ref_olocked(ref, strong, target_list);
 	*rdata = ref->data;
+	if (ret && ref == new_ref) {
+		/*
+		 * Cleanup the failed reference here as the target
+		 * could now be dead and have already released its
+		 * references by now. Calling on the new reference
+		 * with strong=0 and a tmp_refs will not decrement
+		 * the node. The new_ref gets kfree'd below.
+		 */
+		binder_cleanup_ref_olocked(new_ref);
+		ref = NULL;
+	}
+
 	binder_proc_unlock(proc);
 	if (new_ref && ref != new_ref)
 		/*
@@ -2073,6 +2149,7 @@ static void binder_free_transaction(struct binder_transaction *t)
 			t->buffer->transaction = NULL;
 		binder_inner_proc_unlock(target_proc);
 	}
+	binder_print_delay(t);
 	/*
 	 * If the transaction has no target_proc, then
 	 * t->buffer->transaction has already been cleared.
@@ -2524,7 +2601,7 @@ static int binder_translate_binder(struct flat_binder_object *fp,
 		ret = -EINVAL;
 		goto done;
 	}
-	if (security_binder_transfer_binder(proc->tsk, target_proc->tsk)) {
+	if (security_binder_transfer_binder(proc->cred, target_proc->cred)) {
 		ret = -EPERM;
 		goto done;
 	}
@@ -2570,7 +2647,7 @@ static int binder_translate_handle(struct flat_binder_object *fp,
 				  proc->pid, thread->pid, fp->handle);
 		return -EINVAL;
 	}
-	if (security_binder_transfer_binder(proc->tsk, target_proc->tsk)) {
+	if (security_binder_transfer_binder(proc->cred, target_proc->cred)) {
 		ret = -EPERM;
 		goto done;
 	}
@@ -2654,7 +2731,7 @@ static int binder_translate_fd(int fd,
 		ret = -EBADF;
 		goto err_fget;
 	}
-	ret = security_binder_transfer_file(proc->tsk, target_proc->tsk, file);
+	ret = security_binder_transfer_file(proc->cred, target_proc->cred, file);
 	if (ret < 0) {
 		ret = -EPERM;
 		goto err_security;
@@ -2860,6 +2937,11 @@ static bool binder_proc_transaction(struct binder_transaction *t,
 		binder_transaction_priority(thread->task, t, node_prio,
 					    node->inherit_rt);
 		binder_enqueue_thread_work_ilocked(thread, &t->work);
+#ifdef CONFIG_MTK_TASK_TURBO
+		if (binder_start_turbo_inherit(t->from ?
+				t->from->task : NULL, thread->task))
+			t->inherit_task = thread->task;
+#endif
 	} else if (!pending_async) {
 		binder_enqueue_work_ilocked(&t->work, &proc->todo);
 	} else {
@@ -2917,6 +2999,74 @@ static struct binder_node *binder_get_node_refs_for_txn(
 	return target_node;
 }
 
+#ifdef CONFIG_SAMSUNG_FREECESS
+// 1) Skip first 8(P)/12(Q) bytes (useless data)
+// 2) Make sure that the invalid address issue is not occuring (j=9, j+=2)
+// 3) Java layer uses 2 bytes char. And only the first byte has the data. (p+=2)
+// 4) Parcel::writeInterfaceToken() in frameworks/native/libs/binder/Parcel.cpp
+static void freecess_async_binder_report(struct binder_proc *proc,
+						struct binder_proc *target_proc,
+						struct binder_transaction_data *tr,
+						struct binder_transaction *t)
+{
+	char buf_user[INTERFACETOKEN_BUFF_SIZE] = {0};
+	char buf[INTERFACETOKEN_BUFF_SIZE] = {0};
+	char *p = NULL;
+	int i = 0;
+	int j = 0;
+	int skip_bytes = 8;
+
+	if (!proc || !target_proc || !tr || !t)
+		return;
+
+	// for android P/Q/R verson, skip 8/12/16 bytes;
+	if (freecess_fw_version == 0)
+		skip_bytes = 8;
+	else if (freecess_fw_version == 1)
+		skip_bytes = 12;
+	else if (freecess_fw_version == 2)
+		skip_bytes = 16;
+
+	if ((tr->flags & TF_ONE_WAY) && target_proc
+		&& target_proc->tsk && task_euid(target_proc->tsk).val > 10000
+		&& (proc->pid != target_proc->pid)) {
+		if (thread_group_is_frozen(target_proc->tsk)) {
+			if (t->buffer->data_size > skip_bytes) {
+				if (0 == copy_from_user(buf_user, (const void __user *)(uintptr_t)tr->data.ptr.buffer,
+					min_t(binder_size_t, tr->data_size, INTERFACETOKEN_BUFF_SIZE - 2))) {
+					p = &buf_user[skip_bytes];
+					i = 0;
+					j = skip_bytes + 1;
+					while (i < INTERFACETOKEN_BUFF_SIZE && j < t->buffer->data_size && *p != '\0') {
+						buf[i++] = *p;
+						j += 2;
+						p += 2;
+					}
+					if (i == INTERFACETOKEN_BUFF_SIZE) buf[i-1] = '\0';
+				}
+				binder_report(target_proc->tsk, tr->code, buf, tr->flags & TF_ONE_WAY);
+			}
+		}
+	}
+}
+
+static void freecess_sync_binder_report(struct binder_proc *proc,
+						struct binder_proc *target_proc,
+						struct binder_transaction_data *tr)
+{
+	if (!proc || !target_proc || !tr)
+		return;
+
+	if ((!(tr->flags & TF_ONE_WAY)) && target_proc
+		&& target_proc->tsk && task_euid(target_proc->tsk).val > 10000
+		&& (proc->pid != target_proc->pid) 
+		&& thread_group_is_frozen(target_proc->tsk)) {
+		//if sync binder, we don't need detecting info, so set code and interfacename as default value.
+		binder_report(target_proc->tsk, 0, "sync_binder", tr->flags & TF_ONE_WAY);
+	}
+}
+#endif
+
 static void binder_transaction(struct binder_proc *proc,
 			       struct binder_thread *thread,
 			       struct binder_transaction_data *tr, int reply,
@@ -2954,7 +3104,13 @@ static void binder_transaction(struct binder_proc *proc,
 	e->data_size = tr->data_size;
 	e->offsets_size = tr->offsets_size;
 	e->context_name = proc->context->name;
-
+#ifdef CONFIG_ANDROID_BINDER_USER_TRACKING
+	ktime_get_ts(&e->timestamp);
+	/* monotonic_to_bootbased(&e->timestamp); */
+	do_gettimeofday(&e->tv);
+	/* consider time zone. translate to android time */
+	e->tv.tv_sec -= (sys_tz.tz_minuteswest * 60);
+#endif
 	if (reply) {
 		binder_inner_proc_lock(proc);
 		in_reply_to = thread->transaction_stack;
@@ -3060,8 +3216,13 @@ static void binder_transaction(struct binder_proc *proc,
 			goto err_dead_binder;
 		}
 		e->to_node = target_node->debug_id;
-		if (security_binder_transaction(proc->tsk,
-						target_proc->tsk) < 0) {
+
+#ifdef CONFIG_SAMSUNG_FREECESS
+		freecess_sync_binder_report(proc, target_proc, tr);
+#endif
+
+		if (security_binder_transaction(proc->cred,
+						target_proc->cred) < 0) {
 			return_error = BR_FAILED_REPLY;
 			return_error_param = -EPERM;
 			return_error_line = __LINE__;
@@ -3138,6 +3299,16 @@ static void binder_transaction(struct binder_proc *proc,
 		return_error_line = __LINE__;
 		goto err_alloc_t_failed;
 	}
+#ifdef CONFIG_MTK_TASK_TURBO
+	t->inherit_task = NULL;
+#endif
+#ifdef CONFIG_ANDROID_BINDER_USER_TRACKING
+	memcpy(&t->timestamp, &e->timestamp, sizeof(struct timespec));
+	/* do_gettimeofday(&t->tv); */
+	/* consider time zone. translate to android time */
+	/* t->tv.tv_sec -= (sys_tz.tz_minuteswest * 60); */
+	memcpy(&t->tv, &e->tv, sizeof(struct timeval));
+#endif
 	binder_stats_created(BINDER_STAT_TRANSACTION);
 	spin_lock_init(&t->lock);
 
@@ -3193,9 +3364,26 @@ static void binder_transaction(struct binder_proc *proc,
 	if (target_node && target_node->txn_security_ctx) {
 		u32 secid;
 		size_t added_size;
+		int retries = 0;
+		int max_retries = 100;
 
-		security_task_getsecid(proc->tsk, &secid);
+		security_cred_getsecid(proc->cred, &secid);
+retry_lowmem:
 		ret = security_secid_to_secctx(secid, &secctx, &secctx_sz);
+		if (ret == -ENOMEM && retries++ < max_retries) {
+			/*
+			 * security_secid_to_secctx() can fail
+			 * because of a GFP_ATOMIC allocation in
+			 * which case -ENOMEM is returned. This needs
+			 * to be retried, but there is currently no
+			 * way to tell userspace to retry so we do
+			 * it here. Sleep briefly to allow the low
+			 * memory condition to resolve.
+			 */
+			udelay(100);
+			goto retry_lowmem;
+		}
+
 		if (ret) {
 			return_error = BR_FAILED_REPLY;
 			return_error_param = ret;
@@ -3291,6 +3479,11 @@ static void binder_transaction(struct binder_proc *proc,
 		return_error_line = __LINE__;
 		goto err_bad_offset;
 	}
+
+#ifdef CONFIG_SAMSUNG_FREECESS
+	freecess_async_binder_report(proc, target_proc, tr, t); 
+#endif
+
 	off_start_offset = ALIGN(tr->data_size, sizeof(void *));
 	buffer_offset = off_start_offset;
 	off_end_offset = off_start_offset + tr->offsets_size;
@@ -3499,6 +3692,13 @@ static void binder_transaction(struct binder_proc *proc,
 		binder_enqueue_thread_work_ilocked(target_thread, &t->work);
 		binder_inner_proc_unlock(target_proc);
 		wake_up_interruptible_sync(&target_thread->wait);
+
+#ifdef CONFIG_MTK_TASK_TURBO
+		if (thread->task && in_reply_to->inherit_task == thread->task) {
+			binder_stop_turbo_inherit(thread->task);
+			in_reply_to->inherit_task = NULL;
+		}
+#endif
 		binder_restore_priority(current, in_reply_to->saved_priority);
 		binder_free_transaction(in_reply_to);
 	} else if (!(t->flags & TF_ONE_WAY)) {
@@ -3567,6 +3767,7 @@ err_get_secctx_failed:
 	kfree(tcomplete);
 	binder_stats_deleted(BINDER_STAT_TRANSACTION_COMPLETE);
 err_alloc_tcomplete_failed:
+	binder_print_delay(t);
 	kfree(t);
 	binder_stats_deleted(BINDER_STAT_TRANSACTION);
 err_alloc_t_failed:
@@ -3609,6 +3810,12 @@ err_invalid_target_handle:
 
 	BUG_ON(thread->return_error.cmd != BR_OK);
 	if (in_reply_to) {
+#ifdef CONFIG_MTK_TASK_TURBO
+		if (thread->task && in_reply_to->inherit_task == thread->task) {
+			binder_stop_turbo_inherit(thread->task);
+			in_reply_to->inherit_task = NULL;
+		}
+#endif
 		binder_restore_priority(current, in_reply_to->saved_priority);
 		thread->return_error.cmd = BR_TRANSACTION_COMPLETE;
 		binder_enqueue_thread_work(thread, &thread->return_error.work);
@@ -4196,6 +4403,9 @@ retry:
 			wait_event_interruptible(binder_user_error_wait,
 						 binder_stop_on_user_error < 2);
 		}
+#ifdef CONFIG_MTK_TASK_TURBO
+		binder_stop_turbo_inherit(current);
+#endif
 		binder_restore_priority(current, proc->default_priority);
 	}
 
@@ -4438,6 +4648,13 @@ retry:
 			trd->sender_pid =
 				task_tgid_nr_ns(sender,
 						task_active_pid_ns(current));
+
+#ifdef CONFIG_MTK_TASK_TURBO
+			if (binder_start_turbo_inherit(t_from->task,
+							thread->task))
+				t->inherit_task = thread->task;
+#endif
+
 		} else {
 			trd->sender_pid = 0;
 		}
@@ -4660,6 +4877,7 @@ static void binder_free_proc(struct binder_proc *proc)
 	}
 	binder_alloc_deferred_release(&proc->alloc);
 	put_task_struct(proc->tsk);
+	put_cred(proc->cred);
 	binder_stats_deleted(BINDER_STAT_PROC);
 	kfree(proc);
 }
@@ -4731,23 +4949,20 @@ static int binder_thread_release(struct binder_proc *proc,
 	}
 
 	/*
-	 * If this thread used poll, make sure we remove the waitqueue
-	 * from any epoll data structures holding it with POLLFREE.
-	 * waitqueue_active() is safe to use here because we're holding
-	 * the inner lock.
+	 * If this thread used poll, make sure we remove the waitqueue from any
+	 * poll data structures holding it.
 	 */
-	if ((thread->looper & BINDER_LOOPER_STATE_POLL) &&
-	    waitqueue_active(&thread->wait)) {
-		wake_up_poll(&thread->wait, EPOLLHUP | POLLFREE);
-	}
+	if (thread->looper & BINDER_LOOPER_STATE_POLL)
+		wake_up_pollfree(&thread->wait);
 
 	binder_inner_proc_unlock(thread->proc);
 
 	/*
-	 * This is needed to avoid races between wake_up_poll() above and
-	 * and ep_remove_waitqueue() called for other reasons (eg the epoll file
-	 * descriptor being closed); ep_remove_waitqueue() holds an RCU read
-	 * lock, so we can be sure it's done after calling synchronize_rcu().
+	 * This is needed to avoid races between wake_up_pollfree() above and
+	 * someone else removing the last entry from the queue for other reasons
+	 * (e.g. ep_remove_wait_queue() being called due to an epoll file
+	 * descriptor being closed).  Such other users hold an RCU read lock, so
+	 * we can be sure they're done after we call synchronize_rcu().
 	 */
 	if (thread->looper & BINDER_LOOPER_STATE_POLL)
 		synchronize_rcu();
@@ -4865,7 +5080,7 @@ static int binder_ioctl_set_ctx_mgr(struct file *filp,
 		ret = -EBUSY;
 		goto out;
 	}
-	ret = security_binder_set_context_mgr(proc->tsk);
+	ret = security_binder_set_context_mgr(proc->cred);
 	if (ret < 0)
 		goto out;
 	if (uid_valid(context->binder_context_mgr_uid)) {
@@ -5166,7 +5381,7 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 	return 0;
 
 err_bad_arg:
-	pr_err("%s: %d %lx-%lx %s failed %d\n", __func__,
+	pr_err_ratelimited("%s: %d %lx-%lx %s failed %d\n", __func__,
 	       proc->pid, vma->vm_start, vma->vm_end, failure_string, ret);
 	return ret;
 }
@@ -5189,6 +5404,7 @@ static int binder_open(struct inode *nodp, struct file *filp)
 	get_task_struct(current->group_leader);
 	proc->tsk = current->group_leader;
 	mutex_init(&proc->files_lock);
+	proc->cred = get_cred(filp->f_cred);
 	INIT_LIST_HEAD(&proc->todo);
 	if (binder_supported_policy(current->policy)) {
 		proc->default_priority.sched_policy = current->policy;
@@ -5530,6 +5746,11 @@ static void print_binder_transaction_ilocked(struct seq_file *m,
 {
 	struct binder_proc *to_proc;
 	struct binder_buffer *buffer = t->buffer;
+#ifdef CONFIG_ANDROID_BINDER_USER_TRACKING
+	struct rtc_time tm;
+
+	rtc_time_to_tm(t->tv.tv_sec, &tm);
+#endif
 
 	spin_lock(&t->lock);
 	to_proc = t->to_proc;
@@ -5542,6 +5763,15 @@ static void print_binder_transaction_ilocked(struct seq_file *m,
 		   t->to_thread ? t->to_thread->pid : 0,
 		   t->code, t->flags, t->priority.sched_policy,
 		   t->priority.prio, t->need_reply);
+#ifdef CONFIG_ANDROID_BINDER_USER_TRACKING
+	seq_printf(m,
+		   " start %lu.%06lu android %d-%02d-%02d %02d:%02d:%02d.%03lu",
+		   (unsigned long)t->timestamp.tv_sec,
+		   (t->timestamp.tv_nsec / NSEC_PER_USEC),
+		   (tm.tm_year + 1900), (tm.tm_mon + 1), tm.tm_mday,
+		   tm.tm_hour, tm.tm_min, tm.tm_sec,
+		   (unsigned long)(t->tv.tv_usec / USEC_PER_MSEC));
+#endif
 	spin_unlock(&t->lock);
 
 	if (proc != to_proc) {
@@ -5647,6 +5877,131 @@ static void print_binder_thread_ilocked(struct seq_file *m,
 	if (!print_always && m->count == header_pos)
 		m->count = start_pos;
 }
+
+#ifdef CONFIG_SAMSUNG_FREECESS
+static void binder_in_transaction(struct binder_proc *proc, int uid)
+{
+	struct rb_node *n = NULL;
+	struct binder_thread *thread = NULL;
+	struct binder_transaction *t = NULL;
+	struct binder_work *w = NULL;
+	bool empty = true;
+	bool found = false;
+
+	//check binder threads todo and transcation_stack list
+	binder_inner_proc_lock(proc);
+	for (n = rb_first(&proc->threads); n != NULL; n = rb_next(n)) {
+		thread = rb_entry(n, struct binder_thread, rb_node);
+		empty = binder_worklist_empty_ilocked(&thread->todo);
+		if (!empty) {
+			list_for_each_entry(w, &thread->todo, entry) {
+				if (w->type == BINDER_WORK_TRANSACTION) {
+					t = container_of(w, struct binder_transaction, work);
+					if (!(t->flags & TF_ONE_WAY)) {
+						found = true;
+						break;
+					}
+				}
+				else if (w->type != BINDER_WORK_TRANSACTION_COMPLETE && w->type != BINDER_WORK_NODE) {
+					found = true;
+					break;
+				}
+			}
+
+			if (found == true) {
+				binder_inner_proc_unlock(proc);
+				cfb_report(uid, "thread");
+				return;
+			}
+		}
+
+		//processing one binder call
+		t = thread->transaction_stack;
+		if (t) {
+			if (t->to_thread == thread) {
+				binder_inner_proc_unlock(proc);
+				cfb_report(uid, "transaction_stack");
+				return;
+			}
+		}
+	}
+
+	//check binder proc todo list
+#ifdef CONFIG_FAST_TRACK
+        empty = binder_proc_worklist_empty_ilocked(proc);
+	if (!empty) {
+		list_for_each_entry(w, &proc->todo, entry) {
+			if (w->type == BINDER_WORK_TRANSACTION) {
+				t = container_of(w, struct binder_transaction, work);
+				if (!(t->flags & TF_ONE_WAY)) {
+					found = true;
+					break;
+				}
+			}
+			else if (w->type != BINDER_WORK_TRANSACTION_COMPLETE && w->type != BINDER_WORK_NODE) {
+				found = true;
+				break;
+			}
+		}
+		list_for_each_entry(w, &proc->fg_todo, entry) {
+			if (w->type == BINDER_WORK_TRANSACTION) {
+				t = container_of(w, struct binder_transaction, work);
+				if (!(t->flags & TF_ONE_WAY)) {
+					found = true;
+					break;
+				}
+			}
+			else if (w->type != BINDER_WORK_TRANSACTION_COMPLETE && w->type != BINDER_WORK_NODE) {
+				found = true;
+				break;
+			}
+		}
+		if (found == true) {
+			binder_inner_proc_unlock(proc);
+			cfb_report(uid, "proc");
+			return;
+		}
+	}
+#else
+	empty = binder_worklist_empty_ilocked(&proc->todo);
+	if (!empty) {
+		list_for_each_entry(w, &proc->todo, entry) {
+			if (w->type == BINDER_WORK_TRANSACTION) {
+				t = container_of(w, struct binder_transaction, work);
+				if (!(t->flags & TF_ONE_WAY)) {
+					found = true;
+					break;
+				}
+			}
+			else if (w->type != BINDER_WORK_TRANSACTION_COMPLETE && w->type != BINDER_WORK_NODE) {
+				found = true;
+				break;
+			}
+		}
+
+		if (found == true) {
+			binder_inner_proc_unlock(proc);
+			cfb_report(uid, "proc");
+			return;
+		}
+	}
+#endif
+	binder_inner_proc_unlock(proc);
+}
+
+void binders_in_transcation(int uid)
+{
+	struct binder_proc *itr;
+
+	mutex_lock(&binder_procs_lock);
+	hlist_for_each_entry(itr, &binder_procs, proc_node) {
+		if (itr != NULL && task_euid(itr->tsk).val == uid) {
+			binder_in_transaction(itr, uid);
+		}
+	}
+	mutex_unlock(&binder_procs_lock);
+}
+#endif
 
 static void print_binder_node_nilocked(struct seq_file *m,
 				       struct binder_node *node)

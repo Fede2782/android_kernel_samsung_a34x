@@ -528,6 +528,10 @@ config UID_SYS_STATS_DEBUG
 	help
 	  Per TASK based io statistics exported to /proc/uid_io
 
+config DEV_RIL_BRIDGE
+	tristate "Support a bridge between device and RIL"
+	default n
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -542,4 +546,9 @@ source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/ocxl/Kconfig"
 source "drivers/misc/cardreader/Kconfig"
+source "drivers/misc/mediatek/Kconfig"
+source "drivers/misc/tzdev/Kconfig"
+source "drivers/misc/tzdev/4.2.1/Kconfig"
+source "drivers/misc/tzdev/5.0.0/Kconfig"
+source "drivers/misc/tui/Kconfig"
 endmenu

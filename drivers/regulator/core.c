@@ -2111,7 +2111,15 @@ static int regulator_ena_gpio_request(struct regulator_dev *rdev,
 			goto update_ena_gpio_to_rdev;
 		}
 	}
-
+#ifdef CONFIG_SEC_PM
+	if (!config->skip_gpio_request) {
+		ret = gpio_request_one(config->ena_gpio,
+					GPIOF_DIR_OUT | config->ena_gpio_flags,
+					rdev_get_name(rdev));
+		if (ret)
+			return ret;
+	}
+#else	
 	if (!config->ena_gpiod) {
 		ret = gpio_request_one(config->ena_gpio,
 				       GPIOF_DIR_OUT | config->ena_gpio_flags,
@@ -2119,6 +2127,7 @@ static int regulator_ena_gpio_request(struct regulator_dev *rdev,
 		if (ret)
 			return ret;
 	}
+#endif /* CONFIG_SEC_PM  */
 
 	pin = kzalloc(sizeof(struct regulator_enable_gpio), GFP_KERNEL);
 	if (pin == NULL) {
@@ -2129,7 +2138,12 @@ static int regulator_ena_gpio_request(struct regulator_dev *rdev,
 
 	pin->gpiod = gpiod;
 	pin->ena_gpio_invert = config->ena_gpio_invert;
+#ifdef CONFIG_SEC_PM
+	if (!config->skip_gpio_request)
+		list_add(&pin->list, &regulator_ena_gpio_list);
+#else
 	list_add(&pin->list, &regulator_ena_gpio_list);
+#endif /* CONFIG_SEC_PM  */
 
 update_ena_gpio_to_rdev:
 	pin->request_count++;
@@ -4889,6 +4903,96 @@ static const struct file_operations regulator_summary_fops = {
 	.release	= single_release,
 #endif
 };
+
+#ifdef CONFIG_SEC_PM
+static char *reg_skip_list[] = {"VMDLA", "VDRAM1", "VMDDR", "VDRAM2",
+								"VFP", "VTP", "VMC", "VMCH", "vtp"};
+
+static int __regulator_is_skip_ops(struct regulator_dev *rdev)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(reg_skip_list); i++) {
+		if (!strcmp(rdev_get_name(rdev), reg_skip_list[i]))
+			return 1;
+	}
+
+	return 0;
+}
+
+static int regulator_check_str(struct regulator *reg,
+	   unsigned int *slen, char *snames)
+{
+	if (reg->supply_name) {
+		if (*slen + strlen(reg->supply_name) + 3 > 80)
+			return -ENOMEM;
+		*slen += snprintf(snames + *slen,
+				strlen(reg->supply_name) + 3,
+				", %s", reg->supply_name);
+	}
+	return 0;
+}
+
+static int _regulator_debug_print_enabled(struct device *dev, void *data)
+{
+	struct regulator_dev *rdev = dev_to_rdev(dev);
+	struct regulator *reg;
+	int mode = -EPERM;
+	unsigned int slen;
+	char snames[80];
+	int *cnt = data;
+	int skip = __regulator_is_skip_ops(rdev);
+
+	if (!skip && _regulator_is_enabled(rdev) <= 0)
+		return 0;
+
+	if (rdev->desc->ops && !skip) {
+		slen = 0;
+		list_for_each_entry(reg, &rdev->consumer_list, list) {
+			if (regulator_check_str(reg, &slen, snames))
+				break;
+		}
+
+		if (rdev->desc->ops->get_mode)
+			mode = rdev->desc->ops->get_mode(rdev);
+
+		pr_info("%16s: %7d uV, mode=%2d%s\n",
+				rdev_get_name(rdev),
+				_regulator_get_voltage(rdev),
+				mode, slen ? snames : ", null");
+	} else {
+		if(rdev->use_count)
+			pr_info("%16s enabled\n", rdev_get_name(rdev));
+		else
+			return 0;
+	}
+
+	(*cnt)++;
+
+	return 0;
+}
+
+/**
+ * regulator_debug_print_enabled - log enabled regulators
+ *
+ * Print the names of all enabled regulators and their consumers to the kernel
+ * log if debug_suspend is set from debugfs.
+ */
+void regulator_debug_print_enabled(void)
+{
+	int cnt = 0;
+
+	pr_info("---Enabled regulators---\n");
+	class_for_each_device(&regulator_class, NULL, &cnt,
+			     _regulator_debug_print_enabled);
+
+	if (cnt)
+		pr_info("---Enabled regulator count: %d---\n", cnt);
+	else
+		pr_info("---No regulators enabled---\n");
+}
+EXPORT_SYMBOL(regulator_debug_print_enabled);
+#endif /* CONFIG_SEC_PM */
 
 static int __init regulator_init(void)
 {

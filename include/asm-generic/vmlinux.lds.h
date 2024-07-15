@@ -315,6 +315,22 @@
 	__end_ro_after_init = .;
 #endif
 
+#ifdef CONFIG_UH
+#define UH_RO_SECTION						\
+	. = ALIGN(4096);						\
+	.uh_bss       : AT(ADDR(.uh_bss) - LOAD_OFFSET) {	\
+		*(.uh_bss.page_aligned)				\
+		*(.uh_bss)						\
+	} = 0								\
+									\
+	.uh_ro          : AT(ADDR(.uh_ro) - LOAD_OFFSET) {	\
+		*(.rkp_ro)						\
+		*(.kdp_ro)						\
+	}
+#else
+#define UH_RO_SECTION
+#endif
+
 /*
  * Read only Data
  */
@@ -335,6 +351,9 @@
 	.rodata1          : AT(ADDR(.rodata1) - LOAD_OFFSET) {		\
 		*(.rodata1)						\
 	}								\
+									\
+	/* UH */							\
+	UH_RO_SECTION						\
 									\
 	/* PCI quirks */						\
 	.pci_fixup        : AT(ADDR(.pci_fixup) - LOAD_OFFSET) {	\

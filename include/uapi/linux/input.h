@@ -25,6 +25,118 @@
  * application's request to use 64 bit time_t.
  */
 
+/*
+ * sec Log
+ */
+#define SECLOG			"[sec_input]"
+
+#if !IS_ENABLED(CONFIG_INPUT_SEC_INPUT)
+
+#define INPUT_LOG_BUF_SIZE	512
+
+#ifdef CONFIG_SEC_DEBUG_TSP_LOG
+#include <linux/input/sec_tsp_log.h>
+
+/*
+ * sys/class/sec/tsp/support_feature
+ * bit value should be made a promise with InputFramework.
+ */
+#define INPUT_FEATURE_ENABLE_SETTINGS_AOT	(1 << 0) /* Double tap wakeup settings */
+#define INPUT_FEATURE_ENABLE_PRESSURE		(1 << 1) /* homekey pressure */
+#define INPUT_FEATURE_ENABLE_SYNC_RR120		(1 << 2) /* sync reportrate 120hz */
+#define INPUT_FEATURE_ENABLE_VRR		(1 << 3) /* variable refresh rate (support 240hz) */
+#define INPUT_FEATURE_ENABLE_SYSINPUT_ENABLED		(1 << 5) /* resume/suspend called by system input service */
+#define INPUT_FEATURE_ENABLE_PROX_LP_SCAN_ENABLED	(1 << 6) /* prox_lp_scan_mode called by system input service */
+
+#define INPUT_FEATURE_SUPPORT_OPEN_SHORT_TEST		(1 << 8) /* open/short test support */
+#define INPUT_FEATURE_SUPPORT_MIS_CALIBRATION_TEST	(1 << 9) /* mis-calibration test support */
+#define INPUT_FEATURE_ENABLE_MULTI_CALIBRATION		(1 << 10) /* multi calibration support */
+
+
+#define input_dbg(mode, dev, fmt, ...)						\
+({										\
+	static char input_log_buf[INPUT_LOG_BUF_SIZE];				\
+	snprintf(input_log_buf, sizeof(input_log_buf), "%s %s", SECLOG, fmt);	\
+	dev_dbg(dev, input_log_buf, ## __VA_ARGS__);				\
+	if (mode) {								\
+		if (dev)							\
+			snprintf(input_log_buf, sizeof(input_log_buf), "%s %s",	\
+					dev_driver_string(dev), dev_name(dev));	\
+		else								\
+			snprintf(input_log_buf, sizeof(input_log_buf), "NULL");	\
+		sec_debug_tsp_log_msg(input_log_buf, fmt, ## __VA_ARGS__);	\
+	}									\
+})
+#define input_info(mode, dev, fmt, ...)						\
+({										\
+	static char input_log_buf[INPUT_LOG_BUF_SIZE];				\
+	snprintf(input_log_buf, sizeof(input_log_buf), "%s %s", SECLOG, fmt);	\
+	dev_info(dev, input_log_buf, ## __VA_ARGS__);				\
+	if (mode) {								\
+		if (dev)							\
+			snprintf(input_log_buf, sizeof(input_log_buf), "%s %s",	\
+					dev_driver_string(dev), dev_name(dev));	\
+		else								\
+			snprintf(input_log_buf, sizeof(input_log_buf), "NULL");	\
+		sec_debug_tsp_log_msg(input_log_buf, fmt, ## __VA_ARGS__);	\
+	}									\
+})
+#define input_err(mode, dev, fmt, ...)						\
+({										\
+	static char input_log_buf[INPUT_LOG_BUF_SIZE];				\
+	snprintf(input_log_buf, sizeof(input_log_buf), "%s %s", SECLOG, fmt);	\
+	dev_err(dev, input_log_buf, ## __VA_ARGS__);				\
+	if (mode) {								\
+		if (dev)							\
+			snprintf(input_log_buf, sizeof(input_log_buf), "%s %s",	\
+					dev_driver_string(dev), dev_name(dev));	\
+		else								\
+			snprintf(input_log_buf, sizeof(input_log_buf), "NULL");	\
+		sec_debug_tsp_log_msg(input_log_buf, fmt, ## __VA_ARGS__);	\
+	}									\
+})
+#define input_raw_info(mode, dev, fmt, ...)					\
+({										\
+	static char input_log_buf[INPUT_LOG_BUF_SIZE];				\
+	snprintf(input_log_buf, sizeof(input_log_buf), "%s %s", SECLOG, fmt);	\
+	dev_info(dev, input_log_buf, ## __VA_ARGS__);				\
+	if (mode) { 							\
+		if (dev)							\
+			snprintf(input_log_buf, sizeof(input_log_buf), "%s %s", \
+					dev_driver_string(dev), dev_name(dev)); \
+		else								\
+			snprintf(input_log_buf, sizeof(input_log_buf), "NULL"); \
+		sec_debug_tsp_log_msg(input_log_buf, fmt, ## __VA_ARGS__);	\
+		sec_debug_tsp_raw_data_msg(input_log_buf, fmt, ## __VA_ARGS__); \
+	}									\
+})
+#define input_log_fix() {}
+#define input_raw_data_clear() sec_tsp_raw_data_clear()
+#else
+#define input_dbg(mode, dev, fmt, ...)						\
+({										\
+	static char input_log_buf[INPUT_LOG_BUF_SIZE];				\
+	snprintf(input_log_buf, sizeof(input_log_buf), "%s %s", SECLOG, fmt);	\
+	dev_dbg(dev, input_log_buf, ## __VA_ARGS__);				\
+})
+#define input_info(mode, dev, fmt, ...)						\
+({										\
+	static char input_log_buf[INPUT_LOG_BUF_SIZE];				\
+	snprintf(input_log_buf, sizeof(input_log_buf), "%s %s", SECLOG, fmt);	\
+	dev_info(dev, input_log_buf, ## __VA_ARGS__);				\
+})
+#define input_err(mode, dev, fmt, ...)						\
+({										\
+	static char input_log_buf[INPUT_LOG_BUF_SIZE];				\
+	snprintf(input_log_buf, sizeof(input_log_buf), "%s %s", SECLOG, fmt);	\
+	dev_err(dev, input_log_buf, ## __VA_ARGS__);				\
+})
+#define input_raw_info(mode, dev, fmt, ...) input_info(mode, dev, fmt, ## __VA_ARGS__)
+#define input_log_fix() {}
+#define input_raw_data_clear() sec_tsp_raw_data_clear()
+#endif
+#endif
+
 struct input_event {
 #if (__BITS_PER_LONG != 32 || !defined(__USE_TIME_BITS64)) && !defined(__KERNEL__)
 	struct timeval time;

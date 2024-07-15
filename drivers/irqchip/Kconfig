@@ -329,6 +329,13 @@ config STM32_EXTI
 	select IRQ_DOMAIN
 	select GENERIC_IRQ_CHIP
 
+config MTK_GIC_TARGET_ALL
+	bool
+	help
+	Support for new interrupt distribution design for MediaTek solutions.
+	With this feature enabled, the SPI interrupts would be routed to all the
+	cores rather than cpu0 to achieve better load balance of interrupt handling.
+
 config QCOM_IRQ_COMBINER
 	bool "QCOM IRQ combiner support"
 	depends on ARCH_QCOM && ACPI
@@ -345,6 +352,15 @@ config IRQ_UNIPHIER_AIDET
 	select IRQ_DOMAIN_HIERARCHY
 	help
 	  Support for the UniPhier AIDET (ARM Interrupt Detector).
+
+config MTK_SYSIRQ
+	bool
+	depends on ARCH_MEDIATEK
+	help
+	  GIC only support IRQ_TYPE_LEVEL_HIGH and IRQ_TYPE_EDGE_RISING,
+	  so this driver is designed for polarity configuration in order
+	  to make GIC driver support various trigger type including
+	  IRQ_TYPE_LEVEL_LOW and IRQ_TYPE_EDGE_FALLING.
 
 config MESON_IRQ_GPIO
        bool "Meson GPIO Interrupt Multiplexer"

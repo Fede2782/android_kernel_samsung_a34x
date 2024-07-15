@@ -10,6 +10,7 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/blkdev.h>
+#include <linux/backing-dev.h>
 #include <linux/freezer.h>
 #include <linux/kthread.h>
 #include <linux/scatterlist.h>
@@ -24,6 +25,8 @@
 #include "crypto.h"
 #include "card.h"
 #include "host.h"
+#include "mmc_crypto.h"
+#include "mtk_mmc_block.h"
 
 static inline bool mmc_cqe_dcmd_busy(struct mmc_queue *mq)
 {
@@ -377,6 +380,28 @@ static void mmc_setup_queue(struct mmc_queue *mq, struct mmc_card *card)
 	INIT_WORK(&mq->recovery_work, mmc_mq_recovery_handler);
 	INIT_WORK(&mq->complete_work, mmc_blk_mq_complete_work);
 
+	if (mmc_card_sd(card)) {
+		/* decrease max # of requests to 32. The goal of this tuning is
+		 * reducing the time for draining elevator when elevator_switch
+		 * function is called. It is effective for slow external sdcard.
+		 */
+		mq->queue->nr_requests = BLKDEV_MAX_RQ / 8;
+		if (mq->queue->nr_requests < 32)
+			mq->queue->nr_requests = 32;
+#ifdef CONFIG_LARGE_DIRTY_BUFFER
+		/* apply more throttle on external sdcard */
+		mq->queue->backing_dev_info->capabilities |= BDI_CAP_STRICTLIMIT;
+		bdi_set_min_ratio(mq->queue->backing_dev_info, 30);
+		bdi_set_max_ratio(mq->queue->backing_dev_info, 60);
+#endif
+		pr_info("Parameters for external-sdcard: min/max_ratio: %u/%u "
+			"strictlimit: on nr_requests: %lu read_ahead_kb: %lu\n",
+			mq->queue->backing_dev_info->min_ratio,
+			mq->queue->backing_dev_info->max_ratio,
+			mq->queue->nr_requests,
+			mq->queue->backing_dev_info->ra_pages * 4);
+	}
+
 	mutex_init(&mq->complete_lock);
 
 	init_waitqueue_head(&mq->wait);
@@ -409,6 +434,7 @@ static int mmc_mq_init_queue(struct mmc_queue *mq, int q_depth,
 
 	mq->queue->queue_lock = lock;
 	mq->queue->queuedata = mq;
+	// mq->queue->backing_dev_info->ra_pages = 128;
 
 	return 0;
 
@@ -426,14 +452,50 @@ static int mmc_mq_init(struct mmc_queue *mq, struct mmc_card *card,
 {
 	struct mmc_host *host = card->host;
 	int q_depth;
-	int ret;
+	int ret = 0;
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	int i;
+	struct mmc_blk_data *md = container_of(mq, struct mmc_blk_data, queue);
+#endif
 	/*
 	 * The queue depth for CQE must match the hardware because the request
 	 * tag is used to index the hardware queue.
 	 */
 	if (mq->use_cqe)
 		q_depth = min_t(int, card->ext_csd.cmdq_depth, host->cqe_qdepth);
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	else if (mq->use_swcq && (md->area_type == MMC_BLK_DATA_AREA_MAIN)) {
+		q_depth = MMC_QUEUE_DEPTH;
+		atomic_set(&host->cq_rw, false);
+		atomic_set(&host->cq_w, false);
+		atomic_set(&host->cq_wait_rdy, 0);
+		host->task_id_index = 0;
+		atomic_set(&host->is_data_dma, 0);
+		host->cur_rw_task = CQ_TASK_IDLE;
+		atomic_set(&host->cq_tuning_now, 0);
+
+		for (i = 0; i < EMMC_MAX_QUEUE_DEPTH; i++) {
+			host->data_mrq_queued[i] = false;
+			atomic_set(&mq->mqrq[i].index, 0);
+			mq->mqrq[i].sg = mmc_alloc_sg(host->max_segs,
+				GFP_KERNEL);
+			if (!mq->mqrq[i].sg)
+				ret = -ENOMEM;
+		}
+
+		if (ret) {
+			for (i = 0; i < EMMC_MAX_QUEUE_DEPTH; i++) {
+				kfree(mq->mqrq[i].sg);
+				mq->mqrq[i].sg = NULL;
+			}
+			return ret;
+		}
+
+		host->cmdq_thread = kthread_run(mmc_run_queue_thread, host,
+				"exe_cq/%d", host->index);
+	}
+#endif
 	else
 		q_depth = MMC_QUEUE_DEPTH;
 
@@ -441,10 +503,10 @@ static int mmc_mq_init(struct mmc_queue *mq, struct mmc_card *card,
 	if (ret)
 		return ret;
 
-	blk_queue_rq_timeout(mq->queue, 60 * HZ);
+	blk_queue_rq_timeout(mq->queue, 20 * HZ);
 
 	mmc_setup_queue(mq, card);
-
+	/* inline crypto */
 	mmc_crypto_setup_queue(host, mq->queue);
 
 	return 0;
@@ -463,10 +525,20 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 		   spinlock_t *lock, const char *subname)
 {
 	struct mmc_host *host = card->host;
-
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	int err;
+#endif
 	mq->card = card;
 
 	mq->use_cqe = host->cqe_enabled;
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	mq->use_swcq = host->swcq_enabled;
+	/* inline crypto */
+	err = mmc_init_crypto(card->host);
+	if (err)
+		return err;
+#endif
 
 	return mmc_mq_init(mq, card, lock);
 }
@@ -491,6 +563,12 @@ void mmc_queue_resume(struct mmc_queue *mq)
 void mmc_cleanup_queue(struct mmc_queue *mq)
 {
 	struct request_queue *q = mq->queue;
+
+#ifdef CONFIG_LARGE_DIRTY_BUFFER
+	/* Restore bdi min/max ratio before device removal */
+	bdi_set_min_ratio(q->backing_dev_info, 0);
+	bdi_set_max_ratio(q->backing_dev_info, 100);
+#endif
 
 	/*
 	 * The legacy code handled the possibility of being suspended,

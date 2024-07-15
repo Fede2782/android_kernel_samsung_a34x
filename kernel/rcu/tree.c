@@ -1389,7 +1389,12 @@ static void print_other_cpu_stall(struct rcu_state *rsp, unsigned long gp_seq)
 	 * See Documentation/RCU/stallwarn.txt for info on how to debug
 	 * RCU CPU stall warnings.
 	 */
+	check_held_locks(1);
+#ifdef CONFIG_SEC_DEBUG_AUTO_COMMENT
+	pr_auto(ASL1, "INFO: %s detected stalls on CPUs/tasks:", rsp->name);
+#else
 	pr_err("INFO: %s detected stalls on CPUs/tasks:", rsp->name);
+#endif
 	print_cpu_stall_info_begin();
 	rcu_for_each_leaf_node(rsp, rnp) {
 		raw_spin_lock_irqsave_rcu_node(rnp, flags);
@@ -1460,7 +1465,12 @@ static void print_cpu_stall(struct rcu_state *rsp)
 	 * See Documentation/RCU/stallwarn.txt for info on how to debug
 	 * RCU CPU stall warnings.
 	 */
+	check_held_locks(1);
+#ifdef CONFIG_SEC_DEBUG_AUTO_COMMENT
+	pr_auto(ASL1, "INFO: %s self-detected stall on CPU", rsp->name);
+#else
 	pr_err("INFO: %s self-detected stall on CPU", rsp->name);
+#endif
 	print_cpu_stall_info_begin();
 	raw_spin_lock_irqsave_rcu_node(rdp->mynode, flags);
 	print_cpu_stall_info(rsp, smp_processor_id());

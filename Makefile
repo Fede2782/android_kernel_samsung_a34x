@@ -431,6 +431,7 @@ LINUXINCLUDE    := \
 		-I$(srctree)/arch/$(SRCARCH)/include \
 		-I$(objtree)/arch/$(SRCARCH)/include/generated \
 		$(if $(KBUILD_SRC), -I$(srctree)/include) \
+		-I$(srctree)/drivers/misc/mediatek/include \
 		-I$(objtree)/include \
 		$(USERINCLUDE)
 
@@ -1457,6 +1458,9 @@ $(clean-dirs):
 vmlinuxclean:
 	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/link-vmlinux.sh clean
 	$(Q)$(if $(ARCH_POSTLINK), $(MAKE) -f $(ARCH_POSTLINK) clean)
+
+legoclean:
+	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/lego/kclean.sh $(srctree)/.legofile
 
 clean: archclean vmlinuxclean
 

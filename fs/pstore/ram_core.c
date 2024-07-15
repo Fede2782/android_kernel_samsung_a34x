@@ -28,6 +28,9 @@
 #include <linux/uaccess.h>
 #include <linux/vmalloc.h>
 #include <asm/page.h>
+#ifdef CONFIG_SEC_LOG_HOOK_PMSG
+#include <linux/sec_debug.h>
+#endif
 
 struct persistent_ram_buffer {
 	uint32_t    sig;
@@ -284,6 +287,10 @@ static int notrace persistent_ram_update_user(struct persistent_ram_zone *prz,
 	struct persistent_ram_buffer *buffer = prz->buffer;
 	int ret = unlikely(__copy_from_user(buffer->data + start, s, count)) ?
 		-EFAULT : 0;
+
+#ifdef CONFIG_SEC_LOG_HOOK_PMSG		
+	sec_log_hook_pmsg(buffer->data + start, count);
+#endif			
 	persistent_ram_update_ecc(prz, start, count);
 	return ret;
 }
@@ -397,8 +404,13 @@ void persistent_ram_zap(struct persistent_ram_zone *prz)
 	persistent_ram_update_header_ecc(prz);
 }
 
+#ifdef CONFIG_SEC_DEBUG
+void *persistent_ram_vmap(phys_addr_t start, size_t size,
+		unsigned int memtype)
+#else
 static void *persistent_ram_vmap(phys_addr_t start, size_t size,
 		unsigned int memtype)
+#endif
 {
 	struct page **pages;
 	phys_addr_t page_start;

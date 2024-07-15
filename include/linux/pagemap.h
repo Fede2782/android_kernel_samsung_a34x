@@ -220,12 +220,23 @@ static inline int page_cache_add_speculative(struct page *page, int count)
 	return 1;
 }
 
+#ifdef CONFIG_RESTRICT_FILE_TO_CMA_ON_BOOT
+extern bool boot_duration_passed_timeout;
+#endif
+
 #ifdef CONFIG_NUMA
 extern struct page *__page_cache_alloc(gfp_t gfp);
 #else
 static inline struct page *__page_cache_alloc(gfp_t gfp)
 {
-	return alloc_pages(gfp, 0);
+#ifdef CONFIG_RESTRICT_FILE_TO_CMA_ON_BOOT
+	if ((gfp & GFP_HIGHUSER_MOVABLE) == GFP_HIGHUSER_MOVABLE && boot_duration_passed_timeout)
+#else
+	if ((gfp & GFP_HIGHUSER_MOVABLE) == GFP_HIGHUSER_MOVABLE)
+#endif
+		return alloc_pages(gfp | __GFP_CMA, 0);
+	else
+		return alloc_pages(gfp, 0);
 }
 #endif
 
@@ -456,8 +467,8 @@ static inline pgoff_t linear_page_index(struct vm_area_struct *vma,
 	pgoff_t pgoff;
 	if (unlikely(is_vm_hugetlb_page(vma)))
 		return linear_hugepage_index(vma, address);
-	pgoff = (address - vma->vm_start) >> PAGE_SHIFT;
-	pgoff += vma->vm_pgoff;
+	pgoff = (address - READ_ONCE(vma->vm_start)) >> PAGE_SHIFT;
+	pgoff += READ_ONCE(vma->vm_pgoff);
 	return pgoff;
 }
 

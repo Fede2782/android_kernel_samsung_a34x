@@ -175,6 +175,7 @@ config ARM64
 	select SWIOTLB
 	select SYSCTL_EXCEPTION_TRACE
 	select THREAD_INFO_IN_TASK
+	select ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT
 	help
 	  ARM 64-bit (AArch64) Linux support.
 
@@ -983,7 +984,7 @@ config FORCE_MAX_ZONEORDER
 
 config UNMAP_KERNEL_AT_EL0
 	bool "Unmap kernel when running in userspace (aka \"KAISER\")" if EXPERT
-	default y
+	default n
 	help
 	  Speculation attacks against some high-performance processors can
 	  be used to bypass MMU permission checks and leak kernel data to
@@ -995,7 +996,7 @@ config UNMAP_KERNEL_AT_EL0
 
 config HARDEN_BRANCH_PREDICTOR
 	bool "Harden the branch predictor against aliasing attacks" if EXPERT
-	default y
+	default n
 	help
 	  Speculation attacks against some high-performance processors rely on
 	  being able to manipulate the branch predictor for a victim context by
@@ -1034,6 +1035,15 @@ config ARM64_SSBD
 	  by speculative loads.
 
 	  If unsure, say Y.
+
+config MITIGATE_SPECTRE_BRANCH_HISTORY
+	bool "Mitigate Spectre style attacks against branch history" if EXPERT
+	default y
+	help
+	  Speculation attacks against some high-performance processors can
+	  make use of branch history to influence future speculation.
+	  When taking an exception from user-space, a sequence of branches
+	  or a firmware call overwrites the branch history.
 
 config ARM64_TAGGED_ADDR_ABI
 	bool "Enable the tagged user addresses syscall ABI"
@@ -1465,6 +1475,83 @@ config KUSER_HELPERS
 config SYSVIPC_COMPAT
 	def_bool y
 	depends on COMPAT && SYSVIPC
+
+config MTK_LPM_TSP_IRQ_REMAIN
+	bool "Enable mtk_lpm, irq-remain feature"
+	depends on SEC_FACTORY
+	default n
+	help
+	  It add mtk_lpm, irq-remain list.
+	  It's samsung's tsp feature.
+
+menu "Hypervisor"
+config UH
+	bool "Enable micro hypervisor feature"
+	depends on !SEC_FACTORY
+	default n
+	help
+	  It enables a micro hypervisor.
+	  It's samsung's hypervisor.
+	  RKP and etc can be loaded on it.
+	  please check a memory map for it.
+
+config UH_DEBUG
+    bool "Enable micro hypervisor debug feature"
+	depends on UH
+	default n
+	help
+	  It's for debugging uH.
+
+config RKP
+	bool "Enable RKP(Realtime Kernel Protection) feature"
+	depends on UH
+	default n
+	help
+	  protects a kernel text and etc.
+	  
+config KDP
+	bool "Enable KDP(Kernel Data Protection) feature"
+	depends on !SEC_VTS_TEST
+	depends on UH
+	select KDP_CRED
+	select KDP_NS
+	default n
+	help
+	  Prevents unauthorized cred modification,
+	  namespace modification, mapping for page table.
+
+config KDP_CRED
+	bool "Enable KDP(Kernel Data Protection) cred feature"
+	depends on !SEC_VTS_TEST
+	depends on KDP
+	default n
+	help
+	  Prevents unauthorized cred modification.
+
+config KDP_NS
+	bool "Enable KDP(Kernel Data Protection) namespace feature"
+	depends on !SEC_VTS_TEST
+	depends on KDP
+	default n
+	help
+	  Prevents unauthorized namespace modification, mapping for page table.
+	  
+config RKP_TEST
+	bool "Enable RKP test"
+	depends on !SAMSUNG_PRODUCT_SHIP && RKP
+	default n
+	help
+	  enables RKP test.
+	  
+config KDP_TEST
+	bool "Enable KDP test"
+	depends on !SAMSUNG_PRODUCT_SHIP && KDP
+	depends on KDP
+	default n
+	help
+	  enables KDP test.
+	  
+endmenu
 
 menu "Power management options"
 

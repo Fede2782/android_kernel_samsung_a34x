@@ -14,11 +14,19 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 
+#include "mmc_crypto.h"
+
 struct mmc_host;
 struct mmc_card;
 struct mmc_request;
 
 #define MMC_CMD_RETRIES        3
+
+#ifdef CONFIG_MMC_SUPPORT_STLOG
+#include <linux/fslog.h>
+#else
+#define ST_LOG(fmt, ...)
+#endif
 
 struct mmc_bus_ops {
 	void (*remove)(struct mmc_host *);
@@ -90,6 +98,17 @@ void mmc_remove_host_debugfs(struct mmc_host *host);
 void mmc_add_card_debugfs(struct mmc_card *card);
 void mmc_remove_card_debugfs(struct mmc_card *card);
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+void mmc_wait_cmdq_empty(struct mmc_host *host);
+void mmc_do_check(struct mmc_host *host);
+void mmc_do_stop(struct mmc_host *host);
+void mmc_do_status(struct mmc_host *host);
+void mmc_wait_cmdq_done(struct mmc_request *mrq);
+int mmc_run_queue_thread(void *data);
+#endif
+
+
+
 int mmc_execute_tuning(struct mmc_card *card);
 int mmc_hs200_to_hs400(struct mmc_card *card);
 int mmc_hs400_to_hs200(struct mmc_card *card);
@@ -127,6 +146,7 @@ int __mmc_claim_host(struct mmc_host *host, struct mmc_ctx *ctx,
 void mmc_release_host(struct mmc_host *host);
 void mmc_get_card(struct mmc_card *card, struct mmc_ctx *ctx);
 void mmc_put_card(struct mmc_card *card, struct mmc_ctx *ctx);
+int mmc_try_claim_host(struct mmc_host *host, unsigned int delay);
 
 /**
  *	mmc_claim_host - exclusively claim a host

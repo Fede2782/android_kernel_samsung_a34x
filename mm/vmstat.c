@@ -1125,6 +1125,7 @@ const char * const vmstat_text[] = {
 	"nr_zspages",
 #endif
 	"nr_free_cma",
+	"nr_free_rbin",
 
 	/* enum numa_stat_item counters */
 #ifdef CONFIG_NUMA
@@ -1295,6 +1296,9 @@ const char * const vmstat_text[] = {
 #ifdef CONFIG_SWAP
 	"swap_ra",
 	"swap_ra_hit",
+#endif
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	"speculative_pgfault",
 #endif
 #endif /* CONFIG_VM_EVENTS_COUNTERS */
 };

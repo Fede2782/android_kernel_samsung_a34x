@@ -233,6 +233,8 @@ struct scsi_device {
 	enum scsi_device_state sdev_state;
 	struct task_struct	*quiesced_by;
 	unsigned long		sdev_data[0];
+	bool support_tw_lu;
+	u8 bootlunID;
 
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);

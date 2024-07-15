@@ -46,6 +46,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_AK5558 if I2C
 	select SND_SOC_ALC5623 if I2C
 	select SND_SOC_ALC5632 if I2C
+	select SND_SOC_AW8896 if I2C
 	select SND_SOC_BT_SCO
 	select SND_SOC_BD28623
 	select SND_SOC_CQ0093VC
@@ -53,6 +54,8 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_CS35L33 if I2C
 	select SND_SOC_CS35L34 if I2C
 	select SND_SOC_CS35L35 if I2C
+	select SND_SOC_CS35L41_I2C if I2C
+	select SND_SOC_CS35L41_SPI if SPI_MASTER
 	select SND_SOC_CS42L42 if I2C
 	select SND_SOC_CS42L51_I2C if I2C
 	select SND_SOC_CS42L52 if I2C && INPUT
@@ -80,6 +83,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_ES8328_I2C if I2C
 	select SND_SOC_ES7134
 	select SND_SOC_ES7241
+	select SND_SOC_ES7243E
 	select SND_SOC_GTM601
 	select SND_SOC_HDAC_HDMI
 	select SND_SOC_ICS43432
@@ -107,6 +111,9 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_MC13783 if MFD_MC13XXX
 	select SND_SOC_ML26124 if I2C
 	select SND_SOC_MT6351 if MTK_PMIC_WRAP
+	select SND_SOC_MT6358
+	select SND_SOC_MT6359
+	select SND_SOC_MT6366
 	select SND_SOC_NAU8540 if I2C
 	select SND_SOC_NAU8810 if I2C
 	select SND_SOC_NAU8824 if I2C
@@ -146,6 +153,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_SI476X if MFD_SI476X_CORE
 	select SND_SOC_SIMPLE_AMPLIFIER
 	select SND_SOC_SIRF_AUDIO_CODEC
+	select SND_SOC_SMA1303 if I2C
 	select SND_SOC_SPDIF
 	select SND_SOC_SSM2305
 	select SND_SOC_SSM2518 if I2C
@@ -160,9 +168,11 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_TAS2552 if I2C
 	select SND_SOC_TAS5086 if I2C
 	select SND_SOC_TAS571X if I2C
+	select SND_SOC_TAS5782M if I2C
 	select SND_SOC_TAS5720 if I2C
 	select SND_SOC_TAS6424 if I2C
 	select SND_SOC_TDA7419 if I2C
+	select SND_SOC_TFA9878 if I2C
 	select SND_SOC_TFA9879 if I2C
 	select SND_SOC_TLV320AIC23_I2C if I2C
 	select SND_SOC_TLV320AIC23_SPI if SPI_MASTER
@@ -234,11 +244,16 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_WM9705 if (SND_SOC_AC97_BUS || SND_SOC_AC97_BUS_NEW)
 	select SND_SOC_WM9712 if (SND_SOC_AC97_BUS || SND_SOC_AC97_BUS_NEW)
 	select SND_SOC_WM9713 if (SND_SOC_AC97_BUS || SND_SOC_AC97_BUS_NEW)
+	select SND_SOC_RT5509 if I2C
+	select SND_SOC_RT5512 if I2C
+	select SND_SOC_MT6660 if I2C
+	select SND_SOC_TFA9874 if I2C
         help
           Normally ASoC codec drivers are only built if a machine driver which
           uses them is also built since they are only usable with a machine
           driver.  Selecting this option will allow these drivers to be built
           without an explicit machine driver for test and development purposes.
+
 
 	  Support for the bus types used to access the codecs to be built must
 	  be selected separately.
@@ -273,10 +288,19 @@ config SND_SOC_WM_ADSP
 	default y if SND_SOC_WM5102=y
 	default y if SND_SOC_WM5110=y
 	default y if SND_SOC_WM2200=y
+	default y if SND_SOC_CS35L43=y
 	default m if SND_SOC_CS47L24=m
 	default m if SND_SOC_WM5102=m
 	default m if SND_SOC_WM5110=m
 	default m if SND_SOC_WM2200=m
+	default y if SND_SOC_CS35L41=y
+	default m if SND_SOC_CS35L43=m
+
+config SND_SOC_WM_ADSP_ANDROID_R
+	bool "Cirrus Logic ADSP Android R work-arounds"
+	help
+	  Workaround backported changes to wakeup_source_register in the
+	  Android R kernel
 
 config SND_SOC_AB8500_CODEC
 	tristate
@@ -428,6 +452,12 @@ config SND_SOC_ALC5623
 config SND_SOC_ALC5632
 	tristate
 
+config SND_SOC_AW8896
+	tristate "SoC Audio for awinic aw8896 series"
+	depends on I2C
+	help
+		This option enables support for aw8896 series Smart PA.
+
 config SND_SOC_BD28623
 	tristate "ROHM BD28623 CODEC"
 	help
@@ -437,6 +467,14 @@ config SND_SOC_BD28623
 
 config SND_SOC_BT_SCO
 	tristate "Dummy BT SCO codec driver"
+
+config SND_SOC_CIRRUS_AMP
+	tristate "Cirrus Logic Amp Feature drivers"
+	help
+	  Enable support for Cirrus Logic smart speaker amplifier factory
+	  driver. Supports various smart amp functions, such as firmware
+	  calibration, data logging, etc. Compatible with CS35L40 and CS35L46
+	  amplifiers.
 
 config SND_SOC_CPCAP
 	tristate "Motorola CPCAP codec"
@@ -460,6 +498,43 @@ config SND_SOC_CS35L34
 config SND_SOC_CS35L35
 	tristate "Cirrus Logic CS35L35 CODEC"
 	depends on I2C
+
+config SND_SOC_CS35L41
+	tristate "Cirrus Logic CS35L41 CODEC"
+	select SND_SOC_WM_ADSP
+
+config SND_SOC_CS35L41_REINIT_SYSFS
+	tristate "Cirrus Logic CS35L41 SysFS Reinit"
+
+config SND_SOC_CS35L41_SPI
+	tristate "Cirrus Logic CS35L41 CODEC (SPI)"
+	depends on SPI_MASTER
+	select SND_SOC_CS35L41
+	select REGMAP_SPI
+
+config SND_SOC_CS35L41_I2C
+	tristate "Cirrus Logic CS35L41 CODEC (I2C)"
+	depends on I2C
+	select SND_SOC_CS35L41
+	select REGMAP_I2C
+
+config SND_SOC_CS35L43
+	tristate "Cirrus Logic CS35L43 CODEC"
+
+config SND_SOC_CS35L43_I2C
+	tristate "Cirrus Logic CS35L43 CODEC (I2C)"
+	depends on I2C
+	select REGMAP_I2C
+	select SND_SOC_CS35L43
+
+config SND_SOC_CS35L43_SPI
+	tristate "Cirrus Logic CS35L43 CODEC (SPI)"
+	depends on SPI_MASTER
+	select REGMAP_SPI
+	select SND_SOC_CS35L43
+
+config SND_SOC_CIRRUS_REINIT_SYSFS
+	tristate "Cirrus Logic Amp SysFS Reinit"
 
 config SND_SOC_CS42L42
 	tristate "Cirrus Logic CS42L42 CODEC"
@@ -588,6 +663,10 @@ config SND_SOC_ES7134
 
 config SND_SOC_ES7241
        tristate "Everest Semi ES7241 CODEC"
+
+config SND_SOC_ES7243E
+	tristate "ES7243E 2CH ADC"
+	depends on I2C
 
 config SND_SOC_ES8316
 	tristate "Everest Semi ES8316 CODEC"
@@ -905,6 +984,10 @@ config SND_SOC_SIRF_AUDIO_CODEC
 	tristate "SiRF SoC internal audio codec"
 	select REGMAP_MMIO
 
+config SND_SOC_SMA1303
+	tristate "Silicon mitus SMA1303 Audio Amplifier"
+	depends on I2C
+
 config SND_SOC_SPDIF
 	tristate "S/PDIF CODEC"
 
@@ -976,6 +1059,13 @@ config SND_SOC_TAS5720
 	  Enable support for Texas Instruments TAS5720L/M high-efficiency mono
 	  Class-D audio power amplifiers.
 
+config SND_SOC_TAS5782M
+	tristate "Ti TAS5782M AMP"
+	depends on I2C
+	help
+	  Enable support for Texas Instruments TAS5782m high-efficiency
+	  stereo closed-loop Class-D audio power amplifiers.
+
 config SND_SOC_TAS6424
 	tristate "Texas Instruments TAS6424 Quad-Channel Audio amplifier"
 	depends on I2C
@@ -987,6 +1077,10 @@ config SND_SOC_TDA7419
 	tristate "ST TDA7419 audio processor"
 	depends on I2C
 	select REGMAP_I2C
+
+config SND_SOC_TFA9878
+	tristate "Goodix TFA9878 amplifier"
+	depends on I2C
 
 config SND_SOC_TFA9879
 	tristate "NXP Semiconductors TFA9879 amplifier"
@@ -1269,6 +1363,40 @@ config SND_SOC_ZX_AUD96P22
 	select REGMAP_I2C
 
 # Amp
+config SND_SOC_MT6660
+	tristate "Mediatek MT6660 speaker amplifier"
+	depends on I2C
+	select RT_REGMAP
+	select SND_RICHTEK_SPM
+	help
+	  Config of MT6660. It is a Smart power
+	  amplifier which contain speaker protection,
+	  multi-band DRC, equalizer function. It would
+	  be set to yes if device with MT6660 on it.
+
+config SND_SOC_TFA9874
+	tristate "NXP TFA9874 speaker amplifier"
+	depends on I2C
+	help
+	  Config of TFA9874. It is a Smart power
+	  amplifier which contain speaker protection,
+	  multi-band DRC, equalizer function. It would
+	  be set to yes if device with TFA9874 on it.
+
+config SND_SOC_AW87339
+	tristate "AWINIC AW8773 speaker amplifier"
+	help
+	  Config of AWINIC AW87339 speaker amplifier.
+	  It is a speaker amp which connect with MTK
+	  PMIC device which has no speaker protection
+	  function.
+
+config SND_SMARTPA_AW882XX
+	tristate "SoC Audio for Awinic aw882xx series"
+	depends on I2C
+	help
+	  This option enables support for aw882xx series Smart PA.
+
 config SND_SOC_LM4857
 	tristate
 
@@ -1291,6 +1419,54 @@ config SND_SOC_ML26124
 config SND_SOC_MT6351
 	tristate "MediaTek MT6351 Codec"
 
+config SND_SOC_MT6358
+	tristate
+
+config SND_SOC_MT6359
+	tristate "MediaTek MT6359 Codec driver"
+	help
+	  MediaTek MT6359 is a codec which contain
+	  three ADC for uplink path(MICs), and
+	  three DAC for downlink path(handset,
+	  headset, lineout).
+
+config SND_SOC_MT6366
+	tristate
+
+config SND_SOC_MT6357_ACCDET
+	tristate "MediaTek MT6357 ACCDET driver"
+	default m
+	help
+	  ACCDET means Accessory Detection technology, MediaTek develop it
+	  for ASoC codec soc-jack detection mechanism.
+	  Select N if you don't have jack on board.
+
+config SND_SOC_MT6359_ACCDET
+	tristate "MediaTek MT6359 ACCDET driver"
+	default m
+	help
+	  ACCDET means Accessory Detection technology, MediaTek develop it
+	  for ASoC codec soc-jack detection mechanism.
+	  Select N if you don't have jack on board.
+
+config MICBIAS1_1P9V
+	tristate "MediaTek MT6359 MICBIAS1 Voltage"
+	default n
+	help
+	  Select Y if you want to set micbias1 as 1p9v.
+
+config SND_SOC_MT6660
+	tristate "Mediatek MT6660 speaker amplifier"
+	depends on I2C
+	select CRC32
+	select CRYPTO_SHA256
+	select CRYPTO_RSA
+	help
+	  MediaTek MT6660 is a smart power amplifier which contain
+	  speaker protection, multi-band DRC, equalizer functions.
+	  Select N if you don't have MT6660 on board.
+	  Select M to build this as module.
+
 config SND_SOC_NAU8540
        tristate "Nuvoton Technology Corporation NAU85L40 CODEC"
        depends on I2C
@@ -1309,5 +1485,50 @@ config SND_SOC_NAU8825
 config SND_SOC_TPA6130A2
 	tristate "Texas Instruments TPA6130A2 headphone amplifier"
 	depends on I2C
+
+config SND_SOC_RT5509
+	tristate "Richtek RT5509 Smart AMP"
+	depends on I2C
+	select RT_REGMAP
+	help
+	  Config of RT5509. It is a Smart power
+	  amplifier which contain speaker protection,
+	  multi-band DRC, equalizer function. It would
+	  be set to yes if device with RT5509 on it.
+
+config SND_RICHTEK_SPM
+	bool "Richtek SPM Class"
+	help
+	  Say Y here to enable Richtek SPM Class support.
+	  This is a IPC Command for audio dsp and amp driver.
+	  Enable it, driver can get hifi3 data.
+	  Disable it, driver cannot get hifi3 data.
+
+config SND_SOC_RT5512
+	tristate "Mediatek RT5512 speaker amplifier"
+	depends on I2C
+	select SND_RICHTEK_SPM
+	help
+	  Config of RT5512. It is a Smart power
+	  amplifier which contain speaker protection,
+	  multi-band DRC, equalizer function. It would
+	  be set to yes if device with RT5512 on it.
+
+config SND_SOC_SMARTPAINFO
+	tristate "smartpa info"
+	depends on I2C
+	help
+	  Config of SMARTPAINFO. This config can be
+	  used to enable SND_SOC_SMARTPAINFO.
+	  It is a smartpa.It would be set to yes
+	  if device with smartpa on it, enable it.
+	  If unsure, say N.
+
+
+# DBMDx
+source "sound/soc/codecs/dbmdx/Kconfig"
+
+# TFA9878
+source "sound/soc/codecs/tfa9878/Kconfig"
 
 endmenu

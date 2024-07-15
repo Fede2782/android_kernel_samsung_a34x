@@ -16,6 +16,9 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include "internal.h"
+#ifdef CONFIG_SEC_EXT
+#include <linux/sec_ext.h>
+#endif
 
 static DEFINE_MUTEX(pmsg_lock);
 
@@ -24,6 +27,10 @@ static ssize_t write_pmsg(struct file *file, const char __user *buf,
 {
 	struct pstore_record record;
 	int ret;
+#ifdef CONFIG_SEC_EXT
+	char sec_buf[256];
+	size_t sec_count = 0;
+#endif
 
 	if (!count)
 		return 0;
@@ -37,6 +44,14 @@ static ssize_t write_pmsg(struct file *file, const char __user *buf,
 		return -EFAULT;
 
 	mutex_lock(&pmsg_lock);
+#ifdef CONFIG_SEC_EXT
+	if (count > 256)
+		sec_count = 256;
+	else
+		sec_count = count;
+
+	__copy_from_user(sec_buf, buf, sec_count);
+#endif /* CONFIG_SEC_EXT */
 	ret = psinfo->write_user(&record, buf);
 	mutex_unlock(&pmsg_lock);
 	return ret ? ret : count;

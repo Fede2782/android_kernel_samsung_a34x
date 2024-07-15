@@ -14,6 +14,7 @@ obj-$(CONFIG_MFD_BCM590XX)	+= bcm590xx.o
 obj-$(CONFIG_MFD_BD9571MWV)	+= bd9571mwv.o
 cros_ec_core-objs		:= cros_ec.o
 obj-$(CONFIG_MFD_CROS_EC)	+= cros_ec_core.o
+CFLAGS_cros_ec_dev.o = -Wno-unneeded-internal-declaration
 obj-$(CONFIG_MFD_CROS_EC_CHARDEV) += cros_ec_dev.o
 obj-$(CONFIG_MFD_EXYNOS_LPASS)	+= exynos-lpass.o
 
@@ -228,8 +229,43 @@ intel-soc-pmic-objs		:= intel_soc_pmic_core.o intel_soc_pmic_crc.o
 obj-$(CONFIG_INTEL_SOC_PMIC)	+= intel-soc-pmic.o
 obj-$(CONFIG_INTEL_SOC_PMIC_BXTWC)	+= intel_soc_pmic_bxtwc.o
 obj-$(CONFIG_INTEL_SOC_PMIC_CHTWC)	+= intel_soc_pmic_chtwc.o
-obj-$(CONFIG_INTEL_SOC_PMIC_CHTDC_TI)	+= intel_soc_pmic_chtdc_ti.o
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6768" "mt6739" "mt6785" "mt6853"  "mt6771" "mt6873"))
+subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+obj-$(CONFIG_MTK_MFD_SPMI_PMIC)	+= mtk-spmi-pmic.o
+obj-$(CONFIG_MFD_MT6358)	+= mt6358-core.o
+obj-$(CONFIG_MFD_MT6358)	+= mt635x-ot-debug.o
+obj-$(CONFIG_MFD_MT6362)	+= mt6362-core.o
 obj-$(CONFIG_MFD_MT6397)	+= mt6397-core.o
+obj-$(CONFIG_MT6358_MISC)	+= mt6358-misc.o
+obj-$(CONFIG_MT6397_MISC)	+= mt6397-misc.o
+else
+obj-$(CONFIG_INTEL_SOC_PMIC_CHTDC_TI)	+= intel_soc_pmic_chtdc_ti.o
+obj-$(CONFIG_MFD_MT6360)	+= mt6360-core.o
+mt6397-objs			:= mt6397-core.o mt6397-irq.o mt6358-irq.o mt6358-ipi.o
+obj-$(CONFIG_MFD_MT6397)	+= mt6397.o
+obj-$(CONFIG_MFD_MT6397)	+= mt63xx-oc-debug.o
+ifeq ($(CONFIG_DEBUG_FS), y)
+obj-$(CONFIG_MFD_MT6397)	+= mt63xx-debug.o
+else ifneq ($(CONFIG_MTK_ECCCI_DRIVER), y)
+obj-$(CONFIG_MFD_MT6397)	+= mt63xx-debug.o
+endif
+endif
+
+ifeq ($(CONFIG_MACH_MT6893),y)
+subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+obj-$(CONFIG_MTK_MFD_SPMI_PMIC)	+= mtk-spmi-pmic.o
+obj-$(CONFIG_MFD_MT6358)	+= mt6358-core.o
+obj-$(CONFIG_MFD_MT6358)	+= mt635x-ot-debug.o
+obj-$(CONFIG_MT6358_MISC)	+= mt6358-misc.o
+endif
+
+ifeq ($(CONFIG_MACH_MT6885),y)
+subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+obj-$(CONFIG_MTK_MFD_SPMI_PMIC)	+= mtk-spmi-pmic.o
+obj-$(CONFIG_MFD_MT6358)	+= mt6358-core.o
+obj-$(CONFIG_MFD_MT6358)	+= mt635x-ot-debug.o
+obj-$(CONFIG_MT6358_MISC)	+= mt6358-misc.o
+endif
 
 obj-$(CONFIG_MFD_ALTERA_A10SR)	+= altera-a10sr.o
 obj-$(CONFIG_MFD_SUN4I_GPADC)	+= sun4i-gpadc.o
@@ -241,3 +277,12 @@ obj-$(CONFIG_MFD_SC27XX_PMIC)	+= sprd-sc27xx-spi.o
 obj-$(CONFIG_RAVE_SP_CORE)	+= rave-sp.o
 obj-$(CONFIG_MFD_ROHM_BD718XX)	+= rohm-bd718x7.o
 
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+ifeq ($(CONFIG_MACH_MT6785),y)
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
+else
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+endif
+endif

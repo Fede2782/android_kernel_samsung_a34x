@@ -67,6 +67,10 @@
 #include <uapi/linux/module.h>
 #include "module-internal.h"
 
+#ifdef CONFIG_RKP
+#include <linux/rkp.h>
+#endif
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/module.h>
 
@@ -2200,6 +2204,17 @@ static void cfi_cleanup(struct module *mod);
 /* Free a module, remove from lists, etc. */
 static void free_module(struct module *mod)
 {
+#ifdef CONFIG_RKP
+	struct module_info rkp_mod_info;
+	rkp_mod_info.base_va = 0;
+	rkp_mod_info.vm_size = 0;
+	rkp_mod_info.core_base_va = (u64)mod->core_layout.base;
+	rkp_mod_info.core_text_size = (u64)mod->core_layout.text_size;
+	rkp_mod_info.core_ro_size = (u64)mod->core_layout.ro_size;
+	rkp_mod_info.init_base_va = (u64)mod->init_layout.base;
+	rkp_mod_info.init_text_size = (u64)mod->init_layout.text_size;
+	uh_call(UH_APP_RKP, RKP_MODULE_LOAD, RKP_MODULE_PXN_SET, (u64)&rkp_mod_info, 1, 0);
+#endif
 	trace_module_free(mod);
 
 	mod_sysfs_teardown(mod);
@@ -3520,6 +3535,9 @@ static noinline int do_init_module(struct module *mod)
 {
 	int ret = 0;
 	struct mod_initfree *freeinit;
+#ifdef CONFIG_RKP
+	struct module_info rkp_mod_info;
+#endif
 
 	freeinit = kmalloc(sizeof(*freeinit), GFP_KERNEL);
 	if (!freeinit) {
@@ -3590,7 +3608,18 @@ static noinline int do_init_module(struct module *mod)
 	module_enable_ro(mod, true);
 	mod_tree_remove_init(mod);
 	disable_ro_nx(&mod->init_layout);
+	mod->init_layout_backup = mod->init_layout;
 	module_arch_freeing_init(mod);
+#ifdef CONFIG_RKP
+	rkp_mod_info.base_va = 0;
+	rkp_mod_info.vm_size = 0;
+	rkp_mod_info.core_base_va = (u64)mod->core_layout.base;
+	rkp_mod_info.core_text_size = (u64)mod->core_layout.text_size;
+	rkp_mod_info.core_ro_size = (u64)mod->core_layout.ro_size;
+	rkp_mod_info.init_base_va = (u64)mod->init_layout.base;
+	rkp_mod_info.init_text_size = (u64)mod->init_layout.text_size;
+	uh_call(UH_APP_RKP, RKP_MODULE_LOAD, RKP_MODULE_PXN_SET, (u64)&rkp_mod_info, 0, 0);
+#endif
 	mod->init_layout.base = NULL;
 	mod->init_layout.size = 0;
 	mod->init_layout.ro_size = 0;
@@ -3679,6 +3708,9 @@ out_unlocked:
 static int complete_formation(struct module *mod, struct load_info *info)
 {
 	int err;
+#ifdef CONFIG_RKP
+	struct module_info rkp_mod_info;
+#endif
 
 	mutex_lock(&module_mutex);
 
@@ -3697,6 +3729,16 @@ static int complete_formation(struct module *mod, struct load_info *info)
 	/* Mark state as coming so strong_try_module_get() ignores us,
 	 * but kallsyms etc. can see us. */
 	mod->state = MODULE_STATE_COMING;
+#ifdef CONFIG_RKP
+	rkp_mod_info.base_va = 0;
+	rkp_mod_info.vm_size = 0;
+	rkp_mod_info.core_base_va = (u64)mod->core_layout.base;
+	rkp_mod_info.core_text_size = (u64)mod->core_layout.text_size;
+	rkp_mod_info.core_ro_size = (u64)mod->core_layout.ro_size;
+	rkp_mod_info.init_base_va = (u64)mod->init_layout.base;
+	rkp_mod_info.init_text_size = (u64)mod->init_layout.text_size;
+	uh_call(UH_APP_RKP, RKP_MODULE_LOAD, RKP_MODULE_PXN_CLEAR, (u64)&rkp_mod_info, 0, 0);
+#endif
 	mutex_unlock(&module_mutex);
 
 	return 0;
@@ -4494,13 +4536,83 @@ void print_modules(void)
 	list_for_each_entry_rcu(mod, &modules, list) {
 		if (mod->state == MODULE_STATE_UNFORMED)
 			continue;
-		pr_cont(" %s%s", mod->name, module_flags(mod, buf));
+		pr_cont(" %s %lx %lx %d %d %s",
+			mod->name,
+			(unsigned long)mod->core_layout.base,
+			(unsigned long)mod->init_layout_backup.base,
+			mod->core_layout.size,
+			mod->init_layout_backup.size,
+			module_flags(mod, buf));
 	}
 	preempt_enable();
 	if (last_unloaded_module[0])
 		pr_cont(" [last unloaded: %s]", last_unloaded_module);
 	pr_cont("\n");
 }
+
+#ifdef CONFIG_MTK_AEE_FEATURE
+/* MUST ensure called when preempt disabled already */
+int save_modules(char *mbuf, int mbufsize)
+{
+	struct module *mod;
+	char buf[MODULE_FLAGS_BUF_SIZE];
+	int sz = 0;
+	unsigned long text_addr = 0;
+	unsigned long init_addr = 0;
+	int i, search_nm;
+
+	if (mbuf == NULL || mbufsize <= 0) {
+		pr_info("mrdump: module info buffer wrong(sz:%d)\n", mbufsize);
+		return 0;
+	}
+
+	memset(mbuf, '\0', mbufsize);
+	sz += snprintf(mbuf + sz, mbufsize - sz, "Modules linked in:");
+	list_for_each_entry_rcu(mod, &modules, list) {
+		if (mod->state == MODULE_STATE_UNFORMED)
+			continue;
+		if (sz >= mbufsize) {
+			pr_info("mrdump: module info buffer full(sz:%d)\n",
+				mbufsize);
+			break;
+		}
+
+		text_addr = (unsigned long)mod->core_layout.base;
+		init_addr = (unsigned long)mod->init_layout.base;
+		search_nm = 2;
+		if (!mod->sect_attrs)
+			continue;
+		for (i = 0; i < mod->sect_attrs->nsections; i++) {
+			if (!strcmp(mod->sect_attrs->attrs[i].battr.attr.name, ".text")) {
+				text_addr = mod->sect_attrs->attrs[i].address;
+				search_nm--;
+			} else if (!strcmp(mod->sect_attrs->attrs[i].battr.attr.name,
+					   ".init.text")) {
+				init_addr = mod->sect_attrs->attrs[i].address;
+				search_nm--;
+			}
+			if (!search_nm)
+				break;
+		}
+
+		sz += snprintf(mbuf + sz, mbufsize - sz,
+				" %s %lx %lx %d %d %s",
+				mod->name,
+				text_addr,
+				init_addr,
+				mod->core_layout.size,
+				mod->init_layout.size,
+				module_flags(mod, buf));
+	}
+	if (last_unloaded_module[0] && sz < mbufsize)
+		sz += snprintf(mbuf + sz, mbufsize - sz, " [last unloaded: %s]",
+				last_unloaded_module);
+	if (sz < mbufsize)
+		sz += snprintf(mbuf + sz, mbufsize - sz, "\n");
+	return sz;
+}
+EXPORT_SYMBOL(save_modules);
+#endif
 
 #ifdef CONFIG_MODVERSIONS
 /* Generate the signature for all relevant module structures here.

@@ -78,7 +78,7 @@ SCHED_FEAT(WARN_DOUBLE_CLOCK, false)
 SCHED_FEAT(RT_PUSH_IPI, true)
 #endif
 
-SCHED_FEAT(RT_RUNTIME_SHARE, true)
+SCHED_FEAT(RT_RUNTIME_SHARE, false)
 SCHED_FEAT(LB_MIN, false)
 SCHED_FEAT(ATTACH_AGE_LOAD, true)
 
@@ -93,6 +93,11 @@ SCHED_FEAT(UTIL_EST, true)
 SCHED_FEAT(UTIL_EST_FASTUP, true)
 
 /*
+ * Utilization clamping lazy update.
+ */
+SCHED_FEAT(UCLAMP_LAZY_UPDATE, false)
+
+/*
  * Fast pre-selection of CPU candidates for EAS.
  */
 SCHED_FEAT(FIND_BEST_TARGET, false)
@@ -105,6 +110,11 @@ SCHED_FEAT(FIND_BEST_TARGET, false)
  *   those tasks through the mainline slow path.
  */
 SCHED_FEAT(EAS_PREFER_IDLE, true)
+#ifdef CONFIG_MTK_SCHED_LB_ENHANCEMENT
+SCHED_FEAT(SCHED_MTK_EAS, true)
+#else
+SCHED_FEAT(SCHED_MTK_EAS, false)
+#endif
 
 /*
  * Request max frequency from schedutil whenever a RT task is running.
