@@ -399,7 +399,22 @@ static int ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 					enum dma_data_direction direction)
 {
 	struct ion_buffer *buffer = dmabuf->priv;
+	void *vaddr;
 	struct ion_dma_buf_attachment *a;
+	int ret = 0;
+
+	/*
+	 * TODO: Move this elsewhere because we don't always need a vaddr
+	 */
+	if (buffer->heap->ops->map_kernel) {
+		mutex_lock(&buffer->lock);
+		vaddr = ion_buffer_kmap_get(buffer);
+		if (IS_ERR(vaddr)) {
+			ret = PTR_ERR(vaddr);
+			goto unlock;
+		}
+		mutex_unlock(&buffer->lock);
+	}
 
 	mutex_lock(&buffer->lock);
 	list_for_each_entry(a, &buffer->attachments, list) {
@@ -416,6 +431,12 @@ static int ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 {
 	struct ion_buffer *buffer = dmabuf->priv;
 	struct ion_dma_buf_attachment *a;
+
+	if (buffer->heap->ops->map_kernel) {
+		mutex_lock(&buffer->lock);
+		ion_buffer_kmap_put(buffer);
+		mutex_unlock(&buffer->lock);
+	}
 
 	mutex_lock(&buffer->lock);
 	list_for_each_entry(a, &buffer->attachments, list) {
@@ -553,6 +574,7 @@ int ion_query_heaps(struct ion_heap_query *query)
 		hdata.name[sizeof(hdata.name) - 1] = '\0';
 		hdata.type = heap->type;
 		hdata.heap_id = heap->id;
+
 		if (copy_to_user(&buffer[cnt], &hdata, sizeof(hdata))) {
 			ret = -EFAULT;
 			goto out;
