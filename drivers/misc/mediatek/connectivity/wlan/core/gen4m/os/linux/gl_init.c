@@ -4123,8 +4123,18 @@ int set_p2p_mode_handler(struct net_device *netdev,
 	}
 #endif /*CFG_MTK_ANDROID_WMT*/
 
+#if CFG_SUPPORT_NAN
+	DBGLOG(INIT, INFO, "Mode = %d %d\n",
+		prGlueInfo->prAdapter->fgIsNANRegistered,
+		p2pmode.u4Enable);
+#endif
+
 	/* Remember original ifindex for reset case */
-	if (kalIsResetting()) {
+	if (kalIsResetting()
+#if CFG_SUPPORT_NAN
+		|| !p2pmode.u4Enable
+#endif
+		) {
 		struct GL_P2P_INFO *prP2PInfo = NULL;
 		int i = 0;
 
@@ -4142,6 +4152,9 @@ int set_p2p_mode_handler(struct net_device *netdev,
 
 			g_u4DevIdx[i] =
 				prP2PInfo->aprRoleHandler->ifindex;
+#if CFG_SUPPORT_NAN
+			DBGLOG(INIT, INFO, "Restore ifindex\n");
+#endif
 		}
 
 		if (prGlueInfo->prAdapter->rWifiVar.u4RegP2pIfAtProbe) {

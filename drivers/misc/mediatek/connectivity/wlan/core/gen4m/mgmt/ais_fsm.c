@@ -4812,6 +4812,9 @@ void aisFsmDisconnect(IN struct ADAPTER *prAdapter,
 	cnmTimerStopTimer(prAdapter,
 		aisGetSecModeChangeTimer(prAdapter, ucBssIndex));
 #endif
+#if CFG_SUPPORT_DFS
+	cnmTimerStopTimer(prAdapter, &prAisBssInfo->rCsaTimer);
+#endif
 	nicPmIndicateBssAbort(prAdapter, prAisBssInfo->ucBssIndex);
 
 #if CFG_SUPPORT_ADHOC
@@ -8120,7 +8123,9 @@ void aisReqJoinChPrivilegeForCSA(struct ADAPTER *prAdapter,
 
 		mboxSendMsg(prAdapter, MBOX_ID_0,
 				(struct MSG_HDR *)prMsgChReq,
-				MSG_SEND_METHOD_BUF);
+				MSG_SEND_METHOD_UNBUF);
+
+		prAisFsmInfo->fgIsChannelRequested = TRUE;
 }				/* end of aisReqJoinChPrivilegeForCSA() */
 
 /*----------------------------------------------------------------------------*/

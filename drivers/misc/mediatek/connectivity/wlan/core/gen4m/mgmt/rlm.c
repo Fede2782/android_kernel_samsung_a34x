@@ -174,7 +174,7 @@ static void rlmRecOpModeBwForClient(uint8_t ucVhtOpModeChannelWidth,
 
 static void rlmRecHtOpForClient(struct IE_HT_OP *prHtOp,
 			struct BSS_INFO *prBssInfo,
-			uint8_t ucPrimaryChannel);
+			uint8_t *pucPrimaryChannel);
 
 /*******************************************************************************
  *                              F U N C T I O N S
@@ -2630,7 +2630,7 @@ static uint8_t rlmRecIeInfoForClient(struct ADAPTER *prAdapter,
 
 			prHtOp = (struct IE_HT_OP *)pucIE;
 			rlmRecHtOpForClient(prHtOp,
-				prBssInfo, ucPrimaryChannel);
+				prBssInfo, &ucPrimaryChannel);
 
 			break;
 
@@ -3160,7 +3160,7 @@ static uint8_t rlmRecIeInfoForClient(struct ADAPTER *prAdapter,
 			 */
 			aisUpdateParamsForCSA(prAdapter, prBssInfo);
 			rlmRecHtOpForClient(prHtOp,
-					prBssInfo, ucPrimaryChannel);
+					prBssInfo, &ucPrimaryChannel);
 		}
 
 		/* AP */
@@ -3770,7 +3770,7 @@ static u_int8_t rlmRecBcnInfoForClient(struct ADAPTER *prAdapter,
 
 static void rlmRecHtOpForClient(struct IE_HT_OP *prHtOp,
 				struct BSS_INFO *prBssInfo,
-				uint8_t ucPrimaryChannel)
+				uint8_t *pucPrimaryChannel)
 {
 	struct STA_RECORD *prStaRec;
 
@@ -3791,8 +3791,8 @@ static void rlmRecHtOpForClient(struct IE_HT_OP *prHtOp,
 	 * by its
 	 * secondary channel, but its DS IE is correct 20110610
 	 */
-	if (ucPrimaryChannel == 0)
-		ucPrimaryChannel = prHtOp->ucPrimaryChannel;
+	if (*pucPrimaryChannel == 0)
+		*pucPrimaryChannel = prHtOp->ucPrimaryChannel;
 	prBssInfo->ucHtOpInfo1 = prHtOp->ucInfo1;
 	prBssInfo->u2HtOpInfo2 = prHtOp->u2Info2;
 	prBssInfo->u2HtOpInfo3 = prHtOp->u2Info3;
@@ -5780,7 +5780,8 @@ void rlmCsaTimeout(IN struct ADAPTER *prAdapter,
 		       MAC2STR(prBssInfo->aucBSSID),
 		       prBssDesc->ucChannelNum, prCSAParams->ucCsaNewCh,
 		       prBssInfo->eBand, prBssInfo->eBssSCO);
-		if (prBssDesc->ucChannelNum == prCSAParams->ucCsaNewCh)
+		if (prBssDesc->ucChannelNum == prCSAParams->ucCsaNewCh ||
+			prBssInfo->ucPrimaryChannelGranted == prCSAParams->ucCsaNewCh)
 			fgIsSameChnl = TRUE;
 
 		prBssDesc->ucChannelNum = prBssInfo->ucPrimaryChannel;
@@ -5844,6 +5845,14 @@ void rlmCsaTimeout(IN struct ADAPTER *prAdapter,
 
 		prAisFsmInfo = aisGetAisFsmInfo(
 			prAdapter, prBssInfo->ucBssIndex);
+
+		/* Indicate PM abort to sync BSS state with FW */
+		nicPmIndicateBssAbort(prAdapter, prBssInfo->ucBssIndex);
+		/* Defer ucDTIMPeriod updating to when beacon is received */
+		prBssInfo->ucDTIMPeriod = 0;
+
+		/* Release channel if CSA immediately before set authorized */
+		aisFsmReleaseCh(prAdapter, prBssInfo->ucBssIndex);
 
 		prBssInfo->fgIsAisSwitchingChnl = TRUE;
 		aisReqJoinChPrivilegeForCSA(prAdapter, prAisFsmInfo,

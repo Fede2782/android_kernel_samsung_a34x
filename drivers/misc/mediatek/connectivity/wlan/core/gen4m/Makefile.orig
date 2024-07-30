@@ -321,11 +321,8 @@ else ifneq ($(filter 6765, $(WLAN_CHIP_ID)),)
 else ifneq ($(filter 6833, $(WLAN_CHIP_ID)),)
     ccflags-y += -DCFG_PALMER
 
-ifneq ($(filter a23ex%, $(PROJECT_NAME)),)
-    ccflags-y += -DCONFIG_MTK_NEW_DOMAIN_CH
-endif
 ifneq ($(filter a13x%, $(PROJECT_NAME)),)
-ifneq ($(filter %xx %skt %ins, $(TARGET_PRODUCT)),)
+ifneq ($(findstring xx, $(TARGET_PRODUCT)),)
     ccflags-y += -DCONFIG_MTK_NEW_DOMAIN_CH
 endif
 endif
