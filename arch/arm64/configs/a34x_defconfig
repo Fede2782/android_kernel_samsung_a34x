@@ -274,6 +274,7 @@ CONFIG_ARCH_PROC_KCORE_TEXT=y
 #
 # Platform selection
 #
+CONFIG_MTK_MET_BUILT_IN=y
 # CONFIG_ARCH_ACTIONS is not set
 # CONFIG_ARCH_SUNXI is not set
 # CONFIG_ARCH_ALPINE is not set
