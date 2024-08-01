@@ -61,7 +61,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/connectivity/common
 ###############################################################################
 
 MODULE_NAME := gps_drv_stp
-obj-m += $(MODULE_NAME).o
+obj-y += $(MODULE_NAME).o
 
 GPS_DRV_CONTROL_LNA := y
 GPS_SRC_FOLDER := $(TOP)/vendor/mediatek/kernel_modules/connectivity/gps/gps_stp
