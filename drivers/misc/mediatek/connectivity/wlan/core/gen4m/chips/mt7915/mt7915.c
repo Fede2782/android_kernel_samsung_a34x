@@ -218,7 +218,7 @@ uint16_t wlanHarrierUsbRxByteCount(
 static void wlanHarrierInitPcieInt(
 	struct GLUE_INFO *prGlueInfo)
 {
-	uint32_t u4MacVal, u4MacVal1;
+	uint32_t u4MacVal;
 
 	/* Backup original setting */
 	HAL_MCR_RD(prGlueInfo->prAdapter,
@@ -233,16 +233,6 @@ static void wlanHarrierInitPcieInt(
 	HAL_MCR_WR(prGlueInfo->prAdapter,
 		0xF11AC,
 		0x7403);
-
-	while (1) {
-		HAL_MCR_RD(prGlueInfo->prAdapter,
-			0xF11AC,
-			&u4MacVal1);
-
-		if (u4MacVal1 == 0x18007403)
-			break;
-	}
-
 	HAL_MCR_WR(prGlueInfo->prAdapter,
 		0xE0188,
 		0x000000FF);

@@ -418,6 +418,8 @@ void wnmSendBTMResponseFrame(IN struct ADAPTER *adapter,
 	uint16_t u2PayloadLen = 0;
 	struct BSS_TRANSITION_MGT_PARAM *prBtmParam;
 	uint8_t *pucOptInfo = NULL;
+	uint8_t aucZeroMacAddr[] = NULL_MAC_ADDR;
+	char log[256] = {0};
 
 	if (!staRec) {
 		DBGLOG(WNM, INFO, "BTM: No station record found\n");
@@ -425,6 +427,12 @@ void wnmSendBTMResponseFrame(IN struct ADAPTER *adapter,
 	}
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(adapter, staRec->ucBssIndex);
+	if (prBssInfo == NULL) {
+		DBGLOG(WNM, ERROR, "BssInfo %d is NULL!\n",
+			staRec->ucBssIndex);
+		return;
+	}
+
 	prBtmParam = aisGetBTMParam(adapter, staRec->ucBssIndex);
 	prBtmParam->ucStatusCode = status;
 
@@ -499,6 +507,11 @@ void wnmSendBTMResponseFrame(IN struct ADAPTER *adapter,
 	DBGLOG(WNM, INFO,
 		"BTM: response token=%d, status=%d, reason=%d, delay=%d, bssid=%p\n",
 		dialogToken, status, reason, delay, bssid);
+	kalSprintf(log,
+		"[BTM] RESP toke=%d status=%d delay=%d target=" RPTMACSTR,
+		dialogToken, status, delay,
+		RPTMAC2STR(bssid ? bssid : aucZeroMacAddr));
+	kalReportWifiLog(adapter, prMsduInfo->ucBssIndex, log);
 }				/* end of wnmComposeBTMResponseFrame() */
 
 /*----------------------------------------------------------------------------*/
@@ -519,8 +532,15 @@ void wnmSendBTMQueryFrame(IN struct ADAPTER *prAdapter,
 	struct ACTION_BTM_QUERY_FRAME *prTxFrame = NULL;
 	struct BSS_TRANSITION_MGT_PARAM *prBtmParam;
 	static uint8_t ucToken = 1;
+	char log[256] = {0};
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prStaRec->ucBssIndex);
+	if (prBssInfo == NULL) {
+		DBGLOG(WNM, ERROR, "BssInfo %d is NULL!\n",
+			prStaRec->ucBssIndex);
+		return;
+	}
+
 	prBtmParam = aisGetBTMParam(prAdapter, prStaRec->ucBssIndex);
 	prBtmParam->ucQueryDialogToken = ucToken++;
 	prBtmParam->fgWaitBtmRequest = TRUE;
@@ -557,6 +577,10 @@ void wnmSendBTMQueryFrame(IN struct ADAPTER *prAdapter,
 
 	DBGLOG(WNM, INFO, "BTM: Query token %d, reason %d\n",
 	       prTxFrame->ucDialogToken, prTxFrame->ucQueryReason);
+	kalSprintf(log,
+		"[BTM] QUERY token=%d reason=%d",
+		prTxFrame->ucDialogToken, prTxFrame->ucQueryReason);
+	kalReportWifiLog(prAdapter, prStaRec->ucBssIndex, log);
 }				/* end of wnmComposeBTMQueryFrame() */
 
 #if CFG_SUPPORT_MBO
@@ -616,7 +640,7 @@ void wnmMboIeTransReq(IN struct ADAPTER *adapter, IN uint8_t wnmMode,
 				struct BSS_DESC *bssDesc =
 					aisGetTargetBssDesc(adapter, bssIndex);
 				struct AIS_BLACKLIST_ITEM *blk =
-					aisAddBlacklist(adapter, bssDesc);
+					aisAddBlocklist(adapter, bssDesc);
 
 				if (blk) {
 					blk->fgDisallowed = TRUE;
@@ -675,6 +699,9 @@ void wnmRecvBTMRequest(IN struct ADAPTER *prAdapter, IN struct SW_RFB *prSwRfb)
 	uint8_t ucBssIndex = secGetBssIdxByRfb(prAdapter, prSwRfb);
 	uint8_t fgNeedResponse = FALSE;
 	uint8_t ucStatus;
+	struct BSS_DESC *prBssDesc;
+	uint32_t candListCnt = 0;
+	char log[256] = {0};
 
 	prRxFrame = (struct ACTION_BTM_REQ_FRAME *) prSwRfb->pvHeader;
 	if (!prRxFrame)
@@ -687,6 +714,7 @@ void wnmRecvBTMRequest(IN struct ADAPTER *prAdapter, IN struct SW_RFB *prSwRfb)
 	}
 
 	prBtmParam = aisGetBTMParam(prAdapter, ucBssIndex);
+	prBssDesc = scanSearchBssDescByBssid(prAdapter, prRxFrame->aucBSSID);
 
 	DBGLOG(WNM, INFO,
 	       "BTM: Req 0x%x, VInt %d, DiscTimer %d, Token %d\n",
@@ -701,9 +729,12 @@ void wnmRecvBTMRequest(IN struct ADAPTER *prAdapter, IN struct SW_RFB *prSwRfb)
 	/* if BTM Request is for broadcast, don't send BTM Response */
 	fgNeedResponse = !!(kalMemCmp(prRxFrame->aucDestAddr,
 		"\xff\xff\xff\xff\xff\xff", MAC_ADDR_LEN));
+	COPY_MAC_ADDR(prBtmParam->aucBSSID, prRxFrame->aucBSSID);
 	prBtmParam->ucDialogToken = prRxFrame->ucDialogToken;
 	prBtmParam->ucRequestMode = prRxFrame->ucRequestMode;
-	prBtmParam->u2DisassocTimer = prRxFrame->u2DisassocTimer;
+	prBtmParam->u4ReauthDelay = prBssDesc ?
+		prRxFrame->u2DisassocTimer * prBssDesc->u2BeaconInterval :
+		prRxFrame->u2DisassocTimer * 100;
 	prBtmParam->fgIsMboPresent = FALSE;
 	prBtmParam->fgPendingResponse = fgNeedResponse;
 	pucOptInfo = &prRxFrame->aucOptInfo[0];
@@ -734,13 +765,36 @@ void wnmRecvBTMRequest(IN struct ADAPTER *prAdapter, IN struct SW_RFB *prSwRfb)
 	}
 #endif
 
+	aisResetNeighborApList(prAdapter, ucBssIndex);
+
 	if (ucRequestMode & WNM_BSS_TM_REQ_PREF_CAND_LIST_INCLUDED) {
 #if CFG_SUPPORT_802_11K
-		if (prSwRfb->u2PacketLen <= u2TmpLen ||
-		    !aisCollectNeighborAP(prAdapter, pucOptInfo,
+		uint16_t u2Offset = 0;
+		uint16_t u2NRLen = prSwRfb->u2PacketLen - u2TmpLen;
+		uint8_t ucNRCount = 0;
+		uint8_t *pucIe = &prRxFrame->aucOptInfo[0];
+
+		IE_FOR_EACH(pucIe, u2NRLen, u2Offset) {
+			if (IE_ID(pucIe) != ELEM_ID_NEIGHBOR_REPORT)
+				continue;
+			ucNRCount++;
+		}
+		kalSprintf(log,
+			"[BTM] REQ token=%d mode=%d disassoc=%d validity=%d candidate_list_cnt=%d",
+			prRxFrame->ucDialogToken, prRxFrame->ucRequestMode,
+			prRxFrame->u2DisassocTimer,
+			prRxFrame->ucValidityInterval,
+			ucNRCount < WNM_MAX_NEIGHBOR_REPORT ?
+				ucNRCount : WNM_MAX_NEIGHBOR_REPORT);
+		kalReportWifiLog(prAdapter, ucBssIndex, log);
+
+		candListCnt =
+		    aisCollectNeighborAP(prAdapter, pucOptInfo,
 					prSwRfb->u2PacketLen - u2TmpLen,
 					prRxFrame->ucValidityInterval,
-					ucBssIndex)) {
+					ucBssIndex);
+		if (prSwRfb->u2PacketLen <= u2TmpLen ||
+			!candListCnt) {
 			DBGLOG(WNM, WARN,
 			       "BTM: Candidate Include bit is set, but no candidate list\n");
 			ucStatus = WNM_BSS_TM_REJECT_NO_SUITABLE_CANDIDATES;
@@ -762,15 +816,15 @@ void wnmRecvBTMRequest(IN struct ADAPTER *prAdapter, IN struct SW_RFB *prSwRfb)
 		}
 	}
 
-	if ((!(ucRequestMode & WNM_BSS_TM_REQ_ESS_DISASSOC_IMMINENT) &&
+	if ((!(ucRequestMode & WNM_BSS_TM_REQ_DISASSOC_IMMINENT) &&
 	     (ucRequestMode & WNM_BSS_TM_REQ_ABRIDGED) &&
 	     !(ucRequestMode & WNM_BSS_TM_REQ_PREF_CAND_LIST_INCLUDED)) ||
-	    ((ucRequestMode & WNM_BSS_TM_REQ_ESS_DISASSOC_IMMINENT) &&
+	    ((ucRequestMode & WNM_BSS_TM_REQ_DISASSOC_IMMINENT) &&
 	     (ucRequestMode & WNM_BSS_TM_REQ_ABRIDGED) &&
 	     !(ucRequestMode & WNM_BSS_TM_REQ_PREF_CAND_LIST_INCLUDED))) {
 		DBGLOG(WNM, WARN,
 			"WNM: Invalid Frame mode (d,a,p)=(%d,%d,%d)\n",
-			ucRequestMode & WNM_BSS_TM_REQ_ESS_DISASSOC_IMMINENT,
+			ucRequestMode & WNM_BSS_TM_REQ_DISASSOC_IMMINENT,
 			ucRequestMode & WNM_BSS_TM_REQ_ABRIDGED,
 			ucRequestMode & WNM_BSS_TM_REQ_PREF_CAND_LIST_INCLUDED);
 		ucStatus = WNM_BSS_TM_REJECT_UNSPECIFIED;

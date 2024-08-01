@@ -16,6 +16,8 @@
 
 #define LOG_TMP_BUF_SZ 256
 
+#define MT6877_DEBUG_SOP_VERSION	"20230215"
+
 static int consys_reg_init(struct platform_device *pdev);
 static int consys_reg_deinit(void);
 static int consys_check_reg_readable(void);
@@ -198,7 +200,7 @@ static inline unsigned int __consys_bus_hang_clock_detect(void)
 
 static void consys_bus_hang_dump_b(void)
 {
-	unsigned int b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10;
+	unsigned int b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15;
 	unsigned int bus_clock, ip_version, irq_b, irq_vndr, irq_axi, irq_conninfra, wifi_irq;
 
 	/* B0	Read	0x180602C0
@@ -234,21 +236,44 @@ static void consys_bus_hang_dump_b(void)
 		CONN_HOST_CSR_TOP_CONN_INFRA_CFG_DBG_SEL_CONN_INFRA_CFG_DBG_SEL, 0x6);
 	b4 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_DBG_DUMMY_2_ADDR);
 
-	/* B5	Read	0x180602CC
+	/*
+	 * B5 ~ B8
+	 * Write	0x1806015C[2:0], by 0x1, 0x4, 0x5, 0x7
+	 * Read		0x180602C8
 	 */
-	b5 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_DBG_DUMMY_3_ADDR);
+	CONSYS_REG_WRITE_HW_ENTRY(
+		CONN_HOST_CSR_TOP_CONN_INFRA_CFG_DBG_SEL_CONN_INFRA_CFG_DBG_SEL, 0x1);
+	b5 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_DBG_DUMMY_2_ADDR);
+	CONSYS_REG_WRITE_HW_ENTRY(
+		CONN_HOST_CSR_TOP_CONN_INFRA_CFG_DBG_SEL_CONN_INFRA_CFG_DBG_SEL, 0x4);
+	b6 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_DBG_DUMMY_2_ADDR);
+	CONSYS_REG_WRITE_HW_ENTRY(
+		CONN_HOST_CSR_TOP_CONN_INFRA_CFG_DBG_SEL_CONN_INFRA_CFG_DBG_SEL, 0x5);
+	b7 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_DBG_DUMMY_2_ADDR);
+	CONSYS_REG_WRITE_HW_ENTRY(
+		CONN_HOST_CSR_TOP_CONN_INFRA_CFG_DBG_SEL_CONN_INFRA_CFG_DBG_SEL, 0x7);
+	b8 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_DBG_DUMMY_2_ADDR);
 
-	/* B6:	0x1806_01a0
-	 * B7:	0x1806_01a4
-	 * B8:	0x1806_01a8
-	 * B9:	0x1806_01ac
-	 * B10:	0x1806_01b0
+
+	/* B9	Read	0x180602CC
 	 */
-	b6 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_CONN_INFRA_WAKEPU_TOP_ADDR);
-	b7 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_CONN_INFRA_WAKEPU_WF_ADDR);
-	b8 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_CONN_INFRA_WAKEPU_BT_ADDR);
-	b9 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_CONN_INFRA_WAKEPU_GPS_ADDR);
-	b10 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_CONN_INFRA_WAKEPU_FM_ADDR);
+	b9 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_DBG_DUMMY_3_ADDR);
+
+	/* B10:	0x1806_01a0
+	 * B11:	0x1806_01a4
+	 * B12:	0x1806_01a8
+	 * B13:	0x1806_01ac
+	 * B14:	0x1806_01b0
+	 */
+	b10 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_CONN_INFRA_WAKEPU_TOP_ADDR);
+	b11 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_CONN_INFRA_WAKEPU_WF_ADDR);
+	b12 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_CONN_INFRA_WAKEPU_BT_ADDR);
+	b13 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_CONN_INFRA_WAKEPU_GPS_ADDR);
+	b14 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_CONN_INFRA_WAKEPU_FM_ADDR);
+
+	/* 2023/02/15
+	 */
+	b15 = CONSYS_REG_READ(CONN_HOST_CSR_TOP_DBG_DUMMY_4_ADDR);
 
 	/* On2Off check */
 	/* 2. Check conn_infra off bus clock
@@ -275,9 +300,10 @@ static void consys_bus_hang_dump_b(void)
 	 */
 	wifi_irq = CONSYS_REG_READ_BIT(CONN_HOST_CSR_TOP_WF_MCUSY_VDNR_BUS_TIMOUT_ADDR, (0x1 << 0));
 
-	pr_info("[CONN_BUS_B][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x]",
-		b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10,
-		bus_clock, ip_version, irq_b, irq_vndr, irq_axi, irq_conninfra, wifi_irq);
+	pr_info("[CONN_BUS_B][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x][0x%08x]",
+		b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14,
+		bus_clock, ip_version, irq_b, irq_vndr, irq_axi, irq_conninfra, wifi_irq,
+		b15);
 }
 
 static void consys_bus_hang_dump_c(bool offclock)
@@ -487,6 +513,7 @@ static int consys_is_bus_hang(void)
 	unsigned int ret = 0;
 	bool offclk_ok = true;
 
+	pr_info("[CONN_BUS] version=%s\n", MT6877_DEBUG_SOP_VERSION);
 	consys_bus_hang_dump_a();
 	/* AP2CONN_INFRA ON
 	 * 1. Check ap2conn gals sleep protect status

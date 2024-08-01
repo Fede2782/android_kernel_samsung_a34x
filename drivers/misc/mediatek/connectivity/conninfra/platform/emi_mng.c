@@ -86,8 +86,6 @@ struct consys_emi_addr_info connsys_emi_addr_info = {
 	.emi_size = 0,
 	.md_emi_phy_addr = 0,
 	.md_emi_size = 0,
-	.gps_emi_phy_addr = 0,
-	.gps_emi_size = 0,
 };
 
 /*******************************************************************************
@@ -113,41 +111,13 @@ int emi_mng_set_remapping_reg(void)
 		consys_platform_emi_ops->consys_ic_emi_set_remapping_reg)
 		return consys_platform_emi_ops->consys_ic_emi_set_remapping_reg(
 			connsys_emi_addr_info.emi_ap_phy_addr,
-			connsys_emi_addr_info.md_emi_phy_addr,
-			connsys_emi_addr_info.gps_emi_phy_addr);
+			connsys_emi_addr_info.md_emi_phy_addr);
 	return -1;
 }
 
 struct consys_emi_addr_info* emi_mng_get_phy_addr(void)
 {
 	return &connsys_emi_addr_info;
-}
-
-static void emi_mng_get_gps_emi(struct platform_device *pdev)
-{
-	struct device_node *node;
-	unsigned int phy_addr = 0;
-	unsigned int phy_size = 0;
-
-	node = of_find_node_by_name(NULL, "gps");
-	if (!node) {
-		pr_notice("%s failed to find gps node\n", __func__);
-		return;
-	}
-
-	if (of_property_read_u32(node, "emi-addr", &phy_addr)) {
-		pr_info("%s: unable to get emi_addr\n", __func__);
-		return;
-	}
-
-	if (of_property_read_u32(node, "emi-size", &phy_size)) {
-		pr_info("%s: unable to get emi_size\n", __func__);
-		return;
-	}
-
-	connsys_emi_addr_info.gps_emi_phy_addr = phy_addr;
-	connsys_emi_addr_info.gps_emi_size = phy_size;
-	pr_info("%s emi_addr %x, emi_size %x\n", __func__, phy_addr, phy_size);
 }
 
 #ifdef ALLOCATE_CONNSYS_EMI_FROM_DTS
@@ -179,7 +149,7 @@ static int emi_mng_allocate_connsys_emi(struct platform_device *pdev)
 static int emi_mng_get_emi_allocated_by_lk2(struct platform_device *pdev)
 {
 	struct device_node *node;
-	u64 phy_addr = 0;
+	unsigned int phy_addr = 0;
 	unsigned int phy_size = 0;
 
 	node = pdev->dev.of_node;
@@ -188,7 +158,7 @@ static int emi_mng_get_emi_allocated_by_lk2(struct platform_device *pdev)
 		return -1;
 	}
 
-	if (of_property_read_u64(node, "emi-addr", &phy_addr)) {
+	if (of_property_read_u32(node, "emi-addr", &phy_addr)) {
 		pr_info("%s: unable to get emi_addr\n", __func__);
 		return -1;
 	}
@@ -235,8 +205,6 @@ int emi_mng_init(struct platform_device *pdev, const struct conninfra_plat_data*
 	if (consys_platform_emi_ops &&
 		consys_platform_emi_ops->consys_ic_emi_mpu_set_region_protection)
 		consys_platform_emi_ops->consys_ic_emi_mpu_set_region_protection();
-
-	emi_mng_get_gps_emi(pdev);
 
 	return 0;
 }

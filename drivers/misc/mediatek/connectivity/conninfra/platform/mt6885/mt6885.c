@@ -85,7 +85,7 @@ static unsigned int consys_soc_chipid_get(void);
 static unsigned int consys_get_hw_ver(void);
 static void consys_clock_fail_dump(void);
 static int consys_thermal_query(void);
-static int consys_power_state(char *buf, unsigned int size);
+static int consys_power_state(void);
 static int consys_bus_clock_ctrl(enum consys_drv_type, unsigned int, int);
 static unsigned long long consys_soc_timestamp_get(void);
 static unsigned int consys_adie_detection_mt6885(void);
@@ -377,23 +377,23 @@ int consys_thermal_query(void)
 }
 
 
-int consys_power_state(char *buf, unsigned int size)
+int consys_power_state(void)
 {
 	const char* osc_str[] = {
 		"fm ", "gps ", "bgf ", "wf ", "ap2conn ", "conn_thm ", "conn_pta ", "conn_infra_bus "
 	};
-	char temp_buf[256] = {'\0'};
+	char buf[256] = {'\0'};
 	unsigned int r = CONSYS_REG_READ(CON_REG_HOST_CSR_ADDR + CONN_HOST_CSR_DBG_DUMMY_2);
 	unsigned int i, buf_len = 0, str_len;
 
 	for (i = 0; i < 8; i++) {
 		str_len = strlen(osc_str[i]);
 		if ((r & (0x1 << (18 + i))) > 0 && (buf_len + str_len < 256)) {
-			strncat(temp_buf, osc_str[i], str_len);
+			strncat(buf, osc_str[i], str_len);
 			buf_len += str_len;
 		}
 	}
-	pr_info("[%s] [0x%x] %s", __func__, r, temp_buf);
+	pr_info("[%s] [0x%x] %s", __func__, r, buf);
 	return 0;
 }
 
@@ -412,6 +412,8 @@ int consys_bus_clock_ctrl(enum consys_drv_type drv_type, unsigned int bus_clock,
 		if (bus_clock & CONNINFRA_BUS_CLOCK_BPLL) {
 
 			if (conninfra_bus_clock_bpll_state == 0) {
+				CONSYS_SET_BIT(CONN_AFE_CTL_BASE_ADDR + CONN_AFE_CTL_RG_DIG_EN_03, (0x1 << 21));
+				udelay(30);
 				bpll_switch = true;
 			}
 			conninfra_bus_clock_bpll_state |= (0x1 << drv_type);
@@ -419,27 +421,12 @@ int consys_bus_clock_ctrl(enum consys_drv_type drv_type, unsigned int bus_clock,
 		/* Enable WPLL */
 		if (bus_clock & CONNINFRA_BUS_CLOCK_WPLL) {
 			if (conninfra_bus_clock_wpll_state == 0) {
+				CONSYS_SET_BIT(CONN_AFE_CTL_BASE_ADDR + CONN_AFE_CTL_RG_DIG_EN_03, (0x1 << 20));
+				udelay(50);
 				wpll_switch = true;
 			}
 			conninfra_bus_clock_wpll_state |= (0x1 << drv_type);
 		}
-
-		if (bpll_switch || wpll_switch) {
-			while (consys_sema_acquire_timeout_mt6885(CONN_SEMA_BUS_CONTROL, CONN_SEMA_TIMEOUT) == CONN_SEMA_GET_FAIL);
-
-			if (bpll_switch) {
-				CONSYS_SET_BIT(CONN_AFE_CTL_BASE_ADDR + CONN_AFE_CTL_RG_DIG_EN_03, (0x1 << 21));
-				udelay(30);
-			}
-
-			if (wpll_switch) {
-				CONSYS_SET_BIT(CONN_AFE_CTL_BASE_ADDR + CONN_AFE_CTL_RG_DIG_EN_03, (0x1 << 20));
-				udelay(50);
-			}
-
-			consys_sema_release_mt6885(CONN_SEMA_BUS_CONTROL);
-		}
-
 		pr_info("drv=[%d] conninfra_bus_clock_wpll=[%u]->[%u] %s conninfra_bus_clock_bpll=[%u]->[%u] %s",
 			drv_type,
 			wpll_state, conninfra_bus_clock_wpll_state, (wpll_switch ? "enable" : ""),
@@ -450,6 +437,7 @@ int consys_bus_clock_ctrl(enum consys_drv_type drv_type, unsigned int bus_clock,
 		if (bus_clock & CONNINFRA_BUS_CLOCK_WPLL) {
 			conninfra_bus_clock_wpll_state &= ~(0x1<<drv_type);
 			if (conninfra_bus_clock_wpll_state == 0) {
+				CONSYS_CLR_BIT(CONN_AFE_CTL_BASE_ADDR + CONN_AFE_CTL_RG_DIG_EN_03, (0x1 << 20));
 				wpll_switch = true;
 			}
 		}
@@ -457,24 +445,10 @@ int consys_bus_clock_ctrl(enum consys_drv_type drv_type, unsigned int bus_clock,
 		if (bus_clock & CONNINFRA_BUS_CLOCK_BPLL) {
 			conninfra_bus_clock_bpll_state &= ~(0x1<<drv_type);
 			if (conninfra_bus_clock_bpll_state == 0) {
+				CONSYS_CLR_BIT(CONN_AFE_CTL_BASE_ADDR + CONN_AFE_CTL_RG_DIG_EN_03, (0x1 << 21));
 				bpll_switch = true;
 			}
 		}
-
-		if (bpll_switch || wpll_switch) {
-			while (consys_sema_acquire_timeout_mt6885(CONN_SEMA_BUS_CONTROL, CONN_SEMA_TIMEOUT) == CONN_SEMA_GET_FAIL);
-
-			if (wpll_switch) {
-				CONSYS_CLR_BIT(CONN_AFE_CTL_BASE_ADDR + CONN_AFE_CTL_RG_DIG_EN_03, (0x1 << 20));
-			}
-
-			if (bpll_switch) {
-				CONSYS_CLR_BIT(CONN_AFE_CTL_BASE_ADDR + CONN_AFE_CTL_RG_DIG_EN_03, (0x1 << 21));
-			}
-
-			consys_sema_release_mt6885(CONN_SEMA_BUS_CONTROL);
-		}
-
 		pr_info("drv=[%d] conninfra_bus_clock_wpll=[%u]->[%u] %s conninfra_bus_clock_bpll=[%u]->[%u] %s",
 			drv_type,
 			wpll_state, conninfra_bus_clock_wpll_state, (wpll_switch ? "disable" : ""),

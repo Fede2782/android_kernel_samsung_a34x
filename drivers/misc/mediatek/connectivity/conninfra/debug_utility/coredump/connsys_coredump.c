@@ -1414,12 +1414,11 @@ int connsys_coredump_start(
 	struct timespec64 begin, end, put_done;
 	struct timespec64 mem_start, mem_end, cr_start, cr_end, emi_dump_start, emi_dump_end;
 	unsigned int coredump_mode = 0;
+
 	static DEFINE_RATELIMIT_STATE(_rs, HZ, 1);
 
 	if (ctx == NULL || ctx->conn_type < 0 || ctx->conn_type > CONN_DEBUG_TYPE_BT)
 		return 0;
-
-	ratelimit_set_flags(&_rs, RATELIMIT_MSG_ON_RELEASE);
 
 	/* TODO: Check coredump mode */
 	coredump_mode = connsys_coredump_get_mode();
@@ -1461,7 +1460,6 @@ int connsys_coredump_start(
 			conndump_send_fake_coredump(ctx);
 			goto partial_dump;
 		}
-
 		if (__ratelimit(&_rs)) {
 			pr_info("Wait coredump state, EMI[0]=0x%x EMI[4]=0x%x\n",
 				conndump_get_dmp_info(ctx, 0, false),

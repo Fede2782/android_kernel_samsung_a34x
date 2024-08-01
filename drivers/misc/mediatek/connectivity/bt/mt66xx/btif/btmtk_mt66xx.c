@@ -18,8 +18,6 @@
 #include "connsys_debug_utility.h"
 #include "connfem_api.h"
 
-#include <soc/oplus/system/oplus_project.h>
-
 
 /*******************************************************************************
 *                                 M A C R O S
@@ -91,13 +89,7 @@ enum FWP_CHECK_STATUS {
 static const uint8_t WMT_OVER_HCI_CMD_HDR[] = { 0x01, 0x6F, 0xFC, 0x00 };
 
 #if (CUSTOMER_FW_UPDATE == 1)
-//Add for fw sau
-#if (OPLUS_FEATURE_BT_FW_SAU_MTK == 1)
-static bool g_fwp_update_enable = TRUE;
-#else /* OPLUS_FEATURE_BT_FW_SAU_MTK */
 static bool g_fwp_update_enable = FALSE;
-#endif /* OPLUS_FEATURE_BT_FW_SAU_MTK */
-
 uint8_t g_fwp_names[PATCH_FILE_NUM][2][FW_NAME_LEN] = {};
 #else
 uint8_t g_fwp_names[PATCH_FILE_NUM][1][FW_NAME_LEN] = {};
@@ -109,7 +101,6 @@ static struct fwp_info g_fwp_info;
 ********************************************************************************
 */
 
-extern bool g_bt_trace_pt;
 extern struct btmtk_dev *g_sbdev;
 extern struct bt_dbg_st g_bt_dbg_st;
 
@@ -221,7 +212,7 @@ static void fwp_update_info(struct fwp_info *info) {
 	struct timespec64 time;
 	struct rtc_time tm;
 	unsigned long local_time;
-	//int i;
+	int i;
 
 	ktime_get_real_ts64(&time);
 	local_time = (uint32_t)(time.tv_nsec/1000 - (sys_tz.tz_minuteswest * 60));
@@ -492,12 +483,13 @@ static int32_t __download_patch_to_emi(
 	patch_emi_offset = (p_patch_hdr->emi_addr[2] << 16) |
 		(p_patch_hdr->emi_addr[1] << 8);
 
-	conninfra_get_phy_addr(&emi_ap_phy_base, NULL);
+	conninfra_get_phy_addr((uint32_t*)&emi_ap_phy_base, NULL);
+	emi_ap_phy_base &= 0xFFFFFFFF;
 
 	//if ((patch_emi_offset >= emi_start) &&
 	//    (patch_emi_offset + patch_size < emi_start + emi_size)) {
 		remap_addr = ioremap(emi_ap_phy_base + patch_emi_offset, patch_size);
-		BTMTK_INFO("[Patch] emi_ap_phy_base[0x%p], remap_addr[0x%08x]", emi_ap_phy_base, *remap_addr);
+		BTMTK_INFO("[Patch] emi_ap_phy_base[0x%08x], remap_addr[0x%08x]", emi_ap_phy_base, *remap_addr);
 		BTMTK_INFO("[Patch] patch_emi_offset[0x%08x], patch_size[0x%08x]", patch_emi_offset, patch_size);
 
 		if (remap_addr) {
@@ -657,13 +649,6 @@ static int32_t bt_hw_and_mcu_on(void)
 
 	bt_disable_irq(BGF2AP_SW_IRQ);
 
-	if (BT_SSPM_TIMER) {
-		ret = bt_request_irq(BT_CONN2AP_SW_IRQ);
-		if (ret)
-			goto bus_operate_error;
-		bt_disable_irq(BT_CONN2AP_SW_IRQ);
-	}
-
 	btmtk_reset_init();
 
 	if (btmtk_wcn_btif_open()) {
@@ -701,19 +686,14 @@ static void bt_hw_and_mcu_off(void)
 	BTMTK_INFO("%s", __func__);
 	/* Close hardware bus interface */
 	btmtk_wcn_btif_close();
-	BTMTK_INFO("%s: bt_disable_irq start", __func__);
+
 	bt_disable_irq(BGF2AP_SW_IRQ);
 	bt_disable_irq(BGF2AP_BTIF_WAKEUP_IRQ);
-	BTMTK_INFO("%s: bt_free_irq  start", __func__);
+
 	/* Free all registered IRQs */
 	bt_free_irq(BGF2AP_SW_IRQ);
 	bt_free_irq(BGF2AP_BTIF_WAKEUP_IRQ);
 
-	if (BT_SSPM_TIMER) {
-		bt_disable_irq(BT_CONN2AP_SW_IRQ);
-		bt_free_irq(BT_CONN2AP_SW_IRQ);
-	}
-	BTMTK_INFO("%s: bgfsys_power_off  start", __func__);
 	/* BGFSYS hardware power off */
 	bgfsys_power_off();
 }
@@ -783,6 +763,7 @@ static int32_t _send_wmt_power_cmd(struct hci_dev *hdev, u_int8_t is_on)
 	if (ret <= 0 && is_on) {
 		BTMTK_ERR("%s: Unable to get event in time, start dump and reset!", __func__);
 		bt_trigger_reset();
+		up(&cif_dev->internal_cmd_sem);
 	}
 
 	ret = (p_inter_cmd->result == WMT_EVT_SUCCESS) ? 0 : -EIO;
@@ -1066,22 +1047,9 @@ int32_t btmtk_intcmd_wmt_send_antenna_cmd(struct hci_dev *hdev)
 	uint8_t cmd[32] = {0};
 	long val = 0;
 	uint8_t cmd_header[] =  {0x01, 0x6F, 0xFC, 0x00, 0x01, 0x55, 0x03, 0x00, 0x00};
-        uint32_t dev_prj = 0;
-        char str[32];
 
-        dev_prj = get_project();
-        if (dev_prj != 0) {
-            sprintf(str, "BT_FW_%d.cfg",dev_prj);
-            BTMTK_DBG("%s: try to load [%s]  ", __func__, str);
-            if (btmtk_load_code_from_bin(&p_img, str, NULL, &len, 2) == -1) {
-                BTMTK_DBG("%s: [%s] file not exist,load [%s]  ", __func__, str, BT_FW_CFG_FILE);
-                btmtk_load_code_from_bin(&p_img, BT_FW_CFG_FILE, NULL, &len, 10);
-            }
-        } else {
-            BTMTK_DBG("%s: load config [%s]", __func__, BT_FW_CFG_FILE);
-            btmtk_load_code_from_bin(&p_img, BT_FW_CFG_FILE, NULL, &len, 10);
-        }
-
+	BTMTK_INFO("%s: load config [%s]", __func__, BT_FW_CFG_FILE);
+	btmtk_load_code_from_bin(&p_img, BT_FW_CFG_FILE, NULL, &len, 10);
 	if (p_img == NULL) {
 		BTMTK_WARN("%s: get config file fail!", __func__);
 		return 0;
@@ -1148,7 +1116,7 @@ int32_t btmtk_intcmd_wmt_send_antenna_cmd(struct hci_dev *hdev)
 	cmd[6] = cmd[10] + 3;
 	cmd[3] = cmd[6] + 4;
 
-	BTMTK_DBG_RAW(cmd, len, "%s: Send: ", __func__);
+	BTMTK_INFO_RAW(cmd, len, "%s: Send: ", __func__);
 
 	down(&cif_dev->internal_cmd_sem);
 	cif_dev->event_intercept = TRUE;
@@ -1194,7 +1162,7 @@ int32_t btmtk_intcmd_wmt_power_off(struct hci_dev *hdev)
 	} else if (cif_dev->bt_state != RESET_START)
 		ret = _send_wmt_power_cmd(hdev, FALSE);
 
-	BTMTK_DBG("%s: Done", __func__);
+	BTMTK_INFO("%s: Done", __func__);
 	return ret;
 }
 
@@ -1303,6 +1271,7 @@ int32_t btmtk_intcmd_query_thermal(void)
 
 	if (ret <= 0) {
 		BTMTK_ERR("Unable to send thermal cmd");
+		up(&cif_dev->internal_cmd_sem);
 		return -1;
 	}
 
@@ -1605,9 +1574,9 @@ int32_t btmtk_set_power_on(struct hci_dev *hdev, u_int8_t for_precal)
 	struct sched_param sch_param;
 	struct btmtk_dev *bdev = hci_get_drvdata(hdev);
 	struct btmtk_btif_dev *cif_dev = (struct btmtk_btif_dev *)g_sbdev->cif_dev;
+	bool is_wmt_power_on_error = false;
 
-	if (g_bt_trace_pt)
-		bt_dbg_tp_evt(TP_ACT_PWR_ON, 0, 0, NULL);
+	bt_dbg_tp_evt(TP_ACT_PWR_ON, 0, 0, NULL);
 	/*
 	 *  1. ConnInfra hardware power on (Must be the first step)
 	 *
@@ -1736,8 +1705,6 @@ int32_t btmtk_set_power_on(struct hci_dev *hdev, u_int8_t for_precal)
 #endif
 
 	bt_enable_irq(BGF2AP_SW_IRQ);
-	if (BT_SSPM_TIMER)
-		bt_enable_irq(BT_CONN2AP_SW_IRQ);
 
 	/* 8. init cmd queue and workqueue */
 #if (DRIVER_CMD_CHECK == 1)
@@ -1785,6 +1752,7 @@ int32_t btmtk_set_power_on(struct hci_dev *hdev, u_int8_t for_precal)
 		return -EIO;
 	else if (ret) {
 		BTMTK_ERR("btmtk_intcmd_wmt_power_on fail");
+		is_wmt_power_on_error = true;
 		goto wmt_power_on_error;
 	}
 
@@ -1816,7 +1784,8 @@ mcu_error:
 		conninfra_pwr_off(CONNDRV_TYPE_BT);
 		bt_pwrctrl_post_off();
 	}
-	up(&cif_dev->halt_sem);
+	if (!is_wmt_power_on_error)
+		up(&cif_dev->halt_sem);
 
 conninfra_error:
 	cif_dev->bt_state = FUNC_OFF;
@@ -1843,8 +1812,7 @@ int32_t btmtk_set_power_off(struct hci_dev *hdev, u_int8_t for_precal)
 	struct btmtk_btif_dev *cif_dev = (struct btmtk_btif_dev *)g_sbdev->cif_dev;
 
 	BTMTK_INFO("%s", __func__);
-	if (g_bt_trace_pt)
-		bt_dbg_tp_evt(TP_ACT_PWR_OFF, 0, 0, NULL);
+	bt_dbg_tp_evt(TP_ACT_PWR_OFF, 0, 0, NULL);
 
 	down(&cif_dev->halt_sem);
 
@@ -1870,9 +1838,6 @@ int32_t btmtk_set_power_off(struct hci_dev *hdev, u_int8_t for_precal)
 		BTMTK_INFO("%s: wait rst_flag done", __func__);
 		return 0; // directly return since reset thread will perform turn off
 	}
-
-	/* flush fw log in EMI */
-	connsys_log_irq_handler(CONN_DEBUG_TYPE_BT);
 
 	/* 2. Stop TX thread */
 #if SUPPORT_BT_THREAD

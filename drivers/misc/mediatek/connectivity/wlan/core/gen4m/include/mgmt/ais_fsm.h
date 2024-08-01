@@ -78,8 +78,7 @@
  *                              C O N S T A N T S
  *******************************************************************************
  */
-#define AIS_BG_SCAN_INTERVAL_MIN_SEC        2	/* 30 // exponential to 960 */
-#define AIS_BG_SCAN_INTERVAL_MAX_SEC        2	/* 960 // 16min */
+#define AIS_BG_SCAN_INTERVAL_MSEC	    10000 /* MSEC */
 
 #define AIS_DELAY_TIME_OF_DISCONNECT_SEC    5	/* 10 */
 
@@ -108,6 +107,12 @@
 #define AIS_BLACKLIST_TIMEOUT               15 /* seconds */
 #define AIS_AUTORN_MIN_INTERVAL		    20
 
+
+#define AIS_BTM_DIS_IMMI_TIMEOUT	    10000 /* MSEC */
+#define AIS_BTM_DIS_IMMI_STATE_0	    0
+#define AIS_BTM_DIS_IMMI_STATE_1	    1
+#define AIS_BTM_DIS_IMMI_STATE_2	    2
+#define AIS_BTM_DIS_IMMI_STATE_3	    3
 
 /*******************************************************************************
  *                             D A T A   T Y P E S
@@ -163,6 +168,7 @@ enum ENUM_AIS_REQUEST_TYPE {
 	AIS_REQUEST_ROAMING_SEARCH,
 	AIS_REQUEST_ROAMING_CONNECT,
 	AIS_REQUEST_REMAIN_ON_CHANNEL,
+	AIS_REQUEST_BTO,
 	AIS_REQUEST_NUM
 };
 
@@ -211,6 +217,12 @@ struct AIS_BLACKLIST_ITEM {
 struct AX_BLACKLIST_ITEM {
 	struct LINK_ENTRY rLinkEntry;
 	uint8_t aucBSSID[MAC_ADDR_LEN];
+};
+
+struct AIS_BTO_INFO {
+	struct BSS_DESC *prBtoBssDesc;
+	uint8_t ucBcnTimeoutReason;
+	uint8_t ucDisconnectReason;
 };
 
 struct AIS_FSM_INFO {
@@ -297,6 +309,12 @@ struct AIS_FSM_INFO {
 
 	struct LINK rAxBlacklist;
 	struct LINK rHeHtcBlacklist;
+#if CFG_TC10_FEATURE
+	/* roaming count */
+	uint16_t u2ConnectedCount;
+#endif
+
+	struct AIS_BTO_INFO rBtoInfo;
 };
 
 struct AIS_OFF_CHNL_TX_REQ_INFO {
@@ -320,6 +338,20 @@ enum WNM_AIS_BSS_TRANSITION {
 struct MSG_AIS_BSS_TRANSITION {
 	struct MSG_HDR rMsgHdr;	/* Must be the first member */
 	uint8_t ucBssIndex;
+};
+
+enum WPA3_STATUS_REPORT {
+	WPA3_NO_NETWORK_FOUND = 1025,
+	WPA3_AUTH_OPEN_NO_ACK,
+	WPA3_AUTH_OPEN_NO_RESP,
+	WPA3_AUTH_OPEN_SENDING_FAIL,
+	WPA3_AUTH_SAE_NO_ACK,
+	WPA3_AUTH_SAE_NO_RESP,
+	WPA3_AUTH_SAE_SENDING_FAIL,
+	WPA3_ASSOC_NO_ACK,
+	WPA3_ASSOC_NO_RESP,
+	WPA3_ASSOC_SENDING_FAIL,
+	WPA3_STATUS_REPORT_NUM
 };
 /*******************************************************************************
  *                            P U B L I C   D A T A
@@ -346,6 +378,9 @@ void aisInitializeConnectionSettings(IN struct ADAPTER
 		*prAdapter, IN struct REG_INFO *prRegInfo,
 		IN uint8_t ucBssIndex);
 
+void aisInitializeConnectionRsnInfo(IN struct ADAPTER
+		*prAdapter, IN uint8_t ucBssIndex);
+
 void aisFsmInit(IN struct ADAPTER *prAdapter, uint8_t ucBssIndex);
 
 void aisFsmUninit(IN struct ADAPTER *prAdapter, uint8_t ucBssIndex);
@@ -354,6 +389,9 @@ bool aisFsmIsInProcessPostpone(IN struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex);
 
 bool aisFsmIsInBeaconTimeout(IN struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex);
+
+bool aisFsmIsReassociation(IN struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex);
 
 void aisFsmStateInit_JOIN(IN struct ADAPTER *prAdapter,
@@ -477,6 +515,9 @@ void aisBssBeaconTimeout(IN struct ADAPTER *prAdapter,
 void aisBssBeaconTimeout_impl(IN struct ADAPTER *prAdapter,
 	IN uint8_t ucBcnTimeoutReason, IN uint8_t ucDisconnectReason,
 	IN uint8_t ucBssIndex);
+
+void aisHandleBeaconTimeout(IN struct ADAPTER *prAdapter,
+	IN uint8_t ucBssIndex, IN u_int8_t fgDelayAbortIndication);
 
 void aisBssLinkDown(IN struct ADAPTER *prAdapter,
 	IN uint8_t ucBssIndex);
@@ -611,12 +652,12 @@ void aisTest(void);
 #endif /* CFG_TEST_MGMT_FSM */
 
 /* Support AP Selection */
-void aisRefreshFWKBlacklist(struct ADAPTER *prAdapter);
-struct AIS_BLACKLIST_ITEM *aisAddBlacklist(struct ADAPTER *prAdapter,
+void aisRefreshFWKBlocklist(struct ADAPTER *prAdapter);
+struct AIS_BLACKLIST_ITEM *aisAddBlocklist(struct ADAPTER *prAdapter,
 	struct BSS_DESC *prBssDesc);
-void aisRemoveBlackList(struct ADAPTER *prAdapter, struct BSS_DESC *prBssDesc);
-void aisRemoveTimeoutBlacklist(struct ADAPTER *prAdapter);
-struct AIS_BLACKLIST_ITEM *aisQueryBlackList(struct ADAPTER *prAdapter,
+void aisRemoveBlockList(struct ADAPTER *prAdapter, struct BSS_DESC *prBssDesc);
+void aisRemoveTimeoutBlocklist(struct ADAPTER *prAdapter);
+struct AIS_BLACKLIST_ITEM *aisQueryBlockList(struct ADAPTER *prAdapter,
 	struct BSS_DESC *prBssDesc);
 void aisBssTmpDisallow(struct ADAPTER *prAdapter, struct BSS_DESC *prBssDesc,
 	uint32_t sec, int32_t rssiThreshold, uint8_t ucBssIndex);
@@ -628,12 +669,23 @@ uint32_t aisCollectNeighborAP(struct ADAPTER *prAdapter, uint8_t *pucApBuf,
 			  uint8_t ucBssIndex);
 void aisResetNeighborApList(struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex);
-void aisCheckNeighborApValidity(IN struct ADAPTER *prAdapter,
+uint8_t aisCheckNeighborApValidity(IN struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex);
 #endif
 void aisSendNeighborRequest(struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex);
 /* end Support 11K */
+
+/*----------------------------------------------------------------------------*/
+/* CSA Handline                                                               */
+/*----------------------------------------------------------------------------*/
+void aisUpdateParamsForCSA(struct ADAPTER *prAdapter,
+	struct BSS_INFO *prBssInfo);
+
+void aisReqJoinChPrivilegeForCSA(struct ADAPTER *prAdapter,
+	struct AIS_FSM_INFO *prAisFsmInfo,
+	struct BSS_INFO *prBss,
+	uint8_t *ucChTokenId);
 
 /*******************************************************************************
  *                              F U N C T I O N S
@@ -641,7 +693,10 @@ void aisSendNeighborRequest(struct ADAPTER *prAdapter,
  */
 
 #define AIS_DEFAULT_INDEX (0)
-#define AIS_SECONDARY_INDEX (1)
+
+#define FT_R0		(0)
+#define FT_R1		(1)
+#define FT_ROUND	(2)
 
 struct AIS_FSM_INFO *aisGetAisFsmInfo(
 	IN struct ADAPTER *prAdapter,
@@ -764,31 +819,29 @@ uint8_t *
 struct FT_IES *
 	aisGetFtIe(
 	IN struct ADAPTER *prAdapter,
-	IN uint8_t ucBssIndex);
+	IN uint8_t ucBssIndex,
+	IN uint8_t ucRound);
 
 struct cfg80211_ft_event_params *
 	aisGetFtEventParam(
 	IN struct ADAPTER *prAdapter,
 	IN uint8_t ucBssIndex);
 
-u_int8_t addAxBlacklist(IN struct ADAPTER *prAdapter,
+void aisRetrieveTarget(IN struct ADAPTER *prAdapter,
+	IN uint8_t ucBssIndex);
+
+u_int8_t addAxBlocklist(IN struct ADAPTER *prAdapter,
 	IN uint8_t aucBSSID[],
 	IN uint8_t ucBssIndex,
 	IN uint8_t ucType);
 
-u_int8_t queryAxBlacklist(IN struct ADAPTER *prAdapter,
+u_int8_t queryAxBlocklist(IN struct ADAPTER *prAdapter,
 	IN uint8_t aucBSSID[],
 	IN uint8_t ucBssIndex,
 	IN uint8_t ucType);
 
-u_int8_t clearAxBlacklist(IN struct ADAPTER *prAdapter,
+u_int8_t clearAxBlocklist(IN struct ADAPTER *prAdapter,
 	IN uint8_t ucBssIndex,
 	IN uint8_t ucType);
-
-#if (CFG_SUPPORT_ANDROID_DUAL_STA == 1)
-void aisMultiStaSetQuoteTime(
-	struct ADAPTER *prAdapter,
-	uint8_t fgSetQuoteTime);
-#endif
 
 #endif /* _AIS_FSM_H */

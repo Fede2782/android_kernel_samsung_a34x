@@ -1,8 +1,7 @@
-ccflags-y :=
 ifeq ($(CONFIG_MTK_PLATFORM),)
-CONFIG_MTK_PLATFORM := mt$(WLAN_CHIP_ID)
+	CONFIG_MTK_PLATFORM := mt$(WLAN_CHIP_ID)
 endif
-MTK_PLATFORM := $(subst $(quote),,$(CONFIG_MTK_PLATFORM))
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 
 # ---------------------------------------------------
 # OS option
@@ -40,6 +39,8 @@ ifeq ($(KBUILD_MODPOST_FAIL_ON_WARNINGS),)
     KBUILD_MODPOST_FAIL_ON_WARNINGS=y
 endif
 
+DRIVER_BUILD_DATE=$(shell date +%Y%m%d%H%M%S)
+ccflags-y += -DDRIVER_BUILD_DATE='"$(DRIVER_BUILD_DATE)"'
 # ---------------------------------------------------
 # Compile Options
 # ---------------------------------------------------
@@ -68,21 +69,21 @@ ifeq ($(WLAN_CHIP_ID),)
 WLAN_CHIP_ID=$(word 1, $(MTK_COMBO_CHIP))
 endif
 
+ifeq ($(strip $(MTK_PLATFORM)), mt6765)
+    ccflags-y += -DCFG_PDMA_SLPPRT_MODE_SUPPORT
+endif
+
 ccflags-y += -DCFG_SUPPORT_DEBUG_FS=0
 ccflags-y += -DWLAN_INCLUDE_PROC
 ccflags-y += -DCFG_SUPPORT_AGPS_ASSIST=0
 ccflags-y += -DCFG_SUPPORT_TSF_USING_BOOTTIME=1
 ccflags-y += -DARP_MONITER_ENABLE=1
-ccflags-y += -Werror $(call cc-disable-warning, unused-but-set-variable)
+ccflags-y += -Werror
 #ccflags-y:=$(filter-out -U$(WLAN_CHIP_ID),$(ccflags-y))
 #ccflags-y += -DLINUX -D$(WLAN_CHIP_ID)
 #workaround: also needed for none LINUX system
 # because some of common part code is surrounded with this flag
 ccflags-y += -DLINUX
-
-#ifdef OPLUS_BUG_STABILITY
-ccflags-y += -DOPLUS_WLAN_BUG_STABILITY=1
-#endif  /* OPLUS_BUG_STABILITY */
 
 ifneq ($(filter MT6632,$(MTK_COMBO_CHIP)),)
 ccflags-y:=$(filter-out -UMT6632,$(ccflags-y))
@@ -157,36 +158,30 @@ CONFIG_NUM_OF_WFDMA_RX_RING=5
 CONFIG_NUM_OF_WFDMA_TX_RING=1
 endif
 
+CONFIG_MTK_WIFI_NAN=n
+
+
 ifneq ($(filter 6873, $(WLAN_CHIP_ID)),)
     ccflags-y += -DCFG_ENABLE_HOST_BUS_TIMEOUT=1
 else
     ccflags-y += -DCFG_ENABLE_HOST_BUS_TIMEOUT=0
 endif
 
-ifneq ($(filter 6879 6895, $(WLAN_CHIP_ID)),)
-    ccflags-y += -DCFG_SUPPORT_SET_IPV6_NETWORK=1
-else
-    ccflags-y += -DCFG_SUPPORT_SET_IPV6_NETWORK=0
-endif
-
-ifneq ($(filter 6855, $(WLAN_CHIP_ID)),)
-    ccflags-y += -DCFG_SUPPORT_MDDP_AOR=1
-else
-    ccflags-y += -DCFG_SUPPORT_MDDP_AOR=0
-endif
-
-ifneq ($(filter 6879, $(WLAN_CHIP_ID)),)
-    ccflags-y += -DCFG_TRI_TX_RING=1
-else
-    ccflags-y += -DCFG_TRI_TX_RING=0
-endif
-
 ifneq ($(findstring 5_0,$(MTK_COMBO_CHIP)),)
 ccflags-y:=$(filter-out -USOC5_0,$(ccflags-y))
 ccflags-y += -DSOC5_0
 CONFIG_MTK_WIFI_CONNAC2X=y
+
+ifneq ($(findstring tb8791tp1_64_ssdev_k419, $(CONFIG_ARCH_MTK_PROJECT)),)
+$(info enable 11AX TWT for $(CONFIG_ARCH_MTK_PROJECT))
 CONFIG_MTK_WIFI_11AX_SUPPORT=y
 CONFIG_MTK_WIFI_TWT_SUPPORT=y
+endif
+ifneq ($(findstring tb8791tp1_64_titan_javan_tiger, $(CONFIG_ARCH_MTK_PROJECT)),)
+$(info enable 11AX TWT for $(CONFIG_ARCH_MTK_PROJECT))
+CONFIG_MTK_WIFI_11AX_SUPPORT=y
+CONFIG_MTK_WIFI_TWT_SUPPORT=y
+endif
 CONFIG_NUM_OF_WFDMA_RX_RING=3
 CONFIG_NUM_OF_WFDMA_TX_RING=0
 CONFIG_MTK_WIFI_CONNINFRA_SUPPORT=y
@@ -194,7 +189,24 @@ CONFIG_MTK_WIFI_CONNAC2X_2x2=y
 CONFIG_MTK_WIFI_DOWNLOAD_DYN_MEMORY_MAP=y
 ccflags-y += -DCFG_POWER_ON_DOWNLOAD_EMI_ROM_PATCH=1
 ccflags-y += -DCFG_ROM_PATCH_NO_SEM_CTRL=1
+ifneq ($(findstring tb8791tp1_64_ssdev_k419, $(CONFIG_ARCH_MTK_PROJECT)),)
 ccflags-y += -DCONFIG_MTK_WIFI_HE80
+$(info enable HE80 for $(CONFIG_ARCH_MTK_PROJECT))
+endif
+ifneq ($(findstring tb8791tp1_64_titan_javan_tiger, $(CONFIG_ARCH_MTK_PROJECT)),)
+ccflags-y += -DCONFIG_MTK_WIFI_HE80
+$(info enable HE80 for $(CONFIG_ARCH_MTK_PROJECT))
+endif
+ifneq ($(findstring k6877ttv1_64_titan_black_tiger, $(CONFIG_ARCH_MTK_PROJECT)),)
+ccflags-y += -DCONFIG_MTK_LATEST_DOMAIN_CH
+else ifneq ($(findstring tb8791tp1_64_titan_javan_tiger, $(CONFIG_ARCH_MTK_PROJECT)),)
+ccflags-y += -DCONFIG_MTK_LATEST_DOMAIN_CH
+else
+ccflags-y += -DCONFIG_MTK_NEW_DOMAIN_CH
+endif
+ifneq ($(findstring tb8791tp1_64_titan_javan_tiger, $(CONFIG_ARCH_MTK_PROJECT)),)
+ccflags-y += -DCFG_RLM_TXPWR_INIT_FILE_HEADER=\"rlm_txpwr_init_tab8.h\"
+endif
 endif
 
 ifneq ($(findstring 7_0,$(MTK_COMBO_CHIP)),)
@@ -202,11 +214,8 @@ ccflags-y:=$(filter-out -USOC7_0,$(ccflags-y))
 ccflags-y += -DSOC7_0
 CONFIG_MTK_WIFI_CONNAC2X=y
 CONFIG_MTK_WIFI_11AX_SUPPORT=y
-#ifdef OPLUS_BUG_STABILITY
-#CONFIG_MTK_WIFI_6G_SUPPORT=y
-#endif  /* OPLUS_BUG_STABILITY */
+CONFIG_MTK_WIFI_6G_SUPPORT=y
 CONFIG_MTK_WIFI_TWT_SUPPORT=y
-CONFIG_MTK_WIFI_TWT_STA_DIRECT_TEARDOWN=y
 CONFIG_NUM_OF_WFDMA_RX_RING=2
 CONFIG_NUM_OF_WFDMA_TX_RING=0
 CONFIG_MTK_WIFI_CONNINFRA_SUPPORT=y
@@ -215,9 +224,6 @@ CONFIG_MTK_WIFI_DOWNLOAD_DYN_MEMORY_MAP=y
 CONFIG_MTK_WIFI_POWER_THROTTLING=y
 CONFIG_MTK_WIFI_PKT_OFLD_SUPPORT=y
 CONFIG_MTK_WIFI_APF_SUPPORT=y
-CONFIG_MTK_WIFI_NAN=y
-
-CONFIG_MTK_WIFI_SNIFFER_RADIOTAP=y
 
 ccflags-y += -DCFG_POWER_ON_DOWNLOAD_EMI_ROM_PATCH=1
 ccflags-y += -DCFG_ROM_PATCH_NO_SEM_CTRL=1
@@ -231,8 +237,13 @@ else
 ccflags-y += -DCFG_ANDORID_CONNINFRA_SUPPORT=0
 endif
 
+CONFIG_MTK_WIFI_PKT_OFLD_SUPPORT=y
+CONFIG_MTK_WIFI_IGMP_OFLD_SUPPORT=y
+CONFIG_MTK_WIFI_RA_OFLD_SUPPORT=y
+
 ifeq ($(CONFIG_MTK_WIFI_CONNAC2X), y)
     ccflags-y += -DCFG_SUPPORT_CONNAC2X=1
+    ccflags-y += -DCFG_SUPPORT_CONNAC3X=0
 else
     ccflags-y += -DCFG_SUPPORT_CONNAC2X=0
 endif
@@ -268,12 +279,6 @@ ifeq ($(CONFIG_MTK_WIFI_TWT_SUPPORT), y)
     else
         ccflags-y += -DCFG_TWT_SMART_STA=0
     endif
-
-    ifeq ($(CONFIG_MTK_WIFI_TWT_STA_DIRECT_TEARDOWN), y)
-        ccflags-y += -DCFG_TWT_STA_DIRECT_TEARDOWN=1
-    else
-        ccflags-y += -DCFG_TWT_STA_DIRECT_TEARDOWN=0
-    endif
 else
     ccflags-y += -DCFG_SUPPORT_TWT=0
     ccflags-y += -DCFG_TWT_SMART_STA=0
@@ -291,11 +296,6 @@ ifeq ($(WIFI_ENABLE_GCOV), y)
     GCOV_PROFILE := y
 endif
 
-ifeq ($(CONFIG_MTK_WIFI_SNIFFER_RADIOTAP), y)
-    ccflags-y += -DCFG_SUPPORT_SNIFFER_RADIOTAP
-    ccflags-y += -DCFG_SUPPORT_PDMA_SCATTER
-endif
-
 ccflags-y += -DCFG_DRIVER_INITIAL_RUNNING_MODE=3
 
 ifneq ($(filter 6765, $(WLAN_CHIP_ID)),)
@@ -308,6 +308,37 @@ endif
 
 ifneq ($(filter 6779, $(WLAN_CHIP_ID)),)
     ccflags-y += -DCFG_FORCE_AP1NSS
+endif
+
+ifneq ($(filter 6853, $(WLAN_CHIP_ID)),)
+    ccflags-y += -DCFG_MOUTON
+else ifneq ($(filter 6768, $(WLAN_CHIP_ID)),)
+    ccflags-y += -DCFG_TALBOT
+ifneq ($(filter a13ve%, $(PROJECT_NAME)),)
+    ccflags-y += -DCONFIG_MTK_NEW_DOMAIN_CH
+endif
+else ifneq ($(filter 6765, $(WLAN_CHIP_ID)),)
+    ccflags-y += -DCFG_CERVENO
+else ifneq ($(filter 6833, $(WLAN_CHIP_ID)),)
+    ccflags-y += -DCFG_PALMER
+
+ifneq ($(filter a13x%, $(PROJECT_NAME)),)
+ifneq ($(findstring xx, $(TARGET_PRODUCT)),)
+    ccflags-y += -DCONFIG_MTK_NEW_DOMAIN_CH
+endif
+endif
+
+else ifneq ($(filter 6877, $(WLAN_CHIP_ID)),)
+    ccflags-y += -DCFG_MONTROSE
+    CONFIG_MTK_WIFI_NAN=y
+endif
+
+ifneq ($(filter 8791, $(WLAN_CHIP_ID)),)
+    ccflags-y += -DCFG_FS_WIFI6_MIMO
+endif
+
+ifneq ($(filter a34%, $(PROJECT_NAME)),)
+    ccflags-y += -DCFG_FS_WIFI5_MIMO
 endif
 
 ifeq ($(MTK_ANDROID_WMT), y)
@@ -444,6 +475,7 @@ endif
 
 ccflags-y += -DCFG_SUPPORT_PASSPOINT=1
 ccflags-y += -DCFG_HS20_DEBUG=1
+ccflags-y += -DCFG_ENABLE_GTK_FRAME_FILTER=1
 
 MTK_MET_PROFILING_SUPPORT = yes
 ifeq ($(MTK_MET_PROFILING_SUPPORT), yes)
@@ -491,19 +523,21 @@ endif
 
 ifeq ($(CONFIG_MTK_WIFI_NAN), y)
 ccflags-y += -DCFG_SUPPORT_NAN=1
+NEED_CRYPTO=y
 else
 ccflags-y += -DCFG_SUPPORT_NAN=0
 endif
 
 ifeq ($(MODULE_NAME),)
-MODULE_NAME := wlan_$(shell echo $(strip $(WLAN_CHIP_ID)) | tr A-Z a-z)_$(CONFIG_MTK_COMBO_WIFI_HIF)
+	MODULE_NAME := wlan_$(shell echo $(strip $(WLAN_CHIP_ID)) | tr A-Z a-z)_$(CONFIG_MTK_COMBO_WIFI_HIF)
 endif
 
 ccflags-y += -DDBG=0
 ccflags-y += -I$(src)/os -I$(src)/os/$(os)/include
 ccflags-y += -I$(src)/include -I$(src)/include/nic -I$(src)/include/mgmt -I$(src)/include/chips
+ccflags-y += -I$(src)/include/wpa_supp
 ifeq ($(CONFIG_MTK_WIFI_NAN), y)
-ccflags-y += -I$(src)/include/nan -I$(src)/include/nan/wpa_supp
+ccflags-y += -I$(src)/include/nan
 endif
 ifeq ($(CFG_SUPPORT_WIFI_SYSDVT), 1)
 ccflags-y += -I$(src)/include/dvt
@@ -567,6 +601,10 @@ obj-m += $(MODULE_NAME).o
 ccflags-y += -DCONFIG_WLAN_DRV_BUILD_IN=0
 endif
 
+ifneq ($(filter yes,$(MTK_TC10_IN_HOUSE)),)
+ccflags-y += -DMTK_TC10_IN_HOUSE
+endif
+
 ifeq ($(CONFIG_MTK_WIFI_PKT_OFLD_SUPPORT), y)
 ccflags-y += -DCFG_SUPPORT_PKT_OFLD=1
 ifeq ($(CONFIG_MTK_WIFI_APF_SUPPORT), y)
@@ -574,15 +612,20 @@ ccflags-y += -DCFG_SUPPORT_APF=1
 else
 ccflags-y += -DCFG_SUPPORT_APF=0
 endif
+ifeq ($(CONFIG_MTK_WIFI_IGMP_OFLD_SUPPORT), y)
+ccflags-y += -DCFG_SUPPORT_IGMP_OFLD=1
+else
+ccflags-y += -DCFG_SUPPORT_IGMP_OFLD=0
+endif
+ifeq ($(CONFIG_MTK_WIFI_RA_OFLD_SUPPORT), y)
+ccflags-y += -DCFG_SUPPORT_RA_OFLD=1
+else
+ccflags-y += -DCFG_SUPPORT_RA_OFLD=0
+endif
 else
 ccflags-y += -DCFG_SUPPORT_PKT_OFLD=0
 endif
 
-#ifdef OPLUS_FEATURE_WIFI_SMARTGEAR
-ifeq ($(OPLUS_FEATURE_WIFI_SMARTGEAR), yes)
-ccflags-y += -DCFG_SUPPORT_SMART_GEAR=1
-endif
-#endif /* OPLUS_FEATURE_WIFI_SMARTGEAR */
 # ---------------------------------------------------
 # Directory List
 # ---------------------------------------------------
@@ -607,6 +650,7 @@ MGMT_DIR    := mgmt/
 NAN_DIR     := nan/
 CHIPS       := chips/
 CHIPS_CMM   := $(CHIPS)common/
+WPA_DIR     := wpa_supp/
 
 ifneq ($(WLAN_CHIP_ID),)
 PLAT_DIR    := os/$(os)/plat/mt$(WLAN_CHIP_ID)/
@@ -633,8 +677,7 @@ NIC_OBJS := 	$(NIC_DIR)nic.o \
 		$(NIC_DIR)cmd_buf.o \
 		$(NIC_DIR)que_mgt.o \
 		$(NIC_DIR)nic_cmd_event.o \
-		$(NIC_DIR)nic_umac.o \
-		$(NIC_DIR)radiotap.o
+		$(NIC_DIR)nic_umac.o
 
 ifeq ($(os), none)
 OS_OBJS := 	$(OS_DIR)gl_dependent.o \
@@ -696,12 +739,43 @@ MGMT_OBJS := 	$(MGMT_DIR)ais_fsm.o \
 		$(MGMT_DIR)mscs.o \
 		$(MGMT_DIR)ie_sort.o \
 
+ifeq ($(NEED_CRYPTO), y)
+ccflags-y += -DCFG_SUPPORT_CRYPTO=1
+CRYPTO_OBJS :=  $(WPA_DIR)FourWayHandShake.o\
+        $(WPA_DIR)src/utils/common.o\
+        $(WPA_DIR)src/crypto/sha1.o\
+        $(WPA_DIR)src/crypto/sha1-internal.o\
+        $(WPA_DIR)src/crypto/sha1-prf.o\
+        $(WPA_DIR)src/crypto/aes-wrap.o\
+        $(WPA_DIR)src/crypto/aes-internal.o\
+        $(WPA_DIR)src/crypto/aes-unwrap.o\
+        $(WPA_DIR)src/crypto/aes-internal-enc.o\
+        $(WPA_DIR)src/crypto/aes-internal-dec.o\
+        $(WPA_DIR)src/crypto/aes-siv.o\
+        $(WPA_DIR)src/crypto/aes-ctr.o\
+        $(WPA_DIR)src/crypto/aes-omac1.o\
+        $(WPA_DIR)src/crypto/sha256.o\
+        $(WPA_DIR)src/crypto/sha256-prf.o\
+        $(WPA_DIR)src/crypto/sha256-internal.o\
+        $(WPA_DIR)src/crypto/pbkdf2-sha256.o\
+        $(WPA_DIR)src/crypto/sha384-internal.o\
+        $(WPA_DIR)src/crypto/sha512-internal.o\
+        $(WPA_DIR)src/crypto/sha384-prf.o\
+        $(WPA_DIR)src/crypto/sha384.o \
+        $(WPA_DIR)src/crypto/sha256-kdf.o \
+        $(WPA_DIR)src/crypto/sha384-kdf.o
+endif
+
+ifneq ($(os), none)
+MGMT_OBJS +=	$(MGMT_DIR)wlan_ring.o \
+		$(OS_DIR)gl_sa_log.o
+endif
+
 # ---------------------------------------------------
 # Chips Objects List
 # ---------------------------------------------------
 MGMT_OBJS += $(MGMT_DIR)stats.o
 
-MGMT_OBJS += $(MGMT_DIR)oplus_rlm_domain.o
 
 CHIPS_OBJS += $(CHIPS_CMM)cmm_asic_connac.o
 CHIPS_OBJS +=  $(CHIPS_CMM)dbg_connac.o
@@ -808,30 +882,12 @@ NAN_OBJS := $(NAN_DIR)nan_dev.o \
             $(NAN_DIR)nan_txm.o
 
 NAN_SEC_OBJS := $(NAN_DIR)nan_sec.o\
-                $(NAN_DIR)wpa_supp/FourWayHandShake.o\
-                $(NAN_DIR)wpa_supp/src/ap/wpa_auth.o\
-                $(NAN_DIR)wpa_supp/src/crypto/sha1.o\
-                $(NAN_DIR)wpa_supp/src/crypto/sha1-internal.o\
-                $(NAN_DIR)wpa_supp/src/crypto/sha1-prf.o\
-                $(NAN_DIR)wpa_supp/src/common/wpa_common.o\
-                $(NAN_DIR)wpa_supp/src/crypto/aes-wrap.o\
-                $(NAN_DIR)wpa_supp/src/crypto/aes-internal.o\
-                $(NAN_DIR)wpa_supp/src/utils/common.o\
-                $(NAN_DIR)wpa_supp/src/rsn_supp/wpa.o\
-                $(NAN_DIR)wpa_supp/src/crypto/aes-unwrap.o\
-                $(NAN_DIR)wpa_supp/src/crypto/aes-internal-enc.o\
-                $(NAN_DIR)wpa_supp/src/crypto/aes-internal-dec.o\
-                $(NAN_DIR)wpa_supp/src/crypto/sha256.o\
-                $(NAN_DIR)wpa_supp/src/crypto/sha256-prf.o\
-                $(NAN_DIR)wpa_supp/src/crypto/sha256-internal.o\
-                $(NAN_DIR)wpa_supp/wpa_supplicant/wpas_glue.o\
-                $(NAN_DIR)wpa_supp/wpa_supplicant/wpa_supplicant.o\
-                $(NAN_DIR)wpa_supp/src/ap/wpa_auth_glue.o\
-                $(NAN_DIR)wpa_supp/src/crypto/pbkdf2-sha256.o\
-                $(NAN_DIR)wpa_supp/src/crypto/sha384-internal.o\
-                $(NAN_DIR)wpa_supp/src/crypto/sha512-internal.o\
-                $(NAN_DIR)wpa_supp/src/crypto/sha384-prf.o\
-                $(NAN_DIR)wpa_supp/src/crypto/sha384.o
+                $(WPA_DIR)src/ap/wpa_auth.o\
+                $(WPA_DIR)src/common/wpa_common.o\
+                $(WPA_DIR)src/rsn_supp/wpa.o\
+                $(WPA_DIR)wpa_supplicant/wpas_glue.o\
+                $(WPA_DIR)wpa_supplicant/wpa_supplicant.o\
+                $(WPA_DIR)src/ap/wpa_auth_glue.o
 endif
 
 # ---------------------------------------------------
@@ -910,18 +966,6 @@ SYSDVT_OBJS += $(SYSDVT_DIR)dvt_dmashdl.o
 endif
 endif
 
-#ifdef OPLUS_FEATURE_WIFI_OPLUSWFD
-ifeq ($(CONFIG_OPLUS_FEATURE_WIFI_OPLUSWFD), m)
-ccflags-y += -DOPLUS_FEATURE_WIFI_OPLUSWFD=1
-else ifeq ($(CONFIG_OPLUS_FEATURE_WIFI_OPLUSWFD), y)
-ccflags-y += -DOPLUS_FEATURE_WIFI_OPLUSWFD=1
-else ifeq ($(CONFIG_OPLUS_FEATURE_WIFI_OPLUSWFD), n)
-ccflags-y += -UOPLUS_FEATURE_WIFI_OPLUSWFD
-endif
-
-OPLUS_WFD_OBJS += oplus_wfd/wlan_oplus_wfd.o
-#endif /* OPLUS_FEATURE_WIFI_OPLUSWFD */
-
 # ---------------------------------------------------
 # Service git List
 # ---------------------------------------------------
@@ -961,25 +1005,10 @@ $(MODULE_NAME)-objs  += $(HIF_OBJS)
 $(MODULE_NAME)-objs  += $(MGMT_OBJS)
 $(MODULE_NAME)-objs  += $(CHIPS_OBJS)
 $(MODULE_NAME)-objs  += $(SYSDVT_OBJS)
+$(MODULE_NAME)-objs  += $(CRYPTO_OBJS)
 $(MODULE_NAME)-objs  += $(NAN_OBJS)
 $(MODULE_NAME)-objs  += $(NAN_SEC_OBJS)
-
-#ifdef OPLUS_FEATURE_WIFI_OPLUSWFD
-$(MODULE_NAME)-objs  += $(OPLUS_WFD_OBJS)
-#endif /* OPLUS_FEATURE_WIFI_OPLUSWFD */
 
 ifneq ($(findstring UT_TEST_MODE,$(MTK_COMBO_CHIP)),)
 include $(src)/test/ut.make
 endif
-
-#ifdef OPLUS_BUG_STABILITY
-ifeq ($(WLAN_CHIP_ID), 6781)
-ccflags-y += -DCFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING=1
-else
-ccflags-y += -DCFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING=0
-endif
-#endif  /* OPLUS_BUG_STABILITY */
-
-#ifdef OPLUS_FEATURE_WIFI_CAPCENTER_GC_AP_CONNECT
-ccflags-y += -DCFG_P2P_CONNECT_ALL_BSS=1
-#endif /* OPLUS_FEATURE_WIFI_CAPCENTER_GC_AP_CONNECT */

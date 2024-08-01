@@ -119,6 +119,8 @@ int consys_reg_mng_reg_read(unsigned long addr, unsigned int *value, unsigned in
 
 	*value = (unsigned int)CONSYS_REG_READ(vir_addr) & mask;
 
+	pr_info("[%x] mask=[%x]", *value, mask);
+
 	iounmap(vir_addr);
 	return 0;
 }

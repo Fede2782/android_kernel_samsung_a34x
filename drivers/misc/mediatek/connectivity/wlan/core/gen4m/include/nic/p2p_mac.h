@@ -137,15 +137,6 @@
 #define WSC_ATTRI_LEN_CONFIG_METHOD                         2
 
 /* --------------- WFA P2P IE --------------- */
-
-#define P2P_IE_VENDOR_TYPE 0x506f9a09
-#define WFD_IE_VENDOR_TYPE 0x506f9a0a
-
-#define OUI_WFA 0x506f9a
-#define P2P_OUI_TYPE 9
-#define WFD_OUI_TYPE 10
-#define DPP_OUI_TYPE 0x1A
-
 /* P2P 4.1.1 - P2P IE format */
 #define P2P_OUI_TYPE_LEN                            4
 /* == OFFSET_OF(IE_P2P_T, aucP2PAttributes[0]) */
@@ -228,6 +219,8 @@
 #define WLAN_ACTION_SELF_PROTECTED 15
 #define WLAN_ACTION_WMM 17 /* WMM Specification 1.1 */
 #define WLAN_ACTION_VENDOR_SPECIFIC 127
+#define P2P_IE_VENDOR_TYPE 0x506f9a09
+#define WFD_IE_VENDOR_TYPE 0x506f9a0a
 
 /* Public action codes */
 #define WLAN_PA_20_40_BSS_COEX 0

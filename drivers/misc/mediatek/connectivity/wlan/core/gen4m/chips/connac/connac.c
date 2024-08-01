@@ -153,11 +153,10 @@ void connacConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 		/* Type 1. WIFI_RAM_CODE_soc1_0_1_1.bin */
 		ret = kalSnprintf(*(apucName + (*pucNameIdx)),
 				CFG_FW_NAME_MAX_LEN,
-				"%s_%u%s_%u.bin",
+				"%s_%u%s_1.bin",
 				apucConnacFwName[ucIdx],
 				CFG_WIFI_IP_SET,
-				aucFlavor,
-				1);
+				aucFlavor);
 		if (ret >= 0 && ret < CFG_FW_NAME_MAX_LEN)
 			(*pucNameIdx) += 1;
 		else
@@ -168,11 +167,10 @@ void connacConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 		/* Type 2. WIFI_RAM_CODE_soc1_0_1_1 */
 		ret = kalSnprintf(*(apucName + (*pucNameIdx)),
 				CFG_FW_NAME_MAX_LEN,
-				"%s_%u%s_%u",
+				"%s_%u%s_1",
 				apucConnacFwName[ucIdx],
 				CFG_WIFI_IP_SET,
-				aucFlavor,
-				1);
+				aucFlavor);
 		if (ret >= 0 && ret < CFG_FW_NAME_MAX_LEN)
 			(*pucNameIdx) += 1;
 		else
@@ -258,7 +256,7 @@ struct BUS_INFO connac_bus_info = {
 	.hifRst = NULL,
 	.initPcieInt = NULL,
 	.DmaShdlInit = asicPcieDmaShdlInit,
-	.setDmaIntMask = asicPdmaIntMaskConfig,
+	.setPdmaIntMask = asicPdmaIntMaskConfig,
 #endif /* _HIF_PCIE || _HIF_AXI */
 #if defined(_HIF_USB)
 	.u4UdmaWlCfg_0_Addr = CONNAC_UDMA_WLCFG_0,

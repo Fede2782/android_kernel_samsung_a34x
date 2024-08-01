@@ -88,15 +88,7 @@
 #include <linux/mfd/mt6359p/registers.h>
 #include <linux/regmap.h>
 #if (CFG_SUPPORT_VCODE_VDFS == 1)
-#if (KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE)
-/* Implementation for kernel-5.4 */
-#elif KERNEL_VERSION(4, 19, 0) <= CFG80211_VERSION_CODE
-#include <linux/soc/mediatek/mtk-pm-qos.h>
-#define PM_QOS_VCORE_OPP MTK_PM_QOS_VCORE_OPP
-#define PM_QOS_VCORE_OPP_DEFAULT_VALUE MTK_PM_QOS_VCORE_OPP_DEFAULT_VALUE
-#else
 #include <linux/pm_qos.h>
-#endif
 #endif /*#ifndef CFG_BUILD_X86_PLATFORM*/
 
 /*******************************************************************************
@@ -155,11 +147,6 @@ static uint8_t *soc3_0_apucCr4FwName[] = {
 #if (CFG_SUPPORT_VCODE_VDFS == 1)
 #if (KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE)
 /* Implementation for kernel-5.4 */
-#elif (KERNEL_VERSION(4, 19, 0) <= CFG80211_VERSION_CODE)
-#define pm_qos_request_active mtk_pm_qos_request_active
-#define pm_qos_add_request mtk_pm_qos_add_request
-#define pm_qos_update_request mtk_pm_qos_update_request
-static struct mtk_pm_qos_request wifi_req;
 #else
 static struct pm_qos_request wifi_req;
 #endif
@@ -548,8 +535,6 @@ void soc3_0asicConnac2xWpdmaConfig(
 	uint32_t u4DmaCfgCr = 0;
 	uint32_t idx, u4DmaNum = 1;
 	struct mt66xx_chip_info *chip_info = prAdapter->chip_info;
-	struct BUS_INFO *prBusInfo =
-			prGlueInfo->prAdapter->chip_info->bus_info;
 
 	if (chip_info->is_support_wfdma1)
 		u4DmaNum++;
@@ -569,8 +554,6 @@ void soc3_0asicConnac2xWpdmaConfig(
 				asicConnac2xWfdmaCfgAddrGet(prGlueInfo, idx);
 			GloCfg[idx].field_conn2x.tx_dma_en = 1;
 			GloCfg[idx].field_conn2x.rx_dma_en = 1;
-			GloCfg[idx].field_conn2x.pdma_addr_ext_en =
-				(prBusInfo->u4DmaMask > 32) ? 1 : 0;
 			HAL_MCR_WR(prAdapter, u4DmaCfgCr, GloCfg[idx].word);
 		}
 	}
@@ -649,19 +632,11 @@ void soc3_0asicConnac2xProcessTxInterrupt(IN struct ADAPTER *prAdapter)
 	rIntrStatus = (union WPDMA_INT_STA_STRUCT)prHifInfo->u4IntStatus;
 	if (rIntrStatus.field_conn2x_ext.wfdma1_tx_done_16)
 		halWpdmaProcessCmdDmaDone(prAdapter->prGlueInfo,
-#if CFG_TRI_TX_RING
-			TX_RING_FWDL_IDX_5);
-#else
 			TX_RING_FWDL_IDX_4);
-#endif
 
 	if (rIntrStatus.field_conn2x_ext.wfdma1_tx_done_17)
 		halWpdmaProcessCmdDmaDone(prAdapter->prGlueInfo,
-#if CFG_TRI_TX_RING
-			TX_RING_CMD_IDX_4);
-#else
 			TX_RING_CMD_IDX_3);
-#endif
 
 	if (rIntrStatus.field_conn2x_ext.wfdma1_tx_done_0) {
 		halWpdmaProcessDataDmaDone(prAdapter->prGlueInfo,
@@ -1605,9 +1580,7 @@ static void soc3_0_DumpOtherCr(struct ADAPTER *prAdapter)
 {
 #define	HANG_OTHER_LOG_NUM		2
 
-	connac2x_DumpCrRange(NULL,
-		CONN_MCU_CONFG_ON_HOST_MAILBOX_WF_ADDR,
-		HANG_OTHER_LOG_NUM,
+	connac2x_DumpCrRange(NULL, 0x18060260, HANG_OTHER_LOG_NUM,
 		"mailbox and other CRs");
 	connac2x_DumpCrRange(NULL, 0x180602c0, 8, "DBG_DUMMY");
 	connac2x_DumpCrRange(NULL, 0x180602e0, 4, "BT_CSR_DUMMY");
@@ -1900,9 +1873,10 @@ int soc3_0_CheckBusHang(void *adapter, uint8_t ucWfResetEnable)
 *  - 0x1806_0260[31] should be 1'b1  (FW view 0x8900_0100[31])
 */
 
-			u4Cr = CONN_MCU_CONFG_ON_HOST_MAILBOX_WF_ADDR;
+			u4Cr = 0x18060260;
 			connac2x_DbgCrRead(prAdapter, u4Cr, &u4Value);
-			if ((u4Value & BIT(31)) != BIT(31)) {
+
+			if ((u4Value&BIT(31)) != BIT(31)) {
 				DBGLOG(HAL, ERROR,
 					"Bus hang check: 0x%08x = 0x%08x\n",
 					u4Cr, u4Value);
@@ -1958,18 +1932,7 @@ int soc3_0_CheckBusHang(void *adapter, uint8_t ucWfResetEnable)
 				DBGLOG(HAL, ERROR,
 					"Bus hang check: 0x%08x = 0x%08x\n",
 					u4Cr, u4Value);
-
-				/* check false alarm */
-				u4Cr = CONN_MCU_CONFG_ON_HOST_MAILBOX_WF_ADDR;
-				connac2x_DbgCrRead(prAdapter, u4Cr, &u4Value);
-				DBGLOG(HAL, ERROR,
-					"Bus hang check: 0x%08x = 0x%08x\n",
-					u4Cr, u4Value);
-				if ((u4Value & 0x0001FF87) != 0x00000001) {
-					if (((u4Value & 0x00019E00) != 0) ||
-					    ((u4Value & 0x00000180) == 0))
-						break;
-				}
+				break;
 			}
 		} else {
 			DBGLOG(HAL, INFO,
@@ -2039,10 +2002,12 @@ int soc3_0_CheckBusHang(void *adapter, uint8_t ucWfResetEnable)
 
 		if (conninfra_reset) {
 			g_IsWfsysBusHang = TRUE;
-			glResetWholeChipResetTrigger("bus hang");
+			conninfra_trigger_whole_chip_rst(CONNDRV_TYPE_WIFI,
+				"bus hang");
 		} else if (ucWfResetEnable) {
 			g_IsWfsysBusHang = TRUE;
-			glResetWholeChipResetTrigger("wifi bus hang");
+			conninfra_trigger_whole_chip_rst(CONNDRV_TYPE_WIFI,
+				"wifi bus hang");
 		}
 	}
 
@@ -2618,6 +2583,13 @@ int wlanConnacPccifoff(void)
 }
 #endif
 
+#if (CFG_SUPPORT_CONNINFRA == 1)
+int soc3_0_Trigger_whole_chip_rst(char *reason)
+{
+	return conninfra_trigger_whole_chip_rst(CONNDRV_TYPE_WIFI, reason);
+}
+#endif
+
 void soc3_0_icapRiseVcoreClockRate(void)
 {
 	int value = 0;
@@ -2703,13 +2675,12 @@ void soc3_0_ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 			continue;
 		}
 
-		/* Type 1. WIFI_RAM_CODE_soc1_0_1_1.bin */
+		/* Type 1. WIFI_RAM_CODE_soc1_0_1_1 */
 		ret = kalSnprintf(*(apucName + (*pucNameIdx)),
-				CFG_FW_NAME_MAX_LEN, "%s_%u%s_%u.bin",
+				CFG_FW_NAME_MAX_LEN, "%s_%u%s_1",
 				apucsoc3_0FwName[ucIdx],
 				CFG_WIFI_IP_SET,
-				aucFlavor,
-				1);
+				aucFlavor);
 		if (ret >= 0 && ret < CFG_FW_NAME_MAX_LEN)
 			(*pucNameIdx) += 1;
 		else
@@ -2717,13 +2688,12 @@ void soc3_0_ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 					"[%u] kalSnprintf failed, ret: %d\n",
 					__LINE__, ret);
 
-		/* Type 2. WIFI_RAM_CODE_soc1_0_1_1 */
+		/* Type 2. WIFI_RAM_CODE_soc1_0_1_1.bin */
 		ret = kalSnprintf(*(apucName + (*pucNameIdx)),
-				CFG_FW_NAME_MAX_LEN, "%s_%u%s_%u",
+				CFG_FW_NAME_MAX_LEN, "%s_%u%s_1.bin",
 				apucsoc3_0FwName[ucIdx],
 				CFG_WIFI_IP_SET,
-				aucFlavor,
-				1);
+				aucFlavor);
 		if (ret >= 0 && ret < CFG_FW_NAME_MAX_LEN)
 			(*pucNameIdx) += 1;
 		else

@@ -41,7 +41,6 @@ typedef struct {
 *			      P U B L I C   D A T A
 ********************************************************************************
 */
-bool g_bt_trace_pt = FALSE;
 
 /*******************************************************************************
 *                  F U N C T I O N   D E C L A R A T I O N S
@@ -76,9 +75,10 @@ static int bt_dbg_fpga_test(int par1, int par2, int par3);
 static int bt_dbg_is_adie_work(int par1, int par2, int par3);
 static int bt_dbg_met_start_stop(int par1, int par2, int par3);
 static int bt_dbg_DynamicAdjustTxPower(int par1, int par2, int par3);
+#if (BUILD_QA_DBG == 1)
 static void bt_dbg_user_trx_proc(char *cmd_raw);
+#endif
 static int bt_dbg_user_trx_cb(uint8_t *buf, int len);
-static int bt_dbg_trace_pt(int par1, int par2, int par3);
 
 extern int32_t btmtk_set_wakeup(struct hci_dev *hdev, uint8_t need_wait);
 extern int32_t btmtk_set_sleep(struct hci_dev *hdev, u_int8_t need_wait);
@@ -97,7 +97,9 @@ static struct mutex g_bt_lock;
 static char g_bt_dump_buf[BT_DBG_DUMP_BUF_SIZE];
 static char *g_bt_dump_buf_ptr;
 static int g_bt_dump_buf_len;
+#if (BUILD_QA_DBG == 1)
 static bool g_bt_dbg_enable = FALSE;
+#endif
 
 static const tBT_DEV_DBG_STRUCT bt_dev_dbg_struct[] = {
 	[0x0] = {bt_dbg_hwver_get, 				FALSE},
@@ -123,7 +125,6 @@ static const tBT_DEV_DBG_STRUCT bt_dev_dbg_struct[] = {
 	[0x12] = {bt_dbg_is_adie_work,		TRUE},
 	[0x13] = {bt_dbg_met_start_stop,	FALSE},
 	[0x14] = {bt_dbg_DynamicAdjustTxPower,		FALSE},
-	[0x15] = {bt_dbg_trace_pt,		FALSE},
 };
 
 /*******************************************************************************
@@ -156,14 +157,6 @@ int bt_dbg_chip_rst(int par1, int par2, int par3)
 	return 0;
 }
 
-int bt_dbg_trace_pt(int par1, int par2, int par3)
-{
-	if(par2 == 0)
-		g_bt_trace_pt = FALSE;
-	else
-		g_bt_trace_pt = TRUE;
-	return 0;
-}
 
 int bt_dbg_read_chipid(int par1, int par2, int par3)
 {
@@ -230,6 +223,9 @@ int bt_dbg_reg_write(int par1, int par2, int par3)
 
 int bt_dbg_ap_reg_read(int par1, int par2, int par3)
 {
+#if (BUILD_QA_DBG == 0)
+	return -ENODEV;
+#else
 	uint32_t *remap_addr = NULL;
 	int ret_val = 0;
 
@@ -244,6 +240,7 @@ int bt_dbg_ap_reg_read(int par1, int par2, int par3)
 	BTMTK_INFO("%s: 0x%08x read value = [0x%08x]", __func__, par2, ret_val);
 	iounmap(remap_addr);
 	return ret_val;
+#endif
 }
 
 int bt_dbg_ap_reg_write(int par1, int par2, int par3)
@@ -357,7 +354,7 @@ int bt_dbg_met_start_stop(int par1, int par2, int par3)
 	uint32_t val = 0, star_addr = 0, end_addr = 0;
 	int res = 0;
 	struct conn_metlog_info info;
-	phys_addr_t emi_base;
+	unsigned int emi_base;
 
 	BTMTK_INFO("%s, par2 = %d", __func__, par2);
 	/* reference parameter:
@@ -562,6 +559,9 @@ int bt_dbg_rx_buf_control(int par1, int par2, int par3)
 
 ssize_t bt_dbg_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 {
+#if (BUILD_QA_DBG == 0)
+	return -ENODEV;
+#else
 	int ret = 0;
 	int dump_len;
 
@@ -596,6 +596,7 @@ exit:
 
 	mutex_unlock(&g_bt_lock);
 	return ret;
+#endif
 }
 
 int bt_osal_strtol(const char *str, unsigned int adecimal, long *res)
@@ -632,6 +633,7 @@ end:
 	return 0;
 }
 
+#if (BUILD_QA_DBG == 1)
 void bt_dbg_user_trx_proc(char *cmd_raw)
 {
 #define LEN_64 64
@@ -659,9 +661,13 @@ void bt_dbg_user_trx_proc(char *cmd_raw)
 	// Send command and wait for command_complete event
 	btmtk_btif_internal_trx(hci_cmd, len, bt_dbg_user_trx_cb, TRUE, TRUE);
 }
+#endif
 
 ssize_t bt_dbg_write(struct file *filp, const char __user *buffer, size_t count, loff_t *f_pos)
 {
+#if (BUILD_QA_DBG == 0)
+	return -ENODEV;
+#else
 	bool is_passwd = FALSE, is_turn_on = FALSE;
 	size_t len = count;
 	char buf[256], *pBuf;
@@ -684,8 +690,8 @@ ssize_t bt_dbg_write(struct file *filp, const char __user *buffer, size_t count,
 	if (copy_from_user(buf, buffer, len))
 		return -EFAULT;
 	buf[len] = '\0';
-	BTMTK_INFO("%s: bt_state[%d], dbg_enable[%d], len[%d]",
-		__func__, bt_state, g_bt_dbg_enable, (int)len);
+	BTMTK_INFO("%s: bt_state[%d], dbg_enable[%d], len[%d], data = %s",
+		__func__, bt_state, g_bt_dbg_enable, (int)len, buf);
 
 	/* Check debug function is enabled or not
 	 *   - not enable yet: user should enable it
@@ -731,7 +737,7 @@ ssize_t bt_dbg_write(struct file *filp, const char __user *buffer, size_t count,
 	if (pToken != NULL) {
 		bt_osal_strtol(pToken, 16, &res);
 		y = (int)res;
-		BTMTK_INFO("%s: y = 0x%08x", __func__, y);
+		BTMTK_INFO("%s: y = 0x%08x\n\r", __func__, y);
 	} else {
 		y = 3000;
 		/*efuse, register read write default value */
@@ -762,6 +768,7 @@ ssize_t bt_dbg_write(struct file *filp, const char __user *buffer, size_t count,
 	}
 
 	return len;
+#endif
 }
 
 int bt_dev_dbg_init(void)
@@ -835,38 +842,17 @@ void bthost_debug_init(void)
 void bthost_debug_print(void)
 {
 	uint32_t i = 0;
-	uint32_t ret = 0;
-	uint8_t *pos = NULL, *end = NULL;
-	uint8_t dump_buffer[700]={0};
-
-	pos = &dump_buffer[0];
-	end = pos + 700 - 1;
-
-	ret = snprintf(pos, (end - pos + 1), "[bt host info] ");
-	pos += ret;
-
 	for (i = 0; i < BTHOST_INFO_MAX; i++){
 		if (bthost_info_table[i].id == 0){
-			ret = snprintf(pos, (end - pos + 1),"[%d-%d] not set", i, BTHOST_INFO_MAX);
-			if (ret < 0 || ret >= (end - pos + 1)){
-				BTMTK_ERR("%s: snprintf fail i[%d] ret[%d]", __func__, i, ret);
-				break;
-			}
-			pos += ret;
+			BTMTK_WARN("[bt host info][%d-%d] not set", i, BTHOST_INFO_MAX);
 			break;
 		}
 		else {
-			ret = snprintf(pos, (end - pos + 1),"[%d][%s : 0x%08x] ", i,
+			BTMTK_WARN("[bt host info][%d][%s : 0x%08x]", i,
 			bthost_info_table[i].desc,
 			bthost_info_table[i].value);
-			if (ret < 0 || ret >= (end - pos + 1)){
-				BTMTK_ERR("%s: snprintf fail i[%d] ret[%d]", __func__, i, ret);
-				break;
-			}
-			pos += ret;
 		}
 	}
-	BTMTK_INFO("%s", dump_buffer);
 }
 
 void bthost_debug_save(uint32_t id, uint32_t value, char* desc)

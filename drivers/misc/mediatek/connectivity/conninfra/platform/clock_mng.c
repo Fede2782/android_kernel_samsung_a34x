@@ -78,7 +78,6 @@ static struct platform_driver consys_mt6685_dev_drv = {
 #ifdef CONFIG_OF
 		.of_match_table = consys_clock_mt6685_of_ids,
 #endif
-		.probe_type = PROBE_FORCE_SYNCHRONOUS,
 		},
 };
 

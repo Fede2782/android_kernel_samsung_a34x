@@ -132,36 +132,38 @@ struct _NAN_NDP_INSTANCE_T;
  *               Export API Related
  ************************************************
  */
-uint32_t nanSecGetCsidAttr(OUT uint32_t *pu4CsidAttrLen,
-			   OUT uint8_t **ppu1CsidAttrBuf);
-uint32_t nanSecGetNdpScidAttr(IN struct _NAN_NDP_INSTANCE_T *prNdp,
-			      OUT uint32_t *pu4ScidAttrLen,
-			      OUT uint8_t **ppu1ScidAttrBuf);
-uint32_t nanSecGetNdpCsidAttr(IN struct _NAN_NDP_INSTANCE_T *prNdp,
-			      OUT uint32_t *pu4CsidAttrLen,
-			      OUT uint8_t **ppu1CsidAttrBuf);
-uint32_t nanSecSetCipherType(IN struct _NAN_NDP_INSTANCE_T *prNdp,
-			     IN uint32_t u4CipherType);
-uint32_t nanSecSetPmk(IN struct _NAN_NDP_INSTANCE_T *prNdp,
-		IN uint32_t u4PmkLen, IN uint8_t *pu1Pmk);
+void nanResetWpaSm(void);
 
-uint32_t nanSecNotify4wayBegin(IN struct _NAN_NDP_INSTANCE_T *prNdp);
-uint32_t nanSecNotify4wayTerminate(IN struct _NAN_NDP_INSTANCE_T *prNdp);
-uint32_t nanSecTxKdeAttrDone(IN struct _NAN_NDP_INSTANCE_T *prNdp,
-			     IN uint8_t u1DstMsg);
-uint32_t nanSecRxKdeAttr(IN struct _NAN_NDP_INSTANCE_T *prNdp,
-			 IN uint8_t u1SrcMsg, IN uint32_t u4KdeAttrLen,
-			 IN uint8_t *pu1KdeAttrBuf, IN uint32_t u4RxMsgLen,
-			 IN uint8_t *pu1RxMsgBuf);
+uint32_t nanSecGetCsidAttr(uint32_t *pu4CsidAttrLen,
+			   uint8_t **ppu1CsidAttrBuf);
+uint32_t nanSecGetNdpScidAttr(struct _NAN_NDP_INSTANCE_T *prNdp,
+			      uint32_t *pu4ScidAttrLen,
+			      uint8_t **ppu1ScidAttrBuf);
+uint32_t nanSecGetNdpCsidAttr(struct _NAN_NDP_INSTANCE_T *prNdp,
+			      uint32_t *pu4CsidAttrLen,
+			      uint8_t **ppu1CsidAttrBuf);
+uint32_t nanSecSetCipherType(struct _NAN_NDP_INSTANCE_T *prNdp,
+			     uint32_t u4CipherType);
+uint32_t nanSecSetPmk(struct _NAN_NDP_INSTANCE_T *prNdp,
+		uint32_t u4PmkLen, uint8_t *pu1Pmk);
 
-uint32_t nanSecNotifyMsgBodyRdy(IN struct _NAN_NDP_INSTANCE_T *prNdp,
-				IN uint8_t u1SrcMsg, IN OUT uint32_t u4TxMsgLen,
-				IN OUT uint8_t *pu1TxMsgBuf);
+uint32_t nanSecNotify4wayBegin(struct _NAN_NDP_INSTANCE_T *prNdp);
+uint32_t nanSecNotify4wayTerminate(struct _NAN_NDP_INSTANCE_T *prNdp);
+uint32_t nanSecTxKdeAttrDone(struct _NAN_NDP_INSTANCE_T *prNdp,
+			     uint8_t u1DstMsg);
+uint32_t nanSecRxKdeAttr(struct _NAN_NDP_INSTANCE_T *prNdp,
+			 uint8_t u1SrcMsg, uint32_t u4KdeAttrLen,
+			 uint8_t *pu1KdeAttrBuf, uint32_t u4RxMsgLen,
+			 uint8_t *pu1RxMsgBuf);
+
+uint32_t nanSecNotifyMsgBodyRdy(struct _NAN_NDP_INSTANCE_T *prNdp,
+				uint8_t u1SrcMsg, uint32_t u4TxMsgLen,
+				uint8_t *pu1TxMsgBuf);
 
 void nan_sec_wpa_supplicant_start(void);
 void nan_sec_hostapd_deinit(void);
-uint32_t nanSecInsertCipherList(IN uint32_t u4CipherType,
-				IN uint16_t u2PublishId);
+uint32_t nanSecInsertCipherList(uint32_t u4CipherType,
+				uint16_t u2PublishId);
 uint32_t nanSecFlushCipherList(void);
 uint16_t nanSecCalKdeAttrLenFunc(struct _NAN_NDP_INSTANCE_T *prNdp);
 void nanSecAppendKdeAttrFunc(struct _NAN_NDP_INSTANCE_T *prNdp,
@@ -177,15 +179,15 @@ void nanSecInstallTk(struct _NAN_NDP_INSTANCE_T *prNdp,
 void nanSecUpdatePeerNDI(struct _NAN_NDP_INSTANCE_T *prNdp,
 			 uint8_t *au1PeerNdiAddr);
 int32_t
-nanSecCompareSA(IN struct ADAPTER *prAdapter,
-		IN struct _NAN_NDP_INSTANCE_T *prNdp1,
-		IN struct _NAN_NDP_INSTANCE_T *prNdp2);
+nanSecCompareSA(struct ADAPTER *prAdapter,
+		struct _NAN_NDP_INSTANCE_T *prNdp1,
+		struct _NAN_NDP_INSTANCE_T *prNdp2);
 
 /************************************************
  *               NDP Sudo Related
  ************************************************
  */
-uint32_t nanNdpNotifySecAttrRdy(IN uint8_t u1NdpIdx);
+uint32_t nanNdpNotifySecAttrRdy(uint8_t u1NdpIdx);
 
 uint32_t nanNdpGetNdiAddr(uint8_t u1NdpIdx,
 	uint8_t u1Role, uint8_t *pu1MacAddr);
@@ -203,7 +205,7 @@ uint8_t nanSecSelPtkKeyId(struct _NAN_NDP_INSTANCE_T *prNdp,
 			 uint8_t *pu1PeerAddr);
 uint32_t nanSecUpdatePmk(struct _NAN_NDP_INSTANCE_T *prNdp);
 
-void nanSecUpdateAttrCmd(IN struct ADAPTER *prAdapter, uint8_t aucAttrId,
+void nanSecUpdateAttrCmd(struct ADAPTER *prAdapter, uint8_t aucAttrId,
 			 uint8_t *aucAttrBuf, uint16_t aucAttrLen);
 
 /************************************************
@@ -241,11 +243,11 @@ uint32_t nanSecApSmBufReset(struct wpa_state_machine *sm);
 
 uint32_t nanSecGenAuthToken(u32 cipher, const u8 *auth_token_data,
 			    size_t auth_token_data_len, u8 *auth_token);
-uint32_t nanSecGenM3MicMaterial(IN uint8_t *pu1AuthTokenBuf,
-				IN const u8 *pu1M3bodyBuf,
-				IN uint32_t u4M3BodyLen,
-				OUT uint8_t **ppu1M3MicMaterialBuf,
-				OUT uint32_t *pu4M3MicMaterialLen);
+uint32_t nanSecGenM3MicMaterial(uint8_t *pu1AuthTokenBuf,
+				const u8 *pu1M3bodyBuf,
+				uint32_t u4M3BodyLen,
+				uint8_t **ppu1M3MicMaterialBuf,
+				uint32_t *pu4M3MicMaterialLen);
 
 /************************************************
  *               UT Related

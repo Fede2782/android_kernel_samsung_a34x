@@ -552,8 +552,7 @@ static void connlog_ring_emi_to_cache(struct connlog_dev* handler)
 	unsigned int cache_max_size = 0;
 #ifndef DEBUG_LOG_ON
 	static DEFINE_RATELIMIT_STATE(_rs, 10 * HZ, 1);
-
-	ratelimit_set_flags(&_rs, RATELIMIT_MSG_ON_RELEASE);
+	static DEFINE_RATELIMIT_STATE(_rs2, HZ, 1);
 #endif
 	if (handler->conn_type < 0 || handler->conn_type >= CONN_DEBUG_TYPE_END) {
 		pr_notice("%s conn_type %d is invalid\n", __func__, handler->conn_type);
@@ -598,6 +597,12 @@ static void connlog_ring_emi_to_cache(struct connlog_dev* handler)
 			ring_dump(__func__, &handler->log_buffer.ring_cache);
 			ring_dump_segment(__func__, &ring_cache_seg);
 #endif
+		#ifndef DEBUG_LOG_ON
+			if (__ratelimit(&_rs2))
+		#endif
+				pr_info("%s: ring_emi_seg.sz=%d, ring_cache_pt=%p, ring_cache_seg.sz=%d\n",
+					type_to_title[handler->conn_type], ring_emi_seg.sz, ring_cache_seg.ring_pt,
+					ring_cache_seg.sz);
 			memcpy_fromio(ring_cache_seg.ring_pt, ring_emi_seg.ring_emi_pt + ring_cache_seg.data_pos,
 				ring_cache_seg.sz);
 			emi_buf_size -= ring_cache_seg.sz;
@@ -732,9 +737,6 @@ static void connlog_log_data_handler(struct work_struct *work)
 #ifndef DEBUG_LOG_ON
 	static DEFINE_RATELIMIT_STATE(_rs, 10 * HZ, 1);
 	static DEFINE_RATELIMIT_STATE(_rs2, 2 * HZ, 1);
-
-	ratelimit_set_flags(&_rs, RATELIMIT_MSG_ON_RELEASE);
-	ratelimit_set_flags(&_rs2, RATELIMIT_MSG_ON_RELEASE);
 #endif
 
 	if (handler == NULL) {
@@ -749,7 +751,7 @@ static void connlog_log_data_handler(struct work_struct *work)
 
 	for (i = 0; i < handler->block_num; i++) {
 		conn_type_block = handler->block_type[i];
-		if (conn_type_block < 0 || conn_type_block >= CONN_DEBUG_TYPE_END) {
+		if (conn_type_block >= CONN_DEBUG_TYPE_END) {
 			pr_notice("%s conn_type %d is invalid\n", __func__, conn_type_block);
 			return;
 		}
@@ -844,8 +846,7 @@ static ssize_t connlog_read_internal(
 	int retval;
 #ifndef DEBUG_LOG_ON
 	static DEFINE_RATELIMIT_STATE(_rs, 10 * HZ, 1);
-
-	ratelimit_set_flags(&_rs, RATELIMIT_MSG_ON_RELEASE);
+	static DEFINE_RATELIMIT_STATE(_rs2, 1 * HZ, 1);
 #endif
 
 	if (conn_type < 0 || conn_type >= CONN_DEBUG_TYPE_END) {
@@ -875,6 +876,14 @@ static ssize_t connlog_read_internal(
 		}
 		cache_buf_size -= ring_seg.sz;
 		written += ring_seg.sz;
+
+#ifndef DEBUG_LOG_ON
+		if (__ratelimit(&_rs2))
+#endif
+			pr_info("[%s] copy %d to %s\n",
+				type_to_title[conn_type],
+				ring_seg.sz,
+				(to_user? "user space" : "buffer"));
 	}
 done:
 	return written;
@@ -1600,6 +1609,7 @@ int connsys_dedicated_log_set_ap_state(int state)
 		}
 
 		EMI_WRITE32(handler->virAddrEmiLogBase + 32, state);
+		pr_info("%s state: drv:%s %d\n", __func__,  type_to_title[i], state);
 	}
 
 	return 0;

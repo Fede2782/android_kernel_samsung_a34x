@@ -60,33 +60,11 @@ static const char* get_spi_sys_name(enum sys_spi_subsystem subsystem);
 #endif
 static int connsys_adie_clock_buffer_setting(unsigned int curr_status, unsigned int next_status);
 
-
-/*
-#ifdef OPLUS_BUG_STABILITY
-liumin@NETWORK.WIFI.ALPS06544156, 2022/05/16
-Add for lisa , It is a badboard and  sound "dada" when wifi open/close scence
-*/
-extern char prj_name[];
-static bool isBadBoardPrj() {
-   unsigned long dev_prj = simple_strtoul(prj_name,NULL,16);
-   pr_info("[consys]project No.:%d\n", dev_prj);
-   if (dev_prj == 0x21641 || dev_prj == 0x21642 || dev_prj == 0x21649
-        || dev_prj == 0x216BE || dev_prj == 0x216BF || dev_prj == 0x216E5
-        || dev_prj == 0x216E6) {
-       return true;
-   }
-   return false;
-}
-/* End */
-
-
 unsigned int consys_emi_set_remapping_reg_mt6895(
 	phys_addr_t con_emi_base_addr,
-	phys_addr_t md_shared_emi_base_addr,
-	phys_addr_t gps_emi_base_addr)
+	phys_addr_t md_shared_emi_base_addr)
 {
-	return consys_emi_set_remapping_reg_mt6895_gen(con_emi_base_addr, md_shared_emi_base_addr,
-							gps_emi_base_addr, 16);
+	return consys_emi_set_remapping_reg_mt6895_gen(con_emi_base_addr, md_shared_emi_base_addr, 16);
 }
 
 int consys_conninfra_on_power_ctrl_mt6895(unsigned int enable)
@@ -114,22 +92,6 @@ int consys_conninfra_sleep_mt6895(void)
 	return consys_conninfra_sleep_mt6895_gen();
 }
 
-static void print_pmif_reg(void)
-{
-	void __iomem *addr = NULL;
-	unsigned int v;
-
-	/* DEBUGTOP_MON 0x0d0a0088 */
-	addr = ioremap(0x0d0a0088, 0x4);
-	if (!addr) {
-		pr_notice("%s clk cg ioremap failed\n", __func__);
-		return;
-	}
-	v = CONSYS_REG_READ(addr);
-	iounmap(addr);
-	pr_info("[consys]DEBUGTOP_MON:%x\n", v);
-}
-
 void consys_set_if_pinmux_mt6895(unsigned int enable)
 {
 #ifndef CFG_CONNINFRA_ON_CTP
@@ -137,10 +99,8 @@ void consys_set_if_pinmux_mt6895(unsigned int enable)
 	struct pinctrl_state *tcxo_pinctrl_clr;
 	int ret = -1;
 #endif
-	int clock_type;
+	int clock_type = consys_co_clock_type_mt6895();
 
-	print_pmif_reg();
-	clock_type = consys_co_clock_type_mt6895();
 	if (enable) {
 		consys_set_if_pinmux_mt6895_gen(1);
 		/* if(TCXO mode)
@@ -250,13 +210,6 @@ int consys_get_sleep_mode_mt6895(void)
 	if (conn_hw_env.adie_hw_version == MT6637E1)
 		return 1;
 
-        //#ifdef OPLUS_BUG_STABILITY
-        //Add for lisa, for resolved 'da da'
-        if (isBadBoardPrj()) {
-            return 3;
-        }
-        //#endif /* OPLUS_BUG_STABILITY */
-
 	return 1;
 }
 
@@ -310,6 +263,7 @@ int connsys_a_die_cfg_mt6895(void)
 		consys_sema_release_mt6895(CONN_SEMA_RFSPI_INDEX);
 		return -1;
 	}
+	pr_info("[%s] A-die chip id: 0x%08x\n", __func__, adie_id);
 
 	conn_hw_env.adie_hw_version = adie_id;
 	/* Write to conninfra sysram */
@@ -333,8 +287,7 @@ int connsys_a_die_cfg_mt6895(void)
 	conn_hw_env.is_rc_mode = consys_is_rc_mode_enable_mt6895();
 
 	sleep_mode = consys_get_sleep_mode_mt6895();
-
-	pr_info("[%s] sleep_mode=[%d]\n", __func__, sleep_mode);
+	pr_info("sleep_mode = %d\n", sleep_mode);
 	connsys_wt_slp_top_power_saving_ctrl_adie6637_mt6895_gen(adie_id, sleep_mode);
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 	return 0;
@@ -741,13 +694,6 @@ int consys_subsys_status_update_mt6895(bool on, int radio)
 	}
 
 	consys_sema_release_mt6895(CONN_SEMA_CONN_INFRA_COMMON_SYSRAM_INDEX);
-
-
-	/* BT is on but wifi is not on */
-	if (on && (radio == CONNDRV_TYPE_BT) &&
-	    (CONSYS_REG_READ_BIT(CONN_INFRA_SYSRAM_SW_CR_RADIO_STATUS, (0x1 << CONNDRV_TYPE_WIFI)) == 0x0))
-		consys_pre_cal_restore_mt6895();
-
 	return 0;
 }
 

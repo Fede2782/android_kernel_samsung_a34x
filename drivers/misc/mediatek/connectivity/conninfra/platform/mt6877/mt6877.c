@@ -68,7 +68,7 @@ static int consys_thermal_query_mt6877(void);
 /* Power state relative */
 static int consys_enable_power_dump_mt6877(void);
 static int consys_reset_power_state_mt6877(void);
-static int consys_power_state_dump_mt6877(char *buf, unsigned int size);
+static int consys_power_state_dump_mt6877(void);
 
 static unsigned long long consys_soc_timestamp_get_mt6877(void);
 
@@ -320,7 +320,7 @@ void consys_power_state(void)
 
 }
 
-int consys_power_state_dump_mt6877(char *buf, unsigned int size)
+int consys_power_state_dump_mt6877(void)
 {
 	unsigned int conninfra_sleep_cnt, conninfra_sleep_time;
 	unsigned int wf_sleep_cnt, wf_sleep_time;
@@ -429,7 +429,8 @@ int consys_thermal_query_mt6877(void)
 #define CONN_GPT2_CTRL_AP_EN	0x38
 
 	void __iomem *addr = NULL;
-	int cal_val, res = 0;
+	int cal_val;
+	static int res = 0;
 	/* Base: 0x1800_2000, CONN_TOP_THERM_CTL */
 	const unsigned int thermal_dump_crs[THERMAL_DUMP_NUM] = {
 		0x00, 0x04, 0x08, 0x0c,
@@ -468,6 +469,15 @@ int consys_thermal_query_mt6877(void)
 	udelay(500);
 	/* get thermal value */
 	cal_val = CONSYS_REG_READ(CONN_THERM_CTL_THERMEN3_ADDR);
+	if (cal_val == 0xdeadfeed) {
+		pr_err("[%s] cal_val get 0xdeadfeed\n", __func__);
+		consys_reg_mng_is_bus_hang();
+		consys_sema_release_mt6877(CONN_SEMA_THERMAL_INDEX);
+		connsys_adie_top_ck_en_ctl_mt6877(false);
+		iounmap(addr);
+		return res;
+	}
+
 	cal_val = (cal_val >> 8) & 0x7f;
 
 	/* thermal debug dump */

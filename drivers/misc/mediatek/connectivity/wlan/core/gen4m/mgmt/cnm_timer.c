@@ -437,7 +437,7 @@ void cnmTimerStopTimer(IN struct ADAPTER *prAdapter, IN struct TIMER *prTimer)
 	ASSERT(prAdapter);
 	ASSERT(prTimer);
 
-	log_dbg(CNM, INFO, "stop timer, timer %p func %pf\n",
+	log_dbg(CNM, TRACE, "stop timer, timer %p func %ps\n",
 		prTimer, prTimer->pfMgmtTimeOutFunc);
 
 	cnmTimerStopTimer_impl(prAdapter, prTimer, TRUE);
@@ -466,7 +466,7 @@ void cnmTimerStartTimer(IN struct ADAPTER *prAdapter, IN struct TIMER *prTimer,
 	ASSERT(prAdapter);
 	ASSERT(prTimer);
 
-	log_dbg(CNM, INFO, "start timer, timer %p func %pf %d ms\n",
+	log_dbg(CNM, TRACE, "start timer, timer %p func %ps %d ms\n",
 		prTimer, prTimer->pfMgmtTimeOutFunc, u4TimeoutMs);
 
 #if (CFG_SUPPORT_STATISTICS == 1)
@@ -490,7 +490,7 @@ void cnmTimerStartTimer(IN struct ADAPTER *prAdapter, IN struct TIMER *prTimer,
 
 	if (gDoTimeOut) {
 		/* monitor the timer start in callback */
-		log_dbg(CNM, TRACE,
+		log_dbg(CNM, INFO,
 			"In DoTimeOut, timer %p func %ps %d ms timercount %d\n",
 			prTimer, prTimer->pfMgmtTimeOutFunc,
 			u4TimeoutMs, prTimerList->u4NumElem);
@@ -594,7 +594,7 @@ void cnmTimerDoTimeOutCheck(IN struct ADAPTER *prAdapter)
 	prRootTimer->rNextExpiredSysTime
 		= rCurSysTime + MGMT_MAX_TIMEOUT_INTERVAL;
 
-	log_dbg(CNM, TRACE, "loop start [%d]\n", prTimerList->u4NumElem);
+	log_dbg(CNM, INFO, "loop start [%d]\n", prTimerList->u4NumElem);
 	gDoTimeOut = TRUE;
 
 	LINK_FOR_EACH(prLinkEntry, prTimerList) {
@@ -627,7 +627,7 @@ void cnmTimerDoTimeOutCheck(IN struct ADAPTER *prAdapter)
 						     pfMgmtTimeOutFunc,
 						     ulTimeoutDataPtr))
 				#endif
-				log_dbg(CNM, TRACE,
+				log_dbg(CNM, INFO,
 					"timer timeout, timer %p func %ps\n",
 					prTimer, prTimer->pfMgmtTimeOutFunc);
 
@@ -666,7 +666,7 @@ void cnmTimerDoTimeOutCheck(IN struct ADAPTER *prAdapter)
 		}
 	}	/* end of for loop */
 
-	log_dbg(CNM, TRACE, "loop end");
+	log_dbg(CNM, INFO, "loop end");
 	gDoTimeOut = false;
 
 	/* Setup the prNext timeout event. It is possible the timer was already

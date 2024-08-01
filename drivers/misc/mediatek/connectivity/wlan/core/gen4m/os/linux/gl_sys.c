@@ -26,7 +26,8 @@
 #include "precomp.h"
 #include "gl_os.h"
 #include "gl_kal.h"
-#include "debug.h"
+#include "gl_rst.h"
+#include "gl_sys.h"
 #include "wlan_lib.h"
 #include "debug.h"
 #include "wlan_oid.h"
@@ -38,13 +39,19 @@
 #include <linux/init.h>
 
 #if WLAN_INCLUDE_SYS
+extern void fw_log_wifi_write_log_to_file(
+		int32_t i4DumpInProgress) __attribute__((weak));
 
 /*******************************************************************************
  *                              C O N S T A N T S
  *******************************************************************************
  */
-#define MTK_INFO_MAX_SIZE 128
-
+#define MTK_INFO_MAX_SIZE 256
+#if CFG_SUPPORT_CABLE_DETECT
+#define CABLE_STATUS_UNKNOWN 0
+#define CABLE_STATUS_PLUG_IN 1
+#define CABLE_STATUS_PULL_OUT 2
+#endif
 /*******************************************************************************
  *                             D A T A   T Y P E S
  *******************************************************************************
@@ -58,17 +65,30 @@
 static struct GLUE_INFO *g_prGlueInfo;
 static struct kobject *wifi_kobj;
 static uint8_t aucMacAddrOverride[] = "FF:FF:FF:FF:FF:FF";
+#if defined(CFG_MOUTON)
+static uint8_t aucDefaultFWVersion[] = "MOUTON_DEFAULT";
+#elif defined(CFG_TALBOT)
+static uint8_t aucDefaultFWVersion[] = "TALBOT_DEFAULT";
+#elif defined(CFG_CERVENO)
+static uint8_t aucDefaultFWVersion[] = "CERVINO_DEFAULT";
+#else
 static uint8_t aucDefaultFWVersion[] = "Unknown";
+#endif
 static u_int8_t fgIsMacAddrOverride = FALSE;
 static int32_t g_i4PM = -1;
+static int32_t g_i4Ant = -1;
 static char acVerInfo[MTK_INFO_MAX_SIZE];
 static char acSoftAPInfo[MTK_INFO_MAX_SIZE];
-
-#if BUILD_QA_DBG
-static uint32_t g_u4Memdump = 3;
-#else
-static uint32_t g_u4Memdump = 2;
+static int32_t i4DumpInProgress;
+static char acFeatureInfo[MTK_INFO_MAX_SIZE];
+static uint8_t aucSolutionProvider[] = "MTK";
+#if CFG_SUPPORT_CABLE_DETECT
+static u_int8_t aucCableDetectStatus = CABLE_STATUS_UNKNOWN;
+int32_t g_i4CableDetectGpio = -1;
 #endif
+
+uint8_t g_wifiVer[MANIFEST_BUFFER_SIZE] = {0};
+uint32_t g_wifiVer_length;
 
 /*******************************************************************************
  *                   F U N C T I O N   D E C L A R A T I O N S
@@ -138,8 +158,11 @@ static ssize_t macaddr_store(
 	size_t count)
 {
 	int32_t i4Ret = 0;
+	uint8_t aucMacAddrTemp[] = "FF:FF:FF:FF:FF:FF";
 
-	i4Ret = sscanf(buf, "%18s", (uint8_t *)&aucMacAddrOverride);
+	kalMemCopy(&aucMacAddrTemp, buf, sizeof(aucMacAddrTemp));
+	i4Ret = sscanf((uint8_t *)&aucMacAddrTemp, "%18s",
+		(uint8_t *)&aucMacAddrOverride);
 
 	if (!i4Ret)
 		DBGLOG(INIT, ERROR, "sscanf mac format fail u4Ret=%d\n", i4Ret);
@@ -203,6 +226,170 @@ static ssize_t memdump_store(
 	return (i4Ret == 0) ? count : 0;
 }
 
+static ssize_t ant_show(
+	struct kobject *kobj,
+	struct kobj_attribute *attr,
+	char *buf)
+{
+	return snprintf(buf,
+		sizeof(g_i4Ant),
+		"%d", g_i4Ant);
+}
+
+
+static void sysAntSetMode(void)
+{
+	struct ADAPTER *prAdapter = NULL;
+	char input[4] = {0};
+
+	if (!g_prGlueInfo)
+		DBGLOG(INIT, ERROR, "g_prGlueInfo is null\n");
+	else if (g_i4Ant == -1)
+		DBGLOG(INIT, TRACE, "keep default\n");
+	else {
+		prAdapter = g_prGlueInfo->prAdapter;
+		snprintf(input, sizeof(g_i4Ant), "%d", g_i4Ant-1);
+		wlanCfgSet(g_prGlueInfo->prAdapter,
+			"SpeIdxCtrl", input, WLAN_CFG_DEFAULT);
+		prAdapter->rWifiVar.ucNSS = (g_i4Ant == 3) ? 2 : 1;
+		wlanCfgSetUint32(prAdapter, "Nss", prAdapter->rWifiVar.ucNSS);
+		wlanCfgSetUint32(prAdapter, "SGCfg", 0);
+	}
+}
+
+static ssize_t ant_store(
+	struct kobject *kobj,
+	struct kobj_attribute *attr,
+	const char *buf,
+	size_t count)
+{
+	int32_t i4Ret = 0;
+
+	i4Ret = kstrtoint(buf, 10, &g_i4Ant);
+
+	if (i4Ret)
+		DBGLOG(INIT, ERROR, "sscanf ant fail u4Ret=%d\n", i4Ret);
+	else {
+		DBGLOG(INIT, INFO,
+			"Set ANT to %d.\n",
+			g_i4Ant);
+	}
+
+	return (i4Ret == 0) ? count : 0;
+}
+
+static ssize_t logDumpStatus_show(
+	struct kobject *kobj,
+	struct kobj_attribute *attr,
+	char *buf)
+{
+	return snprintf(buf,
+		sizeof(i4DumpInProgress),
+		"%d", i4DumpInProgress);
+}
+
+static ssize_t logDumpStatus_store(
+	struct kobject *kobj,
+	struct kobj_attribute *attr,
+	const char *buf,
+	size_t count)
+{
+	int32_t i4Ret = 0;
+	int32_t i4Value = 0;
+
+	i4Ret = kstrtouint(buf, 10, &i4Value);
+
+	if (i4Ret)
+		DBGLOG(INIT, ERROR,
+			"sscanf dump status fail u4Ret=%d\n", i4Ret);
+	else {
+		switch (i4Value) {
+		case 0:
+			DBGLOG(INIT, TRACE,
+				"Write fw log to file done.\n");
+			i4DumpInProgress = i4Value;
+			fw_log_wifi_write_log_to_file(i4DumpInProgress);
+			break;
+		case 1:
+			DBGLOG(INIT, TRACE,
+				"Write fw log to file start.\n");
+			i4DumpInProgress = i4Value;
+			fw_log_wifi_write_log_to_file(i4DumpInProgress);
+			break;
+
+		default:
+			DBGLOG(INIT, ERROR,
+				"Unknown status mac format fail u4Ret=%d\n",
+				i4Ret);
+		}
+	}
+
+	return (i4Ret == 0) ? count : 0;
+}
+
+static ssize_t feature_show(
+	struct kobject *kobj,
+	struct kobj_attribute *attr,
+	char *buf)
+{
+	return snprintf(buf, sizeof(acFeatureInfo), "%s", acFeatureInfo);
+}
+
+#if CFG_SUPPORT_CABLE_DETECT
+void cable_detect_gpio_parse(void)
+{
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6877-consys");
+	if (!node) {
+		DBGLOG(INIT, ERROR, "parse wifi_cable_detect fail\n");
+		return;
+	}
+
+	g_i4CableDetectGpio = of_get_named_gpio(node, "cable_detect_gpio", 0);
+	if (g_i4CableDetectGpio < 0) {
+		DBGLOG(INIT, ERROR, "parse gpio_num fail\n");
+		g_i4CableDetectGpio = -1;
+	}
+
+	DBGLOG(INIT, INFO, "gpio_num is %d\n", g_i4CableDetectGpio);
+	return;
+
+}
+static u_int8_t cable_detect_gpio_read(void)
+{
+	/*read GPIO*/
+	if (gpio_is_valid(g_i4CableDetectGpio)) {
+		if (gpio_get_value(g_i4CableDetectGpio))
+			return CABLE_STATUS_PULL_OUT;
+		else
+			return CABLE_STATUS_PLUG_IN;
+	}
+
+	return CABLE_STATUS_UNKNOWN;
+}
+
+static ssize_t wificable_show(
+	struct kobject *kobj,
+	struct kobj_attribute *attr,
+	char *buf)
+{
+	/*read GPIO status*/
+	aucCableDetectStatus = cable_detect_gpio_read();
+	DBGLOG(INIT, INFO, "aucCableDetectStatus %d\n", aucCableDetectStatus);
+
+	switch (aucCableDetectStatus) {
+	case CABLE_STATUS_PLUG_IN:
+		return snprintf(buf, sizeof("E"), "E");
+
+	case CABLE_STATUS_PULL_OUT:
+		return snprintf(buf, sizeof("D"), "D");
+
+	default:
+		return snprintf(buf, sizeof("U"), "U");
+	}
+}
+#endif
 
 /*******************************************************************************
  *                           P R I V A T E   D A T A
@@ -224,6 +411,21 @@ static struct kobj_attribute pm_attr
 static struct kobj_attribute memdump_attr
 	= __ATTR(memdump, 0664, memdump_show, memdump_store);
 
+static struct kobj_attribute ant_attr
+	= __ATTR(ant, 0664, ant_show, ant_store);
+
+static struct kobj_attribute logver_attr
+	= __ATTR(dump_in_progress, 0664,
+	logDumpStatus_show, logDumpStatus_store);
+
+static struct kobj_attribute feature_attr
+	= __ATTR(feature, 0664, feature_show, NULL);
+
+#if CFG_SUPPORT_CABLE_DETECT
+static struct kobj_attribute wificable_attr
+	= __ATTR(wificable, 0664, wificable_show, NULL);
+#endif
+
 /*******************************************************************************
  *                                 M A C R O S
  *******************************************************************************
@@ -233,6 +435,33 @@ static struct kobj_attribute memdump_attr
  *                              F U N C T I O N S
  *******************************************************************************
  */
+#if CFG_SUPPORT_CABLE_DETECT
+void sysInitCableInfo(void)
+{
+	int32_t i4Ret = 0;
+
+	if (!wifi_kobj) {
+		DBGLOG(INIT, ERROR, "wifi_kobj is null\n");
+		return;
+	}
+
+	i4Ret = sysfs_create_file(wifi_kobj, &wificable_attr.attr);
+	if (i4Ret)
+		DBGLOG(INIT, ERROR, "Unable to create cableinfo entry\n");
+}
+
+void sysUninitCableInfo(void)
+{
+	if (!wifi_kobj) {
+		DBGLOG(INIT, ERROR, "wifi_kobj is null\n");
+		return;
+	}
+
+	sysfs_remove_file(wifi_kobj, &wificable_attr.attr);
+}
+
+#endif
+
 void sysCreateMacAddr(void)
 {
 	if (g_prGlueInfo) {
@@ -244,7 +473,7 @@ void sysCreateMacAddr(void)
 		kalSnprintf(aucMacAddrOverride,
 			sizeof(aucMacAddrOverride),
 			"%pM",
-			MAC2STR(rMacAddr));
+			rMacAddr);
 
 		DBGLOG(INIT, TRACE,
 			"Init macaddr to " MACSTR ".\n",
@@ -307,7 +536,8 @@ void sysCreateWifiVer(void)
 
 	char aucDriverVersionStr[] = STR(NIC_DRIVER_MAJOR_VERSION) "_"
 		STR(NIC_DRIVER_MINOR_VERSION) "_"
-		STR(NIC_DRIVER_SERIAL_VERSION);
+		STR(NIC_DRIVER_SERIAL_VERSION) "-"
+		DRIVER_BUILD_DATE;
 	uint16_t u2NvramVer = 0;
 	uint8_t ucOffset = 0;
 
@@ -315,11 +545,7 @@ void sysCreateWifiVer(void)
 
 	ucOffset += kalSnprintf(acVerInfo + ucOffset
 		, MTK_INFO_MAX_SIZE - ucOffset
-		, "%s\n", "Mediatek");
-
-	ucOffset += kalSnprintf(acVerInfo + ucOffset
-		, MTK_INFO_MAX_SIZE - ucOffset
-		, "DRIVER_VER: %s\n", aucDriverVersionStr);
+		, "Mediatek DRIVER_VER: %s\n", aucDriverVersionStr);
 
 	if (g_prGlueInfo)
 		ucOffset += kalSnprintf(acVerInfo + ucOffset
@@ -327,10 +553,15 @@ void sysCreateWifiVer(void)
 			, "FW_VER: %s\n"
 			, g_prGlueInfo->prAdapter->rVerInfo.aucReleaseManifest);
 	else {
-		ucOffset += kalSnprintf(acVerInfo + ucOffset
-			, MTK_INFO_MAX_SIZE - ucOffset
-			, "FW_VER: %s\n"
-			, aucDefaultFWVersion);
+		if (g_wifiVer_length == 0) {
+			ucOffset += kalSnprintf(acVerInfo + ucOffset,
+				MTK_INFO_MAX_SIZE - ucOffset,
+				"FW_VER: %s\n", aucDefaultFWVersion);
+		} else {
+			ucOffset += kalSnprintf(acVerInfo + ucOffset,
+				MTK_INFO_MAX_SIZE - ucOffset,
+				"FW_VER: %s\n", g_wifiVer);
+		}
 	}
 
 	if (g_prGlueInfo) {
@@ -492,9 +723,203 @@ void sysUninitMemdump(void)
 	sysfs_remove_file(wifi_kobj, &memdump_attr.attr);
 }
 
+void sysInitAnt(void)
+{
+	int32_t i4Ret = 0;
+
+	if (!wifi_kobj) {
+		DBGLOG(INIT, ERROR, "wifi_kobj is null\n");
+		return;
+	}
+
+	i4Ret = sysfs_create_file(wifi_kobj, &ant_attr.attr);
+	if (i4Ret)
+		DBGLOG(INIT, ERROR, "Unable to create macaddr entry\n");
+}
+
+void sysUninitAnt(void)
+{
+	if (!wifi_kobj) {
+		DBGLOG(INIT, ERROR, "wifi_kobj is null\n");
+		return;
+	}
+
+	sysfs_remove_file(wifi_kobj, &ant_attr.attr);
+}
+
+void sysInitDumpInProgress(void)
+{
+	int32_t i4Ret = 0;
+
+	if (!wifi_kobj) {
+		DBGLOG(INIT, ERROR, "wifi_kobj is null\n");
+		return;
+	}
+
+	i4Ret = sysfs_create_file(wifi_kobj, &logver_attr.attr);
+	if (i4Ret)
+		DBGLOG(INIT, ERROR,
+			"Unable to create dump_in_progress entry\n");
+}
+
+void sysUninitDumpInProgress(void)
+{
+	if (!wifi_kobj) {
+		DBGLOG(INIT, ERROR, "wifi_kobj is null\n");
+		return;
+	}
+
+	sysfs_remove_file(wifi_kobj, &logver_attr.attr);
+}
+
+
+struct FS_SW_ILD_T sw_feature_set_table[] = {
+	{FS_SW_PNO_ID, FS_SW_PNO_LEN,
+		{FS_SW_PNO_SUPPORT|FS_SW_PNO_UNASSOC|FS_SW_PNO_ASSOC} },
+	{FS_SW_TWT_ID, FS_SW_TWT_LEN,
+		{0} },
+	{FS_SW_OPTI_ID, FS_SW_OPTI_LEN,
+		{0} },
+	{FS_SW_SCHE_PM_ID, FS_SW_SCHE_PM_LEN,
+		{0} },
+	{FS_SW_D_WAKEUP_ID, FS_SW_D_WAKEUP_LEN,
+		{0} },
+	{FS_SW_RFC8325_ID, FS_SW_RFC8325_LEN,
+		{FS_SW_RFC8325_SUPPORT} },
+	{FS_SW_MHS_ID, FS_SW_MHS_LEN,
+		{FS_SW_MHS_GET_VALID_CH|FS_SW_MHS_WPA3,
+		FS_SW_MHS_DUAL_INF|FS_SW_MHS_5G|
+		(FS_SW_MHS_MAX_CLIENT<<FS_SW_MHS_MAX_CLIENT_OFFSET)|
+		FS_SW_MHS_CC_HAL} },
+	{FS_SW_ROAM_ID, FS_SW_ROAM_LEN,
+		{FS_SW_ROAM_VER_MAJOR, FS_SW_ROAM_VER_MINOR,
+		FS_SW_ROAM_3B_B0|FS_SW_ROAM_3B_B1|FS_SW_ROAM_3B_B2|
+		FS_SW_ROAM_3B_B3|FS_SW_ROAM_3B_B6|FS_SW_ROAM_3B_B7,
+		FS_SW_ROAM_4B_B0|FS_SW_ROAM_4B_B1|FS_SW_ROAM_4B_B2|
+		FS_SW_ROAM_4B_B3} },
+	{FS_SW_NCHO_ID, FS_SW_NCHO_LEN,
+		{FS_SW_NCHO_VER_MAJOR, FS_SW_NCHO_VER_MINOR} },
+	{FS_SW_ASSUR_ID, FS_SW_ASSUR_LEN,
+		{FS_SW_ASSUR_SUPPORT} },
+	{FS_SW_FRAMEPCAP_ID, FS_SW_FRAMEPCAP_LEN,
+		{0} },
+	{FS_SW_SEC_ID, FS_SW_SEC_LEN,
+		{FS_SW_SEC_WPA3_SAE_HASH, FS_SW_SEC_ENHANCED_OPEN} },
+	{FS_SW_P2P_ID, FS_SW_P2P_LEN,
+		{FS_SW_P2P_TDLS|FS_SW_P2P_TDLS_PS, FS_SW_P2P_TDLS_MAX_NUM, 0, 0,
+		FS_SW_P2P_STA_P2P|FS_SW_P2P_STA_SAP|FS_SW_P2P_STA_TDLS} },
+	{FS_SW_BIGD_ID, FS_SW_BIGD_LEN,
+		{FS_SW_BIGD_GETBSSINFO|FS_SW_BIGD_GETSTAINFO} },
+};
+
+void sysCreateFeature(void)
+{
+	int			i, j;
+	u_int16_t	fs_hw_feature = 0;
+	u_int8_t	ucOffset = 0;
+
+	DBGLOG(INIT, INFO, "[%s]\n", __func__);
+
+	kalMemZero(acFeatureInfo, sizeof(acFeatureInfo));
+
+	ucOffset = 0;
+
+#if defined(CFG_FS_WIFI6_MIMO)
+	/* WIFI6 & MIMO */
+	fs_hw_feature =   FS_HW_STANDARD_WIFI6
+	| FS_HW_NUM_CORES_ONE << FS_HW_NUM_CORES_OFFSET
+	| FS_HW_CONCURRENCY_MODE_ONE << FS_HW_CONCURRENCY_MODE_OFFSET
+	| FS_HW_NUM_ANT_MIMO << FS_HW_NUM_ANT_OFFSET;
+#elif defined(CFG_FS_WIFI5_MIMO)
+	/* WIFI5 & MIMO */
+	fs_hw_feature = FS_HW_STANDARD_WIFI5
+	| FS_HW_NUM_CORES_ONE << FS_HW_NUM_CORES_OFFSET
+	| FS_HW_NUM_ANT_MIMO << FS_HW_NUM_ANT_OFFSET;
+#else
+	/* WIFI5 & SISO */
+	fs_hw_feature =   FS_HW_STANDARD_WIFI5
+	| FS_HW_NUM_CORES_ONE << FS_HW_NUM_CORES_OFFSET
+	| FS_HW_NUM_ANT_SISO << FS_HW_NUM_ANT_OFFSET;
+#endif
+
+	/* Feature Version */
+	ucOffset += kalSnprintf(acFeatureInfo + ucOffset
+		, MTK_INFO_MAX_SIZE - ucOffset
+		, "%04X", FS_VERSION);
+
+	/* Solution Provider */
+	ucOffset += kalSnprintf(acFeatureInfo + ucOffset
+		, MTK_INFO_MAX_SIZE - ucOffset
+		, "%s", aucSolutionProvider);
+
+	/* HW Feature Length */
+	ucOffset += kalSnprintf(acFeatureInfo + ucOffset
+		, MTK_INFO_MAX_SIZE - ucOffset
+		, "%02X", FS_HW_FEATURE_LEN);
+
+	/* HW Feature Set */
+	ucOffset += kalSnprintf(acFeatureInfo + ucOffset
+		, MTK_INFO_MAX_SIZE - ucOffset
+		, "%04X", fs_hw_feature);
+
+	/* SW Feature Length */
+	ucOffset += kalSnprintf(acFeatureInfo + ucOffset
+		, MTK_INFO_MAX_SIZE - ucOffset
+		, "%04X", FS_SW_FEATURE_LEN);
+
+	/* SW Feature Set */
+	for (i = 0; i < FS_SW_FEATURE_NUM; i++) {
+		ucOffset += kalSnprintf(acFeatureInfo + ucOffset
+			, MTK_INFO_MAX_SIZE - ucOffset
+			, "%02X%02X", sw_feature_set_table[i].u8ID,
+						sw_feature_set_table[i].u8Len);
+
+		for (j = 0; j < sw_feature_set_table[i].u8Len; j++) {
+			ucOffset += kalSnprintf(acFeatureInfo + ucOffset
+				, MTK_INFO_MAX_SIZE - ucOffset
+				, "%02X", sw_feature_set_table[i].aucData[j]);
+		}
+	}
+
+	DBGLOG(INIT, INFO, "[%s] Feature Set\n", acFeatureInfo);
+
+}
+
+void sysInitFeature(void)
+{
+	int32_t fsRet = 0;
+
+	DBGLOG(INIT, INFO, "[%s]\n", __func__);
+
+	if (!wifi_kobj) {
+		DBGLOG(INIT, ERROR, "wifi_kobj is null\n");
+		return;
+	}
+
+	fsRet = sysfs_create_file(wifi_kobj, &feature_attr.attr);
+	if (fsRet)
+		DBGLOG(INIT, ERROR,
+			"Unable to create feature_attr entry\n");
+
+	sysCreateFeature();
+}
+
+void sysUninitFeature(void)
+{
+
+	DBGLOG(INIT, INFO, "[%s]\n", __func__);
+
+	if (!wifi_kobj) {
+		DBGLOG(INIT, ERROR, "wifi_kobj is null\n");
+		return;
+	}
+
+	sysfs_remove_file(wifi_kobj, &feature_attr.attr);
+}
+
 int32_t sysCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 {
-	DBGLOG(INIT, TRACE, "[%s]\n", __func__);
+	DBGLOG(INIT, INFO, "[%s]\n", __func__);
 
 	g_prGlueInfo = prGlueInfo;
 
@@ -502,6 +927,7 @@ int32_t sysCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 	pm_EnterCtiaMode();
 	sysCreateWifiVer();
 	sysCreateSoftap();
+	sysAntSetMode();
 
 	return 0;
 }
@@ -515,17 +941,23 @@ int32_t sysRemoveSysfs(void)
 
 int32_t sysInitFs(void)
 {
-	DBGLOG(INIT, TRACE, "[%s]\n", __func__);
+	DBGLOG(INIT, INFO, "[%s]\n", __func__);
 
 	wifi_kobj = kobject_create_and_add("wifi", NULL);
 	kobject_get(wifi_kobj);
 	kobject_uevent(wifi_kobj, KOBJ_ADD);
 
 	sysInitMacAddr();
-	sysInitWifiVer();
+	/*sysInitWifiVer();*/
 	sysInitSoftap();
 	sysInitPM();
 	sysInitMemdump();
+	sysInitAnt();
+	sysInitDumpInProgress();
+	sysInitFeature();
+#if CFG_SUPPORT_CABLE_DETECT
+	sysInitCableInfo();
+#endif
 
 	return 0;
 }
@@ -539,6 +971,12 @@ int32_t sysUninitSysFs(void)
 	sysUninitSoftap();
 	sysUninitWifiVer();
 	sysUninitMacAddr();
+	sysUninitAnt();
+	sysUninitDumpInProgress();
+	sysUninitFeature();
+#if CFG_SUPPORT_CABLE_DETECT
+	sysUninitCableInfo();
+#endif
 
 	kobject_put(wifi_kobj);
 	kobject_uevent(wifi_kobj, KOBJ_REMOVE);

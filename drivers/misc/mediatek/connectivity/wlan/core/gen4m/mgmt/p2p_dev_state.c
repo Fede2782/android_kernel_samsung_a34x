@@ -135,7 +135,8 @@ p2pDevStateInit_REQING_CHANNEL(IN struct ADAPTER *prAdapter,
 
 		prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIdx);
 
-		if (LINK_IS_EMPTY(&(prChnlReqInfo->rP2pChnlReqLink))) {
+		if (!prBssInfo ||
+			LINK_IS_EMPTY(&(prChnlReqInfo->rP2pChnlReqLink))) {
 			/* NO Channel Request Pending. */
 			DBGLOG(P2P, ERROR,
 				"NO Pending Channel Request, but enter Req Channel State\n");

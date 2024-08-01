@@ -190,7 +190,7 @@ nanRangingInstanceInit(struct ADAPTER *prAdapter,
 	cnmTimerInitTimer(prAdapter,
 			  &(prRanging->ranging_ctrl.rRangingSessionTimer),
 			  (PFN_MGMT_TIMEOUT_FUNC)nanRangingSessionTimeout,
-			  (unsigned long)prRanging);
+			  (uintptr_t)prRanging);
 
 	nanRangingFsmStep(prAdapter, prRanging, RANGING_STATE_INIT);
 }
@@ -248,6 +248,9 @@ nanRangingInstanceDel(struct ADAPTER *prAdapter,
 	}
 
 	DBGLOG(NAN, INFO, "ID (%d)\n", prRanging->ranging_ctrl.u2RangingId);
+
+	cnmTimerStopTimer(prAdapter,
+		  &(prRanging->ranging_ctrl.rRangingSessionTimer));
 
 	dl_list_del(&(prRanging->list));
 
@@ -309,12 +312,13 @@ nanRangingInstanceSearchByMac(struct ADAPTER *prAdapter,
 
 	dl_list_for_each(prRanging, ranging_list,
 			 struct _NAN_RANGING_INSTANCE_T, list) {
+		if (prRanging == NULL)
+			return NULL;
 
-		if (prRanging) {
-			if (kalMemCmp(prRanging->ranging_ctrl.aucPeerAddr,
-				      puc_peer_mac, MAC_ADDR_LEN) == 0)
-				return prRanging;
-		}
+		if (kalMemCmp(prRanging->ranging_ctrl.aucPeerAddr,
+			      puc_peer_mac, MAC_ADDR_LEN) == 0)
+			return prRanging;
+
 	}
 
 	return NULL;
@@ -339,11 +343,12 @@ nanRangingInstanceSearchById(struct ADAPTER *prAdapter, uint16_t u2RangingId) {
 
 	dl_list_for_each(prRanging, ranging_list,
 			 struct _NAN_RANGING_INSTANCE_T, list) {
+		if (prRanging == NULL)
+			return NULL;
 
-		if (prRanging) {
-			if (prRanging->ranging_ctrl.u2RangingId == u2RangingId)
-				return prRanging;
-		}
+		if (prRanging->ranging_ctrl.u2RangingId == u2RangingId)
+			return prRanging;
+
 	}
 
 	return NULL;
@@ -383,6 +388,8 @@ nanGetFtmRangeReportAttr(struct ADAPTER *prAdapter, uint8_t **ppucAttr,
 	*(pucPos++) = ucRangeEntryCnt;
 
 	for (u4Idx = 0; u4Idx < ucRangeEntryCnt; u4Idx++) {
+		if (u4Idx >= NAN_FTM_REPORT_OK_MAX_NUM)
+			break;
 		kalMemCopy(pucPos, &prRanging->ranging_ctrl.rNanFtmReport
 					    .arRangeEntry[u4Idx],
 			   sizeof(struct _FTM_REPORT_RANGE_ENTRY_T));
@@ -393,6 +400,8 @@ nanGetFtmRangeReportAttr(struct ADAPTER *prAdapter, uint8_t **ppucAttr,
 	*(pucPos++) = ucErrorEntryCnt;
 
 	for (u4Idx = 0; u4Idx < ucErrorEntryCnt; u4Idx++) {
+		if (u4Idx >= NAN_FTM_REPORT_NG_MAX_NUM)
+			break;
 		kalMemCopy(pucPos, &prRanging->ranging_ctrl.rNanFtmReport
 					    .arErrorEntry[u4Idx],
 			   sizeof(struct _FTM_REPORT_ERROR_ENTRY_T));
@@ -556,6 +565,11 @@ nanRangingFrameCompose(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
 		nanGetSpecificBssInfo(prAdapter, NAN_BSS_INDEX_BAND0);
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 					  prNanSpecificBssInfo->ucBssIndex);
+
+	if (prBssInfo == NULL) {
+		DBGLOG(NAN, ERROR, "[%s] prBssInfo is NULL\n", __func__);
+		return;
+	}
 
 	prActionFrame = (struct _NAN_ACTION_FRAME_T *)prMsduInfo->prPacket;
 
@@ -802,8 +816,8 @@ nanRangingSetupAttrHandler(struct ADAPTER *prAdapter,
 }
 
 uint32_t
-nanParseRangingFrame(IN struct ADAPTER *prAdapter, IN struct SW_RFB *prSwRfb,
-		     IN struct _NAN_RANGING_INSTANCE_T *prRanging) {
+nanParseRangingFrame(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb,
+		     struct _NAN_RANGING_INSTANCE_T *prRanging) {
 	uint16_t u2Offset;
 	uint8_t *pucNanAttr;
 	uint16_t u2ContentLen;
@@ -944,7 +958,7 @@ nanRangingFrameSend(struct ADAPTER *prAdapter, uint8_t *PeerAddr,
 
 	nicTxSetPktRetryLimit(prMsduInfo, 3);
 
-	nicTxSetPktLifeTime(prMsduInfo, 0);
+	nicTxSetPktLifeTime(/* prAdapter , */prMsduInfo, 0);
 
 	/* 4 <6> Enqueue the frame to send this ranging frame. */
 	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
@@ -985,9 +999,9 @@ nanRangingRequestTx(struct ADAPTER *prAdapter,
 }
 
 uint32_t
-nanRangingRequestTxDone(IN struct ADAPTER *prAdapter,
-			IN struct MSDU_INFO *prMsduInfo,
-			IN enum ENUM_TX_RESULT_CODE rTxDoneStatus) {
+nanRangingRequestTxDone(struct ADAPTER *prAdapter,
+			struct MSDU_INFO *prMsduInfo,
+			enum ENUM_TX_RESULT_CODE rTxDoneStatus) {
 	struct _NAN_ACTION_FRAME_T *prNAF;
 	struct _NAN_RANGING_INSTANCE_T *prRanging;
 
@@ -1014,7 +1028,7 @@ nanRangingRequestTxDone(IN struct ADAPTER *prAdapter,
 }
 
 uint32_t
-nanRangingRequestRx(IN struct ADAPTER *prAdapter, IN struct SW_RFB *prSwRfb) {
+nanRangingRequestRx(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb) {
 	struct _NAN_RANGING_INFO_T *prRangingInfo;
 	struct _NAN_RANGING_INSTANCE_T *prRanging = NULL;
 	struct _NAN_ACTION_FRAME_T *prActionFrame = NULL;
@@ -1160,9 +1174,9 @@ nanRangingResponseTx(struct ADAPTER *prAdapter,
 }
 
 uint32_t
-nanRangingResponseTxDone(IN struct ADAPTER *prAdapter,
-			 IN struct MSDU_INFO *prMsduInfo,
-			 IN enum ENUM_TX_RESULT_CODE rTxDoneStatus) {
+nanRangingResponseTxDone(struct ADAPTER *prAdapter,
+			 struct MSDU_INFO *prMsduInfo,
+			 enum ENUM_TX_RESULT_CODE rTxDoneStatus) {
 	struct _NAN_ACTION_FRAME_T *prNAF;
 	struct _NAN_RANGING_INSTANCE_T *prRanging;
 
@@ -1196,7 +1210,7 @@ nanRangingResponseTxDone(IN struct ADAPTER *prAdapter,
 }
 
 uint32_t
-nanRangingResponseRx(IN struct ADAPTER *prAdapter, IN struct SW_RFB *prSwRfb) {
+nanRangingResponseRx(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb) {
 	struct _NAN_RANGING_INSTANCE_T *prRanging = NULL;
 	struct _NAN_ACTION_FRAME_T *prActionFrame = NULL;
 	unsigned char bSchedPass = TRUE;
@@ -1303,9 +1317,9 @@ nanRangingTerminationTx(struct ADAPTER *prAdapter,
 }
 
 uint32_t
-nanRangingTerminationTxDone(IN struct ADAPTER *prAdapter,
-			    IN struct MSDU_INFO *prMsduInfo,
-			    IN enum ENUM_TX_RESULT_CODE rTxDoneStatus) {
+nanRangingTerminationTxDone(struct ADAPTER *prAdapter,
+			    struct MSDU_INFO *prMsduInfo,
+			    enum ENUM_TX_RESULT_CODE rTxDoneStatus) {
 	if (rTxDoneStatus == TX_RESULT_SUCCESS)
 		DBGLOG(NAN, INFO, "Success\n");
 	else
@@ -1315,8 +1329,8 @@ nanRangingTerminationTxDone(IN struct ADAPTER *prAdapter,
 }
 
 uint32_t
-nanRangingTerminationRx(IN struct ADAPTER *prAdapter,
-			IN struct SW_RFB *prSwRfb) {
+nanRangingTerminationRx(struct ADAPTER *prAdapter,
+			struct SW_RFB *prSwRfb) {
 	struct _NAN_RANGING_INSTANCE_T *prRanging = NULL;
 	struct _NAN_ACTION_FRAME_T *prActionFrame = NULL;
 
@@ -1371,9 +1385,9 @@ nanRangingReportTx(struct ADAPTER *prAdapter,
 }
 
 uint32_t
-nanRangingReportTxDone(IN struct ADAPTER *prAdapter,
-		       IN struct MSDU_INFO *prMsduInfo,
-		       IN enum ENUM_TX_RESULT_CODE rTxDoneStatus) {
+nanRangingReportTxDone(struct ADAPTER *prAdapter,
+		       struct MSDU_INFO *prMsduInfo,
+		       enum ENUM_TX_RESULT_CODE rTxDoneStatus) {
 	if (rTxDoneStatus == TX_RESULT_SUCCESS)
 		DBGLOG(NAN, INFO, "Success\n");
 	else
@@ -1383,7 +1397,7 @@ nanRangingReportTxDone(IN struct ADAPTER *prAdapter,
 }
 
 uint32_t
-nanRangingReportRx(IN struct ADAPTER *prAdapter, IN struct SW_RFB *prSwRfb) {
+nanRangingReportRx(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb) {
 	struct _NAN_RANGING_INSTANCE_T *prRanging = NULL;
 	struct _NAN_ACTION_FRAME_T *prActionFrame = NULL;
 	struct _NAN_RANGING_REPORT_CMD rgrpt;
@@ -1536,7 +1550,7 @@ nanRangingFsmStep(struct ADAPTER *prAdapter,
 }
 
 void
-nanRangingSessionTimeout(struct ADAPTER *prAdapter, unsigned long ulParam) {
+nanRangingSessionTimeout(struct ADAPTER *prAdapter, uintptr_t ulParam) {
 	struct _NAN_RANGING_INSTANCE_T *prRanging = NULL;
 
 	DBGLOG(NAN, INFO, "[%s] Enter\n", __func__);
@@ -1557,7 +1571,7 @@ nanRangingSessionTimeout(struct ADAPTER *prAdapter, unsigned long ulParam) {
  ************************************************
  */
 void
-nanRangingFtmParamCmd(IN struct ADAPTER *prAdapter,
+nanRangingFtmParamCmd(struct ADAPTER *prAdapter,
 		      struct _NAN_RANGING_INSTANCE_T *prRanging) {
 	uint32_t rStatus;
 	void *prCmdBuffer;
@@ -1720,7 +1734,7 @@ nanRangingGeofencingCheck(struct ADAPTER *prAdapter,
 }
 
 void
-nanRangingFtmDoneEvt(IN struct ADAPTER *prAdapter, IN uint8_t *pcuEvtBuf) {
+nanRangingFtmDoneEvt(struct ADAPTER *prAdapter, uint8_t *pcuEvtBuf) {
 	struct _NAN_RANGING_INSTANCE_T *prRanging = NULL;
 	struct _NAN_FTM_DONE_EVENT *prEvent;
 	struct _NAN_RANGING_REPORT_CMD rgrpt;
@@ -1820,7 +1834,7 @@ nanRangingFtmDoneEvt(IN struct ADAPTER *prAdapter, IN uint8_t *pcuEvtBuf) {
 }
 
 void
-nanRangingReportDiscCmd(IN struct ADAPTER *prAdapter,
+nanRangingReportDiscCmd(struct ADAPTER *prAdapter,
 			struct _NAN_RANGING_REPORT_CMD *msg) {
 	uint32_t rStatus;
 	void *prCmdBuffer;
@@ -1958,8 +1972,8 @@ nanRangingInvokedByDisc(struct ADAPTER *prAdapter, uint16_t *pu2Id,
 }
 
 void
-nanRangingInvokedByDiscEvt(IN struct ADAPTER *prAdapter,
-		IN uint8_t *pcuEvtBuf) {
+nanRangingInvokedByDiscEvt(struct ADAPTER *prAdapter,
+		uint8_t *pcuEvtBuf) {
 	struct _NAN_RANGING_BY_DISC_EVENT *prEvent;
 	struct _NAN_RANGING_REPORT_CMD rgrpt;
 	uint16_t rgId = 0;

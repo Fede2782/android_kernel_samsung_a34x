@@ -1379,17 +1379,18 @@ static signed int connac2x_GetCurRSSI(signed int *pRSSI)
 	return 0;
 }
 
-static unsigned short connac2x_vol_tbl[16] = { 0x0000, 0x0519, 0x066A, 0x0814,
-	0x0A2B, 0x0CCD, 0x101D, 0x1449,
-	0x198A, 0x2027, 0x287A, 0x32F5,
-	0x4027, 0x50C3, 0x65AD, 0x7FFF
+static unsigned short connac2x_vol_tbl[FM_VOL_MAX + 1] = {
+	0x0000, 0x040C, 0x048B, 0x0519, 0x05B8, 0x066A, 0x0733, 0x0814,
+	0x0910, 0x0A2B, 0x0B68, 0x0CCD, 0x0E5D, 0x101D, 0x1215, 0x1449,
+	0x16C3, 0x198A, 0x1CA8, 0x2027, 0x2413, 0x287A, 0x2D6B, 0x32F5,
+	0x392D, 0x4027, 0x47FB, 0x50C3, 0x5A9E, 0x65AD, 0x7215, 0x7FFF
 };
 
 static signed int connac2x_SetVol(unsigned char vol)
 {
 	signed int ret = 0;
 
-	vol = (vol > 15) ? 15 : vol;
+	vol = (vol > FM_VOL_MAX) ? FM_VOL_MAX : vol;
 	ret = fm_reg_write(0x7D, connac2x_vol_tbl[vol]);
 	if (ret) {
 		WCN_DBG(FM_ERR | CHIP, "Set vol=%d Failed\n", vol);
@@ -1423,7 +1424,7 @@ static signed int connac2x_GetVol(unsigned char *pVol)
 		return ret;
 	}
 
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i <= FM_VOL_MAX; i++) {
 		if (connac2x_vol_tbl[i] == tmp) {
 			*pVol = i;
 			break;

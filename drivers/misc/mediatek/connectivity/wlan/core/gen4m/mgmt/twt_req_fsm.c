@@ -170,14 +170,9 @@ twtReqFsmSteps(
 					ucTWTFlowId, MID_TWT_REQ_IND_RESULT);
 				/* TODO: how to handle failures */
 			} else if (ePreState == TWT_REQ_STATE_TEARING_DOWN) {
-#if (CFG_TWT_STA_DIRECT_TEARDOWN == 1)
-			/* Enable SCAN after TWT agrt has been tear down */
-				prAdapter->fgEnOnlineScan = TRUE;
-#else
 				twtReqFsmSendEvent(prAdapter, prStaRec,
 					ucTWTFlowId,
 					MID_TWT_REQ_IND_TEARDOWN_DONE);
-#endif
 			} else if (ePreState == TWT_REQ_STATE_RESUMING) {
 				twtReqFsmSendEvent(prAdapter, prStaRec,
 					ucTWTFlowId,
@@ -204,11 +199,6 @@ twtReqFsmSteps(
 			break;
 
 		case TWT_REQ_STATE_TEARING_DOWN:
-#if (CFG_TWT_STA_DIRECT_TEARDOWN == 1)
-			twtPlannerTearingdown(
-				prAdapter, prStaRec, ucTWTFlowId);
-#endif
-
 			rStatus = twtSendTeardownFrame(
 				prAdapter, prStaRec, ucTWTFlowId,
 				twtReqFsmRunEventTxDone);

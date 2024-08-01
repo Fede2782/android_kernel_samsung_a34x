@@ -27,7 +27,6 @@
 #define ppm_limit_data cpu_ctrl_data
 #else
 #include <linux/pm_qos.h>
-#include <helio-dvfsrc-opp.h>
 #endif
 
 #include "precomp.h"

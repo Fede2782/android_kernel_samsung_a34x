@@ -285,9 +285,15 @@ void secPostUpdateAddr(IN struct ADAPTER *prAdapter,
 enum ENUM_EAPOL_KEY_TYPE_T secGetEapolKeyType(
 	uint8_t *pucPacket);
 
+enum ENUM_EAPOL_KEY_TYPE_T secGetEapolKeyTypeBySwRfb(
+	struct SW_RFB *prSwRfb);
+
 void secHandleNoWtbl(IN struct ADAPTER *prAdapter,
 	IN struct SW_RFB *prSwRfb);
 
+void secCheckRxEapolPacketEncryption(IN struct ADAPTER *prAdapter,
+	IN struct SW_RFB *prRetSwRfb,
+	IN struct STA_RECORD *prStaRec);
 /*******************************************************************************
  *                              F U N C T I O N S
  *******************************************************************************

@@ -28,6 +28,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 #define COMBO_IOC_MAGIC				0xb0
 #define COMBO_IOCTL_BT_HOST_DEBUG	_IOW(COMBO_IOC_MAGIC, 4, void*)
 #define COMBO_IOCTL_BT_INTTRX		_IOW(COMBO_IOC_MAGIC, 5, void*)
+#define COMBO_IOCTL_BT_GET_FW_VERSION	_IOR(COMBO_IOC_MAGIC, 6, void*)
 #define IOCTL_BT_HOST_DEBUG_BUF_SIZE	(32)
 #define IOCTL_BT_HOST_INTTRX_SIZE		(128)
 
@@ -61,12 +62,14 @@ static struct device *BT_dev;
 static uint8_t i_buf[BT_BUFFER_SIZE]; /* Input buffer for read */
 static uint8_t o_buf[BT_BUFFER_SIZE]; /* Output buffer for write */
 static uint8_t ioc_buf[IOCTL_BT_HOST_INTTRX_SIZE];
+static unsigned char bt_dump_buf[BT_BUFFER_SIZE];
+
 
 extern struct btmtk_dev *g_sbdev;
-extern bool g_bt_trace_pt;
 extern struct btmtk_btif_dev g_btif_dev;
 extern void bthost_debug_init(void);
 extern void bthost_debug_save(uint32_t id, uint32_t value, char* desc);
+extern int fwp_if_get_bt_patch_path(char *buf, int max_len);
 static struct semaphore wr_mtx, rd_mtx;
 static struct bt_wake_lock bt_wakelock;
 /* Wait queue for poll and read */
@@ -213,8 +216,7 @@ static ssize_t __bt_write(uint8_t *buf, size_t count, uint32_t flags)
 {
 	int32_t retval = 0;
 
-	if (g_bt_trace_pt)
-		bt_dbg_tp_evt(TP_ACT_WR_IN, 0, count, buf);
+	bt_dbg_tp_evt(TP_ACT_WR_IN, 0, count, buf);
 	retval = btmtk_send_data(g_sbdev->hdev, buf, count);
 
 	if (retval < 0)
@@ -311,8 +313,7 @@ static ssize_t BT_read(struct file *filp, char __user *buf, size_t count, loff_t
 {
 	ssize_t retval = 0;
 
-	if (g_bt_trace_pt)
-		bt_dbg_tp_evt(TP_ACT_RD_IN, 0, count, NULL);
+	bt_dbg_tp_evt(TP_ACT_RD_IN, 0, count, NULL);
 	ftrace_print("%s get called, count %zd", __func__, count);
 	down(&rd_mtx);
 
@@ -377,8 +378,7 @@ static ssize_t BT_read(struct file *filp, char __user *buf, size_t count, loff_t
 			wait_event(BT_wq, flag != 0);
 			flag = 0;
 		} else { /* Got something from RX queue */
-			if (g_bt_trace_pt)
-				bt_dbg_tp_evt(TP_ACT_RD_OUT, 0, retval, i_buf);
+			bt_dbg_tp_evt(TP_ACT_RD_OUT, 0, retval, i_buf);
 			break;
 		}
 	} while (btmtk_rx_data_valid() && rstflag == CHIP_RESET_NONE);
@@ -421,9 +421,11 @@ int _ioctl_copy_evt_to_buf(uint8_t *buf, int len)
 static long BT_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int32_t retval = 0;
+	int bt_dump_buf_len = 0;
 	BTMTK_INFO("%s: cmd[0x%08x]", __func__, cmd);
 
 	memset(ioc_buf, 0x00, sizeof(ioc_buf));
+	memset(bt_dump_buf, 0x00, sizeof(bt_dump_buf));
 	switch (cmd) {
 	case COMBO_IOCTL_BT_HOST_DEBUG:
 		/* input: arg(buf_size = 32): id[0:3], value[4:7], desc[8:31]
@@ -436,6 +438,12 @@ static long BT_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long
 			BTMTK_INFO("%s: id[%x], value[0x%08x], desc[%s]", __func__, pint32[0], pint32[1], &ioc_buf[8]);
 			bthost_debug_save(pint32[0], pint32[1], (char*)&ioc_buf[8]);
 		}
+		break;
+	case COMBO_IOCTL_BT_GET_FW_VERSION:
+		bt_dump_buf_len = fwp_if_get_bt_patch_path(bt_dump_buf, BT_BUFFER_SIZE);
+		if (copy_to_user((unsigned char __user*)arg, bt_dump_buf, bt_dump_buf_len))
+			retval = -EFAULT;
+		BTMTK_INFO("%s: bt_dump_buf = %s, bt_dump_buf_len = %d", __func__, bt_dump_buf, bt_dump_buf_len);
 		break;
 	case COMBO_IOCTL_BT_INTTRX:
 		/* input: arg(buf_size = 128): hci cmd raw data

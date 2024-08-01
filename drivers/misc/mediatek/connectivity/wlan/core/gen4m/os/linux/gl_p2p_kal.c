@@ -214,7 +214,8 @@ kalP2PUpdateAssocInfo(IN struct GLUE_INFO *prGlueInfo,
 	wrqu.data.length = pucDesiredIE[1] + 2;
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prGlueInfo->prAdapter, ucBssIndex);
-
+	if (!prBssInfo)
+		return;
 	if (ucBssIndex == prGlueInfo->prAdapter->ucP2PDevBssIdx)
 		prNetdevice = prGlueInfo->prP2PInfo
 			[prBssInfo->u4PrivateData]->prDevHandler;
@@ -1165,7 +1166,7 @@ kalP2PIndicateChannelExpired(IN struct GLUE_INFO *prGlueInfo,
 			break;
 		}
 
-		DBGLOG(P2P, TRACE, "kalP2PIndicateChannelExpired\n");
+		DBGLOG(P2P, TRACE, "cookie:0x%llx\n", u8SeqNum);
 
 		rRfChannelInfo.eBand = eBand;
 		rRfChannelInfo.ucChannelNum = u4ChannelNum;
@@ -1354,6 +1355,9 @@ void kalP2PIndicateMgmtTxStatus(IN struct GLUE_INFO *prGlueInfo,
 				GET_BSS_INFO_BY_INDEX(prGlueInfo->prAdapter,
 				prMsduInfo->ucBssIndex);
 
+			if (prP2pBssInfo == NULL)
+				return;
+
 			prGlueP2pInfo =
 				prGlueInfo->prP2PInfo
 					[prP2pBssInfo->u4PrivateData];
@@ -1363,6 +1367,9 @@ void kalP2PIndicateMgmtTxStatus(IN struct GLUE_INFO *prGlueInfo,
 
 			prNetdevice = prGlueP2pInfo->aprRoleHandler;
 		}
+
+		p2pFuncRemovePendingMgmtLinkEntry(prGlueInfo->prAdapter,
+			prMsduInfo->ucBssIndex, *pu8GlCookie);
 
 		cfg80211_mgmt_tx_status(
 			/* struct net_device * dev, */
@@ -1456,7 +1463,7 @@ kalP2PIndicateRxMgmtFrame(IN struct ADAPTER *prAdapter,
 				prNetdevice);
 
 		if (!prGlueInfo->fgIsRegistered ||
-			test_bit(GLUE_FLAG_HALT_BIT, &prGlueInfo->ulFlag) ||
+			(prGlueInfo->ulFlag & GLUE_FLAG_HALT) ||
 			!prGlueInfo->prAdapter->fgIsP2PRegistered ||
 			(prGlueInfo->prAdapter->rP2PNetRegState !=
 				ENUM_NET_REG_STATE_REGISTERED) ||
@@ -1512,7 +1519,6 @@ kalP2PIndicateRxMgmtFrame(IN struct ADAPTER *prAdapter,
 
 }				/* kalP2PIndicateRxMgmtFrame */
 
-#if CFG_WPS_DISCONNECT || (KERNEL_VERSION(4, 4, 0) <= CFG80211_VERSION_CODE)
 void
 kalP2PGCIndicateConnectionStatus(IN struct GLUE_INFO *prGlueInfo,
 		IN uint8_t ucRoleIndex,
@@ -1541,7 +1547,7 @@ kalP2PGCIndicateConnectionStatus(IN struct GLUE_INFO *prGlueInfo,
 				NETREG_REGISTERED) ||
 		    (prAdapter->rP2PNetRegState !=
 				ENUM_NET_REG_STATE_REGISTERED) ||
-		    (test_bit(GLUE_FLAG_HALT_BIT, &prGlueInfo->ulFlag) == 1)) {
+		    ((prGlueInfo->ulFlag & GLUE_FLAG_HALT) == 1)) {
 			break;
 		}
 
@@ -1561,77 +1567,25 @@ kalP2PGCIndicateConnectionStatus(IN struct GLUE_INFO *prGlueInfo,
 
 			prP2pConnInfo->eConnRequest = P2P_CONNECTION_TYPE_IDLE;
 		} else {
+			DBGLOG(INIT, INFO,
+				"indicate disconnection event to kernel, reason=%d, locally_generated=%d\n",
+				u2StatusReason,
+				eStatus == WLAN_STATUS_MEDIA_DISCONNECT_LOCALLY
+				);
 			/* Disconnect, what if u2StatusReason == 0? */
 			cfg80211_disconnected(prGlueP2pInfo->aprRoleHandler,
 				/* struct net_device * dev, */
 				u2StatusReason,
 				pucRxIEBuf, u2RxIELen,
+#if CFG_WPS_DISCONNECT || (KERNEL_VERSION(4, 4, 0) <= CFG80211_VERSION_CODE)
 				eStatus == WLAN_STATUS_MEDIA_DISCONNECT_LOCALLY,
-				GFP_KERNEL);
-		}
-
-	} while (FALSE);
-
-}				/* kalP2PGCIndicateConnectionStatus */
-
-#else
-void
-kalP2PGCIndicateConnectionStatus(IN struct GLUE_INFO *prGlueInfo,
-		IN uint8_t ucRoleIndex,
-		IN struct P2P_CONNECTION_REQ_INFO *prP2pConnInfo,
-		IN uint8_t *pucRxIEBuf,
-		IN uint16_t u2RxIELen,
-		IN uint16_t u2StatusReason)
-{
-	struct GL_P2P_INFO *prGlueP2pInfo = (struct GL_P2P_INFO *) NULL;
-	struct ADAPTER *prAdapter = NULL;
-
-	do {
-		if (prGlueInfo == NULL) {
-			ASSERT(FALSE);
-			break;
-		}
-
-		prAdapter = prGlueInfo->prAdapter;
-		prGlueP2pInfo = prGlueInfo->prP2PInfo[ucRoleIndex];
-
-		/* FIXME: This exception occurs at wlanRemove. */
-		if ((prGlueP2pInfo == NULL) ||
-		    (prGlueP2pInfo->aprRoleHandler == NULL) ||
-		    (prAdapter->rP2PNetRegState !=
-				ENUM_NET_REG_STATE_REGISTERED) ||
-		    (test_bit(GLUE_FLAG_HALT_BIT, &prGlueInfo->ulFlag) == 1)) {
-			break;
-		}
-
-		if (prP2pConnInfo) {
-			/* switch netif on */
-			netif_carrier_on(prGlueP2pInfo->aprRoleHandler);
-
-			cfg80211_connect_result(prGlueP2pInfo->aprRoleHandler,
-				/* struct net_device * dev, */
-				prP2pConnInfo->aucBssid,
-				prP2pConnInfo->aucIEBuf,
-				prP2pConnInfo->u4BufLength,
-				pucRxIEBuf, u2RxIELen,
-				u2StatusReason,
-				/* gfp_t gfp *//* allocation flags */
-				GFP_KERNEL);
-
-			prP2pConnInfo->eConnRequest = P2P_CONNECTION_TYPE_IDLE;
-		} else {
-			/* Disconnect, what if u2StatusReason == 0? */
-			cfg80211_disconnected(prGlueP2pInfo->aprRoleHandler,
-				/* struct net_device * dev, */
-				u2StatusReason, pucRxIEBuf,
-				u2RxIELen, GFP_KERNEL);
-		}
-
-	} while (FALSE);
-
-}				/* kalP2PGCIndicateConnectionStatus */
-
 #endif
+				GFP_KERNEL);
+		}
+
+	} while (FALSE);
+
+}				/* kalP2PGCIndicateConnectionStatus */
 
 void
 kalP2PGOStationUpdate(IN struct GLUE_INFO *prGlueInfo,
@@ -1682,8 +1636,7 @@ kalP2PGOStationUpdate(IN struct GLUE_INFO *prGlueInfo,
 			/* FIXME: The exception occurs at wlanRemove, and
 			 *    check GLUE_FLAG_HALT is the temporarily solution.
 			 */
-			if (test_bit(GLUE_FLAG_HALT_BIT, &prGlueInfo->ulFlag)
-				== 0) {
+			if ((prGlueInfo->ulFlag & GLUE_FLAG_HALT) == 0) {
 				if (prCliStaRec->fgIsConnected == FALSE)
 					break;
 				prCliStaRec->fgIsConnected = FALSE;
@@ -1691,6 +1644,11 @@ kalP2PGOStationUpdate(IN struct GLUE_INFO *prGlueInfo,
 					/* struct net_device * dev, */
 					prCliStaRec->aucMacAddr, GFP_KERNEL);
 			}
+#if CFG_TC10_FEATURE
+			kalMemCopy(&prGlueInfo->prAdapter->rSapLastStaRec,
+					prCliStaRec, sizeof(struct STA_RECORD));
+			prGlueInfo->prAdapter->fgSapLastStaRecSet = 1;
+#endif
 		}
 
 	} while (FALSE);
@@ -1722,6 +1680,9 @@ void kalP2PRddDetectUpdate(IN struct GLUE_INFO *prGlueInfo,
 		else
 			prNetdevice = prGlueP2pInfo->prDevHandler;
 
+		if (prGlueP2pInfo->chandef == NULL)
+			break;
+
 #ifdef CFG_REPORT_TO_OS
 
 		/* cac start disable for next cac slot
@@ -1738,11 +1699,11 @@ void kalP2PRddDetectUpdate(IN struct GLUE_INFO *prGlueInfo,
 			"kalP2PRddDetectUpdate: Update to OS Done\n");
 #endif
 
-		if (prGlueP2pInfo->chandefCsa.chan)
+		if (prGlueP2pInfo->chandef->chan)
 			kalP2pIndicateRadarEvent(prGlueInfo,
 				ucRoleIndex,
 				WIFI_EVENT_DFS_OFFLOAD_RADAR_DETECTED,
-				prGlueP2pInfo->chandefCsa.chan->center_freq);
+				prGlueP2pInfo->chandef->chan->center_freq);
 
 		netif_carrier_off(prNetdevice);
 		netif_tx_stop_all_queues(prNetdevice);
@@ -1771,11 +1732,14 @@ void kalP2PCacStartedUpdate(IN struct GLUE_INFO *prGlueInfo,
 		else
 			prNetdevice = prGlueP2pInfo->prDevHandler;
 
-		if (prGlueP2pInfo->chandefCsa.chan)
+		if (prGlueP2pInfo->chandef == NULL)
+			break;
+
+		if (prGlueP2pInfo->chandef->chan)
 			kalP2pIndicateRadarEvent(prGlueInfo,
 				ucRoleIndex,
 				WIFI_EVENT_DFS_OFFLOAD_CAC_STARTED,
-				prGlueP2pInfo->chandefCsa.chan->center_freq);
+				prGlueP2pInfo->chandef->chan->center_freq);
 	} while (FALSE);
 
 }
@@ -1801,12 +1765,15 @@ void kalP2PCacFinishedUpdate(IN struct GLUE_INFO *prGlueInfo,
 		else
 			prNetdevice = prGlueP2pInfo->prDevHandler;
 
+		if (prGlueP2pInfo->chandef == NULL)
+			break;
+
 #ifdef CFG_REPORT_TO_OS
 		DBGLOG(INIT, INFO, "kalP2PCacFinishedUpdate: Update to OS\n");
 #if KERNEL_VERSION(3, 14, 0) <= CFG80211_VERSION_CODE
 		cfg80211_cac_event(
 			prNetdevice,
-			&prGlueP2pInfo->chandefCsa,
+			prGlueP2pInfo->chandef,
 			NL80211_RADAR_CAC_FINISHED, GFP_KERNEL);
 #else
 		cfg80211_cac_event(
@@ -1817,11 +1784,11 @@ void kalP2PCacFinishedUpdate(IN struct GLUE_INFO *prGlueInfo,
 			"kalP2PCacFinishedUpdate: Update to OS Done\n");
 #endif
 
-		if (prGlueP2pInfo->chandefCsa.chan)
+		if (prGlueP2pInfo->chandef->chan)
 			kalP2pIndicateRadarEvent(prGlueInfo,
 				ucRoleIndex,
 				WIFI_EVENT_DFS_OFFLOAD_CAC_FINISHED,
-				prGlueP2pInfo->chandefCsa.chan->center_freq);
+				prGlueP2pInfo->chandef->chan->center_freq);
 	} while (FALSE);
 
 }				/* kalP2PRddDetectUpdate */
@@ -1866,12 +1833,12 @@ struct ieee80211_channel *kalP2pFuncGetChannelEntry(
 	struct ieee80211_channel *prTargetChannelEntry =
 		(struct ieee80211_channel *)NULL;
 	uint32_t u4TblSize = 0, u4Idx = 0;
-	struct wiphy *wiphy = wlanGetWiphy();
+	struct wiphy *wiphy = NULL;
 
-	if ((prP2pInfo == NULL) ||
-		(prChannelInfo == NULL) ||
-		(wiphy == NULL))
+	if ((prP2pInfo == NULL) || (prChannelInfo == NULL))
 		return NULL;
+
+	wiphy = prP2pInfo->prWdev->wiphy;
 
 	do {
 
@@ -1972,7 +1939,7 @@ u_int8_t kalP2PSetBlackList(IN struct GLUE_INFO *prGlueInfo,
 				&(prGlueInfo->prP2PInfo[ucRoleIndex]
 				->aucblackMACList[i]), rbssid)) {
 				DBGLOG(P2P, WARN, MACSTR
-					" already in black list\n",
+					" already in block list\n",
 					MAC2STR(rbssid));
 				return FALSE;
 			}
@@ -2519,16 +2486,35 @@ void kalP2pIndicateChnlSwitch(IN struct ADAPTER *prAdapter,
 		struct ieee80211_channel *chan;
 
 		prP2PInfo->fgChannelSwitchReq = false;
+		if (prP2PInfo->chandef != NULL) {
+			if (prP2PInfo->chandef->chan) {
+				cnmMemFree(prAdapter,
+					prP2PInfo->chandef->chan);
+				prP2PInfo->chandef->chan = NULL;
+			}
+			cnmMemFree(prAdapter,
+				prP2PInfo->chandef);
+			prP2PInfo->chandef = NULL;
+		}
 
-		kalMemZero(
-			&(prP2PInfo->chandefCsa),
+		prP2PInfo->chandef = (struct cfg80211_chan_def *)
+				cnmMemAlloc(prAdapter, RAM_TYPE_BUF,
+				sizeof(struct cfg80211_chan_def));
+		if (!prP2PInfo->chandef) {
+			DBGLOG(P2P, WARN, "cfg80211_chan_def alloc fail\n");
+			return;
+		}
+		kalMemZero(prP2PInfo->chandef,
 			sizeof(struct cfg80211_chan_def));
-		prP2PInfo->chandefCsa.chan
-			= (struct ieee80211_channel *)
-			&(prP2PInfo->chanCsa);
-		kalMemZero(
-			prP2PInfo->chandefCsa.chan,
-			sizeof(struct ieee80211_channel));
+
+		prP2PInfo->chandef->chan = (struct ieee80211_channel *)
+				cnmMemAlloc(prAdapter, RAM_TYPE_BUF,
+				sizeof(struct ieee80211_channel));
+
+		if (!prP2PInfo->chandef->chan) {
+			DBGLOG(P2P, WARN, "ieee80211_channel alloc fail\n");
+			return;
+		}
 
 		chan = ieee80211_get_channel(
 				prP2PInfo->prWdev->wiphy,
@@ -2544,109 +2530,109 @@ void kalP2pIndicateChnlSwitch(IN struct ADAPTER *prAdapter,
 		/* Fill chan def */
 		switch (prBssInfo->eBand) {
 		case BAND_2G4:
-			prP2PInfo->chandefCsa.chan->band = KAL_BAND_2GHZ;
+			prP2PInfo->chandef->chan->band = KAL_BAND_2GHZ;
 			break;
 		case BAND_5G:
-			prP2PInfo->chandefCsa.chan->band = KAL_BAND_5GHZ;
+			prP2PInfo->chandef->chan->band = KAL_BAND_5GHZ;
 			break;
 #if (CFG_SUPPORT_WIFI_6G == 1)
 		case BAND_6G:
-			prP2PInfo->chandefCsa.chan->band = KAL_BAND_6GHZ;
+			prP2PInfo->chandef->chan->band = KAL_BAND_6GHZ;
 			break;
 #endif
 		default:
-			prP2PInfo->chandefCsa.chan->band = KAL_BAND_2GHZ;
+			prP2PInfo->chandef->chan->band = KAL_BAND_2GHZ;
 			break;
 		}
-		prP2PInfo->chandefCsa.chan->center_freq = nicChannelNum2Freq(
+		prP2PInfo->chandef->chan->center_freq = nicChannelNum2Freq(
 				prBssInfo->ucPrimaryChannel,
 				prBssInfo->eBand) / 1000;
 
-		prP2PInfo->chandefCsa.chan->dfs_state = chan->dfs_state;
+		prP2PInfo->chandef->chan->dfs_state = chan->dfs_state;
 
 #if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
-		prP2PInfo->chandefCsa.chan->freq_offset =
+		prP2PInfo->chandef->chan->freq_offset =
 			chan->freq_offset;
-		prP2PInfo->chandefCsa.freq1_offset =
-			prP2PInfo->chandefCsa.chan->freq_offset;
+		prP2PInfo->chandef->freq1_offset =
+			prP2PInfo->chandef->chan->freq_offset;
 #endif
 
 		switch (prBssInfo->ucVhtChannelWidth) {
 		case VHT_OP_CHANNEL_WIDTH_80P80:
-			prP2PInfo->chandefCsa.width
+			prP2PInfo->chandef->width
 				= NL80211_CHAN_WIDTH_80P80;
-			prP2PInfo->chandefCsa.center_freq1
+			prP2PInfo->chandef->center_freq1
 				= nicChannelNum2Freq(
 				prBssInfo->ucVhtChannelFrequencyS1,
 				prBssInfo->eBand) / 1000;
-			prP2PInfo->chandefCsa.center_freq2
+			prP2PInfo->chandef->center_freq2
 				= nicChannelNum2Freq(
 				prBssInfo->ucVhtChannelFrequencyS2,
 				prBssInfo->eBand) / 1000;
 			break;
 		case VHT_OP_CHANNEL_WIDTH_160:
-			prP2PInfo->chandefCsa.width
+			prP2PInfo->chandef->width
 				= NL80211_CHAN_WIDTH_160;
-			prP2PInfo->chandefCsa.center_freq1
+			prP2PInfo->chandef->center_freq1
 				= nicChannelNum2Freq(
 				prBssInfo->ucVhtChannelFrequencyS1,
 				prBssInfo->eBand) / 1000;
-			prP2PInfo->chandefCsa.center_freq2
+			prP2PInfo->chandef->center_freq2
 				= nicChannelNum2Freq(
 				prBssInfo->ucVhtChannelFrequencyS2,
 				prBssInfo->eBand) / 1000;
 			break;
 		case VHT_OP_CHANNEL_WIDTH_80:
-			prP2PInfo->chandefCsa.width
+			prP2PInfo->chandef->width
 				= NL80211_CHAN_WIDTH_80;
-			prP2PInfo->chandefCsa.center_freq1
+			prP2PInfo->chandef->center_freq1
 				= nicChannelNum2Freq(
 				prBssInfo->ucVhtChannelFrequencyS1,
 				prBssInfo->eBand) / 1000;
-			prP2PInfo->chandefCsa.center_freq2
+			prP2PInfo->chandef->center_freq2
 				= nicChannelNum2Freq(
 				prBssInfo->ucVhtChannelFrequencyS2,
 				prBssInfo->eBand) / 1000;
 			break;
 		case VHT_OP_CHANNEL_WIDTH_20_40:
-			prP2PInfo->chandefCsa.center_freq1
-				= prP2PInfo->chandefCsa.chan->center_freq;
+			prP2PInfo->chandef->center_freq1
+				= prP2PInfo->chandef->chan->center_freq;
 			if (prBssInfo->eBssSCO == CHNL_EXT_SCA) {
-				prP2PInfo->chandefCsa.width
+				prP2PInfo->chandef->width
 					= NL80211_CHAN_WIDTH_40;
-				prP2PInfo->chandefCsa.center_freq1 += 10;
+				prP2PInfo->chandef->center_freq1 += 10;
 			} else if (prBssInfo->eBssSCO == CHNL_EXT_SCB) {
-				prP2PInfo->chandefCsa.width
+				prP2PInfo->chandef->width
 					= NL80211_CHAN_WIDTH_40;
-				prP2PInfo->chandefCsa.center_freq1 -= 10;
+				prP2PInfo->chandef->center_freq1 -= 10;
 			} else {
-				prP2PInfo->chandefCsa.width
+				prP2PInfo->chandef->width
 					= NL80211_CHAN_WIDTH_20;
 			}
-			prP2PInfo->chandefCsa.center_freq2 = 0;
+			prP2PInfo->chandef->center_freq2 = 0;
 			break;
 		default:
-			prP2PInfo->chandefCsa.width
+			prP2PInfo->chandef->width
 				= NL80211_CHAN_WIDTH_20;
-			prP2PInfo->chandefCsa.center_freq1
-				= prP2PInfo->chandefCsa.chan->center_freq;
-			prP2PInfo->chandefCsa.center_freq2 = 0;
+			prP2PInfo->chandef->center_freq1
+				= prP2PInfo->chandef->chan->center_freq;
+			prP2PInfo->chandef->center_freq2 = 0;
 			break;
 		}
 
 		DBGLOG(P2P, INFO,
 			"role(%d) b=%d f=%d w=%d s1=%d s2=%d dfs=%d\n",
 			role_idx,
-			prP2PInfo->chandefCsa.chan->band,
-			prP2PInfo->chandefCsa.chan->center_freq,
-			prP2PInfo->chandefCsa.width,
-			prP2PInfo->chandefCsa.center_freq1,
-			prP2PInfo->chandefCsa.center_freq2,
-			prP2PInfo->chandefCsa.chan->dfs_state);
+			prP2PInfo->chandef->chan->band,
+			prP2PInfo->chandef->chan->center_freq,
+			prP2PInfo->chandef->width,
+			prP2PInfo->chandef->center_freq1,
+			prP2PInfo->chandef->center_freq2,
+			prP2PInfo->chandef->chan->dfs_state);
 	}
 
 	/* Ch notify */
 	cfg80211_ch_switch_notify(
 		prNetdevice,
-		&prP2PInfo->chandefCsa);
+		prP2PInfo->chandef);
 }

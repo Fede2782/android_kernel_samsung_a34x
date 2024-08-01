@@ -22,11 +22,7 @@
 #include <linux/uaccess.h>
 #include <linux/printk.h>
 #include <linux/version.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
-#include <asm/mmu.h>
-#else
 #include <asm/memblock.h>
-#endif
 #include "gps.h"
 
 #ifdef pr_fmt
@@ -44,43 +40,102 @@
 #define IOCTL_MNL_NVRAM_MEM_TO_FILE  3
 #define IOCTL_ADC_CAPTURE_ADDR_GET   4
 
-#if defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6768)\
-|| (defined(CONFIG_MACH_MT6779) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)))\
-|| defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6775) || defined(CONFIG_MACH_MT6758)
-int gps_emi_mpu_region = -1;
-int gps_emi_base_addr_offset = -1;
-int gps_emi_mpu_size = -1;
+#if defined(CONFIG_MACH_MT6761)
+#define GPS_EMI_MPU_REGION           29
+#define GPS_EMI_BASE_ADDR_OFFSET     (2*SZ_1M + SZ_1M/2 + 0x1000)
+#define GPS_EMI_MPU_SIZE             (SZ_1M + SZ_1M/2 - 0x2000)
 #define EMI_MPU_PROTECTION_IS_READY  1
 #if EMI_MPU_PROTECTION_IS_READY
 #include <mt_emi_api.h>
 #endif
 #endif
-
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6893)\
-|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6781)\
-|| (defined(CONFIG_MACH_MT6779) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)))
+#if defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6768)
+#define GPS_EMI_MPU_REGION           29
+#define GPS_EMI_BASE_ADDR_OFFSET     (2*SZ_1M + SZ_1M/2 + 0x1000 + 0x40000)
+#define GPS_EMI_MPU_SIZE             (SZ_1M + SZ_1M/2 - 0x2000)
+#define EMI_MPU_PROTECTION_IS_READY  1
+#if EMI_MPU_PROTECTION_IS_READY
+#include <mt_emi_api.h>
+#endif
+#endif
+#if defined(CONFIG_MACH_MT6779) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0))
+#define GPS_EMI_MPU_REGION           29
+#define GPS_EMI_BASE_ADDR_OFFSET     (3*SZ_1M + 0x10000)
+#define GPS_EMI_MPU_SIZE             (0xF0000)
+#define EMI_MPU_PROTECTION_IS_READY  1
+#if EMI_MPU_PROTECTION_IS_READY
+#include <mt_emi_api.h>
+#endif
+#endif
+#if defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6775) || defined(CONFIG_MACH_MT6758)
+#define GPS_EMI_MPU_REGION           30
+#define GPS_EMI_BASE_ADDR_OFFSET     (SZ_1M)
+#define GPS_EMI_MPU_SIZE             (SZ_1M)
+#define EMI_MPU_PROTECTION_IS_READY  1
+#if EMI_MPU_PROTECTION_IS_READY
+#include <mt_emi_api.h>
+#endif
+#endif
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6893)
 #define GPS_EMI_NEW_API
-int gps_emi_mpu_region = -1;
-int gps_emi_base_addr_offset = -1;
-int gps_emi_mpu_size = -1;
-int gps_emi_mpu_domain_ap = -1;
-int gps_emi_mpu_domain_conn = -1;
+#define GPS_EMI_MPU_REGION           29
+#define GPS_EMI_BASE_ADDR_OFFSET     (3*SZ_1M + 0x10000)
+#define GPS_EMI_MPU_SIZE             (0xF0000)
+#define GPS_DL_EMI_MPU_DOMAIN_AP      0
+#define GPS_DL_EMI_MPU_DOMAIN_CONN    2
 #define EMI_MPU_PROTECTION_IS_READY  1
 #if EMI_MPU_PROTECTION_IS_READY
 #include <memory/mediatek/emi.h>
 #endif
 #endif
-
-#ifdef MTK_GENERIC_HAL
+#if defined(CONFIG_MACH_MT6853)
 #define GPS_EMI_NEW_API
-int gps_emi_mpu_region = -1;
-int gps_emi_base_addr_offset = -1;
-int gps_emi_mpu_size = -1;
-int gps_emi_mpu_domain_ap = -1;
-int gps_emi_mpu_domain_conn = -1;
-#define EMI_MPU_PROTECTION_IS_READY  0
+#define GPS_EMI_MPU_REGION           29
+#define GPS_EMI_BASE_ADDR_OFFSET     (3*SZ_1M + 0x10000 + 0x40000)
+#define GPS_EMI_MPU_SIZE             (0xF0000)
+#define GPS_DL_EMI_MPU_DOMAIN_AP      0
+#define GPS_DL_EMI_MPU_DOMAIN_CONN    2
+#define EMI_MPU_PROTECTION_IS_READY  1
+#if EMI_MPU_PROTECTION_IS_READY
+#include <memory/mediatek/emi.h>
 #endif
-int gps_emi_mpu_region_param_ready;
+#endif
+#if defined(CONFIG_MACH_MT6781)
+#define GPS_EMI_NEW_API
+#define GPS_EMI_MPU_REGION           29
+#define GPS_EMI_BASE_ADDR_OFFSET     (4*SZ_1M)
+#define GPS_EMI_MPU_SIZE             (0xFFFFF)
+#define GPS_DL_EMI_MPU_DOMAIN_AP      0
+#define GPS_DL_EMI_MPU_DOMAIN_CONN    2
+#define EMI_MPU_PROTECTION_IS_READY  1
+#if EMI_MPU_PROTECTION_IS_READY
+#include <memory/mediatek/emi.h>
+#endif
+#endif
+#if defined(CONFIG_MACH_MT6833)
+#define GPS_EMI_NEW_API
+#define GPS_EMI_MPU_REGION           29
+#define GPS_EMI_BASE_ADDR_OFFSET     (4*SZ_1M + 0x40000)
+#define GPS_EMI_MPU_SIZE             (0xFFFFF)
+#define GPS_DL_EMI_MPU_DOMAIN_AP      0
+#define GPS_DL_EMI_MPU_DOMAIN_CONN    2
+#define EMI_MPU_PROTECTION_IS_READY  1
+#if EMI_MPU_PROTECTION_IS_READY
+#include <memory/mediatek/emi.h>
+#endif
+#endif
+#if defined(CONFIG_MACH_MT6779) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
+#define GPS_EMI_NEW_API
+#define GPS_EMI_MPU_REGION           29
+#define GPS_EMI_BASE_ADDR_OFFSET     (3*SZ_1M + 0x10000)
+#define GPS_EMI_MPU_SIZE             (0xF0000)
+#define GPS_DL_EMI_MPU_DOMAIN_AP      0
+#define GPS_DL_EMI_MPU_DOMAIN_CONN    2
+#define EMI_MPU_PROTECTION_IS_READY  1
+#if EMI_MPU_PROTECTION_IS_READY
+#include <memory/mediatek/emi.h>
+#endif
+#endif
 
 #define GPS_ADC_CAPTURE_BUFF_SIZE   0x50000
 /******************************************************************************
@@ -112,88 +167,6 @@ struct gps_emi_dev *devobj;
 
 static struct semaphore fw_dl_mtx;
 
-int gps_emi_get_reserved_memory(struct device *dev)
-{
-#ifdef MTK_GENERIC_HAL
-
-	struct device_node *node;
-
-	node = dev->of_node;
-	if (!node) {
-		pr_info("gps_emi_get_reserved_memory: unable to get gps node\n");
-		return -1;
-	}
-
-	if (of_property_read_u32(node, "emi-region", &gps_emi_mpu_region)) {
-		pr_info("gps_emi_get_reserved_memory: unable to get gps_emi_mpu_region\n");
-		return -1;
-	}
-	pr_info("gps_emi_get_reserved_memory gps_emi_mpu_region 0x%x\n", gps_emi_mpu_region);
-	if (of_property_read_u32(node, "emi-offset", &gps_emi_base_addr_offset)) {
-		pr_info("gps_emi_get_reserved_memory: unable to get gps_emi_base_addr_offset\n");
-		return -1;
-	}
-	pr_info("gps_emi_get_reserved_memory gps_emi_base_addr_offset 0x%x\n", gps_emi_base_addr_offset);
-	if (of_property_read_u32(node, "emi-size", &gps_emi_mpu_size)) {
-		pr_info("gps_emi_get_reserved_memory: unable to get gps_emi_mpu_size\n");
-		return -1;
-	}
-	pr_info("gps_emi_get_reserved_memory gps_emi_mpu_size 0x%x\n", gps_emi_mpu_size);
-	if (of_property_read_u32(node, "emi-domain-ap", &gps_emi_mpu_domain_ap)) {
-		pr_info("gps_emi_get_reserved_memory: unable to get gps_emi_mpu_domain_ap\n");
-		return -1;
-	}
-	pr_info("gps_emi_get_reserved_memory gps_emi_mpu_domain_ap 0x%x\n", gps_emi_mpu_domain_ap);
-	if (of_property_read_u32(node, "emi-domain-conn", &gps_emi_mpu_domain_conn)) {
-		pr_info("gps_emi_get_reserved_memory: unable to get gps_emi_mpu_domain_conn\n");
-		return -1;
-	}
-	pr_info("gps_emi_get_reserved_memory gps_emi_mpu_domain_conn 0x%x\n", gps_emi_mpu_domain_conn);
-
-#else
-
-#if defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6768)
-	gps_emi_mpu_region = 29;
-	gps_emi_base_addr_offset = (2*SZ_1M + SZ_1M/2 + 0x1000);
-	gps_emi_mpu_size = (SZ_1M + SZ_1M/2 - 0x2000);
-#endif
-#if defined(CONFIG_MACH_MT6779) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0))
-	gps_emi_mpu_region = 29;
-	gps_emi_base_addr_offset = (3*SZ_1M + 0x10000);
-	gps_emi_mpu_size = (0xF0000);
-#endif
-#if defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6775) || defined(CONFIG_MACH_MT6758)
-	gps_emi_mpu_region = 30;
-	gps_emi_base_addr_offset = (SZ_1M);
-	gps_emi_mpu_size = (SZ_1M);
-#endif
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6893)
-	gps_emi_mpu_region = 29;
-	gps_emi_base_addr_offset = (3*SZ_1M + 0x10000);
-	gps_emi_mpu_size = (0xF0000);
-	gps_emi_mpu_domain_ap = 0;
-	gps_emi_mpu_domain_conn = 2;
-#endif
-#if defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6781)
-	gps_emi_mpu_region = 29;
-	gps_emi_base_addr_offset = (4*SZ_1M);
-	gps_emi_mpu_size = (0xFFFFF);
-	gps_emi_mpu_domain_ap = 0;
-	gps_emi_mpu_domain_conn = 2;
-#endif
-#if defined(CONFIG_MACH_MT6779) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
-	gps_emi_mpu_region = 29;
-	gps_emi_base_addr_offset = (3*SZ_1M + 0x10000);
-	gps_emi_mpu_size = (0xF0000);
-	gps_emi_mpu_domain_ap = 0;
-	gps_emi_mpu_domain_conn = 2;
-#endif
-#endif
-
-	return 0;
-
-}
-
 void mtk_wcn_consys_gps_memory_reserve(void)
 {
 #if 0
@@ -203,15 +176,9 @@ void mtk_wcn_consys_gps_memory_reserve(void)
 	gGpsEmiPhyBase = arm_memblock_steal(SZ_1M, SZ_1M);
 #endif
 #else
-
-#ifdef MTK_GENERIC_HAL
-	gGpsEmiPhyBase = gConEmiPhyBase + (phys_addr_t)gps_emi_base_addr_offset;
-#else
-#if EMI_MPU_PROTECTION_IS_READY
-	gGpsEmiPhyBase = gConEmiPhyBase + (phys_addr_t)gps_emi_base_addr_offset;
-#endif
-#endif
-
+	#if EMI_MPU_PROTECTION_IS_READY
+	gGpsEmiPhyBase = gConEmiPhyBase + GPS_EMI_BASE_ADDR_OFFSET;
+	#endif
 #endif
 	if (gGpsEmiPhyBase)
 		GPS_DBG("Con:0x%zx, Gps:0x%zx\n", (size_t)gConEmiPhyBase, (size_t)gGpsEmiPhyBase);
@@ -227,12 +194,11 @@ INT32 gps_emi_mpu_set_region_protection(INT32 region)
 	int emimpu_ret1, emimpu_ret2, emimpu_ret3, emimpu_ret4, emimpu_ret5, emimpu_ret6;
 	/* Set EMI MPU permission */
 	GPS_DBG("emi mpu cfg: region = %d, no protection domain = %d, %d",
-	    region, gps_emi_mpu_domain_ap, gps_emi_mpu_domain_conn);
+	    region, GPS_DL_EMI_MPU_DOMAIN_AP, GPS_DL_EMI_MPU_DOMAIN_CONN);
 	emimpu_ret1 = mtk_emimpu_init_region(&region_info, region);
-	emimpu_ret2 = mtk_emimpu_set_addr(&region_info, gGpsEmiPhyBase,
-		gGpsEmiPhyBase + (phys_addr_t)gps_emi_mpu_size - 1);
-	emimpu_ret3 = mtk_emimpu_set_apc(&region_info, (unsigned int)gps_emi_mpu_domain_ap, MTK_EMIMPU_NO_PROTECTION);
-	emimpu_ret4 = mtk_emimpu_set_apc(&region_info, (unsigned int)gps_emi_mpu_domain_conn, MTK_EMIMPU_NO_PROTECTION);
+	emimpu_ret2 = mtk_emimpu_set_addr(&region_info, gGpsEmiPhyBase, gGpsEmiPhyBase + GPS_EMI_MPU_SIZE - 1);
+	emimpu_ret3 = mtk_emimpu_set_apc(&region_info, GPS_DL_EMI_MPU_DOMAIN_AP, MTK_EMIMPU_NO_PROTECTION);
+	emimpu_ret4 = mtk_emimpu_set_apc(&region_info, GPS_DL_EMI_MPU_DOMAIN_CONN, MTK_EMIMPU_NO_PROTECTION);
 	emimpu_ret5 = mtk_emimpu_set_protection(&region_info);
 	emimpu_ret6 = mtk_emimpu_free_region(&region_info);
 	GPS_DBG("emi mpu cfg: ret = %d, %d, %d, %d, %d, %d",
@@ -242,7 +208,7 @@ INT32 gps_emi_mpu_set_region_protection(INT32 region)
 	/*set MPU for EMI share Memory */
 	GPS_DBG("setting MPU for EMI share memory\n");
 	region_info.start = gGpsEmiPhyBase;
-	region_info.end = gGpsEmiPhyBase + (phys_addr_t)gps_emi_mpu_size - 1;
+	region_info.end = gGpsEmiPhyBase + GPS_EMI_MPU_SIZE - 1;
 	region_info.region = region;
 	SET_ACCESS_PERMISSION(region_info.apc, LOCK,
 	FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN,
@@ -289,10 +255,8 @@ INT32 mtk_wcn_consys_gps_emi_init(void)
 	if (gGpsEmiPhyBase) {
 		/*set MPU for EMI share Memory*/
 		#if EMI_MPU_PROTECTION_IS_READY
-		#ifndef MTK_GENERIC_HAL
 		GPS_DBG("setting MPU for EMI share memory\n");
-		gps_emi_mpu_set_region_protection(gps_emi_mpu_region);
-		#endif
+		gps_emi_mpu_set_region_protection(GPS_EMI_MPU_REGION);
 		#endif
 		GPS_DBG("get consys start phy address(0x%zx)\n", (size_t)gGpsEmiPhyBase);
 		#if 0
@@ -309,14 +273,9 @@ INT32 mtk_wcn_consys_gps_emi_init(void)
 		GPS_DBG("GPS_EMI_MAPPING dump(0x%08x)\n",
 			CONSYS_REG_READ(conn_reg.topckgen_base + CONSYS_EMI_MAPPING_OFFSET));
 		#endif
-		#ifdef MTK_GENERIC_HAL
-		pGpsEmibaseaddr = ioremap(gGpsEmiPhyBase, (size_t)gps_emi_mpu_size);
-		#else
 		#if EMI_MPU_PROTECTION_IS_READY
-		pGpsEmibaseaddr = ioremap(gGpsEmiPhyBase, (size_t)gps_emi_mpu_size);
+		pGpsEmibaseaddr = ioremap(gGpsEmiPhyBase, GPS_EMI_MPU_SIZE);
 		#endif
-		#endif
-
 		iRet = 1;
 		#if 0
 		if (pGpsEmibaseaddr != NULL) {
@@ -376,10 +335,7 @@ long gps_emi_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long a
 
 	switch (cmd) {
 	case IOCTL_EMI_MEMORY_INIT:
-		if (gps_emi_mpu_region_param_ready == 1)
-			retval = mtk_wcn_consys_gps_emi_init();
-		else
-			retval = -1;
+		retval = mtk_wcn_consys_gps_emi_init();
 		GPS_DBG("IOCTL_EMI_MEMORY_INIT\n");
 		break;
 
@@ -481,7 +437,7 @@ static const struct of_device_id apgps_of_ids[] = {
 };
 #endif
 /*****************************************************************************/
-static int gps_emi_mod_init(void)
+static int __init gps_emi_mod_init(void)
 {
 	int ret = 0;
 	int err = 0;
@@ -538,7 +494,7 @@ err_out:
 }
 
 /*****************************************************************************/
-static void gps_emi_mod_exit(void)
+static void __exit gps_emi_mod_exit(void)
 {
 	if (!devobj) {
 		GPS_ERR("null pointer: %p\n", devobj);

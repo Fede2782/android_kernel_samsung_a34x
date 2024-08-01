@@ -106,10 +106,9 @@ enum ENUM_BAND_WIDTH {
 #define TX_RATE_MODE_HE_ER      9
 #define TX_RATE_MODE_HE_TRIG    10
 #define TX_RATE_MODE_HE_MU      11
-#define TX_RATE_MODE_EHT        12
-#define TX_RATE_MODE_EHT_ER     13
-#define TX_RATE_MODE_EHT_TRIG   14
-#define TX_RATE_MODE_EHT_MU     15
+#if (CFG_SUPPORT_802_11BE == 1)
+#define TX_RATE_MODE_EHT      12
+#endif
 
 #define RATE_VER_1	0	/* AC */
 #define RATE_VER_2	1	/* HE */

@@ -146,6 +146,18 @@ struct rds_group_cnt_req_t {
 	struct rds_group_cnt_t gc;
 };
 
+struct rtp_tag_info_t {
+	int content_type;
+	int start_pos;
+	int additional_len;
+};
+
+struct rds_rtp_t {
+	bool toggle;
+	bool running;
+	struct rtp_tag_info_t rtp_tag[2];
+};
+
 struct rds_t {
 	struct rds_ct_t CT;
 	struct rds_flag_t RDSFlag;
@@ -161,6 +173,7 @@ struct rds_t {
 	struct rds_ps_t PS_Data;
 	unsigned char PS_ON[8];
 	struct rds_rt_t RT_Data;
+	struct rds_rtp_t RTP_Data;
 	/* will use RDSFlag_Struct RDSFlag->flag_status to check which event, is that ok? */
 	unsigned short event_status;
 	struct rds_group_cnt_t gc;
@@ -194,7 +207,7 @@ enum rds_event_status_t {
 	RDS_EVENT_TAON_OFF = 0x0800,	/* Other Network traffic announcement finished. */
 	RDS_EVENT_ECC_CODE = 0x1000,	/* ECC code */
 	RDS_EVENT_RDS = 0x2000,	/* RDS Interrupt had arrived durint timer period */
-	RDS_EVENT_NO_RDS = 0x4000,	/* RDS Interrupt not arrived durint timer period */
+	RDS_EVENT_RTP_TAG = 0x4000,	/* RDS Interrupt not arrived durint timer period */
 	RDS_EVENT_RDS_TIMER = 0x8000	/* Timer for RDS Bler Check. ---- BLER  block error rate */
 };
 

@@ -85,24 +85,27 @@ uint8_t g_aucMicMaterialBuffer[NAN_MIC_BUF_SIZE];
  *                              F U N C T I O N S
  *******************************************************************************
  */
+void nanResetWpaSm(void)
+{
+	kalMemZero(g_arNanWpaSm, sizeof(g_arNanWpaSm));
+}
 
 /************************************************
  *               Set Key Related
  ************************************************
  */
 uint32_t
-nan_sec_wlanSetAddKey(IN struct ADAPTER *prAdapter, IN void *pvSetBuffer,
-		      IN uint32_t u4SetBufferLen) {
+nan_sec_wlanSetAddKey(struct ADAPTER *prAdapter, void *pvSetBuffer,
+		      uint32_t u4SetBufferLen) {
 
 	struct CMD_802_11_KEY *prCmdFWKey;
-	struct CMD_INFO *prCmdInfo;
-	struct CMD_802_11_KEY *prCmdKey;
-	uint8_t ucCmdSeqNum;
+	struct CMD_802_11_KEY rCmdKey;
+	struct CMD_802_11_KEY *prCmdKey = &rCmdKey;
 	struct BSS_INFO *prBssInfo;
 	struct STA_RECORD *prStaRec = NULL;
+#if 0
 	unsigned char fgNoHandshakeSec = FALSE;
-	struct mt66xx_chip_info *prChipInfo;
-	uint16_t cmd_size;
+#endif
 
 	prCmdFWKey = (struct CMD_802_11_KEY *)pvSetBuffer;
 	DEBUGFUNC("wlanSetAddKey");
@@ -154,49 +157,6 @@ nan_sec_wlanSetAddKey(IN struct ADAPTER *prAdapter, IN void *pvSetBuffer,
 			return WLAN_STATUS_SUCCESS;
 		}
 	}
-
-	prChipInfo = prAdapter->chip_info;
-
-	if (!prChipInfo) {
-		DBGLOG(NAN, ERROR, "prChipInfo error!\n");
-		return WLAN_STATUS_FAILURE;
-	}
-	cmd_size = prChipInfo->u2CmdTxHdrSize + sizeof(struct CMD_802_11_KEY);
-
-	prCmdInfo = cmdBufAllocateCmdInfo(prAdapter, cmd_size);
-
-	if (!prCmdInfo) {
-		DBGLOG(INIT, ERROR, "Allocate CMD_INFO_T ==> FAILED.\n");
-		return WLAN_STATUS_FAILURE;
-	}
-	/* increase command sequence number */
-	ucCmdSeqNum = nicIncreaseCmdSeqNum(prAdapter);
-	DBGLOG(REQ, INFO, "ucCmdSeqNum = %d\n", ucCmdSeqNum);
-
-	/* compose CMD_802_11_KEY cmd pkt */
-	prCmdInfo->eCmdType = COMMAND_TYPE_NETWORK_IOCTL;
-	prCmdInfo->u2InfoBufLen = cmd_size;
-#if CFG_SUPPORT_REPLAY_DETECTION
-	prCmdInfo->pfCmdDoneHandler = nicCmdEventSetAddKey;
-	prCmdInfo->pfCmdTimeoutHandler = nicOidCmdTimeoutSetAddKey;
-#else
-	prCmdInfo->pfCmdDoneHandler = NULL;
-	prCmdInfo->pfCmdTimeoutHandler = NULL;
-#endif
-	prCmdInfo->fgIsOid = FALSE;
-	prCmdInfo->ucCID = CMD_ID_ADD_REMOVE_KEY;
-	prCmdInfo->fgSetQuery = TRUE;
-	prCmdInfo->fgNeedResp = FALSE;
-	prCmdInfo->ucCmdSeqNum = ucCmdSeqNum;
-	prCmdInfo->u4SetInfoLen = u4SetBufferLen;
-	prCmdInfo->pvInformationBuffer = pvSetBuffer;
-	prCmdInfo->u4InformationBufferLength = u4SetBufferLen;
-
-	NIC_FILL_CMD_TX_HDR(prAdapter, prCmdInfo->pucInfoBuffer,
-			    prCmdInfo->u2InfoBufLen, prCmdInfo->ucCID,
-			    CMD_PACKET_TYPE_ID, &prCmdInfo->ucCmdSeqNum,
-			    prCmdInfo->fgSetQuery, &prCmdKey, FALSE, 0,
-			    S2D_INDEX_CMD_H2N);
 
 	/* Setup WIFI_CMD_T */
 	kalMemZero(prCmdKey, sizeof(struct CMD_802_11_KEY));
@@ -268,14 +228,15 @@ nan_sec_wlanSetAddKey(IN struct ADAPTER *prAdapter, IN void *pvSetBuffer,
 				   prBssInfo->aucOwnMacAddr,
 				   MAC_ADDR_LEN);
 		}
+#if 0
 		if (fgNoHandshakeSec) { /* WEP: STA and AP */
 			prBssInfo->wepkeyWlanIdx =
 				prCmdKey->ucWlanIndex;
 			prBssInfo->wepkeyUsed
 				[prCmdKey->ucKeyId] = TRUE;
-		} else if (
-			!prBssInfo
-				 ->prStaRecOfAP) {
+		} else
+#endif
+		if (!prBssInfo->prStaRecOfAP) {
 			/* AP WPA/RSN */
 			prBssInfo->ucBMCWlanIndexS
 				[prCmdKey->ucKeyId] =
@@ -322,33 +283,37 @@ nan_sec_wlanSetAddKey(IN struct ADAPTER *prAdapter, IN void *pvSetBuffer,
 	DBGLOG(NAN, INFO, "ucBMCWlanIndexS = %d:",
 	       prBssInfo->ucBMCWlanIndexS[prCmdKey->ucKeyId]);
 #endif
+	return wlanSendSetQueryCmd(prAdapter,
+			  CMD_ID_ADD_REMOVE_KEY,
+			  TRUE,
+			  FALSE,
+			  FALSE,
+#if CFG_SUPPORT_REPLAY_DETECTION
+			  nicCmdEventSetAddKey,
+			  nicOidCmdTimeoutSetAddKey,
+#else
+			  NULL,
+			  NULL,
+#endif
+			  sizeof(struct CMD_802_11_KEY),
+			  (uint8_t *)&rCmdKey,
+			  pvSetBuffer,
+			  u4SetBufferLen);
 
-	/* insert into prCmdQueue */
-	kalEnqueueCommand(prAdapter->prGlueInfo, (struct QUE_ENTRY *)prCmdInfo);
-
-	/* wakeup txServiceThread later */
-	GLUE_SET_EVENT(prAdapter->prGlueInfo);
-	return WLAN_STATUS_PENDING;
 }
 
 uint32_t
-nan_sec_wlanSetRemoveKey(IN struct ADAPTER *prAdapter, IN void *pvSetBuffer,
-			 IN uint32_t u4SetBufferLen) {
+nan_sec_wlanSetRemoveKey(struct ADAPTER *prAdapter, void *pvSetBuffer,
+			 uint32_t u4SetBufferLen) {
 	struct GLUE_INFO *prGlueInfo;
-	struct CMD_INFO *prCmdInfo;
-	/* P_PARAM_REMOVE_KEY_T prRemovedKey; */
-	struct CMD_802_11_KEY *prCmdKey;
+	struct CMD_802_11_KEY rCmdKey;
+	struct CMD_802_11_KEY *prCmdKey = &rCmdKey;
 	struct CMD_802_11_KEY *prCmdFWKey;
-	uint8_t ucCmdSeqNum;
-	struct WLAN_TABLE *prWlanTable;
 	struct STA_RECORD *prStaRec = NULL;
 	struct BSS_INFO *prBssInfo;
-	/* UINT_8 i = 0; */
 	unsigned char fgRemoveWepKey = FALSE;
 	uint32_t ucRemoveBCKeyAtIdx = WTBL_RESERVED_ENTRY;
 	uint32_t u4KeyIndex;
-	struct mt66xx_chip_info *prChipInfo;
-	uint16_t cmd_size;
 
 	prCmdFWKey = (struct CMD_802_11_KEY *)pvSetBuffer;
 	DEBUGFUNC("wlanoidSetRemoveKey");
@@ -452,50 +417,6 @@ nan_sec_wlanSetRemoveKey(IN struct ADAPTER *prAdapter, IN void *pvSetBuffer,
 			return WLAN_STATUS_SUCCESS;
 	}
 
-	prChipInfo = prAdapter->chip_info;
-
-	if (!prChipInfo) {
-		DBGLOG(NAN, ERROR, "prChipInfo error!\n");
-		return WLAN_STATUS_FAILURE;
-	}
-	cmd_size = prChipInfo->u2CmdTxHdrSize + sizeof(struct CMD_802_11_KEY);
-
-	prCmdInfo = cmdBufAllocateCmdInfo(prAdapter, cmd_size);
-
-	if (!prCmdInfo) {
-		DBGLOG(INIT, ERROR, "Allocate CMD_INFO_T ==> FAILED.\n");
-		return WLAN_STATUS_FAILURE;
-	}
-
-	prWlanTable = prAdapter->rWifiVar.arWtbl;
-	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prCmdFWKey->ucBssIdx);
-
-	/* increase command sequence number */
-	ucCmdSeqNum = nicIncreaseCmdSeqNum(prAdapter);
-
-	/* compose CMD_802_11_KEY cmd pkt */
-	prCmdInfo->eCmdType = COMMAND_TYPE_NETWORK_IOCTL;
-	/* prCmdInfo->ucBssIndex = prRemovedKey->ucBssIdx; */
-	prCmdInfo->u2InfoBufLen = cmd_size;
-	prCmdInfo->pfCmdDoneHandler = NULL;
-	prCmdInfo->pfCmdTimeoutHandler = NULL;
-	prCmdInfo->fgIsOid = FALSE;
-	prCmdInfo->ucCID = CMD_ID_ADD_REMOVE_KEY;
-	prCmdInfo->fgSetQuery = TRUE;
-	prCmdInfo->fgNeedResp = FALSE;
-	/* prCmdInfo->fgDriverDomainMCR = FALSE; */
-	prCmdInfo->ucCmdSeqNum = ucCmdSeqNum;
-	prCmdInfo->u4SetInfoLen = sizeof(struct PARAM_REMOVE_KEY);
-	prCmdInfo->pvInformationBuffer = pvSetBuffer;
-	prCmdInfo->u4InformationBufferLength = u4SetBufferLen;
-	/* Setup WIFI_CMD_T */
-
-	NIC_FILL_CMD_TX_HDR(prAdapter, prCmdInfo->pucInfoBuffer,
-			    prCmdInfo->u2InfoBufLen, prCmdInfo->ucCID,
-			    CMD_PACKET_TYPE_ID, &prCmdInfo->ucCmdSeqNum,
-			    prCmdInfo->fgSetQuery, &prCmdKey, FALSE, 0,
-			    S2D_INDEX_CMD_H2N);
-
 	kalMemZero((uint8_t *)prCmdKey, sizeof(struct CMD_802_11_KEY));
 
 	prCmdKey->ucAddRemove = 0; /* Remove */
@@ -516,13 +437,17 @@ nan_sec_wlanSetRemoveKey(IN struct ADAPTER *prAdapter, IN void *pvSetBuffer,
 		return WLAN_STATUS_FAILURE;
 	}
 
-	/* insert into prCmdQueue */
-	kalEnqueueCommand(prGlueInfo, (struct QUE_ENTRY *)prCmdInfo);
-
-	/* wakeup txServiceThread later */
-	GLUE_SET_EVENT(prGlueInfo);
-
-	return WLAN_STATUS_PENDING;
+	return wlanSendSetQueryCmd(prAdapter,
+		  CMD_ID_ADD_REMOVE_KEY,
+		  TRUE,
+		  FALSE,
+		  FALSE,
+		  NULL,
+		  NULL,
+		  sizeof(struct CMD_802_11_KEY),
+		  (uint8_t *)&rCmdKey,
+		  pvSetBuffer,
+		  u4SetBufferLen);
 }
 
 int
@@ -555,6 +480,10 @@ nan_sec_wpas_setkey_glue(bool fgIsAp, u8 u1BssIdx, enum wpa_alg alg,
 	}
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(g_prAdapter, u1BssIdx);
+	if (!prBssInfo) {
+		DBGLOG(NAN, ERROR, "prBssInfo is null!\n");
+		return -1;
+	}
 	prStaRec = cnmGetStaRecByAddress(g_prAdapter, prBssInfo->ucBssIndex,
 					 (uint8_t *)addr);
 
@@ -714,6 +643,8 @@ nan_sec_wpa_eapol_key_mic(const u8 *key, size_t key_len, u32 cipher,
 	DBGLOG(NAN, INFO, "[%s] BUF_len:%d\n", __func__, len);
 	dumpMemory8((uint8_t *)buf, len);
 
+	DBGLOG(NAN, INFO, "[%s] cipher:%d\n", __func__, cipher);
+
 	if (cipher == NAN_CIPHER_SUITE_ID_NCS_SK_GCM_256) {
 		if (hmac_sha384(key, key_len, buf, len, hash)) {
 			DBGLOG(NAN, INFO, "[%s] ERROR! hmac_sha384() failed",
@@ -722,7 +653,7 @@ nan_sec_wpa_eapol_key_mic(const u8 *key, size_t key_len, u32 cipher,
 		}
 		os_memcpy(mic, hash, NCS_SK_256_MIC_LEN);
 
-		DBGLOG(NAN, INFO, "[%s] Result MIC:\n", __func__);
+		DBGLOG(NAN, INFO, "[%s] hmac_sha384() Result MIC:\n", __func__);
 		dumpMemory8(mic, NCS_SK_256_MIC_LEN);
 	} else {
 		/* NAN_CIPHER_SUITE_ID_NCS_SK_CCM_128 */
@@ -733,7 +664,7 @@ nan_sec_wpa_eapol_key_mic(const u8 *key, size_t key_len, u32 cipher,
 		}
 		os_memcpy(mic, hash, NCS_SK_128_MIC_LEN);
 
-		DBGLOG(NAN, INFO, "[%s] Result MIC:\n", __func__);
+		DBGLOG(NAN, INFO, "[%s] hmac_sha256() Result MIC:\n", __func__);
 		dumpMemory8(mic, NCS_SK_128_MIC_LEN);
 	}
 
@@ -780,22 +711,18 @@ nan_sec_wpa_supplicant_send_2_of_4(struct wpa_sm *sm, const unsigned char *dst,
 #endif
 
 	u4TotalLen = sizeof(struct _NAN_SEC_KDE_ATTR_HDR) + hdrlen;
-	memset(g_aucTmpKdeAttrBufffer, 0, NAN_KDE_ATTR_BUF_SIZE);
 
-	sm->pu1TmpKdeAttrBuf = g_aucTmpKdeAttrBufffer;
 	sm->u4TmpKdeAttrLen = u4TotalLen;
 
-	if (sm->pu1TmpKdeAttrBuf == NULL)
-		return -1;
-
+	kalMemZero(sm->au1TmpKdeAttrBuf, NAN_KDE_ATTR_BUF_SIZE);
 	prNanSecKdeAttrHdr =
-		(struct _NAN_SEC_KDE_ATTR_HDR *)sm->pu1TmpKdeAttrBuf;
+		(struct _NAN_SEC_KDE_ATTR_HDR *)sm->au1TmpKdeAttrBuf;
 	prNanSecKdeAttrHdr->u1AttrId = NAN_ATTR_ID_SHARED_KEY_DESCRIPTOR;
 	prNanSecKdeAttrHdr->u2AttrLen = hdrlen + 1; /*1:publishId*/
 	prNanSecKdeAttrHdr->u1PublishId =
 		((struct _NAN_NDP_INSTANCE_T *)(sm->pvNdp))->ucPublishId;
 
-	reply = (struct wpa_eapol_key *)(sm->pu1TmpKdeAttrBuf +
+	reply = (struct wpa_eapol_key *)(sm->au1TmpKdeAttrBuf +
 					 sizeof(struct _NAN_SEC_KDE_ATTR_HDR));
 
 	reply192 = (struct wpa_eapol_key_192 *)reply;
@@ -874,22 +801,18 @@ nan_sec_wpa_supplicant_send_4_of_4(struct wpa_sm *sm, const unsigned char *dst,
 		return -1;
 #endif
 	u4TotalLen = sizeof(struct _NAN_SEC_KDE_ATTR_HDR) + hdrlen;
-	memset(g_aucTmpKdeAttrBufffer, 0, NAN_KDE_ATTR_BUF_SIZE);
 
-	sm->pu1TmpKdeAttrBuf = g_aucTmpKdeAttrBufffer;
 	sm->u4TmpKdeAttrLen = u4TotalLen;
 
-	if (sm->pu1TmpKdeAttrBuf == NULL)
-		return -1;
-
+	kalMemZero(sm->au1TmpKdeAttrBuf, NAN_KDE_ATTR_BUF_SIZE);
 	prNanSecKdeAttrHdr =
-		(struct _NAN_SEC_KDE_ATTR_HDR *)sm->pu1TmpKdeAttrBuf;
+		(struct _NAN_SEC_KDE_ATTR_HDR *)sm->au1TmpKdeAttrBuf;
 	prNanSecKdeAttrHdr->u1AttrId = NAN_ATTR_ID_SHARED_KEY_DESCRIPTOR;
 	prNanSecKdeAttrHdr->u2AttrLen = hdrlen + 1; /* 1:publishId */
 	prNanSecKdeAttrHdr->u1PublishId =
 		((struct _NAN_NDP_INSTANCE_T *)(sm->pvNdp))->ucPublishId;
 
-	reply = (struct wpa_eapol_key *)(sm->pu1TmpKdeAttrBuf +
+	reply = (struct wpa_eapol_key *)(sm->au1TmpKdeAttrBuf +
 					 sizeof(struct _NAN_SEC_KDE_ATTR_HDR));
 
 	reply192 = (struct wpa_eapol_key_192 *)reply;
@@ -1000,18 +923,14 @@ nan_sec_wpa_send_eapol(
 	u4TotalLen =
 		sizeof(struct _NAN_SEC_KDE_ATTR_HDR) + keyhdrlen + key_data_len;
 
-	memset(g_aucTmpKdeAttrBufffer, 0, NAN_KDE_ATTR_BUF_SIZE);
 	if (u4TotalLen > NAN_KDE_ATTR_BUF_SIZE)
 		DBGLOG(NAN, ERROR, "[%s] Invalid length\n", __func__);
 
-	sm->pu1TmpKdeAttrBuf = g_aucTmpKdeAttrBufffer;
 	sm->u4TmpKdeAttrLen = u4TotalLen;
 
-	if (sm->pu1TmpKdeAttrBuf == NULL)
-		return WLAN_STATUS_FAILURE;
-
+	kalMemZero(sm->au1TmpKdeAttrBuf, NAN_KDE_ATTR_BUF_SIZE);
 	prNanSecKdeAttrHdr =
-		(struct _NAN_SEC_KDE_ATTR_HDR *)sm->pu1TmpKdeAttrBuf;
+		(struct _NAN_SEC_KDE_ATTR_HDR *)sm->au1TmpKdeAttrBuf;
 	prNanSecKdeAttrHdr->u1AttrId = NAN_ATTR_ID_SHARED_KEY_DESCRIPTOR;
 	prNanSecKdeAttrHdr->u2AttrLen =
 		keyhdrlen + key_data_len + 1; /*1:publishId*/
@@ -1020,7 +939,7 @@ nan_sec_wpa_send_eapol(
 
 	DBGLOG(NAN, INFO, "[%s] u4TotalLen:%d\n", __func__, u4TotalLen);
 
-	key = (struct wpa_eapol_key *)(sm->pu1TmpKdeAttrBuf +
+	key = (struct wpa_eapol_key *)(sm->au1TmpKdeAttrBuf +
 				       sizeof(struct _NAN_SEC_KDE_ATTR_HDR));
 
 	key192 = (struct wpa_eapol_key_192 *)key;
@@ -1406,6 +1325,7 @@ nan_sec_wpa_sm_rx_eapol(struct wpa_sm *sm, const u8 *src_addr) {
 		if (ver != WPA_KEY_INFO_TYPE_AES_128_CMAC &&
 			sm->key_mgmt != WPA_KEY_MGMT_OSEN &&
 			!wpa_key_mgmt_suite_b(sm->key_mgmt)) {
+
 			goto out;
 		}
 	} else
@@ -1429,9 +1349,9 @@ nan_sec_wpa_sm_rx_eapol(struct wpa_sm *sm, const u8 *src_addr) {
 			 * CCMP is not used for them.
 			 */
 			/* wpa_msg(sm->ctx->msg_ctx, MSG_DEBUG,
-			 *      "WPA: Backwards compatibility:
-			 *      allow invalid version for
-			 *		non-CCMP group keys");
+			 *	"WPA: Backwards compatibility:
+			 *	allow invalid version for
+			 *	non-CCMP group keys");
 			 */
 			} else if (ver == WPA_KEY_INFO_TYPE_AES_128_CMAC) {
 				wpa_msg(sm->ctx->msg_ctx, MSG_DEBUG,
@@ -1452,8 +1372,8 @@ nan_sec_wpa_sm_rx_eapol(struct wpa_sm *sm, const u8 *src_addr) {
 		os_memcmp(key->replay_counter, sm->rx_replay_counter,
 				  WPA_REPLAY_COUNTER_LEN) <= 0) {
 		/* wpa_msg(sm->ctx->msg_ctx, MSG_WARNING,
-		 *		"WPA: EAPOL-Key Replay Counter did not
-		 *      increase - dropping packet");
+		 *	"WPA: EAPOL-Key Replay Counter did not
+		 *	increase - dropping packet");
 		 */
 		goto out;
 	}
@@ -1516,8 +1436,8 @@ nan_sec_wpa_sm_rx_eapol(struct wpa_sm *sm, const u8 *src_addr) {
 				key_data, key_data_len, ver);
 		} else {
 			/* wpa_msg(sm->ctx->msg_ctx, MSG_WARNING,
-			 *		"WPA: EAPOL-Key (Group) without
-			 *      Mic bit - dropped");
+			 *	"WPA: EAPOL-Key (Group) without
+			 *	Mic bit - dropped");
 			 */
 			DBGLOG(NAN, INFO, "[%s] Quit6. Group without Mic bit\n",
 			       __func__);
@@ -1540,11 +1460,7 @@ nan_sec_wpa_receive(struct wpa_authenticator *wpa_auth, /* AP */
 	u16 key_info, key_data_length;
 	enum { PAIRWISE_2,
 	       PAIRWISE_4,
-	       GROUP_2,
-	       REQUEST,
-	       SMK_M1,
-	       SMK_M3,
-	       SMK_ERROR } msg;
+	       GROUP_2 } msg;
 	char *msgtxt;
 	struct wpa_eapol_ie_parse kde;
 	/* int ft; */
@@ -1570,6 +1486,7 @@ nan_sec_wpa_receive(struct wpa_authenticator *wpa_auth, /* AP */
 	kde.wpa_ie_len = 0;
 	kde.mac_addr = NULL;
 #endif
+	kde.mac_addr = NULL;
 
 	mic_len = wpa_mic_len(sm->wpa_key_mgmt);
 	keyhdrlen = mic_len == 24 ? sizeof(*key192) : sizeof(*key);
@@ -1896,6 +1813,7 @@ continue_processing:
 			return WLAN_STATUS_FAILURE;
 		}
 		break;
+#if 0
 	case SMK_M1:
 	case SMK_M3:
 	case SMK_ERROR:
@@ -1903,6 +1821,7 @@ continue_processing:
 		/* STSL disabled - ignore SMK messages */
 	case REQUEST:
 		break;
+#endif
 	}
 
 	wpa_auth_vlogger(wpa_auth, sm->addr, LOGGER_DEBUG,
@@ -2039,6 +1958,10 @@ nan_sec_wpa_sm_init(struct wpa_sm_ctx *ctx, struct _NAN_NDP_INSTANCE_T *prNdp) {
 	DBGLOG(NAN, INFO, "[%s] Enter\n", __func__);
 
 	sm = prNdp->prResponderSecSmInfo;
+	DBGLOG(NAN, INFO,
+	       "init prResponderSecSmInfo=%p, fgIsAllocRxMsgForM1=%u, pu1GetRxMsgBodyBuf=%p, pu1GetRxMsgKdeBuf=%p\n",
+	       sm, sm->fgIsAllocRxMsgForM1,
+	       sm->pu1GetRxMsgBodyBuf, sm->pu1GetRxMsgKdeBuf);
 
 	if (sm == NULL)
 		return NULL;
@@ -2142,7 +2065,6 @@ nan_sec_wpa_init(const u8 *addr, struct wpa_auth_config *conf,
 	wpa_auth->group = wpa_group_init(wpa_auth, 0, 1);
 	if (wpa_auth->group == NULL) {
 		os_free(wpa_auth->wpa_ie);
-		os_free(wpa_auth);
 		return NULL;
 	}
 
@@ -2357,15 +2279,21 @@ nan_sec_hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
  */
 void
 nan_sec_wpa_supplicant_start(void) {
-	struct NETDEV_PRIVATE_GLUE_INFO *prNetDevPrivate = NULL;
+	struct GLUE_INFO *prGlueInfo = NULL;
+	struct ADAPTER *prAdapter = NULL;
 
 	DBGLOG(NAN, INFO, "[%s] Enter\n", __func__);
 
-	/* Get prAdapter */
-	prNetDevPrivate =
-		(struct NETDEV_PRIVATE_GLUE_INFO *)netdev_priv(gPrDev);
-	if (prNetDevPrivate != NULL)
-		g_prAdapter = prNetDevPrivate->prGlueInfo->prAdapter;
+	WIPHY_PRIV(wlanGetWiphy(), prGlueInfo);
+	if (prGlueInfo == NULL) {
+		DBGLOG(INIT, ERROR, "prGlueInfo is NULL.\n");
+		return;
+	}
+	prAdapter = prGlueInfo->prAdapter;
+	if (prAdapter == NULL) {
+		DBGLOG(INIT, ERROR, "prAdapter is NULL.\n");
+		return;
+	}
 
 	/* CTX */
 	kalMemZero(&g_rNanSecCtx, sizeof(struct _NAN_SEC_CTX));
@@ -2387,9 +2315,9 @@ nan_sec_wpa_supplicant_start(void) {
  ************************************************
  */
 uint32_t
-nanSecGetNdpCsidAttr(IN struct _NAN_NDP_INSTANCE_T *prNdp,
-		     OUT uint32_t *pu4CsidAttrLen,
-		     OUT uint8_t **ppu1CsidAttrBuf) {
+nanSecGetNdpCsidAttr(struct _NAN_NDP_INSTANCE_T *prNdp,
+		     uint32_t *pu4CsidAttrLen,
+		     uint8_t **ppu1CsidAttrBuf) {
 	struct _NAN_SEC_CSID_ATTR_HDR *prCsidAttrHdr = NULL;
 	struct _NAN_SEC_CSID_ATTR_LIST *prCsidAttrListHdr = NULL;
 	uint32_t u4TotalLen = 0;
@@ -2431,9 +2359,9 @@ nanSecGetNdpCsidAttr(IN struct _NAN_NDP_INSTANCE_T *prNdp,
 }
 
 uint32_t
-nanSecGetNdpScidAttr(IN struct _NAN_NDP_INSTANCE_T *prNdp,
-		     OUT uint32_t *pu4ScidAttrLen,
-		     OUT uint8_t **ppu1ScidAttrBuf) {
+nanSecGetNdpScidAttr(struct _NAN_NDP_INSTANCE_T *prNdp,
+		     uint32_t *pu4ScidAttrLen,
+		     uint8_t **ppu1ScidAttrBuf) {
 	struct _NAN_SEC_SCID_ATTR_HDR *prScidAttrHdr = NULL;
 	struct _NAN_SEC_SCID_ATTR_ENTRY *pr1ScidAttrListHdr = NULL;
 	uint32_t u4TotalLen = 0;
@@ -2461,7 +2389,10 @@ nanSecGetNdpScidAttr(IN struct _NAN_NDP_INSTANCE_T *prNdp,
 	pr1ScidAttrListHdr->u1ScidType = 1; /* PMKID */
 	pr1ScidAttrListHdr->u1PublishId = prNdp->ucPublishId;
 
-	pu1ScidPtr = &pr1ScidAttrListHdr->u1PublishId + 1;
+	/* pu1ScidPtr = &pr1ScidAttrListHdr->u1PublishId + 1; */
+	pu1ScidPtr = pucBuf +
+		sizeof(struct _NAN_SEC_SCID_ATTR_HDR) +
+		sizeof(struct _NAN_SEC_SCID_ATTR_ENTRY);
 	kalMemCopy(pu1ScidPtr, prNdp->au1Scid, sizeof(prNdp->au1Scid));
 
 	*ppu1ScidAttrBuf = pucBuf;
@@ -2524,8 +2455,8 @@ nanSecGetCsidAttr(uint32_t *pu4CsidAttrLen, uint8_t **ppu1CsidAttrBuf) {
 	prCsidAttrListHdr = (struct _NAN_SEC_CSID_ATTR_LIST
 				     *)(g_rNanSecCtx.pu1CsidAttrBuf +
 					sizeof(struct _NAN_SEC_CSID_ATTR_HDR));
-	prCipherEntry = (struct _NAN_SEC_CIPHER_ENTRY *)QUEUE_GET_HEAD(
-		&g_rNanSecCtx.rNanSecCipherList);
+	prCipherEntry = (struct _NAN_SEC_CIPHER_ENTRY *)
+		QUEUE_GET_HEAD(&g_rNanSecCtx.rNanSecCipherList);
 
 	while (prCipherEntry != NULL) {
 		prCsidAttrListHdr->u1CipherType = prCipherEntry->u4CipherType;
@@ -2534,9 +2465,8 @@ nanSecGetCsidAttr(uint32_t *pu4CsidAttrLen, uint8_t **ppu1CsidAttrBuf) {
 		prCsidAttrListHdr =
 			prCsidAttrListHdr +
 			1; /* sizeof(struct _NAN_SEC_CSID_ATTR_LIST) */
-		prCipherEntry =
-			(struct _NAN_SEC_CIPHER_ENTRY *)QUEUE_GET_NEXT_ENTRY(
-				&prCipherEntry->rQueEntry);
+		prCipherEntry = (struct _NAN_SEC_CIPHER_ENTRY *)
+			QUEUE_GET_NEXT_ENTRY(&prCipherEntry->rQueEntry);
 	}
 
 	*ppu1CsidAttrBuf = g_rNanSecCtx.pu1CsidAttrBuf;
@@ -2554,7 +2484,7 @@ nanSecGetCsidAttr(uint32_t *pu4CsidAttrLen, uint8_t **ppu1CsidAttrBuf) {
 }
 
 uint32_t
-nanSecInsertCipherList(IN uint32_t u4CipherType, IN uint16_t u2PublishId) {
+nanSecInsertCipherList(uint32_t u4CipherType, uint16_t u2PublishId) {
 	struct _NAN_SEC_CIPHER_ENTRY *prCipherEntry = NULL;
 
 	DBGLOG(NAN, INFO, "[%s] Enter, u4CipherType:0x%x, u2PublishId:0x%x\n",
@@ -2564,8 +2494,8 @@ nanSecInsertCipherList(IN uint32_t u4CipherType, IN uint16_t u2PublishId) {
 		return WLAN_STATUS_NOT_ACCEPTED;
 
 	/* Duplicate case handling */
-	prCipherEntry = (struct _NAN_SEC_CIPHER_ENTRY *)QUEUE_GET_HEAD(
-		&g_rNanSecCtx.rNanSecCipherList);
+	prCipherEntry = (struct _NAN_SEC_CIPHER_ENTRY *)
+		QUEUE_GET_HEAD(&g_rNanSecCtx.rNanSecCipherList);
 
 	while (prCipherEntry != NULL) {
 		if (prCipherEntry->u2PublishId == u2PublishId) {
@@ -2578,9 +2508,8 @@ nanSecInsertCipherList(IN uint32_t u4CipherType, IN uint16_t u2PublishId) {
 			return 0;
 		}
 
-		prCipherEntry =
-			(struct _NAN_SEC_CIPHER_ENTRY *)QUEUE_GET_NEXT_ENTRY(
-				&prCipherEntry->rQueEntry);
+		prCipherEntry = (struct _NAN_SEC_CIPHER_ENTRY *)
+			QUEUE_GET_NEXT_ENTRY(&prCipherEntry->rQueEntry);
 	}
 
 	/* Insert the new one */
@@ -2626,8 +2555,8 @@ nanSecFlushCipherList(void) {
 }
 
 uint32_t
-nanSecSetCipherType(IN struct _NAN_NDP_INSTANCE_T *prNdp,
-		    IN uint32_t u4CipherType) {
+nanSecSetCipherType(struct _NAN_NDP_INSTANCE_T *prNdp,
+		    uint32_t u4CipherType) {
 	/* UINT_8  i; */
 	int32_t i4TmpKeyMgmt = 0, i4TmpCipher = 0, i4TmpProto = 0,
 	       i4TmpAuthAlg = 0, i4TmpKeyInfo = 0;
@@ -2691,8 +2620,8 @@ nanSecSetCipherType(IN struct _NAN_NDP_INSTANCE_T *prNdp,
 }
 
 uint32_t
-nanSecSetPmk(IN struct _NAN_NDP_INSTANCE_T *prNdp, IN uint32_t u4PmkLen,
-	     IN uint8_t *pu1Pmk) {
+nanSecSetPmk(struct _NAN_NDP_INSTANCE_T *prNdp, uint32_t u4PmkLen,
+	     uint8_t *pu1Pmk) {
 	DBGLOG(NAN, INFO, "[%s] Enter, u4PmkLen:%d, eNDPRole:%d\n", __func__,
 	       u4PmkLen, prNdp->eNDPRole);
 
@@ -2718,7 +2647,7 @@ nanSecSetPmk(IN struct _NAN_NDP_INSTANCE_T *prNdp, IN uint32_t u4PmkLen,
 }
 
 uint32_t
-nanSecNotify4wayBegin(IN struct _NAN_NDP_INSTANCE_T *prNdp) {
+nanSecNotify4wayBegin(struct _NAN_NDP_INSTANCE_T *prNdp) {
 	DBGLOG(NAN, INFO, "[%s] Enter, eNDPRole:%d, NDPID:%d\n", __func__,
 	       prNdp->eNDPRole, prNdp->ucNDPID);
 
@@ -2747,7 +2676,7 @@ nanSecNotify4wayBegin(IN struct _NAN_NDP_INSTANCE_T *prNdp) {
 
 		wpa_auth_sta_associated(&g_rNanWpaAuth,
 					prNdp->prInitiatorSecSmInfo);
-		} else {
+	} else {
 		/* NAN_NDP_RESPONDER */
 		prNdp->prResponderSecSmInfo->u1MicCalState =
 			NAN_SEC_MIC_CAL_IDLE;
@@ -2780,7 +2709,7 @@ nanSecNotify4wayBegin(IN struct _NAN_NDP_INSTANCE_T *prNdp) {
 }
 
 uint32_t
-nanSecNotify4wayTerminate(IN struct _NAN_NDP_INSTANCE_T *prNdp) {
+nanSecNotify4wayTerminate(struct _NAN_NDP_INSTANCE_T *prNdp) {
 	DBGLOG(NAN, INFO, "[%s] Enter, eNDPRole:%d, NDPID:%d\n", __func__,
 	       prNdp->eNDPRole, prNdp->ucNDPID);
 
@@ -2789,7 +2718,7 @@ nanSecNotify4wayTerminate(IN struct _NAN_NDP_INSTANCE_T *prNdp) {
 		prNdp->prInitiatorSecSmInfo->Disconnect = TRUE;
 		wpa_sm_step(prNdp->prInitiatorSecSmInfo);
 
-		/* Orignal clean up */
+		/* Original clean up */
 		wpa_auth_sta_deinit(prNdp->prInitiatorSecSmInfo);
 
 		/* NAN clean up */
@@ -2801,31 +2730,12 @@ nanSecNotify4wayTerminate(IN struct _NAN_NDP_INSTANCE_T *prNdp) {
 		os_free(g_prNanHapdData->conf->ssid.wpa_psk);
 		g_prNanHapdData->conf->ssid.wpa_psk = NULL;
 	} else { /* NAN_NDP_RESPONDER */
-		/* Orignal clean up */
-		if (g_prNanWpaSupp == NULL || g_prNanWpaSupp->wpa == NULL) {
-			DBGLOG(NAN, ERROR,
-				"[%s] g_prNanWpaSupp is NULL\n",
-				__func__);
-			return 0;
-		}
-
-		g_prNanWpaSupp->wpa->rx_replay_counter_set = 0;
-		os_memset(g_prNanWpaSupp->wpa->rx_replay_counter, 0,
-			  WPA_REPLAY_COUNTER_LEN);
-		g_prNanWpaSupp->wpa->msg_3_of_4_ok = 0;
-
-		g_prNanWpaSupp->wpa->ptk_set = 0;
-		os_memset(&g_prNanWpaSupp->wpa->ptk, 0,
-			  sizeof(g_prNanWpaSupp->wpa->ptk));
-		g_prNanWpaSupp->wpa->tptk_set = 0;
-		os_memset(&g_prNanWpaSupp->wpa->tptk, 0,
-			  sizeof(g_prNanWpaSupp->wpa->tptk));
-		os_memset(&g_prNanWpaSupp->wpa->gtk, 0,
-			  sizeof(g_prNanWpaSupp->wpa->gtk));
+		/* Original clean up */
 
 		/* NAN clean up */
 		nanSecStaSmBufReset(prNdp->prResponderSecSmInfo);
-		kalMemZero(prNdp->prResponderSecSmInfo, sizeof(struct wpa_sm));
+		DBGLOG(NAN, INFO, "reset prResponderSecSmInfo=%p\n",
+				prNdp->prResponderSecSmInfo);
 
 		/* Keep NDP index info */
 		prNdp->prResponderSecSmInfo->pvNdp = (void *)prNdp;
@@ -2837,9 +2747,9 @@ nanSecNotify4wayTerminate(IN struct _NAN_NDP_INSTANCE_T *prNdp) {
 }
 
 uint32_t
-nanSecTxKdeAttrDone(IN struct _NAN_NDP_INSTANCE_T *prNdp, IN uint8_t u1DstMsg) {
+nanSecTxKdeAttrDone(struct _NAN_NDP_INSTANCE_T *prNdp, uint8_t u1DstMsg) {
 	u8 u1SmCurMsg = 0;
-	u8 **ppu1SmTmpKdeAttrBuf = NULL;
+	u8 *pu1SmTmpKdeAttrBuf = NULL;
 	u32 *pu4SmTmpKdeAttrLen = NULL;
 	bool *pfgIsTxDone = NULL;
 
@@ -2848,15 +2758,15 @@ nanSecTxKdeAttrDone(IN struct _NAN_NDP_INSTANCE_T *prNdp, IN uint8_t u1DstMsg) {
 
 	if (prNdp->eNDPRole == NAN_PROTOCOL_INITIATOR) {
 		u1SmCurMsg = prNdp->prInitiatorSecSmInfo->u1CurMsg;
-		ppu1SmTmpKdeAttrBuf =
-			&prNdp->prInitiatorSecSmInfo->pu1TmpKdeAttrBuf;
+		pu1SmTmpKdeAttrBuf =
+			prNdp->prInitiatorSecSmInfo->au1TmpKdeAttrBuf;
 		pu4SmTmpKdeAttrLen =
 			&prNdp->prInitiatorSecSmInfo->u4TmpKdeAttrLen;
 		pfgIsTxDone = &prNdp->prInitiatorSecSmInfo->fgIsTxDone;
 	} else { /* NAN_NDP_RESPONDER */
 		u1SmCurMsg = prNdp->prResponderSecSmInfo->u1CurMsg;
-		ppu1SmTmpKdeAttrBuf =
-			&prNdp->prResponderSecSmInfo->pu1TmpKdeAttrBuf;
+		pu1SmTmpKdeAttrBuf =
+			prNdp->prResponderSecSmInfo->au1TmpKdeAttrBuf;
 		pu4SmTmpKdeAttrLen =
 			&prNdp->prResponderSecSmInfo->u4TmpKdeAttrLen;
 		pfgIsTxDone = &prNdp->prResponderSecSmInfo->fgIsTxDone;
@@ -2868,7 +2778,8 @@ nanSecTxKdeAttrDone(IN struct _NAN_NDP_INSTANCE_T *prNdp, IN uint8_t u1DstMsg) {
 		return -1;
 	}
 
-	*ppu1SmTmpKdeAttrBuf = NULL;
+	kalMemZero(pu1SmTmpKdeAttrBuf, NAN_KDE_ATTR_BUF_SIZE);
+
 	*pu4SmTmpKdeAttrLen = 0;
 	*pfgIsTxDone = TRUE;
 
@@ -2884,9 +2795,9 @@ nanSecTxKdeAttrDone(IN struct _NAN_NDP_INSTANCE_T *prNdp, IN uint8_t u1DstMsg) {
 }
 
 uint32_t
-nanSecRxKdeAttr(IN struct _NAN_NDP_INSTANCE_T *prNdp, IN uint8_t u1SrcMsg,
-		IN uint32_t u4KdeAttrLen, IN uint8_t *pu1KdeAttrBuf,
-		IN uint32_t u4RxMsgLen, IN uint8_t *pu1RxMsgBuf) {
+nanSecRxKdeAttr(struct _NAN_NDP_INSTANCE_T *prNdp, uint8_t u1SrcMsg,
+		uint32_t u4KdeAttrLen, uint8_t *pu1KdeAttrBuf,
+		uint32_t u4RxMsgLen, uint8_t *pu1RxMsgBuf) {
 	uint32_t rStatus = WLAN_STATUS_SUCCESS;
 	u32 cipher;
 
@@ -2920,30 +2831,54 @@ nanSecRxKdeAttr(IN struct _NAN_NDP_INSTANCE_T *prNdp, IN uint8_t u1SrcMsg,
 	} else { /* NAN_NDP_RESPONDER */
 
 		if (u1SrcMsg == NAN_SEC_M1) {
-			if (prNdp->prResponderSecSmInfo->pu1GetRxMsgBodyBuf !=
-			    NULL)
+			if (prNdp->prResponderSecSmInfo->fgIsAllocRxMsgForM1 &&
+			    prNdp->prResponderSecSmInfo->pu1GetRxMsgBodyBuf) {
+				DBGLOG(NAN, INFO,
+				       "M1 free prResponderSecSmInfo=%p, pu1GetRxMsgBodyBuf=%p\n",
+				       prNdp->prResponderSecSmInfo,
+				       prNdp->prResponderSecSmInfo->
+					       pu1GetRxMsgBodyBuf);
 				os_free(prNdp->prResponderSecSmInfo
 						->pu1GetRxMsgBodyBuf);
+			}
 			prNdp->prResponderSecSmInfo->pu1GetRxMsgBodyBuf =
 				os_zalloc(u4RxMsgLen);
+			DBGLOG(NAN, INFO,
+			       "M1 zalloc prResponderSecSmInfo=%p, pu1GetRxMsgBodyBuf=%p\n",
+			       prNdp->prResponderSecSmInfo,
+			       prNdp->prResponderSecSmInfo->pu1GetRxMsgBodyBuf);
 			kalMemCopy(
 				prNdp->prResponderSecSmInfo->pu1GetRxMsgBodyBuf,
 				pu1RxMsgBuf, u4RxMsgLen);
 			prNdp->prResponderSecSmInfo->u4GetRxMsgBodyLen =
 				u4RxMsgLen;
-			prNdp->prResponderSecSmInfo->fgIsAllocRxMsgForM1 = TRUE;
 
-			if (prNdp->prResponderSecSmInfo->pu1GetRxMsgKdeBuf !=
-			    NULL)
+			if (prNdp->prResponderSecSmInfo->fgIsAllocRxMsgForM1 &&
+			    prNdp->prResponderSecSmInfo->pu1GetRxMsgKdeBuf) {
+				DBGLOG(NAN, INFO,
+				       "M1 free prResponderSecSmInfo=%p, pu1GetRxMsgKdeBuf=%p\n",
+				       prNdp->prResponderSecSmInfo,
+				       prNdp->prResponderSecSmInfo->
+					       pu1GetRxMsgKdeBuf);
 				os_free(prNdp->prResponderSecSmInfo
 						->pu1GetRxMsgKdeBuf);
+			}
 			prNdp->prResponderSecSmInfo->pu1GetRxMsgKdeBuf =
 				os_zalloc(u4KdeAttrLen);
+			DBGLOG(NAN, INFO,
+			       "M1 zalloc prResponderSecSmInfo=%p, pu1GetRxMsgKdeBuf=%p\n",
+			       prNdp->prResponderSecSmInfo,
+			       prNdp->prResponderSecSmInfo->pu1GetRxMsgKdeBuf);
 			kalMemCopy(
 				prNdp->prResponderSecSmInfo->pu1GetRxMsgKdeBuf,
 				pu1KdeAttrBuf, u4KdeAttrLen);
 			prNdp->prResponderSecSmInfo->u4GetRxMsgKdeLen =
 				u4KdeAttrLen;
+
+			prNdp->prResponderSecSmInfo->fgIsAllocRxMsgForM1 = TRUE;
+			DBGLOG(NAN, INFO, "set fgIsAllocRxMsgForM1=%u\n",
+			       prNdp->prResponderSecSmInfo->
+					fgIsAllocRxMsgForM1);
 
 			DBGLOG(NAN, INFO,
 			       "[%s] prResponderSecSmInfo:0x%p, u4GetRxKdeAttrLen:%d\n",
@@ -2954,20 +2889,42 @@ nanSecRxKdeAttr(IN struct _NAN_NDP_INSTANCE_T *prNdp, IN uint8_t u1SrcMsg,
 			if (prNdp->prResponderSecSmInfo->fgIsAllocRxMsgForM1) {
 				os_free(prNdp->prResponderSecSmInfo
 						->pu1GetRxMsgBodyBuf);
+				DBGLOG(NAN, INFO,
+				       "M3 free prResponderSecSmInfo=%p, pu1GetRxMsgBodyBuf=%p\n",
+					prNdp->prResponderSecSmInfo,
+					prNdp->prResponderSecSmInfo->
+						pu1GetRxMsgBodyBuf);
 				os_free(prNdp->prResponderSecSmInfo
 						->pu1GetRxMsgKdeBuf);
+				DBGLOG(NAN, INFO,
+				       "M3 free prResponderSecSmInfo=%p, pu1GetRxMsgKdeBuf=%p\n",
+				       prNdp->prResponderSecSmInfo,
+				       prNdp->prResponderSecSmInfo->
+					       pu1GetRxMsgKdeBuf);
 
 				prNdp->prResponderSecSmInfo
 					->fgIsAllocRxMsgForM1 = FALSE;
+				DBGLOG(NAN, INFO,
+				       "set fgIsAllocRxMsgForM1=%u\n",
+					prNdp->prResponderSecSmInfo->
+						fgIsAllocRxMsgForM1);
 			}
 #endif
 			prNdp->prResponderSecSmInfo->pu1GetRxMsgBodyBuf =
 				pu1RxMsgBuf;
+			DBGLOG(NAN, INFO,
+			       "M3 set prResponderSecSmInfo=%p, pu1GetRxMsgBodyBuf=%p\n",
+			       prNdp->prResponderSecSmInfo,
+			       prNdp->prResponderSecSmInfo->pu1GetRxMsgBodyBuf);
 			prNdp->prResponderSecSmInfo->u4GetRxMsgBodyLen =
 				u4RxMsgLen;
 
 			prNdp->prResponderSecSmInfo->pu1GetRxMsgKdeBuf =
 				pu1KdeAttrBuf;
+			DBGLOG(NAN, INFO,
+			       "M3 set prResponderSecSmInfo=%p, pu1GetRxMsgKdeBuf=%p\n",
+			       prNdp->prResponderSecSmInfo,
+			       prNdp->prResponderSecSmInfo->pu1GetRxMsgKdeBuf);
 			prNdp->prResponderSecSmInfo->u4GetRxMsgKdeLen =
 				u4KdeAttrLen;
 
@@ -2981,9 +2938,9 @@ nanSecRxKdeAttr(IN struct _NAN_NDP_INSTANCE_T *prNdp, IN uint8_t u1SrcMsg,
 }
 
 uint32_t
-nanSecNotifyMsgBodyRdy(IN struct _NAN_NDP_INSTANCE_T *prNdp,
-		IN uint8_t u1SrcMsg, IN OUT uint32_t u4TxMsgLen,
-		IN OUT uint8_t *pu1TxMsgBuf) {
+nanSecNotifyMsgBodyRdy(struct _NAN_NDP_INSTANCE_T *prNdp,
+		uint8_t u1SrcMsg, uint32_t u4TxMsgLen,
+		uint8_t *pu1TxMsgBuf) {
 	u8 u1SmCurMsg = 0;
 	u8 **ppu1SmGetMsgBodyBuf = NULL;
 	u32 *pu4SmGetMsgBodyLen = NULL;
@@ -3015,6 +2972,13 @@ nanSecNotifyMsgBodyRdy(IN struct _NAN_NDP_INSTANCE_T *prNdp,
 
 	*ppu1SmGetMsgBodyBuf = pu1TxMsgBuf;
 	*pu4SmGetMsgBodyLen = u4TxMsgLen;
+
+	/* Mark the flag before adding MIC */
+	if (prNdp->eNDPRole == NAN_PROTOCOL_INITIATOR) {
+		prNdp->prInitiatorSecSmInfo->fgIsTxDone = TRUE;
+	} else { /* NAN_NDP_RESPONDER */
+		prNdp->prResponderSecSmInfo->fgIsTxDone = TRUE;
+	}
 
 	if (u1SrcMsg == NAN_SEC_M1) {
 		memset(g_aucAuthTokenBuf, 0, NAN_AUTH_TOKEN_LEN);
@@ -3180,7 +3144,7 @@ nanSecMicCalStaSmStep(struct wpa_sm *sm) /* Send M2, M4 */
 		DBGLOG(NAN, INFO, "[%s] CAL_MIC_BEGIN\n", __func__);
 
 		reply = (struct wpa_eapol_key_192
-				 *)(sm->pu1TmpKdeAttrBuf +
+				 *)(sm->au1TmpKdeAttrBuf +
 				    sizeof(struct _NAN_SEC_KDE_ATTR_HDR));
 
 		if (sm->u1CurMsg == NAN_SEC_M2) {
@@ -3203,7 +3167,7 @@ nanSecMicCalStaSmStep(struct wpa_sm *sm) /* Send M2, M4 */
 		}
 
 		/* Fill-in KDE for NDP */
-		kalMemCopy(sm->pu1GetTxMsgKdeBuf, sm->pu1TmpKdeAttrBuf,
+		kalMemCopy(sm->pu1GetTxMsgKdeBuf, sm->au1TmpKdeAttrBuf,
 			   sm->u4TmpKdeAttrLen);
 
 		sm->u1MicCalState = NAN_SEC_MIC_CAL_DONE;
@@ -3226,7 +3190,7 @@ nanSecMicCalStaSmStep(struct wpa_sm *sm) /* Send M2, M4 */
 			break;
 		}
 
-		sm->pu1TmpKdeAttrBuf = NULL;
+		kalMemZero(sm->au1TmpKdeAttrBuf, NAN_KDE_ATTR_BUF_SIZE);
 		sm->u4TmpKdeAttrLen = 0;
 		sm->u1MicCalState = NAN_SEC_MIC_CAL_IDLE;
 
@@ -3264,20 +3228,30 @@ nanSecStaSmBufReset(struct wpa_sm *sm) {
 #if 1
 	if (sm->fgIsAllocRxMsgForM1) {
 		os_free(sm->pu1GetRxMsgBodyBuf);
+		DBGLOG(NAN, INFO, "free sm=%p, pu1GetRxMsgBodyBuf=%p\n",
+		       sm, sm->pu1GetRxMsgBodyBuf);
 
 		os_free(sm->pu1GetRxMsgKdeBuf);
+		DBGLOG(NAN, INFO, "free sm=%p, pu1GetRxMsgKdeBuf=%p\n",
+		       sm, sm->pu1GetRxMsgKdeBuf);
 
 		sm->fgIsAllocRxMsgForM1 = FALSE;
+		DBGLOG(NAN, INFO, "free sm=%p, fgIsAllocRxMsgForM1=%u\n",
+		       sm, sm->fgIsAllocRxMsgForM1);
 	}
 #endif
 
 	sm->pu1GetRxMsgBodyBuf = NULL;
+	DBGLOG(NAN, INFO, "reset sm=%p, pu1GetRxMsgBodyBuf=%p\n",
+	       sm, sm->pu1GetRxMsgBodyBuf);
 	sm->u4GetRxMsgBodyLen = 0;
 
 	sm->pu1GetRxMsgKdeBuf = NULL;
+	DBGLOG(NAN, INFO, "reset sm=%p, pu1GetRxMsgKdeBuf=%p\n",
+	       sm, sm->pu1GetRxMsgKdeBuf);
 	sm->u4GetRxMsgKdeLen = 0;
 
-	sm->pu1TmpKdeAttrBuf = NULL;
+	kalMemZero(sm->au1TmpKdeAttrBuf, NAN_KDE_ATTR_BUF_SIZE);
 	sm->u4TmpKdeAttrLen = 0;
 
 	kalMemZero(sm, sizeof(struct wpa_sm));
@@ -3313,14 +3287,8 @@ nanSecMicCalApSmStep(struct wpa_state_machine *sm) /* Send M1, M3 */
 	}
 
 	case NAN_SEC_MIC_CAL_WAIT: {
-		if (sm->pu1TmpKdeAttrBuf == NULL) {
-			DBGLOG(NAN, INFO,
-			       "[%s] ERROR!! pu1TmpKdeAttrBuf is NULL\n",
-			       __func__);
-			return WLAN_STATUS_FAILURE;
-		}
 		reply = (struct wpa_eapol_key_192
-				 *)(sm->pu1TmpKdeAttrBuf +
+				 *)(sm->au1TmpKdeAttrBuf +
 				    sizeof(struct _NAN_SEC_KDE_ATTR_HDR));
 
 		/* Gen (auth token||M3 body) */
@@ -3332,7 +3300,7 @@ nanSecMicCalApSmStep(struct wpa_state_machine *sm) /* Send M1, M3 */
 		if (rStatus != WLAN_STATUS_SUCCESS)
 			return WLAN_STATUS_FAILURE;
 
-		/* MIC calulation */
+		/* MIC calculation */
 		if (nan_sec_wpa_eapol_key_mic(
 			    sm->PTK.kck, sm->PTK.kck_len, sm->u4SelCipherType,
 			    sm->pu1M3MicMaterialBuf, sm->u4M3MicMaterialLen,
@@ -3345,7 +3313,7 @@ nanSecMicCalApSmStep(struct wpa_state_machine *sm) /* Send M1, M3 */
 		}
 
 		/* Fill-in KDE for NDP */
-		kalMemCopy(sm->pu1GetTxMsgKdeBuf, sm->pu1TmpKdeAttrBuf,
+		kalMemCopy(sm->pu1GetTxMsgKdeBuf, sm->au1TmpKdeAttrBuf,
 			   sm->u4TmpKdeAttrLen);
 
 		sm->u1MicCalState = NAN_SEC_MIC_CAL_DONE;
@@ -3367,7 +3335,7 @@ nanSecMicCalApSmStep(struct wpa_state_machine *sm) /* Send M1, M3 */
 
 		sm->u1MicCalState = NAN_SEC_MIC_CAL_IDLE;
 
-		sm->pu1TmpKdeAttrBuf = NULL;
+		kalMemZero(sm->au1TmpKdeAttrBuf, NAN_KDE_ATTR_BUF_SIZE);
 		sm->u4TmpKdeAttrLen = 0;
 
 		sm->pu1GetTxMsgBodyBuf = NULL;
@@ -3403,10 +3371,8 @@ nanSecApSmBufReset(struct wpa_state_machine *sm) {
 	if (sm->pu1M3MicMaterialBuf != NULL)
 		dumpMemory8(sm->pu1M3MicMaterialBuf, sm->u4M3MicMaterialLen);
 
-	DBGLOG(NAN, INFO, "[%s] pu1TmpKdeAttrBuf:0x%p\n", __func__,
-	       sm->pu1TmpKdeAttrBuf);
-	if (sm->pu1TmpKdeAttrBuf != NULL)
-		dumpMemory8(sm->pu1TmpKdeAttrBuf, sm->u4TmpKdeAttrLen);
+	DBGLOG(NAN, INFO, "[%s] dump au1TmpKdeAttrBuf:\n", __func__);
+	dumpMemory8(sm->au1TmpKdeAttrBuf, sm->u4TmpKdeAttrLen);
 
 	sm->pu1AuthTokenBuf = NULL;
 
@@ -3422,14 +3388,18 @@ nanSecApSmBufReset(struct wpa_state_machine *sm) {
 	/* os_free(sm->pu1GetRxMsgBodyBuf); */
 	/* Buf from NDP */
 	sm->pu1GetRxMsgBodyBuf = NULL;
+	DBGLOG(NAN, INFO, "reset sm=%p, pu1GetRxMsgBodyBuf=%p\n",
+	       sm, sm->pu1GetRxMsgBodyBuf);
 	sm->u4GetRxMsgBodyLen = 0;
 
 	/* os_free(sm->pu1GetRxMsgKdeBuf); */
 	/* Buf from NDP */
 	sm->pu1GetRxMsgKdeBuf = NULL;
+	DBGLOG(NAN, INFO, "reset sm=%p, pu1GetRxMsgKdeBuf=%p\n",
+	       sm, sm->pu1GetRxMsgKdeBuf);
 	sm->u4GetRxMsgKdeLen = 0;
 
-	sm->pu1TmpKdeAttrBuf = NULL;
+	kalMemZero(sm->au1TmpKdeAttrBuf, NAN_KDE_ATTR_BUF_SIZE);
 	sm->u4TmpKdeAttrLen = 0;
 
 	kalMemZero(sm,
@@ -3485,10 +3455,10 @@ nanSecGenAuthToken(u32 cipher, const u8 *auth_token_data,
 }
 
 uint32_t
-nanSecGenM3MicMaterial(IN uint8_t *pu1AuthTokenBuf, IN const u8 *pu1M3bodyBuf,
-		       IN uint32_t u4M3BodyLen,
-		       OUT uint8_t **ppu1M3MicMaterialBuf,
-		       OUT uint32_t *pu4M3MicMaterialLen) {
+nanSecGenM3MicMaterial(uint8_t *pu1AuthTokenBuf, const u8 *pu1M3bodyBuf,
+		       uint32_t u4M3BodyLen,
+		       uint8_t **ppu1M3MicMaterialBuf,
+		       uint32_t *pu4M3MicMaterialLen) {
 	uint32_t u4TotalLen = 0;
 	uint8_t *pu1MicMaterialBuf = NULL;
 
@@ -3560,13 +3530,13 @@ nanSecAppendKdeAttrFunc(struct _NAN_NDP_INSTANCE_T *prNdp,
 	    NAN_PROTOCOL_INITIATOR) {
 	    /* TODO: integrate with nan_base defines */
 		pu1TmpKdeAttrBuf =
-			prNdp->prInitiatorSecSmInfo->pu1TmpKdeAttrBuf;
+			prNdp->prInitiatorSecSmInfo->au1TmpKdeAttrBuf;
 		u4TmpKdeAttrLen = prNdp->prInitiatorSecSmInfo->u4TmpKdeAttrLen;
 
 		prNdp->prInitiatorSecSmInfo->pu1GetTxMsgKdeBuf = pu1MsduKdePos;
 	} else {
 		pu1TmpKdeAttrBuf =
-			prNdp->prResponderSecSmInfo->pu1TmpKdeAttrBuf;
+			prNdp->prResponderSecSmInfo->au1TmpKdeAttrBuf;
 		u4TmpKdeAttrLen = prNdp->prResponderSecSmInfo->u4TmpKdeAttrLen;
 
 		prNdp->prResponderSecSmInfo->pu1GetTxMsgKdeBuf = pu1MsduKdePos;
@@ -3674,7 +3644,7 @@ nanSecDumpEapolKey(struct wpa_eapol_key *key) {
 }
 
 void
-nanSecUpdateAttrCmd(IN struct ADAPTER *prAdapter, uint8_t aucAttrId,
+nanSecUpdateAttrCmd(struct ADAPTER *prAdapter, uint8_t aucAttrId,
 		    uint8_t *aucAttrBuf, uint16_t u2AttrLen) {
 	uint32_t rStatus;
 	void *prCmdBuffer;
@@ -3743,9 +3713,9 @@ nanSecUpdatePeerNDI(struct _NAN_NDP_INSTANCE_T *prNdp,
 }
 
 int32_t
-nanSecCompareSA(IN struct ADAPTER *prAdapter,
-		IN struct _NAN_NDP_INSTANCE_T *prNdp1,
-		IN struct _NAN_NDP_INSTANCE_T *prNdp2) {
+nanSecCompareSA(struct ADAPTER *prAdapter,
+		struct _NAN_NDP_INSTANCE_T *prNdp1,
+		struct _NAN_NDP_INSTANCE_T *prNdp2) {
 	uint32_t au4Rank[2];
 	struct _NAN_NDP_INSTANCE_T *aprNdp[2];
 	uint32_t u4Idx;
@@ -3782,13 +3752,13 @@ nanSecCompareSA(IN struct ADAPTER *prAdapter,
  ************************************************
  */
 uint32_t
-nanNdpGetMsgBody(IN uint8_t u1NdpIdx, IN uint8_t u1Msg, IN uint8_t u1MicMode,
-		 OUT uint32_t *pu4MsgBodyLen, OUT uint8_t **ppu1MsgBody) {
+nanNdpGetMsgBody(uint8_t u1NdpIdx, uint8_t u1Msg, uint8_t u1MicMode,
+		 uint32_t *pu4MsgBodyLen, uint8_t **ppu1MsgBody) {
 	return 0;
 }
 
 uint32_t
-nanNdpNotifySecAttrRdy(IN uint8_t u1NdpIdx) {
+nanNdpNotifySecAttrRdy(uint8_t u1NdpIdx) {
 	return 0;
 }
 
@@ -3902,7 +3872,7 @@ nanSecUtStaKdeAttr(void) {
 	/* Dump */
 	if (rStatus == WLAN_STATUS_SUCCESS) {
 		wpa_hexdump_dbg(MSG_INFO, "Dump STA KDE Attr",
-				sm->pu1TmpKdeAttrBuf, sm->u4TmpKdeAttrLen);
+				sm->au1TmpKdeAttrBuf, sm->u4TmpKdeAttrLen);
 	}
 
 	return rStatus;
@@ -3940,7 +3910,7 @@ nanSecUtApKdeAttr(void) {
 
 	if (rStatus == WLAN_STATUS_SUCCESS) {
 		wpa_hexdump_dbg(MSG_INFO, "Dump AP KDE Attr",
-				sm->pu1TmpKdeAttrBuf, sm->u4TmpKdeAttrLen);
+				sm->au1TmpKdeAttrBuf, sm->u4TmpKdeAttrLen);
 	} else {
 		DBGLOG(NAN, INFO, "[%s] gen KDE failed!\n", __func__);
 	}

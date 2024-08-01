@@ -88,6 +88,9 @@ extern int get_logtoomuch_enable(void) __attribute__((weak));
 extern uint32_t get_wifi_standalone_log_mode(void) __attribute__((weak));
 
 extern struct MIB_INFO_STAT g_arMibInfo[ENUM_BAND_NUM];
+#if CFG_SUPPORT_SA_LOG
+extern uint32_t get_wifi_standalone_log_mode(void);
+#endif
 
 /*******************************************************************************
  *                              C O N S T A N T S
@@ -141,8 +144,6 @@ extern struct MIB_INFO_STAT g_arMibInfo[ENUM_BAND_NUM];
 
 #define HIF_CHK_TX_HANG         BIT(1)
 #define HIF_DRV_SER             BIT(2)
-#define HIF_TRIGGER_FW_DUMP     BIT(3)
-#define HIF_CHK_MD_TX_HANG      BIT(4)
 
 #define DUMP_MEM_SIZE 64
 
@@ -225,6 +226,7 @@ enum ENUM_DBG_MODULE {
 #if CFG_SUPPORT_NAN
 	DBG_NAN_IDX,
 #endif
+	DBG_SA_IDX,		/* 0x2E *//* standalone log */
 	DBG_MODULE_NUM		/* Notice the XLOG check */
 };
 enum ENUM_DBG_ASSERT_CTRL_LEVEL {
@@ -591,6 +593,8 @@ enum WAKE_DATA_TYPE {
 #define MACSTR          "%02x:%02x:**:**:**:%02x"
 #define MAC2STR(a)   ((uint8_t *)a)[0], ((uint8_t *)a)[1], ((uint8_t *)a)[5]
 #endif
+#define RPTMACSTR	"%pM"
+#define RPTMAC2STR(a)	a
 #define PMKSTR "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%03x%02x%02x"
 #if CFG_SHOW_FULL_IPADDR
 /* Debug print format string for the IPv4 Address */
@@ -647,7 +651,6 @@ enum WAKE_DATA_TYPE {
 #define DBGLOG_HEX(_Module, _Class, _StartAddr, _Length)
 #define DBGLOG_MEM8(_Module, _Class, _StartAddr, _Length)
 #define DBGLOG_MEM32(_Module, _Class, _StartAddr, _Length)
-#define DBGLOG_MEM128(_Module, _Class, _StartAddr, _Length)
 #else
 #define DBGLOG(_Mod, _Clz, _Fmt, ...) \
 	do { \
@@ -703,12 +706,6 @@ enum WAKE_DATA_TYPE {
 		if (aucDebugModule[DBG_##_Mod##_IDX] & DBG_CLASS_##_Clz) { \
 			LOG_FUNC("%s:(" #_Mod " " #_Clz ")\n", __func__); \
 			dumpMemory32((uint32_t *)(_Adr), (uint32_t)(_Len)); \
-		} \
-	}
-#define DBGLOG_MEM128(_Mod, _Clz, _Adr, _Len) \
-	{ \
-		if (aucDebugModule[DBG_##_Mod##_IDX] & DBG_CLASS_##_Clz) { \
-			dumpMemory128((uint32_t *)(_Adr), (uint32_t)(_Len)); \
 		} \
 	}
 #endif
@@ -827,8 +824,6 @@ void dumpMemory8(IN uint8_t *pucStartAddr,
 		 IN uint32_t u4Length);
 void dumpMemory32(IN uint32_t *pu4StartAddr,
 		  IN uint32_t u4Length);
-void dumpMemory128(IN uint32_t *pu4StartAddr,
-		  IN uint32_t u4Length);
 void wlanPrintFwLog(uint8_t *pucLogContent,
 		    uint16_t u2MsgSize, uint8_t ucMsgType,
 		    const uint8_t *pucFmt, ...);
@@ -935,7 +930,6 @@ void connac2x_show_wfdma_dbg_flag_log(
 	struct ADAPTER *prAdapter,
 	enum _ENUM_WFDMA_TYPE_T enum_wfdma_type,
 	uint32_t u4DmaNum);
-void connac2x_show_wfdma_desc(IN struct ADAPTER *prAdapter);
 
 void connac2x_show_wfdma_info_by_type(
 	struct ADAPTER *prAdapter,

@@ -256,6 +256,17 @@ struct NanMatchIndMsg {
 	u8 ptlv[];
 } PACKED;
 
+/* NAN Match Expired Ind */
+struct _NanmatchExpiredIndParams  {
+	u32 matchHandle;
+} PACKED;
+
+struct NanMatchExpiredIndMsg {
+	struct _NanMsgHeader fwHeader;
+	struct _NanmatchExpiredIndParams matchExpiredIndParams;
+} PACKED;
+
+
 /* NAN Ranging Configuration params */
 struct _NanFWGeoFenceDescriptor {
 	u32 inner_threshold;
@@ -294,8 +305,6 @@ struct NanDebugParams {
      */
 	u8 debug_cmd_data[NAN_MAX_DEBUG_MESSAGE_DATA_LEN];
 } PACKED;
-
-extern const struct nla_policy mtk_wlan_vendor_nan_policy[NL80211_ATTR_MAX + 1];
 
 /* Service Discovery Extended Attribute params Format to HAL */
 struct NanFWSdeaCtrlParams {
@@ -739,7 +748,7 @@ enum NanInternalStatusType {
  * BIT2 - Disable followUp indication received (OTA).
  * BIT3 - Disable publishReplied indication.
  */
-#define GET_PUB_REPLY_IND_FLAG(flags) ((flags & PUB_REPLY_IND_FLAG) << 3)
+#define GET_PUB_REPLY_IND_FLAG(flags) (!(flags & PUB_REPLY_IND_FLAG) << 3)
 #define GET_PUB_FOLLOWUP_RX_IND_DISABLE_FLAG(flags)                            \
 	(((flags & PUB_FOLLOWUP_RX_IND_DISABLE_FLAG) >> 26) << 2)
 #define GET_PUB_MATCH_EXPIRED_IND_DISABLE_FLAG(flags)                          \
@@ -803,26 +812,32 @@ nanMapNan20RangingReqParams(u32 *pIndata,
 			    struct NanRangeResponseCfg *prNanRangeRspCfgParms);
 int mtk_cfg80211_vendor_nan(struct wiphy *wiphy, struct wireless_dev *wdev,
 			    const void *data, int data_len);
-int mtk_cfg80211_vendor_event_nan_event_indication(IN struct ADAPTER *prAdapter,
+int mtk_cfg80211_vendor_event_nan_event_indication(struct ADAPTER *prAdapter,
 						   uint8_t *pcuEvtBuf);
+int mtk_cfg80211_vendor_event_nan_schedule_config(
+	struct ADAPTER *prAdapter,
+	uint8_t *pcuEvtBuf);
 int
-mtk_cfg80211_vendor_event_nan_replied_indication(IN struct ADAPTER *prAdapter,
+mtk_cfg80211_vendor_event_nan_replied_indication(struct ADAPTER *prAdapter,
 						 uint8_t *pcuEvtBuf);
 int
-mtk_cfg80211_vendor_event_nan_publish_terminate(IN struct ADAPTER *prAdapter,
+mtk_cfg80211_vendor_event_nan_publish_terminate(struct ADAPTER *prAdapter,
 						uint8_t *pcuEvtBuf);
 int
-mtk_cfg80211_vendor_event_nan_subscribe_terminate(IN struct ADAPTER *prAdapter,
+mtk_cfg80211_vendor_event_nan_subscribe_terminate(struct ADAPTER *prAdapter,
 						  uint8_t *pcuEvtBuf);
 int
-mtk_cfg80211_vendor_event_nan_followup_indication(IN struct ADAPTER *prAdapter,
+mtk_cfg80211_vendor_event_nan_followup_indication(struct ADAPTER *prAdapter,
 						  uint8_t *pcuEvtBuf);
 int
-mtk_cfg80211_vendor_event_nan_seldflwup_indication(IN struct ADAPTER *prAdapter,
+mtk_cfg80211_vendor_event_nan_seldflwup_indication(struct ADAPTER *prAdapter,
 						  uint8_t *pcuEvtBuf);
-int mtk_cfg80211_vendor_event_nan_match_indication(IN struct ADAPTER *prAdapter,
+int mtk_cfg80211_vendor_event_nan_match_indication(struct ADAPTER *prAdapter,
 						   uint8_t *pcuEvtBuf);
 int
-mtk_cfg80211_vendor_event_nan_disable_indication(IN struct ADAPTER *prAdapter,
+mtk_cfg80211_vendor_event_nan_match_expire(struct ADAPTER *prAdapter,
+					       uint8_t *pcuEvtBuf);
+int
+mtk_cfg80211_vendor_event_nan_disable_indication(struct ADAPTER *prAdapter,
 						uint8_t *pcuEvtBuf);
 #endif

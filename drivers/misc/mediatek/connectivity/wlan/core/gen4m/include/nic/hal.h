@@ -75,6 +75,20 @@
  */
 #define WIFI_SER_SYNC_TIMER_TIMEOUT_IN_MS	(100)
 
+/**
+ * These static compile options have been moved to wifi.cfg controlled by
+ * "TRXDescDump" with bitmap settings:
+ *   TXP(0x04),        TXDMAD(0x02), TXD(0x01),
+ *   RXDSEGMENT(0x40), RXDMAD(0x20), RXD(0x10).
+ *
+ * #define CFG_DUMP_TXDMAD
+ * #define CFG_DUMP_RXDMAD
+ * #define CFG_DUMP_TXD
+ * #define CFG_DUMP_TXP
+ * #define CFG_DUMP_RXD
+ * #define CFG_DUMP_RXD_SEGMENT
+ */
+
 /*******************************************************************************
  *                             D A T A   T Y P E S
  *******************************************************************************
@@ -110,6 +124,12 @@ extern struct TIMER rSerSyncTimer;
 #define HAL_CLEAR_FLAG(_M, _F)           ((_M)->u4HwFlags &= ~(_F))
 #define HAL_TEST_FLAG(_M, _F)            ((_M)->u4HwFlags & (_F))
 #define HAL_TEST_FLAGS(_M, _F)           (((_M)->u4HwFlags & (_F)) == (_F))
+
+#if CFG_SUPPORT_SNIFFER
+#define HAL_MON_EN(_prAdapter) (_prAdapter->prGlueInfo->fgIsEnableMon)
+#else
+#define HAL_MON_EN(_prAdapter) FALSE
+#endif
 
 #if defined(_HIF_SDIO)
 #define HAL_MCR_RD(_prAdapter, _u4Offset, _pu4Value) \
@@ -1155,7 +1175,7 @@ uint32_t halGetChipSwVer(IN struct ADAPTER *prAdapter);
 uint32_t halRxWaitResponse(IN struct ADAPTER *prAdapter,
 	IN uint8_t ucPortIdx, OUT uint8_t *pucRspBuffer,
 	IN uint32_t u4MaxRespBufferLen, OUT uint32_t *pu4Length,
-	IN uint32_t u4WaitingInterval, IN uint32_t u4TimeoutValue);
+	IN uint32_t u4WaitingInterval);
 
 void halEnableInterrupt(IN struct ADAPTER *prAdapter);
 void halDisableInterrupt(IN struct ADAPTER *prAdapter);
@@ -1219,6 +1239,10 @@ void halTxReturnFreeResource_v1(IN struct ADAPTER *prAdapter,
 	IN uint16_t *au2TxDoneCnt);
 uint8_t halTxRingDataSelect(IN struct ADAPTER *prAdapter,
 	IN struct MSDU_INFO *prMsduInfo);
+#ifdef CFG_PDMA_SLPPRT_MODE_SUPPORT
+void halPdmaSlpprotOp(IN struct GLUE_INFO *prGlueInfo,
+							IN uint8_t ucEnable);
+#endif
 void halUpdateTxMaxQuota(IN struct ADAPTER *prAdapter);
 void halNotifyMdCrash(IN struct ADAPTER *prAdapter);
 bool halIsTxBssCntFull(struct ADAPTER *prAdapter, uint8_t ucBssIndex);

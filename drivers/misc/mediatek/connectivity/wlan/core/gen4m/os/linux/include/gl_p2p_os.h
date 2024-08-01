@@ -101,8 +101,11 @@ extern const struct net_device_ops p2p_netdev_ops;
 #define OID_SET_GET_STRUCT_LENGTH		4096
 
 #define MAX_P2P_IE_SIZE	5
-
+#if CFG_TC10_FEATURE
+#define P2P_MAXIMUM_CLIENT_COUNT                    10
+#else
 #define P2P_MAXIMUM_CLIENT_COUNT                    16
+#endif
 #define P2P_DEFAULT_CLIENT_COUNT 4
 
 /******************************************************************************
@@ -220,8 +223,7 @@ struct GL_P2P_INFO {
 #endif
 
 #if (CFG_SUPPORT_DFS_MASTER == 1)
-	struct cfg80211_chan_def chandefCsa;
-	struct ieee80211_channel chanCsa;
+	struct cfg80211_chan_def *chandef;
 	uint32_t cac_time_ms;
 #endif
 
@@ -237,6 +239,8 @@ struct GL_P2P_INFO {
 
 	/* indicate caller thread for stop ap complete */
 	struct completion rStopApComp;
+
+	struct LINK rWaitTxDoneLink;
 
 	enum ENUM_CHNL_SWITCH_POLICY eChnlSwitchPolicy;
 	u_int8_t fgChannelSwitchReq;
@@ -383,10 +387,6 @@ u_int8_t p2PAllocInfo(IN struct GLUE_INFO *prGlueInfo, IN uint8_t ucIdex);
 u_int8_t p2PFreeInfo(struct GLUE_INFO *prGlueInfo, uint8_t ucIdx);
 
 void p2pSetSuspendMode(struct GLUE_INFO *prGlueInfo, u_int8_t fgEnable);
-#if CFG_ENABLE_PER_STA_STATISTICS_LOG
-void p2pResumeStatisticsTimer(struct GLUE_INFO *prGlueInfo,
-	struct net_device *prNetDev);
-#endif
 u_int8_t glP2pCreateWirelessDevice(struct GLUE_INFO *prGlueInfo);
 void glP2pDestroyWirelessDevice(void);
 void p2pUpdateChannelTableByDomain(struct GLUE_INFO *prGlueInfo);

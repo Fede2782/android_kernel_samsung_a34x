@@ -143,7 +143,8 @@ scanP2pProcessBeaconAndProbeResp(IN struct ADAPTER *prAdapter,
 			prP2pBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 					(uint8_t) u4Idx);
 
-			if (!IS_BSS_ACTIVE(prP2pBssInfo))
+			if (!prP2pBssInfo ||
+				!IS_BSS_ACTIVE(prP2pBssInfo))
 				continue;
 
 			if ((prP2pBssInfo->eNetworkType != NETWORK_TYPE_P2P) ||
@@ -204,7 +205,7 @@ scanP2pProcessBeaconAndProbeResp(IN struct ADAPTER *prAdapter,
 		rChannelInfo.eBand = prBssDesc->eBand;
 		prBssDesc->fgIsP2PReport = TRUE;
 
-		DBGLOG(P2P, TRACE,
+		DBGLOG(P2P, INFO,
 			"indicate [" MACSTR "][%s][%s][ch %d][r %d][t %u]\n",
 			MAC2STR(prWlanBeaconFrame->aucBSSID),
 			fgIsBeacon ? "Beacon" : "Probe Response",
@@ -231,6 +232,8 @@ void scnEventReturnChannel(IN struct ADAPTER *prAdapter,
 	/* send cancel message to firmware domain */
 	rCmdScanCancel.ucSeqNum = ucScnSeqNum;
 	rCmdScanCancel.ucIsExtChannel = (uint8_t) FALSE;
+	rCmdScanCancel.aucReserved[0] = 0;
+	rCmdScanCancel.aucReserved[1] = 0;
 
 	wlanSendSetQueryCmd(prAdapter,
 			    CMD_ID_SCAN_CANCEL,

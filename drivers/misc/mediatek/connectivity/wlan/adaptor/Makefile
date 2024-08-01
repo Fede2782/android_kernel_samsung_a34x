@@ -45,6 +45,12 @@ ccflags-y += -DCFG_ANDORID_CONNINFRA_SUPPORT=0
 ccflags-y += -DCFG_ANDORID_CONNINFRA_COREDUMP_SUPPORT=0
 endif
 
+ifeq ($(CONFIG_MTK_TC10_FEATURE), y)
+    ccflags-y += -DCFG_TC10_FEATURE=1
+else
+    ccflags-y += -DCFG_TC10_FEATURE=0
+endif
+
 ccflags-y += -D MTK_WCN_WMT_STP_EXP_SYMBOL_ABSTRACT
 
 ccflags-y += -D CREATE_NODE_DYNAMIC=1

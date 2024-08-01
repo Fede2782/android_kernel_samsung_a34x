@@ -11,24 +11,8 @@
 
 #include <cpu_ctrl.h>
 #include <topo_ctrl.h>
-#include "gl_os.h"
-
-#if KERNEL_VERSION(4, 19, 0) <= CFG80211_VERSION_CODE
-#include <linux/soc/mediatek/mtk-pm-qos.h>
-#include <helio-dvfsrc-opp.h>
-#define pm_qos_add_request(_req, _class, _value) \
-		mtk_pm_qos_add_request(_req, _class, _value)
-#define pm_qos_update_request(_req, _value) \
-		mtk_pm_qos_update_request(_req, _value)
-#define pm_qos_remove_request(_req) \
-		mtk_pm_qos_remove_request(_req)
-#define pm_qos_request mtk_pm_qos_request
-#define PM_QOS_DDR_OPP MTK_PM_QOS_DDR_OPP
-#define ppm_limit_data cpu_ctrl_data
-#else
 #ifdef WLAN_FORCE_DDR_OPP
 #include <linux/pm_qos.h>
-#endif
 #endif
 
 #include "precomp.h"

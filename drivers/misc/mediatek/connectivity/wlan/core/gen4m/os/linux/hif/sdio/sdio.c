@@ -248,7 +248,7 @@ static int32_t mtk_sdio_interrupt(unsigned long cltCtx)
 
 	prGlueInfo->IsrCnt++;
 
-	if (test_bit(GLUE_FLAG_HALT_BIT, &prGlueInfo->ulFlag)) {
+	if (prGlueInfo->ulFlag & GLUE_FLAG_HALT) {
 		/* printk(KERN_INFO DRV_NAME"GLUE_FLAG_HALT skip INT\n"); */
 		ret = mtk_wcn_hif_sdio_writeb(cltCtx, MCR_WHLPCR, WHLPCR_INT_EN_CLR);
 		return ret;
@@ -279,7 +279,7 @@ static void mtk_sdio_interrupt(struct sdio_func *func)
 		return;
 	}
 
-	if (test_bit(GLUE_FLAG_HALT_BIT, &prGlueInfo->ulFlag)) {
+	if (prGlueInfo->ulFlag & GLUE_FLAG_HALT) {
 		sdio_writeb(prGlueInfo->rHifInfo.func, WHLPCR_INT_EN_CLR, MCR_WHLPCR, &ret);
 		/* printk(KERN_INFO DRV_NAME"GLUE_FLAG_HALT skip INT\n"); */
 		return;

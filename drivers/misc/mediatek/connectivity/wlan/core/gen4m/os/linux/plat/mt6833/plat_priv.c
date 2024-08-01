@@ -3,15 +3,13 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <cpu_ctrl.h>
+#include <topo_ctrl.h>
 #include "gl_os.h"
 
 #if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
-#include <uapi/linux/sched/types.h>
-#include <linux/sched/task.h>
-#include <linux/cpufreq.h>
+/*TODO kernel 5.4 boost CPU */
 #elif KERNEL_VERSION(4, 19, 0) <= CFG80211_VERSION_CODE
-#include <cpu_ctrl.h>
-#include <topo_ctrl.h>
 #include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <helio-dvfsrc-opp.h>
 #define pm_qos_add_request(_req, _class, _value) \
@@ -24,13 +22,12 @@
 #define PM_QOS_DDR_OPP MTK_PM_QOS_DDR_OPP
 #define ppm_limit_data cpu_ctrl_data
 #else
-#include <cpu_ctrl.h>
-#include <topo_ctrl.h>
 #include <linux/pm_qos.h>
 #include <helio-dvfsrc-opp.h>
 #endif
 
 #include "precomp.h"
+#include "wmt_exp.h"
 
 #ifdef CONFIG_WLAN_MTK_EMI
 #if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
@@ -129,103 +126,27 @@ void kalSetTaskUtilMinPct(IN int pid, IN unsigned int min)
 #endif
 }
 
-#if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
-static LIST_HEAD(wlan_policy_list);
-struct wlan_policy {
-	struct freq_qos_request	qos_req;
-	struct list_head	list;
-};
-#endif
-
-void kalSetCpuFreq(IN int32_t freq)
-{
-#if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
-	int cpu, ret;
-	struct cpufreq_policy *policy;
-	struct wlan_policy *wReq;
-
-	if (list_empty(&wlan_policy_list)) {
-		for_each_possible_cpu(cpu) {
-			policy = cpufreq_cpu_get(cpu);
-			if (!policy)
-				continue;
-
-			wReq = kzalloc(sizeof(struct wlan_policy), GFP_KERNEL);
-			if (!wReq)
-				break;
-
-			ret = freq_qos_add_request(&policy->constraints,
-				&wReq->qos_req, FREQ_QOS_MIN, 0);
-			if (ret < 0) {
-				pr_info("%s: freq_qos_add_request fail cpu%d\n",
-					__func__, cpu);
-				kfree(wReq);
-				break;
-			}
-
-			list_add_tail(&wReq->list, &wlan_policy_list);
-			cpufreq_cpu_put(policy);
-		}
-	}
-
-	list_for_each_entry(wReq, &wlan_policy_list, list) {
-		freq_qos_update_request(&wReq->qos_req, freq);
-	}
-#else
-	int32_t i = 0;
-	struct ppm_limit_data *freq_to_set;
-	uint32_t u4ClusterNum = topo_ctrl_get_nr_clusters();
-
-	freq_to_set = kmalloc_array(u4ClusterNum, sizeof(struct ppm_limit_data),
-			GFP_KERNEL);
-	if (!freq_to_set)
-		return;
-
-	for (i = 0; i < u4ClusterNum; i++) {
-		freq_to_set[i].min = freq;
-		freq_to_set[i].max = freq;
-	}
-
-	update_userlimit_cpu_freq(CPU_KIR_WIFI,
-		u4ClusterNum, freq_to_set);
-
-	kfree(freq_to_set);
-#endif
-}
-
-void kalSetDramBoost(IN struct ADAPTER *prAdapter, IN u_int8_t onoff)
-{
-#if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
-	/* TODO */
-#else
-	static struct pm_qos_request wifi_qos_request;
-
-	KAL_ACQUIRE_MUTEX(prAdapter, MUTEX_BOOST_CPU);
-	if (onoff == TRUE) {
-		pr_info("Max Dram Freq start\n");
-		pm_qos_add_request(&wifi_qos_request,
-				   PM_QOS_DDR_OPP,
-				   DDR_OPP_2);
-		pm_qos_update_request(&wifi_qos_request, DDR_OPP_2);
-	} else {
-		pr_info("Max Dram Freq end\n");
-		pm_qos_update_request(&wifi_qos_request, DDR_OPP_UNREQ);
-		pm_qos_remove_request(&wifi_qos_request);
-	}
-	KAL_RELEASE_MUTEX(prAdapter, MUTEX_BOOST_CPU);
-#endif
-}
-
 int32_t kalBoostCpu(IN struct ADAPTER *prAdapter,
 		    IN uint32_t u4TarPerfLevel,
 		    IN uint32_t u4BoostCpuTh)
 {
 	struct GLUE_INFO *prGlueInfo = NULL;
-	int32_t i4Freq = -1;
+	struct ppm_limit_data freq_to_set[MAX_CLUSTER_NUM];
+	int32_t i = 0, i4Freq = -1;
+
+	static struct pm_qos_request wifi_qos_request;
 	static u_int8_t fgRequested = ENUM_CPU_BOOST_STATUS_INIT;
 
+	uint32_t u4ClusterNum = topo_ctrl_get_nr_clusters();
+
 	WIPHY_PRIV(wlanGetWiphy(), prGlueInfo);
+	ASSERT(u4ClusterNum <= MAX_CLUSTER_NUM);
+	/* ACAO, we dont have to set core number */
 	i4Freq = (u4TarPerfLevel >= u4BoostCpuTh) ? MAX_CPU_FREQ : -1;
+	for (i = 0; i < u4ClusterNum; i++) {
+		freq_to_set[i].min = i4Freq;
+		freq_to_set[i].max = i4Freq;
+	}
 
 	if (fgRequested == ENUM_CPU_BOOST_STATUS_INIT) {
 		/* initially enable rps working at small cores */
@@ -243,8 +164,16 @@ int32_t kalBoostCpu(IN struct ADAPTER *prAdapter,
 			kalSetTaskUtilMinPct(prGlueInfo->u4RxThreadPid, 100);
 			kalSetTaskUtilMinPct(prGlueInfo->u4HifThreadPid, 100);
 			kalSetRpsMap(prGlueInfo, CPU_BIG_CORE);
-			kalSetCpuFreq(i4Freq);
-			kalSetDramBoost(prAdapter, TRUE);
+			update_userlimit_cpu_freq(CPU_KIR_WIFI,
+				u4ClusterNum, freq_to_set);
+
+			KAL_ACQUIRE_MUTEX(prAdapter, MUTEX_BOOST_CPU);
+			pr_info("Max Dram Freq start\n");
+			pm_qos_add_request(&wifi_qos_request,
+					   PM_QOS_DDR_OPP,
+					   DDR_OPP_0);
+			pm_qos_update_request(&wifi_qos_request, DDR_OPP_0);
+			KAL_RELEASE_MUTEX(prAdapter, MUTEX_BOOST_CPU);
 		}
 	} else {
 		if (fgRequested == ENUM_CPU_BOOST_STATUS_START) {
@@ -256,8 +185,14 @@ int32_t kalBoostCpu(IN struct ADAPTER *prAdapter,
 			kalSetTaskUtilMinPct(prGlueInfo->u4RxThreadPid, 0);
 			kalSetTaskUtilMinPct(prGlueInfo->u4HifThreadPid, 0);
 			kalSetRpsMap(prGlueInfo, CPU_LITTLE_CORE);
-			kalSetCpuFreq(i4Freq);
-			kalSetDramBoost(prAdapter, FALSE);
+			update_userlimit_cpu_freq(CPU_KIR_WIFI,
+				u4ClusterNum, freq_to_set);
+
+			KAL_ACQUIRE_MUTEX(prAdapter, MUTEX_BOOST_CPU);
+			pr_info("Max Dram Freq end\n");
+			pm_qos_update_request(&wifi_qos_request, DDR_OPP_UNREQ);
+			pm_qos_remove_request(&wifi_qos_request);
+			KAL_RELEASE_MUTEX(prAdapter, MUTEX_BOOST_CPU);
 		}
 	}
 	kalTraceInt(fgRequested == ENUM_CPU_BOOST_STATUS_START, "kalBoostCpu");

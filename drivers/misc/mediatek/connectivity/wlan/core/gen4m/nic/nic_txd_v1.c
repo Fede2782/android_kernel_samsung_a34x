@@ -359,7 +359,7 @@ void nic_txd_v1_compose(
 	HAL_MAC_TX_DESC_SET_PORT_INDEX(prTxDesc, ucTarPort);
 
 	ucTarQueue = nicTxGetTxDestQIdxByTc(prMsduInfo->ucTC);
-	if (ucTarPort == PORT_INDEX_LMAC)
+	if (prBssInfo && ucTarPort == PORT_INDEX_LMAC)
 		ucTarQueue += (prBssInfo->ucWmmQueSet * WMM_AC_INDEX_NUM);
 
 	HAL_MAC_TX_DESC_SET_QUEUE_INDEX(prTxDesc, ucTarQueue);
@@ -438,8 +438,11 @@ void nic_txd_v1_compose(
 #endif
 
 	/* Own MAC */
-	HAL_MAC_TX_DESC_SET_OWN_MAC_INDEX(prTxDesc,
+	if (prBssInfo) {
+		HAL_MAC_TX_DESC_SET_OWN_MAC_INDEX(prTxDesc,
 					  prBssInfo->ucOwnMacIndex);
+	} else
+		DBGLOG(TX, ERROR, "prBssInfo is NULL\n");
 
 	if (u4TxDescLength == NIC_TX_DESC_SHORT_FORMAT_LENGTH) {
 		HAL_MAC_TX_DESC_SET_SHORT_FORMAT(prTxDesc);
@@ -509,9 +512,11 @@ void nic_txd_v1_compose(
 #if ((CFG_SISO_SW_DEVELOP == 1) || (CFG_SUPPORT_SPE_IDX_CONTROL == 1))
 		/* Update spatial extension index setting */
 		eWfPathFavor = wlanGetAntPathType(prAdapter, ENUM_WF_NON_FAVOR);
-		HAL_MAC_TX_DESC_SET_SPE_IDX(prTxDesc,
-			wlanGetSpeIdx(prAdapter, prBssInfo->ucBssIndex,
-				eWfPathFavor));
+		if (prBssInfo) {
+			HAL_MAC_TX_DESC_SET_SPE_IDX(prTxDesc,
+				wlanGetSpeIdx(prAdapter, prBssInfo->ucBssIndex,
+					eWfPathFavor));
+		}
 #endif
 		/* Set SPE_IDX_SEL to:
 		* 0: reference SPE_IDX configuration in TXD

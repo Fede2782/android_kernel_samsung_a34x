@@ -61,8 +61,7 @@ static int connsys_adie_clock_buffer_setting(bool bt_only);
 
 unsigned int consys_emi_set_remapping_reg_mt6877(
 	phys_addr_t con_emi_base_addr,
-	phys_addr_t md_shared_emi_base_addr,
-	phys_addr_t gps_emi_base_addr)
+	phys_addr_t md_shared_emi_base_addr)
 {
 	CONSYS_REG_WRITE_OFFSET_RANGE(
 		CONN_HOST_CSR_TOP_CONN2AP_REMAP_MCU_EMI_BASE_ADDR_ADDR,
@@ -93,6 +92,78 @@ unsigned int consys_emi_set_remapping_reg_mt6877(
 int consys_conninfra_on_power_ctrl_mt6877(unsigned int enable)
 {
 #if MTK_CONNINFRA_CLOCK_BUFFER_API_AVAILABLE
+	unsigned int conninfra_off_iso = 0;
+	int check;
+
+	if (enable)
+		return consys_platform_spm_conn_ctrl_mt6877(enable);
+
+	pr_info("%s[%d], check conninfra off iso before turn off MTCMOS\n", __func__, __LINE__);
+	/* Caser of Turn off MTCMOS */
+	/* read 0x1806_02CC */
+	conninfra_off_iso = CONSYS_REG_READ(CONN_HOST_CSR_TOP_DBG_DUMMY_3_ADDR);
+	if (((conninfra_off_iso & 0x10000) == 0) && ((conninfra_off_iso & 0x0F00) == 0)) {
+		/* Turn on AP2CONN AHB TX bus sleep protect */
+		/* 0x1000_1220[13] = 1 */
+		CONSYS_SET_BIT(INFRACFG_AO_INFRA_TOPAXI_PROTECTEN, 1 << 13);
+		/*
+		 * check  AP2CONN AHB TX bus sleep protect turn on
+		 * (polling "100 times" and each polling interval is "0.5ms")
+		 * If AP2CONN (TX/RX) protect turn off fail, power on fail.
+		 * (DRV access connsys CR will get 0 )
+		 */
+		CONSYS_REG_BIT_POLLING(INFRACFG_AO_INFRA_TOPAXI_PROTECTEN_STA1, 13, 0x1, 100, 500, check);
+		if (check != 0) {
+			/* cannot get AHB TX bus sleep protect */
+			pr_info("%s[%d], cannot get AHB TX bus sleep protect\n", __func__, __LINE__);
+			return consys_platform_spm_conn_ctrl_mt6877(enable);
+		}
+
+		/* Turn on AP2CONN AHB RX bus sleep protect */
+		CONSYS_SET_BIT(INFRACFG_AO_INFRA_TOPAXI_PROTECTEN, 1 << 19);
+		/*
+		 * check  AP2CONN AHB RX bus sleep protect turn on
+		 * (polling "100 times" and each polling interval is "0.5ms")
+		 * If AP2CONN (TX/RX) protect turn off fail, power on fail.
+		 * (DRV access connsys CR will get 0 )
+		 */
+		CONSYS_REG_BIT_POLLING(INFRACFG_AO_INFRA_TOPAXI_PROTECTEN_STA1, 19, 0x1, 100, 500, check);
+		if (check != 0) {
+			/* cannot get AHB RX bus sleep protect */
+			pr_info("%s[%d], cannot get AHB RX bus sleep protect\n", __func__, __LINE__);
+			return consys_platform_spm_conn_ctrl_mt6877(enable);
+		}
+
+		/*
+		 * Turn on CONN2AP AXI TX bus sleep protect (disable sleep protection when CONNSYS had been turned on)
+		 * Note : Should turn off AXI Tx sleep protection after AXI Rx sleep protection has been turn off.
+		 */
+		CONSYS_SET_BIT(INFRACFG_AO_INFRA_TOPAXI_PROTECTEN, 1 << 18);
+		pr_info("%s[%d], set AXI TX bus sleep protect here\n", __func__, __LINE__);
+
+		/*
+		 * Turn on CONN2AP AXI RX bus sleep protect (disable sleep protection when CONNSYS had been turned on)
+		 * Note : Should turn off AXI Rx sleep protection first.
+		 */
+		CONSYS_SET_BIT(INFRACFG_AO_INFRA_TOPAXI_PROTECTEN, 1 << 14);
+		/*
+		 * check  CONN2AP AXI RX bus sleep protect turn on
+		 * (polling "100 times" and each polling interval is "0.5ms")
+		 * If CONN2AP (TX/RX) protect turn off fail, power on fail.
+		 * (DRV access connsys CR will get 0 )
+		 */
+		CONSYS_REG_BIT_POLLING(INFRACFG_AO_INFRA_TOPAXI_PROTECTEN_STA1, 14, 0x1, 100, 500, check);
+		if (check != 0) {
+			/* cannot get AXI RX bus sleep protect */
+			pr_info("%s[%d], cannot get AXI RX bus sleep protect\n", __func__, __LINE__);
+			return consys_platform_spm_conn_ctrl_mt6877(enable);
+		}
+
+		/* assert "conn_infra_on" isolation, set "connsys_iso_en"=1 */
+		/* 0x1000_6E04[1] = 1 */
+		CONSYS_SET_BIT(SPM_CONN_PWR_CON, 1 << 1);
+	}
+
 	return consys_platform_spm_conn_ctrl_mt6877(enable);
 #else
 	int check;
@@ -1540,6 +1611,14 @@ int connsys_low_power_setting_mt6877(unsigned int curr_status, unsigned int next
 		CONSYS_SET_BIT(CONN_CLKGEN_ON_TOP_CKGEN_BUS_ADDR, (0x1 << 25));
 		CONSYS_SET_BIT(CONN_CLKGEN_ON_TOP_CKGEN_BUS_ADDR, (0x1 << 26));
 		CONSYS_SET_BIT(CONN_CLKGEN_ON_TOP_CKGEN_BUS_ADDR, (0x1 << 27));
+
+		/* 0x1800_1200[9]=1b'1
+		 */
+		CONSYS_SET_BIT(CONN_CFG_CONN_INFRA_CFG_PWRCTRL0_ADDR, (0x1 << 9));
+
+		/* 2023/02/15 0x1800_0204 = 32h'6
+		 */
+		CONSYS_REG_WRITE(CONN_RGU_DEBUG_SEL_ADDR, 0x6);
 
 		/* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
 		/* !!!!!!!!!!!!!!!!!!!!!! CANNOT add code after HERE!!!!!!!!!!!!!!!!!!!!!!!!!! */

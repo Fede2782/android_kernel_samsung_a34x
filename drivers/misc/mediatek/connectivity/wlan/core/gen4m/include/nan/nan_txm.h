@@ -9,8 +9,15 @@
 
 #if CFG_SUPPORT_NAN
 
+#if 0
+/* The macro to check if the MAC address is B/MCAST Address */
+#define IS_BMCAST_MAC_ADDR(_pucDestAddr)
+	((BOOLEAN) (((PUINT_8)(_pucDestAddr))[0] & BIT(0)))
+#endif
+
 #define TXM_UT_CONTENT_LEN 20
 
+__KAL_ATTRIB_PACKED_FRONT__
 struct _WLAN_TX_UT_FRAME_T {
 	/* TX UT MAC header */
 	uint16_t u2FrameCtrl;		   /* Frame Control */
@@ -28,9 +35,9 @@ struct _WLAN_TX_UT_FRAME_T {
 	uint8_t aucTxmUtContent[TXM_UT_CONTENT_LEN];
 } __KAL_ATTRIB_PACKED__;
 
-uint32_t nanTxUtTxDone(IN struct ADAPTER *prAdapter,
-		       IN struct MSDU_INFO *prMsduInfo,
-		       IN enum ENUM_TX_RESULT_CODE rTxDoneStatus);
+uint32_t nanTxUtTxDone(struct ADAPTER *prAdapter,
+		       struct MSDU_INFO *prMsduInfo,
+		       enum ENUM_TX_RESULT_CODE rTxDoneStatus);
 
 #endif
 #endif /*_NAN_TXM_H_ */

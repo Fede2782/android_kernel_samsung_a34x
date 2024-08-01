@@ -66,8 +66,8 @@ struct connfem_context connfem_ctx_mt6983 = {
 struct connfem_context connfem_ctx_mt6879 = {
 	.id = 0x6879
 };
-struct connfem_context connfem_ctx_mt6895 = {
-	.id = 0x6895
+struct connfem_context connfem_ctx_mt6877 = {
+	.id = 0x6877
 };
 
 static const struct of_device_id connfem_of_ids[] = {
@@ -84,8 +84,8 @@ static const struct of_device_id connfem_of_ids[] = {
 		.data = (void *)&connfem_ctx_mt6879
 	},
 	{
-		.compatible = "mediatek,mt6895-connfem",
-		.data = (void *)&connfem_ctx_mt6895
+		.compatible = "mediatek,mt6877-connfem",
+		.data = (void *)&connfem_ctx_mt6877
 	},
 	{}
 };

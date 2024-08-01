@@ -82,9 +82,6 @@
 #include "wf_ple.h"
 #include "hal_dmashdl_soc3_0.h"
 #include "soc3_0.h"
-#if CFG_MTK_MDDP_SUPPORT
-#include "mddp.h"
-#endif
 /*******************************************************************************
  *                              C O N S T A N T S
  *******************************************************************************
@@ -1144,10 +1141,6 @@ void soc3_0_show_wfdma_info(IN struct ADAPTER *prAdapter)
 	show_wfdma_dbg_flag_log(prAdapter, WFDMA_TYPE_WM);
 
 	DumpPPDebugCr(prAdapter);
-
-#if CFG_MTK_MDDP_SUPPORT
-	mddpNotifyDumpDebugInfo();
-#endif
 }
 
 void soc3_0_show_wfdma_info_by_type(IN struct ADAPTER *prAdapter,

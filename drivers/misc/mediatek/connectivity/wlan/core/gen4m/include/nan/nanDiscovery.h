@@ -38,6 +38,7 @@ struct NAN_FOLLOW_UP_EVENT {
 	 * This Id will be used in subsequent UnmatchInd/FollowupInd messages.
 	 */
 	uint32_t requestor_instance_id;
+	uint16_t transaction_id;
 	uint8_t addr[NAN_MAC_ADDR_LEN];
 
 	/* Flag which the DE uses to decide if received in a DW or a FAW */
@@ -84,6 +85,17 @@ struct NAN_SUBSCRIBE_TERMINATE_EVENT {
 	uint8_t ucReasonCode;
 };
 
+struct NAN_MATCH_EXPIRE_EVENT {
+	/* Publish or Subscribe Id of an earlier Publish/Subscribe */
+	uint16_t u2PublishSubscribeID;
+	/*
+	 * A 32 bit value sent by the DE in a previous
+	 * MatchInd/FollowupInd to the application.
+	 */
+	uint32_t u4RequestorInstanceID;
+};
+
+__KAL_ATTRIB_PACKED_FRONT__
 /* Publish Msg Structure
  * Message is used to request the DE to publish the Service Name
  * using the parameters passed into the Discovery Window
@@ -101,9 +113,6 @@ struct NanFWPublishRequest {
 	 * value 0 will	   default to 1.
 	 */
 	uint16_t period;
-	uint16_t service_name_len; /* length of service name */
-	/* UTF-8 encoded string identifying the service */
-	uint8_t service_name[NAN_FW_MAX_SERVICE_NAME_LEN];
 
 	/* number of OTA Publish, 0 means forever until canceled */
 	uint8_t publish_count;
@@ -225,6 +234,7 @@ struct NanFWPublishRequest {
  * The SubscribeServiceReq message is sent to the Discovery Engine
  * whenever the Upper layers would like to listen for a Service Name
  */
+__KAL_ATTRIB_PACKED_FRONT__
 struct NanFWSubscribeRequest {
 	/* id 0 means new subscribe, non zero is existing subscribe */
 	uint16_t subscribe_id;
@@ -283,10 +293,6 @@ struct NanFWSubscribeRequest {
 
 	/* If this value is 0 this field is not used by the DE.*/
 	uint8_t subscribe_count;
-
-	/* UTF-8 encoded string identifying the service */
-	uint8_t service_name[NAN_FW_MAX_SERVICE_NAME_LEN];
-	uint16_t service_name_len; /* length of service name */
 
 	/* Sequence of values which further specify the published
 	 * service beyond the service name
@@ -388,6 +394,7 @@ struct NanFWSubscribeRequest {
 	uint8_t service_name_hash[NAN_SERVICE_HASH_LENGTH];
 } __KAL_ATTRIB_PACKED__;
 
+__KAL_ATTRIB_PACKED_FRONT__
 struct NanFWTransmitFollowupRequest {
 	/* Publish or Subscribe Id of an earlier Publish/Subscribe */
 	uint16_t publish_subscribe_id;
@@ -396,6 +403,7 @@ struct NanFWTransmitFollowupRequest {
 	 * part of earlier MatchInd/FollowupInd message.
 	 */
 	uint32_t requestor_instance_id;
+	uint16_t transaction_id;
 	uint8_t addr[NAN_MAC_ADDR_LEN]; /* Unicast address */
 	/* NanTxPriority priority; */    /* priority of the request 2=high */
 	enum NanTransmitWindowType
@@ -452,12 +460,38 @@ struct _NAN_DISC_ENGINE_T {
 		arServiceSessionList[NAN_NUM_SERVICE_SESSION];
 };
 
+struct _NAN_PUBLISH_SPECIFIC_INFO_T {
+	uint8_t ucUsed;
+	uint8_t ucPublishId;
+	uint8_t ucReportTerminate;
+};
+
+struct _NAN_PUBLISH_INFO_T {
+	uint8_t ucNanPubNum;
+	struct _NAN_PUBLISH_SPECIFIC_INFO_T
+		rPubSpecificInfo[NAN_MAX_PUBLISH_NUM];
+};
+
+struct _NAN_SUBSCRIBE_SPECIFIC_INFO_T {
+	uint8_t ucUsed;
+	uint8_t ucSubscribeId;
+	uint8_t ucReportTerminate;
+};
+
+struct _NAN_SUBSCRIBE_INFO_T {
+	uint8_t ucNanSubNum;
+	struct _NAN_SUBSCRIBE_SPECIFIC_INFO_T
+		rSubSpecificInfo[NAN_MAX_SUBSCRIBE_NUM];
+};
+
+__KAL_ATTRIB_PACKED_FRONT__
 struct _NAN_DISC_CMD_ADD_CSID_T {
 	uint8_t ucPubID;
 	uint8_t ucNum;
 	uint8_t aucSupportedCSID[NAN_MAX_CIPHER_SUITE_NUM];
 } __KAL_ATTRIB_PACKED__;
 
+__KAL_ATTRIB_PACKED_FRONT__
 struct _NAN_DISC_CMD_MANAGE_SCID_T {
 	unsigned char fgAddDelete;
 	uint8_t ucPubID;
@@ -482,9 +516,9 @@ uint32_t nanSubscribeRequest(struct ADAPTER *prAdapter,
 uint32_t nanTransmitRequest(struct ADAPTER *prAdapter,
 			   struct NanTransmitFollowupRequest *msg);
 
-void nanCmdManageScid(IN struct ADAPTER *prAdapter, unsigned char fgAddDelete,
+void nanCmdManageScid(struct ADAPTER *prAdapter, unsigned char fgAddDelete,
 		      uint8_t ucPubID, uint8_t *pucScid);
-void nanCmdAddCsid(IN struct ADAPTER *prAdapter, uint8_t ucPubID,
+void nanCmdAddCsid(struct ADAPTER *prAdapter, uint8_t ucPubID,
 		   uint8_t ucNumCsid, uint8_t *pucCsidList);
 
 uint32_t nanDiscUpdateCipherSuiteInfoAttr(struct ADAPTER *prAdapter,

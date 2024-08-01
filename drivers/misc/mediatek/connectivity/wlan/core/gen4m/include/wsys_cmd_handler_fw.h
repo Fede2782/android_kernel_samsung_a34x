@@ -316,6 +316,7 @@ enum ENUM_CMD_ID {
 	CMD_ID_SET_OSHARE_MODE = 0x8E,
 	CMD_ID_RDD_ON_OFF_CTRL = 0x8F,      /* 0x8F(Set) */
 	CMD_ID_SET_FORCE_RTS = 0x90,
+	CMD_ID_SET_REPORT_BEACON = 0x91,    /* 0x91 (Set) */
 #if (CFG_SUPPORT_ICS == 1)
 	CMD_ID_SET_ICS_SNIFFER = 0x93,
 #endif /* CFG_SUPPORT_ICS */
@@ -1054,6 +1055,11 @@ struct CMD_SET_WMM_PS_TEST_STRUCT {
 	/* not to trigger UC on beacon TIM is matched (under U-APSD) */
 };
 
+struct CMD_SET_REPORT_BEACON_STRUCT {
+	uint8_t ucReportBcnEn;
+	uint8_t aucReserved[3];
+};
+
 struct CMD_CUSTOM_NOA_PARAM_STRUCT {
 	uint32_t  u4NoaDurationMs;   /* unit: msec*/
 	uint32_t  u4NoaIntervalMs;   /* unit: msec*/
@@ -1155,7 +1161,11 @@ struct CMD_SCAN_REQ_V2 {
 	uint8_t          ucShortSSIDNum;
 	uint8_t		 ucBssidMatchCh[CFG_SCAN_OOB_MAX_NUM];
 	uint8_t		 ucBssidMatchSsidInd[CFG_SCAN_OOB_MAX_NUM];
-	uint8_t          aucPadding_3[31];
+	uint16_t	 u2OpChStayTimeMs;
+	uint8_t		 ucDfsChDwellTimeMs;
+	uint8_t		 ucPerScanChannelCnt;
+	uint8_t          ucScnSourceMask;
+	uint8_t          aucPadding_3[26];
 
 };
 
@@ -1375,21 +1385,6 @@ struct CMD_MDDP_FILTER_RULE {
 	uint8_t  ucPfNum;
 	uint8_t  aucPadding1[2];
 	uint8_t  aucWhPfClsFilterMddp[0];
-};
-
-struct CMD_MONITOR_SET_INFO
-{
-    uint8_t  ucEnable;
-    uint8_t  ucBand;
-    uint8_t  ucPriChannel;
-    uint8_t  ucSco;
-    uint8_t  ucChannelWidth;
-    uint8_t  ucChannelS1;
-    uint8_t  ucChannelS2;
-    uint8_t  ucBandIdx;
-    uint16_t u2Aid;
-    uint8_t  fgDropFcsErrorFrame;
-    uint8_t  aucResv[5];
 };
 
 /*---------------------------------------------------------------------------*/

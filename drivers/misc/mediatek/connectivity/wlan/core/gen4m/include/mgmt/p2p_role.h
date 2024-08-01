@@ -152,9 +152,9 @@ struct MSG_P2P_CONNECTION_REQUEST {
 	uint8_t aucSrcMacAddr[MAC_ADDR_LEN];
 	enum ENUM_CHNL_EXT eChnlSco;
 	struct RF_CHANNEL_INFO rChannelInfo;
-	enum ENUM_PARAM_AUTH_MODE eAuthMode;
 	uint32_t u4IELen;
 	uint8_t aucIEBuf[1];
+	/* TODO: Auth Type, OPEN, SHARED, FT, EAP... */
 };
 
 struct MSG_P2P_CONNECTION_ABORT {
@@ -355,6 +355,8 @@ struct P2P_ROLE_FSM_INFO {
 
 	/* FSM Timer */
 	struct TIMER rP2pRoleFsmTimeoutTimer;
+
+	struct TIMER rP2pCsaDoneTimer;
 
 #if	CFG_ENABLE_PER_STA_STATISTICS_LOG
 	/* Get statistics Timer */

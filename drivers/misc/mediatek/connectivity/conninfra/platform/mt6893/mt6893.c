@@ -80,7 +80,7 @@ static unsigned int consys_soc_chipid_get(void);
 static unsigned int consys_get_hw_ver(void);
 static void consys_clock_fail_dump(void);
 static int consys_thermal_query(void);
-static int consys_power_state(char *buf, unsigned int size);
+static int consys_power_state(void);
 static int consys_bus_clock_ctrl(enum consys_drv_type, unsigned int, int);
 static unsigned long long consys_soc_timestamp_get(void);
 static unsigned int consys_adie_detection_mt6893(void);
@@ -427,20 +427,20 @@ int consys_thermal_query(void)
 }
 
 
-int consys_power_state(char *buf, unsigned int size)
+int consys_power_state(void)
 {
 	const char* osc_str[] = {
 		"fm ", "gps ", "bgf ", "wf ", "ap2conn ", "conn_thm ", "conn_pta ", "conn_infra_bus "
 	};
-	char temp_buf[256] = {'\0'};
+	char buf[256] = {'\0'};
 	int r = CONSYS_REG_READ(CON_REG_HOST_CSR_ADDR + CONN_HOST_CSR_DBG_DUMMY_2);
 	int i;
 
 	for (i = 0; i < 8; i++) {
 		if ((r & (0x1 << (18 + i))) > 0)
-			strncat(temp_buf, osc_str[i], strlen(osc_str[i]));
+			strncat(buf, osc_str[i], strlen(osc_str[i]));
 	}
-	pr_info("[%s] [0x%x] %s", __func__, r, temp_buf);
+	pr_info("[%s] [0x%x] %s", __func__, r, buf);
 	return 0;
 }
 

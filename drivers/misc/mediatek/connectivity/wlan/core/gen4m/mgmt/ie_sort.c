@@ -249,7 +249,7 @@ void sortAssocReqIE(IN struct ADAPTER *prAdapter,
 		cnmMgtPktAlloc(prAdapter, prMsduInfo->u2FrameLength);
 	if (prMsduInfoInOrder == NULL) {
 		DBGLOG(SAA, WARN,
-			"No PKT_INFO_T for sending MLD STA. Don't reorder IE.\n");
+			"No PKT_INFO_T for sending MLD STA.\n");
 		return;
 	}
 	pucBufferInOrder =
@@ -271,8 +271,9 @@ void sortAssocReqIE(IN struct ADAPTER *prAdapter,
 	frameSearch = 0;
 	searchCount = 0;
 	orderIdx = 0;
-
-	while (orderIdx < txAssocReqIENums) {
+	/* searchCount 500: just prevent infinite loop if IE is out of spec */
+	while (frameSearch < frameLen && orderIdx < txAssocReqIENums &&
+			searchCount < 500) {
 		if (fgIsReAssoc) {
 			eid = reassoc_req_ie_order[orderIdx].eid;
 			exteid = reassoc_req_ie_order[orderIdx].extid;
@@ -285,9 +286,6 @@ void sortAssocReqIE(IN struct ADAPTER *prAdapter,
 			(end - start));
 		if (primary_IE) {
 			frameSearch += IE_SIZE(primary_IE);
-			if (frameSearch > frameLen)
-				break;
-
 			start = (primary_IE - (uint8_t *)prMsduInfo->prPacket)
 				+ IE_SIZE(primary_IE);
 

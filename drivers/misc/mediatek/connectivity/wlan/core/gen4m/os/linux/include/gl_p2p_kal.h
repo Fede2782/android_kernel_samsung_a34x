@@ -314,7 +314,6 @@ kalP2PIndicateChannelExpired(IN struct GLUE_INFO *prGlueInfo,
 		IN enum ENUM_BAND eBand,
 		IN enum ENUM_CHNL_EXT eSco);
 
-#if CFG_WPS_DISCONNECT  || (KERNEL_VERSION(4, 4, 0) <= CFG80211_VERSION_CODE)
 void
 kalP2PGCIndicateConnectionStatus(IN struct GLUE_INFO *prGlueInfo,
 		IN uint8_t ucRoleIndex,
@@ -323,16 +322,7 @@ kalP2PGCIndicateConnectionStatus(IN struct GLUE_INFO *prGlueInfo,
 		IN uint16_t u2RxIELen,
 		IN uint16_t u2StatusReason,
 		IN uint32_t eStatus);
-#else
-void
-kalP2PGCIndicateConnectionStatus(IN struct GLUE_INFO *prGlueInfo,
-		IN uint8_t ucRoleIndex,
-		IN struct P2P_CONNECTION_REQ_INFO *prP2pConnInfo,
-		IN uint8_t *pucRxIEBuf,
-		IN uint16_t u2RxIELen,
-		IN uint16_t u2StatusReason);
 
-#endif
 void
 kalP2PGOStationUpdate(IN struct GLUE_INFO *prGlueInfo,
 		IN uint8_t ucRoleIndex,

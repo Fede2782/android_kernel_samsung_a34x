@@ -34,7 +34,6 @@
 #define	DOMAIN_CONN		2
 #endif /* CFG_MTK_ANDROID_EMI */
 
-#define MAX_CPU_FREQ (3 * 1024 * 1024) /* in kHZ */
 #define MAX_CLUSTER_NUM  3
 #define CPU_ALL_CORE (0xff)
 #define CPU_BIG_CORE (0xc0)
@@ -128,6 +127,7 @@ int32_t kalBoostCpu(IN struct ADAPTER *prAdapter,
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct ppm_limit_data freq_to_set[MAX_CLUSTER_NUM];
 	int32_t i = 0, i4Freq = -1;
+	uint32_t u4CpuFreq = prAdapter->rWifiVar.u4CpuBoostMinFreq * 1000;
 
 	static struct pm_qos_request wifi_qos_request;
 	static u_int8_t fgRequested = ENUM_CPU_BOOST_STATUS_INIT;
@@ -137,7 +137,7 @@ int32_t kalBoostCpu(IN struct ADAPTER *prAdapter,
 	WIPHY_PRIV(wlanGetWiphy(), prGlueInfo);
 	ASSERT(u4ClusterNum <= MAX_CLUSTER_NUM);
 	/* ACAO, we dont have to set core number */
-	i4Freq = (u4TarPerfLevel >= u4BoostCpuTh) ? MAX_CPU_FREQ : -1;
+	i4Freq = (u4TarPerfLevel >= u4BoostCpuTh) ? u4CpuFreq : -1;
 	for (i = 0; i < u4ClusterNum; i++) {
 		freq_to_set[i].min = i4Freq;
 		freq_to_set[i].max = i4Freq;

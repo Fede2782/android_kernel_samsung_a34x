@@ -159,6 +159,11 @@ struct P2P_OFF_CHNL_TX_REQ_INFO {
 	uint8_t ucBssIndex;
 };
 
+struct P2P_PENDING_MGMT_INFO {
+	struct LINK_ENTRY rLinkEntry;
+	uint64_t u8PendingMgmtCookie;
+};
+
 struct P2P_DEV_FSM_INFO {
 	uint8_t ucBssIndex;
 	/* State related. */

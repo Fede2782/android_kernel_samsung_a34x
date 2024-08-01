@@ -101,11 +101,7 @@
 #define SDIO_X86_WORKAROUND_WRITE_MCR   0x00C4
 #define HIF_NUM_OF_QM_RX_PKT_NUM        512
 
-#if CFG_TRI_TX_RING
-#define HIF_TX_INIT_CMD_PORT            TX_RING_FWDL_IDX_5
-#else
-#define HIF_TX_INIT_CMD_PORT		TX_RING_FWDL_IDX_4
-#endif /* CFG_TRI_TX_RING */
+#define HIF_TX_INIT_CMD_PORT            TX_RING_FWDL_IDX_4
 
 #define HIF_IST_LOOP_COUNT              128
 #define HIF_IST_TX_THRESHOLD            32 /* Min msdu count to trigger Tx during INT polling state */

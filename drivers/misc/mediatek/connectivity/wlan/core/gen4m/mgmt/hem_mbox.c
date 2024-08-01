@@ -338,7 +338,7 @@ static struct MSG_HNDL_ENTRY arMsgMapTable[] = {
 #endif
 
 #if (CFG_SUPPORT_NAN == 1)
-	{MID_CNM_NAN_CH_GRANT, nanDevSendEnableRequest}
+	{MID_CNM_NAN_CH_GRANT, nanDevSendEnableRequest},
 #endif
 };
 

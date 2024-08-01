@@ -279,12 +279,6 @@ unsigned char *kal_skb_put(struct sk_buff *skb, unsigned int len)
 	return NULL;
 }
 
-uint32_t kal_skb_headroom(struct sk_buff *skb)
-{
-	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
-	return 0;
-}
-
 struct sk_buff *kal_skb_dequeue_tail(struct sk_buff_head *list)
 {
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);

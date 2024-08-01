@@ -91,6 +91,8 @@
 #define IP_PRO_ICMP				0x01
 #define IP_PRO_UDP				0x11
 #define IP_PRO_TCP				0x06
+#define IP_PRO_ICMPV6				0x3A
+#define IPV6_PROTOCOL_HOP_BY_HOP		0x00
 
 #define UDP_PORT_DHCPS				0x43
 #define UDP_PORT_DHCPC				0x44
@@ -122,6 +124,18 @@
 #define IP_PRO_UDP				0x11
 #define IP_PRO_TCP				0x06
 
+/* RFC 4443 */
+#define ICMP_TYPE_OFFSET			0
+#define ICMP_CODE_OFFSET			1
+#define ICMP_CHECKSUM_OFFSET			2
+#define ICMP_IDENTIFIER_OFFSET			4
+#define ICMP_SEQ_NUM_OFFSET			6
+
+/* RFC 4681 */
+#define ICMPV6_NS_NA_RESERVED_OFFSET		4
+#define ICMPV6_NS_NA_TARGET_OFFSET		8
+#define ICMPV6_NS_NA_OPTION_OFFSET		24
+
 /* IPv4 Header definition */
 #define IPV4_HDR_TOS_OFFSET                     1
 #define IPV4_HDR_TOS_PREC_MASK                  BITS(5, 7)
@@ -135,6 +149,7 @@
 #define IPV4_HDR_LEN                            20
 #define IPV4_ADDR_LEN                           4
 
+#define IPV6_HDR_PAYLOAD_LEN_OFFSET             4
 #define IPV6_HDR_IP_PROTOCOL_OFFSET             6
 #define IPV6_HDR_IP_SRC_ADDR_OFFSET             8
 #define IPV6_HDR_IP_DST_ADDR_OFFSET             24
@@ -159,8 +174,18 @@
 #define ICMPV6_FLAG_ROUTER_BIT                  BIT(7)
 #define ICMPV6_FLAG_SOLICITED_BIT               BIT(6)
 #define ICMPV6_FLAG_OVERWRITE_BIT               BIT(5)
-#define ICMPV6_TYPE_NEIGHBOR_SOLICITATION       0x87
-#define ICMPV6_TYPE_NEIGHBOR_ADVERTISEMENT      0x88
+#define ICMPV6_TYPE_ECHO_REQUEST                0x80 /* 128 */
+#define ICMPV6_TYPE_ECHO_REPLY                  0x81 /* 129 */
+#define ICMPV6_TYPE_MULTICAST_LISTENER_QUERY    0x82 /* 130 */
+#define ICMPV6_TYPE_MULTICAST_LISTENER_REPORT   0x83 /* 131 */
+#define ICMPV6_TYPE_MULTICAST_LISTENER_DONE     0x84 /* 132 */
+#define ICMPV6_TYPE_ROUTER_SOLICITATION		0x85 /* 133 */
+#define ICMPV6_TYPE_ROUTER_ADVERTISEMENT	0x86 /* 134 */
+#define ICMPV6_TYPE_NEIGHBOR_SOLICITATION       0x87 /* 135 */
+#define ICMPV6_TYPE_NEIGHBOR_ADVERTISEMENT      0x88 /* 136 */
+
+#define ICMPV6_OPTION_SOURCE_LINK_ADDR		1
+#define ICMPV6_OPTION_TARGET_LINK_ADDR		2
 
 #define TCP_HDR_FLAG_OFFSET                     13
 #define TCP_HDR_FLAG_ACK_BIT                    BIT(4)
@@ -181,6 +206,15 @@
 #define IP_PORT_BOOTP_CLIENT                    68
 
 #define DHCP_MAGIC_NUMBER                       0x63825363
+
+#define DHCP_DISCOVER				1
+#define DHCP_OFFER				2
+#define DHCP_REQUEST				3
+#define DHCP_DECLINE				4
+#define DHCP_ACK				5
+#define DHCP_NAK				6
+#define DHCP_RELEASE				7
+#define DHCP_INFORM				8
 
 #define ARP_OPERATION_OFFSET                    6
 #define ARP_SENDER_MAC_OFFSET                   8
@@ -344,6 +378,8 @@
 
 /* 15.4.8.5 802.11k RCPI-dBm mapping*/
 #define NDBM_LOW_BOUND_FOR_RCPI                 110
+#define RSSI_LOW_BOUND                          -110
+#define RSSI_HIGH_BOUND                         0
 #define RCPI_LOW_BOUND                          0
 #define RCPI_HIGH_BOUND                         220
 #define RCPI_MEASUREMENT_NOT_AVAILABLE          255
@@ -818,6 +854,8 @@
 #define STATUS_CODE_ASSOC_DENIED_NO_SHORT_SLOT_TIME 25
 /* Assoc denied due to requesting STA not supporting DSSS-OFDM */
 #define STATUS_CODE_ASSOC_DENIED_NO_DSSS_OFDM       26
+/* R0KH unreachable */
+#define STATUS_CODE_R0KH_UNREACHABLE                28
 #if CFG_SUPPORT_802_11W
 /*  IEEE 802.11w, Assoc denied due to the SA query */
 #define STATUS_CODE_ASSOC_REJECTED_TEMPORARILY      30
@@ -1189,8 +1227,6 @@
 	88 /* MSCS Descriptor */
 #define ELEM_EXT_ID_SUPPLEMENTAL_CLASS2_CAP \
 	90 /* Supplemental Class 2 Capabilities */
-#define ELEM_EXT_ID_SUPPLEMENTAL_CLASS2_CAP \
-	90 /* Supplemental Class 2 Capabilities */
 
 /* 802.11-2020: Table 9-34 Association Request frame body */
 
@@ -1238,6 +1274,64 @@ enum MBO_TRANSITION_REJECT_REASON {
 };
 
 #endif /* CFG_SUPPORT_MBO */
+
+/*
+ * EAP Method Types as allocated by IANA:
+ * http://www.iana.org/assignments/eap-numbers
+ */
+enum eap_type {
+	EAP_TYPE_NONE = 0,
+	EAP_TYPE_IDENTITY = 1 /* RFC 3748 */,
+	EAP_TYPE_NOTIFICATION = 2 /* RFC 3748 */,
+	EAP_TYPE_NAK = 3 /* Response only, RFC 3748 */,
+	EAP_TYPE_MD5 = 4, /* RFC 3748 */
+	EAP_TYPE_OTP = 5 /* RFC 3748 */,
+	EAP_TYPE_GTC = 6, /* RFC 3748 */
+	EAP_TYPE_TLS = 13 /* RFC 2716 */,
+	EAP_TYPE_LEAP = 17 /* Cisco proprietary */,
+	EAP_TYPE_SIM = 18 /* RFC 4186 */,
+	EAP_TYPE_TTLS = 21 /* RFC 5281 */,
+	EAP_TYPE_AKA = 23 /* RFC 4187 */,
+	EAP_TYPE_PEAP = 25 /* draft-josefsson-pppext-eap-tls-eap-06.txt */,
+	EAP_TYPE_MSCHAPV2 = 26 /* draft-kamath-pppext-eap-mschapv2-00.txt */,
+	EAP_TYPE_TLV = 33 /* draft-josefsson-pppext-eap-tls-eap-07.txt */,
+	EAP_TYPE_TNC = 38 /* TNC IF-T v1.0-r3; note: tentative assignment;
+			   * type 38 has previously been allocated for
+			   * EAP-HTTP Digest, (funk.com) */,
+	EAP_TYPE_FAST = 43 /* RFC 4851 */,
+	EAP_TYPE_PAX = 46 /* RFC 4746 */,
+	EAP_TYPE_PSK = 47 /* RFC 4764 */,
+	EAP_TYPE_SAKE = 48 /* RFC 4763 */,
+	EAP_TYPE_IKEV2 = 49 /* RFC 5106 */,
+	EAP_TYPE_AKA_PRIME = 50 /* RFC 5448 */,
+	EAP_TYPE_GPSK = 51 /* RFC 5433 */,
+	EAP_TYPE_PWD = 52 /* RFC 5931 */,
+	EAP_TYPE_EKE = 53 /* RFC 6124 */,
+	EAP_TYPE_TEAP = 55 /* RFC 7170 */,
+	EAP_TYPE_EXPANDED = 254 /* RFC 3748 */
+};
+
+enum ENUM_EAP_CODE {
+	ENUM_EAP_CODE_NONE,
+	ENUM_EAP_CODE_REQ,
+	ENUM_EAP_CODE_RESP,
+	ENUM_EAP_CODE_SUCCESS,
+	ENUM_EAP_CODE_FAIL,
+
+	ENUM_EAP_CODE_NUM
+};
+
+#define WPA_KEY_INFO_KEY_TYPE BIT(3) /* 1 = PairwSd7ise, 0 = Group key */
+/* bit4..5 is used in WPA, but is reserved in IEEE 802.11i/RSN */
+#define WPA_KEY_INFO_KEY_INDEX_MASK (BIT(4) | BIT(5))
+#define WPA_KEY_INFO_MIC BIT(8)
+#define WPA_KEY_INFO_ENCR_KEY_DATA BIT(12) /* IEEE 802.11i/RSN only */
+#define AES_BLOCK_SIZE 16
+/* struct ieee802_1x_hdr in wpa_supplicant */
+#define ieee802_1x_hdr_size 4
+/* struct wpa_eapol_key in wpa_supplicant */
+#define wpa_eapol_key_key_info_offset 1
+#define wpa_eapol_key_fixed_field_size 77
 
 /* 7.3.2.1 SSID element */
 #define ELEM_MAX_LEN_SSID                           32
@@ -1405,9 +1499,15 @@ enum BEACON_REPORT_DETAIL {
 #define ELEM_EXT_CAP_SERVICE_INTERVAL_GRANULARITY   BIT(5)
 #define ELEM_EXT_CAP_SCHEDULE_PSMP                  BIT(6)
 
-#define ELEM_EXT_CAP_20_40_COEXIST_SUPPORT_BIT      0
 #define ELEM_EXT_CAP_BSS_TRANSITION_BIT             19
 #define ELEM_EXT_CAP_MBSSID_BIT                     22
+#if CFG_TC10_FEATURE
+#define ELEM_EXT_CAP_PROXY_ARP_BIT                  12
+#define ELEM_EXT_CAP_TFS_BIT                        16
+#define ELEM_EXT_CAP_WNM_SLEEP_BIT                  17
+#define ELEM_EXT_CAP_TIM_BCAST_BIT                  18
+#define ELEM_EXT_CAP_DMS_BIT                        26
+#endif
 #define ELEM_EXT_CAP_UTC_TSF_OFFSET_BIT             27
 #define ELEM_EXT_CAP_INTERWORKING_BIT               31
 #define ELEM_EXT_CAP_QOSMAPSET_BIT                  32
@@ -1458,6 +1558,11 @@ enum BEACON_REPORT_DETAIL {
 #define RRM_CAP_INFO_BEACON_TABLE_BIT               6
 #define RRM_CAP_INFO_TSM_BIT                        14
 #define RRM_CAP_INFO_RRM_BIT                        17
+
+#if CFG_TC10_FEATURE
+#define RRM_CAP_INFO_QBSS_LOAD_BIT                  9
+#define RRM_CAP_INFO_BSS_AVG_DELAY_BIT              31
+#endif
 
 /* 7.3.2.56 HT capabilities element */
 #define ELEM_MAX_LEN_HT_CAP \
@@ -1787,6 +1892,9 @@ enum BEACON_REPORT_DETAIL {
 #define MTK_SYNERGY_CAP2                            0x0
 #define MTK_SYNERGY_CAP3                            0x0
 
+/* MBO-OCE */
+#define OCE_ATTIBUTE_REDUCED_WAN_METRICS_MASK       BITS(0, 3)
+
 /* 802.11h CSA element */
 #define ELEM_MIN_LEN_CSA                            11
 
@@ -1950,6 +2058,10 @@ enum BEACON_REPORT_DETAIL {
 /* Cisco IE */
 #define VENDOR_IE_CISCO_OUI                        0x004096
 #define VENDOR_IE_CISCO_TYPE                       0x2C
+#define VENDOR_IE_CISCO_TYPE_CCX                   0x03
+
+/* Samsung Electronics IE*/
+#define VENDOR_IE_SAMSUNG_OUI                      0x0000F0
 
 #if CFG_SUPPORT_PASSPOINT
 #define VENDOR_OUI_TYPE_HS20                        16
@@ -3536,6 +3648,36 @@ struct IE_MTK_OUI {
 	uint8_t aucInfoElem[1];
 } __KAL_ATTRIB_PACKED__;
 
+#if CFG_SUPPORT_ASSURANCE
+struct IE_ASSURANCE_ROAMING_REASON {
+	uint8_t ucId;
+	uint8_t ucLength;
+	uint8_t aucOui[3];
+	uint8_t ucOuiType;
+	uint8_t ucSubType;
+	uint8_t ucVersion;
+	uint8_t ucSubTypeReason;
+	uint8_t ucReason;
+	uint8_t ucSubTypeRcpi;
+	uint8_t ucRcpi;
+	uint8_t ucSubTypeRcpiThreshold;
+	uint8_t ucRcpiThreshold;
+	uint8_t ucSubTypeCuThreshold;
+	uint8_t ucCuThreshold;
+} __KAL_ATTRIB_PACKED__;
+
+struct IE_ASSURANCE_BEACON_REPORT {
+	uint8_t ucId;
+	uint8_t ucLength;
+	uint8_t aucOui[3];
+	uint8_t ucOuiType;
+	uint8_t ucSubType;
+	uint8_t ucVersion;
+	uint8_t ucLen;
+	uint8_t ucReason;
+} __KAL_ATTRIB_PACKED__;
+#endif
+
 struct SUB_IE_BSS_TERM_DURATION {
 	uint8_t ucSubId;
 	uint8_t ucLength;
@@ -3770,10 +3912,22 @@ struct IE_FILS_REQ_FRAME {
 	uint8_t ucMaxChannelTime; /* Max Channel Time */
 } __KAL_ATTRIB_PACKED__;
 
+struct IE_OCE_BODY {
+	uint8_t ucAttrId;	/* Attribute ID */
+	uint8_t ucAttrLength;	/* Attribute Length */
+	uint8_t aucAttrBody[1];	/* Attribute Body */
+} __KAL_ATTRIB_PACKED__;
+
 struct IE_OCE_SUPPRESSION_BSSID {
 	uint8_t ucAttrId;		/* Attribute ID */
 	uint8_t ucAttrLength;		/* Attribute Length */
 	uint8_t aucAttrBssIds[1];	/* Suppression BSSIDs */
+} __KAL_ATTRIB_PACKED__;
+
+struct IE_OCE_REDUCED_WAN_METRICS {
+	uint8_t ucAttrId;			/* Attribute ID */
+	uint8_t ucAttrLength;			/* Attribute Length */
+	uint8_t ucAttrReducedWanMetrics;	/* Suppression BSSIDs */
 } __KAL_ATTRIB_PACKED__;
 
 /* 9.4.2.170 Reduced Neighbor Report element */
@@ -3963,6 +4117,8 @@ struct RSNX_INFO_ELEM {
 #define OCE_OUI_SUP_BSSID(fp)	((struct IE_OCE_SUPPRESSION_BSSID *) fp)
 #define OCE_IE_OUI_TYPE(fp)	(((struct IE_MBO_OCE *)(fp))->ucOuiType)
 #define OCE_IE_OUI(fp)		(((struct IE_MBO_OCE *)(fp))->aucOui)
+#define OCE_IE_ATTRIBUTE(fp)	((struct IE_OCE_BODY *) fp)
+#define OCE_REDUCED_WAN_METRICS(fp) ((struct IE_OCE_REDUCED_WAN_METRICS *) fp)
 
 /* The macro to check if the MAC address is B/MCAST Address */
 #define IS_BMCAST_MAC_ADDR(_pucDestAddr)            \

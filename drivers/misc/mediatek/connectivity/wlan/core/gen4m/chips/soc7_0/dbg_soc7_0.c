@@ -771,16 +771,8 @@ void soc7_0_show_wfdma_dbg_probe_info(IN struct ADAPTER *prAdapter,
 {
 	uint32_t dbg_cr_idx[] = {0x0, 0x1, 0x2, 0x3, 0x30, 0x5, 0x7, 0xA, 0xB,
 		0xC};
-	uint32_t i = 0, u4DbgIdxAddr = 0, u4DbgProbeAddr = 0;
-	uint32_t u4DbgIdxValue = 0;
-	uint32_t u4DbgProbeValue = 0;
-	uint32_t u4BufferSize = 512, pos = 0;
-	char *buf;
-
-	buf = (char *)kalMemAlloc(u4BufferSize, VIR_MEM_TYPE);
-	if (buf == NULL)
-		return;
-	kalMemZero(buf, u4BufferSize);
+	uint32_t i = 0, u4DbgIdxAddr = 0, u4DbgProbeAddr = 0, u4DbgIdxValue = 0,
+		u4DbgProbeValue = 0;
 
 	if (!prAdapter)
 		return;
@@ -791,54 +783,48 @@ void soc7_0_show_wfdma_dbg_probe_info(IN struct ADAPTER *prAdapter,
 	u4DbgIdxAddr = WF_WFDMA_HOST_DMA0_WPDMA_DBG_IDX_ADDR;
 	u4DbgProbeAddr = WF_WFDMA_HOST_DMA0_WPDMA_DBG_PROBE_ADDR;
 
-	pos += kalSnprintf(buf + pos, u4BufferSize - pos,
-			"\t DBG_PROBE[0x%X] ", u4DbgProbeAddr);
-
 	for (i = 0; i < ARRAY_SIZE(dbg_cr_idx); i++) {
 		u4DbgIdxValue = 0x100 + dbg_cr_idx[i];
 		HAL_MCR_WR(prAdapter, u4DbgIdxAddr, u4DbgIdxValue);
 		HAL_MCR_RD(prAdapter, u4DbgProbeAddr, &u4DbgProbeValue);
-
-		pos += kalSnprintf(buf + pos, u4BufferSize - pos,
-				"Write(0x%2x)=0x%08X", u4DbgIdxValue,
-				u4DbgProbeValue);
-		if (i < ARRAY_SIZE(dbg_cr_idx)-1)
-			pos += kalSnprintf(buf + pos, u4BufferSize - pos, ", ");
-		else
-			pos += kalSnprintf(buf + pos, u4BufferSize - pos, "\n");
+		DBGLOG(HAL, INFO, "\t Write(0x%2x) DBG_PROBE[0x%X]=0x%08X\n",
+			u4DbgIdxValue, u4DbgProbeAddr, u4DbgProbeValue);
 	}
-
-	DBGLOG(HAL, INFO, "%s", buf);
-	kalMemFree(buf, VIR_MEM_TYPE, u4BufferSize);
 }
 
 void soc7_0_show_wfdma_wrapper_info(IN struct ADAPTER *prAdapter,
 	IN enum _ENUM_WFDMA_TYPE_T enum_wfdma_type)
 {
-	uint32_t u4DmaCfgCr[4] = {0};
-	uint32_t u4RegValue[4] = {0};
-#define DUMP_WRAPPER_STR "WFDMA_HIF_BUSY(0x%08x): 0x%08x, "  \
-				"WFDMA_AXI_SLPPROT_CTRL(0x%08x): 0x%08x, " \
-				"WFDMA_AXI_SLPPROT0_CTRL(0x%08x): 0x%08x, " \
-				"WFDMA_AXI_SLPPROT1_CTRL(0x%08x): 0x%08x\n"
+	uint32_t u4DmaCfgCr = 0;
+	uint32_t u4RegValue = 0;
 
 	if (!prAdapter)
 		return;
 
 	if (enum_wfdma_type == WFDMA_TYPE_HOST) {
-		u4DmaCfgCr[0] = 0x7c027044;
-		u4DmaCfgCr[1] = 0x7c027050;
-		u4DmaCfgCr[2] = 0x7c027078;
-		u4DmaCfgCr[3] = 0x7c02707C;
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr[0], &u4RegValue[0]);
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr[1], &u4RegValue[1]);
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr[2], &u4RegValue[2]);
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr[3], &u4RegValue[3]);
-		DBGLOG(INIT, INFO, DUMP_WRAPPER_STR,
-				u4DmaCfgCr[0], u4RegValue[0],
-				u4DmaCfgCr[1], u4RegValue[1],
-				u4DmaCfgCr[2], u4RegValue[2],
-				u4DmaCfgCr[3], u4RegValue[3]);
+		u4DmaCfgCr = 0x7c027044;
+		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
+		DBGLOG(INIT, INFO, "WFDMA_HIF_BUSY(0x%08x): 0x%08x\n",
+				u4DmaCfgCr,
+				u4RegValue);
+
+		u4DmaCfgCr = 0x7c027050;
+		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
+		DBGLOG(INIT, INFO, "WFDMA_AXI_SLPPROT_CTRL(0x%08x): 0x%08x\n",
+				u4DmaCfgCr,
+				u4RegValue);
+
+		u4DmaCfgCr = 0x7c027078;
+		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
+		DBGLOG(INIT, INFO, "WFDMA_AXI_SLPPROT0_CTRL(0x%08x): 0x%08x\n",
+				u4DmaCfgCr,
+				u4RegValue);
+
+		u4DmaCfgCr = 0x7c02707C;
+		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
+		DBGLOG(INIT, INFO, "WFDMA_AXI_SLPPROT1_CTRL(0x%08x): 0x%08x\n",
+				u4DmaCfgCr,
+				u4RegValue);
 	}
 }
 

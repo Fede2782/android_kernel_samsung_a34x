@@ -1153,6 +1153,7 @@ struct test_wlan_info {
 	u_int32 icap_emi_msb_addr;
 };
 
+#define READ_CR_NUM_MAX 100
 /* Test control register read/write for service */
 struct test_register {
 	u_int32 cr_addr;
@@ -1214,6 +1215,7 @@ struct list_mode_rx_status {
 
 #define	LIST_SEG_MAX 100
 #define LIST_MODE_FW_SEG_NUM_MAX	8
+#define LIST_MODE_FW_SEG_PARA_NUM_MAX 30
 
 struct list_mode_event {
 	u_int16	u2Status;

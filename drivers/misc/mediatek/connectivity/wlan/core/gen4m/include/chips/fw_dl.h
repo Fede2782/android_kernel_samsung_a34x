@@ -416,14 +416,12 @@ void fwDlGetReleaseInfoSection(struct WIFI_VER_INFO *prVerInfo,
 void fwDlGetReleaseManifest(struct WIFI_VER_INFO *prVerInfo,
 			    struct HEADER_RELEASE_INFO *prRelInfo,
 			    uint8_t *pucStartPtr);
-
 void wlanReadRamCodeReleaseManifest(uint8_t *pucManifestBuffer,
 		uint32_t *pu4ManifestSize, uint32_t u4BufferMaxSize);
-
 #endif
 
 #if (CFG_SUPPORT_CONNINFRA == 1)
-extern void conninfra_get_phy_addr(phys_addr_t *addr, unsigned int *size);
+extern void conninfra_get_phy_addr(unsigned int *addr, unsigned int *size);
 #endif
 
 #endif /* _FW_DL_H */

@@ -88,6 +88,7 @@
 #define DISCONNECT_REASON_CODE_CHIPRESET          7
 #define DISCONNECT_REASON_CODE_LOCALLY            8
 #define DISCONNECT_REASON_CODE_RADIO_LOST_TX_ERR  9
+#define DISCONNECT_REASON_CODE_NCHO_DIFF_BAND     10
 
 /* The rate definitions */
 #define TX_MODE_CCK             0x00

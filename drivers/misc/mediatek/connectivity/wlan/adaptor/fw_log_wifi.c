@@ -30,7 +30,6 @@
 #include <linux/netdevice.h>
 #include <linux/inetdevice.h>
 #include <linux/string.h>
-#include <linux/workqueue.h>
 
 #include "connsys_debug_utility.h"
 
@@ -46,15 +45,13 @@ MODULE_LICENSE("Dual BSD/GPL");
 #define WIFI_FW_LOG_INFO            2
 #define WIFI_FW_LOG_WARN            1
 #define WIFI_FW_LOG_ERR             0
-#define MANIFEST_BUFFER_SIZE 256
 
 uint32_t fwDbgLevel = WIFI_FW_LOG_DBG;
 unsigned int gLastFWLogOnOff;
 int gFwLogOnOffStatus;	/* 0: default, 1: success, -1: fail */
-
-char ver_name[MANIFEST_BUFFER_SIZE] = {0};
-int ver_length;
-struct work_struct getFwVerQ;
+#if CFG_TC10_FEATURE
+static int32_t fgIsAllowFWLogDump;
+#endif
 
 #define WIFI_DBG_FUNC(fmt, arg...)	\
 	do { \
@@ -78,15 +75,13 @@ struct work_struct getFwVerQ;
 	} while (0)
 #define WIFI_ERR_FUNC(fmt, arg...)	\
 	do { \
-		if (fwDbgLevel >= WIFI_FW_LOG_ERR) \
-			pr_info(PFX "%s[E]: " fmt, __func__, ##arg); \
+		pr_info(PFX "%s[E]: " fmt, __func__, ##arg); \
 	} while (0)
 
 
 #define WIFI_FW_LOG_IOC_MAGIC        (0xfc)
 #define WIFI_FW_LOG_IOCTL_ON_OFF     _IOW(WIFI_FW_LOG_IOC_MAGIC, 0, int)
 #define WIFI_FW_LOG_IOCTL_SET_LEVEL  _IOW(WIFI_FW_LOG_IOC_MAGIC, 1, int)
-#define WIFI_FW_LOG_IOCTL_GET_VERSION  _IOR(WIFI_FW_LOG_IOC_MAGIC, 2, char*)
 
 #define WIFI_FW_LOG_CMD_ON_OFF        0
 #define WIFI_FW_LOG_CMD_SET_LEVEL     1
@@ -96,11 +91,11 @@ struct work_struct getFwVerQ;
 #endif
 
 typedef void (*wifi_fwlog_event_func_cb)(int, int);
-typedef void (*wifi_fwlog_get_fw_ver_func_cb)(uint8_t*, uint32_t*, uint32_t);
 wifi_fwlog_event_func_cb pfFwEventFuncCB;
-wifi_fwlog_get_fw_ver_func_cb pfFwGetFwVerCB;
-
 static wait_queue_head_t wq;
+#if CFG_TC10_FEATURE
+static wait_queue_head_t wq_write_log_to_file;
+#endif
 
 #if (CFG_ANDORID_CONNINFRA_SUPPORT == 1)
 typedef int (*wifi_fwlog_chkbushang_func_cb)(void *, uint8_t);
@@ -125,13 +120,6 @@ void wifi_fwlog_event_func_register(wifi_fwlog_event_func_cb func)
 	pfFwEventFuncCB = func;
 }
 EXPORT_SYMBOL(wifi_fwlog_event_func_register);
-
-void wifi_fwlog_get_fw_ver_register(wifi_fwlog_get_fw_ver_func_cb func)
-{
-	WIFI_INFO_FUNC("wifi_fwlog_get_fw_ver_register %p\n", func);
-	pfFwGetFwVerCB = func;
-}
-EXPORT_SYMBOL(wifi_fwlog_get_fw_ver_register);
 
 int wifi_fwlog_onoff_status(void)
 {
@@ -159,9 +147,6 @@ static ssize_t fw_log_wifi_read(struct file *filp, char __user *buf, size_t len,
 	size_t ret = 0;
 
 	WIFI_INFO_FUNC_LIMITED("fw_log_wifi_read len --> %d\n", (uint32_t) len);
-	WIFI_INFO_FUNC_LIMITED("WIFI_FW_LOG_IOCTL_ON_OFF result=%d, last value=%d\n",
-						gFwLogOnOffStatus, gLastFWLogOnOff);
-
 	ret = connsys_log_read_to_user(CONNLOG_TYPE_WIFI, buf, len);
 
 	return ret;
@@ -176,6 +161,17 @@ static unsigned int fw_log_wifi_poll(struct file *filp, poll_table *wait)
 	return 0;
 }
 
+#if CFG_TC10_FEATURE
+static unsigned int fw_log_wifi_poll_write_log_to_file(struct file *filp, poll_table *wait)
+{
+	poll_wait(filp, &wq_write_log_to_file, wait);
+	if (fgIsAllowFWLogDump) {
+		WIFI_INFO_FUNC("Write FW log to file...");
+		return POLLIN|POLLRDNORM;
+	}
+	return 0;
+}
+#endif
 
 static long fw_log_wifi_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -183,7 +179,7 @@ static long fw_log_wifi_unlocked_ioctl(struct file *filp, unsigned int cmd, unsi
 	int32_t wait_cnt = 0;
 
 	while (wait_cnt < 2000) {
-		if (pfFwEventFuncCB && pfFwGetFwVerCB)
+		if (pfFwEventFuncCB)
 			break;
 		if (wait_cnt % 20 == 0)
 			WIFI_ERR_FUNC("Wi-Fi driver is not ready for 2s\n");
@@ -222,18 +218,6 @@ static long fw_log_wifi_unlocked_ioctl(struct file *filp, unsigned int cmd, unsi
 			WIFI_ERR_FUNC("WIFI_FW_LOG_IOCTL_ON_OFF invoke:%d failed\n", (int)log_level);
 
 		WIFI_INFO_FUNC("fw_log_wifi_unlocked_ioctl WIFI_FW_LOG_IOCTL_SET_LEVEL end\n");
-		break;
-	}
-	case WIFI_FW_LOG_IOCTL_GET_VERSION:{
-		WIFI_INFO_FUNC("fw_log_wifi_unlocked_ioctl WIFI_FW_LOG_IOCTL_GET_VERSION start\n");
-
-		ver_length = 0;
-		memset(ver_name, 0, sizeof(ver_name));
-		schedule_work(&getFwVerQ);
-		flush_work(&getFwVerQ);
-
-		copy_to_user((char *) arg, ver_name, ver_length);
-		WIFI_INFO_FUNC("fw_log_wifi_unlocked_ioctl WIFI_FW_LOG_IOCTL_GET_VERSION end\n");
 		break;
 	}
 	default:
@@ -332,6 +316,12 @@ const struct file_operations fw_log_wifi_fops = {
 #endif
 };
 
+#if CFG_TC10_FEATURE
+const struct file_operations fw_log_wifi_write_log_to_file_fops = {
+	.poll = fw_log_wifi_poll_write_log_to_file,
+};
+#endif
+
 struct fw_log_wifi_device {
 	struct cdev cdev;
 	dev_t devno;
@@ -342,26 +332,30 @@ struct fw_log_wifi_device {
 #define FW_LOG_WIFI_DRIVER_NAME "fw_log_wifi"
 static struct fw_log_wifi_device *fw_log_wifi_dev;
 static int fw_log_wifi_major;
+#if CFG_TC10_FEATURE
+#define FW_LOG_WRITE_LOG_TO_FILE_NAME "fw_log_wifi_write_log_to_file"
+static struct fw_log_wifi_device *fw_log_write_log_to_file_dev;
+static int fw_log_write_log_to_file_major;
+#endif
 
 static void fw_log_wifi_event_cb(void)
 {
 	wake_up_interruptible(&wq);
 }
 
-static void mtk_get_fw_version_workQ(struct work_struct *work)
+#if CFG_TC10_FEATURE
+static void fw_log_wifi_write_log_to_file(int32_t i4DumpInProgress)
 {
-	if (pfFwGetFwVerCB) {
-		pfFwGetFwVerCB(ver_name, &ver_length, MANIFEST_BUFFER_SIZE);
-	} else
-		WIFI_INFO_FUNC("fw_log_wifi_unlocked_ioctl WIFI_FW_LOG_IOCTL_GET_VERSION failed\n");
+	wake_up_interruptible(&wq_write_log_to_file);
+	fgIsAllowFWLogDump = i4DumpInProgress;
 }
+EXPORT_SYMBOL(fw_log_wifi_write_log_to_file);
+#endif
 
 int fw_log_wifi_init(void)
 {
 	int result = 0;
 	int err = 0;
-
-	INIT_WORK(&getFwVerQ, mtk_get_fw_version_workQ);
 
 	fw_log_wifi_dev = kmalloc(sizeof(struct fw_log_wifi_device), GFP_KERNEL);
 
@@ -402,7 +396,6 @@ int fw_log_wifi_init(void)
 	connsys_log_register_event_cb(CONNLOG_TYPE_WIFI, fw_log_wifi_event_cb);
 	sema_init(&ioctl_mtx, 1);
 	pfFwEventFuncCB = NULL;
-	pfFwGetFwVerCB = NULL;
 	gLastFWLogOnOff = 0;
 	gFwLogOnOffStatus = 0;
 #if (CFG_ANDORID_CONNINFRA_COREDUMP_SUPPORT == 1)
@@ -449,5 +442,88 @@ int fw_log_wifi_deinit(void)
 	return 0;
 }
 EXPORT_SYMBOL(fw_log_wifi_deinit);
+
+#if CFG_TC10_FEATURE
+int fw_log_write_log_to_file_init(void)
+{
+	int result = 0;
+	int err = 0;
+
+	fw_log_write_log_to_file_dev = kmalloc(sizeof(struct fw_log_wifi_device), GFP_KERNEL);
+	fgIsAllowFWLogDump = 0;
+
+	if (fw_log_write_log_to_file_dev == NULL) {
+		result = -ENOMEM;
+		goto return_fn;
+	}
+
+	fw_log_write_log_to_file_dev->devno = MKDEV(fw_log_write_log_to_file_major, 0);
+
+	result = alloc_chrdev_region(&fw_log_write_log_to_file_dev->devno, 0, 1, FW_LOG_WRITE_LOG_TO_FILE_NAME);
+	fw_log_write_log_to_file_major = MAJOR(fw_log_write_log_to_file_dev->devno);
+	WIFI_INFO_FUNC("alloc_chrdev_region result %d, major %d\n", result, fw_log_write_log_to_file_major);
+
+	if (result < 0)
+		return result;
+
+	fw_log_write_log_to_file_dev->driver_class = class_create(THIS_MODULE, FW_LOG_WRITE_LOG_TO_FILE_NAME);
+
+	if (IS_ERR(fw_log_write_log_to_file_dev->driver_class)) {
+		result = -ENOMEM;
+		WIFI_ERR_FUNC("class_create failed %d.\n", result);
+		goto unregister_chrdev_region;
+	}
+
+	fw_log_write_log_to_file_dev->class_dev = device_create(fw_log_write_log_to_file_dev->driver_class,
+		NULL, fw_log_write_log_to_file_dev->devno, NULL, FW_LOG_WRITE_LOG_TO_FILE_NAME);
+
+	if (!fw_log_write_log_to_file_dev->class_dev) {
+		result = -ENOMEM;
+		WIFI_ERR_FUNC("class_device_create failed %d.\n", result);
+		goto class_destroy;
+	}
+
+	/* integrated with common debug utility */
+	init_waitqueue_head(&wq_write_log_to_file);
+
+
+	cdev_init(&fw_log_write_log_to_file_dev->cdev, &fw_log_wifi_write_log_to_file_fops);
+	fw_log_write_log_to_file_dev->cdev.owner = THIS_MODULE;
+	fw_log_write_log_to_file_dev->cdev.ops = &fw_log_wifi_write_log_to_file_fops;
+
+	err = cdev_add(&fw_log_write_log_to_file_dev->cdev, fw_log_write_log_to_file_dev->devno, 1);
+	if (err) {
+		result = -ENOMEM;
+		WIFI_ERR_FUNC("Error %d adding fw_log_wifi dev.\n", err);
+		goto cdev_del;
+	}
+
+	goto return_fn;
+
+cdev_del:
+	cdev_del(&fw_log_write_log_to_file_dev->cdev);
+class_destroy:
+	class_destroy(fw_log_write_log_to_file_dev->driver_class);
+unregister_chrdev_region:
+	unregister_chrdev_region(fw_log_write_log_to_file_dev->devno, 1);
+	kfree(fw_log_write_log_to_file_dev);
+return_fn:
+	return result;
+}
+EXPORT_SYMBOL(fw_log_write_log_to_file_init);
+
+int fw_log_write_log_to_file_deinit(void)
+{
+	device_destroy(fw_log_write_log_to_file_dev->driver_class, fw_log_write_log_to_file_dev->devno);
+	class_destroy(fw_log_write_log_to_file_dev->driver_class);
+	cdev_del(&fw_log_write_log_to_file_dev->cdev);
+	kfree(fw_log_write_log_to_file_dev);
+	unregister_chrdev_region(MKDEV(fw_log_write_log_to_file_major, 0), 1);
+	WIFI_INFO_FUNC("unregister_chrdev_region major %d\n", fw_log_write_log_to_file_major);
+
+	return 0;
+}
+EXPORT_SYMBOL(fw_log_write_log_to_file_deinit);
+#endif
 
 #endif

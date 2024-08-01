@@ -149,13 +149,6 @@ uint32_t twtPlannerReset(
 	struct ADAPTER *prAdapter,
 	struct BSS_INFO *prBssInfo);
 
-#if (CFG_TWT_STA_DIRECT_TEARDOWN == 1)
-void twtPlannerTearingdown(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	uint8_t ucFlowId);
-#endif
-
 void twtPlannerRxNegoResult(
 	struct ADAPTER *prAdapter,
 	struct MSG_HDR *prMsgHdr);

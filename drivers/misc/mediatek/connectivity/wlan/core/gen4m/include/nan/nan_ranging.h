@@ -159,6 +159,7 @@ struct _NAN_RANGING_INFO_T {
 	struct NanRangeResponseCtl response_ctl_def;
 };
 
+__KAL_ATTRIB_PACKED_FRONT__
 struct _NAN_FTM_PARAM_CMD {
 	uint8_t ucRole;
 	uint8_t ucInvoker;
@@ -166,15 +167,18 @@ struct _NAN_FTM_PARAM_CMD {
 	struct _NAN_FTM_PARAM_T rNanFtmParam;
 } __KAL_ATTRIB_PACKED__;
 
+__KAL_ATTRIB_PACKED_FRONT__
 struct _NAN_FTM_DONE_EVENT {
 	uint8_t aucPeerAddr[MAC_ADDR_LEN];
 	struct _NAN_FTM_REPORT_T rNanFtmReport;
 } __KAL_ATTRIB_PACKED__;
 
+__KAL_ATTRIB_PACKED_FRONT__
 struct _NAN_RANGING_BY_DISC_EVENT {
 	struct NanRangeRequest rReq;
 } __KAL_ATTRIB_PACKED__;
 
+__KAL_ATTRIB_PACKED_FRONT__
 struct _NAN_RANGING_REPORT_CMD {
 	uint32_t ucStatus;
 	uint16_t ranging_id;
@@ -273,9 +277,9 @@ void nanRangingFrameCompose(struct ADAPTER *prAdapter,
 			    struct _NAN_RANGING_INSTANCE_T *prRanging,
 			    uint8_t ucNafSubType);
 
-uint32_t nanParseRangingFrame(IN struct ADAPTER *prAdapter,
-			      IN struct SW_RFB *prSwRfb,
-			      IN struct _NAN_RANGING_INSTANCE_T *prRanging);
+uint32_t nanParseRangingFrame(struct ADAPTER *prAdapter,
+			      struct SW_RFB *prSwRfb,
+			      struct _NAN_RANGING_INSTANCE_T *prRanging);
 
 uint32_t nanRangingFrameSend(struct ADAPTER *prAdapter, uint8_t *PeerAddr,
 			     uint8_t ucNafSubType);
@@ -284,45 +288,45 @@ int32_t
 nanRangingRequestTx(struct ADAPTER *prAdapter,
 		    struct _NAN_RANGING_INSTANCE_T *prRanging);
 
-uint32_t nanRangingRequestTxDone(IN struct ADAPTER *prAdapter,
-				 IN struct MSDU_INFO *prMsduInfo,
-				 IN enum ENUM_TX_RESULT_CODE rTxDoneStatus);
+uint32_t nanRangingRequestTxDone(struct ADAPTER *prAdapter,
+				 struct MSDU_INFO *prMsduInfo,
+				 enum ENUM_TX_RESULT_CODE rTxDoneStatus);
 
-uint32_t nanRangingRequestRx(IN struct ADAPTER *prAdapter,
-			     IN struct SW_RFB *prSwRfb);
+uint32_t nanRangingRequestRx(struct ADAPTER *prAdapter,
+			     struct SW_RFB *prSwRfb);
 
 int32_t
 nanRangingResponseTx(struct ADAPTER *prAdapter,
 		     struct _NAN_RANGING_INSTANCE_T *prRanging);
 
-uint32_t nanRangingResponseTxDone(IN struct ADAPTER *prAdapter,
-				  IN struct MSDU_INFO *prMsduInfo,
-				  IN enum ENUM_TX_RESULT_CODE rTxDoneStatus);
+uint32_t nanRangingResponseTxDone(struct ADAPTER *prAdapter,
+				  struct MSDU_INFO *prMsduInfo,
+				  enum ENUM_TX_RESULT_CODE rTxDoneStatus);
 
-uint32_t nanRangingResponseRx(IN struct ADAPTER *prAdapter,
-			      IN struct SW_RFB *prSwRfb);
+uint32_t nanRangingResponseRx(struct ADAPTER *prAdapter,
+			      struct SW_RFB *prSwRfb);
 
 int32_t
 nanRangingTerminationTx(struct ADAPTER *prAdapter,
 			struct _NAN_RANGING_INSTANCE_T *prRanging);
 
-uint32_t nanRangingTerminationTxDone(IN struct ADAPTER *prAdapter,
-				     IN struct MSDU_INFO *prMsduInfo,
-				     IN enum ENUM_TX_RESULT_CODE rTxDoneStatus);
+uint32_t nanRangingTerminationTxDone(struct ADAPTER *prAdapter,
+				     struct MSDU_INFO *prMsduInfo,
+				     enum ENUM_TX_RESULT_CODE rTxDoneStatus);
 
-uint32_t nanRangingTerminationRx(IN struct ADAPTER *prAdapter,
-				 IN struct SW_RFB *prSwRfb);
+uint32_t nanRangingTerminationRx(struct ADAPTER *prAdapter,
+				 struct SW_RFB *prSwRfb);
 
 int32_t
-nanRangingReportTx(IN struct ADAPTER *prAdapter,
+nanRangingReportTx(struct ADAPTER *prAdapter,
 		   struct _NAN_RANGING_INSTANCE_T *prRanging);
 
-uint32_t nanRangingReportTxDone(IN struct ADAPTER *prAdapter,
-				IN struct MSDU_INFO *prMsduInfo,
-				IN enum ENUM_TX_RESULT_CODE rTxDoneStatus);
+uint32_t nanRangingReportTxDone(struct ADAPTER *prAdapter,
+				struct MSDU_INFO *prMsduInfo,
+				enum ENUM_TX_RESULT_CODE rTxDoneStatus);
 
-uint32_t nanRangingReportRx(IN struct ADAPTER *prAdapter,
-			    IN struct SW_RFB *prSwRfb);
+uint32_t nanRangingReportRx(struct ADAPTER *prAdapter,
+			    struct SW_RFB *prSwRfb);
 
 /************************************************
  *   NAN Ranging State Machine
@@ -332,13 +336,13 @@ void nanRangingFsmStep(struct ADAPTER *prAdapter,
 		       struct _NAN_RANGING_INSTANCE_T *prRanging,
 		       enum _ENUM_RANGING_STATE_T eNextState);
 
-void nanRangingSessionTimeout(struct ADAPTER *prAdapter, unsigned long ulParam);
+void nanRangingSessionTimeout(struct ADAPTER *prAdapter, uintptr_t ulParam);
 
 /************************************************
  *   Interface for FTM
  ************************************************
  */
-void nanRangingFtmParamCmd(IN struct ADAPTER *prAdapter,
+void nanRangingFtmParamCmd(struct ADAPTER *prAdapter,
 			   struct _NAN_RANGING_INSTANCE_T *prRanging);
 
 unsigned char
@@ -349,20 +353,20 @@ uint32_t
 nanRangingGeofencingCheck(struct ADAPTER *prAdapter,
 			  struct _NAN_RANGING_INSTANCE_T *prRanging);
 
-void nanRangingFtmDoneEvt(IN struct ADAPTER *prAdapter, IN uint8_t *pcuEvtBuf);
+void nanRangingFtmDoneEvt(struct ADAPTER *prAdapter, uint8_t *pcuEvtBuf);
 
 /************************************************
  *   Interface for NAN Discovery Engine
  ************************************************
  */
-void nanRangingReportDiscCmd(IN struct ADAPTER *prAdapter,
+void nanRangingReportDiscCmd(struct ADAPTER *prAdapter,
 			     struct _NAN_RANGING_REPORT_CMD *msg);
 
 uint32_t nanRangingInvokedByDisc(struct ADAPTER *prAdapter, uint16_t *pu2Id,
 				 struct NanRangeRequest *msg);
 
-void nanRangingInvokedByDiscEvt(IN struct ADAPTER *prAdapter,
-				IN uint8_t *pcuEvtBuf);
+void nanRangingInvokedByDiscEvt(struct ADAPTER *prAdapter,
+				uint8_t *pcuEvtBuf);
 
 /************************************************
  *   Interface for Application

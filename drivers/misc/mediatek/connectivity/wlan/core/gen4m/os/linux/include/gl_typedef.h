@@ -166,7 +166,9 @@ typedef void(*remove_card) (void);
 #define OUT			/* volatile */
 
 #define __KAL_INLINE__                  inline
+#define __KAL_ATTRIB_PACKED_FRONT__     /* for OS compatibility not used */
 #define __KAL_ATTRIB_PACKED__           __attribute__((__packed__))
+#define __KAL_ATTRIB_ALIGN_4_FRONT__    /* for OS compatibility not used */
 #define __KAL_ATTRIB_ALIGN_4__          __aligned(4)
 
 #ifndef BIT

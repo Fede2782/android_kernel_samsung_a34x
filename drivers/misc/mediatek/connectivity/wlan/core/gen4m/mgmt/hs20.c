@@ -425,6 +425,77 @@ u_int8_t hs20IsUnsolicitedNeighborAdv(IN struct ADAPTER *prAdapter,
 	return FALSE;
 }
 
+#if CFG_ENABLE_GTK_FRAME_FILTER
+u_int8_t hs20IsForgedGTKFrame(IN struct ADAPTER *prAdapter,
+		IN struct BSS_INFO *prBssInfo, IN struct SW_RFB *prCurrSwRfb)
+{
+	/* 3 TODO: Need to verify this function before enable it */
+	return FALSE;
+#if 0
+	struct CONNECTION_SETTINGS *prConnSettings =
+		aisGetConnSettings(prAdapter, prBssInfo->ucBssIndex);
+	uint8_t *pucEthDestAddr = prCurrSwRfb->pvHeader;
+
+	if ((prConnSettings->eEncStatus != ENUM_ENCRYPTION_DISABLED)
+	    && IS_BMCAST_MAC_ADDR(pucEthDestAddr)) {
+		uint8_t ucIdx = 0;
+		uint32_t *prIpAddr, *prPacketDA;
+		uint16_t *pu2PktIpVer =
+		    (uint16_t *) ((uint8_t *)
+		    prCurrSwRfb->pvHeader +
+		    (ETHER_HEADER_LEN - ETHER_TYPE_LEN));
+
+		if (*pu2PktIpVer == htons(ETH_P_IPV4)) {
+			if (!prBssInfo->prIpV4NetAddrList)
+				return FALSE;
+			for (ucIdx = 0;
+				ucIdx < prBssInfo
+					->prIpV4NetAddrList->ucAddrCount;
+				ucIdx++) {
+				prIpAddr = (uint32_t *)
+					&prBssInfo->prIpV4NetAddrList
+					->arNetAddr[ucIdx].aucIpAddr[0];
+				prPacketDA =
+				    (uint32_t *) ((uint8_t *)
+				    prCurrSwRfb->pvHeader +
+				    ETHER_HEADER_LEN +
+					IPV4_HDR_IP_DST_ADDR_OFFSET);
+
+				if (kalMemCmp(prIpAddr, prPacketDA, 4) == 0) {
+					kalPrint("Drop FORGED IPv4 packet\n");
+					return TRUE;
+				}
+			}
+		}
+#ifdef CONFIG_IPV6
+		else if (*pu2PktIpVer == htons(ETH_P_IPV6)) {
+			uint8_t aucIPv6Mac[MAC_ADDR_LEN];
+			uint8_t *pucIdx =
+			    prCurrSwRfb->pvHeader +
+			    ETHER_HEADER_LEN +
+			    IPV6_HDR_IP_DST_ADDR_MAC_HIGH_OFFSET;
+
+			kalMemCopy(&aucIPv6Mac[0], pucIdx, 3);
+			pucIdx += 5;
+			kalMemCopy(&aucIPv6Mac[3], pucIdx, 3);
+			kalPrint(
+				"Get IPv6 frame Dst IP MAC part " MACSTR "\n",
+				MAC2STR(aucIPv6Mac));
+
+			if (EQUAL_MAC_ADDR(aucIPv6Mac,
+				prBssInfo->aucOwnMacAddr)) {
+				kalPrint("Drop FORGED IPv6 packet\n");
+				return TRUE;
+			}
+		}
+#endif
+	}
+
+	return FALSE;
+#endif
+}
+#endif
+
 u_int8_t hs20IsUnsecuredFrame(IN struct ADAPTER *prAdapter,
 		IN struct BSS_INFO *prBssInfo, IN struct SW_RFB *prCurrSwRfb)
 {
@@ -444,6 +515,10 @@ u_int8_t hs20IsUnsecuredFrame(IN struct ADAPTER *prAdapter,
 	kalPrint("\n");
 #endif
 
+#if CFG_ENABLE_GTK_FRAME_FILTER
+	if (hs20IsForgedGTKFrame(prAdapter, prBssInfo, prCurrSwRfb))
+		return TRUE;
+#endif
 	if (*pu2PktIpVer == htons(ETH_P_ARP))
 		return hs20IsGratuitousArp(prAdapter, prCurrSwRfb);
 	else if (*pu2PktIpVer == htons(ETH_P_IPV6))
@@ -489,4 +564,39 @@ u_int8_t hs20IsFrameFilterEnabled(IN struct ADAPTER *prAdapter,
 	/* For Now, always return true to run hs20 check even for legacy AP */
 	return TRUE;
 }
+
+uint32_t hs20SetBssidPool(IN struct ADAPTER *prAdapter,
+		IN void *pvBuffer,
+		IN uint8_t ucBssIndex)
+{
+	struct PARAM_HS20_SET_BSSID_POOL *prParamBssidPool =
+		(struct PARAM_HS20_SET_BSSID_POOL *) pvBuffer;
+	struct HS20_INFO *prHS20Info;
+	uint8_t ucIdx;
+
+	prHS20Info = aisGetHS20Info(prAdapter, ucBssIndex);
+
+	pr_info("[%s]Set Bssid Pool! enable[%d] num[%d]\n",
+		__func__, prParamBssidPool->fgIsEnable,
+		prParamBssidPool->ucNumBssidPool);
+
+	for (ucIdx = 0; ucIdx < prParamBssidPool->ucNumBssidPool; ucIdx++) {
+		COPY_MAC_ADDR(
+			prHS20Info->arBssidPool[ucIdx].aucBSSID,
+			&prParamBssidPool->arBSSID[ucIdx]);
+
+		pr_info("[%s][%d][" MACSTR "]\n",
+			__func__, ucIdx,
+			MAC2STR(prHS20Info->arBssidPool[ucIdx].aucBSSID));
+	}
+	prHS20Info->fgIsHS2SigmaMode = prParamBssidPool->fgIsEnable;
+	prHS20Info->ucNumBssidPoolEntry = prParamBssidPool->ucNumBssidPool;
+
+#if 0
+	wlanClearScanningResult(prAdapter);
+#endif
+
+	return WLAN_STATUS_SUCCESS;
+}
+
 #endif /* CFG_SUPPORT_PASSPOINT */

@@ -80,6 +80,14 @@
  ******************************************************************************
  */
 
+#if CFG_ENABLE_GTK_FRAME_FILTER
+/*For GTK Frame Filter*/
+struct IPV4_NETWORK_ADDRESS_LIST {
+	uint8_t ucAddrCount;
+	struct CMD_IPV4_NETWORK_ADDRESS arNetAddr[1];
+};
+#endif
+
 /* Entry of BSSID Pool - For SIGMA Test */
 struct BSSID_ENTRY {
 	uint8_t aucBSSID[MAC_ADDR_LEN];
@@ -172,11 +180,20 @@ u_int8_t hs20IsGratuitousArp(IN struct ADAPTER *prAdapter,
 u_int8_t hs20IsUnsolicitedNeighborAdv(IN struct ADAPTER *prAdapter,
 		IN struct SW_RFB *prCurrSwRfb);
 
+#if CFG_ENABLE_GTK_FRAME_FILTER
+u_int8_t hs20IsForgedGTKFrame(IN struct ADAPTER *prAdapter,
+		IN struct BSS_INFO *prBssInfo, IN struct SW_RFB *prCurrSwRfb);
+#endif
+
 u_int8_t hs20IsUnsecuredFrame(IN struct ADAPTER *prAdapter,
 		IN struct BSS_INFO *prBssInfo, IN struct SW_RFB *prCurrSwRfb);
 
 u_int8_t hs20IsFrameFilterEnabled(IN struct ADAPTER *prAdapter,
 		IN struct BSS_INFO *prBssInfo);
+
+uint32_t hs20SetBssidPool(IN struct ADAPTER *prAdapter,
+		IN void *pvBuffer,
+		IN uint8_t ucBssIndex);
 
 #endif /* CFG_SUPPORT_PASSPOINT */
 #endif

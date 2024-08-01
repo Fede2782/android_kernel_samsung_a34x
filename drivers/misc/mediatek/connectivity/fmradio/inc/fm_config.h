@@ -44,9 +44,11 @@
 
 /* space */
 #define FM_SPACE_UNKNOWN    0
-#define FM_SPACE_100K       1
-#define FM_SPACE_200K       2
+#define FM_SPACE_100K       10
+#define FM_SPACE_200K       20
 #define FM_SPACE_50K        5
+
+#define FM_SPACE_DEFAULT    FM_SPACE_100K
 
 #define FM_INVALID_CHAN_NOISE_REDUCING    0
 
@@ -88,6 +90,9 @@
 #define FM_TX_MR_TH			60
 #define FM_TX_SMG_TH			8231
 
+/* FM max volume */
+#define FM_VOL_MAX           31	/* volume(0-31) */
+
 /* ***************************************************************************************** */
 /* ***************************FM default config for customer: end*************************** */
 /* ***************************************************************************************** */
@@ -128,10 +133,16 @@ struct fm_tx_cust_cfg {
 	signed int mr_th;
 	signed int smg_th;
 };
+
+struct fm_other_cust_cfg {
+	signed int vol;
+};
+
 struct fm_cust_cfg {
 	struct fm_rx_cust_cfg rx_cfg;
 	struct fm_tx_cust_cfg tx_cfg;
 	struct fm_audio_info_t aud_cfg;
+	struct fm_other_cust_cfg other_cfg;
 };
 
 enum fm_cust_cfg_op {
@@ -154,6 +165,7 @@ enum fm_cust_cfg_op {
 	FM_CFG_TX_PAMD_TH,
 	FM_CFG_TX_DEEMPHASIS,
 	FM_CFG_TX_SMG_TH,
+	FM_CFG_VOL,
 
 	FM_CFG_MAX
 };

@@ -106,6 +106,8 @@
 #define COUNTRY_CODE_AN (((uint16_t) 'A' << 8) | (uint16_t) 'N')
 /* Angola */
 #define COUNTRY_CODE_AO (((uint16_t) 'A' << 8) | (uint16_t) 'O')
+/*South Pole*/
+#define COUNTRY_CODE_AQ (((uint16_t) 'A' << 8) | (uint16_t) 'Q')
 /* Argentina */
 #define COUNTRY_CODE_AR (((uint16_t) 'A' << 8) | (uint16_t) 'R')
 /* American Samoa (USA) */
@@ -116,6 +118,8 @@
 #define COUNTRY_CODE_AU (((uint16_t) 'A' << 8) | (uint16_t) 'U')
 /* Aruba */
 #define COUNTRY_CODE_AW (((uint16_t) 'A' << 8) | (uint16_t) 'W')
+/* Aland Islands */
+#define COUNTRY_CODE_AX (((uint16_t) 'A' << 8) | (uint16_t) 'X')
 /* Azerbaijan */
 #define COUNTRY_CODE_AZ (((uint16_t) 'A' << 8) | (uint16_t) 'Z')
 /* Bosnia and Herzegovina */
@@ -148,6 +152,8 @@
 #define COUNTRY_CODE_BS (((uint16_t) 'B' << 8) | (uint16_t) 'S')
 /* Bhutan */
 #define COUNTRY_CODE_BT (((uint16_t) 'B' << 8) | (uint16_t) 'T')
+/*Bouvet Island*/
+#define COUNTRY_CODE_BV (((uint16_t) 'B' << 8) | (uint16_t) 'V')
 /* Botswana */
 #define COUNTRY_CODE_BW (((uint16_t) 'B' << 8) | (uint16_t) 'W')
 /* Belarus */
@@ -156,6 +162,8 @@
 #define COUNTRY_CODE_BZ (((uint16_t) 'B' << 8) | (uint16_t) 'Z')
 /* Canada */
 #define COUNTRY_CODE_CA (((uint16_t) 'C' << 8) | (uint16_t) 'A')
+/* Cocos Islands */
+#define COUNTRY_CODE_CC (((uint16_t) 'C' << 8) | (uint16_t) 'C')
 /* Democratic Republic of the Congo */
 #define COUNTRY_CODE_CD (((uint16_t) 'C' << 8) | (uint16_t) 'D')
 /* Central African Republic */
@@ -246,6 +254,8 @@
 #define COUNTRY_CODE_GH (((uint16_t) 'G' << 8) | (uint16_t) 'H')
 /* Gibraltar */
 #define COUNTRY_CODE_GI (((uint16_t) 'G' << 8) | (uint16_t) 'I')
+/* Greenland*/
+#define COUNTRY_CODE_GL (((uint16_t) 'G' << 8) | (uint16_t) 'L')
 /* Gambia */
 #define COUNTRY_CODE_GM (((uint16_t) 'G' << 8) | (uint16_t) 'M')
 /* Guinea */
@@ -256,6 +266,8 @@
 #define COUNTRY_CODE_GQ (((uint16_t) 'G' << 8) | (uint16_t) 'Q')
 /* Greece */
 #define COUNTRY_CODE_GR (((uint16_t) 'G' << 8) | (uint16_t) 'R')
+/* South Georgia and the South Sandwich Islands */
+#define COUNTRY_CODE_GS (((uint16_t) 'G' << 8) | (uint16_t) 'S')
 /* Guatemala */
 #define COUNTRY_CODE_GT (((uint16_t) 'G' << 8) | (uint16_t) 'T')
 /* Guam */
@@ -266,6 +278,8 @@
 #define COUNTRY_CODE_GY (((uint16_t) 'G' << 8) | (uint16_t) 'Y')
 /* Hong Kong */
 #define COUNTRY_CODE_HK (((uint16_t) 'H' << 8) | (uint16_t) 'K')
+/* Heard and McDonald Islands */
+#define COUNTRY_CODE_HM (((uint16_t) 'H' << 8) | (uint16_t) 'M')
 /* Honduras */
 #define COUNTRY_CODE_HN (((uint16_t) 'H' << 8) | (uint16_t) 'N')
 /* Croatia */
@@ -284,6 +298,8 @@
 #define COUNTRY_CODE_IM (((uint16_t) 'I' << 8) | (uint16_t) 'M')
 /* India */
 #define COUNTRY_CODE_IN (((uint16_t) 'I' << 8) | (uint16_t) 'N')
+/* British Indian Ocean Territory */
+#define COUNTRY_CODE_IO (((uint16_t) 'I' << 8) | (uint16_t) 'O')
 /* Iraq */
 #define COUNTRY_CODE_IQ (((uint16_t) 'I' << 8) | (uint16_t) 'Q')
 /* Iran */
@@ -470,8 +486,12 @@
 #define COUNTRY_CODE_SE (((uint16_t) 'S' << 8) | (uint16_t) 'E')
 /* Singapole */
 #define COUNTRY_CODE_SG (((uint16_t) 'S' << 8) | (uint16_t) 'G')
+/* Saint Helena */
+#define COUNTRY_CODE_SH (((uint16_t) 'S' << 8) | (uint16_t) 'H')
 /* Slovenia */
 #define COUNTRY_CODE_SI (((uint16_t) 'S' << 8) | (uint16_t) 'I')
+/* Svalbard and Jan Mayen */
+#define COUNTRY_CODE_SJ (((uint16_t) 'S' << 8) | (uint16_t) 'J')
 /* Slovakia */
 #define COUNTRY_CODE_SK (((uint16_t) 'S' << 8) | (uint16_t) 'K')
 /* Sierra Leone */
@@ -490,6 +510,8 @@
 #define COUNTRY_CODE_ST (((uint16_t) 'S' << 8) | (uint16_t) 'T')
 /* El Salvador */
 #define COUNTRY_CODE_SV (((uint16_t) 'S' << 8) | (uint16_t) 'V')
+/* Sint Maarten */
+#define COUNTRY_CODE_SX (((uint16_t) 'S' << 8) | (uint16_t) 'X')
 /* Syria */
 #define COUNTRY_CODE_SY (((uint16_t) 'S' << 8) | (uint16_t) 'Y')
 /* Swaziland */
@@ -506,6 +528,8 @@
 #define COUNTRY_CODE_TH (((uint16_t) 'T' << 8) | (uint16_t) 'H')
 /* Tajikistan */
 #define COUNTRY_CODE_TJ (((uint16_t) 'T' << 8) | (uint16_t) 'J')
+/* Tokelau */
+#define COUNTRY_CODE_TK (((uint16_t) 'T' << 8) | (uint16_t) 'K')
 /* East Timor */
 #define COUNTRY_CODE_TL (((uint16_t) 'T' << 8) | (uint16_t) 'L')
 /* Turkmenistan */
@@ -528,6 +552,8 @@
 #define COUNTRY_CODE_UA (((uint16_t) 'U' << 8) | (uint16_t) 'A')
 /* Ugnada */
 #define COUNTRY_CODE_UG (((uint16_t) 'U' << 8) | (uint16_t) 'G')
+/* United States Minor Outlying Islands */
+#define COUNTRY_CODE_UM (((uint16_t) 'U' << 8) | (uint16_t) 'M')
 /* US */
 #define COUNTRY_CODE_US (((uint16_t) 'U' << 8) | (uint16_t) 'S')
 /* Uruguay */
@@ -548,8 +574,12 @@
 #define COUNTRY_CODE_VN (((uint16_t) 'V' << 8) | (uint16_t) 'N')
 /* Vanuatu */
 #define COUNTRY_CODE_VU (((uint16_t) 'V' << 8) | (uint16_t) 'U')
+/* Walis and Futuna */
+#define COUNTRY_CODE_WF (((uint16_t) 'W' << 8) | (uint16_t) 'F')
 /* Samoa */
 #define COUNTRY_CODE_WS (((uint16_t) 'W' << 8) | (uint16_t) 'S')
+/* Republic of Kosovo */
+#define COUNTRY_CODE_XK (((uint16_t) 'X' << 8) | (uint16_t) 'K')
 /* Yemen */
 #define COUNTRY_CODE_YE (((uint16_t) 'Y' << 8) | (uint16_t) 'E')
 /* Mayotte (France) */
@@ -580,7 +610,7 @@
 #define BAND_2G4_UPPER_BOUND 14
 /*5G SubBand FCC spec*/
 #define UNII1_LOWER_BOUND    36
-#define UNII1_UPPER_BOUND    50
+#define UNII1_UPPER_BOUND    48
 #define UNII2A_LOWER_BOUND   52
 #define UNII2A_UPPER_BOUND   64
 #define UNII2C_LOWER_BOUND   100
@@ -591,10 +621,10 @@
 #define UNII5_LOWER_BOUND    1
 #define UNII5_UPPER_BOUND    93
 #define UNII6_LOWER_BOUND    97
-#define UNII6_UPPER_BOUND    115
+#define UNII6_UPPER_BOUND    113
 #define UNII7_LOWER_BOUND    117
 #define UNII7_UPPER_BOUND    185
-#define UNII8_LOWER_BOUND    187
+#define UNII8_LOWER_BOUND    189
 #define UNII8_UPPER_BOUND    233
 
 #if CFG_SUPPORT_PWR_LIMIT_COUNTRY
@@ -602,7 +632,7 @@
 #define MAX_TX_POWER				63
 #define MIN_TX_POWER				-64
 /*align Frimware Max Power Limit CH Num*/
-#define MAX_CMD_SUPPORT_CHANNEL_NUM			61
+#define MAX_CMD_SUPPORT_CHANNEL_NUM			60
 #endif
 
 #if (CFG_SUPPORT_SINGLE_SKU == 1)
@@ -620,12 +650,7 @@
 #if CFG_SUPPORT_PWR_LIMIT_COUNTRY
 
 /* Define Tx Power Control Channel Type */
-//#ifndef OPLUS_FEATURE_WIFI_SAR
-//Modify for: change Tx Power scenario name length to 32 for framework wifi sar scenario
-//#define MAX_TX_PWR_CTRL_ELEMENT_NAME_SIZE	16
-//#else
-#define MAX_TX_PWR_CTRL_ELEMENT_NAME_SIZE	32
-//#endif /* OPLUS_FEATURE_WIFI_SAR */
+#define MAX_TX_PWR_CTRL_ELEMENT_NAME_SIZE	16
 #define PWR_CTRL_CHNL_TYPE_KEY_ALL		"ALL"
 #define PWR_CTRL_CHNL_TYPE_KEY_2G4		"2G4"
 #define PWR_CTRL_CHNL_TYPE_KEY_5G		"5G"
@@ -642,17 +667,15 @@
 #define PWR_CTRL_CHNL_TYPE_KEY_6G_BAND3		"6GBAND3"
 #define PWR_CTRL_CHNL_TYPE_KEY_6G_BAND4		"6GBAND4"
 #endif
-#define PWR_CTRL_CHNL_TYPE_KEY_5G_AX160		"AX160"
-
 
 #define PWR_CFG_PRAM_NUM_ALL_RATE	1
 
 #define PWR_CFG_PRAM_NUM_AX		   18
-#if (CFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING == 1)
-#define	PWR_CFG_PRAM_NUM_AC			12
+#if (CFG_SUPPORT_DYNA_TX_PWR_CTRL_OFDM_SETTING == 1)
+#define	PWR_CFG_PRAM_NUM_AC			11
 #else
 #define	PWR_CFG_PRAM_NUM_AC			9
-#endif /* CFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING */
+#endif /* CFG_SUPPORT_DYNA_TX_PWR_CTRL_OFDM_SETTING */
 
 #define PWR_CFG_BACKOFF_MIN		-64
 #define PWR_CFG_BACKOFF_MAX		64
@@ -709,14 +732,11 @@ enum ENUM_TX_POWER_CTRL_CHANNEL_TYPE {
 };
 
 enum ENUM_POWER_LIMIT {
-#if (CFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING == 1)
-	PWR_LIMIT_CCK_L,
-	PWR_LIMIT_CCK_H,
+	PWR_LIMIT_CCK,
+#if (CFG_SUPPORT_DYNA_TX_PWR_CTRL_OFDM_SETTING == 1)
 	PWR_LIMIT_OFDM_L,
 	PWR_LIMIT_OFDM_H,
-#else
-	PWR_LIMIT_CCK,
-#endif /* CFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING */
+#endif /* CFG_SUPPORT_DYNA_TX_PWR_CTRL_OFDM_SETTING */
 	PWR_LIMIT_20M_L,
 	PWR_LIMIT_20M_H,
 	PWR_LIMIT_40M_L,
@@ -752,11 +772,12 @@ enum ENUM_POWER_LIMIT_HE {
 	PWR_LIMIT_RU996_H, /* MCS5~9 */
 	PWR_LIMIT_RU996_U, /* MCS10~11 */
 	PWR_LIMIT_HE_NUM,
+#if (CFG_SUPPORT_WIFI_6G == 1)
 	PWR_LIMIT_RU1992_L = PWR_LIMIT_HE_NUM, /* MCS0~4 */
 	PWR_LIMIT_RU1992_H, /* MCS5~9 */
 	PWR_LIMIT_RU1992_U, /* MCS10~11 */
-	PWR_LIMIT_6E_NUM,
-	PWR_LIMIT_HE_BW160_NUM = PWR_LIMIT_6E_NUM,
+	PWR_LIMIT_6E_NUM
+#endif
 };
 
 
@@ -795,9 +816,8 @@ struct TX_PWR_CTRL_CHANNEL_SETTING {
 	enum ENUM_TX_POWER_CTRL_VALUE_SIGN op[PWR_LIMIT_NUM];
 	int8_t i8PwrLimit[PWR_LIMIT_NUM];
 
-	enum ENUM_TX_POWER_CTRL_VALUE_SIGN opHE[PWR_LIMIT_HE_BW160_NUM];
-	int8_t i8PwrLimitHE[PWR_LIMIT_HE_BW160_NUM];
-
+	enum ENUM_TX_POWER_CTRL_VALUE_SIGN opHE[PWR_LIMIT_HE_NUM];
+	int8_t i8PwrLimitHE[PWR_LIMIT_HE_NUM];
 #if (CFG_SUPPORT_WIFI_6G == 1)
 	enum ENUM_TX_POWER_CTRL_VALUE_SIGN op6E[PWR_LIMIT_6E_NUM];
 	int8_t i8PwrLimit6E[PWR_LIMIT_6E_NUM];
@@ -821,7 +841,6 @@ struct TX_PWR_CTRL_ELEMENT {
 	char name[MAX_TX_PWR_CTRL_ELEMENT_NAME_SIZE]; /* scenario name */
 	uint8_t index; /* scenario index */
 	enum ENUM_TX_POWER_CTRL_TYPE eCtrlType;
-	uint16_t u2CountryCode;
 	uint8_t settingCount;
 	/* channel setting count. [.....] means one channel setting */
 
@@ -1026,12 +1045,6 @@ struct COUNTRY_POWER_LIMIT_TABLE_CONFIGURATION_HE {
 	int8_t aucPwrLimit[PWR_LIMIT_HE_NUM];
 };
 
-struct COUNTRY_POWER_LIMIT_TABLE_CONFIGURATION_HE_BW160 {
-	uint8_t aucCountryCode[2];
-	uint8_t ucCentralCh;
-	int8_t aucPwrLimit[PWR_LIMIT_HE_BW160_NUM];
-};
-
 #if (CFG_SUPPORT_WIFI_6G == 1)
 struct COUNTRY_POWER_LIMIT_TABLE_CONFIGURATION_6E {
 	uint8_t aucCountryCode[2];
@@ -1047,36 +1060,6 @@ struct SUBBAND_CHANNEL {
 	uint8_t ucInterval;
 	uint8_t ucReserved;
 };
-
-struct COUNTRY_POWER_LIMIT_COUNTRY_CODE {
-	uint8_t    aucCountryCode[2];
-};
-
-struct COUNTRY_POWER_LIMIT_GROUP_TABLE {
-	uint8_t    aucGroupCode[2];
-	uint32_t   u4CountryNum;
-	struct COUNTRY_POWER_LIMIT_COUNTRY_CODE *prGroup;
-};
-
-//#ifdef OPLUS_FEATURE_WIFI_CUSTOMER_NVRAM
-struct oplus_country_pwr_limit {
-    uint32_t project;
-    uint16_t tableSize;
-    struct COUNTRY_POWER_LIMIT_TABLE_CONFIGURATION *pwrLimitTable;
-};
-
-struct oplus_country_pwr_limit_he {
-    uint32_t project;
-    uint16_t tableSize;
-    struct COUNTRY_POWER_LIMIT_TABLE_CONFIGURATION_HE *pwrLimitTableHE;
-};
-
-struct oplus_country_pwr_limit_default {
-    uint32_t project;
-    uint16_t tableSize;
-    struct COUNTRY_POWER_LIMIT_TABLE_DEFAULT *pwrLimitTableDefault;
-};
-//#endif
 
 #endif /* CFG_SUPPORT_PWR_LIMIT_COUNTRY */
 
@@ -1167,6 +1150,10 @@ rlmDomainGetChnlList(struct ADAPTER *prAdapter,
 		     uint8_t ucMaxChannelNum, uint8_t *pucNumOfChannel,
 		     struct RF_CHANNEL_INFO *paucChannelList);
 
+void rlmDomainGetChnlListFromOpClass(struct ADAPTER *prAdapter,
+	uint8_t ucOpClass, struct RF_CHANNEL_INFO *paucChannelList,
+	uint8_t *pucChannelListNum);
+
 void rlmDomainGetDfsChnls(struct ADAPTER *prAdapter,
 			  uint8_t ucMaxChannelNum, uint8_t *pucNumOfChannel,
 			  struct RF_CHANNEL_INFO *paucChannelList);
@@ -1245,9 +1232,6 @@ const struct ieee80211_regdomain
 struct GLUE_INFO *rlmDomainGetGlueInfo(void);
 bool rlmDomainIsEfuseUsed(void);
 uint8_t rlmDomainGetChannelBw(enum ENUM_BAND eBand, uint8_t channelNum);
-uint8_t rlmDomainGetChannelBwForCountry(
-	struct ADAPTER *prAdapter, enum ENUM_BAND eBand,
-	uint8_t channelNum, enum ENUM_CHNL_EXT eSco, uint8_t maxChannelBw);
 
 #if (CFG_SUPPORT_SINGLE_SKU_LOCAL_DB == 1)
 extern const struct mtk_regdomain *g_prRegRuleTable[];

@@ -92,7 +92,6 @@ static struct platform_driver mtk_conninfra_dev_drv = {
 #ifdef CONFIG_OF
 		   .of_match_table = apconninfra_of_ids,
 #endif
-		   .probe_type = PROBE_FORCE_SYNCHRONOUS,
 		   },
 };
 
@@ -110,6 +109,7 @@ struct conninfra_dev_cb *g_conninfra_dev_cb;
 const struct conninfra_plat_data *g_conninfra_plat_data = NULL;
 
 struct pinctrl *g_conninfra_pinctrl_ptr = NULL;
+static atomic_t g_hw_init_done = ATOMIC_INIT(0);
 
 static unsigned int g_adie_chipid = 0;
 static OSAL_SLEEPABLE_LOCK g_adie_chipid_lock;
@@ -120,7 +120,6 @@ static int g_platform_config;
 
 static struct notifier_block conninfra_pm_notifier;
 
-static atomic_t g_hw_init_done = ATOMIC_INIT(0);
 /*******************************************************************************
 *                           P R I V A T E   D A T A
 ********************************************************************************
@@ -200,7 +199,8 @@ int consys_hw_pwr_off(unsigned int curr_status, unsigned int off_radio)
 	int ret = 0;
 
 	if (next_status == 0) {
-		pr_info("Last power off: %d, Power off CONNSYS PART 1\n", off_radio);
+		pr_info("Last power off: %d\n", off_radio);
+		pr_info("Power off CONNSYS PART 1\n");
 		consys_hw_raise_voltage(off_radio, false, true);
 		if (consys_hw_ops->consys_plt_conninfra_on_power_ctrl)
 			consys_hw_ops->consys_plt_conninfra_on_power_ctrl(0);
@@ -427,8 +427,12 @@ int consys_hw_therm_query(int *temp_ptr)
 	/* wake/sleep conninfra */
 	if (consys_hw_ops && consys_hw_ops->consys_plt_thermal_query) {
 		ret = _consys_hw_conninfra_wakeup();
-		if (ret)
+		if (ret) {
+			ret = consys_hw_is_bus_hang();
+			consys_hw_clock_fail_dump();
+			pr_info("[%s] bus status=%d", __func__, ret);
 			return CONNINFRA_ERR_WAKEUP_FAIL;
+		}
 		*temp_ptr = consys_hw_ops->consys_plt_thermal_query();
 		_consys_hw_conninfra_sleep();
 	} else
@@ -461,10 +465,10 @@ int consys_hw_reset_power_state(void)
 	return ret;
 }
 
-int consys_hw_dump_power_state(char *buf, unsigned int size)
+int consys_hw_dump_power_state(void)
 {
 	if (consys_hw_ops && consys_hw_ops->consys_plt_power_state)
-		consys_hw_ops->consys_plt_power_state(buf, size);
+		consys_hw_ops->consys_plt_power_state();
 	return 0;
 }
 
@@ -671,24 +675,11 @@ u64 consys_hw_soc_timestamp_get(void)
 	return 0;
 }
 
-int consys_hw_pre_cal_backup(unsigned int offset, unsigned int size)
-{
-	if (consys_hw_ops->consys_plt_pre_cal_backup)
-		return consys_hw_ops->consys_plt_pre_cal_backup(offset, size);
-	return 0;
-}
-
-int consys_hw_pre_cal_clean_data(void)
-{
-	if (consys_hw_ops->consys_plt_pre_cal_clean_data)
-		return consys_hw_ops->consys_plt_pre_cal_clean_data();
-	return 0;
-}
-
 int mtk_conninfra_probe(struct platform_device *pdev)
 {
 	int ret = -1;
 	struct consys_emi_addr_info* emi_info = NULL;
+	struct conn_pwr_plat_info pwr_info;
 
 	if (pdev == NULL) {
 		pr_err("[%s] invalid input", __func__);
@@ -742,6 +733,12 @@ int mtk_conninfra_probe(struct platform_device *pdev)
 	g_pdev = pdev;
 
 	osal_sleepable_lock_init(&g_adie_chipid_lock);
+	pwr_info.chip_id = consys_hw_chipid_get();
+	pwr_info.adie_id = consys_hw_detect_adie_chipid();
+	pwr_info.get_temp = consys_hw_therm_query;
+	ret = conn_pwr_init(&pwr_info);
+	if (ret < 0)
+		pr_info("conn_pwr_init is failed %d.", ret);
 
 	atomic_set(&g_hw_init_done, 1);
 	return 0;
@@ -749,13 +746,14 @@ int mtk_conninfra_probe(struct platform_device *pdev)
 
 int mtk_conninfra_remove(struct platform_device *pdev)
 {
-	atomic_set(&g_hw_init_done, 0);
+	conn_pwr_deinit();
 
 	if (consys_hw_ops->consys_plt_clk_detach)
 		consys_hw_ops->consys_plt_clk_detach();
 	else
 		pr_info("consys_plt_clk_detach is null");
 
+	atomic_set(&g_hw_init_done, 0);
 	if (g_pdev)
 		g_pdev = NULL;
 
@@ -830,17 +828,13 @@ void consys_hw_set_mcu_control(int type, bool onoff)
 
 int consys_hw_init(struct conninfra_dev_cb *dev_cb)
 {
-	int iRet = 0, ret = 0, retry = 0;
-	phys_addr_t emi_addr = 0;
-	unsigned int emi_size = 0;
+	int iRet = 0, retry = 0, ret = 0;
 	static DEFINE_RATELIMIT_STATE(_rs, HZ, 1);
+	unsigned int emi_addr = 0;
+	unsigned int emi_size = 0;
 
-	ratelimit_set_flags(&_rs, RATELIMIT_MSG_ON_RELEASE);
 	g_conninfra_dev_cb = dev_cb;
-
-	pmic_mng_register_device();
-	clock_mng_register_device();
-
+	atomic_set(&g_hw_init_done, 0);
 	iRet = platform_driver_register(&mtk_conninfra_dev_drv);
 	if (iRet)
 		pr_err("Conninfra platform driver registered failed(%d)\n", iRet);
@@ -852,6 +846,9 @@ int consys_hw_init(struct conninfra_dev_cb *dev_cb)
 				pr_info("g_hw_init_done = 0, retry = %d", retry);
 		}
 	}
+
+	pmic_mng_register_device();
+	clock_mng_register_device();
 
 	conninfra_get_phy_addr(&emi_addr, &emi_size);
 	connectivity_export_conap_scp_init(consys_hw_get_ic_info(CONNSYS_SOC_CHIPID), emi_addr);

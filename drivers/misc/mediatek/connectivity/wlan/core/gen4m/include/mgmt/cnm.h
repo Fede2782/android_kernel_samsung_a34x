@@ -208,6 +208,7 @@ enum ENUM_CNM_NETWORK_TYPE_T {
 	ENUM_CNM_NETWORK_TYPE_AIS,
 	ENUM_CNM_NETWORK_TYPE_P2P_GC,
 	ENUM_CNM_NETWORK_TYPE_P2P_GO,
+	ENUM_CNM_NETWORK_TYPE_NAN,
 	ENUM_CNM_NETWORK_TYPE_NUM
 };
 
@@ -464,5 +465,7 @@ static __KAL_INLINE__ void cnmMsgDataTypeCheck(void)
 			== OFFSET_OF(struct MSG_CH_REOCVER, eReqType));
 }
 #endif /* _lint */
+
+uint8_t cnmIncreaseTokenId(struct ADAPTER *prAdapter);
 
 #endif /* _CNM_H */

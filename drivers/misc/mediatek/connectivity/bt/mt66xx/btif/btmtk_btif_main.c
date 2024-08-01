@@ -54,7 +54,6 @@
 */
 uint8_t *p_conn_infra_base_addr;
 uint8_t *p_bgfsys_base_addr;
-extern bool g_bt_trace_pt;
 extern struct btmtk_dev *g_sbdev;
 
 static unsigned long g_btif_id; /* The user identifier to operate btif */
@@ -187,7 +186,7 @@ int btmtk_disp_notify_cb(struct notifier_block *nb, unsigned long value, void *v
 		}
 	}
 end:
-	BTMTK_DBG("%s: end", __func__);
+	BTMTK_INFO("%s: end", __func__);
 	return 0;
 }
 
@@ -258,11 +257,11 @@ static int btmtk_pm_notifier_callback(struct notifier_block *nb,
 {
 	struct btmtk_btif_dev *cif_dev = (struct btmtk_btif_dev *)g_sbdev->cif_dev;
 
+	BTMTK_INFO("%s: bt_state[%d], event[%ld]",
+			__func__, cif_dev->bt_state, event);
 
 	switch (event) {
 		case PM_SUSPEND_PREPARE:
-			BTMTK_INFO("%s: bt_state[%d], event[%ld]",
-					__func__, cif_dev->bt_state, event);
 		case PM_POST_SUSPEND:
 			if(cif_dev->bt_state == FUNC_ON) {
 				bt_dump_bgfsys_suspend_wakeup_debug();
@@ -391,8 +390,7 @@ static int32_t btmtk_cif_fw_own_clr(void)
 	uint32_t lpctl_cr;
 	int32_t retry = LPCR_POLLING_RTY_LMT;
 
-	if (g_bt_trace_pt)
-		bt_dbg_tp_evt(TP_ACT_DRVOWN_IN, 0, 0, NULL);
+	bt_dbg_tp_evt(TP_ACT_DRVOWN_IN, 0, 0, NULL);
 	do {
 		/* assume wait interval 0.5ms each time,
 		 * wait maximum total 7ms to query status
@@ -421,8 +419,7 @@ static int32_t btmtk_cif_fw_own_clr(void)
 
 	if (retry == 0) {
 		BTMTK_ERR("[DRV_OWN] (Wakeup) failed!");
-		if (g_bt_trace_pt)
-			bt_dbg_tp_evt(TP_ACT_DRVOWN_OUT, TP_PAR_FAIL, 0, NULL);
+		bt_dbg_tp_evt(TP_ACT_DRVOWN_OUT, TP_PAR_FAIL, 0, NULL);
 		bt_dump_cif_own_cr();
 
 		/* dump cpupcr, 10 times with 1ms interval */
@@ -430,8 +427,7 @@ static int32_t btmtk_cif_fw_own_clr(void)
 		return -1;
 	}
 
-	if (g_bt_trace_pt)
-		bt_dbg_tp_evt(TP_ACT_DRVOWN_OUT, TP_PAR_PASS, 0, NULL);
+	bt_dbg_tp_evt(TP_ACT_DRVOWN_OUT, TP_PAR_PASS, 0, NULL);
 	BTMTK_DBG("[DRV_OWN] (Wakeup) success, retry[%d]", retry);
 	return 0;
 }
@@ -452,8 +448,7 @@ static int32_t btmtk_cif_fw_own_set(void)
 	uint32_t irqstat_cr;
 	int32_t retry = LPCR_POLLING_RTY_LMT;
 
-	if (g_bt_trace_pt)
-		bt_dbg_tp_evt(TP_ACT_FWOWN_IN, 0, 0, NULL);
+	bt_dbg_tp_evt(TP_ACT_FWOWN_IN, 0, 0, NULL);
 	do {
 		if ((retry & 0xF) == 0) { /* retry % 16 == 0 */
 			if (((retry < LPCR_POLLING_RTY_LMT && retry >= LPCR_MASS_DUMP_LMT) || (retry == 2048) || (retry == 32)) &&
@@ -489,8 +484,7 @@ static int32_t btmtk_cif_fw_own_set(void)
 
 	if (retry == 0) {
 		BTMTK_ERR("[FW_OWN] (Sleep) failed!");
-		if (g_bt_trace_pt)
-			bt_dbg_tp_evt(TP_ACT_FWOWN_OUT, TP_PAR_FAIL, 0, NULL);
+		bt_dbg_tp_evt(TP_ACT_FWOWN_OUT, TP_PAR_FAIL, 0, NULL);
 		bt_dump_cif_own_cr();
 
 		/* dump cpupcr, 10 times with 1ms interval */
@@ -498,8 +492,7 @@ static int32_t btmtk_cif_fw_own_set(void)
 		return -1;
 	}
 
-	if (g_bt_trace_pt)
-		bt_dbg_tp_evt(TP_ACT_FWOWN_OUT, TP_PAR_PASS, 0, NULL);
+	bt_dbg_tp_evt(TP_ACT_FWOWN_OUT, TP_PAR_PASS, 0, NULL);
 	BTMTK_DBG("[FW_OWN] (Sleep) success, retry[%d]", retry);
 	return 0;
 }
@@ -544,8 +537,7 @@ int bt_chip_reset_flow(enum bt_reset_level rst_level,
 	struct btmtk_dev *bdev = hci_get_drvdata(g_sbdev->hdev);
 	struct btmtk_btif_dev *cif_dev = (struct btmtk_btif_dev *)g_sbdev->cif_dev;
 
-	if (g_bt_trace_pt)
-		bt_dbg_tp_evt(TP_ACT_RST, TP_PAR_RST_START, 0, NULL);
+	bt_dbg_tp_evt(TP_ACT_RST, TP_PAR_RST_START, 0, NULL);
 	/* dump debug message */
 	show_all_dump_packet();
 	btmtk_cif_dump_fw_no_rsp(BT_BTIF_DUMP_ALL);
@@ -588,8 +580,7 @@ int bt_chip_reset_flow(enum bt_reset_level rst_level,
 		/* 4. Do coredump, only do this while BT is on */
 		down(&cif_dev->halt_sem);
 		if (cif_dev->bt_state != RESET_START && cif_dev->bt_state != FUNC_OFF) {
-			if (g_bt_trace_pt)
-				bt_dbg_tp_evt(TP_ACT_RST, TP_PAR_RST_DUMP, 0, NULL);
+			bt_dbg_tp_evt(TP_ACT_RST, TP_PAR_RST_DUMP, 0, NULL);
 			bt_dump_bgfsys_debug_cr();
 			connsys_coredump_start(cif_dev->coredump_handle, dump_property, drv, reason);
 		} else
@@ -604,7 +595,8 @@ int bt_chip_reset_flow(enum bt_reset_level rst_level,
 		uint8_t *dump_msg_addr;
 		uint8_t msg[256] = {0};
 
-		conninfra_get_phy_addr(&emi_ap_phy_base, NULL);
+		conninfra_get_phy_addr((uint32_t*)&emi_ap_phy_base, NULL);
+		emi_ap_phy_base &= 0xFFFFFFFF;
 
 		dump_msg_addr = ioremap(emi_ap_phy_base + 0x3B000, 0x100);
 		if (dump_msg_addr) {
@@ -635,8 +627,7 @@ int bt_chip_reset_flow(enum bt_reset_level rst_level,
 	bt_notify_state();
 
 	/* 5. Turn off BT */
-	if (g_bt_trace_pt)
-		bt_dbg_tp_evt(TP_ACT_RST, TP_PAR_RST_OFF, 0, NULL);
+	bt_dbg_tp_evt(TP_ACT_RST, TP_PAR_RST_OFF, 0, NULL);
 	btmtk_fops_set_state(bdev, BTMTK_FOPS_STATE_OPENED); // to comform to the common part state
 	ret = g_sbdev->hdev->close(g_sbdev->hdev);
 #if (USE_DEVICE_NODE == 0)
@@ -792,9 +783,7 @@ static int32_t bt_receive_data_cb(uint8_t *buf, uint32_t count)
 {
 	struct btmtk_btif_dev *cif_dev = (struct btmtk_btif_dev *)g_sbdev->cif_dev;
 
-	BTMTK_LIMIT("%s: get Rx", __func__);
-	if (g_bt_trace_pt)
-		bt_dbg_tp_evt(TP_ACT_RD_CB, 0, count, buf);
+	bt_dbg_tp_evt(TP_ACT_RD_CB, 0, count, buf);
 	BTMTK_DBG_RAW(buf, count, "%s: len[%d] RX: ", __func__, count);
 	add_dump_packet(buf, count, RX);
 	cif_dev->psm.sleep_flag = FALSE;
@@ -810,7 +799,7 @@ static int32_t bt_receive_data_cb(uint8_t *buf, uint32_t count)
  */
 static struct coredump_event_cb bt_coredump_cb =
 {
-	.reg_readable = conninfra_reg_readable_for_coredump,
+	.reg_readable = conninfra_reg_readable,
 	.poll_cpupcr = bt_dump_cpupcr,
 };
 #endif
@@ -897,8 +886,7 @@ static void btmtk_btif_enter_deep_idle(struct work_struct *pwork)
 		bt_release_wake_lock(&cif_dev->psm.wake_lock);
 		idle_ctrl->is_dpidle = (ret) ? FALSE : TRUE;
 
-		if (g_bt_trace_pt)
-			bt_dbg_tp_evt(TP_ACT_DPI_ENTER, (ret == 0 ? TP_PAR_PASS : TP_PAR_FAIL), 0, NULL);
+		bt_dbg_tp_evt(TP_ACT_DPI_ENTER, (ret == 0 ? TP_PAR_PASS : TP_PAR_FAIL), 0, NULL);
 		if (ret)
 			BTMTK_ERR("[DP_IDLE] BTIF enter dpidle failed(%d)", ret);
 		else
@@ -943,8 +931,7 @@ static int32_t btmtk_btif_dpidle_ctrl(u_int8_t enable)
 			ret = mtk_wcn_btif_dpidle_ctrl(g_btif_id, BTIF_DPIDLE_DISABLE);
 			idle_ctrl->is_dpidle = (ret) ? TRUE : FALSE;
 
-			if (g_bt_trace_pt)
-				bt_dbg_tp_evt(TP_ACT_DPI_EXIT, (ret == 0 ? TP_PAR_PASS : TP_PAR_FAIL), 0, NULL);
+			bt_dbg_tp_evt(TP_ACT_DPI_EXIT, (ret == 0 ? TP_PAR_PASS : TP_PAR_FAIL), 0, NULL);
 			if (ret)
 				BTMTK_ERR("[DP_IDLE] BTIF exit dpidle failed(%d)", ret);
 			else
@@ -1399,8 +1386,7 @@ int btmtk_btif_send_cmd(struct btmtk_dev *bdev, struct sk_buff *skb, int delay, 
 		cmd += ret;
 	}
 
-	if (g_bt_trace_pt)
-		bt_dbg_tp_evt(TP_ACT_WR_OUT, 0, cmd_len, tp_ptr);
+	bt_dbg_tp_evt(TP_ACT_WR_OUT, 0, cmd_len, tp_ptr);
 	return ret;
 }
 
@@ -1760,16 +1746,14 @@ static u_int8_t bt_tx_wait_for_msg(struct btmtk_dev *bdev)
 	if (cif_dev->bt_state == RESET_START)
 		return kthread_should_stop();
 	else {
-		BTMTK_DBG("skb [%d], rx_ind [%d], bgf2ap_ind [%d], bt_conn2ap_ind [%d], sleep_flag [%d], wakeup_flag [%d], force_on [%d]",
+		BTMTK_DBG("skb [%d], rx_ind [%d], bgf2ap_ind [%d], sleep_flag [%d], wakeup_flag [%d], force_on [%d]",
 				skb_queue_empty(&cif_dev->tx_queue), cif_dev->rx_ind,
-				cif_dev->bgf2ap_ind, cif_dev->bt_conn2ap_ind, 
-				cif_dev->psm.sleep_flag,
+				cif_dev->bgf2ap_ind, cif_dev->psm.sleep_flag,
 				cif_dev->psm.wakeup_flag,
 				cif_dev->psm.force_on);
 		return (!skb_queue_empty(&cif_dev->tx_queue)
 			|| cif_dev->rx_ind
 			|| cif_dev->bgf2ap_ind
-			|| cif_dev->bt_conn2ap_ind
 			|| (!cif_dev->psm.force_on && cif_dev->psm.sleep_flag) // only check sleep_flag if force_on is FALSE
 			|| cif_dev->psm.wakeup_flag
 			|| kthread_should_stop());
@@ -1810,14 +1794,8 @@ int32_t btmtk_tx_thread(void * arg)
 			break;
 		}
 
-		/* handling BUS SW IRQ */
-		if (cif_dev->bt_conn2ap_ind && BT_SSPM_TIMER != 0) {
-			bt_conn2ap_irq_handler();
-			continue;
-		}
-
 		/* handling SW IRQ */
-		if (cif_dev->bgf2ap_ind) {
+		if(cif_dev->bgf2ap_ind) {
 			bt_bgf2ap_irq_handler();
 			/* reset bgf2ap_ind flag move into bt_bgf2ap_irq_handler */
 			continue;

@@ -27,9 +27,7 @@
 *			      P U B L I C   D A T A
 ********************************************************************************
 */
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-unsigned long long irq_timer[12] = {0};
-#endif
+
 
 /*******************************************************************************
 *			     P R I V A T E   D A T A
@@ -38,7 +36,6 @@ unsigned long long irq_timer[12] = {0};
 extern struct btmtk_dev *g_sbdev;
 static struct bt_irq_ctrl bgf2ap_btif_wakeup_irq = {.name = "BTIF_WAKEUP_IRQ"};
 static struct bt_irq_ctrl bgf2ap_sw_irq = {.name = "BGF_SW_IRQ"};
-static struct bt_irq_ctrl bt_conn2ap_sw_irq = {.name = "BUS_SW_IRQ"};
 static struct bt_irq_ctrl *bt_irq_table[BGF2AP_IRQ_MAX];
 static struct work_struct rst_trigger_work;
 
@@ -67,7 +64,7 @@ static struct work_struct rst_trigger_work;
 static void bt_reset_work(struct work_struct *work)
 {
 	BTMTK_INFO("Trigger subsys reset");
-	bt_chip_reset_flow(RESET_LEVEL_0_5, CONNDRV_TYPE_BT, "BT Subsys reset");
+	bt_chip_reset_flow(RESET_LEVEL_0_5, CONNDRV_TYPE_BT, "Subsys reset");
 }
 
 /* bt_trigger_reset
@@ -126,10 +123,8 @@ void bt_bgf2ap_irq_handler(void)
 	if (bgf_status == RET_SWIRQ_ST_FAIL)
 		return;
 
-	if (bgf_status && !(bgf_status & BGF_FW_LOG_NOTIFY)) {
+	if (!(bgf_status & BGF_FW_LOG_NOTIFY)) {
 		BTMTK_INFO("bgf_status = 0x%08x", bgf_status);
-	}else{
-		BTMTK_DBG("bgf_status = 0x%08x", bgf_status);
 	}
 
 	if (bgf_status == 0xDEADFEED) {
@@ -152,28 +147,7 @@ void bt_bgf2ap_irq_handler(void)
 	}
 }
 
-/* bt_conn2ap_irq_handler
- *
- *    Handling BT_CONN2AP_SW_IRQ, include BGF bus hang. And dump SSPM TIMER
- *    Please be noticed this handler is running in bt thread
- *    not interrupt thread
- *
- * Arguments:
- *    N/A
- *
- * Return Value:
- *    N/A
- *
- */
-void bt_conn2ap_irq_handler(void)
-{
-	uint32_t value = 0;
-	struct btmtk_btif_dev *cif_dev = (struct btmtk_btif_dev *)g_sbdev->cif_dev;
-	cif_dev->bt_conn2ap_ind = FALSE;
-	value = bt_read_cr(BT_SSPM_TIMER);
-	BTMTK_INFO("%s: [SSPM] [0x%08x] = [0x%08x]", __func__, BT_SSPM_TIMER, value);
-	bt_trigger_reset();
-}
+
 /* btmtk_reset_init()
  *
  *    Inint work thread for subsys chip reset
@@ -207,49 +181,18 @@ void btmtk_reset_init(void)
 static irqreturn_t btmtk_irq_handler(int irq, void * arg)
 {
 	struct btmtk_btif_dev *cif_dev = (struct btmtk_btif_dev *)g_sbdev->cif_dev;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	irq_timer[0] = sched_clock();
-#endif
+
 	if (irq == bgf2ap_btif_wakeup_irq.irq_num) {
 		if (cif_dev->rst_level == RESET_LEVEL_NONE) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			irq_timer[1] = sched_clock();
-#endif
 			bt_disable_irq(BGF2AP_BTIF_WAKEUP_IRQ);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			irq_timer[7] = sched_clock();
-#endif
 			cif_dev->rx_ind = TRUE;
 			cif_dev->psm.sleep_flag = FALSE;
 			wake_up_interruptible(&cif_dev->tx_waitq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			irq_timer[10] = sched_clock();
-			if (irq_timer[10] - irq_timer[1] > 5000000){
-				BTMTK_ERR("btif: start1[%llu] b_dis2[%llu] in_dis3[%llu] b_lock4[%llu] a_lock5[%llu] b_unlock6[%llu] a_unlock7[%llu] a_dis8[%llu] end11[%llu]", irq_timer[0], irq_timer[1], irq_timer[2], irq_timer[3], irq_timer[4], irq_timer[5], irq_timer[6], irq_timer[7], irq_timer[10]);
-			}
-#endif
 		}
 		return IRQ_HANDLED;
 	} else if (irq == bgf2ap_sw_irq.irq_num) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		irq_timer[8] = sched_clock();
-#endif
 		bt_disable_irq(BGF2AP_SW_IRQ);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		irq_timer[9] = sched_clock();
-#endif
 		cif_dev->bgf2ap_ind = TRUE;
-		wake_up_interruptible(&cif_dev->tx_waitq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		irq_timer[11] = sched_clock();
-		if (irq_timer[11] - irq_timer[8] > 5000000){
-			BTMTK_ERR("sw: start1[%llu] b_dis9[%llu] in_dis3[%llu] b_lock4[%llu] a_lock5[%llu] b_unlock6[%llu] a_unlock7[%llu] a_dis10[%llu] end11[%llu]", irq_timer[0], irq_timer[8], irq_timer[2], irq_timer[3], irq_timer[4], irq_timer[5], irq_timer[6], irq_timer[9], irq_timer[11]);
-		}
-#endif
-		return IRQ_HANDLED;
-	} else if (irq == bt_conn2ap_sw_irq.irq_num) {
-		bt_disable_irq(BT_CONN2AP_SW_IRQ);
-		cif_dev->bt_conn2ap_ind = TRUE;
 		wake_up_interruptible(&cif_dev->tx_waitq);
 		return IRQ_HANDLED;
 	}
@@ -280,7 +223,7 @@ int32_t bt_request_irq(enum bt_irq_type irq_type)
 		node = of_find_compatible_node(NULL, NULL, "mediatek,bt");
 		if (node) {
 			irq_num = irq_of_parse_and_map(node, 0);
-			BTMTK_DBG("irqNum of BGF2AP_BTIF_WAKEUP_IRQ = %d", irq_num);
+			BTMTK_INFO("irqNum of BGF2AP_BTIF_WAKEUP_IRQ = %d", irq_num);
 		}
 		else
 			BTMTK_ERR("WIFI-OF: get bt device node fail");
@@ -292,47 +235,32 @@ int32_t bt_request_irq(enum bt_irq_type irq_type)
 		node = of_find_compatible_node(NULL, NULL, "mediatek,bt");
 		if (node) {
 			irq_num = irq_of_parse_and_map(node, 1);
-			BTMTK_DBG("irqNum of BGF2AP_SW_IRQ = %d", irq_num);
+			BTMTK_INFO("irqNum of BGF2AP_SW_IRQ = %d", irq_num);
 		}
 		else
 			BTMTK_ERR("WIFI-OF: get bt device node fail");
 		irq_flags = IRQF_TRIGGER_HIGH | IRQF_SHARED;
 		pirq = &bgf2ap_sw_irq;
 		break;
-	case BT_CONN2AP_SW_IRQ:
-		node = of_find_compatible_node(NULL, NULL, "mediatek,bt");
-		if (node) {
-			irq_num = irq_of_parse_and_map(node, 2);
-			BTMTK_DBG("irqNum of BT_CONN2AP_SW_IRQ = %d", irq_num);
-		}
-		else
-			BTMTK_ERR("WIFI-OF: get bt device node fail");
-		irq_flags = IRQF_TRIGGER_HIGH | IRQF_SHARED;
-		pirq = &bt_conn2ap_sw_irq;
-		break;
 	default:
 		BTMTK_ERR("Invalid irq_type %d!", irq_type);
 		return -EINVAL;
 	}
 
+	BTMTK_INFO("pirq = %p, flag = 0x%08x", pirq, irq_flags);
 	pirq->irq_num = irq_num;
 	spin_lock_init(&pirq->lock);
-	pirq->active = TRUE;
 	ret = request_irq(irq_num, btmtk_irq_handler, irq_flags,
 			  pirq->name, pirq);
 	if (ret) {
 		BTMTK_ERR("Request %s (%u) failed! ret(%d)", pirq->name, irq_num, ret);
-		pirq->active = FALSE;
 		return ret;
 	}
 
-	ret = enable_irq_wake(irq_num);
-	if (ret) {
-		BTMTK_ERR("enable_irq_wake %s (%u) failed! ret(%d)", pirq->name, irq_num, ret);
-	}
-
-	BTMTK_INFO("Request %s (%u) succeed, pirq = %p, flag = 0x%08x", pirq->name, irq_num, pirq, irq_flags);
+	enable_irq_wake(irq_num);
+	BTMTK_INFO("Request %s (%u) succeed", pirq->name, irq_num);
 	bt_irq_table[irq_type] = pirq;
+	pirq->active = TRUE;
 
 	return 0;
 }
@@ -383,9 +311,6 @@ void bt_disable_irq(enum bt_irq_type irq_type)
 {
 	struct bt_irq_ctrl *pirq;
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	irq_timer[2] = sched_clock();
-#endif
 	if (irq_type >= BGF2AP_IRQ_MAX) {
 		BTMTK_ERR("Invalid irq_type %d!", irq_type);
 		return;
@@ -393,24 +318,12 @@ void bt_disable_irq(enum bt_irq_type irq_type)
 
 	pirq = bt_irq_table[irq_type];
 	if (pirq) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		irq_timer[3] = sched_clock();
-#endif
 		spin_lock_irqsave(&pirq->lock, pirq->flags);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		irq_timer[4] = sched_clock();
-#endif
 		if (pirq->active) {
 			disable_irq_nosync(pirq->irq_num);
 			pirq->active = FALSE;
 		}
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		irq_timer[5] = sched_clock();
-#endif
 		spin_unlock_irqrestore(&pirq->lock, pirq->flags);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		irq_timer[6] = sched_clock();
-#endif
 	}
 }
 

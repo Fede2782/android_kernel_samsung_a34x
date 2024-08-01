@@ -207,7 +207,6 @@
 #define HE_PHY_CAP7_SRP_BASED_SR_SHFT                  0
 #define HE_PHY_CAP7_POWER_BOOST_FACTOR_SHFT            1
 #define HE_PHY_CAP7_SU_MU_4X_HE_LTF_SHFT               2
-#define HE_PHY_CAP7_SU_MU_4X_HE_LTF                    BIT(2)
 #define HE_PHY_CAP7_MAX_NC_MASK                        BITS(3, 5)
 #define HE_PHY_CAP7_MAX_NC_SHFT                        3
 #define HE_PHY_CAP7_STBC_TX_GT_80M                     BIT(6)
@@ -246,24 +245,6 @@
 #define HE_CAP_INFO_MCS_MAP_MCS9                       1
 #define HE_CAP_INFO_MCS_MAP_MCS11                      2
 #define HE_CAP_INFO_MCS_NOT_SUPPORTED                  3
-
-#define HE_CAP_INFO_MCS_1SS_OFFSET                     0
-#define HE_CAP_INFO_MCS_2SS_OFFSET                     2
-#define HE_CAP_INFO_MCS_3SS_OFFSET                     4
-#define HE_CAP_INFO_MCS_4SS_OFFSET                     6
-#define HE_CAP_INFO_MCS_5SS_OFFSET                     8
-#define HE_CAP_INFO_MCS_6SS_OFFSET                     10
-#define HE_CAP_INFO_MCS_7SS_OFFSET                     12
-#define HE_CAP_INFO_MCS_8SS_OFFSET                     14
-
-#define HE_CAP_INFO_MCS_1SS_MASK                       BITS(0, 1)
-#define HE_CAP_INFO_MCS_2SS_MASK                       BITS(2, 3)
-#define HE_CAP_INFO_MCS_3SS_MASK                       BITS(4, 5)
-#define HE_CAP_INFO_MCS_4SS_MASK                       BITS(6, 7)
-#define HE_CAP_INFO_MCS_5SS_MASK                       BITS(8, 9)
-#define HE_CAP_INFO_MCS_6SS_MASK                       BITS(10, 11)
-#define HE_CAP_INFO_MCS_7SS_MASK                       BITS(12, 13)
-#define HE_CAP_INFO_MCS_8SS_MASK                       BITS(14, 15)
 
 #define HE_CAP_MAX_AMPDU_LEN_EXP                       3
 
@@ -547,14 +528,6 @@ enum ENUM_HEBA_TYPE {
 			& HE_PHY_CAP4_BFMEE_STS_LT_OR_EQ_80M_MASK); \
 }
 
-#define HE_SET_PHY_CAP_BFMEE_STS_GT_80M(_aucHePhyCapInfo, _ucSts) \
-{ \
-	_aucHePhyCapInfo[4] &= ~(HE_PHY_CAP4_BFMEE_STS_GT_80M_MASK); \
-	_aucHePhyCapInfo[4] |= \
-		((_ucSts << HE_PHY_CAP4_BFMEE_STS_GT_80M_SHFT) \
-			& HE_PHY_CAP4_BFMEE_STS_GT_80M_MASK); \
-}
-
 #define HE_GET_PHY_CAP_NUM_OF_SND_DIM_LT_OR_EQ_80M(_aucHePhyCapInfo) \
 	((_aucHePhyCapInfo[5] & HE_PHY_CAP5_NUM_OF_SND_DIM_LT_OR_EQ_80M_MASK) \
 	>> HE_PHY_CAP5_NUM_OF_SND_DIM_LT_OR_EQ_80M_SHFT)
@@ -562,6 +535,14 @@ enum ENUM_HEBA_TYPE {
 #define HE_GET_PHY_CAP5_NUM_OF_SND_DIM_GT_80M(_aucHePhyCapInfo) \
 	((_aucHePhyCapInfo[5] & HE_PHY_CAP5_NUM_OF_SND_DIM_GT_80M_MASK) \
 	>> HE_PHY_CAP5_NUM_OF_SND_DIM_GT_80M_SHFT)
+
+#define HE_SET_PHY_CAP_BFMEE_STS_GT_80M(_aucHePhyCapInfo, _ucSts) \
+{ \
+	_aucHePhyCapInfo[4] &= ~(HE_PHY_CAP4_BFMEE_STS_GT_80M_MASK); \
+	_aucHePhyCapInfo[4] |= \
+		((_ucSts << HE_PHY_CAP4_BFMEE_STS_GT_80M_SHFT) \
+			& HE_PHY_CAP4_BFMEE_STS_GT_80M_MASK); \
+}
 
 #define HE_SET_PHY_CAP_NG_16_SU_FB(_aucHePhyCapInfo) \
 	(_aucHePhyCapInfo[5] |= HE_PHY_CAP5_NG_16_SU_FB)
@@ -593,9 +574,6 @@ enum ENUM_HEBA_TYPE {
 
 #define HE_IS_PHY_CAP_PPE_THRESHOLD(_aucHePhyCapInfo) \
 	(_aucHePhyCapInfo[6] & HE_PHY_CAP6_PPE_THRESHOLD)
-
-#define HE_SET_PHY_CAP_SU_MU_4X_HE_LTF(_aucHePhyCapInfo) \
-	(_aucHePhyCapInfo[7] |= HE_PHY_CAP7_SU_MU_4X_HE_LTF)
 
 #define HE_SET_PHY_CAP_MAX_NC(_aucHePhyCapInfo, _ucMaxNc) \
 { \

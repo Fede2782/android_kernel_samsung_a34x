@@ -8,6 +8,9 @@
 #include <linux/version.h>
 #include <linux/memblock.h>
 #include <linux/platform_device.h>
+#ifdef CONFIG_MTK_EMI
+#include <mt_emi_api.h>
+#endif
 #include <linux/of_reserved_mem.h>
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))

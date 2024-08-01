@@ -23,6 +23,7 @@
 #define CONN_RGU_CO_EXT_MEM_HWCTL_PDN_ADDR                     (CONN_RGU_BASE + 0x070) // 0070
 #define CONN_RGU_CO_EXT_MEM_HWCTL_SLP_ADDR                     (CONN_RGU_BASE + 0x074) // 0074
 #define CONN_RGU_WFSYS_WA_WDT_EN_ADDR                          (CONN_RGU_BASE + 0x104) // 0104
+#define CONN_RGU_DEBUG_SEL_ADDR                                (CONN_RGU_BASE + 0x204) // 0204
 #define CONN_RGU_WFSYS_ON_TOP_PWR_ST_ADDR                      (CONN_RGU_BASE + 0x400) // 0400
 
 

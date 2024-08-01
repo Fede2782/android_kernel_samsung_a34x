@@ -11,7 +11,7 @@
  * It should not be modified by hand.
  *
  * Reference debug file,
- * - [Lxxxn]connsys_power_debug.xlsx (Modified date: 2021-12-28)
+ * - [Lxxxn]connsys_power_debug.xlsx (Modified date: 2021-08-18)
  * - [Lxxxn]conn_infra_bus_debug_ctrl.xlsx (Modified date: 2021-10-14)
  */
 
@@ -80,27 +80,11 @@ void consys_print_bus_slpprot_debug_dbg_level_0_mt6895_debug_gen(
 /* Base: CONSYS_DBG_GEN_SRCLKENRC_BASE_ADDR (0x1C00_D000)                            */
 /*************************************************************************************/
 #define CONSYS_DBG_GEN_SRCLKENRC_BASE_ADDR                                   0x1C00D000
-#define CONSYS_DBG_GEN_FSM_STA_0_OFFSET_ADDR                                 0x100
 #define CONSYS_DBG_GEN_CMD_STA_0_OFFSET_ADDR                                 0x104
-#define CONSYS_DBG_GEN_CMD_STA_1_OFFSET_ADDR                                 0x108
-#define CONSYS_DBG_GEN_SPI_STA_0_OFFSET_ADDR                                 0x10C
-#define CONSYS_DBG_GEN_PI_PO_STA_0_OFFSET_ADDR                               0x110
-#define CONSYS_DBG_GEN_M00_REQ_STA_0_OFFSET_ADDR                             0x114
-#define CONSYS_DBG_GEN_M01_REQ_STA_0_OFFSET_ADDR                             0x118
-#define CONSYS_DBG_GEN_M02_REQ_STA_0_OFFSET_ADDR                             0x11C
-#define CONSYS_DBG_GEN_M03_REQ_STA_0_OFFSET_ADDR                             0x120
-#define CONSYS_DBG_GEN_M04_REQ_STA_0_OFFSET_ADDR                             0x124
-#define CONSYS_DBG_GEN_M05_REQ_STA_0_OFFSET_ADDR                             0x128
 #define CONSYS_DBG_GEN_M06_REQ_STA_0_OFFSET_ADDR                             0x12C
 #define CONSYS_DBG_GEN_M07_REQ_STA_0_OFFSET_ADDR                             0x130
 #define CONSYS_DBG_GEN_M08_REQ_STA_0_OFFSET_ADDR                             0x134
 #define CONSYS_DBG_GEN_M09_REQ_STA_0_OFFSET_ADDR                             0x138
-#define CONSYS_DBG_GEN_M10_REQ_STA_0_OFFSET_ADDR                             0x13C
-#define CONSYS_DBG_GEN_M11_REQ_STA_0_OFFSET_ADDR                             0x140
-#define CONSYS_DBG_GEN_M12_REQ_STA_0_OFFSET_ADDR                             0x144
-#define CONSYS_DBG_GEN_M13_REQ_STA_0_OFFSET_ADDR                             0x148
-#define CONSYS_DBG_GEN_DEBUG_STA_0_OFFSET_ADDR                               0x14C
-#define CONSYS_DBG_GEN_SPMI_P_STA_0_OFFSET_ADDR                              0x150
 #define CONSYS_DBG_GEN_DEBUG_TRACE_0_LSB_OFFSET_ADDR                         0x700
 #define CONSYS_DBG_GEN_DEBUG_TRACE_0_MSB_OFFSET_ADDR                         0x704
 #define CONSYS_DBG_GEN_DEBUG_TRACE_1_LSB_OFFSET_ADDR                         0x708
@@ -145,20 +129,6 @@ void consys_print_bus_slpprot_debug_dbg_level_0_mt6895_debug_gen(
 #define CONSYS_DBG_GEN_CR_CONN_INFRA_CFG_ON_DBG_MUX_SEL_OFFSET_ADDR          0x15C
 #define CONSYS_DBG_GEN_CONN_INFRA_CFG_ON_DBG_OFFSET_ADDR                     0xa04
 #define CONSYS_DBG_GEN_CONNSYS_PWR_STATES_OFFSET_ADDR                        0xA10
-
-/*************************************************************************************/
-/* Base: CONSYS_DBG_GEN_CONN_DBG_CTL_BASE_ADDR (0x1802_3000)                         */
-/*************************************************************************************/
-#define CONSYS_DBG_GEN_CONN_DBG_CTL_BASE_ADDR                                0x18023000
-#define CONSYS_DBG_GEN_CONN_INFRA_MONFLAG_OUT_OFFSET_ADDR                    0x200
-#define CONSYS_DBG_GEN_CONN_INFRA_BUS_TIMEOUT_IRQ_OFFSET_ADDR                0x400
-#define CONSYS_DBG_GEN_CONN_INFRA_OFF_BUS_DBG_OUT_OFFSET_ADDR                0x404
-#define CONSYS_DBG_GEN_CONN_INFRA_OFF_BUS_DBG_SEL_OFFSET_ADDR                0x408
-#define CONSYS_DBG_GEN_CONN_INFRA_OFF_DEBUGSYS_CTRL_OFFSET_ADDR              0x40c
-#define CONSYS_DBG_GEN_CONN_VON_BUS_APB_TIMEOUT_INFO_OFFSET_ADDR             0x410
-#define CONSYS_DBG_GEN_CONN_VON_BUS_APB_TIMEOUT_ADDR_OFFSET_ADDR             0x414
-#define CONSYS_DBG_GEN_CONN_VON_BUS_APB_TIMEOUT_WDATA_OFFSET_ADDR            0x418
-#define CONSYS_DBG_GEN_CONN_INFRA_VON_BUS_DEBUG_INFO_OFFSET_ADDR             0x41c
 
 /*************************************************************************************/
 /* Base: CONN_CFG_BASE (0x1801_1000)                                                 */
@@ -208,14 +178,17 @@ void consys_print_bus_slpprot_debug_dbg_level_0_mt6895_debug_gen(
 #define CONSYS_DBG_GEN_CONN_INFRA_SYSRAM_BASE_OFFSET_ADDR                    0x18050000
 
 /*************************************************************************************/
-/* Base: CONN_RF_SPI_MST_REG_BASE (0x1804_2000)                                      */
+/* Base: CONSYS_DBG_GEN_CONN_DBG_CTL_BASE_ADDR (0x1802_3000)                         */
 /*************************************************************************************/
-#define CONSYS_DBG_GEN_SPI_STA_OFFSET_ADDR                                   0x0
-#define CONSYS_DBG_GEN_SPI_CRTL_OFFSET_ADDR                                  0x4
-#define CONSYS_DBG_GEN_SPI_TOP_ADDR_OFFSET_ADDR                              0x50
-#define CONSYS_DBG_GEN_SPI_TOP_WDAT_OFFSET_ADDR                              0x54
-#define CONSYS_DBG_GEN_SPI_TOP_RDAT_OFFSET_ADDR                              0x58
-#define CONSYS_DBG_GEN_SPI_HSCK_CTL_OFFSET_ADDR                              0x108
+#define CONSYS_DBG_GEN_CONN_DBG_CTL_BASE_ADDR                                0x18023000
+#define CONSYS_DBG_GEN_CONN_INFRA_BUS_TIMEOUT_IRQ_OFFSET_ADDR                0x400
+#define CONSYS_DBG_GEN_CONN_INFRA_OFF_BUS_DBG_OUT_OFFSET_ADDR                0x404
+#define CONSYS_DBG_GEN_CONN_INFRA_OFF_BUS_DBG_SEL_OFFSET_ADDR                0x408
+#define CONSYS_DBG_GEN_CONN_INFRA_OFF_DEBUGSYS_CTRL_OFFSET_ADDR              0x40c
+#define CONSYS_DBG_GEN_CONN_VON_BUS_APB_TIMEOUT_INFO_OFFSET_ADDR             0x410
+#define CONSYS_DBG_GEN_CONN_VON_BUS_APB_TIMEOUT_ADDR_OFFSET_ADDR             0x414
+#define CONSYS_DBG_GEN_CONN_VON_BUS_APB_TIMEOUT_WDATA_OFFSET_ADDR            0x418
+#define CONSYS_DBG_GEN_CONN_INFRA_VON_BUS_DEBUG_INFO_OFFSET_ADDR             0x41c
 
 /*************************************************************************************/
 /* Base: CONN_BUS_CR_ON_BASE (0x1800_e000)                                           */
