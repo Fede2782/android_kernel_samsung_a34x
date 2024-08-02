@@ -64,11 +64,11 @@ MODULE_NAME := gps_drv_stp
 obj-y += $(MODULE_NAME).o
 
 GPS_DRV_CONTROL_LNA := y
-GPS_SRC_FOLDER := $(TOP)/vendor/mediatek/kernel_modules/connectivity/gps/gps_stp
+GPS_SRC_FOLDER := $(srctree)/drivers/misc/mediatek/connectivity/gps/gps_stp
 ccflags-y += -DMTK_GENERIC_HAL
 ccflags-y += -DCONFIG_GPSL5_SUPPORT
 
-WMT_SRC_FOLDER := $(TOP)/vendor/mediatek/kernel_modules/connectivity/common
+WMT_SRC_FOLDER := $(srctree)/drivers/misc/mediatek/connectivity/common
 ccflags-y += -DSOC_CO_CLOCK_FLAG=0
 ccflags-y += -DWMT_CREATE_NODE_DYNAMIC=0
 ccflags-y += -DREMOVE_MK_NODE=1
