@@ -60,7 +60,7 @@ SRC_DIR = ../gen4m
 
 ifeq ($(CONFIG_SUPPORT_OPENWRT),y)
 ccflags-y += -DCONFIG_SUPPORT_OPENWRT
-obj-m += $(MODULE_NAME).o
+obj-y += $(MODULE_NAME).o
 else
 obj-$(CONFIG_GEN4M_SUPPORT) += $(MODULE_NAME).o
 endif

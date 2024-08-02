@@ -63,7 +63,7 @@ ccflags-y += -I$(src)/../include/btif
 ###############################################################################
 
 MODULE_NAME := bt_drv_$(BT_PLATFORM)
-obj-m += $(MODULE_NAME).o
+obj-y += $(MODULE_NAME).o
 
 ccflags-y += -D CREATE_NODE_DYNAMIC=1
 
