@@ -5328,6 +5328,7 @@ g_FG_PSEUDO100 =
 #if defined(CONFIG_SEC_FACTORY)
 	sec,specific_fw_update_ver = <0x00040000>;
 #endif
+	goodix,edgehandler_direction_max = <5>;
 };
 
 /* #include "../sensors_isg5320a.dtsi" */            /* From sensors_isg5320a.py */
