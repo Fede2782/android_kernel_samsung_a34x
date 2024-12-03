@@ -19,6 +19,10 @@
 #include <linux/soc/mediatek/mtk-pm-qos.h>
 #endif
 
+#if IS_ENABLED(CONFIG_USB_NOTIFY_LAYER)
+#include <linux/usb_notify.h>
+#endif
+
 #define USB2_PORT 2
 #define USB3_PORT 3
 
@@ -580,9 +584,17 @@ static ssize_t mode_store(struct device *dev,
 			/* switch usb role to latest role */
 			break;
 		case MTU3_DR_OPERATION_HOST:
+#if IS_ENABLED(CONFIG_USB_NOTIFY_LAYER)
+			if (is_blocked(get_otg_notify(), NOTIFY_BLOCK_TYPE_HOST))
+				return -EINVAL;
+#endif
 			otg_sx->latest_role = USB_ROLE_HOST;
 			break;
 		case MTU3_DR_OPERATION_DEVICE:
+#if IS_ENABLED(CONFIG_USB_NOTIFY_LAYER)
+			if (is_blocked(get_otg_notify(), NOTIFY_BLOCK_TYPE_CLIENT))
+				return -EINVAL;
+#endif
 			otg_sx->latest_role = USB_ROLE_DEVICE;
 			break;
 		default:
