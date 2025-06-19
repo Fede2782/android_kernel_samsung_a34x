@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config MTK_I3C_I2C_WRAP
+	tristate "MTK I3C I2C WRAP driver"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	depends on I3C
+	depends on I2C
+	help
+	  Enable this driver if you want to support
+	  MTK I3C I2C WRAP block.
+	  If you want to use mtk i3c i2c wrap, say Y or M here.
+	  If unsure, say N.

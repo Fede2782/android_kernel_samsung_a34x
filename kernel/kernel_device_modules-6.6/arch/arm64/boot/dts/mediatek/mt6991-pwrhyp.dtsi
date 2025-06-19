@@ -1,0 +1,309 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2024 MediaTek Inc.
+ * Author: Xiufeng Li <xiufeng.li@mediatek.com>
+ */
+
+&pwritg {
+	status = "okay";
+
+	hyp-pd-ssusb-p0 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_SSUSB_P0>;
+	};
+
+	hyp-pd-ssusb-dp-phy-p0 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_SSUSB_DP_PHY_P0>;
+	};
+
+		hyp-pd-ssusb-p1 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_SSUSB_P1>;
+	};
+
+		hyp-pd-ssusb-p23 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_SSUSB_P23>;
+	};
+
+		hyp-pd-ssusb-phy-p2 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_SSUSB_PHY_P2>;
+	};
+
+	hyp-pd-pextp-mac0 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_PEXTP_MAC0>;
+	};
+
+	hyp-pd-pextp-mac1 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_PEXTP_MAC1>;
+	};
+
+	hyp-pd-pextp-mac2 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_PEXTP_MAC2>;
+	};
+
+	hyp-pd-pextp-phy0 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_PEXTP_PHY0>;
+	};
+
+	hyp-pd-pextp-phy1 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_PEXTP_PHY1>;
+	};
+
+	hyp-pd-pextp-phy2 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_PEXTP_PHY2>;
+	};
+
+	hyp-pd-audio {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_AUDIO>;
+	};
+
+	hyp-pd-adsp-top-dormant {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_ADSP_TOP_DORMANT>;
+	};
+
+	hyp-pd-adsp-infra {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_ADSP_INFRA>;
+	};
+
+	hyp-pd-adsp-ao {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_ADSP_AO>;
+	};
+
+	hyp-pd-mm-proc-dormant {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_MM_PROC_DORMANT>;
+	};
+
+	hyp-pd-ssrsys {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&scpsys MT6991_POWER_DOMAIN_SSR>;
+	};
+
+	hyp-pd-peri-ether {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&ivi_scpsys MT6991_POWER_DOMAIN_PERI_ETHER>;
+	};
+
+	hyp-pd-hsgmii0 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&ivi_scpsys MT6991_POWER_DOMAIN_HSGMII0>;
+	};
+
+	hyp-pd-hsgmii1 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&ivi_scpsys MT6991_POWER_DOMAIN_HSGMII1>;
+	};
+
+	hyp-pd-isp-traw {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_ISP_TRAW>;
+	};
+
+	hyp-pd-isp-dip {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_ISP_DIP>;
+	};
+
+	hyp-pd-isp-main {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_ISP_MAIN>;
+	};
+
+	hyp-pd-isp-vcore {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_ISP_VCORE>;
+	};
+
+	hyp-pd-isp-wpe-eis {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_ISP_WPE_EIS>;
+	};
+
+	hyp-pd-isp-wpe-tnr {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_ISP_WPE_TNR>;
+	};
+
+	hyp-pd-isp-wpe-lite {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_ISP_WPE_LITE>;
+	};
+
+	hyp-pd-vde0 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_VDE0>;
+	};
+
+	hyp-pd-vde1 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_VDE1>;
+	};
+
+	hyp-pd-vde-vcore0 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_VDE_VCORE0>;
+	};
+
+	hyp-pd-ven0 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_VEN0>;
+	};
+
+	hyp-pd-ven1 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_VEN1>;
+	};
+
+	hyp-pd-ven2 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_VEN2>;
+	};
+
+	hyp-pd-cam-mraw {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_CAM_MRAW>;
+	};
+
+	hyp-pd-cam-rawa {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_CAM_RAWA>;
+	};
+
+	hyp-pd-cam-rawb {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_CAM_RAWB>;
+	};
+
+	hyp-pd-cam-rawc {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_CAM_RAWC>;
+	};
+
+	hyp-pd-cam-rmsa {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_CAM_RMSA>;
+	};
+
+	hyp-pd-cam-rmsb {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_CAM_RMSB>;
+	};
+
+	hyp-pd-cam-rmsc {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_CAM_RMSC>;
+	};
+
+	hyp-pd-cam-main {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_CAM_MAIN>;
+	};
+
+	hyp-pd-cam-vcore {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_CAM_VCORE>;
+	};
+
+	hyp-pd-cam-ccu {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_CAM_CCU>;
+	};
+
+	hyp-pd-disp-vcore {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_DISP_VCORE>;
+	};
+
+	hyp-pd-dis0-dormant {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_DIS0_DORMANT>;
+	};
+
+	hyp-pd-dis1-dormant {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_DIS1_DORMANT>;
+	};
+
+	hyp-pd-ovl0-dormant {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_OVL0_DORMANT>;
+	};
+
+	hyp-pd-ovl1-dormant {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_OVL1_DORMANT>;
+	};
+
+	hyp-pd-disp-edptx-dormant {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_DISP_EDPTX_DORMANT>;
+	};
+
+	hyp-pd-disp-dptx-dormant {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_DISP_DPTX_DORMANT>;
+	};
+
+	hyp-pd-mml0-shutdown {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_MML0_SHUTDOWN>;
+	};
+
+	hyp-pd-mml1-shutdown {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_MML1_SHUTDOWN>;
+	};
+
+	hyp-pd-mm-infra0 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_MM_INFRA0>;
+	};
+
+	hyp-pd-mm-infra1 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_MM_INFRA1>;
+	};
+
+	hyp-pd-mm-infra-ao {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_MM_INFRA_AO>;
+	};
+
+	hyp-pd-csi-bs-rx {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_CSI_BS_RX>;
+	};
+
+	hyp-pd-csi-ls-rx {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_CSI_LS_RX>;
+	};
+
+	hyp-pd-dsi-phy0 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_DSI_PHY0>;
+	};
+
+	hyp-pd-dsi-phy1 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_DSI_PHY1>;
+	};
+
+	hyp-pd-dsi-phy2 {
+		compatible = "mediatek,mt6991-scpsys-hypervisor";
+		power-domains = <&hfrpsys MT6991_POWER_DOMAIN_DSI_PHY2>;
+	};
+};

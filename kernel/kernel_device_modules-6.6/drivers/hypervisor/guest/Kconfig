@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Virtualization android guest support drivers
+#
+
+config GRT_VM
+	tristate "hypervisor guest android1 os"
+	help
+	  The hypervisor project is "m".
+	  Used for hypervisor guest android1 os.
+	  If your code is for hypervisor android os,
+	  you can use it to wrap your code.

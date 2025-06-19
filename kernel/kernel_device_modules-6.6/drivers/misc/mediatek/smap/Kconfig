@@ -1,0 +1,16 @@
+config MTK_SMAP
+	bool "MTK SMAP"
+	help
+	  Say yes here to add support for the MediaTek SMAP (System Max Power
+	  Mitigation). The SMAP IP support Imax scenario detection and power
+	  mitigation.
+	  If unsure, say N.
+
+config MTK_SMAP_MT6991
+	tristate "MTK SMAP_MT6991"
+	select MTK_SMAP
+	help
+	  This kernel config can be used to enable SMAP at mt6991.
+	  When enable this option, it can support Imax scenario detection
+	  and power mitigation.
+	  If unsure, say N.

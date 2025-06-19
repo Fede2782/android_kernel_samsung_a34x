@@ -1,0 +1,35 @@
+config MTK_SMI_BWC
+	tristate "MediaTek BWC driver"
+	help
+	  BWC is mainy to optimize the bus access latency based on
+	  multimedia scenarios.
+	  It is required for many MTK multimedia middlewares including
+	  camera and video middlewares on some legacy chips.
+	  This config enables BWC functions.
+
+config MTK_SMI_BWC_MT6761
+	tristate "MediaTek BWC driver for MT6761"
+	help
+	  BWC is mainly to optimize the bus access latency based on
+	  multimedia scenarios.
+	  It is required for many MTK multimedia middlewares including
+	  camera and video middlewares on some legacy chips.
+	  This config enables BWC functions.
+
+config MTK_SMI_BWC_MT6739
+	tristate "MediaTek BWC driver for MT6739"
+	help
+	  BWC is mainly to optimize the bus access latency based on
+	  multimedia scenarios.
+	  It is required for many MTK multimedia middlewares including
+	  camera and video middlewares on some legacy chips.
+	  This config enables BWC functions.
+
+config MTK_SMI_BWC_V6765
+	tristate "MediaTek BWC driver for MT6765"
+	help
+	  BWC is mainly to optimize the bus access latency based on
+	  multimedia scenarios.
+	  It is required for many MTK multimedia middlewares including
+	  camera and video middlewares on some legacy chips.
+	  This config enables BWC functions.

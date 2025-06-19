@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0+
+# Sound card driver for virtio
+
+config SND_VIRTIO_MTK_PASSTHROUGH
+	bool "Support virtio sound MTK passthrough mode"
+	help
+	  This option enables support for the virtio sound MTK passthrough mode,
+	  which allows for PCM passthrough feature on MTK platforms.
+
+	  Select this option if you want to enable PCM passthrough feature for
+	  sound devices on MTK platforms using the virtio sound driver.
+
+config SND_VIRTIO
+	tristate "Virtio sound driver"
+	depends on VIRTIO
+	select SND_PCM
+	select SND_JACK
+	help
+	  This is the virtual sound driver for virtio. It provides support for
+	  sound devices in virtualized environments using the virtio framework.
+	  Select Y to build the driver into the kernel or M to build it as a
+	  loadable module.

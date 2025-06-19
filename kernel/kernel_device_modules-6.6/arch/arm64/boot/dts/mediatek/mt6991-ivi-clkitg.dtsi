@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2023 MediaTek Inc.
+ * Author: xiufeng li <xiufeng.li@mediatek.com>
+ */
+
+&ivi_clkitg {
+	status = "okay";
+	bring-up@e0 {
+		compatible = "mediatek,clk-bring-up";
+		reg = <0xe0>;
+	};
+};

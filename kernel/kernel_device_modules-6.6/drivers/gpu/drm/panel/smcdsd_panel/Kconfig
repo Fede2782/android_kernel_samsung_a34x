@@ -1,0 +1,10 @@
+if DRM_MEDIATEK_V2 && !MTK_FB
+
+config SMCDSD_PANEL
+	tristate "Samsung Mobile Communication Division System Display"
+	default n
+
+endif # DRM_MEDIATEK_V2 && !MTK_FB
+
+source "$(KCONFIG_EXT_PREFIX)drivers/gpu/drm/panel/smcdsd_panel/panels/Kconfig"
+

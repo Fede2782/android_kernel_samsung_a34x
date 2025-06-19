@@ -1,0 +1,2 @@
+obj-$(CONFIG_TOUCHSCREEN_BOTAI_TOUCH_ONE) += BoTai_touch_one/
+obj-$(CONFIG_TOUCHSCREEN_BOTAI_TOUCH_TWO) += BoTai_touch_two/

@@ -1,0 +1,35 @@
+config MTK_DEVMPU
+	tristate "MTK Device MPU driver"
+	help
+	  Device MPU is a kernel driver providing
+	  non-continuous memory protection in the
+	  2MB granularity.
+	  This driver is combined with SUB, ACP of
+	  Device MPU in the platfom.
+
+config MTK_DEVMPU_DEBUG
+	tristate "MTK Device MPU debug mechanism"
+	depends on MTK_DEVMPU
+	help
+	  Enable debug mechanism of Device MPU driver.
+	  You would use it to confirm Device MPU correctly.
+	  Say Y if you would like to enable debug mechanism.
+	  If unsure, say N.
+
+config MTK_DEVMPU_EMI
+	tristate "Enable MTK Device MPU with EMI MPU"
+	select MTK_DEVMPU
+	help
+	  Device MPU hardware will receive the violation
+	  from EMI MPU hardware. Device MPU driver will
+	  receive violation via call-back function of
+	  EMI MPU.
+
+config MTK_DEVMPU_SLOG
+	tristate "Enable slog for Device MPU violation"
+	depends on MTK_DEVMPU
+	help
+	  Say yes here to enable mtk slog. When Device
+	  MPU violation occur, Device MPU driver will dump
+	  violation info to slog, then slog system record
+	  it and list as issue when offline parsing.

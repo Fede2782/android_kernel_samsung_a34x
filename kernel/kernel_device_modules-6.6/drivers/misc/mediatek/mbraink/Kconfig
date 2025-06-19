@@ -1,0 +1,55 @@
+config MTK_MBRAINK
+	tristate "MTK MBRAINK support"
+	select MTK_MBRAINK_BRIDGE
+	help
+          MBRAINK is a MediaTek in-house kernel module which can
+          communicate with android MBrain.
+          Set Y to enable this feature.
+          If unsure, Set N to stay with legancy feature.
+
+config MTK_MBRAINK_BRIDGE
+	tristate "MTK MBRAINK BRIDGE support"
+	depends on MTK_MBRAINK
+        help
+          MBRAINK BRIDGE is a MediaTek in-house kernel module which can
+          communicate with android MBrain.
+          Set Y to enable this feature.
+          If unsure, Set N to stay with legancy feature.
+
+config MTK_MBRAINK_MT6989
+	tristate "Specify Mediatek MBRAINK Platform is MT6989"
+	depends on MTK_MBRAINK
+	help
+	  Select MediaTek MBraink Module Platform is MT6989
+	  for android MBrain feature.
+	  Set Y to select this feature for specific platform-mt6989.
+	  If unsure, set N to disable.
+
+config MTK_MBRAINK_MT6991
+	tristate "Specify Mediatek MBRAINK Platform is MT6991"
+	depends on MTK_MBRAINK
+	help
+	  Select MediaTek MBraink Module Platform is MT6991
+	  for android MBrain feature.
+	  Set Y to select this feature for specific platform-mt6991.
+	  If unsure, set N to disable.
+
+config MTK_MBRAINK_MT8678
+	tristate "Specify Mediatek MBRAINK Platform is MT8678"
+	depends on MTK_MBRAINK
+	default n
+	help
+	  Select MediaTek MBraink Module Platform is MT8678
+	  for AUTO MBrain feature.
+	  Set Y to select this feature for specific platform-mt8678.
+	  If unsure, set N to disable.
+
+config MTK_MBRAINK_MT6899
+	tristate "Specify Mediatek MBRAINK Platform is MT6899"
+	depends on MTK_MBRAINK
+	help
+	  Select MediaTek MBraink Module Platform is MT6899
+	  for android MBrain feature.
+	  Set Y to select this feature for specific platform-mt6899.
+	  If unsure, set N to disable.
+

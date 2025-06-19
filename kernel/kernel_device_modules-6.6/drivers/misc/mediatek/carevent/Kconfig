@@ -1,0 +1,7 @@
+config MTK_SPM_CAREVENT
+	tristate "smartplatform car event detection"
+	help
+	  Say M here if system has a capability
+	  for detecting car event.
+	  Such as: engine on/off, car reverse.
+	  If unsure, say N.

@@ -1,0 +1,2 @@
+obj-$(CONFIG_MTK_LPM_LEGACY) += v1/
+

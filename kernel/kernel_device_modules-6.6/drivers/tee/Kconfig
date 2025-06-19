@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Generic Trusted Execution Environment Configuration
+if TEE
+
+menu "TEE drivers"
+
+config MTK_TEE_GP_SUPPORT
+	bool "Enable MTK GlobalPlatform support in TEE related modules"
+	default n
+	depends on (TRUSTONIC_TEE_SUPPORT) || (MICROTRUST_TEE_SUPPORT) || (MTK_OPTEE_SUPPORT)
+	help
+	  GlobalPlatform defines common/consistent APIs and this option
+	  enables TEE related modules to use GPAPIs. (depending on
+	  Trustonic TEE Support or Microtrust TEE Support or Google Trusty
+	  TEE or other 3rd-party TEE)
+
+config TEEGRIS_TEE_SUPPORT
+	tristate "TEEGRIS_TEE_SUPPORT"
+	default n
+	depends on TZDEV
+	help
+	  TEEGRIS_TEE_SUPPORT
+
+source "$(KCONFIG_EXT_PREFIX)drivers/tee/teeperf/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/tee/gud/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/tee/tzdev/5/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/tee/tzdev/4/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/tee/teei/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/tee/optee/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/tee/tui/Kconfig"
+endmenu
+
+endif

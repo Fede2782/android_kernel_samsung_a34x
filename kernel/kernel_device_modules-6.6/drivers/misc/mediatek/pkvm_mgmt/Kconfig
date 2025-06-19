@@ -1,0 +1,7 @@
+config MTK_PKVM_MTK_SMC_HANDLER
+	tristate "MTK pKVM smc handler"
+	help
+	  A new option CONFIG_MTK_PKVM_MTK_SMC_HANDLER for the feature.
+	  This is used for handling el1 in pKVM(EL2). If you
+	  are not sure about whether to enable it or not,
+	  please set n.

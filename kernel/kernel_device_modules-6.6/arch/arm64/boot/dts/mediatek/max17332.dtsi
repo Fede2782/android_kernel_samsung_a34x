@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2024 MediaTek Inc.
+ */
+
+&i2c3 {
+	clock-frequency = <400000>;
+	max17332-master@36 {
+		compatible = "maxim,max17332";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		disable-cs = <0>;
+		status = "okay";
+		cs-name = "mt6375_2p_master";
+		#gpio-cells = <1>;
+		cs-gpios = <&gpio 1>;
+		reg = <0x36>;
+		interrupt-parent = <&pio>;
+		interrupts = <1 0>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		rsense = <10>;      /* miliOhm */
+		talrt-min = <0>;       /* DegreeC */
+		talrt-max = <50>;      /* DegreeC */
+		valrt-min = <3000>;    /* mV */
+		valrt-max = <4500>;    /* mV */
+		salrt-min = <1>;       /* Percent */
+		salrt-max = <99>;      /* Percent */
+		ialrt-min = <(-5000)>; /* mA */
+		ialrt-max = <5000>;    /* mA */
+	};
+};

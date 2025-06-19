@@ -1,0 +1,89 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+&pio {
+	if_pmic_irq: if-pmic-irq {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO6__FUNC_GPIO6>;
+			slew-rate = <1>;
+			input-enable;
+		};
+	};
+	usbpd_irq: usbpd-irq {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO12__FUNC_GPIO12>;
+			slew-rate = <1>;
+			input-enable;
+		};
+	};
+};
+
+&ssusb {
+	port@1 {
+		mtu3_drd_switch_ext: endpoint {
+			remote-endpoint = <&usb_role_ssdev>;
+		};
+	};
+};
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	clock-frequency = <400000>;
+
+	usbpd-sm5714@33 {
+		status = "okay";
+		compatible = "sm5714-usbpd";
+		reg = <0x33>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usbpd_irq>;
+		usbpd,usbpd-int = <&pio 12 0>;
+
+		support-pd-role-swap;
+		pdic-manager {
+			/* sink */
+			pdic,max-power = <5000>;
+			pdic-op-power = <2500>;
+			pdic-max-voltage = <6000>;
+			pdic-max-current = <2000>;
+			pdic,min-current = <500>;
+			pdic,giveback = <0>;
+			pdic,usb-com-capable = <1>;
+			pdic,no-usb-suspend = <1>;
+
+			/* source */
+			source,max-voltage = <5000>;
+			source,min-voltage = <4000>;
+			source,max-power = <2500>;
+		};
+
+		port {
+			usb_role_ssdev: endpoint {
+				remote-endpoint = <&mtu3_drd_switch_ext>;
+			};
+		};
+	};
+};
+
+&i2c5 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sm5714@49{
+		status = "okay";
+		compatible = "siliconmitus,sm5714mfd";
+		reg = <0x49>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&if_pmic_irq>;
+		sm5714,irq-gpio = <&pio 6 0>;
+		sm5714,wakeup;
+	};
+};
+
+//#include "../../../../drivers/misc/mediatek/ssdev_in_mtk/dts/sm5714_fuelgauge.a24_lte.dtsi"
+//#include "../../../../drivers/misc/mediatek/ssdev_in_mtk/dts/battery_common.a24_lte.dtsi"

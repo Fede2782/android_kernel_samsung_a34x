@@ -1,0 +1,7 @@
+config MTK_WLA
+	tristate "Meditaek Work Load Aware"
+	help
+	  For MediaTek Work Load Aware.
+	  WLA is used to optimize low power.
+	  Select "y/m" if you want to enable wla.
+	  Select "n" if unsure.

@@ -1,0 +1,9 @@
+config MTK_CROSS_SCHEDULER
+	tristate "MTK cross domain schedule"
+	help
+	  MTK cross domain schedule.
+	  The feature can effectively adjust the host and vm direct resource
+	  utilization, thus improving the fluency of the whole system.
+	  If you are not sure about whether to enable it or not,
+	  please set n.
+

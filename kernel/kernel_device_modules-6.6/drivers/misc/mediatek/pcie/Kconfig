@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config DEVICE_MODULES_PCIE_MEDIATEK_SMT
+	tristate  "Mediatek PCIe SMT test"
+	help
+	  The PCIe SMT test requires enabled the CONFIG. PCIe SMT test
+	  items include lane margin, loopback, compliance test, etc.
+	  Set Y to enable this feature.
+	  If unsure, Set N.

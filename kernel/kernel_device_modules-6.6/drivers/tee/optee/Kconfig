@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: GPL-2.0
+# OP-TEE Trusted Execution Environment Configuration
+config MTK_OPTEE_SUPPORT
+	tristate "Enable OP-TEE Support"
+	help
+	  Enable OPTEE Support.
+	  This option enables OPTEE Driver which is used to communicate with
+	  TEE OS, for things like, setting up log buffers, interrupt pins,
+	  and IPC channels.
+
+config OPTEE_REE_CONSOLE
+	bool "OP-TEE REE Console"
+	default y
+	depends on (MTK_OPTEE_SUPPORT) && (!OPTEE_RAMLOG)
+	help
+	  This implements the mechanism to accept log from OP-TEE
+	  RPC (Remote Procedure Call).
+	  Say Y if you would like to enable the mechanism.
+	  If unsure, say Y.
+
+config OPTEE_REE_CLK_CTRL
+	bool "OP-TEE REE Clock Control"
+	default n
+	depends on MTK_OPTEE_SUPPORT
+	help
+	  This implements the mechanism to control clock by request from
+	  OP-TEE RPC.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+config OPTEE_RAMLOG
+	bool "OP-TEE RAMLOG"
+	default n
+	depends on MTK_OPTEE_SUPPORT
+	help
+	  It implements the mechanism to accept OP-TEE (Open Trusted
+	  Execution Environment) log from a share buffer between REE and
+	  TEE. OP-TEE OS put all logs into the share memory while a
+	  thread in REE kernel prints the log from share buffer as kernel
+	  log regularly.

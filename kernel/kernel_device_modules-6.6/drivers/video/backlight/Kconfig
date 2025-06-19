@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config BACKLIGHT_SGM37604A
+	tristate "SgMicro SGM37604A Backlight"
+	depends on I2C
+	help
+		Say Y here if you want to enable support for
+		the backlight IC SgMicro SGM37604A. The backlight
+		IC will send PWM to LED to control the brightness
+		of backlight.

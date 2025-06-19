@@ -1,0 +1,11 @@
+#
+# SPM vhost dmabuf exporter phy config
+#
+
+config MTK_SPM_VHOST_DMABUF_PHYS
+	tristate "smartplatform vhost dmabuf phy"
+	help
+	  You can use this driver to export
+	  file descriptor from dmabuf sg-list.
+	  To compile this driver, choose M.
+	  If unsure, say N.

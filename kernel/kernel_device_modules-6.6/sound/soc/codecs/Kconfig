@@ -1,0 +1,276 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menu "CODEC drivers"
+
+config DEVICE_MODULES_SND_SOC_ALL_CODECS
+	tristate "Build all ASoC CODEC drivers"
+	depends on COMPILE_TEST
+	imply DEVICE_MODULES_SND_SOC_MT6351
+	imply DEVICE_MODULES_SND_SOC_MT6358
+	imply DEVICE_MODULES_SND_SOC_MT6359
+	imply DEVICE_MODULES_SND_SOC_MT6366
+	imply DEVICE_MODULES_SND_SOC_MT6359P
+	imply SND_SOC_MT6368
+	imply DEVICE_MODULES_SND_SOC_HDMI_CODEC
+	imply SND_SOC_RT5512
+	imply SND_SOC_TFA9874
+        imply SND_SOC_RT5509
+        imply SND_SOC_FS16XX
+	imply SND_SOC_TFA9878
+	imply DEVICE_MODULES_SND_SOC_CS35L45_SPI
+	imply DEVICE_MODULES_SND_SOC_CS35L45_I2C
+	help
+	  Normally ASoC codec drivers are only built if a machine driver which
+	  uses them is also built since they are only usable with a machine
+	  driver.  Selecting this option will allow these drivers to be built
+	  without an explicit machine driver for test and development purposes.
+
+	  Support for the bus types used to access the codecs to be built must
+	  be selected separately.
+
+	  If unsure select "N".
+
+config DEVICE_MODULES_SND_SOC_WM_ADSP
+	tristate
+	select DEVICE_MODULES_FW_CS_DSP
+	select SND_SOC_COMPRESS
+	default y if SND_SOC_MADERA=y
+	default y if SND_SOC_CS47L24=y
+	default y if SND_SOC_WM5102=y
+	default y if SND_SOC_WM5110=y
+	default y if SND_SOC_WM2200=y
+	default y if SND_SOC_CS35L41_SPI=y
+	default y if SND_SOC_CS35L41_I2C=y
+	default y if SND_SOC_CS35L45_SPI=y
+	default y if SND_SOC_CS35L45_I2C=y
+	default y if SND_SOC_CS35L56=y
+	default m if SND_SOC_MADERA=m
+	default m if SND_SOC_CS47L24=m
+	default m if SND_SOC_WM5102=m
+	default m if SND_SOC_WM5110=m
+	default m if SND_SOC_WM2200=m
+	default m if DEVICE_MODULES_SND_SOC_CS35L41_SPI=m
+	default m if DEVICE_MODULES_SND_SOC_CS35L41_I2C=m
+	default m if SND_SOC_CS35L45_SPI=m
+	default m if SND_SOC_CS35L45_I2C=m
+	default m if SND_SOC_CS35L56=m
+
+config DEVICE_MODULES_SND_SOC_CIRRUS_AMP
+	tristate "Cirrus Logic Amp Feature drivers"
+	help
+	  Enable support for Cirrus Logic smart speaker amplifier factory
+	  driver. Supports various smart amp functions, such as firmware
+	  calibration, data logging, etc. Compatible with CS35L40 and CS35L46
+	  amplifiers.
+
+config DEVICE_MODULES_SND_SOC_CS35L41
+       tristate "Cirrus Logic CS35L41 CODEC"
+       select DEVICE_MODULES_SND_SOC_WM_ADSP
+
+config DEVICE_MODULES_SND_SOC_CS35L41_SPI
+       tristate "Cirrus Logic CS35L41 CODEC (SPI)"
+       depends on SPI_MASTER
+       select DEVICE_MODULES_SND_SOC_CS35L41
+       select REGMAP_SPI
+
+config DEVICE_MODULES_SND_SOC_CS35L41_I2C
+       tristate "Cirrus Logic CS35L41 CODEC (I2C)"
+       depends on I2C
+       select DEVICE_MODULES_SND_SOC_CS35L41
+       select REGMAP_I2C
+
+config DEVICE_MODULES_SND_SOC_CIRRUS_REINIT_SYSFS
+       tristate "Cirrus Logic Amp SysFS Reinit"
+
+config DEVICE_MODULES_SND_SOC_HDMI_CODEC
+	tristate
+	select SND_PCM_ELD
+	select SND_PCM_IEC958
+	select HDMI
+
+config SND_SOC_RT5509
+	tristate "Richtek RT5509 speaker amplifier"
+	depends on I2C
+	select MTK_SUBPMIC_MISC
+	help
+	  Config of RT5509. It is a Smart power
+	  amplifier which contain speaker protection,
+	  multi-band DRC, equalizer function. It would
+	  be set to yes if device with RT5509 on it.
+
+config SND_SOC_RT5512
+	tristate "Mediatek RT5512 speaker amplifier"
+	depends on I2C
+	help
+	  Config of RT5512. It is a Smart power
+	  amplifier which contain speaker protection,
+	  multi-band DRC, equalizer function. It would
+	  be set to yes if device with RT5512 on it.
+
+config SND_SOC_FS16XX
+	tristate "Foursemi speaker amplifier"
+	depends on I2C
+	help
+	  Config of FS18xx . It is a Smart power amplifier which contain speaker protection,
+	  multi-band DRC, equalizer function. It would be set to yes if device with FS18xx on it.
+	  Select this if your FS16xx is connected via an I2S bus.
+
+config SND_SOC_TFA9874
+	tristate "NXP TFA9874 speaker amplifier"
+	depends on I2C
+	help
+	  Config of TFA9874. It is a Smart power
+	  amplifier which contain speaker protection,
+	  multi-band DRC, equalizer function. It would
+	  be set to yes if device with TFA9874 on it.
+
+config SND_SOC_TFA9878
+	tristate "Goodix TFA9878 amplifier"
+	depends on I2C
+	help
+	  Enable support for Goodix TFA9878 smart amplifier.
+
+config SND_SOC_MT6338
+	tristate "MediaTek MT6338 Codec driver"
+	depends on MFD_MT6338
+	help
+	  MediaTek MT6338 is a audio codec which contain
+	  three ADC for uplink path(MICs), and
+	  three DAC for downlink path(handset,
+	  headset, lineout).
+
+config SND_SOC_MT6338_ACCDET
+	tristate "MediaTek MT6338 ACCDET driver"
+	depends on MFD_MT6338
+	help
+	  ACCDET means Accessory Detection technology,
+	  MediaTek develop it for ASoC codec soc-jack
+	  detection mechanism. Select N if you don't
+	  have jack on board.
+
+config DEVICE_MODULES_SND_SOC_MT6351
+	tristate "MediaTek MT6351 Codec"
+
+config DEVICE_MODULES_SND_SOC_MT6358
+	tristate "MediaTek MT6358 Codec"
+	help
+	  Enable support for the platform which uses MT6358 as
+	  external codec device.
+
+config DEVICE_MODULES_SND_SOC_MT6660
+	tristate "Mediatek MT6660 Speaker Amplifier"
+	depends on I2C
+	help
+	  MediaTek MT6660 is a smart power amplifier which contain
+	  speaker protection, multi-band DRC, equalizer functions.
+	  Select N if you don't have MT6660 on board.
+	  Select M to build this as module.
+
+config DEVICE_MODULES_SND_SOC_MT6359
+	tristate "MediaTek MT6359 Codec"
+	depends on DEVICE_MODULES_MTK_PMIC_WRAP
+	help
+	  Enable support for the platform which uses MT6359 as
+	  external codec device.
+
+config DEVICE_MODULES_SND_SOC_MT6359_ACCDET
+	tristate "MediaTek MT6359 ACCDET driver"
+	depends on DEVICE_MODULES_MTK_PMIC_WRAP
+	help
+	  ACCDET means Accessory Detection technology, MediaTek develop it
+	  for ASoC codec soc-jack detection mechanism.
+	  Select N if you don't have jack on board.
+
+config DEVICE_MODULES_SND_SOC_MT6359P
+	tristate "MediaTek MT6359P Codec driver"
+	help
+	  MediaTek MT6359P is a codec which contain
+	  three ADC for uplink path(MICs), and
+	  three DAC for downlink path(handset,
+	  headset, lineout).
+
+config SND_SOC_MT6359P_ACCDET
+	tristate "MediaTek MT6359 ACCDET driver"
+	default m
+	help
+	  ACCDET means Accessory Detection technology, MediaTek develop it
+	  for ASoC codec soc-jack detection mechanism.
+	  Select N if you don't have jack on board.
+
+config SND_SOC_MT6358_ACCDET
+	tristate "MediaTek MT6358 ACCDET driver"
+	default m
+	help
+	  ACCDET means Accessory Detection technology, MediaTek develop it
+	  for ASoC codec soc-jack detection mechanism.
+	  Select N if you don't have jack on board.
+
+config SND_SOC_MT6357_ACCDET
+	tristate "MediaTek MT6357 ACCDET driver"
+	default m
+	help
+	  ACCDET means Accessory Detection technology, MediaTek develop it
+	  for ASoC codec soc-jack detection mechanism.
+	  Select N if you don't have jack on board.
+
+config DEVICE_MODULES_SND_SOC_MT6366
+	tristate "MediaTek MT6366 Codec driver"
+	help
+	  MediaTek MT6366 is a audio codec which contain
+	  three ADC for uplink path(MICs), and
+	  three DAC for downlink path(handset,
+	  headset, lineout)
+
+config SND_SOC_MT6368
+	tristate "MediaTek MT6368 Codec driver"
+	help
+	  MediaTek MT6368 is a audio codec which contain
+	  three ADC for uplink path(MICs), and
+	  three DAC for downlink path(handset,
+	  headset, lineout).
+
+config SND_SOC_MT6368_ACCDET
+	tristate "MediaTek MT6368 ACCDET driver"
+	depends on MFD_MTK_SPMI_PMIC
+	help
+	  ACCDET means Accessory Detection technology,
+	  MediaTek develop it for ASoC codec soc-jack
+	  detection mechanism. Select N if you don't
+	  have jack on board.
+
+config SND_SOC_MT6681
+	tristate "MediaTek MT6681 Codec driver"
+	depends on MFD_MT6681
+	help
+	  MediaTek MT6681 is a audio codec which contain
+	  three ADC for uplink path(MICs), and
+	  three DAC for downlink path(handset,
+	  headset, lineout).
+
+config SND_SOC_MT6681_ACCDET
+	tristate "MediaTek MT6681 ACCDET driver"
+	depends on MFD_MT6681
+	help
+	  ACCDET means Accessory Detection technology,
+	  MediaTek develop it for ASoC codec soc-jack
+	  detection mechanism. Select N if you don't
+	  have jack on board.
+
+config SND_SOC_AK7709
+	tristate "Asahi Kasei Microdevices AK7709 CODEC (SPI)"
+	depends on SPI_MASTER
+	help
+	  Enable support for Asahi Kasei Microdevices AK7709 CODEC.
+	  Select this if your AK7709 is connected via an SPI bus.
+
+config SND_SOC_HFDA80X
+	tristate "ST Microelectronics hfda80x amplifier"
+	depends on I2C
+	help
+	  Config of hfda80x. It is a Smart amplifier
+	  It would be set to yes if device with HFDA801/HFDA803 on it.
+
+# TFA9878
+# source "$(KCONFIG_EXT_PREFIX)sound/soc/codecs/tfa9878/Kconfig"
+
+endmenu

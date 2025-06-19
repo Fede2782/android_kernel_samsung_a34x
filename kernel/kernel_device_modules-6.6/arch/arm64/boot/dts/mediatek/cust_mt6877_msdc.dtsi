@@ -1,0 +1,257 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2021 MediaTek Inc.
+ */
+/********************************************
+ * MT6877 MSDC DTSI File
+ ********************************************/
+#include <dt-bindings/gpio/gpio.h>
+
+&mmc0 {
+	status = "okay";
+	host-index = <0>;
+	host-function = <MSDC_EMMC>;
+	pinctrl-names = "default", "state_uhs", "pull_down";
+	pinctrl-0 = <&mmc0_pins_default>;
+	pinctrl-1 = <&mmc0_pins_uhs>;
+	pinctrl-2 = <&mmc0_pins_pull_down>;
+	bus-width = <8>;
+	max-frequency = <200000000>;
+	ocr-voltage = <0x00030000>;
+	cap-mmc-highspeed;
+	mmc-ddr-1_8v;
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	no-sd;
+	no-sdio;
+	non-removable;
+	hs400-ds-delay = <0x12814>;
+	vmmc-supply = <&mt6359p_vemc_reg>;
+	supports-cqe;
+	dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+	req-vcore = <700000>;
+	cap-mmc-hw-reset;
+	dump-gpio-start = <24>;
+	dump-gpio-end = <35>;
+	bootmode = <&chosen>;
+};
+
+&pio {
+	mmc0_pins_default: mmc0default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO28__FUNC_MSDC0_DAT0>,
+				 <PINMUX_GPIO29__FUNC_MSDC0_DAT1>,
+				 <PINMUX_GPIO30__FUNC_MSDC0_DAT2>,
+				 <PINMUX_GPIO31__FUNC_MSDC0_DAT3>,
+				 <PINMUX_GPIO32__FUNC_MSDC0_DAT4>,
+				 <PINMUX_GPIO33__FUNC_MSDC0_DAT5>,
+				 <PINMUX_GPIO34__FUNC_MSDC0_DAT6>,
+				 <PINMUX_GPIO35__FUNC_MSDC0_DAT7>,
+				 <PINMUX_GPIO26__FUNC_MSDC0_CMD>;
+			input-enable;
+			drive-strength = <4>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
+			input-schmitt-enable = <1>;
+		};
+		pins_clk {
+			input-enable;
+			pinmux = <PINMUX_GPIO25__FUNC_MSDC0_CLK>;
+			drive-strength = <4>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
+			input-schmitt-enable = <1>;
+		};
+		pins_ds {
+			input-enable;
+			pinmux = <PINMUX_GPIO24__FUNC_MSDC0_DSL>;
+			drive-strength = <4>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
+			input-schmitt-enable = <1>;
+		};
+		pins_rst {
+			input-enable;
+			pinmux = <PINMUX_GPIO27__FUNC_MSDC0_RSTB>;
+			drive-strength = <4>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
+			input-schmitt-enable = <1>;
+		};
+	};
+	mmc0_pins_uhs: mmc0@0{
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO28__FUNC_MSDC0_DAT0>,
+				 <PINMUX_GPIO29__FUNC_MSDC0_DAT1>,
+				 <PINMUX_GPIO30__FUNC_MSDC0_DAT2>,
+				 <PINMUX_GPIO31__FUNC_MSDC0_DAT3>,
+				 <PINMUX_GPIO32__FUNC_MSDC0_DAT4>,
+				 <PINMUX_GPIO33__FUNC_MSDC0_DAT5>,
+				 <PINMUX_GPIO34__FUNC_MSDC0_DAT6>,
+				 <PINMUX_GPIO35__FUNC_MSDC0_DAT7>,
+				 <PINMUX_GPIO26__FUNC_MSDC0_CMD>;
+			input-enable;
+			drive-strength = <4>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
+			input-schmitt-enable = <1>;
+		};
+		pins_clk {
+			input-enable;
+			pinmux = <PINMUX_GPIO25__FUNC_MSDC0_CLK>;
+			drive-strength = <4>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
+			input-schmitt-enable = <1>;
+		};
+		pins_ds {
+			input-enable;
+			pinmux = <PINMUX_GPIO24__FUNC_MSDC0_DSL>;
+			drive-strength = <4>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
+			input-schmitt-enable = <1>;
+		};
+		pins_rst {
+			input-enable;
+			pinmux = <PINMUX_GPIO27__FUNC_MSDC0_RSTB>;
+			drive-strength = <4>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
+			input-schmitt-enable = <1>;
+		};
+	};
+	mmc0_pins_pull_down: mmc0@1{
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO28__FUNC_MSDC0_DAT0>,
+				 <PINMUX_GPIO29__FUNC_MSDC0_DAT1>,
+				 <PINMUX_GPIO30__FUNC_MSDC0_DAT2>,
+				 <PINMUX_GPIO31__FUNC_MSDC0_DAT3>,
+				 <PINMUX_GPIO32__FUNC_MSDC0_DAT4>,
+				 <PINMUX_GPIO33__FUNC_MSDC0_DAT5>,
+				 <PINMUX_GPIO34__FUNC_MSDC0_DAT6>,
+				 <PINMUX_GPIO35__FUNC_MSDC0_DAT7>,
+				 <PINMUX_GPIO26__FUNC_MSDC0_CMD>;
+			input-enable;
+			drive-strength = <4>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
+			input-schmitt-enable = <1>;
+		};
+		pins_clk {
+			input-enable;
+			pinmux = <PINMUX_GPIO25__FUNC_MSDC0_CLK>;
+			drive-strength = <4>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
+			input-schmitt-enable = <1>;
+		};
+		pins_ds {
+			input-enable;
+			pinmux = <PINMUX_GPIO24__FUNC_MSDC0_DSL>;
+			drive-strength = <4>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
+			input-schmitt-enable = <1>;
+		};
+		pins_rst {
+			input-enable;
+			pinmux = <PINMUX_GPIO27__FUNC_MSDC0_RSTB>;
+			drive-strength = <4>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
+			input-schmitt-enable = <1>;
+		};
+	};
+};
+
+&mmc1 {
+	status = "okay";
+	host-index = <1>;
+	host-function = <MSDC_SD>;
+	pinctrl-names = "default", "state_uhs", "pull_down";
+	pinctrl-0 = <&mmc1_pins_default>;
+	pinctrl-1 = <&mmc1_pins_uhs>;
+	pinctrl-2 = <&mmc1_pins_pull_down>;
+	bus-width = <4>;
+	max-frequency = <200000000>;
+	ocr-voltage = <0x00030000>;
+	cap-sd-highspeed;
+	sd-uhs-sdr12;
+	sd-uhs-sdr25;
+	sd-uhs-sdr50;
+	sd-uhs-sdr104;
+	sd-uhs-ddr50;
+	sdcard-aggressive-pm;
+	cd-debounce-delay-ms = <0>;
+	cd-gpios = <&pio 3 GPIO_ACTIVE_LOW>;
+	vmmc-supply = <&mt_pmic_vmch_ldo_reg>;
+	vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
+	no-mmc;
+	no-sdio;
+	dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+	req-vcore = <700000>;
+	dump-gpio-start = <164>;
+	dump-gpio-end = <169>;
+};
+
+&pio {
+	mmc1_pins_default: mmc1default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO169__FUNC_MSDC1_DAT0>,
+				<PINMUX_GPIO167__FUNC_MSDC1_DAT1>,
+				<PINMUX_GPIO168__FUNC_MSDC1_DAT2>,
+				<PINMUX_GPIO166__FUNC_MSDC1_DAT3>,
+				<PINMUX_GPIO164__FUNC_MSDC1_CMD>;
+			input-enable;
+			drive-strength = <3>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
+			input-schmitt-enable = <1>;
+		};
+
+		pins_clk {
+			input-enable;
+			pinmux = <PINMUX_GPIO165__FUNC_MSDC1_CLK>;
+			drive-strength = <3>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
+			input-schmitt-enable = <1>;
+		};
+
+		pins_insert {
+			input-enable;
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			bias-pull-up;
+			input-schmitt-enable = <1>;
+		};
+	};
+
+	mmc1_pins_uhs: mmc1@0{
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO169__FUNC_MSDC1_DAT0>,
+				<PINMUX_GPIO167__FUNC_MSDC1_DAT1>,
+				<PINMUX_GPIO168__FUNC_MSDC1_DAT2>,
+				<PINMUX_GPIO166__FUNC_MSDC1_DAT3>,
+				<PINMUX_GPIO164__FUNC_MSDC1_CMD>;
+			input-enable;
+			drive-strength = <3>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
+			input-schmitt-enable = <1>;
+		};
+
+		pins_clk {
+			input-enable;
+			pinmux = <PINMUX_GPIO165__FUNC_MSDC1_CLK>;
+			drive-strength = <3>;
+			input-schmitt-enable = <1>;
+		};
+	};
+	mmc1_pins_pull_down: mmc1@1{
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO169__FUNC_MSDC1_DAT0>,
+				<PINMUX_GPIO167__FUNC_MSDC1_DAT1>,
+				<PINMUX_GPIO168__FUNC_MSDC1_DAT2>,
+				<PINMUX_GPIO166__FUNC_MSDC1_DAT3>,
+				<PINMUX_GPIO164__FUNC_MSDC1_CMD>;
+			input-enable;
+			drive-strength = <3>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
+			input-schmitt-enable = <1>;
+		};
+
+		pins_clk {
+			input-enable;
+			pinmux = <PINMUX_GPIO165__FUNC_MSDC1_CLK>;
+			drive-strength = <3>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
+			input-schmitt-enable = <1>;
+		};
+	};
+};

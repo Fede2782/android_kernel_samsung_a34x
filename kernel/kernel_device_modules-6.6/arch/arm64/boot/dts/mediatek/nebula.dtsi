@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2022 MediaTek Inc.
+ */
+
+/ {
+	grt_thyp: nebula {
+		compatible = "grt,trusty-smc-v1";
+		ranges;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		status = "okay";
+
+		virtio {
+			compatible = "grt,trusty-virtio-v1";
+		};
+
+		trusty-log {
+			compatible = "grt,trusty-log-v1";
+		};
+
+		nebula-log {
+			compatible = "grt,nebula-log-v1";
+		};
+	};
+
+	grt_vtee: nebula-vtee {
+		compatible = "grt,vtee-smc-v1";
+		status = "okay";
+
+		virtio {
+			compatible = "grt,vtee-virtio-v1";
+		};
+
+		nblmsg {
+			compatible = "grt,vtee-nblmsg-v1";
+		};
+
+		log {
+			compatible = "grt,vtee-log-v1";
+		};
+
+		irq {
+			compatible = "grt,vtee-irq-v1";
+			interrupt-templates = <&gic 1 GIC_PPI 0>,
+					      <&gic 1 GIC_SPI 0>;
+			interrupt-ranges = <16  31 0>,
+					   <32 223 1>;
+			ipi-range = <8 15 8>;
+		};
+	};
+};

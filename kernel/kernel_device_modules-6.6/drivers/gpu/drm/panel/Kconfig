@@ -1,0 +1,855 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config DRM_PANEL_BOE_TS127QFMLL1DKP0
+	tristate "BOE wqxga2944 vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+		Say Y here if you want to enable support for boe
+		vdo mode wqxga2944 panel. The panel has a 2944x1840
+		resolution and uses 24-bits RGB per pixel. It provides a
+		MIPI DSI interface to host.
+
+config DRM_PANEL_BOE_TV080WXMLLS
+	tristate "BOE TV080WXM_LLS wxga vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for boe tv080wxm_lls
+	  vdo mode panel. The panel has a 800x1280 resolution and uses
+	  24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_HIMAX_HX83121A_VDO
+	tristate "HIMAX wqxga vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+		Say Y here if you want to enable support for himax
+		vdo mode wqxga panel. The panel has a 1600x2560
+		resolution and uses 24-bits RGB per pixel. It provides a
+		MIPI DSI interface to host.
+
+config DRM_PANEL_BOE_TV106C9MLL0
+	tristate "BOE wuxga2000 vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+		Say Y here if you want to enable support for BOE
+		vdo mode wuxga2000 panel. The panel has a 1200x2000
+		resolution and uses 24-bits RGB per pixel. It provides a
+		MIPI DSI interface to host.
+
+config DRM_PANEL_SERDES
+	tristate "serdes max96789 vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+		Say Y here if you want to enable support for max96789 Serdes
+		vdo mode panel. The panel has a 1920x1080
+		resolution and uses 24-bits RGB per pixel. It provides a
+		MIPI DSI interface to host.
+
+config ENABLE_SERDES_HOTPLUG
+	bool "serdes hotplug"
+	help
+		Say Y here if you want to enable hotpulg support.
+		only serdes panel support this feature.
+		some code only for demo.
+		refer to wiki to how to used it
+
+config DRM_PANEL_SERDES_DP
+	tristate "serdes dp vdo mode panel"
+	depends on OF
+	help
+		Say Y here if you want to enable support for Serdes dp
+		vdo mode panel. The panel has a 1920x1080
+		resolution and uses 24-bits RGB per pixel. It provides a
+		DP and eDP interface to host.
+
+config DRM_PANEL_BOE_JD9365DA_VDO
+	tristate "BOE JD9365DA wqxga vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+		Say Y here if you want to enable support for himax
+		vdo mode wqxga panel. The panel has a 800x1280
+		resolution and uses 24-bits RGB per pixel. It provides a
+		MIPI DSI interface to host.
+
+config DRM_PANEL_NOVATEK_NT35695B_VDO
+	tristate "Novatek NT35695B AUO vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for NT35695B DPHY
+	  vdo mode Full HD panel. The panel has a 1080x1920
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_NOVATEK_NT35695B_CMD
+	tristate "Novatek NT35695B AUO cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for NT35695B DPHY
+	  vdo mode Full HD panel. The panel has a 1080x1920
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_NOVATEK_NT36672A_VDO
+	tristate "Novatek NT36672A FHD+ video mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for NT36672A VDO
+	  mode Full HD Plus panel. The panel has a 1080x2280 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_NOVATEK_NT36672_VDO_LANESWAP
+	tristate "Novatek NT36672 FHD+ video mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for NT36672 VDO
+	  mode Full HD Plus panel. The panel has a 1080x2160 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_SAMSUNG_ANA6705_CMD
+	tristate "ANA6705 amoled WQHD cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ANA6705 DPHY
+	  cmd mode WQHD panel. The panel has a 1440x3216
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_SAMSUNG_ANA6705_CMD_FHDP
+	tristate "ANA6705 amoled FHDP cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ANA6705 DPHY
+	  cmd mode FHDP panel. The panel has a 1440x3216
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_HX_NT37701_DPHY_CMD
+	tristate "NT37701 amoled dphy cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for NT37701 DPHY
+	  cmd mode Full HD panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_HX_NT37701_DPHY_CMD_120HZ
+	tristate "NT37701 amoled dphy cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for NT37701 DPHY
+	  cmd mode Full HD panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_TRULY_TD4330_VDO
+	tristate "TRULY  FHD+ video mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TRULY TD4330 VDO
+	  mode Full HD Plus panel. The panel has a 1080x2280 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_TRULY_TD4330_CMD
+	tristate "TRULY  FHD+ cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TRULY TD4330 CMD
+	  mode Full HD Plus panel. The panel has a 1080x2280 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_SAMSUNG_OP_CMD
+	tristate "ANA6705 OP WQHD cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ANA6705 DPHY
+	  cmd mode WQHD panel. The panel has a 1440x3216
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_SAMSUNG_OP_CMD_MSYNC2
+	tristate "ANA6705 OP WQHD cmd msync2 mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ANA6705 DPHY
+	  cmd mode WQHD panel. The panel has a 1440x3216
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_TRULY_FT8756_VDO
+	tristate "TRULY FHD+ vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TRULY FT8756 VDO
+	  mode Full HD Plus panel. The panel has a 1080x2300 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_ALPHA_JDI_NT36672C_CPHY_VDO
+	tristate "ALPHA JDI FHD+ CPHY vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ALPHA JDI NT36672C
+	  CPHY vdo mode Full HD Plus panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_SC_NT36672C_VDO_120HZ
+	tristate "SC FHD+ vdo mode 120 HZ panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for SC DPHY
+	  vdo mode Full HD Plus 120HZ panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_TIANMA_R66451_CMD_120HZ
+	tristate "TIANMA  FHD+ cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TIANMA R66451 CMD
+	  mode 120HZ Full HD Plus panel. The panel has a 1080x2340 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_TIANMA_R66451_CMD_120HZ_WA
+	tristate "TIANMA R66451 FHD+ cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TIANMA R66451 CMD
+	  mode 120HZ Full HD Plus panel. The panel has a 1080x2340 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_TIANMA_R66451_CMD_120HZ_NO_MIPI_SWITCH
+	tristate "TIANMA  FHD+ cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TIANMA R66451 CMD
+	  mode Full HD Plus panel. The panel has a 1080x2340 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface to
+	  host. Support 60, 90, and 120 fps and no mipi switch when fps change.
+
+config DRM_PANEL_TIANMA_NT36672C_VDO_144HZ
+	tristate "TIANMA FHD+ vdo mode 144 HZ panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TIANMA DPHY
+	  vdo mode Full HD Plus 144HZ panel. The panel has a 1080x2408
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_TIANMA_NT36672C_CPHY_VDO_90HZ_RT4801
+	tristate "TIANMA  FHD+ CPHY vdo mode panel 90hz rt4801"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TIANMA NT36672C CPHY vdo
+	  mode of 90hz Full HD Plus panel. The panel has a 1080x2400 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_TIANMA_NT36672E_VDO_120HZ_HFP
+	tristate "TIANMA FHD+ vdo mode 120 HZ HFP panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TIANMA DPHY
+	  vdo mode HFP Full HD Plus 120HZ panel. The panel has a 1080x2408
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_TIANMA_NT36672E_VDO_120HZ_VFP
+	tristate "TIANMA FHD+ vdo mode 120 HZ VFP panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TIANMA DPHY
+	  vdo mode HFP Full HD Plus 120HZ panel. The panel has a 1080x2408
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_TIANMA_NT36672E_VDO_120HZ_VFP_6382
+         tristate "TIANMA FHD+ vdo mode 120 HZ VFP 6382 panel"
+         depends on OF
+         depends on DRM_MIPI_DSI
+         depends on BACKLIGHT_CLASS_DEVICE
+         help
+           Say Y here if you want to enable support for TIANMA DPHY
+           vdo mode HFP Full HD Plus 120HZ panel. The panel has a 1080x2408
+           resolution and uses 24-bits RGB per pixel. It provides a
+           MIPI DSI interface to host.
+
+config DRM_PANEL_TIANMA_TL1270100_120HZ
+	tristate "TIANMA wqxga2944 vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+		Say Y here if you want to enable support for tianma
+		vdo mode wqxga2944 panel. The panel has a 2944x1840
+		resolution and uses 24-bits RGB per pixel. It provides a
+		MIPI DSI interface to host.
+
+config DRM_PANEL_ALPHA_JDI_NT36672E_CPHY_VDO
+	tristate "ALPHA JDI FHD+ CPHY vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ALPHA JDI NT36672E
+	  CPHY vdo mode Full HD Plus panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_ALPHA_JDI_NT36672E_VDO_120HZ
+	tristate "ALPHA JDI FHD+ DPHY vdo mode 120HZ panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ALPHA JDI NT36672E
+	  DPHY vdo mode Full HD Plus 120HZ panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_ALPHA_JDI_NT36672E_VDO_144HZ
+	tristate "ALPHA JDI FHD+ DPHY vdo mode 144HZ panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ALPHA JDI NT36672E
+	  DPHY vdo mode Full HD Plus 144HZ panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_ALPHA_JDI_NT36672E_VDO_60HZ
+	tristate "ALPHA JDI FHD+ DPHY vdo mode 60HZ panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ALPHA JDI NT36672E
+	  DPHY vdo mode Full HD Plus 60HZ panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_ALPHA_JDI_NT36672E_VDO_120HZ_HFP
+	tristate "ALPHA JDI FHD+ DPHY vdo mode 120HZ hfp panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ALPHA JDI NT36672E
+	  DPHY vdo mode Full HD Plus 120HZ hfp panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_ALPHA_JDI_NT36672E_VDO_144HZ_HFP
+	tristate "ALPHA JDI FHD+ DPHY vdo mode 144HZ hfp panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ALPHA JDI NT36672E
+	  DPHY vdo mode Full HD Plus 144HZ hfp panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_TRULY_ILI9882N_VDO_90HZ
+	tristate "TRULY HD+ vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TRULY ILI9882N VDO
+	  mode Full HD Plus panel. The panel has a 720x1520 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_TRULY_NT35595_CMD
+	tristate "TRULY  FHD+ cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for TRULY nt35595 CMD
+	  mode Full HD Plus panel. The panel has a 1080x1920 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_NT37801_MSYNC2_RTE
+	tristate "nt37801 fhdplus and wqhd dphy 120hz panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for nt37801 fhdplus and
+	  wqhd cmd panel. The panel has a 1080x2400 or 1440x3200 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
+config DRM_PANEL_SAMSUNG_S68FC01_VDO_AOD
+	tristate "samsung s68fc01 fhdp vdo aod panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for samsung s68fc01
+	  fhdp vdo aod panel. The panel has a 1080x2340 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
+config DRM_PANEL_ALPHA_SAMSUNG_S6E3HAE_CMD_120HZ
+	tristate "s6e3hae wqhd dphy 120hz panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for samsung, s63shae
+	  wqhd cmd panel. The panel has a 1440x3200 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
+config DRM_PANEL_NT37801_CMD_FHD
+	tristate "NT37801 cmd fhd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for NT37801 CMD FHD
+	  cmd mode Full HD panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_NT37801_CMD_LTPO
+	tristate "nt37801 fhdplus and wqhd dphy 120hz panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for nt37801 fhdplus and
+	  wqhd cmd panel. The panel has a 1080x2400 or 1440x3200 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
+config DRM_PANEL_NT37801_CMD_120HZ
+	tristate "nt37801 fhdplus and wqhd dphy 120hz panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for nt37801 fhdplus and
+	  wqhd cmd panel. The panel has a 1080x2400 or 1440x3200 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
+config DRM_PANEL_NT37801_CMD_SPR
+	tristate "nt37801 fhdplus and wqhd dphy spr panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for nt37801 fhdplus and
+	  wqhd cmd panel. The panel has a 1080x2400 or 1440x3200 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
+config DRM_PANEL_L12A_42_02_0A_DSC_CMD
+	tristate "L12A 42 02 0A DSC cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ALPHA JDI NT36672E
+	  CPHY vdo mode Full HD Plus panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_MEDIATEK_PANEL
+	tristate "drm panel common driver"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for panel common driver.
+	  support C-PHY and D-PHY, support HD, FHD resolution,
+	  support CMD and VDO mode, support high frame rate.
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_ILI7838E_ALPHA_CMD
+	tristate "mt6985 ili7838e-alpha cmd panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for mt6985
+	  ili7838e-alpha fhd cmd panel. The panel has a 1260x2800
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_ILI7838E_DV2_ALPHA_CMD
+	tristate "mt6985 ili7838e-dv2-alpha cmd panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for mt6985
+	  ili7838e-dv2-alpha fhd cmd panel. The panel has a 1260x2800
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_ILI7838E_DV2_SPR_CMD
+	tristate "mt6985 ili7838e-dv2-spr cmd panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for mt6989
+	  ili7838e-dv2-alpha-spr fhd cmd panel. The panel has a 1260x2800
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_ILI7838E_DV3_ALPHA_CMD
+	tristate "mt6991 ili7838e-dv3-alpha cmd panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for mt6991
+	  ili7838e-dv3-alpha fhd cmd panel. The panel has a 1260x2800
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_RM692H5_CMD
+	tristate "mt6985 rm692h5 cmd panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for mt6991
+	  rm692h5 fhdplus cmd panel. The panel has a 1260x2800
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_RM692H5_ALPHA_CMD_SPR
+	tristate "mt6991 rm692h5 alpha cmd spr panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for mt6991
+	  rm692h5 fhdplus cmd panel. The panel has a 1260x2800
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_NT37705_ALPHA_CMD
+	tristate "mt6985 nt37705-alpha cmd panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for mt6985 nt37705-alpha
+	  fhd cmd aod panel. The panel has a 1260x2800 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
+config DRM_TD2204_WQHD_AMB678ZY01_S6E3HC3_CMD
+	tristate "mt6985 wqhd amb678zy01-s6e3hc3 cmd panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for mt6985 amb678zy01-s6e3hc3
+	  wqhd cmd aod panel. The panel has a 1440x3200 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
+config DRM_PANEL_NT37801_CMD_FHD_PLUS
+	tristate "NT37801 cmd fhd plus mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for NT37801 CMD FHD
+	  cmd mode Full HD panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host. It update for mt6989
+
+config DRM_PANEL_ALPHA_NT37706_VDO_120HZ
+	tristate "ALPHA DPHY vdo mode 120HZ panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ALPHA JDI NT37706
+	  DPHY vdo mode Full HD Plus 120HZ panel. The panel has a 1220x2712
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_HX83112B_AUO_CMD_RT5081
+	tristate "hx83112b fhdp cmd and dphy 60hz panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for nt37801 fhdplus and
+	  wqhd cmd panel. The panel has a 1080x2400 or 1440x3200 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
+config DRM_PANEL_HX83112B_AUO_VDO_RT5081
+	tristate "hx83112b fhdp vdo and dphy 60hz panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for nt37801 fhdplus and
+	  wqhd cmd panel. The panel has a 1080x2400 or 1440x3200 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
+config DRM_PANEL_NT35695_FHD_VDO_AUO_RT5081_HDP
+	tristate "nt35695 fhd vdo and dphy 60hz panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for nt35695 fhdplus and
+	  wqhd cmd panel. The panel has a 1440x720 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
+config DRM_PANEL_TD4320_FHDP_AUO_VDO_RT5081
+	tristate "td4320 fhdp vdo and dphy 60hz panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for nt37801 fhdplus and
+	  wqhd cmd panel. The panel has a 1080x25200 or 1440x3200 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
+config DRM_PANEL_SC_NT36672C_VDO_90HZ_6382
+	tristate "SC FHD+ vdo mode 90 HZ 6382 panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for SC DPHY
+	  vdo mode Full HD Plus 90HZ panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_NT36672C_FHDP_DSI_VDO_DSC_TXD_BOE
+	tristate "FHD+ vdo mode 90 HZ 6382 panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for SC DPHY
+	  vdo mode Full HD Plus 90HZ panel. The panel has a 1080x2460
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_NT35521_HD_VDO_TRULY_RT5081
+	tristate "nt35521 hd vdo and dphy 60hz panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for nt35521 fhdplus and
+	  wqhd cmd panel. The panel has a 1280x720 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
+
+config DRM_PANEL_ALPHA_JDI_NT36672E_VDO_120HZ_THRESHOLD
+	tristate "ALPHA JDI FHD+ DPHY vdo mode 120HZ panel threshold"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ALPHA JDI NT36672E
+	  DPHY vdo mode Full HD Plus 120HZ panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel, vblank period of 156us.
+	  It provides aMIPI DSI interface to host.
+	  interface to host.
+
+
+config DRM_PANEL_NT37707_C2V_ARP
+	tristate "nt37707 c2v arp panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for nt37707 arp panel.
+	  The panel has a 1260x2800 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host. It support ARP_TE.
+
+config DRM_PANEL_NT37707_BOE_FHDPLUS_CMD
+	tristate "mt6991 nt37707 boe fhdplus cmd panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for mt6991
+	  nt37707 boe fhdplus cmd panel. The panel has a 1260x2800
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_RM692K0_VISIONOX_FHDPLUS_CMD
+	tristate "mt6991 rm692k0 visionox fhdplus cmd panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for mt6991
+	  rm692k0 visionox fhdplus cmd panel. The panel has a 1260x2800
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_NT37707_BOE_FHDPLUS_CMD_LTPS
+	tristate "mt6991 nt37707 boe fhdplus cmd ltps panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for mt6991
+	  nt37707 boe fhdplus cmd ltps panel. The panel has a 1260x2800
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_RM692K0_VSN_FHDPLUS_CMD_LTPS
+	tristate "mt6991 rm692k0 vsn fhdplus cmd ltps panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for mt6991
+	  rm692k0 vsn fhdplus cmd ltps panel. The panel has a 1260x2800
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_NT37707_BOE_FHDPLUS_CMD_LTPO
+	tristate "mt6991 nt37707 boe fhdplus cmd ltpo panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for mt6991
+	  nt37707 boe fhdplus cmd ltpo panel. The panel has a 1216x2640
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_RM692J0_TM_FHDPLUS_CMD_LTPO
+	tristate "mt6991 rm692j0 tm fhdplus cmd ltpo panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for mt6991
+	  rm692j0 tm fhdplus cmd ltpo panel. The panel has a 1216x2640
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_S6E8FC3_VDO
+	tristate "S6E8FC3 panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for S6E8FC3 panel.
+	  The panel has a 1080x2400 resolution.
+	  It provides a MIPI DSI interface to host.
+
+config DRM_PANEL_S6E8FC5_CMD
+	tristate "S6E8FC5 panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for S6E8FC5 panel.
+	  The panel has a 1080x2340 resolution.
+	  It provides a MIPI DSI interface to host.
+
+config DRM_PANEL_BOE_SW83109_CMD
+	tristate "SW83109 panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for SW83109 panel.
+	  The panel has a 1080x2400 resolution and uses 24-bits RGB per pixel.
+	  It provides a MIPI DSI interface to host.
+
+config DRM_PANEL_ANA38407_WQXGA_PLUS_DPHY_CMD
+	tristate "ANAPASS WQXGA DPHY CMD mode "
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ANA38407
+	  DPHY vdo mode Full HD Plus 120HZ panel. The panel has a 2800x1752
+	  resolution and uses 24-bits RGB per pixel, vblank period of 156us.
+	  It provides aMIPI DSI interface to host.

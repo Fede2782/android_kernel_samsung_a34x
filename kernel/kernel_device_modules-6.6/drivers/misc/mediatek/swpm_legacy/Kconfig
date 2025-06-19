@@ -1,0 +1,18 @@
+config MTK_SWPM_MODULE_LEGACY
+	tristate "Meditaek Software Power Model Module V1"
+	help
+	  For MediaTek Software Power Model Module,
+	  modling SoC likes CPU, GPU and DRAM power.
+	  Select "y" if you want to enable SWPM features.
+	  Select "n" if unsure.
+
+config MTK_SWPM_MT6877
+	tristate "Specify Mediatek SWPM Platform is MT6877"
+	depends on MTK_SWPM_MODULE_LEGACY
+	help
+	  Select MediaTek Software Power Model Platform is MT6877
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6877.
+	  If unsure, set N to disable.
+
+

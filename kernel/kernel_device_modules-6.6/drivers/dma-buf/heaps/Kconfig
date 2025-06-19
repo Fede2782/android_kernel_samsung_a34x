@@ -1,0 +1,50 @@
+config DEVICE_MODULES_DMABUF_HEAPS_DEFERRED_FREE
+	tristate "DMA-BUF heaps deferred-free library"
+	help
+	  Choose this option to enable the DMA-BUF heaps deferred-free library.
+
+config DEVICE_MODULES_DMABUF_HEAPS_PAGE_POOL
+	tristate "DMA-BUF heaps page-pool library"
+	help
+	  Choose this option to enable the DMA-BUF heaps page-pool library.
+
+config DEVICE_MODULES_DMABUF_HEAPS_SYSTEM
+	tristate "DMA-BUF System Heap"
+	depends on DMABUF_HEAPS
+	help
+	  Choose this option to enable the system dmabuf heap. The system heap
+	  is backed by pages from the buddy allocator. If in doubt, say Y.
+
+config DEVICE_MODULES_DMABUF_HEAPS_REFILL
+	tristate "DMA-BUF heap refill"
+	depends on DEVICE_MODULES_DMABUF_HEAPS_SYSTEM
+	help
+	  Choose this option to enable heap refill. Pool has high water and low
+	  water. After executing dmabuf alloc and detecting that the current pool
+	  size is lower than the low water, the refill thread is started. The
+	  refill worker thread allocates pages to fill in the pool, and stops
+	  filling when the pool size is higher than the high water mark.
+
+config DMABUF_HEAPS_DEBUG
+	tristate "DMA-BUF debug Heap"
+	depends on DEVICE_MODULES_DMABUF_HEAPS_SYSTEM
+	help
+	  Choose this option to enable the mtk debug heap.
+	  This debug tool can be use to dump dmabuf usage for users
+	  If you want use it, say Y if you are not using GKI
+	  say m and add ko into your system for GKI.
+
+config DMABUF_LEGACY_TEST
+	tristate "DMA-BUF test legacy"
+	help
+	  Choose this option to skip dmabuf secure test.
+	  This config is for legacy chip to skip new chip only case.
+	  If you are sure the chip not support the dmabuf secure test, say Y to
+	  skip the case. If in doubt, say N.
+
+config RBIN
+	bool "DMA-BUF RBIN Samsung Heap"
+	depends on DMABUF_HEAPS && CLEANCACHE
+	default y
+	help
+	  Choose this option to enable dma-buf rbin heap for samsung.

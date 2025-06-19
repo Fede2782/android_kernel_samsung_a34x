@@ -1,0 +1,695 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2022 MediaTek Inc.
+ */
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/phy/phy.h>
+#include <dt-bindings/pinctrl/mt6991-pinfunc.h>
+#include <dt-bindings/power/mt6991-power.h>
+
+&chosen {
+bootargs_ext = "rcu_nocbs=0-7";
+};
+
+&disp_aal0 {
+	mtk-dre30-support = <0>;
+};
+
+&ise_mbox {
+	mediatek,real-drv = <1>;
+};
+
+&ise_lpm {
+	ise-wakelock = <1>;
+	ise-lpm-freerun = <1>;
+	ise-lpm-deinit-bypass = <0>;
+	power-domains = <&scpsys MT6991_POWER_DOMAIN_SSR>;
+};
+
+&ise_trusty {
+	mediatek,real-drv = <1>;
+};
+
+&pio {
+	mtkfb_pins_lcd_bias_enp1: lcd-bias-enp1-gpio {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO103__FUNC_GPIO103>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enp0: lcd-bias-enp0-gpio {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO103__FUNC_GPIO103>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enn1: lcd-bias-enn1-gpio {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO103__FUNC_GPIO103>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enn0: lcd-bias-enn0-gpio {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO103__FUNC_GPIO103>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out1_gpio: lcm-rst-out1-gpio {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO90__FUNC_GPIO90>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out0_gpio: lcm-rst-out0-gpio {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO90__FUNC_GPIO90>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	mtkfb_pins_lcm_dsi_te: lcm-dsi-te {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO89__FUNC_DSI_TE>;
+		};
+	};
+
+	mtkfb_pins_lcm_led_en1: lcm-led-en1-gpio {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO174__FUNC_GPIO174>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_led_en0: lcm-led-en0-gpio {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO174__FUNC_GPIO174>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_dsi1_te: lcm-dsi1-te {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO6__FUNC_DSI1_TE>;
+		};
+	};
+};
+
+&mtkfb {
+	pinctrl-names = "lcd_bias_enp1_gpio", "lcd_bias_enp0_gpio",
+		"lcd_bias_enn1_gpio", "lcd_bias_enn0_gpio",
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te", "lcm_led_en1_gpio", "lcm_led_en0_gpio",
+		"mode_te_te1";
+	pinctrl-0 = <&mtkfb_pins_lcd_bias_enp1>;
+	pinctrl-1 = <&mtkfb_pins_lcd_bias_enp0>;
+	pinctrl-2 = <&mtkfb_pins_lcd_bias_enn1>;
+	pinctrl-3 = <&mtkfb_pins_lcd_bias_enn0>;
+	pinctrl-4 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-5 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-6 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-7 = <&mtkfb_pins_lcm_led_en1>;
+	pinctrl-8 = <&mtkfb_pins_lcm_led_en0>;
+	pinctrl-9 = <&mtkfb_pins_lcm_dsi1_te>;
+
+	status = "okay";
+};
+
+&dispsys_config {
+	pinctrl-names = "mode_te_te", "mode_te_te1";
+	pinctrl-0 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-1 = <&mtkfb_pins_lcm_dsi1_te>;
+
+	status = "okay";
+//	enable-discrete-path = <1>;
+};
+
+&mipi_tx_config1 {
+//	status = "okay";
+};
+
+&dsi1 {
+//	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	init-panel-off;
+	panel1@0 {
+		compatible = "truly,td4330,cmd";
+		reg = <0>;
+		pm-enable-gpios = <&pio 215 0>;
+		reset-gpios = <&pio 5 0>;
+		swap-from-dts;
+		lane-swap-setting = <1 2 0 3 4 2>;
+		pn-swap-setting = <1 1 1 1 1 1>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel1_in: endpoint {
+				remote-endpoint = <&dsi1_out>;
+			};
+		};
+	};
+	panel2@1 {
+		compatible = "jdi,nt36672e,vdo,120hz";
+		reg = <1>;
+		pm-enable-gpios = <&pio 215 0>;
+		reset-gpios = <&pio 5 0>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel2_in: endpoint {
+				remote-endpoint = <&dsi1_out2>;
+			};
+		};
+	};
+	panel3@2 {
+		compatible = "jdi,nt36672e,cphy,vdo";
+		reg = <2>;
+		pm-enable-gpios = <&pio 215 0>;
+		reset-gpios = <&pio 5 0>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel3_in: endpoint {
+				remote-endpoint = <&dsi1_out3>;
+			};
+		};
+	};
+	panel4@3 {
+		compatible = "jdi,nt36672e,vdo,60hz";
+		reg = <3>;
+		pm-enable-gpios = <&pio 215 0>;
+		reset-gpios = <&pio 5 0>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel4_in: endpoint {
+				remote-endpoint = <&dsi1_out4>;
+			};
+		};
+	};
+	ports {
+		port {
+			dsi1_out: endpoint@0 {
+				remote-endpoint = <&panel1_in>;
+			};
+
+			dsi1_out2: endpoint@1 {
+				remote-endpoint = <&panel2_in>;
+			};
+
+			dsi1_out3: endpoint@2 {
+				remote-endpoint = <&panel3_in>;
+			};
+
+			dsi1_out4: endpoint@3 {
+				remote-endpoint = <&panel4_in>;
+			};
+		};
+	};
+};
+
+&dsi1_te {
+	interrupt-parent = <&pio>;
+	interrupts = <6 1 6 1>;
+	status = "okay";
+};
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	panel1@0 {
+		compatible = "jdi,nt36672e,vdo,120hz";
+		reg = <0>;
+		pm-enable-gpios = <&pio 174 0>;
+		reset-gpios = <&pio 90 0>;
+		res-switch = <2>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel_in1: endpoint {
+			remote-endpoint = <&dsi_out1>;
+			};
+		};
+	};
+	panel2@1 {
+		compatible = "truly,td4330,cmd";
+		reg = <1>;
+		pm-enable-gpios = <&pio 174 0>;
+		reset-gpios = <&pio 90 0>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel_in2: endpoint {
+			remote-endpoint = <&dsi_out2>;
+			};
+		};
+	};
+	panel3@2 {
+		compatible = "nt37801,cmd,fhd";
+		reg = <2>;
+		pm-enable-gpios = <&pio 174 0>;
+		reset-gpios = <&pio 90 0>;
+		res-switch = <2>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel_in3: endpoint {
+			remote-endpoint = <&dsi_out3>;
+			};
+		};
+	};
+	panel4@3 {
+		compatible = "nt37801,cmd,fhd,plus";
+		reg = <3>;
+		pm-enable-gpios = <&pio 174 0>;
+		reset-gpios = <&pio 90 0>;
+		res-switch = <2>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel_in4: endpoint {
+			remote-endpoint = <&dsi_out4>;
+			};
+		};
+	};
+	panel5@4 {
+		compatible = "jdi,nt36672e,cphy,vdo";
+		reg = <4>;
+		pm-enable-gpios = <&pio 174 0>;
+		reset-gpios = <&pio 90 0>;
+		res-switch = <2>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel_in5: endpoint {
+			remote-endpoint = <&dsi_out5>;
+			};
+		};
+	};
+
+	ports {
+		port {
+			dsi_out1: endpoint@0 {
+				remote-endpoint = <&panel_in1>;
+			};
+
+			dsi_out2: endpoint@1 {
+				remote-endpoint = <&panel_in2>;
+			};
+
+			dsi_out3: endpoint@2 {
+				remote-endpoint = <&panel_in3>;
+			};
+
+			dsi_out4: endpoint@3 {
+				remote-endpoint = <&panel_in4>;
+			};
+
+			dsi_out5: endpoint@4 {
+				remote-endpoint = <&panel_in5>;
+			};
+		};
+	};
+};
+
+&pio {
+	rptr_enable: rptr-enable {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO72__FUNC_GPIO72>;
+			output-high;
+		};
+	};
+
+	rptr_disable: rptr-disable {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO72__FUNC_GPIO72>;
+			output-low;
+		};
+	};
+};
+
+&ssusb {
+	mediatek,force-vbus;
+	mediatek,clk-mgr;
+	mediatek,usb3-drd;
+	mediatek,uds = <&usb_dp_selector 19>;
+	mediatek,eusb2-cm-l1 = <0x474>;
+	usb-role-switch;
+	status = "okay";
+};
+
+&usb_host {
+	mediatek,usb-offload = <&usb_offload>;
+	status = "okay";
+};
+
+&mt6379_eusb2_repeater {
+	status = "okay";
+};
+
+&nxp_eusb2_repeater {
+	pinctrl-names = "enable", "disable";
+	pinctrl-0 = <&rptr_enable>;
+	pinctrl-1 = <&rptr_disable>;
+	status = "okay";
+};
+
+&pcie0 {
+	pinctrl-names = "init", "default", "sleep", "pd";
+	pinctrl-0 = <&pcie0_pins_init>;
+	pinctrl-1 = <&pcie0_pins_default>;
+	pinctrl-2 = <&pcie0_pins_sleep>;
+	pinctrl-3 = <&pcie0_pins_pd>;
+	max-link-speed = <4>;
+	status = "okay";
+};
+
+&pcie1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie1_pins_default>;
+	max-link-speed = <4>;
+	status = "disabled";
+};
+
+&pciephy0 {
+	mediatek,short-reach;
+	status = "okay";
+};
+
+&pciephy1 {
+	status = "disabled";
+};
+
+/* PCIe pinmux start */
+/* skyhawk use waken to control DFD_EN, PCIe0 don't need to control it */
+&pio {
+	pcie0_pins_init: pcie0-init {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO241__FUNC_GPIO241>;
+			output-low;
+		};
+
+		pins-cmd-dat1 {
+			pinmux = <PINMUX_GPIO243__FUNC_GPIO243>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+	pcie0_pins_default: pcie0-default {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO241__FUNC_PCIE_PERSTN>,
+				 <PINMUX_GPIO243__FUNC_PCIE_CLKREQN>;
+			bias-pull-up;
+		};
+	};
+
+	pcie0_pins_sleep: pcie0-sleep {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO241__FUNC_GPIO241>;
+			output-low;
+		};
+
+		pins-cmd-dat1 {
+			pinmux = <PINMUX_GPIO243__FUNC_GPIO243>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+	pcie0_pins_pd: pcie0-pd {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO241__FUNC_GPIO241>;
+			output-low;
+		};
+
+		pins-cmd-dat1 {
+			pinmux = <PINMUX_GPIO243__FUNC_GPIO243>;
+			bias-pull-down;
+			input-enable;
+		};
+	};
+
+	pcie1_pins_default: pcie1-default {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO145__FUNC_PCIE_WAKEN_1P>,
+				 <PINMUX_GPIO146__FUNC_PCIE_PERSTN_1P>,
+				 <PINMUX_GPIO147__FUNC_PCIE_CLKREQN_1P>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
+		};
+	};
+};
+/* PCIe pinmux end */
+
+#if 0
+/* no need set here, 6686 will control elna automatically */
+/* GPS GPIO standardization start */
+&pio {
+	gps_pins_default: gps_default {
+	};
+	gps_l1_lna_pins_ol: gps-l1-lna0 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO12__FUNC_GPIO12>;
+			output-low;
+		};
+	};
+	gps_l1_lna_pins_dsp_ctrl: gps-l1-lna1 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO12__FUNC_GPS_L1_ELNA_EN>;
+		};
+	};
+	gps_l1_lna_pins_oh: gps-l1-lna2 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO12__FUNC_GPIO12>;
+			output-high;
+		};
+	};
+	gps_l5_lna_pins_ol: gps-l5-lna0 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO13__FUNC_GPIO13>;
+			output-low;
+		};
+	};
+	gps_l5_lna_pins_dsp_ctrl: gps-l5-lna1 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO13__FUNC_GPS_L5_ELNA_EN>;
+		};
+	};
+	gps_l5_lna_pins_oh: gps-l5-lna2 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO13__FUNC_GPIO13>;
+			output-high;
+		};
+	};
+};
+&gps {
+	pinctrl-names = "default",
+		"gps_l1_lna_disable",
+		"gps_l1_lna_dsp_ctrl",
+		"gps_l1_lna_enable",
+		"gps_l5_lna_disable",
+		"gps_l5_lna_dsp_ctrl",
+		"gps_l5_lna_enable";
+	pinctrl-0 = <&gps_pins_default>;
+	pinctrl-1 = <&gps_l1_lna_pins_ol>;
+	pinctrl-2 = <&gps_l1_lna_pins_dsp_ctrl>;
+	pinctrl-3 = <&gps_l1_lna_pins_oh>;
+	pinctrl-4 = <&gps_l5_lna_pins_ol>;
+	pinctrl-5 = <&gps_l5_lna_pins_dsp_ctrl>;
+	pinctrl-6 = <&gps_l5_lna_pins_oh>;
+	status = "okay";
+};
+/* GPS GPIO standardization end */
+#endif
+
+/* usb typec mux start */
+&pio {
+
+	ps_enable: ps_enable {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO207__FUNC_GPIO207>;
+			output-high;
+		};
+	};
+
+	ps_disable: ps_disable {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO207__FUNC_GPIO207>;
+			output-low;
+		};
+	};
+
+};
+
+&mt6379_typec {
+	port {
+		tcpc_typec_usb: endpoint {
+			remote-endpoint = <&ssusb_mux>;
+		};
+	};
+};
+
+&typec_mux_switch {
+	orientation-switch;
+	mode-switch;
+	accessory;
+	port {
+		ssusb_mux: endpoint {
+			remote-endpoint = <&tcpc_typec_usb>;
+		};
+	};
+};
+
+&ps5170 {
+	pinctrl-names = "enable", "disable";
+	pinctrl-0 = <&ps_enable>;
+	pinctrl-1 = <&ps_disable>;
+	status = "okay";
+};
+
+&usb_dp_selector {
+	status = "okay";
+};
+/* usb typec mux end */
+
+&i2c6 {
+	spk1: speaker_amp@5c {
+		compatible = "richtek,rt5512";
+		#sound-dai-cells = <0>;
+		reg = <0x5c>;
+		status = "okay";
+		sound-name-prefix = "Left";
+	};
+
+	spk2: speaker_amp@5d {
+		compatible = "richtek,rt5512";
+		#sound-dai-cells = <0>;
+		reg = <0x5d>;
+		status = "okay";
+		sound-name-prefix = "Right";
+	};
+};
+
+&sound {
+	mediatek,spk-i2s = <25 24>;
+	mediatek,speaker-codec {
+		sound-dai = <&spk1>, <&spk2>;
+	};
+};
+
+#if 0
+&pdc {
+	pd_vbus_upper_bound = <12000000>;
+};
+#endif
+
+&connfem {
+
+	/* Overwrite sky55208 2g1 with Antsel 19 & 20 remapping */
+	layouts {
+		g_wf1_bt1_sky55208: g-wf1-bt1-sky55208 {
+			band-path-wifi = <0x01>; /* G-WF1 */
+			band-path-bt = <0x51>;	/* G-BT1 */
+			fem = <&sky55208>;
+			mapping = <18 0x03 0>,	/* Antsel 18 <-> SEL1 0x03 */
+				  <20 0x02 0>,	/* Antsel 20 <-> SEL2 0x02 */
+				  <19 0x04 0>,	/* Antsel 19 <-> SEL3 0x04 */
+				  <21 0x0e 0>;	/* Antsel 21 <-> SEL4 0x0e */
+		};
+	};
+
+	sku-mtk {
+		hw-names = "sky55208_sky55714";	/* [0] SKY55208/SKY55714 , 2G+2A */
+
+		/***************************************************************
+		 * [HW][0] SKY55208/SKY55714 , 2G+2A
+		 **************************************************************/
+		hw-0 {
+			using-fems =
+				<&sky55208>,
+				<&sky55714>;
+
+			layout-flag = <0x00000000>;
+			layout =
+				<&g_wf0_bt0_sky55208>,
+				<&g_wf1_bt1_sky55208>,
+				<&a_wf0_sky55714>,
+				<&a_wf1_sky55714>;
+
+			common {
+				flags {
+					fe-ant-cnt = [85];
+					fe-conn-dpdt-sp3t = [80];
+					fe-conn-spdt = [80];
+					fe-bt-wf-usage = [80];
+					fe-conn-spdt-2 = [80];
+				};
+			};
+
+			wifi {
+				using-states =
+					<&sky55208_rxl>,
+					<&sky55714_rxl>;
+			};
+
+			bt {
+				flags {
+					efem-mode = [03]; /* 3:epa_elna, 2:epa, 1:elna, 0:bypass */
+					rx-mode = [24]; /* 0x24: G-band RxL */
+				};
+			};
+		};
+	};
+};
+
+&bt {
+	flavor-bin = "dx5_2g2a_tc10sp";
+};
+
+&wifi {
+	flavor-bin = "dx5_2g2a_tc10sp";
+};
+
+&mt6363_vbuck5 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck6 {
+	regulator-always-on;
+};
+
+&mt6363_vsram_digrf {
+	regulator-always-on;
+};
+
+&mt6363_vcn15 {
+	regulator-always-on;
+};
+
+&mt6363_vrf12 {
+	regulator-always-on;
+};
+
+#include <k6991v1_64_titan_bluesnake_25w/cust.dtsi>
+
+#include "mediatek/cust_mt6991_touch_1080x2400_mult.dtsi"
+#include "mediatek/cust_mt6991_camera_v4l2.dtsi"
+/*End of this file, DO NOT ADD ANYTHING HERE*/
+

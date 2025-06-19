@@ -1,0 +1,22 @@
+config MMEVENT
+	tristate "MMEVENT module enable or disable"
+	help
+	  Enable other module to use Multimedia event log mechanism.
+	  By enable this config, the mme/ driver is built into kernel.
+	  Otherwise other module will use empty functions in header file
+	  instead. This is to make the event log mechanism driver to be
+	  a switchable module.
+config MTK_MME_SUPPORT
+	tristate "Platform support for MME logging"
+	help
+	  Select this option to enable support for MME (Multimedia event log
+	  mechanism). When enabled (set to 'y' or 'm'), kernel modules
+	  can utilize the MME interface to print logs, which can be useful for
+	  debugging features or modules.
+
+	  If you are building a kernel and require MME logging, you should
+	  enable this option.
+
+	  If unsure, or if MME logging is not required for your platform or use case,
+	  it is safe to leave this option disabled (set to 'n'). Disabling MME logging
+	  can help reduce kernel size and avoid unnecessary logging overhead.

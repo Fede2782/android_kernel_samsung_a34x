@@ -1,0 +1,80 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2022 MediaTek Inc.
+ */
+
+&ivi_dispsys1_config_clk {
+	status = "okay";
+};
+
+&disp_dvo0 {
+	status = "okay";
+};
+
+&disp1_dp_intf0 {
+	status = "okay";
+};
+
+&dp_tx {
+	status = "okay";
+};
+
+&dsi0 {
+	status = "okay";
+};
+
+&dsi1 {
+	status = "okay";
+};
+
+&dsi2 {
+	status = "okay";
+};
+
+&edp_tx {
+	status = "okay";
+};
+
+&max96789 {
+	status = "okay";
+};
+
+&max96789_1 {
+	status = "okay";
+};
+
+&max96789_2 {
+	status = "okay";
+};
+
+&max96851_0 {
+	status = "okay";
+};
+
+&max96851_1 {
+	status = "okay";
+};
+
+&mipi_tx_config0 {
+	status = "okay";
+};
+
+&mipi_tx_config1 {
+	status = "okay";
+};
+
+&mipi_tx_config2 {
+	status = "okay";
+};
+
+&panel_dp {
+	status = "okay";
+};
+
+&panel_edp {
+	status = "okay";
+};
+
+&panel_dp_mst_one {
+	status = "okay";
+};

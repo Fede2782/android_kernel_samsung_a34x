@@ -1,0 +1,136 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2020 MediaTek Inc.
+ */
+
+#ifndef __MTK_PCIE_H__
+#define __MTK_PCIE_H__
+
+#define PCIE_LMR_0			0x350
+#define VOL_MARGIN_SUPP			BIT(0)
+
+#define PCIE_BITS_VAL(v1, v2, v3)	(((v1) & GENMASK(v2, v3)) >> v3)
+#define PCIE_PHYD_TOP			0x0
+#define PCIE_LN0_PRB_SEL		0x10
+#define PCIE_LN1_PRB_SEL		0x14
+#define PCIE_LN2_PRB_SEL		0x18
+#define PCIE_LN3_PRB_SEL		0x1c
+#define PEXTP_DIG_PROBE_OUT		0xd0
+
+#define PCI_SPEED_MASK		GENMASK(3, 0)
+
+/* PHY sif registers */
+#define PEXTP_DIG_GLB_28		0x28
+#define RX_XTP_FRC_MAC_L1SS_EN		BIT(4)
+#define RX_XTP_MAC_L1SS_EN		BIT(5)
+#define RG_XTP_FRC_MAC_RX_EI_DIS	BIT(8)
+#define RG_XTP_MAC_RX_EI_DIS		BIT(9)
+#define RG_XTP_FRC_MAC_TX_CM_DIS	BIT(10)
+#define RG_XTP_MAC_TX_CM_DIS		BIT(11)
+#define RG_XTP_TX_PTG_EN		BIT(30)
+#define PEXTP_DIG_GLB_70		0x70
+#define RG_XTP_PIPE_IN_FR_RG		BIT(0)
+#define RG_XTP_PIPE_UPDT		BIT(4)
+#define RG_XTP_FRC_PIPE_POWER_DOWN_ASYNC	BIT(8)
+#define RG_XTP_PIPE_POWER_DOWN_ASYNC	GENMASK(11, 10)
+#define RG_XTP_PIPE_POWER_DOWN_SYNC	GENMASK(13, 12)
+#define RG_XTP_PIPE_RATE		GENMASK(17, 16)
+#define PEXTP_DIG_LN_TX			0x4000
+#define PEXTP_DIG_LN_TX_10		0x10
+#define RG_XTP_LN_TX_PTG_TYPE		GENMASK(3, 0)
+#define PEXTP_DIG_LN_RX			0x5000
+#define PEXTP_DIG_LN_RX_1C		0x1c
+#define RG_XTP_LN_RX_PTC_EN		BIT(1)
+#define RG_XTP_LN_RX_PTC_TYPE		GENMASK(7, 4)
+#define PEXTP_DIG_LN_RX_RGS_CC		0xcc
+#define RG_XTP_LN_RX_PTC_RX_LOCK	BIT(0)
+#define RG_XTP_LN_RX_PTC_RX_PASS	BIT(1)
+#define RG_XTP_LN_RX_PTC_RX_PASSTH	BIT(2)
+#define RG_XTP_LN_RX_PTC_RX_ERRCNT	GENMASK(32, 16)
+#define PEXTP_SIFSLV_DIG_LN_RX2		0x6000
+#define PEXTP_DIG_LN_RX2_68		0x68
+#define RG_XTP_LN_RX_EYES_VOL_SUP	BIT(13)
+
+#define PEXTP_LANE_OFFSET		0x100
+
+/* lane margin */
+#define PCI_EXT_CAP_ID_LM			0x27	/* Lane Margining at the Receiver Extended Capability ID */
+#define PCI_EXT_LM_LANECTL			0x8
+#define PCI_EXT_LM_LANESTA			0xA
+#define PCIE_LM_DN_RCV_NUM			0x1	/* Lane Margining Recevier number for Down port */
+#define PCIE_LM_UP_RCV_NUM			0x6	/* Lane Margining Recevier number for UP port */
+#define PCIE_LM_REPORT_CAP_PAYLOAD		0x88
+#define PCIE_LM_REPORT_CAP_TYPE			0x1
+#define PCIE_LM_VOL_STEP_PAYLOAD		0x89
+#define PCIE_LM_VOL_STEP_TYPE			0x1
+#define PCIE_LM_TIME_STEP_PAYLOAD		0x8A
+#define PCIE_LM_TIME_STEP_TYPE			0x1
+#define PCIE_LM_MAX_TIME_OFFSET_PAYLOAD		0x8B
+#define PCIE_LM_MAX_TIME_OFFSET_TYPE		0x1
+#define PCIE_LM_MAX_VOL_OFFSET_PAYLOAD		0x8C
+#define PCIE_LM_MAX_VOL_OFFSET_TYPE		0x1
+#define PCIE_LM_STEP_MARGIN_TIME_RIGHT_PAYLOAD	0x00
+#define PCIE_LM_STEP_MARGIN_TIME_LEFT_PAYLOAD	0x40
+#define PCIE_LM_STEP_MARGIN_TIME_TYPE		0x3
+#define PCIE_LM_STEP_MARGIN_VOL_UP_PAYLOAD	0x00
+#define PCIE_LM_STEP_MARGIN_VOL_DOWN_PAYLOAD	0x80
+#define PCIE_LM_STEP_MARGIN_VOL_TYPE		0x4
+#define PCIE_LM_CLEAR_ERROR_LOG_PAYLOAD		0x55
+#define PCIE_LM_CLEAR_ERROR_LOG_TYPE		0x2
+#define PCIE_LM_NORMAL_SETTING_PAYLOAD		0xF
+#define PCIE_LM_NORMAL_SETTING_TYPE		0x2
+#define PCIE_LM_NO_COMMAND_PAYLOAD		0x9c
+#define PCIE_LM_NO_COMMAND_TYPE			0x7
+
+#define PCIE_LM_PAYLOAD_OFFSET			0x8	/* Lane Margining Status Offset */
+#define PCIE_LM_TYPE_OFFSET			0x3
+#define PCIE_LM_EXECUTION_STA_OFFSET		0xE
+
+#define PCIE_LM_RECEIVE_NUM_MASK		0x7	/* Lane Margining Status Mask */
+#define PCIE_LM_TYPE_MASK			0x38
+#define PCIE_LM_USAGE_MODEL_MASK		0x40
+#define PCIE_LM_PAYLOAD_MASK			0xFF00
+#define PCIE_LM_VOL_SUP_MASK			0x0100
+#define PCIE_LM_NUM_TIME_STEP_MASK		0x7F00
+#define PCIE_LM_NUM_VOL_STEP_MASK		0x7F00
+#define PCIE_LM_EXECUTION_STA_MASK		0xC000
+#define PCIE_LM_ERROR_CNT_MASK			0x3F00
+#define PCIE_LM_EYE_AXIS			4
+
+enum mtk_pcie_lane_number {
+	MTK_LANE_0 = 0,
+	MTK_LANE_1,
+	MTK_LANE_2,
+	MTK_LANE_3,
+};
+
+enum mtk_pcie_lane_margin_type {
+	MTK_TIME_MARGIN_LEFT = 0,
+	MTK_TIME_MARGIN_RIGHT,
+	MTK_VOLTAGE_MARGIN_UP,
+	MTK_VOLTAGE_MARGIN_DOWN,
+};
+
+enum mtk_pci_bus_speed {
+	MTK_SPEED_2_5GT = 1,
+	MTK_SPEED_5_0GT,
+	MTK_SPEED_8_0GT,
+	MTK_SPEED_16_0GT,
+	MTK_SPEED_MAX,
+};
+
+enum mtk_pcie_lm_port {
+	MTK_PCIE_DN = 0,
+	MTK_PCIE_UP,
+	MTK_PCIE_BOTH,
+};
+
+enum mtk_pcie_loopback {
+	LP_NORMAL = 0,
+	LP_ASPM_L0S,
+	LP_ASPM_L1,
+	LP_ASPM_BOTH,
+	LP_PCIPM_L1,
+	LP_PCIPM_L2
+};
+#endif
