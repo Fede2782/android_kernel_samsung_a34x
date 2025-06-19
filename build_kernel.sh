@@ -10,5 +10,18 @@ export DIST_DIR="../out/target/product/a34x/obj/KLEAF_OBJ/dist"
 export DEFCONFIG_OVERLAYS="mt6877_overlay.config mt6877_teegris_5_overlay.config"
 export PROJECT="mgk_64_k66"
 export MODE="user"
+export SOURCE_DATE_EPOCH="$(date +%s)"
+export KBUILD_BUILD_TIMESTAMP="$(date -d @${SOURCE_DATE_EPOCH})"
+export TARGET_BUILD_VARIANT="user"
+
+FTP="
+build/kernel/_setup_env.sh
+build/kernel/kleaf/impl/kernel_env.bzl
+build/kernel/kleaf/impl/stamp.bzl
+kernel_device_modules-6.6/scripts/gen_build_config.py
+"
+for f in $FTP; do
+  sed -i 's/SOURCE_DATE_EPOCH\=0/SOURCE_DATE_EPOCH\=\$\(date \+\%s\)/g' "$f"
+done
 
 ./kernel_device_modules-6.6/build.sh
