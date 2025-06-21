@@ -24,4 +24,6 @@ for f in $FTP; do
   sed -i 's/SOURCE_DATE_EPOCH\=0/SOURCE_DATE_EPOCH\=\$\(date \+\%s\)/g' "$f"
 done
 
+sed -i 's/-maybe-dirty//g' "build/kernel/kleaf/impl/stamp.bzl"
+
 ./kernel_device_modules-6.6/build.sh
