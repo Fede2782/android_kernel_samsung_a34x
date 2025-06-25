@@ -1,0 +1,7 @@
+config MTK_PKVM_SMMU
+	tristate "MTK pKVM smmu"
+	help
+	  A new option CONFIG_MTK_PKVM_SMMU for the feature.
+	  This is used for handling smmu in pKVM(EL2). If you
+	  are not sure about whether to enable it or not,
+	  please set n.

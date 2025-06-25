@@ -1,0 +1,149 @@
+config MTK_DCM_COMMON
+	tristate "Mediatek DCM COMMON"
+	depends on ARCH_MEDIATEK && OF
+	help
+	  For Mediatek Dynamic Clock Management control. Provid a common interface to
+	  adjust dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to use.
+	  Select "n" if you are not sure.
+
+config MTK_DCM_MT6761
+	tristate "Mediatek MT6761 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6761 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6761 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6761 dcm setting.
+	  Select "n" if you do not need to change
+
+config MTK_DCM_MT6765
+	tristate "Mediatek MT6765 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6765 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6765 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6893 dcm setting.
+	  Select "n" if you do not need to change
+
+config MTK_DCM_MT6768
+	tristate "Mediatek MT6768 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6768 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6768 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6768 dcm setting.
+	  Select "n" if you do not need to change
+
+config MTK_DCM_MT6781
+	tristate "Mediatek MT6781 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6781 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6781 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6781 dcm setting.
+	  Select "n" if you do not need to change
+
+config MTK_DCM_MT6833
+	tristate "Mediatek MT6833 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6833 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6833 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6877 dcm setting.
+	  Select "n" if you do not need to change
+
+config MTK_DCM_MT6853
+	tristate "Mediatek MT6853 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6853 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6853 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6853 dcm setting.
+	  Select "n" if you do not need to change
+
+config MTK_DCM_MT6877
+	tristate "Mediatek MT6877 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6877 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6877 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6877 dcm setting.
+	  Select "n" if you do not need to change
+
+config MTK_DCM_MT6885
+	tristate "Mediatek MT6885 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6885 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6885 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6893 dcm setting.
+	  Select "n" if you do not need to change
+
+config MTK_DCM_MT6985
+	tristate "Mediatek MT6985 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6985 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6985 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6985 dcm setting.
+	  Select "n" if you do not need to change
+
+config MTK_DCM_MT6878
+	tristate "Mediatek MT6878 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6878 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6878 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6878 dcm setting.
+	  Select "n" if you do not need to change
+
+config MTK_DCM_MT6897
+	tristate "Mediatek MT6897 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6897 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6897 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6897 dcm setting.
+	  Select "n" if you do not need to change
+
+
+config MTK_DCM_MT6899
+	tristate "Mediatek MT6899 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6899 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6899 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6899 dcm setting.
+	  Select "n" if you do not need to change
+
+config MTK_DCM_MT6989
+	tristate "Mediatek MT6989 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6989 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6989 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6989 dcm setting.
+	  Select "n" if you do not need to change
+
+config MTK_DCM_MT6991
+	tristate "Mediatek MT6991 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6991 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6991 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6991 dcm setting.
+	  Select "n" if you do not need to change

@@ -1,0 +1,15 @@
+#! /usr/bin/env bash
+# edit here
+# def/undef for local target
+# *** WARNING: Add enable/disable configs as newline ***
+
+AUDIO_COMMON_FEATURES="""
+# CONFIG_SND_SOC_RT5512 is not set
+# CONFIG_SND_SOC_TFA9874 is not set
+CONFIG_SND_SOC_SAMSUNG_AUDIO=m
+"""
+
+gts11u_00="""
+${AUDIO_COMMON_FEATURES}
+"""
+

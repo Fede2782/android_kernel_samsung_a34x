@@ -1,0 +1,289 @@
+#if 0 && 0
+&mt6359p_vaud18_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vsim1_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 3300000 && 3300000
+&mt6359p_vibr_reg {
+	regulator-min-microvolt = <3300000>;
+	regulator-max-microvolt = <3300000>;
+	regulator-always-on;regulator-boot-on;
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vrf12_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vusb_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vsram_proc2_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vio18_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vcamio_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vcn18_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vfe28_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vcn13_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vcn33_1_bt_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vcn33_1_wifi_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vaux18_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vsram_others_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vefuse_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vxo22_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vrfck_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vbif28_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 3000000 && 3000000
+&mt6359p_vio28_reg {
+	regulator-min-microvolt = <3000000>;
+	regulator-max-microvolt = <3000000>;
+	
+	 
+};
+#endif
+
+
+#if 0 && 0
+&mt6359p_vemc_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vcn33_2_bt_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vcn33_2_wifi_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_va12_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_va09_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vrf18_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vsram_md_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vufs_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vm18_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vbbck_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vsram_proc1_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+
+#if 0 && 0
+&mt6359p_vsim2_reg {
+	regulator-min-microvolt = <0>;
+	regulator-max-microvolt = <0>;
+	
+	 
+};
+#endif
+

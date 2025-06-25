@@ -1,0 +1,134 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Virtualization yocto host support drivers
+#
+
+config DEVICE_MODULES_ACRN_HSM
+	tristate "ACRN Hypervisor Service Module"
+	select EVENTFD
+	help
+	  ACRN Hypervisor Service Module (HSM) is a kernel module which
+	  communicates with ACRN userspace through ioctls and talks to
+	  the ACRN Hypervisor through hypercalls. HSM will only run in
+	  a privileged management VM, called Service VM, to manage User
+	  VMs and do I/O emulation. Not required for simply running
+	  under ACRN as a User VM.
+
+	  To compile as a module, choose M, the module will be called
+	  acrn. If unsure, say N.
+
+config DEVICE_MODULES_VHOST_BLK
+	tristate "Host kernel accelerator for virtio blk (EXPERIMENTAL)"
+	depends on BLOCK
+	select VHOST
+	help
+	  This kernel module can be loaded in host kernel to accelerate
+	  guest block with virtio_blk. Not to be confused with virtio_blk
+	  module itself which needs to be loaded in guest kernel.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called vhost_blk.
+
+config DEVICE_MODULES_VHOST_UART
+	tristate "Host kernel accelerator for virtio uart (EXPERIMENTAL)"
+	select VHOST
+	help
+	  This kernel module can be loaded in host kernel to accelerate
+	  guest uart with virtio_console. Not to be confused with virtio_console
+	  module itself which needs to be loaded in guest kernel.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called vhost_uart.
+
+config VHOST_CMDQ
+	tristate "hypervisor vhost cmdq driver"
+	help
+	  This extension enable vhost cmdq driver, vhost cmdq driver
+	  for hypervisor project. The vhost driver is located at virt/grt,
+	  Also used to isolate the conflicting part of the cmdq driver
+	  on main project, default is n.
+
+config VHOST_DMABUF
+	tristate "vhost_dmabuf driver used to share buffers between dual systems"
+	help
+	  This kernel module can be loaded into the host kernel to import the
+	  virtual address (va) passed by the guest and export a vhost file
+	  descriptor (fd) to provide users with shared buffer capabilities.
+
+	  To compile as a module, choose M, the module will be called
+	  acrn. If unsure, say N.
+
+config VHOST_VDMABUF
+	tristate "hypervisor vhost vdmabuf driver"
+	help
+	  This extension enable vhost vdmabuf driver, vhost vdmabuf driver
+	  for hypervisor project. The vhost driver is located at virt/grt.
+	  The guest-os will share buf with host-os via buf-id. This driver
+	  import the buffer from guest-os and return a dmabuf fd to userspace.
+	  If unsure, say N.
+
+config GRT_HYPERVISOR
+	tristate "hypervisor driver config"
+	help
+	  This config enable hypervisor driver for hypervisor project, GRT_HYPERVISOR
+	  can be used to distinguish hypervisor yocto OS and yocto OS. This config
+	  is used in vhost OS(hypervisor yocto OS), default is n, to compile driver
+	  as a module, choose M here.
+
+config DEVICE_MODULES_VHOST_ADSP
+	tristate "Host kernel accelerator for virtio blk (EXPERIMENTAL)"
+	depends on BLOCK
+	select VHOST
+	help
+	  This kernel module can be loaded in host kernel to accelerate
+	  guest block with virtio_adsp. Not to be confused with virtio_adsp
+	  module itself which needs to be loaded in guest kernel.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called vhost_adsp.
+
+config VHOST_IOMMU
+	tristate "hypervisor vhost iommu driver"
+	help
+	  This extension enable vhost iommu driver, vhost iommu driver
+	  for hypervisor project. The vhost driver is located at virt/grt,
+	  Also used to isolate the conflicting part of the iommu driver
+	  on main project, default is n.
+
+config VHOST_APU
+       tristate "Host kernel accelerator for virtio apu (EXPERIMENTAL)"
+       select VHOST
+       help
+         This kernel module can be loaded in host kernel to accelerate
+         guest block with virtio_apu. Not to be confused with virtio_apu
+         module itself which needs to be loaded in guest kernel.
+
+         To compile this driver as a module, choose M here: the module will
+         be called vhost_apu.
+
+config DEVICE_MODULES_VHOST_SPI
+	tristate "Hypervisor for virtio spi"
+	select VHOST
+	help
+	  This kernel module can be loaded in host kernel to accelerate
+	  guest block with virtio_spi. Not to be confused with virtio_spi
+	  module itself which needs to be loaded in guest kernel.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called vhost_spi.
+
+config VHOST_MMDVFS
+	tristate "hypervisor vhost mmdvfs driver"
+	help
+	  This extension enable vhost mmdvfs driver, vhost mmdvfs driver enable
+	  for hypervisor project. The vhost driver is located at virt/grt,
+	  Also used to isolate the conflicting part of the mmdvfs driver
+	  on main project, default is n.
+
+config VHOST_DISP
+	tristate "hypervisor vhost disp driver"
+	help
+	  This extension enable vhost disp driver, vhost disp driver
+	  for hypervisor project. The vhost driver is located at virt/grt,
+	  Also used to isolate the conflicting part of the disp driver
+	  on main project, default is n.

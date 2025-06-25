@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# This file should be included by external modules that need to link to this
+# project.
+
+DEVICE_MODULES_SYMBOL := $(OUT_DIR)/$(DEVICE_MODULES_REL_DIR)/Module.symvers
+ifneq ($(wildcard $(DEVICE_MODULES_SYMBOL)),)
+EXTRA_SYMBOLS += $(DEVICE_MODULES_SYMBOL)
+else
+EXTRA_SYMBOLS += $(OUT_DIR)/$(subst kernel/,,$(DEVICE_MODULES_REL_DIR))/Module.symvers
+endif

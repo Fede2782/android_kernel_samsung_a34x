@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config DEVICE_MODULES_STMMAC_ETH
+	tristate "STMicroelectronics Multi-Gigabit Ethernet driver"
+	depends on HAS_IOMEM && HAS_DMA
+	depends on PTP_1588_CLOCK_OPTIONAL
+	select MII
+	select PCS_XPCS
+	select PAGE_POOL
+	select PHYLINK
+	select CRC32
+	select RESET_CONTROLLER
+	help
+	  This is the driver for the Ethernet IPs built around a
+	  Synopsys IP Core.
+
+if DEVICE_MODULES_STMMAC_ETH
+
+config DEVICE_MODULES_STMMAC_SELFTESTS
+	bool "Support for STMMAC Selftests"
+	depends on INET
+	depends on DEVICE_MODULES_STMMAC_ETH
+	default n
+	help
+	  This adds support for STMMAC Selftests using ethtool. Enable this
+	  feature if you are facing problems with your HW and submit the test
+	  results to the netdev Mailing List.
+
+config DEVICE_MODULES_STMMAC_PLATFORM
+	tristate "STMMAC Platform bus support"
+	depends on DEVICE_MODULES_STMMAC_ETH
+	select MFD_SYSCON
+	default y
+	help
+	  This selects the platform specific bus support for the stmmac driver.
+	  This is the driver used on several SoCs:
+	  STi, Allwinner, Amlogic Meson, Altera SOCFPGA.
+
+	  If you have a controller with this interface, say Y or M here.
+
+	  If unsure, say N.
+
+if DEVICE_MODULES_STMMAC_PLATFORM
+
+config DEVICE_MODULES_DWMAC_MEDIATEK
+	tristate "MediaTek MT27xx GMAC support"
+	depends on OF && (ARCH_MEDIATEK || COMPILE_TEST)
+	help
+	  Support for MediaTek GMAC Ethernet controller.
+
+	  This selects the MT2712 SoC support for the stmmac driver.
+
+config DEVICE_MODULES_SGMII_PWR
+	tristate "SGMII support"
+	depends on OF && ARCH_MEDIATEK
+	help
+	  Enable MediaTek platform SGMII for fast Ethernet transmission.
+	  Necessary for MediaTek Ethernet systems.
+	  Provides MT8678 SGMII driver support.
+
+	  This selects the MT8678 SGMII support.
+
+endif
+
+endif

@@ -1,0 +1,72 @@
+config MEDIATEK_CPU_DVFS
+	tristate "Mediatek cpu dvfs debug driver"
+	help
+	  This kernel config can be used to debug cpu dvfs (dynamic voltage
+	  and frequency scaling) for Mediatek cpufreq driver.
+	  When enable this option, we can dump the dvfs log and check
+	  physical frequency
+          If unsure, say N.
+
+config MTK_DVFS_MT6768
+	tristate "Specify Mediatek CPU_DVFS Platform is MT6768"
+	depends on MEDIATEK_CPU_DVFS
+	help
+	  Select MediaTek Low Power Module Platform is MT6768
+	  for power management.
+	  Set Y to select this feature for specific platform-MT6768.
+	  If unsure, set N to disable.
+
+config MTK_DVFS_MT6739
+	tristate "Specify Mediatek CPU_DVFS Platform is MT6739"
+	depends on MEDIATEK_CPU_DVFS
+	help
+	  Select MediaTek Low Power Module Platform is MT6739
+	  for power management.
+	  Set Y to select this feature for specific platform-MT6739.
+	  If unsure, set N to disable.
+
+config MEDIATEK_CPU_DVFS_MT6761
+	tristate "Specify Mediatek CPU_DVFS Platform is MT6761"
+	depends on MEDIATEK_CPU_DVFS
+	help
+	  Select MediaTek Low Power Module Platform is MT6761
+	  for power management.
+	  Set Y to select this feature for specific platform-MT6761.
+	  If unsure, set N to disable.
+
+config MEDIATEK_CPU_DVFS_MT6765
+	tristate "Specify Mediatek CPU_DVFS Platform is MT6765"
+	depends on MEDIATEK_CPU_DVFS
+	help
+	  Select MediaTek Low Power Module Platform is MT6765
+	  for power management.
+	  Set Y to select this feature for specific platform-MT6765.
+	  If unsure, set N to disable.
+
+config MEDIATEK_CPU_DVFS_MT6877
+	tristate "Specify Mediatek CPU_DVFS Platform is MT6877"
+	depends on MEDIATEK_CPU_DVFS
+	help
+	  Select MediaTek Low Power Module Platform is MT6877
+	  for power management.
+	  Set Y to select this feature for specific platform-MT6877.
+	  If unsure, set N to disable.
+
+config MEDIATEK_CPUFREQ_DEBUG_SUPPORT_LEGACY
+    bool "Disable mediatek cpu dvfs debug function for legacy chips"
+    help
+      This option disables the debug feature of cpu dvfs
+	  for Mediatek cpufreq driver.
+      It's applied when the platform doesn't support debug nodes.
+      The related debug files path are located at
+	  'kernel_modules/cpufreq_cus' and 'kernel_modules/cpufreq_int'.
+      If unsure, say N.
+
+config MTK_CPU_DVFS_ENG_DEBUG
+	bool "Enable certain cpu dvfs debug nodes for eng build"
+	depends on MEDIATEK_CPU_DVFS
+	help
+	 This option enables certain CPU DVFS (Dynamic Voltage and Frequency Scaling) debug nodes
+	 specifically for engineering builds.
+	 Select "y" to enable these debug nodes.
+	 Select "n" if you are unsure or do not need these additional debug features.

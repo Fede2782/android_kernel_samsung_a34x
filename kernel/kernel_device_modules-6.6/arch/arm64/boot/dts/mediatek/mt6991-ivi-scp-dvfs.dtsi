@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2023 MediaTek Inc.
+ * Author: zZhaoqing Jiu <zhaoqing.jiu@mediatek.com>
+ */
+
+&scp_dvfs {
+	dvfs-opp =
+	/* vscp		vsram	dvfsrc_opp	spm_vcore	freq mux resource */
+	< 575000	750000	0xff		0xfff		200  0	0x0>,
+	< 650000	750000	0xff		0xfff		400  0	0x0>,
+	< 750000	750000	0xff		0xfff		650  0	0x0>;
+};

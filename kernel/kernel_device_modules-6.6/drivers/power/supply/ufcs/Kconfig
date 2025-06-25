@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config UFCS_CLASS
+	tristate "Universal Fast Charging class"
+	depends on MTK_CHARGER
+	select CRYPTO
+	select CRYPTO_SHA256
+	help
+	  UFCS class provide the basic UFCS state machine and port connection
+	  for the usage.
+	  Make a universal standards fast charging protocol and help to
+	  improve the third party cerification and identification.
+
+if UFCS_CLASS
+
+config UFCS_MT6379
+	tristate "MT6379 UFCS phy"
+	help
+	  Say Y or M here to enable MT6379 UFCS PHY support.
+	  Register the UFCS class port and implement hal ops.
+	  Also handle the event from charger port and notify to
+	  UFCS state machine.
+
+endif # UFCS_CLASS

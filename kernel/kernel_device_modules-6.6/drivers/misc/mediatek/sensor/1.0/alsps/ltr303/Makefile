@@ -1,0 +1,6 @@
+#include $(DEVICE_MODULES_PATH)/drivers/misc/mediatek/Makefile.custom
+ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/sensor/1.0/alsps/inc
+ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/sensor/1.0/hwmon/include
+
+obj-$(CONFIG_MTK_SENSOR_SUPPORT)	+=  ltr303.o
+

@@ -1,0 +1,379 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2024 MediaTek Inc.
+ */
+
+/ {
+	soc {
+		funnel1: funnel@d041000 {
+			compatible = "arm,coresight-dynamic-funnel", "arm,primecell";
+			reg = <0 0x0d041000 0 0x1000>;
+
+			status = "ok";
+
+			clocks = <&clk26m>;
+			clock-names = "apb_pclk";
+
+			in-ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					funnel1_in0: endpoint {
+						remote-endpoint = <&btts_out>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+					funnel1_in1: endpoint {
+						remote-endpoint = <&btm0_out>;
+					};
+				};
+
+				port@2 {
+					reg = <2>;
+					funnel1_in2: endpoint {
+						remote-endpoint = <&btm1_out>;
+					};
+				};
+
+				port@3 {
+					reg = <3>;
+					funnel1_in3: endpoint {
+						remote-endpoint = <&btm2_out>;
+					};
+				};
+
+				port@6 {
+					reg = <6>;
+					funnel1_in6: endpoint {
+						remote-endpoint = <&funnel0_out>;
+					};
+				};
+
+				port@7 {
+					reg = <7>;
+					funnel1_in7: endpoint {
+						remote-endpoint = <&gpu_etm_out>;
+					};
+				};
+			};
+
+			out-ports {
+				port {
+					funnel1_out: endpoint {
+						remote-endpoint = <&etf_in>;
+					};
+				};
+			};
+		};
+
+		etf: etf@d044000 {
+			compatible = "arm,coresight-tmc", "arm,primecell";
+			reg = <0 0x0d044000 0 0x1000>;
+
+			clocks = <&clk26m>;
+			clock-names = "apb_pclk";
+
+			status = "ok";
+
+			in-ports {
+				port {
+					etf_in: endpoint {
+						remote-endpoint = <&funnel1_out>;
+					};
+				};
+			};
+
+			out-ports {
+				port {
+					etf_out: endpoint {
+						remote-endpoint = <&etr_in>;
+					};
+				};
+			};
+		};
+
+		etr: etr@d07d000 {
+			compatible = "arm,coresight-tmc", "arm,primecell";
+			reg = <0 0x0d07d000 0 0x1000>;
+
+			clocks = <&clk26m>;
+			clock-names = "apb_pclk";
+
+			status = "ok";
+
+			in-ports {
+				port {
+					etr_in: endpoint {
+						remote-endpoint = <&etf_out>;
+					};
+				};
+			};
+		};
+
+		btts: btts {
+			compatible = "arm,coresight-dummy-source";
+
+			status = "ok";
+
+			out-ports {
+				port {
+					btts_out: endpoint {
+						remote-endpoint = <&funnel1_in0>;
+					};
+				};
+			};
+		};
+
+		btm0: btm0 {
+			compatible = "arm,coresight-dummy-source";
+
+			status = "ok";
+
+			out-ports {
+				port {
+					btm0_out: endpoint {
+						remote-endpoint = <&funnel1_in1>;
+					};
+				};
+			};
+		};
+
+		btm1: btm1 {
+			compatible = "arm,coresight-dummy-source";
+
+			status = "ok";
+
+			out-ports {
+				port {
+					btm1_out: endpoint {
+						remote-endpoint = <&funnel1_in2>;
+					};
+				};
+			};
+		};
+
+		btm2: btm2 {
+			compatible = "arm,coresight-dummy-source";
+
+			status = "ok";
+
+			out-ports {
+				port {
+					btm2_out: endpoint {
+						remote-endpoint = <&funnel1_in3>;
+					};
+				};
+			};
+		};
+
+		gpu_etm: gpu-etm {
+			compatible = "arm,coresight-dummy-source";
+
+			status = "ok";
+
+			out-ports {
+				port {
+					gpu_etm_out: endpoint {
+						remote-endpoint = <&funnel1_in7>;
+					};
+				};
+			};
+		};
+
+		ete0: ete0 {
+			compatible = "arm,embedded-trace-extension";
+			cpu = <&cpu0>;
+
+			status = "ok";
+
+			out-ports {
+				port {
+					ete0_out: endpoint {
+						remote-endpoint = <&funnel0_in0>;
+					};
+				};
+			};
+		};
+
+		ete1: ete1 {
+			compatible = "arm,embedded-trace-extension";
+			cpu = <&cpu1>;
+
+			status = "ok";
+
+			out-ports {
+				port {
+					ete1_out: endpoint {
+						remote-endpoint = <&funnel0_in1>;
+					};
+				};
+			};
+		};
+
+		ete2: ete2 {
+			compatible = "arm,embedded-trace-extension";
+			cpu = <&cpu2>;
+
+			status = "ok";
+
+			out-ports {
+				port {
+					ete2_out: endpoint {
+						remote-endpoint = <&funnel0_in2>;
+					};
+				};
+			};
+		};
+
+		ete3: ete3 {
+			compatible = "arm,embedded-trace-extension";
+			cpu = <&cpu3>;
+
+			status = "ok";
+
+			out-ports {
+				port {
+					ete3_out: endpoint {
+						remote-endpoint = <&funnel0_in3>;
+					};
+				};
+			};
+		};
+
+		ete4: ete4 {
+			compatible = "arm,embedded-trace-extension";
+			cpu = <&cpu4>;
+
+			status = "ok";
+
+			out-ports {
+				port {
+					ete4_out: endpoint {
+						remote-endpoint = <&funnel0_in4>;
+					};
+				};
+			};
+		};
+
+		ete5: ete5 {
+			compatible = "arm,embedded-trace-extension";
+			cpu = <&cpu5>;
+
+			status = "ok";
+
+			out-ports {
+				port {
+					ete5_out: endpoint {
+						remote-endpoint = <&funnel0_in5>;
+					};
+				};
+			};
+		};
+
+		ete6: ete6 {
+			compatible = "arm,embedded-trace-extension";
+			cpu = <&cpu6>;
+
+			status = "ok";
+
+			out-ports {
+				port {
+					ete6_out: endpoint {
+						remote-endpoint = <&funnel0_in6>;
+					};
+				};
+			};
+		};
+
+		ete7: ete7 {
+			compatible = "arm,embedded-trace-extension";
+			cpu = <&cpu7>;
+
+			status = "ok";
+
+			out-ports {
+				port {
+					ete7_out: endpoint {
+						remote-endpoint = <&funnel0_in7>;
+					};
+				};
+			};
+		};
+
+		funnel0: funnel0 {
+			compatible = "arm,coresight-static-funnel";
+
+			in-ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					funnel0_in0: endpoint {
+						remote-endpoint = <&ete0_out>;
+					};
+				};
+				port@1 {
+					reg = <1>;
+					funnel0_in1: endpoint {
+						remote-endpoint = <&ete1_out>;
+					};
+				};
+				port@2 {
+					reg = <2>;
+					funnel0_in2: endpoint {
+						remote-endpoint = <&ete2_out>;
+					};
+				};
+				port@3 {
+					reg = <3>;
+					funnel0_in3: endpoint {
+						remote-endpoint = <&ete3_out>;
+					};
+				};
+				port@4 {
+					reg = <4>;
+					funnel0_in4: endpoint {
+						remote-endpoint = <&ete4_out>;
+					};
+				};
+				port@5 {
+					reg = <5>;
+					funnel0_in5: endpoint {
+						remote-endpoint = <&ete5_out>;
+					};
+				};
+				port@6 {
+					reg = <6>;
+					funnel0_in6: endpoint {
+						remote-endpoint = <&ete6_out>;
+					};
+				};
+				port@7 {
+					reg = <7>;
+					funnel0_in7: endpoint {
+						remote-endpoint = <&ete7_out>;
+					};
+				};
+			};
+
+			out-ports {
+				port {
+					funnel0_out: endpoint {
+						remote-endpoint = <&funnel1_in6>;
+					};
+				};
+			};
+		};
+
+		trbe {
+			compatible = "arm,trace-buffer-extension";
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_PPI 4 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+	};
+};

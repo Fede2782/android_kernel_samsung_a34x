@@ -1,0 +1,94 @@
+config MTK_AUDIODSP_SUPPORT
+	tristate "MTK Audio DSP Support"
+	help
+	  AUDIO_DSP is a MediaTek in-house DSP which can do
+	  different audio process.
+	  Set Y to enable this feature.
+	  If unsure, Set N to stay with legancy feature.
+
+config MTK_ADSP_V0
+	tristate "MTK Audio DSP Generation 0"
+	depends on MTK_AUDIODSP_SUPPORT
+	help
+	  This kernel config can be used to enable Audio DSP
+	  Generation 0 driver for specific plaforms.
+	  it need to enable MTK_AUDIODSP_SUPPORT for basic functions.
+	  Set Y to enable this feature.
+	  If unsure, say N.
+
+config MTK_ADSP_V1
+	tristate "MTK Audio DSP Generation 1"
+	depends on MTK_AUDIODSP_SUPPORT
+	help
+	  This kernel config can be used to enable Audio DSP
+	  Generation 1 driver for specific plaforms.
+	  it need to enable MTK_AUDIODSP_SUPPORT for basic functions.
+	  Set Y to enable this feature.
+	  If unsure, say N.
+
+config MTK_ADSP_V2
+	tristate "MTK ADSP DSP Generation 2"
+	depends on MTK_AUDIODSP_SUPPORT
+	help
+	  This kernel config can be used to enable Audio DSP
+	  Generation 2 driver for specific plaforms.
+	  it need to enable MTK_AUDIODSP_SUPPORT for basic functions.
+	  Set Y to enable this feature.
+	  If unsure, say N.
+
+config MTK_AUDIODSP_DEBUG_SUPPORT
+	bool "MTK Audio DSP Debug support"
+	help
+	  This is a debug interface for Audio DSP
+	  Set Y to enable this feature.
+	  Set N to disable this feature.
+	  If unsure, Set N to disable it.
+
+config MTK_ADSP_AUTO_HFP_CLIENT_SUPPORT
+	tristate "MTK AUDIODSP AUTO HFP CLIENT SUPPORT"
+	depends on MTK_AUDIODSP_SUPPORT
+	help
+	  This kernel config can be used to enable Audio DSP
+	  HFP client feature.
+	  It needs to enable MTK_AUDIODSP_SUPPORT for basic functions.
+	  Set Y to enable this feature.
+	  If unsure, say N.
+
+config MTK_ADSP_AUTO_ANC_SUPPORT
+	tristate "MTK AUDIODSP AUTO ANC SUPPORT"
+	depends on MTK_AUDIODSP_SUPPORT
+	help
+	  This kernel config can be used to enable Audio DSP
+	  ANC feature.
+	  It needs to enable MTK_AUDIODSP_SUPPORT for basic functions.
+	  Set Y to enable this feature.
+	  If unsure, say N.
+
+config MTK_ADSP_AUTO_EXTSTREAM_SUPPORT
+	tristate "MTK AUDIODSP AUTO EXTSTREAM SUPPORT"
+	depends on MTK_AUDIODSP_SUPPORT
+	help
+	  This kernel config can be used to enable Audio DSP
+	  EXTSTREAM feature.
+	  It needs to enable MTK_AUDIODSP_SUPPORT for basic functions.
+	  Set Y to enable this feature.
+	  If unsure, say N.
+
+config SND_SOC_MTK_AUTO_AUDIO_DSP
+	tristate "Auto Audio DSP support"
+	help
+	  This add automotive adsp base on audio dsp. This enable
+	  the function for automotive playback
+	  to audiodsp.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config MTK_ADSP_AUTO_MULTI_PLAYBACK_SUPPORT
+	tristate "Auto Audio DSP support"
+	depends on SND_SOC_MTK_AUTO_AUDIO_DSP
+	help
+	  This kernel config can be used to enable Audio DSP
+	  sub_playback tasks for multi_playback.
+	  It needs to enable MTK_AUDIODSP_SUPPORT & SND_SOC_MTK_AUTO_AUDIO_DSP for basic functions.
+	  Set Y to enable this feature.
+	  If unsure, say N.

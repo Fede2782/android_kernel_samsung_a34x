@@ -1,0 +1,43 @@
+if DRM_MEDIATEK_V2 && !MTK_FB && SMCDSD_PANEL
+
+config SMCDSD_LCD_DEBUG
+	bool "Support LCD_DEBUG"
+	depends on DEBUG_FS && !SAMSUNG_PRODUCT_SHIP
+	default n
+
+config SMCDSD_DPUI
+	bool "Support DPUI"
+
+config SMCDSD_MDNIE
+	bool "Support MDNIE"
+
+config SMCDSD_DOZE
+	bool "Support DOZE"
+
+config SMCDSD_MASK_LAYER
+	bool "Support mask layer"
+
+config SMCDSD_DYNAMIC_MIPI
+	bool "Support dynamic mipi"
+
+config SMCDSD_PANEL_M53X
+	bool "Support SMCDSD_PANEL_M53X driver"
+	select SMCDSD_LCD_DEBUG
+	select SMCDSD_DPUI
+	select SMCDSD_MDNIE
+	select SMCDSD_DOZE
+	select SMCDSD_DYNAMIC_MIPI
+	default n
+
+config SMCDSD_PANEL_A34X
+	bool "Support SMCDSD_PANEL_A34X driver"
+	select SMCDSD_LCD_DEBUG
+	select SMCDSD_DPUI
+	select SMCDSD_MDNIE
+	select SMCDSD_DOZE
+	select SMCDSD_MASK_LAYER
+	select SMCDSD_DYNAMIC_MIPI
+	default n
+
+endif # DRM_MEDIATEK_V2 && !MTK_FB && SMCDSD_PANEL
+

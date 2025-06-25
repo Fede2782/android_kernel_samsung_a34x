@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2023 MediaTek Inc.
+ * Author: Xiufeng Li <xiufeng.li@mediatek.com>
+ */
+
+&ivi_disable_unused {
+	status = "okay";
+	disable-unused-clk-ivi@e4 {
+		compatible = "mediatek,clk-disable-unused";
+		reg = <0xe4>;
+		clocks = <&ivi_cksys_clk CLK_CK_SGMII0_REF_325M_SEL>,
+			<&ivi_cksys_clk CLK_CK_SGMII0_REG_SEL>,
+			<&ivi_cksys_clk CLK_CK_SGMII1_REF_325M_SEL>,
+			<&ivi_cksys_clk CLK_CK_SGMII1_REG_SEL>,
+			<&ivi_cksys_clk CLK_CK_GMAC_312P5M_SEL>,
+			<&ivi_cksys_clk CLK_CK_GMAC_125M_SEL>,
+			<&ivi_cksys_clk CLK_CK_GMAC_RMII_SEL>,
+			<&ivi_cksys_clk CLK_CK_GMAC_62P4M_PTP_SEL>,
+			<&ivi_cksys_clk CLK_CK_GMAC_312P5M_SEL_V0>,
+			<&ivi_cksys_clk CLK_CK_GMAC_312P5M_SEL_V1>,
+			<&ivi_cksys_clk CLK_CK_GMAC_125M_SEL_V0>,
+			<&ivi_cksys_clk CLK_CK_GMAC_125M_SEL_V1>,
+			<&ivi_cksys_clk CLK_CK_GMAC_RMII_SEL_V0>,
+			<&ivi_cksys_clk CLK_CK_GMAC_RMII_SEL_V1>,
+			<&ivi_cksys_clk CLK_CK_GMAC_62P4M_PTP_SEL_V0>,
+			<&ivi_cksys_clk CLK_CK_GMAC_62P4M_PTP_SEL_V1>,
+			<&ivi_cksys2_clk CLK_CK2_DVO_SEL>,
+			<&ivi_cksys2_clk CLK_CK2_DVO_FAVT_SEL>;
+	};
+	disable-unused-pd-peri-ether@e5 {
+		compatible = "mediatek,scpsys-disable-unused";
+		reg = <0xe5>;
+		power-domains = <&ivi_scpsys MT6991_POWER_DOMAIN_PERI_ETHER>;
+	};
+	disable-unused-pd-hsgmii0@e6 {
+		compatible = "mediatek,scpsys-disable-unused";
+		reg = <0xe6>;
+		power-domains = <&ivi_scpsys MT6991_POWER_DOMAIN_HSGMII0>;
+	};
+	disable-unused-pd-hsgmii1@e7 {
+		compatible = "mediatek,scpsys-disable-unused";
+		reg = <0xe7>;
+		power-domains = <&ivi_scpsys MT6991_POWER_DOMAIN_HSGMII1>;
+	};
+};

@@ -1,0 +1,7 @@
+menuconfig TOUCHSCREEN_ILITEK
+	tristate "ilitek touchscreen"
+	help
+	  Say Y here if you have a ilitek
+	  to your system.
+	  If build module, say M.
+	  If unsure, say N.

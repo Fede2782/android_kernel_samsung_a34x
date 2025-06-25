@@ -1,0 +1,47 @@
+config TOUCHSCREEN_BOTAI_TOUCH_ONE
+	tristate "GT9XX_ONE touchscreen"
+	help
+	  Say Y here if you have a GT9XX
+	  to your system.
+	  If build module, say M.
+	  If unsure, say N.
+
+config TOUCHSCREEN_BOTAI_TOUCH_TWO
+	tristate "GT9XX_TWO touchscreen"
+	help
+	  Say Y here if you have a GT9XX
+	  to your system.
+	  If build module, say M.
+	  If unsure, say N.
+
+config TOUCHSCREEN_BOTAI_TOUCH_THREE
+	tristate "GT9XX_THREE touchscreen"
+	help
+	  Say Y here if you have a GT9XX
+	  to your system.
+	  If build module, say M.
+	  If unsure, say N.
+
+config TOUCHSCREEN_BOTAI_TOUCH_FOUR
+	tristate "GT9XX_FOUR touchscreen"
+	help
+	  Say Y here if you have a GT9XX
+	  to your system.
+	  If build module, say M.
+	  If unsure, say N.
+
+config TOUCHSCREEN_BOTAI_TOUCH_FIVE
+	tristate "GT9XX_FIVE touchscreen"
+	help
+	  Say Y here if you have a GT9XX
+	  to your system.
+	  If build module, say M.
+	  If unsure, say N.
+
+config TOUCHSCREEN_BOTAI_TOUCH_SIX
+	tristate "GT9XX_SIX touchscreen"
+	help
+	  Say Y here if you have a GT9XX
+	  to your system.
+	  If build module, say M.
+	  If unsure, say N.

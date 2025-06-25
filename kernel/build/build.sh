@@ -1,0 +1,1 @@
+../kernel_device_modules-6.6/scripts/legacy_build.sh

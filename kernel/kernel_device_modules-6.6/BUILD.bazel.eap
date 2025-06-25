@@ -1,0 +1,80 @@
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+
+load(
+    "//build/kernel/kleaf:constants.bzl",
+    "DEFAULT_GKI_OUTS",
+)
+load(
+    "//build/kernel/kleaf:kernel.bzl",
+    "kernel_build",
+    "kernel_module",
+    "kernel_modules_install",
+)
+load(
+    "//build/bazel_common_rules/dist:dist.bzl",
+    "copy_to_dist_dir",
+)
+load("//build/bazel_mgk_rules:mgk.bzl", "mgk_build_config")
+
+name = "mgk_64_k66"
+build = "no_device_ko"
+mgk_defconfig = "mtk_defconfig"
+kleaf_modules = [
+    "//vendor/mediatek/kernel_modules/wwan/pwrctl/common:wwan_gpio_pwrctl_ack",
+    "//vendor/mediatek/kernel_modules/wwan/tmi3:tmi3_ack",
+]
+
+filegroup(
+    name = "{}_sources".format(name),
+    srcs = glob([
+       "arch/arm64/configs/*",
+       "kernel/configs/**",
+    ]),
+)
+
+mgk_build_config(
+    name = "{}_build_config".format(build),
+    kernel_dir = "common",
+    device_modules_dir = "kernel_device_modules",
+    defconfig = mgk_defconfig,
+    defconfig_overlays = None,
+    build_config_overlays = [],
+    build_variant = build,
+    kleaf_modules = kleaf_modules,
+    gki_mixed_build = True,
+)
+
+kernel_build(
+    name = "{}.{}".format(name, build),
+    srcs = ["//common:kernel_aarch64_sources"] + [
+       ":{}_sources".format(name),
+    ],
+    outs = [
+       ".config",
+    ],
+    build_config = ":{}_build_config".format(build),
+    make_goals = [
+       "modules",
+    ],
+    strip_modules = False,
+    base_kernel = "//common:kernel_aarch64_debug",
+)
+
+kernel_modules_install(
+    name = "{}_modules_install.{}".format(name, build),
+    kernel_modules = ["{}.{}.{}.{}".format(m, name, "6.6", build) for m in kleaf_modules],
+    kernel_build = ":{}.{}".format(name, build),
+)
+
+copy_to_dist_dir(
+    name = "{}_dist.{}".format(name, build),
+    data = ["//common:kernel_aarch64_debug"] + [
+        ":{}.{}".format(name, build),
+        ":{}_modules_install.{}".format(name, build),
+    ],
+    flat = False,
+)

@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+#include <dt-bindings/phy/phy.h>
+&i2c5 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	sgm41516d:sgm41516d@6B{
+		compatible = "mediatek,sgm41516d";
+		reg = <0x6B>;
+		charger_name = "primary_chg";
+		/* add for interrupt start */
+		sgm41516d,intr_gpio_num = <4>; /* direct defined GPIO num */
+		sgm41516d,intr_gpio = <&pio 4 0x0>; /* GPIO */
+		/*add for interrupt end   */
+		status = "okay";
+		interrupts-extended = <&pio 4 IRQ_TYPE_EDGE_FALLING>;
+		phys = <&u2port0 PHY_TYPE_USB2>;
+		phy-names = "usb2-phy";
+		usb = <&usb>;
+		otg_vbus_sgm41516d: usb-otg-vbus	{
+				regulator-compatible = "usb-otg-vbus";
+				regulator-name = "usb-otg-vbus";
+				regulator-min-microvolt = <4850000>;
+				regulator-max-microvolt = <5300000>;
+				regulator-min-microamp = <500000>;
+				regulator-max-microamp = <1200000>;
+			};
+	};
+};
+
+&charger {
+	charger = <&sgm41516d>;
+};
+
+&mtk_gauge {
+	charger = <&sgm41516d>;
+};
+
+&mtk_chrdet {
+	bc12 = <&sgm41516d>;
+};

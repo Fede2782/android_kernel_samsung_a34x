@@ -1,0 +1,31 @@
+config MTK_AUDIO_IPI
+	tristate "Enable MTK audio ipi support"
+	depends on MTK_AUDIODSP_SUPPORT || MTK_SCP_AUDIO
+	default m
+	help
+	  This option enables MTK audio ipi modules to communicate
+	  with subsystem.
+	  This option depends on MediaTek in-house audio DSP support
+	  or audio feature support on MediaTek in-house DSP.
+
+config DEVICE_MODULES_VHOST_ADSP
+	tristate "Host kernel accelerator for virtio blk (EXPERIMENTAL)"
+	depends on BLOCK
+	select VHOST
+	help
+	  This kernel module can be loaded in host kernel to accelerate
+	  guest block with virtio_adsp. Not to be confused with virtio_adsp
+	  module itself which needs to be loaded in guest kernel.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called vhost_adsp.
+
+config ADSP_VOIP_LEGACY
+	bool "Enable voip DL and UL support on same coreB"
+	depends on MTK_AUDIODSP_SUPPORT || CONFIG_MTK_AUDIO_IPI
+	default n
+	help
+	  Enable support for VoIP Downlink (DL) and Uplink (UL) on the same core for legacy chips with dual-core ADSP.
+	  This option is necessary for older architectures where VoIP DL and UL cannot be handled on separate cores.
+	  Newer architectures support VoIP DL and UL on separate cores, but this feature is not available on older chips.
+	  If you are unsure, select "N".

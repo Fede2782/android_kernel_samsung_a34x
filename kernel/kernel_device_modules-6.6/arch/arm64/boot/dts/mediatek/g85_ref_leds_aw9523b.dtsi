@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2022 MediaTek Inc.
+ */
+
+&i2c0 {
+	status = "okay";
+	aw9523b_led@58 {
+		compatible = "awinic,aw9523b";
+		reg = <0x5B>; //addr
+		reset-gpio = <&pio 92 0>; //rst gpio
+		fpc-gpio = <&pio 109 0>;
+		aw9523b,matrix_key_enable = <0>;
+		aw9523b,led_enable = <1>;
+		status = "okay";
+		pinctrl-names = "ap9325b_fpc_init", "ap9325b_fpc_low", "ap9325b_fpc_high";
+		pinctrl-0 = <&gpio109_ap9325b_fpc_init>;
+		pinctrl-1 = <&gpio109_ap9325b_fpc_low>;
+		pinctrl-2 = <&gpio109_ap9325b_fpc_high>;
+		aw9523b,led {
+			aw9523b,default_imax = <0x00>;
+			led1{
+				aw9523b,name = "Red";
+				aw9523b,idx_count = <4>;
+				aw9523b,idx = <0x02 0x05 0x0b 0x08>;
+				aw9523b,default_brightness = <0>;
+				aw9523b,max_brightness = <150>;
+			};
+			led2{
+				aw9523b,name = "Green";
+				aw9523b,idx_count = <4>;
+				aw9523b,idx = <0x01 0x04 0x07 0x09>;
+				aw9523b,default_brightness = <0>;
+				aw9523b,max_brightness = <120>;
+			};
+			led3{
+				aw9523b,name = "Blue";
+				aw9523b,idx_count = <4>;
+				aw9523b,idx = <0x00 0x03 0x06 0x0a>;
+				aw9523b,default_brightness = <0>;
+				aw9523b,max_brightness = <120>;
+			};
+			led4{
+				aw9523b,name = "Yellow"; //B=0
+				aw9523b,idx_count = <8>;
+				aw9523b,idx = <0x02 0x05 0x0b 0x08 0x01 0x04 0x07 0x09>;
+				aw9523b,default_brightness = <0>;
+				aw9523b,max_brightness = <120>;
+			};
+			led5{
+				aw9523b,name = "Purple"; //G=0 zi
+				aw9523b,idx_count = <8>;
+				aw9523b,idx = <0x02 0x05 0x0b 0x08 0x00 0x03 0x06 0x0a>;
+				aw9523b,default_brightness = <0>;
+				aw9523b,max_brightness = <120>;
+			};
+			led6{
+				aw9523b,name = "Cyan";//R=0 qing
+				aw9523b,idx_count = <8>;
+				aw9523b,idx = <0x01 0x04 0x07 0x09 0x00 0x03 0x06 0x0a>;
+				aw9523b,default_brightness = <0>;
+				aw9523b,max_brightness = <120>;
+			};
+			led7{
+				aw9523b,name = "White"; //bai
+				aw9523b,idx_count = <12>;
+				aw9523b,idx = <0x02 0x05 0x0b 0x08 0x01 0x04
+								0x07 0x09 0x00 0x03 0x06 0x0a>;
+				aw9523b,default_brightness = <0>;
+				aw9523b,max_brightness = <120>;
+			};
+		};
+	};
+};
+
+&pio {
+	gpio109_ap9325b_fpc_init: ap9325b_fpc_init {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO109__FUNC_GPIO109>;
+			input-enable;
+			bias-pull-up;
+		};
+	};
+	gpio109_ap9325b_fpc_low: ap9325b_fpc_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO109__FUNC_GPIO109>;
+			input-enable;
+			bias-pull-down;
+		};
+	};
+	gpio109_ap9325b_fpc_high: ap9325b_fpc_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO109__FUNC_GPIO109>;
+			input-enable;
+			bias-pull-up;
+		};
+	};
+};
+

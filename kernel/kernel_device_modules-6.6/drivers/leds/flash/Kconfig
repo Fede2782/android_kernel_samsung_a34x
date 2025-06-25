@@ -1,0 +1,28 @@
+config DEVICE_MODULES_LEDS_MT6370_FLASH
+	tristate "Flash LED Support for MediaTek MT6370 PMIC"
+	depends on LEDS_CLASS && OF
+	depends on LEDS_CLASS_FLASH || !LEDS_CLASS_FLASH
+	depends on V4L2_FLASH_LED_CLASS || !V4L2_FLASH_LED_CLASS
+	depends on DEVICE_MODULES_MFD_MT6370
+	help
+	  Support 2 channels and torch/strobe mode.
+	  Say Y here to enable support for
+	  MT6370_FLASH_LED device.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called "leds-mt6370-flash".
+
+config LEDS_MT6379
+	tristate "Flash LED support for Mediatek MT6379 PMIC"
+	depends on OF
+	depends on V4L2_FLASH_LED_CLASS || !V4L2_FLASH_LED_CLASS
+	depends on MFD_MT6379_I2C || MFD_MT6379_SPMI
+	help
+	  This option enables support Mediatek MT6379 flash LED controller.
+	  MT6379 integrate charger, typec, dual BMS gauge, one general
+	  Buck-Boost controller and three channels flash LED drivers. Each
+	  channel support 25mA to 400mA for torch mode and 50mA to 1500mA for
+	  strobe mode.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called leds-mt6379.

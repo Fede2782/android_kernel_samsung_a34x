@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2021 MediaTek Inc.
+ */
+
+/ {
+	mt6360_typec: type_c_port0 {
+		mt-tcpc,name = "type_c_port0"; /* tcpc_device's name */
+		/* 0: Unknown, 1: SNK, 2: SRC, 3: DRP, 4: Try.SRC, 5: Try.SNK */
+		mt-tcpc,role-def = <5>;
+		mt-tcpc,rp-level = <1>; /* 0: Default, 1: 1.5, 2: 3.0 */
+		/* 0: Never, 1: Always, 2: EMarkOnly, 3: StartOnly */
+		mt-tcpc,vconn-supply = <1>;
+		mt6360pd,intr-gpio = <&pio 24 0x0>;
+		mt6360pd,intr-gpio-num = <24>;
+		mt6360pd,pcb-gpio = <&pio 16 0x0>;
+		mt6360pd,pcb-gpio-num = <16>;
+		/* 0: gpio low as phone, 1: gpio high as phone */
+		mt6360pd,pcb-gpio-polarity = <0>;
+		interrupt-parent = <&mt6360_pmu>;
+		interrupts = <64 0>;
+		interrupt-names = "usbid_evt";
+		charger = <&mt6360_chg>;
+		pd-data {
+			pd,vid = <0x29cf>;
+			pd,pid = <0x6360>;
+			pd,source-cap-ext = /bits/ 8 <0xcf 0x29 0x60 0x63
+						      0x00 0x00 0x00 0x00
+						      0x00 0x00 0x00 0x00
+						      0x00 0x00 0x00 0x00
+						      0x00 0x00 0x00 0x00
+						      0x00 0x00 0x01 0x07
+						      0x00>;
+			pd,sink-cap-ext = /bits/ 8 <0xcf 0x29 0x60 0x63
+						    0x00 0x00 0x00 0x00
+						    0x00 0x00 0x01 0x00
+						    0x00 0x00 0x00 0x00
+						    0x01 0x0b 0x01 0x0a
+						    0x0a 0x00 0x00 0x00>;
+			pd,mfrs = "RichtekTCPC";
+
+			/*
+			 *	VSAFE5V = 0, MAX_POWER = 1, CUSTOM = 2,
+			 *	MAX_POWER_LV = 0x21, MAX_POWER_LVIC = 0x31
+			 *	MAX_POWER_HV = 0x41, MAX_POWER_HVIC = 0x51
+			 */
+			pd,charging-policy = <0x31>;
+
+			pd,source-pdo-size = <1>;
+			pd,source-pdo-data = <0x00019096>; /* 5V, 1500 mA */
+			pd,sink-pdo-size = <1>;
+			pd,sink-pdo-data = <0x000190c8>;
+
+			/*
+			 * No DP, host + device
+			 *	pd,id-vdo-size = <6>;
+			 *	pd,id-vdo-data = <0xd14029cf 0x0 0x63600000
+						  0x61000000 0x0 0x41000000>;
+			 * With DP Sink capability
+			 *	pd,id-vdo-size = <6>;
+			 *	pd,id-vdo-data = <0xd54029cf 0x0 0x63600000
+						  0x61000000 0x0 0x41000000>;
+			 */
+
+			pd,id-vdo-size = <6>;
+			pd,id-vdo-data = <0xd14029cf 0x0 0x63600000
+					  0x61000000 0x0 0x41000000>;
+
+			bat,nr = <1>;
+			bat-info0 {
+				bat,vid = <0x29cf>;
+				bat,pid = <0x6360>;
+				bat,mfrs = "bat1";
+				bat,design-cap = <3000>;
+			};
+		};
+		dpm-caps {
+			local-dr-power;
+			local-dr-data;
+			// local-ext-power;
+			local-usb-comm;
+			// local-usb-suspend;
+			// local-high-cap;
+			// local-give-back;
+			local-no-suspend;
+
+			/* With DP Source capability */
+			// attempt-enter-dp-mode;
+			// attempt-discover-cable;
+			// attempt-discover-id;
+			// attempt-discover-svids;
+
+			/* 0: disable, 1: prefer-snk, 2: prefer-src */
+			pr-check = <0>;
+			// pr-reject-as-source;
+			// pr-reject-as-sink;
+			// pr-check-gp-source;
+			// pr-check-gp-sink;
+
+			/* 0: disable, 1: prefer-ufp, 2: prefer-dfp */
+			dr-check = <0>;
+			// dr-reject-as-dfp;
+			// dr-reject-as-ufp;
+		};
+		displayport {
+			/* connection type = "both", "ufp-d", "dfp-d" */
+			1st-connection = "dfp-d";
+			2nd-connection = "dfp-d";
+			// usbr20-not-used;
+			typec,receptacle;
+			ufp-d {
+				// pin-assignment,mode-c;
+				// pin-assignment,mode-d;
+				// pin-assignment,mode-e;
+			};
+			dfp-d {
+				pin-assignment,mode-c;
+				pin-assignment,mode-d;
+				pin-assignment,mode-e;
+			};
+		};
+	};
+};

@@ -1,0 +1,73 @@
+&pio {
+	afc_output: afc_output {
+		pins_cmd_dat {
+			pinmux = <MTK_PINMUX(SEC_GPIO_NUM(AP,pio,12), 0)>;
+			slew-rate = <1>;
+			output-enable;
+			bias-disable;
+		};
+	};
+
+};
+
+&pio {
+	afc_switch: afc_switch {
+		pins_cmd_dat {
+			pinmux = <MTK_PINMUX(SEC_GPIO_NUM(AP,pio,76), 0)>;
+			slew-rate = <1>;
+			output-enable;
+			bias-disable;
+		};
+	};
+
+};
+
+#if 0
+&${afc_hvdcp_parent} {
+	afc_hvdcp: afc_hvdcp {
+		pins_cmd_dat {
+			pinmux = <MTK_PINMUX(SEC_GPIO_NUM(${afc_hvdcp_gpio}), 0)>;
+			slew-rate = <1>;
+			output-enable;
+			bias-disable;
+		};
+	};
+};
+#endif
+
+#if 1
+&pio {
+	hiccup_switch: hiccup_switch {
+		pins_cmd_dat {
+			pinmux = <MTK_PINMUX(SEC_GPIO_NUM(AP,pio,97), 0)>;
+			slew-rate = <1>;
+			output-enable;
+			bias-disable;
+		};
+	};
+};
+#endif
+
+&smd {
+	gpio_afc: gpio_afc {
+		compatible = "gpio_afc";
+		pinctrl-names = "default";
+		pinctrl-0 = <&afc_switch &afc_output
+#if 0
+			&afc_hvdcp
+#endif
+#if 1
+			&hiccup_switch
+#endif
+		>;
+		status = "okay";
+		gpio_afc_data = <SEC_GPIO_REF(AP,pio,12) 0>;
+		gpio_afc_switch = <SEC_GPIO_REF(AP,pio,76) 0>;
+#if 0
+		gpio_afc_hvdcp = <SEC_GPIO_REF(${afc_hvdcp_gpio}) 0>; 
+#endif
+#if 1
+		gpio_hiccup = <SEC_GPIO_REF(AP,pio,97) 0>; 
+#endif
+	};
+};

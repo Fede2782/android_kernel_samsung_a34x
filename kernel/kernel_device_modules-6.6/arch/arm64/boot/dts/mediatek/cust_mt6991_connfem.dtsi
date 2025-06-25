@@ -1,0 +1,708 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (c) 2020 MediaTek Inc.
+ */
+/* Connsys FEM Start */
+&connfem {
+	io-channels = <&pmic_adc (ADC_PURES_OPEN_MASK | AUXADC_VIN6)>;
+	io-channel-names = "pmic_vin6";
+	fem-info {
+		qm42655: qm42655 {
+			vid = <0x03>;
+			pid = <0x05>;
+			flag = <0x00000000>;
+
+			/* [0] 0x03: SEL1/PAEN
+			 * [1] 0x02: SEL2/LNAEN
+			 * [2] 0x04: SEL3/BTEN
+			 * [3] 0x0e: SEL4
+			 */
+			pins = <0x03 0x02 0x04 0x0e>;
+
+			truth-table =
+				<0x00 0x08>,	/* ISO - ISO */
+				<0x10 0x00>,	/* BYP - WIFI_RX_BYP */
+				<0x11 0x0a>,	/* RxL - WIFI_RX_G0 */
+				<0x12 0x02>,	/* RxH - WIFI_RX_G1 */
+				<0x20 0x07>,	/* TxL - WIFI_TX_LF_G0 */
+				<0x21 0x09>,	/* TxML - WIFI_TX_LF_G1 */
+				<0x22 0x05>,	/* TxM - WIFI_TX_LF_G2 */
+				<0x23 0x0b>,	/* TxMH - WIFI_TX_LF_G3 */
+				<0x24 0x03>,	/* TxHE2 - WIFI_TX_LF_G4 */
+				<0x25 0x0d>,	/* TxHE1 - WIFI_TX_LF_G5 */
+				<0x26 0x01>,	/* TxH - WIFI_TX_LF_G6 */
+				<0x9f 0x0c>,	/* BTBYP - BT_TX_BYP */
+				<0x90 0x04>,	/* BTL - BT_TX_G0 */
+				<0x91 0x0e>,	/* BTM - BT_TX_G1 */
+				<0x92 0x06>;	/* BTH - BT_TX_G2 */
+
+			states-set {
+				qm42655_rxl: qm42655-rxl {
+					fem = <&qm42655>;
+					cat-names = "cat-iso", "cat-rx", "cat-tx-lf";
+					cat-iso {
+						cat-id = <0x00>;
+						states =
+							<0x10>;	/* BYP */
+					};
+					cat-rx {
+						cat-id = <0x01>;
+						states =
+							<0x10>,	/* BYP */
+							<0x11>;	/* RxL */
+					};
+					cat-tx-lf {
+						cat-id = <0x02>;
+						states =
+							<0x20>,	/* TxL */
+							<0x21>,	/* TxML */
+							<0x22>,	/* TxM */
+							<0x23>,	/* TxMH */
+							<0x24>,	/* TxHE2 */
+							<0x25>,	/* TxHE1 */
+							<0x26>;	/* TxH */
+					};
+				};
+			};
+		};
+
+		qm45655: qm45655 {
+			vid = <0x03>;
+			pid = <0x06>;
+			flag = <0x00000000>;
+
+			/* [0] 0x0a: SEL1/PAEN
+			 * [1] 0x0b: SEL2/LNAEN
+			 * [2] 0x0c: SEL3
+			 * [3] 0x01: SEL4
+			 */
+			pins = <0x0a 0x0b 0x0c 0x01>;
+
+			truth-table =
+				<0x00 0x00>,	/* ISO - ISO */
+				<0x10 0x0a>,	/* BYP - WIFI_RX_BYP */
+				<0x11 0x08>,	/* RxL - WIFI_RX_G0 */
+				<0x12 0x02>,	/* RxH - WIFI_RX_G1 */
+				<0x20 0x07>,	/* TxL - WIFI_TX_LF_G0 */
+				<0x21 0x04>,	/* TxML - WIFI_TX_LF_G1 */
+				<0x22 0x05>,	/* TxM - WIFI_TX_LF_G2 */
+				<0x23 0x03>,	/* TxMH - WIFI_TX_LF_G3 */
+				<0x24 0x06>,	/* TxHE - WIFI_TX_LF_G4 */
+				<0x25 0x01>,	/* TxH - WIFI_TX_LF_G5 */
+				<0x90 0x0f>,	/* BTL - BT_TX_G0 */
+				<0x91 0x03>;	/* BTH - BT_TX_G1 */
+
+			states-set {
+				qm45655_rxl: qm45655-rxl {
+					fem = <&qm45655>;
+					cat-names = "cat-iso", "cat-rx", "cat-tx-lf";
+					cat-iso {
+						cat-id = <0x00>;
+						states =
+							<0x00>;	/* ISO */
+					};
+					cat-rx {
+						cat-id = <0x01>;
+						states =
+							<0x10>,	/* BYP */
+							<0x11>;	/* RxL */
+					};
+					cat-tx-lf {
+						cat-id = <0x02>;
+						states =
+							<0x20>,	/* TxL */
+							<0x21>,	/* TxML */
+							<0x22>,	/* TxM */
+							<0x23>,	/* TxMH */
+							<0x24>,	/* TxHE */
+							<0x25>;	/* TxH */
+					};
+				};
+			};
+		};
+
+		sky55208: sky55208 {
+			vid = <0x01>;
+			pid = <0x05>;
+			flag = <0x00000000>;
+
+			/* [0] 0x03: SEL1/PAEN
+			 * [1] 0x02: SEL2/LNAEN
+			 * [2] 0x04: SEL3/BTEN
+			 * [3] 0x0e: SEL4
+			 */
+			pins = <0x03 0x02 0x04 0x0e>;
+
+			truth-table =
+				<0x00 0x08>,	/* ISO - ISO */
+				<0x10 0x00>,	/* BYP - WIFI_RX_BYP */
+				<0x11 0x0a>,	/* RxL - WIFI_RX_G0 */
+				<0x12 0x02>,	/* RxH - WIFI_RX_G1 */
+				<0x20 0x07>,	/* TxL - WIFI_TX_LF_G0 */
+				<0x21 0x09>,	/* TxML - WIFI_TX_LF_G1 */
+				<0x22 0x05>,	/* TxM - WIFI_TX_LF_G2 */
+				<0x23 0x0b>,	/* TxMH - WIFI_TX_LF_G3 */
+				<0x24 0x03>,	/* TxHE2 - WIFI_TX_LF_G4 */
+				<0x25 0x0d>,	/* TxHE1 - WIFI_TX_LF_G5 */
+				<0x26 0x01>,	/* TxH - WIFI_TX_LF_G6 */
+				<0x9f 0x0c>,	/* BTBYP - BT_TX_BYP */
+				<0x90 0x04>,	/* BTL - BT_TX_G0 */
+				<0x91 0x0e>,	/* BTM - BT_TX_G1 */
+				<0x92 0x06>;	/* BTH - BT_TX_G2 */
+
+			states-set {
+				sky55208_rxl: sky55208-rxl {
+					fem = <&sky55208>;
+					cat-names = "cat-iso", "cat-rx", "cat-tx-lf";
+					cat-iso {
+						cat-id = <0x00>;
+						states =
+							<0x00>;	/* ISO */
+					};
+					cat-rx {
+						cat-id = <0x01>;
+						states =
+							<0x10>,	/* BYP */
+							<0x11>;	/* RxL */
+					};
+					cat-tx-lf {
+						cat-id = <0x02>;
+						states =
+							<0x20>,	/* TxL */
+							<0x21>,	/* TxML */
+							<0x22>,	/* TxM */
+							<0x23>,	/* TxMH */
+							<0x24>,	/* TxHE2 */
+							<0x25>,	/* TxHE1 */
+							<0x26>;	/* TxH */
+					};
+				};
+			};
+		};
+
+		sky55714: sky55714 {
+			vid = <0x01>;
+			pid = <0x06>;
+			flag = <0x00000001>;
+
+			/* [0] 0x0a: SEL1/PAEN
+			 * [1] 0x0b: SEL2/LNAEN
+			 * [2] 0x0c: SEL3
+			 * [3] 0x01: SEL4
+			 */
+			pins = <0x0a 0x0b 0x0c 0x01>;
+
+			truth-table =
+				<0x00 0x00>,	/* ISO - ISO */
+				<0x10 0x0a>,	/* BYP - WIFI_RX_BYP */
+				<0x11 0x08>,	/* RxL - WIFI_RX_G0 */
+				<0x12 0x02>,	/* RxH - WIFI_RX_G1 */
+				<0x20 0x07>,	/* TxL 5G - WIFI_TX_LF_G0 */
+				<0x21 0x04>,	/* TxML 5G - WIFI_TX_LF_G1 */
+				<0x22 0x05>,	/* TxM 5G - WIFI_TX_LF_G2 */
+				<0x23 0x03>,	/* TxMH 5G - WIFI_TX_LF_G3 */
+				<0x24 0x06>,	/* TxHE 5G - WIFI_TX_LF_G4 */
+				<0x25 0x01>,	/* TxH 5G - WIFI_TX_LF_G5 */
+				<0x30 0x07>,	/* TxL 6G - WIFI_TX_HF_G0 */
+				<0x31 0x0c>,	/* TxML 6G - WIFI_TX_HF_G1 */
+				<0x32 0x0d>,	/* TxM 6G - WIFI_TX_HF_G2 */
+				<0x33 0x0b>,	/* TxMH 6G - WIFI_TX_HF_G3 */
+				<0x34 0x0e>,	/* TxHE 6G - WIFI_TX_HF_G4 */
+				<0x35 0x09>;	/* TxH 6G - WIFI_TX_HF_G5 */
+
+			states-set {
+				sky55714_rxl: sky55714-rxl {
+					fem = <&sky55714>;
+					cat-names = "cat-iso", "cat-rx", "cat-tx-lf", "cat-tx-hf";
+					cat-iso {
+						cat-id = <0x00>;
+						states =
+							<0x00>;	/* ISO */
+					};
+					cat-rx {
+						cat-id = <0x01>;
+						states =
+							<0x10>,	/* BYP */
+							<0x11>;	/* RxL */
+					};
+					cat-tx-lf {
+						cat-id = <0x02>;
+						states =
+							<0x20>,	/* TxL 5G */
+							<0x21>,	/* TxML 5G */
+							<0x22>,	/* TxM 5G */
+							<0x23>,	/* TxMH 5G */
+							<0x24>,	/* TxHE 5G */
+							<0x25>;	/* TxH 5G */
+					};
+					cat-tx-hf {
+						cat-id = <0x03>;
+						states =
+							<0x30>,	/* TxL 6G */
+							<0x31>,	/* TxML 6G */
+							<0x32>,	/* TxM 6G */
+							<0x33>,	/* TxMH 6G */
+							<0x34>,	/* TxHE 6G */
+							<0x35>;	/* TxH 6G */
+					};
+				};
+			};
+		};
+
+		qm42195: qm42195 {
+			vid = <0x03>;
+			pid = <0x01>;
+			flag = <0x00000000>;
+
+			/* [0] 0x03: PAEN
+			 * [1] 0x02: LNAEN
+			 * [2] 0x04: BTEN
+			 */
+			pins = <0x03 0x02 0x04>;
+
+			truth-table =
+				<0x10 0x00>,	/* BYP - WIFI_RX_BYP */
+				<0x11 0x02>,	/* Rx - WIFI_RX_G0 */
+				<0x20 0x07>,	/* TxL - WIFI_TX_LF_G0 */
+				<0x21 0x05>,	/* TxM - WIFI_TX_LF_G1 */
+				<0x22 0x01>,	/* TxH - WIFI_TX_LF_G2 */
+				<0x90 0x04>,	/* BTL - BT_TX_G0 */
+				<0x91 0x06>;	/* BTH - BT_TX_G1 */
+
+			states-set {
+				qm42195_default: qm42195-default {
+					fem = <&qm42195>;
+					cat-names = "cat-iso", "cat-rx", "cat-tx-lf";
+					cat-iso {
+						cat-id = <0x00>;
+						states =
+							<0x10>;	/* BYP */
+					};
+					cat-rx {
+						cat-id = <0x01>;
+						states =
+							<0x10>,	/* BYP */
+							<0x11>;	/* Rx */
+					};
+					cat-tx-lf {
+						cat-id = <0x02>;
+						states =
+							<0x20>,	/* TxL */
+							<0x21>,	/* TxM */
+							<0x22>;	/* TxH */
+					};
+				};
+			};
+		};
+
+		qm45639: qm45639 {
+			vid = <0x03>;
+			pid = <0x04>;
+			flag = <0x00000000>;
+
+			/* [0] 0x0a: PAEN
+			 * [1] 0x0b: LNAEN
+			 * [2] 0x0c: SEL3
+			 * [3] 0x01: SEL4
+			 */
+			pins = <0x0a 0x0b 0x0c 0x01>;
+
+			truth-table =
+				<0x00 0x00>,	/* ISO  - ISO */
+				<0x10 0x03>,	/* BYP  - WIFI_RX_BYP */
+				<0x11 0x08>,	/* RxL  - WIFI_RX_G0 */
+				<0x12 0x02>,	/* RxH  - WIFI_RX_G1 */
+				<0x20 0x07>,	/* TxL  - WIFI_TX_LF_G0 */
+				<0x21 0x04>,	/* TxMD  - WIFI_TX_LF_G1 */
+				<0x22 0x05>,	/* TxM  - WIFI_TX_LF_G2 */
+				<0x23 0x06>,	/* TxHD  - WIFI_TX_LF_G3 */
+				<0x24 0x01>;	/* TxH  - WIFI_TX_LF_G4 */
+
+			states-set {
+				qm45639_rxl: qm45639-rxl {
+					fem = <&qm45639>;
+					cat-names = "cat-iso", "cat-rx", "cat-tx-lf";
+					cat-iso {
+						cat-id = <0x00>;
+						states =
+							<0x00>;	/* ISO  */
+					};
+					cat-rx {
+						cat-id = <0x01>;
+						states =
+							<0x10>,	/* BYP  */
+							<0x11>;	/* RxL  */
+					};
+					cat-tx-lf {
+						cat-id = <0x02>;
+						states =
+							<0x20>,	/* TxL  */
+							<0x22>,	/* TxM  */
+							<0x23>,	/* TxHD  */
+							<0x24>;	/* TxH  */
+					};
+				};
+			};
+		};
+
+		qm45197: qm45197 {
+			vid = <0x03>;
+			pid = <0x02>;
+			flag = <0x00000000>;
+
+			/* [0] 0x0a: PAEN
+			 * [1] 0x0b: LNAEN
+			 * [2] 0x0c: SEL3
+			 */
+			pins = <0x0a 0x0b 0x0c>;
+
+			truth-table =
+				<0x00 0x00>,	/* ISO - ISO */
+				<0x10 0x03>,	/* BYP - WIFI_RX_BYP */
+				<0x11 0x02>,	/* Rx - WIFI_RX_G0 */
+				<0x20 0x07>,	/* TxL - WIFI_TX_LF_G0 */
+				<0x21 0x05>,	/* TxM - WIFI_TX_LF_G1 */
+				<0x22 0x01>;	/* TxH - WIFI_TX_LF_G2 */
+
+			states-set {
+				qm45197_default: qm45197-default {
+					fem = <&qm45197>;
+					cat-names = "cat-iso", "cat-rx", "cat-tx-lf";
+					cat-iso {
+						cat-id = <0x00>;
+						states =
+							<0x00>;	/* ISO */
+					};
+					cat-rx {
+						cat-id = <0x01>;
+						states =
+							<0x10>,	/* BYP */
+							<0x11>;	/* Rx */
+					};
+					cat-tx-lf {
+						cat-id = <0x02>;
+						states =
+							<0x20>,	/* TxL */
+							<0x21>,	/* TxM */
+							<0x22>;	/* TxH */
+					};
+				};
+			};
+		};
+
+		mxd7282: mxd7282 {
+			vid = <0x04>;
+			pid = <0x02>;
+			flag = <0x00000000>;
+
+			/* [0] 0x09: TXC
+			 * [1] 0x0a: RXC
+			 * [2] 0x03: SELC
+			 */
+			pins = <0x09 0x0a 0x03>;
+
+			truth-table =
+				<0x00 0x00>,	/* Sleep - ISO */
+				<0x80 0x06>,	/* BYP - BT_RX_BYP */
+				<0x81 0x02>,	/* Rx - BT_RX_G0 */
+				<0x9f 0x04>,	/* TxBYP - BT_TX_BYP */
+				<0x90 0x07>,	/* TxL - BT_TX_G0 */
+				<0x91 0x05>;	/* TxH - BT_TX_G1 */
+		};
+	};
+
+	layouts {
+		/***************************************************************
+		 * [LAYOUT] Band0
+		 **************************************************************/
+		g_wf0_bt0_qm42655: g-wf0-bt0-qm42655 {
+			band-path-wifi = <0x00>; /* G-WF0 */
+			band-path-bt = <0x50>;	/* G-BT0 */
+			fem = <&qm42655>;
+			mapping = <4 0x03 0>, /* Antsel 4 <-> SEL1 0x03 */
+				  <5 0x02 0>, /* Antsel 5 <-> SEL2 0x02 */
+				  <6 0x04 0>, /* Antsel 6 <-> SEL3 0x04 */
+				  <7 0x0e 0>; /* Antsel 7 <-> SEL4 0x0e */
+		};
+
+		g_wf1_bt1_qm42655: g-wf1-bt1-qm42655 {
+			band-path-wifi = <0x01>; /* G-WF1 */
+			band-path-bt = <0x51>;	/* G-BT1 */
+			fem = <&qm42655>;
+			mapping = <18 0x03 0>,	/* Antsel 18 <-> SEL1 0x03 */
+				  <19 0x02 0>,	/* Antsel 19 <-> SEL2 0x02 */
+				  <20 0x04 0>,	/* Antsel 20 <-> SEL3 0x04 */
+				  <21 0x0e 0>;	/* Antsel 21 <-> SEL4 0x0e */
+		};
+
+		g_wf0_bt0_sky55208: g-wf0-bt0-sky55208 {
+			band-path-wifi = <0x00>; /* G-WF0 */
+			band-path-bt = <0x50>;	/* G-BT0 */
+			fem = <&sky55208>;
+			mapping = <4 0x03 0>, /* Antsel 4 <-> SEL1 0x03 */
+				  <5 0x02 0>, /* Antsel 5 <-> SEL2 0x02 */
+				  <6 0x04 0>, /* Antsel 6 <-> SEL3 0x04 */
+				  <7 0x0e 0>; /* Antsel 7 <-> SEL4 0x0e */
+		};
+
+		g_wf1_bt1_sky55208: g-wf1-bt1-sky55208 {
+			band-path-wifi = <0x01>; /* G-WF1 */
+			band-path-bt = <0x51>;	/* G-BT1 */
+			fem = <&sky55208>;
+			mapping = <18 0x03 0>,	/* Antsel 18 <-> SEL1 0x03 */
+				  <19 0x02 0>,	/* Antsel 19 <-> SEL2 0x02 */
+				  <20 0x04 0>,	/* Antsel 20 <-> SEL3 0x04 */
+				  <21 0x0e 0>;	/* Antsel 21 <-> SEL4 0x0e */
+		};
+
+		sp3t_g0_ipa: sp3t-g0-ipa {
+			mapping = <4 0x15 0>, /* Antsel 4 <-> SP3T_3_V1 (0x15) */
+				  <5 0x16 0>; /* Antsel 5 <-> SP3T_3_V2 (0x16) */
+		};
+
+		sp3t_g1_ipa: sp3t-g1-ipa {
+			mapping = <18 0x17 0>,	/* Antsel 18 <-> SP3T_4_V1 (0x17) */
+				  <19 0x18 0>;	/* Antsel 19 <-> SP3T_4_V2 (0x18) */
+		};
+
+		/***************************************************************
+		 * [LAYOUT] Band1
+		 **************************************************************/
+		a_wf0_qm45655: a-wf0-qm45655 {
+			band-path-wifi = <0x10>; /* A-WF0 */
+			band-path-bt = <0xff>;	/* NONE */
+			fem = <&qm45655>;
+			mapping = <8  0x0a 0>,	/* Antsel 8  <-> SEL1 0x0a */
+				  <9  0x0b 0>,	/* Antsel 9  <-> SEL2 0x0b */
+				  <10 0x0c 0>,	/* Antsel 10 <-> SEL3 0x0c */
+				  <11 0x01 0>;	/* Antsel 11 <-> SEL4 0x01 */
+		};
+
+		a_wf1_qm45655: a-wf1-qm45655 {
+			band-path-wifi = <0x11>; /* A-WF1 */
+			band-path-bt = <0xff>;	/* NONE */
+			fem = <&qm45655>;
+			mapping = <14 0x0a 0>,	/* Antsel 14 <-> SEL1 0x0a */
+				  <15 0x0b 0>,	/* Antsel 15 <-> SEL2 0x0b */
+				  <16 0x0c 0>,	/* Antsel 16 <-> SEL3 0x0c */
+				  <17 0x01 0>;	/* Antsel 17 <-> SEL4 0x01 */
+		};
+
+		a_wf0_sky55714: a-wf0-sky55714 {
+			band-path-wifi = <0x10>; /* A-WF0 */
+			band-path-bt = <0xff>;	/* NONE */
+			fem = <&sky55714>;
+			mapping = <8  0x0a 0>,	/* Antsel 8  <-> SEL1 0x0a */
+				  <9  0x0b 0>,	/* Antsel 9  <-> SEL2 0x0b */
+				  <10 0x0c 0>,	/* Antsel 10 <-> SEL3 0x0c */
+				  <11 0x01 0>;	/* Antsel 11 <-> SEL4 0x01 */
+		};
+
+		a_wf1_sky55714: a-wf1-sky55714 {
+			band-path-wifi = <0x11>; /* A-WF1 */
+			band-path-bt = <0xff>;	/* NONE */
+			fem = <&sky55714>;
+			mapping = <14 0x0a 0>,	/* Antsel 14 <-> SEL1 0x0a */
+				  <15 0x0b 0>,	/* Antsel 15 <-> SEL2 0x0b */
+				  <16 0x0c 0>,	/* Antsel 16 <-> SEL3 0x0c */
+				  <17 0x01 0>;	/* Antsel 17 <-> SEL4 0x01 */
+		};
+
+		/***************************************************************
+		 * [LAYOUT] Band2
+		 **************************************************************/
+		a_wf2_bt0_qm45655: a-wf2-bt0-qm45655 {
+			band-path-wifi = <0x12>; /* A-WF2 */
+			band-path-bt = <0x60>;	/* A-BT0 */
+			fem = <&qm45655>;
+			mapping = <0 0x0a 0>,	/* Antsel 0 <-> SEL1 0x0a */
+				  <1 0x0b 0>,	/* Antsel 1 <-> SEL2 0x0b */
+				  <2 0x0c 0>,	/* Antsel 2 <-> SEL3 0x0c */
+				  <3 0x01 0>;	/* Antsel 3 <-> SEL4 0x01 */
+		};
+
+		a_wf2_bt0_sky55714: a-wf2-bt0-sky55714 {
+			band-path-wifi = <0x12>; /* A-WF2 */
+			band-path-bt = <0x60>;	/* A-BT0 */
+			fem = <&sky55714>;
+			mapping = <0 0x0a 0>,	/* Antsel 0 <-> SEL1 0x0a */
+				  <1 0x0b 0>,	/* Antsel 1 <-> SEL2 0x0b */
+				  <2 0x0c 0>,	/* Antsel 2 <-> SEL3 0x0c */
+				  <3 0x01 0>;	/* Antsel 3 <-> SEL4 0x01 */
+		};
+
+		spdt_a2_filter: spdt-a2-filter {
+			mapping = <12 0x07 0>;	/* Antsel 12 <-> SPDT_4 (0x07) */
+		};
+
+		/***************************************************************
+		 * [LAYOUT] EMLSR
+		 **************************************************************/
+		a_wf12_emlsr_bt0_qm45655: a-wf12-emlsr-bt0-qm45655 {
+			band-path-wifi = <0x13>; /* A_WF1_EMLSR_WF2 */
+			band-path-bt = <0x60>;	/* A-BT0*/
+			fem = <&qm45655>;
+			mapping = <14 0x0a 0>,	/* Antsel 14 <-> SEL1 0x0a */
+				  <15 0x0b 0>,	/* Antsel 15 <-> SEL2 0x0b */
+				  <16 0x0c 0>,	/* Antsel 16 <-> SEL3 0x0c */
+				  <17 0x01 0>;	/* Antsel 17 <-> SEL4 0x01 */
+		};
+
+		a_wf12_emlsr_bt0_sky55714: a-wf12-emlsr-bt0-sky55714 {
+			band-path-wifi = <0x13>; /* A_WF1_EMLSR_WF2 */
+			band-path-bt = <0x60>;	/* A-BT0*/
+			fem = <&sky55714>;
+			mapping = <14 0x0a 0>,	/* Antsel 14 <-> SEL1 0x0a */
+				  <15 0x0b 0>,	/* Antsel 15 <-> SEL2 0x0b */
+				  <16 0x0c 0>,	/* Antsel 16 <-> SEL3 0x0c */
+				  <17 0x01 0>;	/* Antsel 17 <-> SEL4 0x01 */
+		};
+
+		spdt_a1_a2_tx: spdt-a1-a2-tx {
+			mapping = <0 0x06 0>; /* Antsel 0 <-> SPDT_2 (0x06) */
+		};
+
+		spdt_a1_a2_rx: spdt-a1-a2-rx {
+			mapping = <1 0x05 0>; /* Antsel 1 <-> SPDT_1 (0x05) */
+		};
+
+		/***************************************************************
+		 * [LAYOUT] BT
+		 **************************************************************/
+		g_bt1_mxd7282: g-bt1-mxd7282 {
+			band-path-wifi = <0xff>; /* NONE */
+			band-path-bt = <0x51>;	/* G-BT1 */
+			fem = <&mxd7282>;
+			mapping = <22 0x09 0>,	/* Antsel 22 <-> TXC 0x09 */
+				  <23 0x0a 0>,	/* Antsel 23 <-> RXC 0x0a */
+				  <26 0x03 0>;	/* Antsel 26 <-> SELC 0x03 */
+		};
+
+		/***************************************************************
+		 * [LAYOUT] Band0 (Backup)
+		 **************************************************************/
+		g_wf0_bt0_qm42195: g-wf0-bt0-qm42195 {
+			band-path-wifi = <0x00>; /* G-WF0 */
+			band-path-bt = <0x50>;	/* G-BT0 */
+			fem = <&qm42195>;
+			mapping = <4 0x03 0>, /* Antsel 4 <-> SEL1 0x03 */
+				  <5 0x02 0>, /* Antsel 5 <-> SEL2 0x02 */
+				  <6 0x04 0>; /* Antsel 6 <-> SEL3 0x04 */
+		};
+
+		g_wf1_bt1_qm42195: g-wf1-bt1-qm42195 {
+			band-path-wifi = <0x01>; /* G-WF1 */
+			band-path-bt = <0x51>;	/* G-BT1 */
+			fem = <&qm42195>;
+			mapping = <18 0x03 0>,	/* Antsel 18 <-> SEL1 0x03 */
+				  <19 0x02 0>,	/* Antsel 19 <-> SEL2 0x02 */
+				  <20 0x04 0>;	/* Antsel 20 <-> SEL3 0x04 */
+		};
+
+		/***************************************************************
+		 * [LAYOUT] Band1 (Backup)
+		 **************************************************************/
+		a_wf0_qm45639: a-wf0-qm45639 {
+			band-path-wifi = <0x10>; /* A-WF0 */
+			band-path-bt = <0xff>;	/* NONE */
+			fem = <&qm45639>;
+			mapping = <8  0x0a 0>,	/* Antsel 8  <-> SEL1 0x0a */
+				  <9  0x0b 0>,	/* Antsel 9  <-> SEL2 0x0b */
+				  <10 0x0c 0>,	/* Antsel 10 <-> SEL3 0x0c */
+				  <11 0x01 0>;	/* Antsel 11 <-> SEL4 0x01 */
+		};
+
+		a_wf1_qm45639: a-wf1-qm45639 {
+			band-path-wifi = <0x11>; /* A-WF1 */
+			band-path-bt = <0xff>;	/* NONE */
+			fem = <&qm45639>;
+			mapping = <14 0x0a 0>,	/* Antsel 14 <-> SEL1 0x0a */
+				  <15 0x0b 0>,	/* Antsel 15 <-> SEL2 0x0b */
+				  <16 0x0c 0>,	/* Antsel 16 <-> SEL3 0x0c */
+				  <17 0x01 0>;	/* Antsel 17 <-> SEL4 0x01 */
+		};
+
+		a_wf0_qm45197: a-wf0-qm45197 {
+			band-path-wifi = <0x10>; /* A-WF0 */
+			band-path-bt = <0xff>;	/* NONE */
+			fem = <&qm45197>;
+			mapping = <8  0x0a 0>,	/* Antsel 8  <-> SEL1 0x0a */
+				  <9  0x0b 0>,	/* Antsel 9  <-> SEL2 0x0b */
+				  <10 0x0c 0>;	/* Antsel 10 <-> SEL3 0x0c */
+		};
+
+		a_wf1_qm45197: a-wf1-qm45197 {
+			band-path-wifi = <0x11>; /* A-WF1 */
+			band-path-bt = <0xff>;	/* NONE */
+			fem = <&qm45197>;
+			mapping = <14 0x0a 0>,	/* Antsel 14 <-> SEL1 0x0a */
+				  <15 0x0b 0>,	/* Antsel 15 <-> SEL2 0x0b */
+				  <16 0x0c 0>;	/* Antsel 16 <-> SEL3 0x0c */
+		};
+
+		/***************************************************************
+		 * [LAYOUT] Band2 (Backup)
+		 **************************************************************/
+		a_wf2_bt0_qm45639: a-wf2-bt0-qm45639 {
+			band-path-wifi = <0x12>; /* A-WF2 */
+			band-path-bt = <0x60>;	/* A-BT0 */
+			fem = <&qm45639>;
+			mapping = <0 0x0a 0>,	/* Antsel 0 <-> SEL1 0x0a */
+				  <1 0x0b 0>,	/* Antsel 1 <-> SEL2 0x0b */
+				  <2 0x0c 0>,	/* Antsel 2 <-> SEL3 0x0c */
+				  <3 0x01 0>;	/* Antsel 3 <-> SEL4 0x01 */
+		};
+
+		a_wf2_bt0_qm45197: a-wf2-bt0-qm45197 {
+			band-path-wifi = <0x12>; /* A-WF2 */
+			band-path-bt = <0x60>;	/* A-BT0 */
+			fem = <&qm45197>;
+			mapping = <0 0x0a 0>,	/* Antsel 0 <-> SEL1 0x0a */
+				  <1 0x0b 0>,	/* Antsel 1 <-> SEL2 0x0b */
+				  <2 0x0c 0>;	/* Antsel 2 <-> SEL3 0x0c */
+		};
+
+		/***************************************************************
+		 * [LAYOUT] EMLSR (Backup)
+		 **************************************************************/
+		a_wf12_emlsr_bt0_qm45639: a-wf12-emlsr-bt0-qm45639 {
+			band-path-wifi = <0x13>; /* A_WF1_EMLSR_WF2 */
+			band-path-bt = <0x60>;	/* A-BT0*/
+			fem = <&qm45639>;
+			mapping = <14 0x0a 0>,	/* Antsel 14 <-> SEL1 0x0a */
+				  <15 0x0b 0>,	/* Antsel 15 <-> SEL2 0x0b */
+				  <16 0x0c 0>,	/* Antsel 16 <-> SEL3 0x0c */
+				  <17 0x01 0>;	/* Antsel 17 <-> SEL4 0x01 */
+		};
+
+		a_wf12_emlsr_bt0_qm45197: a-wf12-emlsr-bt0-qm45197 {
+			band-path-wifi = <0x13>; /* A_WF1_EMLSR_WF2 */
+			band-path-bt = <0x60>;	/* A-BT0*/
+			fem = <&qm45197>;
+			mapping = <14 0x0a 0>,	/* Antsel 14 <-> SEL1 0x0a */
+				  <15 0x0b 0>,	/* Antsel 15 <-> SEL2 0x0b */
+				  <16 0x0c 0>;	/* Antsel 16 <-> SEL3 0x0c */
+		};
+
+		/***************************************************************
+		 * [LAYOUT] Antenna Selection Control
+		 **************************************************************/
+		spdt_g_wf0_antswap: spdt-g-wf0-antswap {
+			mapping = <22 0x20 0>;	/* Antsel 22 <-> SPDT_11 (0x20) */
+		};
+
+		spdt_a_wf0_antswap: spdt-a-wf0-antswap {
+			mapping = <23 0x21 0>;	/* Antsel 23 <-> SPDT_12 (0x21) */
+		};
+
+		spdt_g_bt1_antswap: spdt-g-bt1-antswap {
+			mapping = <13 0x09 0>;	/* Antsel 13 <-> SPDT_5 (0x09) */
+		};
+
+		spdt_laa_ctrl: spdt-laa-ctrl {
+			mapping = <22 0x0e 0>,	/* Antsel 22 <-> SPDT_9 (0x0E) */
+				  <23 0x0f 0>;	/* Antsel 23 <-> SPDT_10 (0x0F) */
+		};
+	};
+};
+/* Connsys FEM End */

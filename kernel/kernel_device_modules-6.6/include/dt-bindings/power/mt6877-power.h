@@ -1,0 +1,25 @@
+/* SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause */
+/*
+ * Copyright (c) 2022 MediaTek Inc.
+ * Author: Owen Chen <owen.chen@mediatek.com>
+ */
+
+#ifndef _DT_BINDINGS_POWER_MT6877_POWER_H
+#define _DT_BINDINGS_POWER_MT6877_POWER_H
+
+#define MT6877_POWER_DOMAIN_CONN				0
+#define MT6877_POWER_DOMAIN_ISP0				1
+#define MT6877_POWER_DOMAIN_ISP1				2
+#define MT6877_POWER_DOMAIN_IPE				    3
+#define MT6877_POWER_DOMAIN_VDEC				4
+#define MT6877_POWER_DOMAIN_VENC				5
+#define MT6877_POWER_DOMAIN_DISP				6
+#define MT6877_POWER_DOMAIN_AUDIO				7
+#define MT6877_POWER_DOMAIN_APU				8
+#define MT6877_POWER_DOMAIN_CAM				9
+#define MT6877_POWER_DOMAIN_CAM_RAWA		10
+#define MT6877_POWER_DOMAIN_CAM_RAWB		11
+#define MT6877_POWER_DOMAIN_CSI				12
+#define MT6877_POWER_DOMAIN_NR				13
+
+#endif /* _DT_BINDINGS_POWER_MT6877_POWER_H */

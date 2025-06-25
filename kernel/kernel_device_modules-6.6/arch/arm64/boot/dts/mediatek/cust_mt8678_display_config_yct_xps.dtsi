@@ -1,0 +1,358 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2022 MediaTek Inc.
+ */
+#include <dt-bindings/gce/mt6991-gce.h>
+
+&cmdq_test {
+	status = "disabled";
+};
+
+&disp_dvo0 {
+	status = "okay";
+};
+
+&disp1_dp_intf0 {
+	status = "okay";
+};
+
+&disp1_dp_intf1 {
+	status = "okay";
+};
+
+&dispsys_config {
+	pre-define-bw = <0xffffffff>, <4200>, <0>, <2700>, <2700>, <2700>, <2700>;
+	crtc-ovl-usage = <0xe0>, <0x2>, <0x2>, <0x4>, <0x4>, <0x4>, <0x4>;
+	enable-secondary-path = <1>;
+	enable-fifth-path = <1>;
+	enable-sixth-path = <1>;
+	enable-seventh-path = <1>;
+	mboxes = <&gce 0 0 CMDQ_THR_PRIO_4>,
+		<&gce 1 0 CMDQ_THR_PRIO_4>,
+		<&gce 2 0 CMDQ_THR_PRIO_4>,
+		<&gce 3 0 CMDQ_THR_PRIO_4>,
+		<&gce 4 0 CMDQ_THR_PRIO_4>,
+		<&gce 5 0 CMDQ_THR_PRIO_4>,
+		<&gce 6 0 CMDQ_THR_PRIO_4>,
+		<&gce 7 0 CMDQ_THR_PRIO_4>,
+		<&gce 8 0 CMDQ_THR_PRIO_4>,
+		<&gce 9 0 CMDQ_THR_PRIO_4>,
+		<&gce 20 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
+		<&gce 21 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
+		<&gce 22 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
+		<&gce 23 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
+		//<&gce 24 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
+		//<&gce 25 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
+		//<&gce 26 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
+		//<&gce 27 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
+		//<&gce 28 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
+		//<&gce 29 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
+		<&gce 14 0 CMDQ_THR_PRIO_4>,
+		<&gce 26 0 CMDQ_THR_PRIO_3>,
+		<&gce 10 0 CMDQ_THR_PRIO_1>,
+		<&gce 24 0 CMDQ_THR_PRIO_1>,
+		<&gce 25 0 CMDQ_THR_PRIO_1>,
+		<&gce 11 0 CMDQ_THR_PRIO_1>,
+		<&gce 12 0 CMDQ_THR_PRIO_1>,
+		<&gce 27 0 CMDQ_THR_PRIO_1>;
+		// <&gce_sec 8 0 CMDQ_THR_PRIO_3>,
+		// <&gce_sec 9 0 CMDQ_THR_PRIO_3>,
+		// <&gce_sec 9 0 CMDQ_THR_PRIO_3>;
+
+	gce-client-names = "CLIENT_CFG0",
+			"CLIENT_CFG1",
+			"CLIENT_CFG2",
+			"CLIENT_CFG3",
+			"CLIENT_CFG4",
+			"CLIENT_CFG5",
+			"CLIENT_CFG6",
+			"CLIENT_CFG7",
+			"CLIENT_CFG8",
+			"CLIENT_CFG9",
+			"CLIENT_TRIG_LOOP0",
+			"CLIENT_TRIG_LOOP1",
+			"CLIENT_TRIG_LOOP3",
+			//"CLIENT_TRIG_LOOP4",
+			//"CLIENT_TRIG_LOOP5",
+			//"CLIENT_TRIG_LOOP6",
+			//"CLIENT_TRIG_LOOP7",
+			//"CLIENT_TRIG_LOOP8",
+			//"CLIENT_TRIG_LOOP9",
+			"CLIENT_EVENT_LOOP0",
+			"CLIENT_SUB_CFG0",
+			"CLIENT_DSI_CFG0",
+			"CLIENT_DSI_CFG4",
+			"CLIENT_DSI_CFG5",
+			"CLIENT_PQ_EOF0",
+			"CLIENT_PQ0",
+			"CLIENT_PQ_EOF1",
+			"CLIENT_PQ1";
+			// "CLIENT_SEC_CFG0",
+			// "CLIENT_SEC_CFG1",
+			// "CLIENT_SEC_CFG2";
+	/* define subsys, see mt6989-gce.h */
+	gce-event-names =
+		"disp_mutex0_eof",
+		"disp_mutex1_eof",
+		"disp_mutex2_eof",
+		"disp_mutex3_eof",
+		"disp_mutex4_eof",
+		"disp_mutex5_eof",
+		"disp_mutex6_eof",
+		"disp_mutex7_eof",
+		"disp_mutex8_eof",
+		"disp_mutex9_eof",
+		"disp_token_stream_dirty0",
+		"disp_token_stream_dirty1",
+		"disp_token_stream_dirty3",
+		"disp_wait_dsi0_te",
+		"disp_wait_dsi1_te",
+		"disp_wait_dsi2_te",
+		"disp_token_stream_eof0",
+		"disp_token_stream_eof1",
+		"disp_token_stream_eof3",
+		"disp_dsi0_eof",
+		"disp_dsi1_eof",
+		"disp_dsi2_eof",
+		"disp_token_esd_eof0",
+		"disp_token_esd_eof1",
+		"disp_token_esd_eof3",
+		"disp_rdma0_eof0",
+		"disp_wdma0_eof0",
+		"disp_token_stream_block0",
+		"disp_token_stream_block1",
+		"disp_token_stream_block3",
+		"disp_token_cabc_eof0",
+		"disp_token_cabc_eof1",
+		"disp_token_cabc_eof3",
+		"disp_wdma0_eof2",
+	//				"disp_wait_dp_intf0_te",
+		"disp_dp_intf0_eof",
+		"disp_mutex2_eof",
+		"disp_ovlsys_wdma2_eof2",
+	//				"disp_dsi0_sof0",
+		"disp_token_vfp_period0",
+		"disp_token_disp_va_start0",
+		"disp_token_disp_va_end0",
+		"disp_token_disp_va_start2",
+		"disp_token_disp_va_end2",
+		"disp_token_disp_te0",
+		"disp_token_disp_prefetch_te0",
+		"disp_gpio_te0",
+		"disp_gpio_te1",
+		"disp_gpio_te2",
+		"disp_dsi0_targetline0",
+	//				"disp_ovlsys_wdma0_eof0",
+		"disp_token_disp_v_idle_power_on0",
+		"disp_token_disp_check_trigger_merge0",
+		"dpc_disp1_prete",
+		"disp_mdp_rdma0_eof3",
+		"disp_y2r_eof3",
+		"disp_aal0_eof",
+		"disp_aal1_eof",
+		"mml_disp_done_event";
+
+	gce-events =
+		<&gce CMDQ_EVENT_DISP1_STREAM_DONE_ENG_EVENT0>,
+		<&gce CMDQ_EVENT_DISP1_STREAM_DONE_ENG_EVENT1>,
+		<&gce CMDQ_EVENT_DISP1_STREAM_DONE_ENG_EVENT2>,
+		<&gce CMDQ_EVENT_DISP1_STREAM_DONE_ENG_EVENT3>,
+		<&gce CMDQ_EVENT_DISP1_STREAM_DONE_ENG_EVENT4>,
+		<&gce CMDQ_EVENT_DISP1_STREAM_DONE_ENG_EVENT5>,
+		<&gce CMDQ_EVENT_DISP1_STREAM_DONE_ENG_EVENT6>,
+		<&gce CMDQ_EVENT_DISP1_STREAM_DONE_ENG_EVENT7>,
+		<&gce CMDQ_EVENT_DISP1_STREAM_DONE_ENG_EVENT8>,
+		<&gce CMDQ_EVENT_DISP1_STREAM_DONE_ENG_EVENT9>,
+		<&gce CMDQ_SYNC_TOKEN_CONFIG_DIRTY>,
+		<&gce CMDQ_SYNC_TOKEN_CONFIG_DIRTY_1>,
+		<&gce CMDQ_SYNC_TOKEN_CONFIG_DIRTY_3>,
+		<&gce CMDQ_EVENT_DISP1_DISP_DSI0_ENG_EVENT1>,
+		<&gce CMDQ_EVENT_DISP1_DISP_DSI1_ENG_EVENT1>,
+		<&gce CMDQ_EVENT_DISP1_DISP_DSI2_ENG_EVENT1>,
+		<&gce CMDQ_SYNC_TOKEN_STREAM_EOF>,
+		<&gce CMDQ_SYNC_TOKEN_STREAM_EOF_1>,
+		<&gce CMDQ_SYNC_TOKEN_STREAM_EOF_3>,
+		<&gce CMDQ_EVENT_DISP1_FRAME_DONE_SEL1>,
+		<&gce CMDQ_EVENT_DISP1_FRAME_DONE_SEL2>,
+		<&gce CMDQ_EVENT_DISP1_FRAME_DONE_SEL6>,
+		<&gce CMDQ_SYNC_TOKEN_ESD_EOF>,
+		<&gce CMDQ_SYNC_TOKEN_ESD_EOF_1>,
+		<&gce CMDQ_SYNC_TOKEN_ESD_EOF_3>,
+		<&gce CMDQ_EVENT_DISP1_FRAME_DONE_SEL3>,
+		<&gce CMDQ_EVENT_DISP1_FRAME_DONE_SEL4>,
+		<&gce CMDQ_SYNC_TOKEN_STREAM_BLOCK>,
+		<&gce CMDQ_SYNC_TOKEN_STREAM_BLOCK_1>,
+		<&gce CMDQ_SYNC_TOKEN_STREAM_BLOCK_3>,
+		<&gce CMDQ_SYNC_TOKEN_CABC_EOF>,
+		<&gce CMDQ_SYNC_TOKEN_CABC_EOF_1>,
+		<&gce CMDQ_SYNC_TOKEN_CABC_EOF_3>,
+		<&gce CMDQ_EVENT_DISP1_FRAME_DONE_SEL5>,
+	//	<&gce CMDQ_EVENT_DISP1_DISP_DP_INTF0_SOF>,
+		<&gce CMDQ_EVENT_DISP1_FRAME_DONE_SEL0>,
+		<&gce CMDQ_EVENT_DISP1_FRAME_DONE_SEL0>,
+		<&gce CMDQ_EVENT_OVL1_FRAME_DONE_SEL0>,
+	//	<&gce CMDQ_EVENT_DISP1_DISP_DSI0_SOF>,
+		<&gce CMDQ_SYNC_TOKEN_VFP_PERIOD>,
+		<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
+		<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>,
+		<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
+		<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>,
+		<&gce CMDQ_SYNC_TOKEN_TE_0>,
+		<&gce CMDQ_SYNC_TOKEN_PREFETCH_TE_0>,
+		<&gce CMDQ_EVENT_DSI0_TE_I_DSI0_TE_I>,
+		<&gce CMDQ_EVENT_DSI1_TE_I_DSI1_TE_I>,
+		<&gce CMDQ_EVENT_DSI2_TE_I_DSI2_TE_I>,
+		<&gce CMDQ_EVENT_DISP1_DISP_DSI0_ENG_EVENT2>,
+	//	<&gce CMDQ_EVENT_OVL0_DISP_WDMA2_FRAME_DONE>,
+		<&gce CMDQ_SYNC_TOKEN_VIDLE_POWER_ON>,
+		<&gce CMDQ_SYNC_TOKEN_CHECK_TRIGGER_MERGE>,
+		<&gce CMDQ_EVENT_DPC_DT_DONE6_0_MERGE>,
+		<&gce CMDQ_EVENT_DISP0_FRAME_DONE_SEL0>,
+		<&gce CMDQ_EVENT_DISP0_FRAME_DONE_SEL1>,
+		<&gce CMDQ_EVENT_DISP0_FRAME_DONE_SEL2>,
+		<&gce CMDQ_EVENT_DISP0_FRAME_DONE_SEL3>,
+		<&gce CMDQ_SYNC_TOKEN_MML_DISP_DONE_EVENT>;
+	helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
+		<1>, /*MTK_DRM_OPT_USE_CMDQ*/
+		<1>, /*MTK_DRM_OPT_USE_M4U*/
+		<1>, /*MTK_DRM_OPT_MMQOS_SUPPORT*/
+		<1>, /*MTK_DRM_OPT_MMDVFS_SUPPORT*/
+		<0>, /*MTK_DRM_OPT_SODI_SUPPORT*/
+		<1>, /*MTK_DRM_OPT_IDLE_MGR*/
+		<0>, /*MTK_DRM_OPT_IDLEMGR_SWTCH_DECOUPLE*/
+		<1>, /*MTK_DRM_OPT_IDLEMGR_BY_REPAINT*/
+		<0>, /*MTK_DRM_OPT_IDLEMGR_ENTER_ULPS*/
+		<0>, /*MTK_DRM_OPT_IDLEMGR_KEEP_LP11*/
+		<0>, /*MTK_DRM_OPT_DYNAMIC_RDMA_GOLDEN_SETTING*/
+		<0>, /*MTK_DRM_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ*/
+		<1>, /*MTK_DRM_OPT_IDLEMGR_ASYNC*/
+		<0>, /*MTK_DRM_OPT_MET_LOG*/
+		<1>, /*MTK_DRM_OPT_USE_PQ*/
+		<1>, /*MTK_DRM_OPT_ESD_CHECK_RECOVERY*/
+		<1>, /*MTK_DRM_OPT_ESD_CHECK_SWITCH*/
+		<1>, /*MTK_DRM_OPT_PRESENT_FENCE*/
+		<0>, /*MTK_DRM_OPT_RDMA_UNDERFLOW_AEE*/
+		<0>, /*MTK_DRM_OPT_DSI_UNDERRUN_AEE*/
+		<0>, /*MTK_DRM_OPT_ODDMR_UNDERRUN_AEE*/
+		<0>, /*MTK_DRM_OPT_HRT*/
+		<0>, /*MTK_DRM_OPT_HRT_MODE*/
+		<0>, /*MTK_DRM_OPT_DELAYED_TRIGGER*/
+		<0>, /*MTK_DRM_OPT_OVL_EXT_LAYER*/
+		<0>, /*MTK_DRM_OPT_AOD*/
+		<1>, /*MTK_DRM_OPT_RPO*/
+		<0>, /*MTK_DRM_OPT_DUAL_PIPE*/
+		<0>, /*MTK_DRM_OPT_DC_BY_HRT*/
+		<0>, /*MTK_DRM_OPT_OVL_WCG*/
+		<0>, /*MTK_DRM_OPT_OVL_SBCH*/
+		<1>, /*MTK_DRM_OPT_COMMIT_NO_WAIT_VBLANK*/
+		<0>, /*MTK_DRM_OPT_MET*/
+		<0>, /*MTK_DRM_OPT_REG_PARSER_RAW_DUMP*/
+		<0>, /*MTK_DRM_OPT_VP_PQ*/
+		<0>, /*MTK_DRM_OPT_GAME_PQ*/
+		<0>, /*MTK_DRM_OPT_MMPATH*/
+		<0>, /*MTK_DRM_OPT_HBM*/
+		<0>, /*MTK_DRM_OPT_VDS_PATH_SWITCH*/
+		<0>, /*MTK_DRM_OPT_LAYER_REC*/
+		<1>, /*MTK_DRM_OPT_CLEAR_LAYER*/
+		<0>, /*MTK_DRM_OPT_LFR*/
+		<0>, /*MTK_DRM_OPT_SF_PF*/
+		<0>, /*MTK_DRM_OPT_DYN_MIPI_CHANGE*/
+		<0>, /*MTK_DRM_OPT_PRIM_DUAL_PIPE*/
+		<1>, /*MTK_DRM_OPT_MSYNC2_0*/
+		<1>, /*MTK_DRM_OPT_MSYNC2_0_WAIT_EPT*/
+		<1>, /*MTK_DRM_OPT_MML_PRIMARY*/
+		<1>, /*MTK_DRM_OPT_MML_SUPPORT_CMD_MODE*/
+		<1>, /*MTK_DRM_OPT_MML_PQ*/
+		<1>, /*MTK_DRM_OPT_MML_IR*/
+		<0>, /*MTK_DRM_OPT_DUAL_TE*/
+		<0>, /*MTK_DRM_OPT_RES_SWITCH*/
+		<1>, /*MTK_DRM_OPT_RES_SWITCH_ON_AP*/
+		<0>, /*MTK_DRM_OPT_PREFETCH_TE*/
+		<0>, /*MTK_DRM_OPT_VIDLE_APSRC_OFF*/
+		<0>, /*MTK_DRM_OPT_VIDLE_DSI_PLL_OFF*/
+		<0>, /*MTK_DRM_OPT_CHECK_TRIGGER_MERGE*/
+		<0>, /*MTK_DRM_OPT_VIRTUAL_DISP*/
+		<1>, /*MTK_DRM_OPT_OVL_BW_MONITOR*/
+		<0>, /*MTK_DRM_OPT_GPU_CACHE*/
+		<0>, /*MTK_DRM_OPT_SPHRT*/
+		<0>, /*MTK_DRM_OPT_SDPA_OVL_SWITCH*/
+		<1>, /*MTK_DRM_OPT_HRT_BY_LARB*/
+		<0>, /*MTK_DRM_OPT_TILE_OVERHEAD*/
+		<1>, /*MTK_DRM_OPT_VIDLE_TOP_EN*/
+		<0>, /*MTK_DRM_OPT_VIDLE_MTCMOS_DT_EN*/
+		<0>, /*MTK_DRM_OPT_VIDLE_MMINFRA_DT_EN*/
+		<0>, /*MTK_DRM_OPT_VIDLE_DVFS_DT_EN*/
+		<0>, /*MTK_DRM_OPT_VIDLE_QOS_DT_EN*/
+		<0>, /*MTK_DRM_OPT_VIDLE_GCE_TS_EN*/
+		<1>, /*MTK_DRM_OPT_VIDLE_FULL_SCENARIO*/
+		<0>, /*MTK_DRM_OPT_DPC_PRE_TE_EN*/
+		<1>, /*MTK_DRM_OPT_PARTIAL_UPDATE*/
+		<0>, /*MTK_DRM_OPT_SLC_ALL_CACHE*/
+		<0>, /*MTK_DRM_OPT_OVL_WCG_BY_COLOR_MODE*/
+		<0>, /*"MTK_DRM_OPT_OVLSYS_CASCADE"*/
+		<1>; /*MTK_DRM_OPT_LTPO_VM*/
+};
+
+&dp_tx {
+	status = "okay";
+};
+
+&dsi0 {
+	status = "okay";
+};
+
+&dsi1 {
+	status = "okay";
+};
+
+&dsi2 {
+	status = "okay";
+};
+
+&edp_tx {
+	status = "okay";
+};
+
+&max96789 {
+	status = "okay";
+};
+
+&max96789_1 {
+	status = "okay";
+};
+
+&max96789_2 {
+	status = "okay";
+};
+
+&max96851_0 {
+	status = "okay";
+};
+
+&max96851_1 {
+	status = "okay";
+};
+
+&mipi_tx_config0 {
+	status = "okay";
+};
+
+&mipi_tx_config1 {
+	status = "okay";
+};
+
+&mipi_tx_config2 {
+	status = "okay";
+};
+
+&panel_dp {
+	status = "okay";
+};
+
+&panel_edp {
+	status = "okay";
+};
+
+&panel_dp_mst_one {
+	status = "okay";
+};

@@ -1,0 +1,23 @@
+config VIDEO_MEDIATEK_VCODEC_V1
+	bool "Specify Mediatek Video Vcodec Platform V1"
+	help
+	  Select MediaTek Video Vcodec Platform V1
+	  v1 folder is dvfs setting for policy 1
+	  Set Y to select this feature for specific platform-V1.
+	  If unsure, set N to disable.
+
+config VIDEO_MEDIATEK_VCODEC_V2
+	bool "Specify Mediatek Video Vcodec Platform V2"
+	help
+	  Select MediaTek Video Vcodec Platform V2
+	  v2 folder is dvfs setting for policy 2
+	  Set Y to select this feature for specific platform-V2.
+	  If unsure, set N to disable.
+
+config MTK_VCODEC_DEBUG
+	bool "Video Vcodec Debug support"
+	help
+	  This is a debug interface for Video Codec
+	  Set Y to enable this feature.
+	  Set N to disable this feature.
+	  If unsure, Set N to disable it.

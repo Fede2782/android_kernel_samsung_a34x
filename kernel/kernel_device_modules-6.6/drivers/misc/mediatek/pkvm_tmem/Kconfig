@@ -1,0 +1,9 @@
+config MTK_PKVM_TMEM
+	tristate "MTK tmem support"
+	help
+	  A new option CONFIG_MTK_PKVM_TMEM for pKVM.
+	  tmem support pKVM, so need to enable this option, then
+	  normal hypervisor will use pKVM and tmem provide pkvm_tmem
+	  EL2 vendor module to do secure memory.
+	  Say Y if you would like to enable this feature.
+	  Say M if you would like to build it as a kernel module.

@@ -1,0 +1,9 @@
+config ROOTFS_CHECK
+	tristate "Mediatek Rootfs Secure Boot Check"
+	help
+	  Enable rootfs secure boot check on yocto system when rootfs mount.
+	  When enabled, the rootfs image would be signed while build and the
+	  signature would append the end of the rootfs image, then verify
+	  the signature when mount.
+	  If enabled the rootfs would be readonly.
+

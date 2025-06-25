@@ -1,0 +1,7 @@
+config MTK_KTCHBST
+	tristate "MTK Kernel Touch Boost"
+	help
+	  MTK Kernel Touch Boost feature.
+	  The feature improves user experience. When the device receives
+	  touch events, it will raise system resource like CPU frequency
+	  for better user experience.

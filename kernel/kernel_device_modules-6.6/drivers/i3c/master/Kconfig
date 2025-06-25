@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config DEVICE_MODULES_MTK_I3C_MASTER_MT69XX
+	tristate "MTK I3C master mt69xx driver"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	depends on I3C
+	depends on HAS_IOMEM
+	depends on !(ALPHA || PARISC)
+	help
+	  This selects the Mediatek(R) I3C master bus driver
+	  for MT69XX.
+	  If you want to use Mediatek(R) I3C interface, say Y or M here.
+	  If unsure, say N.

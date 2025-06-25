@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2024 MediaTek Inc.
+ */
+
+&i2c3 {
+	current_selector: mt6379-2p@53{
+		compatible = "mediatek,mt6379_2p_master";
+		reg = <0x53>;
+		cs-name = "current_selector_master";
+		/* cs-gauge = <0>; */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#gpio-cells = <2>;
+		mt6379-2p,intr-gpio = <&pio 18 IRQ_TYPE_EDGE_FALLING>;
+		mt6379-2p,intr-gpio-num = <18>;
+		sc,mt6379-2p,bat-chg-lim-disable = <0>;
+		sc,mt6379-2p,bat-chg-lim = <39>;    /*50 + val * 50*/
+		sc,mt6379-2p,pow-lim-disable = <0>;
+		sc,mt6379-2p,ilim-disable = <0>;
+		sc,mt6379-2p,auto-bsm-mode-disable = <1>;
+		sc,mt6379-2p,load-switch-disable = <0>;
+		sc,mt6379-2p,low-power-mode-enable = <0>;
+		sc,mt6379-2p,itrichg = <3>; /*12.5 + val * 12.5*/
+		sc,mt6379-2p,iprechg = <2>; /*50 + val * 50*/
+		sc,mt6379-2p,vfc-chg = <2>; /*2800 + val * 50*/
+		sc,mt6379-2p,chg-ovp-disable = <0>;
+		sc,mt6379-2p,chg-ovp = <0>; /*0:5.0V 1:5.6V*/
+		sc,mt6379-2p,bat-ovp-disable = <0>;
+		sc,mt6379-2p,bat-ovp = <10>;    /*4000 + val *50*/
+		sc,mt6379-2p,chg-ocp-disable = <0>;
+		sc,mt6379-2p,chg-ocp = <2>; /*10000 + val * 1000*/
+		sc,mt6379-2p,dsg-ocp-disable = <0>;
+		sc,mt6379-2p,dsg-ocp = <2>; /*10000 + val * 1000*/
+		sc,mt6379-2p,tdie-flt-disable = <0>;
+		sc,mt6379-2p,tdie-alm-disable = <1>;
+		sc,mt6379-2p,tdie-alm = <9>;    /*80 + val * 5*/
+	};
+};

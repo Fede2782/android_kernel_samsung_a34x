@@ -1,0 +1,6 @@
+ifeq ($(CONFIG_TZDEV),y)
+    $(warning "CONFIG_MTK_PLATFORM: $(CONFIG_MTK_PLATFORM)")
+    $(warning "CONFIG_TEEGRIS_VERSION: $(CONFIG_TEEGRIS_VERSION)")
+    ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/tee/tzdev/$(CONFIG_TEEGRIS_VERSION)/include
+    ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/tee/tzdev/$(CONFIG_TEEGRIS_VERSION)/include/tzdev
+endif

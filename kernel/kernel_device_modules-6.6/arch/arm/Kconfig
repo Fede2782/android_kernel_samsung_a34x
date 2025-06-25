@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config MTK_ARM
+	bool "MTK_ARM config"
+	select ARM_GIC_V3
+	select ARM_PSCI
+	select POWER_RESET
+	select MEDIA_SUPPORT
+	select PAGE_REPORTING
+	select PINCTRL_SINGLE
+	select IOMMU_IO_PGTABLE_LPAE
+	select RESET_SIMPLE
+	select GENERIC_PHY_MIPI_DPHY
+	select RAS
+	select TRACE_GPU_MEM
+	select GENERIC_IRQ_CHIP
+	select IRQ_FASTEOI_HIERARCHY_HANDLERS
+	select ARCH_SUPPORTS_BIG_ENDIAN
+	select MEMORY_BALLOON
+	select BALLOON_COMPACTION
+	select MMU_NOTIFIER
+	select HMM_MIRROR
+	select WEXT_SPY
+	select SYS_HYPERVISOR
+	select HAVE_IDE
+	select GPIOLIB_IRQCHIP
+	select CEC_CORE
+	select CEC_NOTIFIER
+	select CEC_PIN
+	select MEDIA_CEC_RC
+	select MEDIA_CONTROLLER_REQUEST_API
+	select DRM_TTM
+	select DRM_KMS_CMA_HELPER
+	select DRM_GEM_SHMEM_HELPER
+	select SND_PCM_ELD
+	select SND_PCM_IEC958
+	select SND_DMAENGINE_PCM
+	select SND_COMPRESS_OFFLOAD
+	select SND_VMASTER
+	select SND_SOC_GENERIC_DMAENGINE_PCM
+	select SND_SOC_COMPRESS
+	select SND_SOC_TOPOLOGY
+	select MMC_SDHCI_IO_ACCESSORS
+	select ARCH_HAS_RESET_CONTROLLER
+	select CRYPTO_ENGINE
+	select CRYPTO_DEV_ALLWINNER
+	select INTERVAL_TREE
+	select EDAC
+	select EDAC_LEGACY_SYSFS
+	select ARM_GIC
+	select GENERIC_CLOCKEVENTS
+	select ARM_AMBA
+	select IRQ_DOMAIN
+	select GENERIC_SCHED_CLOCK
+	select CPU_IDLE
+	select NEON
+	select VFP
+	select KERNEL_MODE_NEON
+	select PINCTRL
+	select HAVE_ARM_ARCH_TIMER
+	select PHYLIB
+	select DMADEVICES
+	select WIRELESS_EXT
+	select NET_PTP_CLASSIFY
+	select WEXT_PRIV
+	select PAGE_POOL
+	select PHYLINK
+	select GENERIC_PINCTRL_GROUPS
+	select GENERIC_PINMUX_FUNCTIONS
+	# Above selects are sorted alphabetically; please add new ones
+	# according to that.  Thanks.
+	help
+	  The ARM series is a line of low-power-consumption RISC chip designs
+	  licensed by ARM Ltd and targeted at embedded applications and
+	  handhelds such as the Compaq IPAQ.  ARM-based PCs are no longer
+	  manufactured, but legacy ARM-based PC hardware remains popular in
+	  Europe.  There is an ARM Linux project with a web page at
+	  <http://www.arm.linux.org.uk/>.
+
