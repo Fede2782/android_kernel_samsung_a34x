@@ -878,6 +878,7 @@ struct mtk_cwb_info {
 	void *user_buffer;
 	enum CWB_BUFFER_TYPE type;
 	const struct mtk_cwb_funcs *funcs;
+	struct mutex cwb_mutex;
 };
 
 struct mtk_crtc_static_plane {
@@ -1274,6 +1275,8 @@ struct mtk_drm_crtc {
 	bool cust_skip_frame;
 	bool reset_path;
 
+
+	int config_cnt;
 };
 
 enum BL_GAMMA_GAIN {
@@ -1571,6 +1574,7 @@ struct total_tile_overhead_v mtk_crtc_get_total_overhead_v(struct mtk_drm_crtc *
 bool mtk_crtc_check_is_scaling_comp(struct mtk_drm_crtc *mtk_crtc,
 		enum mtk_ddp_comp_id comp_id);
 void mtk_crtc_divide_default_path_by_rsz(struct mtk_drm_crtc *mtk_crtc);
+void mtk_crtc_skip_merge_trigger(struct mtk_drm_crtc *mtk_crtc);
 struct drm_display_mode *mtk_crtc_get_display_mode_by_comp(
 	const char *source,
 	struct drm_crtc *crtc,

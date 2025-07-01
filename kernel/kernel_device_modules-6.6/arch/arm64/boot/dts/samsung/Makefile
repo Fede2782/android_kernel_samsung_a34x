@@ -1,5 +1,5 @@
-dtb-y += a34x_kor_single_w00_r05.dtbo
-dtb-y += a34x_kor_single_w00_r00.dtbo
+dtb-y += a34x_eur_open_w00_r05.dtbo
+dtb-y += a34x_eur_open_w00_r00.dtbo
 
 # SPDX-License-Identifier: GPL-2.0
 

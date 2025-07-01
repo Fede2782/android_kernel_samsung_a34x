@@ -51,7 +51,7 @@ lego_module_list = [
 ]
 
 lego_dtbo_list = [
-"a34x_kor_single_w00_r05.dtbo",
-"a34x_kor_single_w00_r00.dtbo"
+"a34x_eur_open_w00_r05.dtbo",
+"a34x_eur_open_w00_r00.dtbo"
 ]
 lego_model = 'a34x'

@@ -33,16 +33,3 @@
 		};
 	};
 };
-
-/* /home/dpi/qb5_8814/workspace/P4_1716/android/kernel/kmodule/sensorhub/mtk/mt6877_shub/dts/sensorhub_mt6877_shub.a34x_kor.dtsi */
-/ {
-	fragment@model {
-		target-path = "/";
-		__overlay__ {
-			shub {
-				acc-lsm6dsotr-position = <7>;
-				mag-mxg4300s-array = /bits/ 8 <41 217 5 249 0 85 4 118 33 112 254 121 0 97 255 177 41 23 0 0 0 0 0 0 0 0 0>;
-			};
-		};
-	};
-};
