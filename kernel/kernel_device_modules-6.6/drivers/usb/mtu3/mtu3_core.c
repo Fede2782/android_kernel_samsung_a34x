@@ -959,7 +959,7 @@ static irqreturn_t mtu3_link_isr(struct mtu3 *mtu)
 		pm_runtime_get(mtu->dev);
 		mtu3_ep0_setup(mtu);
 
-		if (udev_speed >= MTU3_SPEED_SUPER)
+		if ((int)udev_speed >= (int)MTU3_SPEED_SUPER)
 			ssusb_phy_dp_pullup(mtu->ssusb);
 	}
 

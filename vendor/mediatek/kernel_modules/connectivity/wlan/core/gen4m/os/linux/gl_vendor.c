@@ -1928,7 +1928,7 @@ static uint8_t bandMaskByBssIdx(struct ADAPTER *prAdapter, uint8_t bss_idx)
 		return 0;
 	}
 
-	if (prBssInfo->eHwBandIdx < ENUM_BAND_NUM)
+	if ((int)prBssInfo->eHwBandIdx < (int)ENUM_BAND_NUM)
 		ucHwBandIdxBitmap = BIT(prBssInfo->eHwBandIdx);
 
 #if (CFG_SUPPORT_802_11BE_MLO == 1)

@@ -884,7 +884,7 @@ struct mtk_vcodec_dev {
 	atomic_t dec_clk_ref_cnt[MTK_VDEC_HW_NUM];
 	atomic_t larb_ref_cnt;
 	atomic_t smi_dump_ref_cnt;
-	atomic_t smi_ctrl_get_ref_cnt[MAX(MTK_VDEC_HW_NUM,MTK_VENC_HW_NUM)]; // for get_if_in_use
+	atomic_t smi_ctrl_get_ref_cnt[MAX((int)MTK_VDEC_HW_NUM,(int)MTK_VENC_HW_NUM)]; // for get_if_in_use
 	unsigned int dec_ao_pw_cnt;
 
 	unsigned long id_counter;

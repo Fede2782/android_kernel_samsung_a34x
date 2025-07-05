@@ -1544,15 +1544,15 @@ void mtk_imgsys_cmdq_qof_init(struct mtk_imgsys_dev *imgsys_dev, struct cmdq_cli
 		}
 	}
 	/* smi cb register */
-	if (IS_MOD_SUPPORT_QOF(ISP8_PWR_DIP))
+	if (IS_MOD_SUPPORT_QOF((int)ISP8_PWR_DIP))
 		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_isp_dip_pwr_cb);
-	if (IS_MOD_SUPPORT_QOF(ISP8_PWR_TRAW))
+	if (IS_MOD_SUPPORT_QOF((int)ISP8_PWR_TRAW))
 		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_isp_traw_pwr_cb);
-	if (IS_MOD_SUPPORT_QOF(ISP8_PWR_WPE_1_EIS))
+	if (IS_MOD_SUPPORT_QOF((int)ISP8_PWR_WPE_1_EIS))
 		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_isp_wpe1_eis_pwr_cb);
-	if (IS_MOD_SUPPORT_QOF(ISP8_PWR_WPE_2_TNR))
+	if (IS_MOD_SUPPORT_QOF((int)ISP8_PWR_WPE_2_TNR))
 		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_isp_wpe2_tnr_pwr_cb);
-	if (IS_MOD_SUPPORT_QOF(ISP8_PWR_WPE_3_LITE))
+	if (IS_MOD_SUPPORT_QOF((int)ISP8_PWR_WPE_3_LITE))
 		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_isp_wpe3_lite_pwr_cb);
 	QOF_LOGI("-\n");
 }
