@@ -23,6 +23,11 @@ load(
 load(":hermetic_toolchain.bzl", "hermetic_toolchain")
 load(":status.bzl", "status")
 
+load("@mgk_info//:dict.bzl",
+    "SEC_CHANGELIST",
+    "SEC_BUILDNUMBER",
+)
+
 visibility("//build/kernel/kleaf/...")
 
 def _get_status_at_path(ctx, status_name, quoted_src_path):
@@ -91,12 +96,24 @@ def _write_localversion(ctx):
             elif [[ -n "$android_release" ]]; then
                 scmversion_prefix="-$android_release"
             fi
-            scmversion="${{scmversion_prefix}}${{stable_scmversion}}"
+            scmversion_sec_prefix=
+            SEC_CHANGELIST="{sec_changelist}"
+            SEC_BUILDNUMBER="{sec_buildnumber}"
+            if [[ -n "$SEC_BUILDNUMBER" ]] && [[ -n "$SEC_CHANGELIST" ]]; then
+                scmversion_sec_prefix="-$SEC_CHANGELIST-ab$SEC_BUILDNUMBER"
+            elif [[ -n "$SEC_CHANGELIST" ]]; then
+                scmversion_sec_prefix="-$SEC_CHANGELIST"
+            elif [[ -n "$SEC_BUILDNUMBER" ]]; then
+                scmversion_sec_prefix="-ab$SEC_BUILDNUMBER"
+            fi
+            scmversion="${{scmversion_prefix}}${{scmversion_sec_prefix}}${{stable_scmversion}}"
             echo $scmversion
         ) > {out_path}
     """.format(
         stable_scmversion_cmd = stable_scmversion_cmd,
         out_path = out_file.path,
+        sec_changelist = SEC_CHANGELIST,
+        sec_buildnumber = SEC_BUILDNUMBER,
     )
 
     ctx.actions.run_shell(
