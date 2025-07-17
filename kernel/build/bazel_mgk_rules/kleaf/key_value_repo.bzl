@@ -1,6 +1,6 @@
 def _impl(repository_ctx):
     repository_content = ""
-    keys = ["DEFCONFIG_OVERLAYS","KERNEL_VERSION","SOURCE_DATE_EPOCH"]
+    keys = ["DEFCONFIG_OVERLAYS","KERNEL_VERSION","SOURCE_DATE_EPOCH", "SEC_CHANGELIST", "SEC_BUILDNUMBER"]
     for key in keys:
       if key in repository_ctx.os.environ:
           value = repository_ctx.os.environ[key].strip()
@@ -28,6 +28,8 @@ key_value_repo = repository_rule(
         "DEFCONFIG_OVERLAYS",
         "KERNEL_VERSION",
         "SOURCE_DATE_EPOCH",
+        "SEC_CHANGELIST",
+        "SEC_BUILDNUMBER",
     ],
     attrs = {
         "additional_values": attr.string_dict(),
