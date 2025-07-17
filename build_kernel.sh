@@ -25,5 +25,6 @@ export DEFCONFIG_OVERLAYS="mt6877_overlay.config mt6877_teegris_5_overlay.config
 export PROJECT="mgk_64_k66"
 export MODE="user"
 export SOURCE_DATE_EPOCH="$(date +%s)"
+export SEC_BUILDNUMBER="A346BXXSADYG1"
 
 ./kernel_device_modules-6.6/build.sh
