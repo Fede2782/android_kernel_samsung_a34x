@@ -91,7 +91,15 @@ def _write_localversion(ctx):
             elif [[ -n "$android_release" ]]; then
                 scmversion_prefix="-$android_release"
             fi
-            scmversion="${{scmversion_prefix}}${{stable_scmversion}}"
+            scmversion_sec_prefix=
+            if [[ -n "$SEC_BUILDNUMBER" ]] && [[ -n "$SEC_CHANGELIST" ]]; then
+                scmversion_sec_prefix="-$SEC_CHANGELIST-ab$SEC_BUILDNUMBER"
+            elif [[ -n "$SEC_CHANGELIST" ]]; then
+                scmversion_sec_prefix="-$SEC_CHANGELIST"
+            elif [[ -n "$SEC_BUILDNUMBER" ]]; then
+                scmversion_sec_prefix="-ab$SEC_BUILDNUMBER"
+            fi
+            scmversion="${{scmversion_prefix}}${{scmversion_sec_prefix}}${{stable_scmversion}}"
             echo $scmversion
         ) > {out_path}
     """.format(
