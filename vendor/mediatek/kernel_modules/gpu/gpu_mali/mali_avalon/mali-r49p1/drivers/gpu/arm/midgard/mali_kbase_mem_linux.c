@@ -46,6 +46,9 @@
 #include <mali_kbase_caps.h>
 #include <mali_kbase_trace_gpu_mem.h>
 #include <mali_kbase_reset_gpu.h>
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+#include <csf/mali_kbase_csf_mem_compr.h>
+#endif
 #include <linux/version_compat_defs.h>
 
 #if IS_ENABLED(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) && IS_ENABLED(CONFIG_MTK_GZ_KREE) && IS_ENABLED(CONFIG_MALI_MTK_PROTECTED_PATCH)
@@ -708,7 +711,8 @@ static unsigned long kbase_mem_evictable_reclaim_count_objects(struct shrinker *
 	struct kbase_context *kctx =
 		KBASE_GET_KBASE_DATA_FROM_SHRINKER(s, struct kbase_context, reclaim);
 
-	int evict_nents = atomic_read(&kctx->evict_nents);
+	int evict_nents =
+		atomic_read(&kctx->evict_nents) - atomic_read(&kctx->evict_compressed_nents);
 	unsigned long nr_freeable_items;
 #if IS_ENABLED(CONFIG_MALI_MTK_JIT_RECLAIM_ANTITHRASHING)
 	struct kbase_mem_phy_alloc *alloc, *tmp;
@@ -760,6 +764,8 @@ static unsigned long kbase_mem_evictable_reclaim_count_objects(struct shrinker *
 	trace_mali_mem_evictable_count(kctx, nr_freeable_items);
 #endif /* CONFIG_MALI_MTK_JIT_RECLAIM_ANTITHRASHING */
 
+	if (!nr_freeable_items && atomic_read(&kctx->evict_compressed_nents))
+		nr_freeable_items = 1;
 #if KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE
 	if (nr_freeable_items == 0)
 		nr_freeable_items = SHRINK_EMPTY;
@@ -818,7 +824,7 @@ static unsigned long kbase_mem_evictable_reclaim_scan_objects(struct shrinker *s
 
 	list_for_each_entry_safe(alloc, tmp, &kctx->evict_list, evict_node) {
 		int err;
-
+		size_t compressed_nents;
 		if (!alloc->reg)
 			continue;
 
@@ -846,10 +852,12 @@ static unsigned long kbase_mem_evictable_reclaim_scan_objects(struct shrinker *s
 		 * and memory pool.
 		 */
 		alloc->evicted = alloc->nents;
+		compressed_nents = alloc->compressed_nents;
 
 		kbase_free_phy_pages_helper(alloc, alloc->evicted);
-		freed += alloc->evicted;
+		freed += (alloc->evicted - compressed_nents);
 		WARN_ON(atomic_sub_return(alloc->evicted, &kctx->evict_nents) < 0);
+		WARN_ON(atomic_sub_return(compressed_nents, &kctx->evict_compressed_nents) < 0);
 		list_del_init(&alloc->evict_node);
 
 		/*
@@ -905,13 +913,14 @@ void kbase_mem_evictable_mark_reclaim(struct kbase_mem_phy_alloc *alloc)
 	struct kbase_context *kctx = alloc->imported.native.kctx;
 	struct kbase_device *kbdev = kctx->kbdev;
 	int __maybe_unused new_page_count;
+	size_t decompressed_nents = alloc->nents - alloc->compressed_nents;
 
-	kbase_process_page_usage_dec(kctx, alloc->nents);
-	new_page_count = atomic_sub_return(alloc->nents, &kctx->used_pages);
-	atomic_sub(alloc->nents, &kctx->kbdev->memdev.used_pages);
+	kbase_process_page_usage_dec(kctx, decompressed_nents);
+	new_page_count = atomic_sub_return(decompressed_nents, &kctx->used_pages);
+	atomic_sub(decompressed_nents, &kctx->kbdev->memdev.used_pages);
 
 	KBASE_TLSTREAM_AUX_PAGESALLOC(kbdev, kctx->id, (u64)new_page_count);
-	kbase_trace_gpu_mem_usage_dec(kbdev, kctx, alloc->nents);
+	kbase_trace_gpu_mem_usage_dec(kbdev, kctx, decompressed_nents);
 #if IS_ENABLED(CONFIG_MALI_MTK_MEMORY_DEBUG)
 	kbase_trace_free_pages(kbdev->id, kctx, alloc->nents, (size_t)alloc->pages, alloc->category);
 #endif /* CONFIG_MALI_MTK_MEMORY_DEBUG */
@@ -926,17 +935,18 @@ static void kbase_mem_evictable_unmark_reclaim(struct kbase_mem_phy_alloc *alloc
 	struct kbase_context *kctx = alloc->imported.native.kctx;
 	struct kbase_device *kbdev = kctx->kbdev;
 	int __maybe_unused new_page_count;
+	size_t decompressed_nents = alloc->nents - alloc->compressed_nents;
 
-	new_page_count = atomic_add_return(alloc->nents, &kctx->used_pages);
-	atomic_add(alloc->nents, &kctx->kbdev->memdev.used_pages);
+	new_page_count = atomic_add_return(decompressed_nents, &kctx->used_pages);
+	atomic_add(decompressed_nents, &kctx->kbdev->memdev.used_pages);
 
 	/* Increase mm counters so that the allocation is accounted for
 	 * against the process and thus is visible to the OOM killer,
 	 */
-	kbase_process_page_usage_inc(kctx, alloc->nents);
+	kbase_process_page_usage_inc(kctx, decompressed_nents);
 
 	KBASE_TLSTREAM_AUX_PAGESALLOC(kbdev, kctx->id, (u64)new_page_count);
-	kbase_trace_gpu_mem_usage_inc(kbdev, kctx, alloc->nents);
+	kbase_trace_gpu_mem_usage_inc(kbdev, kctx, decompressed_nents);
 #if IS_ENABLED(CONFIG_MALI_MTK_MEMORY_DEBUG)
 	kbase_trace_alloc_pages(kbdev->id, kctx, alloc->nents, (size_t)alloc->pages, alloc->category);
 #endif /* CONFIG_MALI_MTK_MEMORY_DEBUG */
@@ -962,6 +972,7 @@ void kbase_mem_evictable_make(struct kbase_mem_phy_alloc *gpu_alloc)
 	 */
 	list_add(&gpu_alloc->evict_node, &kctx->evict_list);
 	atomic_add(gpu_alloc->nents, &kctx->evict_nents);
+	atomic_add(gpu_alloc->compressed_nents, &kctx->evict_compressed_nents);
 
 	/* Indicate to page migration that the memory can be reclaimed by the shrinker.
 	 */
@@ -996,6 +1007,7 @@ bool kbase_mem_evictable_unmake(struct kbase_mem_phy_alloc *gpu_alloc)
 	 * longer eligible for eviction.
 	 */
 	WARN_ON(atomic_sub_return(gpu_alloc->nents, &kctx->evict_nents) < 0);
+	WARN_ON(atomic_sub_return(gpu_alloc->compressed_nents, &kctx->evict_compressed_nents) < 0);
 	list_del_init(&gpu_alloc->evict_node);
 	mutex_unlock(&kctx->jit_evict_lock);
 
@@ -2022,6 +2034,18 @@ u64 kbase_mem_alias(struct kbase_context *kctx, u64 *flags, u64 stride, u64 nent
 				goto bad_handle; /* beyond end */
 			if (ai[i].offset + ai[i].length > alloc->nents)
 				goto bad_handle; /* beyond end */
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+			if (alloc->compressed_nents) {
+				if (kbase_zs_decompress_region(kctx, aliasing_reg, false, false)) {
+					dev_warn(
+						kctx->kbdev->dev,
+						"Failed to decompress on aliasing GPU VA %llx of ctx %d_%d",
+						aliasing_reg->start_pfn << PAGE_SHIFT, kctx->tgid,
+						kctx->id);
+					goto bad_handle;
+				}
+			}
+#endif
 
 			reg->gpu_alloc->imported.alias.aliased[i].alloc =
 				kbase_mem_phy_alloc_get(alloc);
@@ -2455,7 +2479,9 @@ int kbase_mem_shrink(struct kbase_context *const kctx, struct kbase_va_region *c
 		/* Move the end of new commited range to a valid location.
 		 * This mirrors the adjustment done inside kbase_free_phy_pages_helper().
 		 */
-		while (delta && is_huge(*start_free) && !is_huge_head(*start_free)) {
+		while (delta && ((is_huge(*start_free) && !is_huge_head(*start_free)) ||
+				 (is_compressed_large(*start_free) &&
+				  !is_compressed_large_head(*start_free)))) {
 			start_free++;
 			new_pages++;
 			delta--;
@@ -2463,6 +2489,15 @@ int kbase_mem_shrink(struct kbase_context *const kctx, struct kbase_va_region *c
 
 		if (!delta)
 			return 0;
+	}
+
+	/* if page is compressed don't need to do shrink gpu/cpu mapping again */
+	if (is_compressed(*(reg->gpu_alloc->pages + new_pages))) {
+		kbase_free_phy_pages_helper(reg->cpu_alloc, delta);
+		if (reg->cpu_alloc != reg->gpu_alloc)
+			kbase_free_phy_pages_helper(reg->gpu_alloc, delta);
+
+		return 0;
 	}
 
 	/* Update the GPU mapping */
@@ -2608,6 +2643,18 @@ static vm_fault_t kbase_cpu_vm_fault(struct vm_fault *vmf)
 	/* Fault on access to DONT_NEED regions */
 	if (map->alloc->reg && (map->alloc->reg->flags & KBASE_REG_DONT_NEED))
 		goto exit;
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+	if (map->alloc->compressed_nents) {
+		if (kbase_zs_decompress_region(map->kctx, map->alloc->reg, false, false)) {
+			dev_warn(
+				map->kctx->kbdev->dev,
+				"Failed to decompress on a CPU page fault for GPU VA %llx of ctx %d_%d",
+				map->alloc->reg->start_pfn << PAGE_SHIFT, map->kctx->tgid,
+				map->kctx->id);
+			goto exit;
+		}
+	}
+#endif
 
 	/* We are inserting all valid pages from the start of CPU mapping and
 	 * not from the fault location (the mmap handler was previously doing
@@ -3244,6 +3291,16 @@ static int kbase_vmap_phy_pages(struct kbase_context *kctx, struct kbase_va_regi
 		/* Map uncached */
 		prot = pgprot_writecombine(prot);
 	}
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+	if (reg->gpu_alloc->compressed_nents) {
+		if (kbase_zs_decompress_region(kctx, reg, false, false)) {
+			dev_warn(kctx->kbdev->dev,
+				 "Failed to decompress on a vmap of GPU VA %llx of ctx %d_%d",
+				 reg->start_pfn << PAGE_SHIFT, kctx->tgid, kctx->id);
+			return -ENOMEM;
+		}
+	}
+#endif
 
 	page_array = kbase_get_cpu_phy_pages(reg);
 	if (!page_array)

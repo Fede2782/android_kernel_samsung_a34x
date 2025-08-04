@@ -233,7 +233,14 @@ int kbase_mmu_update_pages(struct kbase_context *kctx, u64 vpfn, struct tagged_a
  */
 int kbase_mmu_update_csf_mcu_pages(struct kbase_device *kbdev, u64 vpfn, struct tagged_addr *phys,
 				   size_t nr, unsigned long flags, int const group_id);
+
+int kbase_mmu_insert_on_decompress_region(struct kbase_context *kctx, struct kbase_va_region *reg,
+					   size_t nr_pages, bool skip_flush);
 #endif
+
+int kbase_mmu_update_pages_no_flush(struct kbase_device *kbdev, struct kbase_mmu_table *mmut,
+				    u64 vpfn, struct tagged_addr *phys, size_t nr,
+				    unsigned long flags, int group_id, u64 *dirty_pgds);
 
 /**
  * kbase_mmu_migrate_data_page - Migrate GPU mappings and content of data pages between memory pages

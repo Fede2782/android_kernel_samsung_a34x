@@ -317,6 +317,13 @@ config MALI_TRACE_POWER_GPU_WORK_PERIOD
 
 	  If unsure, say N.
 
+config MALI_MEMORY_COMPRESSION
+	bool "Enable memory compression support on CSF GPUs"
+	depends on MALI_MIDGARD && MALI_CSF_SUPPORT
+	default y
+	help
+	  This option enables Mali memory compression support on CSF GPUs.
+
 choice
 	prompt "CSF Firmware trace mode"
 	depends on MALI_MIDGARD

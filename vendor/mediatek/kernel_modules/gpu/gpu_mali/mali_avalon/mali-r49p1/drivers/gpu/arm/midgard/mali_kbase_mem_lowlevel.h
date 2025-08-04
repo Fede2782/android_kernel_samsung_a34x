@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2012-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -50,9 +50,14 @@ struct tagged_addr {
 	phys_addr_t tagged_addr;
 };
 
-#define HUGE_PAGE (1u << 0)
-#define HUGE_HEAD (1u << 1)
-#define FROM_PARTIAL (1u << 2)
+#define HUGE_PAGE 1u
+#define HUGE_HEAD 2u
+#define FROM_PARTIAL 3u
+#define ZS_ALLOC 4u
+#define ZS_ALLOC_LARGE_HEAD 5u
+#define ZS_ALLOC_LARGE 6u
+#define NUM_TAG_BITS 3
+#define TAG_MASK ((1u << NUM_TAG_BITS) - 1)
 
 #define NUM_PAGES_IN_2MB_LARGE_PAGE (SZ_2M / PAGE_SIZE)
 
@@ -76,7 +81,7 @@ struct tagged_addr {
  */
 static inline phys_addr_t as_phys_addr_t(struct tagged_addr t)
 {
-	return t.tagged_addr & GPU_PAGE_MASK;
+	return t.tagged_addr & ~(phys_addr_t)TAG_MASK;
 }
 
 /**
@@ -106,7 +111,7 @@ static inline struct tagged_addr as_tagged(phys_addr_t phys)
 {
 	struct tagged_addr t;
 
-	t.tagged_addr = phys & GPU_PAGE_MASK;
+	t.tagged_addr = phys & ~(phys_addr_t)TAG_MASK;
 	return t;
 }
 
@@ -124,7 +129,7 @@ static inline struct tagged_addr as_tagged_tag(phys_addr_t phys, int tag)
 {
 	struct tagged_addr t;
 
-	t.tagged_addr = (phys & GPU_PAGE_MASK) | (tag & ~GPU_PAGE_MASK);
+	t.tagged_addr = (phys & ~(phys_addr_t)TAG_MASK) | (tag & TAG_MASK);
 	return t;
 }
 
@@ -137,7 +142,9 @@ static inline struct tagged_addr as_tagged_tag(phys_addr_t phys, int tag)
  */
 static inline bool is_huge(struct tagged_addr t)
 {
-	return t.tagged_addr & HUGE_PAGE;
+	u8 tag_bits = t.tagged_addr & TAG_MASK;
+
+	return ((tag_bits == HUGE_HEAD) || (tag_bits == HUGE_PAGE));
 }
 
 /**
@@ -149,9 +156,9 @@ static inline bool is_huge(struct tagged_addr t)
  */
 static inline bool is_huge_head(struct tagged_addr t)
 {
-	phys_addr_t mask = HUGE_HEAD | HUGE_PAGE;
+	u8 tag_bits = t.tagged_addr & TAG_MASK;
 
-	return mask == (t.tagged_addr & mask);
+	return (tag_bits == HUGE_HEAD);
 }
 
 /**
@@ -164,7 +171,35 @@ static inline bool is_huge_head(struct tagged_addr t)
  */
 static inline bool is_partial(struct tagged_addr t)
 {
-	return t.tagged_addr & FROM_PARTIAL;
+	u8 tag_bits = t.tagged_addr & TAG_MASK;
+
+	return (tag_bits == FROM_PARTIAL);
+}
+
+static inline bool is_compressed_large_head(struct tagged_addr t)
+{
+	u8 tag_bits = t.tagged_addr & TAG_MASK;
+
+	return (tag_bits == ZS_ALLOC_LARGE_HEAD);
+}
+
+static inline bool is_compressed_large(struct tagged_addr t)
+{
+	u8 tag_bits = t.tagged_addr & TAG_MASK;
+
+	return ((tag_bits == ZS_ALLOC_LARGE_HEAD) || (tag_bits == ZS_ALLOC_LARGE));
+}
+
+static inline bool is_compressed_small(struct tagged_addr t)
+{
+	u8 tag_bits = t.tagged_addr & TAG_MASK;
+
+	return (tag_bits == ZS_ALLOC);
+}
+
+static inline bool is_compressed(struct tagged_addr t)
+{
+	return (is_compressed_small(t) || is_compressed_large(t));
 }
 
 /**

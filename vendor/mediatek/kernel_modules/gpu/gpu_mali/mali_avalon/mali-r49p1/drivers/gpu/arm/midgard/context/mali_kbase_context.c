@@ -46,6 +46,9 @@
 #include <gpu_pdma.h>
 #endif /* CONFIG_MALI_MTK_SLC_DYNAMIC_POLICY_V2 */
 
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+#include <csf/mali_kbase_csf_mem_compr.h>
+#endif
 /**
  * find_process_node - Used to traverse the process rb_tree to find if
  *                     process exists already in process rb_tree.
@@ -125,6 +128,13 @@ static int kbase_insert_kctx_to_process(struct kbase_context *kctx)
 		}
 		rb_link_node(&kprcs->kprcs_node, parent, new);
 		rb_insert_color(&kprcs->kprcs_node, prcs_root);
+
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+		/* per process kobj setting */
+		kctx->kprcs = kprcs;
+		kprcs->kbdev = kctx->kbdev;
+		kbase_csf_mem_compr_kobj_init(kctx);
+#endif
 	}
 
 	kctx->kprcs = kprcs;
@@ -288,6 +298,13 @@ static void kbase_remove_kctx_from_process(struct kbase_context *kctx)
 		WARN_ON(kprcs->total_gpu_pages);
 		spin_unlock(&kctx->kbdev->gpu_mem_usage_lock);
 		WARN_ON(!RB_EMPTY_ROOT(&kprcs->dma_buf_root));
+
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+		/*delete the per process kobj*/
+		kobject_del(&kprcs->kobj);
+		kobject_put(&kprcs->kobj);
+#endif
+
 		kfree(kprcs);
 	}
 }
@@ -299,8 +316,6 @@ void kbase_context_common_term(struct kbase_context *kctx)
 	pages = atomic_read(&kctx->used_pages);
 	if (pages != 0)
 		dev_warn(kctx->kbdev->dev, "%s: %d pages in use!\n", __func__, pages);
-
-	WARN_ON(atomic_read(&kctx->nonmapped_pages) != 0);
 
 #if IS_ENABLED(CONFIG_MALI_MTK_SLC_DYNAMIC_POLICY_V2)
 	/* release PDMA HW Lock in case user doesn't */

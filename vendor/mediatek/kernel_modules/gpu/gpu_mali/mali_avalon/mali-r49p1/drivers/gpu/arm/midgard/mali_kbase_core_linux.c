@@ -6321,6 +6321,10 @@ static const struct attribute_group kbase_attr_group = {
 	.attrs = kbase_attrs,
 };
 
+#if MALI_USE_CSF
+#define SYSFS_CSF_MEM_COMPR_DIR "mem_compr"
+#endif
+
 int kbase_sysfs_init(struct kbase_device *kbdev)
 {
 	int err = 0;
@@ -6353,11 +6357,32 @@ int kbase_sysfs_init(struct kbase_device *kbdev)
 	mtk_common_sysfs_init(kbdev);
 #endif /* CONFIG_MALI_MTK_SYSFS */
 
+#if MALI_USE_CSF
+	if (IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)) {
+		kbdev->mcompr_kobj = kobject_create_and_add(SYSFS_CSF_MEM_COMPR_DIR, &kbdev->dev->kobj);
+		if (!kbdev->mcompr_kobj) {
+			kobject_put(kbdev->mcompr_kobj);
+			sysfs_remove_group(&kbdev->dev->kobj, &kbase_mempool_attr_group);
+			sysfs_remove_group(&kbdev->dev->kobj, &kbase_scheduling_attr_group);
+			sysfs_remove_group(&kbdev->dev->kobj, &kbase_attr_group);
+			dev_err(kbdev->dev, "Creation of %s sysfs sub-directory failed\n",
+				SYSFS_CSF_MEM_COMPR_DIR);
+			return -ENOMEM;
+		}
+	}
+#endif
 	return err;
 }
 
 void kbase_sysfs_term(struct kbase_device *kbdev)
 {
+#if MALI_USE_CSF
+	if (IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)) {
+		kobject_del(kbdev->mcompr_kobj);
+		kobject_put(kbdev->mcompr_kobj);
+	}
+#endif
+
 #if IS_ENABLED(CONFIG_MALI_MTK_SYSFS)
 	mtk_common_sysfs_term(kbdev);
 #endif /* CONFIG_MALI_MTK_SYSFS */

@@ -32,6 +32,10 @@
 #include <tl/mali_kbase_timeline.h>
 #include <mali_kbase_ctx_sched.h>
 
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+#include <csf/mali_kbase_csf_mem_compr.h>
+#endif
+
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 #include <csf/mali_kbase_csf_csg_debugfs.h>
 #include <csf/mali_kbase_csf_kcpu_debugfs.h>
@@ -94,6 +98,10 @@ static const struct kbase_context_init context_init[] = {
 	{ kbase_mem_evictable_init, kbase_mem_evictable_deinit,
 	  "Memory evictable initialization failed" },
 	{ kbase_ctx_sched_init_ctx, NULL, NULL },
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+	{ kbase_csf_mem_compr_init, kbase_csf_mem_compr_term,
+	  "CSF memory compression initialization failed" },
+#endif
 	{ kbase_context_mmu_init, kbase_context_mmu_term, "MMU initialization failed" },
 	{ kbase_context_mem_alloc_page, kbase_context_mem_pool_free, "Memory alloc page failed" },
 	{ kbase_region_tracker_init, kbase_region_tracker_term,
@@ -102,6 +110,10 @@ static const struct kbase_context_init context_init[] = {
 	  "Sticky resource initialization failed" },
 	{ kbase_jit_init, kbase_jit_term, "JIT initialization failed" },
 	{ kbase_csf_ctx_init, kbase_csf_ctx_term, "CSF context initialization failed" },
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+	{ kbase_csf_mem_compr_sysfs_init, kbase_csf_mem_compr_sysfs_term,
+	  "CSF memory compression sysfs initialization failed" },
+#endif
 	{ kbase_context_add_to_dev_list, kbase_context_remove_from_dev_list,
 	  "Adding kctx to device failed" },
 };

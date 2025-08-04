@@ -781,7 +781,7 @@ int kbase_mem_pool_alloc_pages(struct kbase_mem_pool *pool, size_t nr_small_page
 				i++;
 			}
 #else /* CONFIG_MALI_MTK_PAGE_TABLE_CLUSTERING */
-			pages[i++] = as_tagged_tag(page_to_phys(p), HUGE_HEAD | HUGE_PAGE);
+			pages[i++] = as_tagged_tag(page_to_phys(p), HUGE_HEAD);
 			for (j = 1; j < (1u << pool->order); j++)
 				pages[i++] =
 					as_tagged_tag(page_to_phys(p) + PAGE_SIZE * j, HUGE_PAGE);
@@ -837,7 +837,7 @@ int kbase_mem_pool_alloc_pages(struct kbase_mem_pool *pool, size_t nr_small_page
 							  apc, &curr_apc);
 				i++;
 #else /* CONFIG_MALI_MTK_PAGE_TABLE_CLUSTERING */
-				pages[i++] = as_tagged_tag(page_to_phys(p), HUGE_PAGE | HUGE_HEAD);
+				pages[i++] = as_tagged_tag(page_to_phys(p), HUGE_HEAD);
 #endif /* CONFIG_MALI_MTK_PAGE_TABLE_CLUSTERING */
 				for (j = 1; j < (1u << pool->order); j++) {
 					phys_addr_t phys;
@@ -948,7 +948,7 @@ int kbase_mem_pool_alloc_pages_locked(struct kbase_mem_pool *pool, size_t nr_sma
 			mtk_mem_alloc_insert_page(pages, pt,
 						  apc, &curr_apc);
 #else /* CONFIG_MALI_MTK_PAGE_TABLE_CLUSTERING */
-			*pages++ = as_tagged_tag(page_to_phys(p), HUGE_HEAD | HUGE_PAGE);
+			*pages++ = as_tagged_tag(page_to_phys(p), HUGE_HEAD);
 #endif /* CONFIG_MALI_MTK_PAGE_TABLE_CLUSTERING */
 			for (j = 1; j < (1u << pool->order); j++) {
 #if IS_ENABLED(CONFIG_MALI_MTK_PAGE_TABLE_CLUSTERING)

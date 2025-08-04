@@ -376,6 +376,12 @@ config MALI_TRACE_POWER_GPU_WORK_PERIOD
 
 	  If unsure, say N.
 
+config MALI_MEMORY_COMPRESSION
+	bool "Enable memory compression support on CSF GPUs"
+	depends on MALI_MIDGARD && MALI_CSF_SUPPORT
+	default y
+	help
+	  This option enables Mali memory compression support on CSF GPUs.
 
 source "$(MALI_KCONFIG_EXT_PREFIX)drivers/gpu/arm/midgard/tests/Kconfig"
 

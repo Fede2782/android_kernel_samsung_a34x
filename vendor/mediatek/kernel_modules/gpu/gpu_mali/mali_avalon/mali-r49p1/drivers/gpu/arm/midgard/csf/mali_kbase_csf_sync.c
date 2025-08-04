@@ -22,6 +22,9 @@
 #include "mali_kbase_csf_csg.h"
 #include "mali_kbase_csf_sync.h"
 #include "mali_kbase_csf_util.h"
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+#include "mali_kbase_csf_mem_compr.h"
+#endif
 #include <mali_kbase.h>
 #include <linux/version_compat_defs.h>
 
@@ -532,15 +535,31 @@ static bool kbasep_csf_get_move_immediate_value(u64 move_cmd, u64 sync_addr_reg,
  */
 static u64 kbasep_csf_read_ringbuffer_value(struct kbase_queue *queue, u32 ringbuff_offset)
 {
+	struct kbase_context *kctx = queue->kctx;
 	u64 page_off = ringbuff_offset >> PAGE_SHIFT;
 	u64 offset_within_page = ringbuff_offset & ~PAGE_MASK;
-	struct page *page = as_page(queue->queue_reg->gpu_alloc->pages[page_off]);
-	u64 *ringbuffer = vmap(&page, 1, VM_MAP, pgprot_noncached(PAGE_KERNEL));
+	struct page *page;
+	u64 *ringbuffer;
 	u64 value;
 
-	if (!ringbuffer) {
-		struct kbase_context *kctx = queue->kctx;
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+	kbase_gpu_vm_lock(kctx);
+	if (queue->queue_reg->gpu_alloc->compressed_nents) {
+		if (kbase_zs_decompress_region(kctx, queue->queue_reg, false, false)) {
+			dev_warn(kctx->kbdev->dev,
+				 "Failed to decompress queue ringbuf %llx of ctx %d_%d",
+				 queue->queue_reg->start_pfn << PAGE_SHIFT, kctx->tgid, kctx->id);
+			kbase_gpu_vm_unlock(kctx);
+			return 0;
+		}
+	}
+	kbase_gpu_vm_unlock(kctx);
+#endif
 
+	page = as_page(queue->queue_reg->gpu_alloc->pages[page_off]);
+	ringbuffer = vmap(&page, 1, VM_MAP, pgprot_noncached(PAGE_KERNEL));
+
+	if (!ringbuffer) {
 		dev_err(kctx->kbdev->dev, "%s failed to map the buffer page for read a command!",
 			__func__);
 		/* Return an alternative 0 for dumping operation*/

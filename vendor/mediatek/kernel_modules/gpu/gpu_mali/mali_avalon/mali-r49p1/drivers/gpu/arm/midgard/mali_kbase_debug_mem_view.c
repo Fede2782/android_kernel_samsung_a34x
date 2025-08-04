@@ -25,7 +25,9 @@
 
 #include "mali_kbase_debug_mem_view.h"
 #include "mali_kbase.h"
-
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+#include <csf/mali_kbase_csf_mem_compr.h>
+#endif
 #include <linux/list.h>
 #include <linux/file.h>
 
@@ -148,6 +150,9 @@ static int debug_mem_show(struct seq_file *m, void *v)
 	if (!(map->flags & KBASE_REG_CPU_CACHED))
 		prot = pgprot_writecombine(prot);
 
+	if (is_compressed(map->alloc->pages[data->offset]))
+		goto out;
+
 	page = as_page(map->alloc->pages[data->offset]);
 	cpu_addr = vmap(&page, 1, VM_MAP, prot);
 	if (!cpu_addr)
@@ -213,6 +218,19 @@ static int debug_mem_zone_open(struct kbase_reg_zone *zone, struct debug_mem_dat
 			continue;
 		}
 
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+		if (reg->gpu_alloc->compressed_nents) {
+			if (kbase_zs_decompress_region(mem_data->kctx, reg, false, false)) {
+				dev_warn(
+					mem_data->kctx->kbdev->dev,
+					"Failed to decompress on mem_view read for GPU VA %llx of ctx %d_%d",
+					reg->start_pfn << PAGE_SHIFT, mem_data->kctx->tgid,
+					mem_data->kctx->id);
+				ret = -ENOMEM;
+				goto out;
+			}
+		}
+#endif
 		mapping = kmalloc(sizeof(*mapping), GFP_KERNEL);
 		if (!mapping) {
 			ret = -ENOMEM;

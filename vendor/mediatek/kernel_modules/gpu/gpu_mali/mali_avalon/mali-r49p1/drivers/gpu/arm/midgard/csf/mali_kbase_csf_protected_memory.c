@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -108,7 +108,7 @@ kbase_csf_protected_memory_alloc(struct kbase_device *const kbdev, struct tagged
 		if (order) {
 			size_t j;
 
-			*phys++ = as_tagged_tag(phys_addr, HUGE_HEAD | HUGE_PAGE);
+			*phys++ = as_tagged_tag(phys_addr, HUGE_HEAD);
 
 			for (j = 1; j < num_pages_order; j++) {
 				*phys++ = as_tagged_tag(phys_addr + PAGE_SIZE * j, HUGE_PAGE);

@@ -125,6 +125,9 @@ bob_defaults {
     mali_fw_trace_mode_auto_discard: {
         kbuild_options: ["CONFIG_MALI_FW_TRACE_MODE_AUTO_DISCARD=y"],
     },
+    mali_memory_compression: {
+	kbuild_options: ["CONFIG_MALI_MEMORY_COMPRESSION=y"],
+    },
     kbuild_options: [
         "CONFIG_MALI_PLATFORM_NAME={{.mali_platform_name}}",
         "MALI_CUSTOMER_RELEASE={{.release}}",
