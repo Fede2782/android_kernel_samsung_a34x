@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -187,10 +187,42 @@ void kbase_csf_tiler_heap_reclaim_sched_notify_grp_suspend(struct kbase_queue_gr
 	}
 }
 
+u32 kbase_csf_tiler_heap_reclaim_free_ctx_unused_pages(struct kbase_context *kctx)
+{
+	struct kbase_csf_scheduler *const scheduler = &kctx->kbdev->csf.scheduler;
+	struct kbase_csf_ctx_heap_reclaim_info *info = &kctx->csf.sched.heap_info;
+	u32 freed_pages;
+
+	lockdep_assert_held(&scheduler->lock);
+
+	freed_pages = kbase_csf_tiler_heap_scan_kctx_unused_pages(kctx, info->nr_est_unused_pages);
+	if (freed_pages) {
+		/* Remove the freed pages from the manager retained estimate. The
+		 * accumulated removals from the kctx should not exceed the kctx
+		 * initially notified contribution amount:
+		 *   info->nr_est_unused_pages.
+		 */
+		u32 rm_cnt = MIN(info->nr_est_unused_pages - info->nr_freed_pages, freed_pages);
+
+		WARN_ON(atomic_sub_return((int)rm_cnt, &scheduler->reclaim_mgr.unused_pages) < 0);
+		/* tracking the freed pages, before a potential detach call */
+		info->nr_freed_pages += freed_pages;
+		schedule_work(&kctx->jit_work);
+	}
+
+	/* If the kctx can't offer anymore, drop it from the reclaim manager,
+	 * otherwise leave it remaining in. If the kctx changes its state (i.e.
+	 * some CSGs becoming on-slot), the scheduler will pull it out.
+	 */
+	if (info->nr_freed_pages >= info->nr_est_unused_pages || freed_pages == 0)
+		detach_ctx_from_heap_reclaim_mgr(kctx);
+
+	return freed_pages;
+}
+
 static unsigned long reclaim_unused_heap_pages(struct kbase_device *kbdev)
 {
 	struct kbase_csf_scheduler *const scheduler = &kbdev->csf.scheduler;
-	struct kbase_csf_sched_heap_reclaim_mgr *const mgr = &scheduler->reclaim_mgr;
 	unsigned long total_freed_pages = 0;
 	int prio;
 
@@ -229,34 +261,9 @@ static unsigned long reclaim_unused_heap_pages(struct kbase_device *kbdev)
 					 mgr_link) {
 			struct kbase_context *kctx =
 				container_of(info, struct kbase_context, csf.sched.heap_info);
-			u32 freed_pages = kbase_csf_tiler_heap_scan_kctx_unused_pages(
-				kctx, info->nr_est_unused_pages);
+			u32 freed_pages = kbase_csf_tiler_heap_reclaim_free_ctx_unused_pages(kctx);
 
-			if (freed_pages) {
-				/* Remove the freed pages from the manager retained estimate. The
-				 * accumulated removals from the kctx should not exceed the kctx
-				 * initially notified contribution amount:
-				 *   info->nr_est_unused_pages.
-				 */
-				u32 rm_cnt = MIN(info->nr_est_unused_pages - info->nr_freed_pages,
-						 freed_pages);
-
-				WARN_ON(atomic_sub_return((int)rm_cnt, &mgr->unused_pages) < 0);
-
-				/* tracking the freed pages, before a potential detach call */
-				info->nr_freed_pages += freed_pages;
-				total_freed_pages += freed_pages;
-
-				schedule_work(&kctx->jit_work);
-			}
-
-			/* If the kctx can't offer anymore, drop it from the reclaim manger,
-			 * otherwise leave it remaining in. If the kctx changes its state (i.e.
-			 * some CSGs becoming on-slot), the scheduler will pull it out.
-			 */
-			if (info->nr_freed_pages >= info->nr_est_unused_pages || freed_pages == 0)
-				detach_ctx_from_heap_reclaim_mgr(kctx);
-
+			total_freed_pages += freed_pages;
 			cnt_ctxs++;
 
 			/* Enough has been freed, break to avoid holding the lock too long */

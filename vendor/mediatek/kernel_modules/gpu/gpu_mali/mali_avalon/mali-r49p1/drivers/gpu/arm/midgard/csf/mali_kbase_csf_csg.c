@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -30,6 +30,10 @@
 #include <platform/mtk_platform_common.h>
 #include "mali_kbase_csf_db_validation.h"
 #endif /* CONFIG_MALI_MTK_WHITEBOX_MISSING_DOORBELL */
+
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+#include "mali_kbase_csf_mem_compr.h"
+#endif
 
 /* Wait time to be used cumulatively for all the CSG slots.
  * Since scheduler lock is held when STATUS_UPDATE request is sent, there won't be
@@ -272,15 +276,28 @@ kbasep_csf_csg_active_dump_cs_trace(struct kbase_context *kctx, struct kbasep_pr
  */
 static u64 kbasep_csf_read_cmdbuff_value(struct kbase_queue *queue, u32 cmdbuff_offset)
 {
+	struct kbase_context *kctx = queue->kctx;
 	u64 page_off = cmdbuff_offset >> PAGE_SHIFT;
 	u64 offset_within_page = cmdbuff_offset & ~PAGE_MASK;
-	struct page *page = as_page(queue->queue_reg->gpu_alloc->pages[page_off]);
-	u64 *cmdbuff = vmap(&page, 1, VM_MAP, pgprot_noncached(PAGE_KERNEL));
+	struct page *page;
+	u64 *cmdbuff;
 	u64 value;
 
-	if (!cmdbuff) {
-		struct kbase_context *kctx = queue->kctx;
+	lockdep_assert_held(&kctx->reg_lock);
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+	if (queue->queue_reg->gpu_alloc->compressed_nents) {
+		if (kbase_zs_decompress_region(kctx, queue->queue_reg, false, false)) {
+			dev_warn(kctx->kbdev->dev,
+				 "Failed to decompress queue ringbuf %llx of ctx %d_%d",
+				 queue->queue_reg->start_pfn << PAGE_SHIFT, kctx->tgid, kctx->id);
+			return 0;
+		}
+	}
+#endif
 
+	page = as_page(queue->queue_reg->gpu_alloc->pages[page_off]);
+	cmdbuff = vmap(&page, 1, VM_MAP, pgprot_noncached(PAGE_KERNEL));
+	if (!cmdbuff) {
 		dev_info(kctx->kbdev->dev, "%s failed to map the buffer page for read a command!",
 			 __func__);
 		/* Return an alternative 0 for dumping operation*/

@@ -19,6 +19,7 @@
  *
  */
 
+#include <linux/crypto.h>
 #include <device/mali_kbase_device_internal.h>
 #include <device/mali_kbase_device.h>
 
@@ -37,6 +38,9 @@
 #include <backend/gpu/mali_kbase_clk_rate_trace_mgr.h>
 #include <csf/mali_kbase_csf_csg_debugfs.h>
 #include <csf/mali_kbase_csf_kcpu_fence_debugfs.h>
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+#include <csf/mali_kbase_csf_mem_compr.h>
+#endif
 #include <hwcnt/mali_kbase_hwcnt_virtualizer.h>
 #include <mali_kbase_kinstr_prfcnt.h>
 #include <tl/mali_kbase_timeline.h>
@@ -203,6 +207,20 @@ static int kbase_csf_early_init(struct kbase_device *kbdev)
 
 	err = kbase_csf_scheduler_early_init(kbdev);
 
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+	char *compression_backend;
+	compression_backend = kbase_zs_backend_get(kbdev->dev);
+	if (!compression_backend)
+		return -EINVAL;
+
+	kbdev->csf.cc = crypto_alloc_comp(compression_backend, 0, 0);
+	if (IS_ERR_OR_NULL(kbdev->csf.cc))
+		dev_err(kbdev->dev, "Could not allocate comp stream: %ld",
+				PTR_ERR(kbdev->csf.cc));
+
+	mutex_init(&kbdev->csf.comp_mutex);
+#endif
+
 	return err;
 }
 
@@ -212,6 +230,9 @@ static int kbase_csf_early_init(struct kbase_device *kbdev)
  */
 static void kbase_csf_early_term(struct kbase_device *kbdev)
 {
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+	crypto_free_comp(kbdev->csf.cc);
+#endif
 	kbase_csf_scheduler_early_term(kbdev);
 	kbase_csf_firmware_early_term(kbdev);
 }

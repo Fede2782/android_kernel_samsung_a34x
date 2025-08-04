@@ -308,6 +308,7 @@
 	{feature_safeplace_path,"/system/bin/snapuserd"},	/* DEFAULT */
 	{feature_immutable_path_write,"/system/"},	/* DEFAULT */
 	{feature_immutable_path_write,"/vendor/"},	/* DEFAULT */
+	{feature_immutable_path_open,"/system/bin/app_process64"},
 	{feature_immutable_path_open,"/system/bin/"},	/* DEFAULT */
 	{feature_immutable_path_open,"/vendor/bin/"},	/* DEFAULT */
 	{feature_immutable_root,"/apex/com.android.adbd/bin/adbd:/data/local/tmp/"},	/* DEFAULT */

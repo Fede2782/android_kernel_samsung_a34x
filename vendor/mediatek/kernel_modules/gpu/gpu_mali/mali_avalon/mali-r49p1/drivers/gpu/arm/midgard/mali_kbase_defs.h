@@ -732,7 +732,9 @@ struct kbase_devfreq_queue_info {
  *                      Used to ensure that pages of allocation are accounted
  *                      only once for the process, even if the allocation gets
  *                      imported multiple times for the process.
- */
+ * @kobj:		per process kobj prameter for memory compression
+ * @kbdev:		kbdev for lock holding
+*/
 struct kbase_process {
 	pid_t tgid;
 	size_t total_gpu_pages;
@@ -740,6 +742,10 @@ struct kbase_process {
 
 	struct rb_node kprcs_node;
 	struct rb_root dma_buf_root;
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+	struct kobject kobj;
+	struct kbase_device *kbdev;
+#endif
 };
 
 /**
@@ -895,6 +901,7 @@ enum mmu_dbg_log_config {
  *                         framework.
  * @fw_load_lock:          Mutex to protect firmware loading in @ref kbase_open.
  * @csf:                   CSF object for the GPU device.
+ * @mcompr_kobj:           Kobject representing Sysfs mem_compr/ dir of initialized contexts.
  * @js_data:               Per device object encapsulating the current context of
  *                         Job Scheduler, which is global to the device and is not
  *                         tied to any particular struct kbase_context running on
@@ -1426,6 +1433,7 @@ struct kbase_device {
 #if MALI_USE_CSF
 	/* CSF object for the GPU device. */
 	struct kbase_csf_device csf;
+	struct kobject *mcompr_kobj;
 #else
 	struct kbasep_js_device_data js_data;
 
@@ -1737,6 +1745,8 @@ enum kbase_context_flags {
  * termination. It is used to suppress the error messages that ensue because
  * the page fault didn't get handled.
  *
+ * @KCTX_COMPRESSION_IN_PROGRESS: TBD
+ *
  * All members need to be separate bits. This enum is intended for use in a
  * bitmask where multiple values get OR-ed together.
  */
@@ -1757,6 +1767,7 @@ enum kbase_context_flags {
 	KCTX_PULLED_SINCE_ACTIVE_JS2 = 1U << 14,
 	KCTX_AS_DISABLED_ON_FAULT = 1U << 15,
 	KCTX_PAGE_FAULT_REPORT_SKIP = 1U << 16,
+	KCTX_COMPRESSION_IN_PROGRESS = 1U << 17,
 };
 #endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
@@ -1864,7 +1875,8 @@ static char category_str_list[KBASE_MEM_COUNT][10] = {"API", "GROW", "JIT", "MMU
  *                        times over the life time of the context, such as when
  *                        an application becomes foreground or goes to the
  *                        background.
- * @csf:                  kbase csf context
+ * @csf:                  kbase csf context.
+ * @kobj:                 Kobject representing Sysfs ctx/<pid>_<id> context dir.
  * @jctx:                 object encapsulating all the Job dispatcher related state,
  *                        including the array of atoms.
  * @used_pages:           Keeps a track of the number of small physical pages in use
@@ -1883,6 +1895,7 @@ static char category_str_list[KBASE_MEM_COUNT][10] = {"API", "GROW", "JIT", "MMU
  *                        can be evicted or freed up in the shrinker callback.
  * @evict_nents:          Total number of pages allocated by the allocations within
  *                        @evict_list (atomic).
+ * @evict_compressed_nents: TBD
  * @waiting_soft_jobs:    List head for the list containing softjob atoms, which
  *                        are either waiting for the event set operation, or waiting
  *                        for the signaling of input fence or waiting for the GPU
@@ -2129,6 +2142,7 @@ struct kbase_context {
 
 	struct list_head evict_list;
 	atomic_t evict_nents;
+	atomic_t evict_compressed_nents;
 
 	struct list_head waiting_soft_jobs;
 	spinlock_t waiting_soft_jobs_lock;

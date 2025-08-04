@@ -734,5 +734,8 @@ void kbase_csf_scheduler_force_wakeup(struct kbase_device *kbdev);
  */
 void kbase_csf_scheduler_force_sleep(struct kbase_device *kbdev);
 #endif
-
+int kbase_csf_scheduler_ctx_compression_begin(struct kbase_device *kbdev,
+					      struct kbase_context *kctx);
+void kbase_csf_scheduler_ctx_compression_end(struct kbase_device *kbdev,
+					     struct kbase_context *kctx);
 #endif /* _KBASE_CSF_SCHEDULER_H_ */

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -78,6 +78,8 @@ int kbase_csf_tiler_heap_reclaim_mgr_init(struct kbase_device *kbdev);
  *
  */
 void kbase_csf_tiler_heap_reclaim_mgr_term(struct kbase_device *kbdev);
+
+u32 kbase_csf_tiler_heap_reclaim_free_ctx_unused_pages(struct kbase_context *kctx);
 
 #if IS_ENABLED(CONFIG_MALI_MTK_PAGE_FAULT_WB_TILER_RECLAIM)
 void mtk_force_reclaim(struct kbase_device *kbdev);

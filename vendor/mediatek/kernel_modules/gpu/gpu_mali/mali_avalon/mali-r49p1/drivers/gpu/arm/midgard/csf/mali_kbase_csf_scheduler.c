@@ -3273,6 +3273,8 @@ static void sched_evict_group(struct kbase_queue_group *group, bool fault,
 			int new_val = atomic_dec_return(&scheduler->non_idle_offslot_grps);
 			KBASE_KTRACE_ADD_CSF_GRP(kbdev, SCHEDULER_NONIDLE_OFFSLOT_GRP_DEC, group,
 						 (u64)new_val);
+			if (kbase_ctx_flag(kctx, KCTX_COMPRESSION_IN_PROGRESS))
+				kctx->csf.non_idle_offslot_grps_on_compress--;
 		}
 
 		for (i = 0; i < MAX_SUPPORTED_STREAMS_PER_GROUP; i++) {
@@ -4453,7 +4455,8 @@ static void scheduler_group_check_protm_enter(struct kbase_device *const kbdev,
 	 * be replacement, and that it is currently in a stable state (i.e. the
 	 * slot state is running).
 	 */
-	if (!protm_in_use && !WARN_ON(!input_grp)) {
+	if (!protm_in_use && !WARN_ON(!input_grp) &&
+	    !atomic_read(&input_grp->kctx->csf.compressed_pages_cnt)) {
 		const int slot = kbase_csf_scheduler_group_get_slot_locked(input_grp);
 
 		/* check the input_grp is running and requesting protected mode
@@ -5430,6 +5433,7 @@ static int scheduler_prepare(struct kbase_device *kbdev)
 {
 	struct kbase_csf_scheduler *scheduler = &kbdev->csf.scheduler;
 	struct list_head privileged_groups, active_groups;
+	struct kbase_context *kctx;
 	unsigned long flags;
 	int i;
 
@@ -5461,19 +5465,19 @@ static int scheduler_prepare(struct kbase_device *kbdev)
 	scheduler->tick_protm_pending_seq = KBASEP_TICK_PROTM_PEND_SCAN_SEQ_NR_INVALID;
 	/* Scan out to run groups */
 	for (i = 0; i < KBASE_QUEUE_GROUP_PRIORITY_COUNT; ++i) {
-		struct kbase_context *kctx;
-
 #if !IS_ENABLED(CONFIG_MALI_MTK_USE_WORKQUEUE_FOR_CSF_SCHEDULE)
 		/* Scan the per-priority list of groups twice, firstly for the
 		 * prioritised contexts, then the normal ones.
 		 */
 		list_for_each_entry(kctx, &scheduler->runnable_kctxs, csf.link) {
-			if (atomic_read(&kctx->prioritized))
+			if (atomic_read(&kctx->prioritized) &&
+			    !kbase_ctx_flag(kctx, KCTX_COMPRESSION_IN_PROGRESS))
 				scheduler_ctx_scan_groups(kbdev, kctx, i, &privileged_groups,
 							  &active_groups);
 		}
 		list_for_each_entry(kctx, &scheduler->runnable_kctxs, csf.link) {
-			if (!atomic_read(&kctx->prioritized))
+			if (!atomic_read(&kctx->prioritized) &&
+			    !kbase_ctx_flag(kctx, KCTX_COMPRESSION_IN_PROGRESS))
 				scheduler_ctx_scan_groups(kbdev, kctx, i, &privileged_groups,
 							  &active_groups);
 		}
@@ -5500,6 +5504,11 @@ static int scheduler_prepare(struct kbase_device *kbdev)
 	 * active phase.
 	 */
 	atomic_set(&scheduler->non_idle_offslot_grps, (int)scheduler->non_idle_scanout_grps);
+	list_for_each_entry(kctx, &scheduler->runnable_kctxs, csf.link) {
+		if (kbase_ctx_flag(kctx, KCTX_COMPRESSION_IN_PROGRESS))
+			atomic_add(kctx->csf.non_idle_offslot_grps_on_compress,
+				   &scheduler->non_idle_offslot_grps);
+	}
 	KBASE_KTRACE_ADD_CSF_GRP(kbdev, SCHEDULER_NONIDLE_OFFSLOT_GRP_INC, NULL,
 				 scheduler->non_idle_scanout_grps);
 
@@ -8170,3 +8179,73 @@ void kbase_csf_scheduler_force_wakeup(struct kbase_device *kbdev)
 	mutex_unlock(&scheduler->lock);
 }
 KBASE_EXPORT_TEST_API(kbase_csf_scheduler_force_wakeup);
+
+int kbase_csf_scheduler_ctx_compression_begin(struct kbase_device *kbdev,
+					      struct kbase_context *kctx)
+{
+	struct kbase_csf_scheduler *scheduler = &kbdev->csf.scheduler;
+	u32 num_groups = kbdev->csf.global_iface.group_num;
+	DECLARE_BITMAP(slot_mask, MAX_SUPPORTED_CSGS) = { 0 };
+	u32 slot_num, non_idle_off_slot_grps_before_suspend;
+	int ret;
+
+	mutex_lock(&scheduler->lock);
+	if (scheduler->state == SCHED_SLEEPING) {
+		scheduler_wakeup(kbdev, true);
+		/* Wait for MCU firmware to start running */
+		ret = kbase_csf_scheduler_wait_mcu_active(kbdev);
+		if (ret) {
+			dev_err(kbdev->dev,
+				"Wait for MCU active failed during compression of ctx %d_%d",
+				kctx->tgid, kctx->id);
+			mutex_unlock(&scheduler->lock);
+			return ret;
+		}
+	}
+
+	non_idle_off_slot_grps_before_suspend = atomic_read(&scheduler->non_idle_offslot_grps);
+	for (slot_num = 0; slot_num < num_groups; slot_num++) {
+		struct kbase_queue_group *group = scheduler->csg_slots[slot_num].resident_group;
+
+		if (group && (group->kctx == kctx)) {
+			suspend_queue_group(group);
+			set_bit(slot_num, slot_mask);
+		}
+	}
+
+	ret = wait_csg_slots_suspend(kbdev, slot_mask);
+	if (ret) {
+		dev_err(kbdev->dev, "CSG suspension failed during compression of ctx %d_%d",
+			kctx->tgid, kctx->id);
+		if (kbase_prepare_to_reset_gpu(kbdev, RESET_FLAGS_NONE))
+			kbase_reset_gpu(kbdev);
+		mutex_unlock(&scheduler->lock);
+		return ret;
+	}
+
+	/* This will disable the GPU address space slot assigned to the context and
+	 * evict the data for that context from GPU caches.
+	 */
+	if (!atomic_read(&kctx->refcount))
+		kbase_ctx_sched_remove_ctx(kctx);
+
+	kbase_csf_tiler_heap_reclaim_free_ctx_unused_pages(kctx);
+
+	kctx->csf.non_idle_offslot_grps_on_compress =
+		(u8)(atomic_read(&scheduler->non_idle_offslot_grps) -
+		     non_idle_off_slot_grps_before_suspend);
+
+	kbase_ctx_flag_set(kctx, KCTX_COMPRESSION_IN_PROGRESS);
+	mutex_unlock(&scheduler->lock);
+	return 0;
+}
+
+void kbase_csf_scheduler_ctx_compression_end(struct kbase_device *kbdev, struct kbase_context *kctx)
+{
+	struct kbase_csf_scheduler *scheduler = &kbdev->csf.scheduler;
+
+	mutex_lock(&scheduler->lock);
+	kbase_ctx_flag_clear(kctx, KCTX_COMPRESSION_IN_PROGRESS);
+	scheduler_wakeup(kbdev, true);
+	mutex_unlock(&scheduler->lock);
+}

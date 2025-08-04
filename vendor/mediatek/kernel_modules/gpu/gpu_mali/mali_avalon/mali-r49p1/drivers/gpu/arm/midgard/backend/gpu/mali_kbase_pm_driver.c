@@ -1581,7 +1581,7 @@ static bool can_power_down_l2(struct kbase_device *kbdev)
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
 	/* Defer the power-down if MMU is in process of page migration. */
-	return !kbdev->mmu_page_migrate_in_progress;
+	return !kbdev->mmu_page_migrate_in_progress && !atomic_read(&kbdev->faults_pending);
 }
 
 static bool can_power_up_l2(struct kbase_device *kbdev)

@@ -399,6 +399,7 @@ struct kbase_mem_phy_alloc {
 	atomic_t gpu_mappings;
 	atomic_t kernel_mappings;
 	size_t nents;
+	size_t compressed_nents;
 	struct tagged_addr *pages;
 	struct list_head mappings;
 	struct list_head evict_node;

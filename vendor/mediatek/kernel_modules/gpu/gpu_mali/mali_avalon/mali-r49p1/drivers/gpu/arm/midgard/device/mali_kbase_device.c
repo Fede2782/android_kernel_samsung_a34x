@@ -31,6 +31,7 @@
 #include <linux/of_platform.h>
 #include <linux/types.h>
 #include <linux/oom.h>
+#include <linux/zsmalloc.h>
 
 #include <mali_kbase.h>
 #include <mali_kbase_defs.h>
@@ -256,8 +257,23 @@ static int mali_oom_notifier_handler(struct notifier_block *nb, unsigned long ac
 		unsigned long task_alloc_total =
 			KBASE_PAGES_TO_KIB(atomic_read(&(kctx->used_pages)));
 
-		dev_err(kbdev->dev, "OOM notifier: tsk %s  tgid (%u)  pid (%u) %lu kB\n",
-			task ? task->comm : "[null task]", kctx->tgid, kctx->pid, task_alloc_total);
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+		if (IS_ENABLED(CONFIG_ZSMALLOC) && atomic_read(&kctx->csf.compressed_pages_cnt)) {
+			unsigned long compressed_mem_size =
+				KBASE_PAGES_TO_KIB(zs_get_total_pages(kctx->csf.zs_pool));
+
+			dev_err(kbdev->dev,
+				"OOM notifier: tsk %s  tgid (%u)  pid (%u) %lu kB compressed mem size %lu kB",
+				task ? task->comm : "[null task]", kctx->tgid, kctx->pid,
+				task_alloc_total, compressed_mem_size);
+		} else {
+#endif
+			dev_err(kbdev->dev, "OOM notifier: tsk %s  tgid (%u)  pid (%u) %lu kB",
+				task ? task->comm : "[null task]", kctx->tgid, kctx->pid,
+				task_alloc_total);
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+		}
+#endif
 #endif
 	}
 

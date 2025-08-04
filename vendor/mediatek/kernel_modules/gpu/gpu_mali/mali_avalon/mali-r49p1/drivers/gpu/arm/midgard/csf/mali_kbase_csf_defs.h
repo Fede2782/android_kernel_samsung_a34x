@@ -869,6 +869,9 @@ struct kbase_csf_user_reg_context {
 	struct list_head link;
 };
 
+/* Unlimited number of pages to compress. */
+#define MAX_RECLAIMABLE_MEM_LIMIT_UNLIMITED (-1)
+
 /**
  * struct kbase_csf_context - Object representing CSF for a GPU address space.
  *
@@ -915,6 +918,12 @@ struct kbase_csf_user_reg_context {
  *                       handle SYNC_UPDATE event for this context. This would
  *                       be set to false when the work is done. This is used
  *                       mainly for synchronisation with context termination.
+ * @compress_work:    TBD
+ * @zs_pool:          TBD
+ * @foreground:       Flag showing if context is foreground or background.
+ * @max_compressed_pages_cnt: Limit the number of pages to compress.
+ * @compressed_pages_cnt: How many pages compressed.
+ * @non_idle_offslot_grps_on_compress: TBD
  */
 struct kbase_csf_context {
 	struct list_head event_pages_head;
@@ -934,6 +943,14 @@ struct kbase_csf_context {
 #if !IS_ENABLED(CONFIG_MALI_MTK_USE_WORKQUEUE_FOR_CSF_SCHEDULE)
 	atomic_t pending_sync_update;
 #endif /* CONFIG_MALI_MTK_USE_WORKQUEUE_FOR_CSF_SCHEDULE */
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+	struct work_struct compress_work;
+	struct zs_pool *zs_pool;
+#endif
+	bool foreground;
+	s32 max_compressed_pages_cnt;
+	atomic_t compressed_pages_cnt;
+	u8 non_idle_offslot_grps_on_compress;
 };
 
 /**
@@ -1762,6 +1779,8 @@ struct kbase_csf_user_reg {
  *                          or DCS request has been completed.
  * @compute_progress_timeout_cc: Value of GPU cycle count register when progress
  *                               timer timeout is reported for the compute iterator.
+ * @cc:                     TBD
+ * @comp_mutex:             TBD
  */
 struct kbase_csf_device {
 	struct kbase_mmu_table mcu_mmu;
@@ -1823,6 +1842,10 @@ struct kbase_csf_device {
 	u32 *quirks_ext;
 	struct rw_semaphore mmu_sync_sem;
 	u64 compute_progress_timeout_cc;
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+	struct crypto_comp *cc;
+	struct mutex comp_mutex;
+#endif
 };
 
 /**
