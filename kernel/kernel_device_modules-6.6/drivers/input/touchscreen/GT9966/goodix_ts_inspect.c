@@ -20,6 +20,7 @@
 #include <linux/timer.h>
 #include <linux/version.h>
 #include <linux/fs.h>
+#include <linux/minmax.h>
 #include <asm/uaccess.h>
 
 
@@ -122,7 +123,6 @@
 
 
 #define ABS(val)			((val < 0)? -(val) : val)
-#define MAX(a, b)			((a > b)? a : b)
 
 static bool module_initialized;
 

@@ -30,6 +30,7 @@
 #include <linux/types.h>
 #include <linux/suspend.h>
 #include <linux/topology.h>
+#include <linux/minmax.h>
 #include <mt-plat/sync_write.h>
 #include <mt-plat/aee.h>
 
@@ -42,9 +43,6 @@
 #include "mtk_cpufreq_api.h"
 #include "mtk_cpufreq_config.h"
 #include "mtk_cpufreq_struct.h"
-
-#define MAX(a, b) ((a) >= (b) ? (a) : (b))
-#define MIN(a, b) ((a) >= (b) ? (b) : (a))
 
 
 /* PORTING */

@@ -28,6 +28,7 @@
 #include <linux/bug.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
+#include <linux/minmax.h>
 //#include <mt-plat/mtk_thermal_monitor.h>
 //#include <mt-plat/mtk_thermal_platform.h>
 #include "mtk_thermal_monitor.h"
@@ -866,8 +867,6 @@ static const struct proc_ops _mtkthermal_tz_fops = {
 	.proc_write = _mtkthermal_tz_write,
 	.proc_release = single_release,
 };
-
-#define MIN(_a_, _b_) ((_a_) < (_b_) ? (_a_) : (_b_))
 
 /* No parameter check in this internal function */
 static long _mtkthermal_update_and_get_sma

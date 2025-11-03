@@ -9,6 +9,7 @@
 
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/minmax.h>
 
 #include "mach/mtk_thermal.h"
 
@@ -20,8 +21,6 @@
  * Genernal
  *=============================================================
  */
-#define MIN(_a_, _b_) ((_a_) > (_b_) ? (_b_) : (_a_))
-#define MAX(_a_, _b_) ((_a_) > (_b_) ? (_a_) : (_b_))
 #define _BIT_(_bit_)		((unsigned int)(1 << (_bit_)))
 #define _BITMASK_(_bits_)	(((unsigned int) -1 >> (31 - ((1) ?	\
 				_bits_))) & ~((1U << ((0) ? _bits_)) - 1))

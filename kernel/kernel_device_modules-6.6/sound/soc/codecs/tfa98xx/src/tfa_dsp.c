@@ -12,6 +12,7 @@
 #include "tfa.h"
 #include "tfa98xx_tfafieldnames.h"
 #include "tfa_internal.h"
+#include <linux/minmax.h>
 
 #ifdef __KERNEL__
 #ifdef pr_fmt
@@ -39,10 +40,6 @@
 #define TFA98XX_KEY2_PROTECTED_MTP0_MTPOTC_MSK 0x1
 #define TFA98XX_KEY2_PROTECTED_MTP0_MTPEX_POS 1
 #define TFA98XX_KEY2_PROTECTED_MTP0_MTPOTC_POS 0
-
-#ifndef MIN
-#define MIN(A, B) (((A) - (B)) < 0 ? A : B)
-#endif
 
 /* retry values */
 #define CFSTABLE_TRIES 10

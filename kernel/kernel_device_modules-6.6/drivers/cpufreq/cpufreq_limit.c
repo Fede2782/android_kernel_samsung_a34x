@@ -29,14 +29,13 @@
 #include <linux/cpufreq.h>
 #include <linux/cpufreq_limit.h>
 #include <linux/platform_device.h>
+#include <linux/minmax.h>
 #if IS_ENABLED(CONFIG_OF)
 #include <linux/of.h>
 #endif
 
 #define MAX_BUF_SIZE 1024
 #define LIMIT_RELEASE -1
-#define MIN(a, b)     (((a) < (b)) ? (a) : (b))
-#define MAX(a, b)     (((a) > (b)) ? (a) : (b))
 
 static struct freq_qos_request *max_req[DVFS_MAX_ID];
 static struct freq_qos_request *min_req[DVFS_MAX_ID];
