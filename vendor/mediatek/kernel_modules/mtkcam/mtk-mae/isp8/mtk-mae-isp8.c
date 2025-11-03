@@ -8,6 +8,7 @@
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/minmax.h>
 
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include "cmdq-sec.h"
@@ -44,8 +45,6 @@
 // #define FLOOR_NEG(X)		((X-(int)(X)) < 0 ? (int)(X-1) : (int)(X))
 // #define FLOOR(X)		( ((X) > 0) ? FLOOR_POS(X) : FLOOR_NEG(X) )
 
-#define MIN(X,Y)		(((X) > (Y)) ? (Y) : (X))
-#define MAX(X,Y)		(((X) > (Y)) ? (X) : (Y))
 #define ABS(X)			(((X) > 0) ? (X) : -(X))
 #define ROUND(X,Y)		((int)((2*(X))+(Y))/(2*(Y)))
 #define BUFFER_NAME_LEN		50

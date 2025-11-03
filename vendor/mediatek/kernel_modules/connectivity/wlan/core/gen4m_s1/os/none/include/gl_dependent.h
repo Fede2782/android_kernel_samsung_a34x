@@ -59,6 +59,8 @@
  * implemented
  */
 
+#include <linux/minmax.h>
+
 #ifndef _GL_DEPENDENT_H
 #define _GL_DEPENDENT_H
 
@@ -950,14 +952,6 @@ void kal_kfree_skb(struct sk_buff *skb);
  */
 #define kal_sched_clock() KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__)
 #define sched_clock() kal_sched_clock()
-
-/* looks like min/max not in C
- * https://stackoverflow.com/questions/3437404/min-and-max-in-c
- * needed by:
- * common/debug.c
- * mgmt/scan.c
- */
-#define min(_a, _b) KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__)
 
 
 /* needed by mgmt/stats.c */
