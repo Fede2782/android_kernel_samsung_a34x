@@ -16,6 +16,7 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/mutex.h>
+#include <linux/minmax.h>
 
 #ifndef __SM_DC_H__
 #define __SM_DC_H__
@@ -31,9 +32,6 @@
 #define PRE_CC_ST_IBUS_OFFSET   150
 #define CC_ST_IBUS_OFFSET       100
 #define CV_ST_SUB_DC_OFF_IBUS   1000
-
-#define MAX(a, b)               ((a > b) ? (a):(b))
-#define MIN(a, b)               ((a < b) ? (a):(b))
 
 enum sm_dc_charging_loop {
 	LOOP_IBUSREG                = (0x1 << 7),

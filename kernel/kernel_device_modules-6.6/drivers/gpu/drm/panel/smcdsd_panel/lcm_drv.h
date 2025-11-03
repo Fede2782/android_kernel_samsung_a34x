@@ -17,6 +17,7 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/minmax.h>
 
 #include "../../mediatek/mediatek_v2/mtk_panel_ext.h"
 
@@ -823,15 +824,6 @@ struct LCM_PARAMS {
 	unsigned int hbm_en_time;
 	unsigned int hbm_dis_time;
 };
-
-
-#ifndef MAX
-#define MAX(x, y)   (((x) >= (y)) ? (x) : (y))
-#endif				/* MAX */
-
-#ifndef MIN
-#define MIN(x, y)   (((x) <= (y)) ? (x) : (y))
-#endif				/* MIN */
 
 #define INIT_SIZE			(640)
 #define COMPARE_ID_SIZE	(32)

@@ -6,6 +6,8 @@
 #ifndef ___MT_GPUFREQ_INTERNAL_PLAT_H___
 #define ___MT_GPUFREQ_INTERNAL_PLAT_H___
 
+#include <linux/minmax.h>
+
 /**************************************************
  *  0:     all on when mtk probe init (freq/ Vgpu/ Vsram_gpu)
  *         disable DDK power on/off callback
@@ -178,9 +180,6 @@
  **************************************************/
 #define VOLT_NORMALIZATION(volt)	\
 	((volt % 625) ? (volt - (volt % 625) + 625) : volt)
-#ifndef MIN
-#define MIN(x, y)	(((x) < (y)) ? (x) : (y))
-#endif
 
 #define GPUOP(khz, vgpu, vsram, post_divider, aging_margin)	\
 	{							\

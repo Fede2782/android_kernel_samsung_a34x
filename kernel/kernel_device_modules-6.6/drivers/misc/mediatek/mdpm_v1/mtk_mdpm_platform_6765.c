@@ -5,6 +5,7 @@
 
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <linux/minmax.h>
 #include <mtk_mdpm.h>
 #include <mtk_mdpm_common.h>
 
@@ -21,7 +22,6 @@ int usedBytes;
 #define _BIT_(_bit_)		((unsigned int)(1 << (_bit_)))
 #define _BITMASK_(_bits_)	\
 (((unsigned int)-1>>(31-((1)?_bits_)))&~((1U<<((0)?_bits_))-1))
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 #if MD_POWER_METER_ENABLE
 static int section_level[SECTION_NUM+1] = { GUARDING_PATTERN,

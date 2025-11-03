@@ -62,6 +62,7 @@
 #include <linux/pagemap.h>
 #include <linux/fs.h>
 #include <linux/local_lock.h>
+#include <linux/minmax.h>
 
 #define ZSPAGE_MAGIC	0x58
 
@@ -118,8 +119,6 @@
 #define CLASS_BITS	8
 #define ISOLATED_BITS	5
 #define MAGIC_VAL_BITS	8
-
-#define MAX(a, b) ((a) >= (b) ? (a) : (b))
 
 #define ZS_MAX_PAGES_PER_ZSPAGE	(_AC(CONFIG_ZSMALLOC_CHAIN_SIZE, UL))
 

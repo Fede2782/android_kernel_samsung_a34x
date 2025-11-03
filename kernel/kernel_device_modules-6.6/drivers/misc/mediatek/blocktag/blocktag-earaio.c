@@ -20,8 +20,7 @@
 #include <linux/seq_file.h>
 #include "blocktag-internal.h"
 #include "blocktag-fuse-trace.h"
-
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#include <linux/minmax.h>
 
 #define EARA_IOCTL_MAX_SIZE 27
 struct _EARA_IOCTL_PACKAGE {

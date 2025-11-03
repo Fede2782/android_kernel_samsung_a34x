@@ -20,6 +20,7 @@
 #include <linux/kernel.h>
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
+#include <linux/minmax.h>
 
 #define MALLOC(size)		kmalloc(size, GFP_KERNEL)
 #define CALLOC(num, size)	vmalloc(num * size)
@@ -148,12 +149,14 @@ extern char g_str[4096];
 #define UNUSED(x)	(void)(x)
 #endif
 
+#ifndef ILITEK_KERNEL_DRIVER
 #ifndef MIN
 #define MIN(l, r)				(((l) > (r)) ? (r) : (l))
 #endif
 
 #ifndef MAX
 #define MAX(l, r)				(((l) > (r)) ? (l) : (r))
+#endif
 #endif
 
 #define START_ADDR_LEGO			0x3000

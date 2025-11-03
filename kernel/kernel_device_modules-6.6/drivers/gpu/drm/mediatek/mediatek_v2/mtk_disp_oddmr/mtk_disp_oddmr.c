@@ -19,6 +19,7 @@
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/uaccess.h>
 #include <uapi/drm/mediatek_drm.h>
+#include <linux/minmax.h>
 
 #include "../mtk_drm_crtc.h"
 #include "../mtk_drm_ddp_comp.h"
@@ -717,8 +718,6 @@ static uint32_t g_od_udma_effi[MAX_LONG_BURST_SIZE] = {
 static uint32_t g_od_udma_merge_lines_cand[] = {
 	1, 2, 4, 6, 8, 10, 12, 14, 16,
 };
-
-#define MIN(a,b) (((a)<(b))?(a):(b))
 
 
 static unsigned char lookup[16] = {

@@ -13,6 +13,7 @@
 #include <linux/string.h>
 #include <linux/timer.h>
 #include <linux/ktime.h>
+#include <linux/minmax.h>
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #include <sspm_reservedmem_define.h>
@@ -32,9 +33,6 @@
  ****************************************************************************/
 #define DEFAULT_AVG_WINDOW		(50)
 #define IDD_TBL_DBG
-
-#define MAX(a, b)			((a) >= (b) ? (a) : (b))
-#define MIN(a, b)			((a) >= (b) ? (b) : (a))
 
 #define SWPM_OPS (swpm_m.plat_ops)
 /****************************************************************************
