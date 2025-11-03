@@ -13,6 +13,7 @@
 
 #include <linux/version.h>
 #include <linux/module.h>
+#include <linux/minmax.h>
 
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -43,9 +44,6 @@
 #define N_MTKSTP              (15 + 1)	/* refer to linux tty.h use N_HCI. */
 
 #define HCIUARTSETPROTO        _IOW('U', 200, int)
-
-#define MAX(a, b)        ((a) > (b) ? (a) : (b))
-#define MIN(a, b)        ((a) < (b) ? (a) : (b))
 
 #define PFX                         "[UART] "
 #define UART_LOG_LOUD                 4
