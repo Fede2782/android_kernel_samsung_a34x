@@ -1,0 +1,58 @@
+name: Build boot.image
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Checkout repository with submodules (shallow clone)
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+          fetch-depth: 1
+
+      - name: Cleanup space
+        run: |
+          sudo apt-get remove --purge -y "php*" "dotnet*" "mysql*" "nodejs*" "clang*" "google*"
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          sudo rm -rf /usr/local
+
+      # 2. Run your custom bash script
+      - name: Run build script
+        run: |
+          chmod +x ./build_kernel.sh
+          bash build_kernel.sh
+
+      - name: Copy kernel image
+        run: |
+          cp out/target/product/a34x/obj/KLEAF_OBJ/dist/kernel_device_modules-6.6/mgk_64_k66_kernel_aarch64.user/Image Image
+
+      - name: Move out directory
+        run: |
+          mv out/target/product/a34x/obj/KLEAF_OBJ/dist .
+
+      # 3. Upload the generated boot.img and generated dist dir
+      - name: Upload boot.img artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: boot-image
+          path: boot.img
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: dist-dir
+          path: dist
+
+      - name: Upload Image artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: kernel-image
+          path: Image
+

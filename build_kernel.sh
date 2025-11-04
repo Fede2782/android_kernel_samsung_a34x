@@ -1,5 +1,25 @@
 #!/bin/bash
 
+mkdir bin
+export PATH="$(pwd)/bin:$PATH"
+
+sudo apt-get install curl wget -y
+
+APK_URL="$(curl -s "https://api.github.com/repos/topjohnwu/Magisk/releases/latest" | grep -oE 'https://[^\"]+\.apk')"
+wget -O "magisk.zip" "$APK_URL"
+unzip "magisk.zip" "lib/x86_64/libmagiskboot.so"
+cp "lib/x86_64/libmagiskboot.so" "bin/magiskboot"
+chmod +x "bin/magiskboot"
+
+curl https://storage.googleapis.com/git-repo-downloads/repo > bin/repo
+chmod a+x bin/repo
+
+mkdir aosp-kernel && cd aosp-kernel
+repo init -u https://android.googlesource.com/kernel/manifest -b common-android15-6.6 --depth=1
+repo sync -j$(nproc --all)
+ln -s "$(pwd)/prebuilts" "$(pwd)/../kernel/prebuilts"
+cd ..
+
 cd kernel
 
 FTP="
@@ -30,3 +50,12 @@ export BUILD_NUMBER="ogkiA346BXXUBEYI7"
 
 chmod +x ./kernel_device_modules-6.6/build.sh
 ./kernel_device_modules-6.6/build.sh
+
+cd ..
+wget -O boot.img https://github.com/Fede2782/proprietary_vendor_samsung_a34x/releases/latest/download/boot.img
+mkdir bootimg && cd bootimg
+magiskboot unpack ../boot.img
+cp ../out/target/product/a34x/obj/KLEAF_OBJ/dist/kernel_device_modules-6.6/mgk_64_k66_kernel_aarch64.user/Image kernel
+PATCHVBMETAFLAG=true magiskboot repack ../boot.img out-boot.img
+mv out-boot.img ../boot.img
+cd ..
