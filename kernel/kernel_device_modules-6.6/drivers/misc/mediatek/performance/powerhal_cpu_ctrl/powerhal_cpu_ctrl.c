@@ -22,6 +22,7 @@
 #include <linux/pm_qos.h>
 #include <linux/sort.h>
 #include <linux/mutex.h>
+#include <linux/minmax.h>
 
 #ifndef CREATE_TRACE_POINTS
 #define CREATE_TRACE_POINTS
@@ -63,9 +64,6 @@ static const struct proc_ops perfmgr_ ## name ## _proc_fops = { \
 		if (debug_enable) \
 			pr_debug(fmt, ##x); \
 	} while (0)
-
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 #define CLUSTER_MAX 10
 #define CORE_MAX 8

@@ -37,6 +37,7 @@
 #include <linux/cpufreq.h>
 #include <linux/irq_work.h>
 #include <linux/power_supply.h>
+#include <linux/minmax.h>
 #include "sugov/cpufreq.h"
 #include "eas/vip.h"
 
@@ -120,9 +121,6 @@
 #define FPSGO_BAFFINITY_USERDEFINE 6
 #define FPSGO_BAFFINITY_TOTAL 7
 
-
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 struct fbt_cpu_dvfs_info {
 	unsigned int *power;

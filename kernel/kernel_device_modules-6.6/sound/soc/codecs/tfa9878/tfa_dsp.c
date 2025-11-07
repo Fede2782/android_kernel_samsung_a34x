@@ -14,6 +14,7 @@
 #include "inc/tfa.h"
 #include "inc/tfa98xx_tfafieldnames.h"
 #include "inc/tfa_internal.h"
+#include <linux/minmax.h>
 
 /* Defines below are used for irq function (this removed the genregs include) */
 #define TFA98XX_INTERRUPT_ENABLE_REG1		0x48
@@ -24,10 +25,6 @@
 #define TFA98XX_KEY2_PROTECTED_MTP0_MTPOTC_MSK	0x1
 #define TFA98XX_KEY2_PROTECTED_MTP0_MTPEX_POS	1
 #define TFA98XX_KEY2_PROTECTED_MTP0_MTPOTC_POS	0
-
-#ifndef MIN
-#define MIN(A, B) ((A < B) ? A : B)
-#endif
 
 /* retry values */
 #define CFSTABLE_TRIES		10

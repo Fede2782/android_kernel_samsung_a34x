@@ -39,6 +39,7 @@
 #include <net/genetlink.h>
 #include <net/net_namespace.h>
 #include <net/sock.h>
+#include <linux/minmax.h>
 
 #if IS_ENABLED(CONFIG_DEVICE_MODULES_SCSI_UFS_MEDIATEK)
 #include <linux/platform_device.h>
@@ -174,9 +175,6 @@ static struct nl_rpmb_send_req nl_rpmb_req;
 #endif
 
 #define RPMB_NAME "rpmb"
-
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-
 
 enum ufs_ioctl {
 	RPMB_IOCTL_PROGRAM_KEY_REGION0 = 1,

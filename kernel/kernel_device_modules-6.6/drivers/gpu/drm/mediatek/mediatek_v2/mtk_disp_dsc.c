@@ -30,7 +30,7 @@
 #endif
 #include "mtk_disp_dsc.h"
 #include "platform/mtk_drm_platform.h"
-#define MIN(X, Y) ((X) <= (Y) ? (X) : (Y))
+#include <linux/minmax.h>
 #define OFFSET(m, n) ((m > n) ? (m - n) : 0)
 
 #define DISP_REG_DSC_CON			0x0000

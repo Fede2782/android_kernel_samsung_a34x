@@ -15,6 +15,7 @@ extern "C" {
 #include <linux/sched.h>
 #include <linux/bug.h>
 #include <linux/spinlock.h>
+#include <linux/minmax.h>
 
 #define MME_DATA_MAX 15
 #define MME_MODULE_NAME_LEN 16
@@ -129,7 +130,6 @@ enum data_flag_t {
 	DATA_FLAG_CODE_REGION_STRING = 7
 };
 
-#define MIN(x, y)   ((x) <= (y) ? (x) : (y))
 #define FLAG_INT_POINTER_SIZE 16
 #define POINTER_SIZE 8
 #define U64_POINTER 1

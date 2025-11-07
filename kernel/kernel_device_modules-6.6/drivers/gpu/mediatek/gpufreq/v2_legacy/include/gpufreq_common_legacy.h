@@ -7,6 +7,7 @@
 #define __GPUFREQ_COMMON_LEGACY_H__
 
 #include <linux/bits.h>
+#include <linux/minmax.h>
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mboot_params.h>
 #endif
@@ -41,12 +42,6 @@
 		.addr = _addr,                 \
 		.val = _val,                   \
 	}
-#ifndef MAX
-#define MAX(x, y) (((x) < (y)) ? (y) : (x))
-#endif
-#ifndef MIN
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
-#endif
 
 /**************************************************
  * Shader Present Setting

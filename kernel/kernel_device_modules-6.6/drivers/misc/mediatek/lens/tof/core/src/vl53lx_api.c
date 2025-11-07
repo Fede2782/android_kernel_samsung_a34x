@@ -12,6 +12,7 @@
 #include "vl53lx_api_core.h"
 #include "vl53lx_nvm.h"
 #include <linux/module.h>
+#include <linux/minmax.h>
 
 #define ZONE_CHECK 5
 
@@ -27,13 +28,6 @@
 #define trace_print(level, ...) trace_print_module_function(\
 		VL53LX_TRACE_MODULE_API, level, VL53LX_TRACE_FUNCTION_NONE, \
 		##__VA_ARGS__)
-#endif
-
-#ifndef MIN
-#define MIN(v1, v2) ((v1) < (v2) ? (v1) : (v2))
-#endif
-#ifndef MAX
-#define MAX(v1, v2) ((v1) < (v2) ? (v2) : (v1))
 #endif
 
 #define DMAX_REFLECTANCE_IDX 2
