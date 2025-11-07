@@ -13,10 +13,10 @@ if [ -n "${SEC_OGKI_OUT_CMDS}" ]; then
   eval ${SEC_OGKI_OUT_CMDS}
 fi
 
-SOURCE_DATE_EPOCH=`date "+%s"`
-OGKI_SCMVERSION="{\"SCMVERSION\":\"-ab${BUILD_NUMBER}\", \"SOURCE_DATE_EPOCH\":${SOURCE_DATE_EPOCH}}"
-echo "${OGKI_SCMVERSION}" > ./kernel-${KERNEL_VERSION_NUM}/workspace_status.json
-SOURCE_DATE_EPOCH=0
+#SOURCE_DATE_EPOCH=`date "+%s"`
+#OGKI_SCMVERSION="{\"SCMVERSION\":\"-ab${BUILD_NUMBER}\", \"SOURCE_DATE_EPOCH\":${SOURCE_DATE_EPOCH}}"
+#echo "${OGKI_SCMVERSION}" > ./kernel-${KERNEL_VERSION_NUM}/workspace_status.json
+#SOURCE_DATE_EPOCH=0
 
 build_scope=internal
 if [ ! -d "vendor/mediatek/tests/kernel" ]
