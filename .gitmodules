@@ -1,0 +1,4 @@
+[submodule "kernel-6.6"]
+	path = kernel-6.6
+	url = https://github.com/Fede2782/android_kernel_mediatek_common
+	branch = 558e607c8e4c579a6b3d2d5f4c3ea0a39a526937
