@@ -153,14 +153,48 @@ TRACE_EVENT(GPU_Power__Policy__APO_cond_2,
 	TP_printk("apo_cond_2=%u", __entry->apo_cond_2)
 );
 
+TRACE_EVENT(GPU_Power__Policy__APO_active_time,
+
+	TP_PROTO(unsigned int apo_active_time),
+
+	TP_ARGS(apo_active_time),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, apo_active_time)
+	),
+
+	TP_fast_assign(
+		__entry->apo_active_time = apo_active_time;
+	),
+
+	TP_printk("apo_active_time=%u", __entry->apo_active_time)
+);
+
+TRACE_EVENT(GPU_Power__Policy__APO_idle_time,
+
+	TP_PROTO(unsigned int apo_idle_time),
+
+	TP_ARGS(apo_idle_time),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, apo_idle_time)
+	),
+
+	TP_fast_assign(
+		__entry->apo_idle_time = apo_idle_time;
+	),
+
+	TP_printk("apo_idle_time=%u", __entry->apo_idle_time)
+);
+
 TRACE_EVENT(GPU_Power__Policy__APO_irregular,
 
-	TP_PROTO(bool apo_irregular),
+	TP_PROTO(unsigned int apo_irregular),
 
 	TP_ARGS(apo_irregular),
 
 	TP_STRUCT__entry(
-		__field(bool, apo_irregular)
+		__field(unsigned int, apo_irregular)
 	),
 
 	TP_fast_assign(

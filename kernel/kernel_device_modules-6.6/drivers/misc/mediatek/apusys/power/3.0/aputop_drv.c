@@ -18,6 +18,7 @@
 #include "apu_top.h"
 #include "aputop_log.h"
 #include "aputop_rpmsg.h"
+#include "apu_hw_sema.h"
 #include <apu_top_entry.h>
 
 const struct apupwr_plat_data *pwr_data;
@@ -375,7 +376,7 @@ uint32_t apu_boot_host(void)
 	int ret = 0;
 
 	if (check_pwr_data())
-		return -ENODEV;
+		return SYS_APMCU;
 
 	memset(&aputop, 0, sizeof(struct aputop_func_param));
 

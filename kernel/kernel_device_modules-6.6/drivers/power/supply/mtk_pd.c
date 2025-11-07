@@ -60,7 +60,7 @@
 #include "mtk_pd.h"
 #include "mtk_charger_algorithm_class.h"
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #include "adapter_class.h"
 #if IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 #include <linux/usb/typec/common/pdic_notifier.h>
@@ -160,7 +160,7 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 {
 	struct mtk_pd *pd = dev_get_drvdata(&alg->dev);
 	int ret_value;
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	int uisoc;
 #endif
 
@@ -178,7 +178,7 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 	case PD_HW_READY:
 		ret_value = pd_hal_is_adapter_ready(alg);
 		if (ret_value == ALG_READY) {
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 			uisoc = pd_hal_get_uisoc(alg);
 			if (pd->input_current_limit1 != -1 ||
 				pd->charging_current_limit1 != -1 ||
@@ -377,7 +377,7 @@ int __mtk_pdc_get_idx(struct chg_alg_device *alg, int selected_idx,
 
 	return 0;
 }
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 int pdc_get_apdo_max_power(unsigned int *pdo_pos,
 		unsigned int *taMaxVol, unsigned int *taMaxCur, unsigned int *taMaxPwr)
 {
@@ -571,8 +571,10 @@ int pdc_clear(void)
 #endif
 	pd->is_srccap_changed = 0;
 
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	/* MIVR set as init value : 65W Baseus charger stop charging - ALPS08540962 */
 	pd_hal_set_mivr(alg, CHG1, pd->min_charger_voltage);
+#endif
 
 	return 0;
 }
@@ -725,7 +727,7 @@ int __mtk_pdc_setup(struct chg_alg_device *alg, int idx)
 	int ret = -100;
 	unsigned int mivr;
 	unsigned int oldmivr = 4600000;
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	unsigned int oldmA = 3000000;
 #endif
 	bool force_update = false;
@@ -767,7 +769,7 @@ int __mtk_pdc_setup(struct chg_alg_device *alg, int idx)
 		mivr = pd->min_charger_voltage / 1000;
 		pd_hal_set_mivr(alg, CHG1, pd->min_charger_voltage);
 
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		pd_hal_get_input_current(alg, CHG1, &oldmA);
 		oldmA = oldmA / 1000;
 
@@ -790,13 +792,13 @@ int __mtk_pdc_setup(struct chg_alg_device *alg, int idx)
 		ret = pd_hal_set_adapter_cap(alg, pd->cap.max_mv[idx],
 			pd->cap.ma[idx]);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		/* when VPDO, mivr set as min_charger_voltage : 4400mv */
 		if (pd_noti.sink_status.power_list[idx+1].pdo_type != VPDO_TYPE) {
 #endif
 			if (ret == 0) {
 				pr_info("%s: got PSRDY.\n", __func__);
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #ifdef FIXME
 				if (info->data.parallel_vbus &&
 					(oldmA * 2 < pd->cap.ma[idx])) {
@@ -820,7 +822,7 @@ int __mtk_pdc_setup(struct chg_alg_device *alg, int idx)
 
 				pd_hal_set_mivr(alg, CHG1, mivr * 1000);
 			} else {
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #ifdef FIXME
 				if (info->data.parallel_vbus &&
 					(oldmA * 2 > pd->cap.ma[idx])) {
@@ -840,7 +842,7 @@ int __mtk_pdc_setup(struct chg_alg_device *alg, int idx)
 #endif
 				pd_hal_set_mivr(alg, CHG1, oldmivr);
 			}
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		} /* pdo_type != VPDO_TYPE */
 #endif
 
@@ -863,12 +865,12 @@ void mtk_pdc_reset(struct chg_alg_device *alg)
 	struct mtk_pd *pd = dev_get_drvdata(&alg->dev);
 
 	pd_dbg("%s: reset to default profile\n", __func__);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	pdc_clear();
 #endif
 	__mtk_pdc_init_table(alg);
 	__mtk_pdc_get_reset_idx(alg);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	pdc_select_pdo(pd->pd_reset_idx + 1);
 #else
 	__mtk_pdc_setup(alg, pd->pd_reset_idx);
@@ -900,12 +902,12 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 {
 	int ret = 0;
 	int idx, selected_idx;
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	unsigned int pd_max_watt, pd_min_watt, now_max_watt;
 #endif
 	struct mtk_pd *pd = dev_get_drvdata(&alg->dev);
 	int ibus = 0, vbus;
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	int chg2_watt = 0;
 	bool boost = false, buck = false;
 #endif
@@ -922,7 +924,7 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 
 	cap = &pd->cap;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	if ((cap->nr == 0) ||
 		(tcpm_inquire_typec_attach_state(pd->tcpc_dev) == TYPEC_UNATTACHED)) {
 		pr_info("[%s] do not execute pdc_send_pd_noti(), typec_attach_state : %d\n",
@@ -939,7 +941,7 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 		pd_err("[%s] get ibus fail, keep default voltage\n", __func__);
 		return -1;
 	}
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #ifdef FIXME
 	if (info->data.parallel_vbus) {
 		ret = charger_dev_get_ibat(info->chg1_dev, &chg1_ibat);
@@ -986,7 +988,7 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 		ibus = 1000;
 
 	if ((chg1_mivr && (vbus < mivr1 / 1000 - 500)) ||
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	    (chg2_mivr && (vbus < mivr2 / 1000 - 500))) {
 		pr_info("[%s] vbus:%d ibus:%d, chg1_mivr:%d,%d, mivr:%d,%d\n",
 			__func__, vbus, ibus, chg1_mivr, chg2_mivr, mivr1, mivr2);
@@ -1005,7 +1007,7 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 	if (idx < 0 || idx >= PD_CAP_MAX_NR)
 		idx = selected_idx = 0;
 
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	pd_dbg("idx:%d %d %d %d %d %d\n", idx,
 		cap->max_mv[idx],
 		cap->ma[idx],
@@ -1069,7 +1071,7 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 		*newcur, *newidx, selected_idx);
 #endif
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	pr_info("[%s]vbus:%d:%d:%d current:%d idx:%d default_idx:%d, typec_attach_state : %d\n",
 		__func__, pd->vbus_h, pd->vbus_l, *newvbus, *newcur, *newidx, selected_idx,
 		tcpm_inquire_typec_attach_state(pd->tcpc_dev));
@@ -1081,7 +1083,7 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 #if !IS_ENABLED(CONFIG_SEC_FACTORY)
 reset:
 	mtk_pdc_reset(alg);
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	*newidx = pd->pd_reset_idx;
 	*newvbus = cap->max_mv[*newidx];
 	*newcur = cap->ma[*newidx];
@@ -1293,7 +1295,7 @@ static int __pd_run(struct chg_alg_device *alg)
 
 	pr_info("[%s] ret:%d\n", __func__, ret);
 	ret = __mtk_pdc_get_setting(alg, &vbus, &cur, &idx);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	ret_value = ALG_DONE;
 	return ret_value;
 #endif
@@ -1333,7 +1335,7 @@ static int _pd_start_algo(struct chg_alg_device *alg)
 	int ret_value = 0;
 	struct mtk_pd *pd = dev_get_drvdata(&alg->dev);
 	bool again = false;
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	int uisoc;
 #endif
 
@@ -1361,7 +1363,7 @@ static int _pd_start_algo(struct chg_alg_device *alg)
 			if (ret_value == ALG_TA_NOT_SUPPORT)
 				pd->state = PD_TA_NOT_SUPPORT;
 			else if (ret_value == ALG_READY) {
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 				uisoc = pd_hal_get_uisoc(alg);
 				if (pd->input_current_limit1 != -1 ||
 					pd->charging_current_limit1 != -1 ||
@@ -1592,7 +1594,7 @@ static int _pd_notifier_call(struct chg_alg_device *alg,
 		pd->pd_6pin_en = 0;
 		ret_value = 0;
 		break;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	case EVT_HARDRESET:
 		ret_value = pdc_hard_rst();
 		break;
@@ -1607,7 +1609,7 @@ static int _pd_notifier_call(struct chg_alg_device *alg,
 	return ret_value;
 }
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 static int pdc_tcp_notifier_call(struct notifier_block *pnb,
 						unsigned long event, void *data)
 {
@@ -1869,7 +1871,7 @@ static struct chg_alg_ops pd_alg_ops = {
 static int mtk_pd_probe(struct platform_device *pdev)
 {
 	struct mtk_pd *pd = NULL;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	int ret = 0;
 #endif
 
@@ -1889,7 +1891,7 @@ static int mtk_pd_probe(struct platform_device *pdev)
 
 	pd->alg = chg_alg_device_register("pd", &pdev->dev,
 					pd, &pd_alg_ops, NULL);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	pd->is_srccap_changed = 0;
 	pd->fpdo_num = 0;
 	pd->apdo_num = 0;
@@ -1897,7 +1899,7 @@ static int mtk_pd_probe(struct platform_device *pdev)
 	pd->ps_rdy = 0;
 	pd->prev_available_pdo = -1;
 	pd->was_hard_rst = 0;
-#if IS_ENABLED(CONFIG_USB_TYPEC_MANAGER_NOTIFIER) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if IS_ENABLED(CONFIG_USB_TYPEC_MANAGER_NOTIFIER)
 	pd_noti.sink_status.current_pdo_num = 0;
 	pd_noti.sink_status.selected_pdo_num = 0;
 	pd_noti.sink_status.fp_sec_pd_select_pdo = pdc_select_pdo;

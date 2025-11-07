@@ -87,6 +87,14 @@ struct afe_offload_codec_t {
 	bool has_video;
 };
 
+struct HEAAC_codec_t {
+	unsigned int samplerate;
+	unsigned int bitrate;
+	unsigned int framesize;
+	unsigned int channel;
+	bool SBRFlag;
+};
+
 enum ipi_send_ogffload {
 	OFFLOAD_RESUME = 0x300,
 	OFFLOAD_PAUSE,
@@ -101,8 +109,10 @@ enum ipi_send_ogffload {
 	OFFLOAD_CODEC_INFO,
 	OFFLOAD_VIDEO_INFO,
 	OFFLOAD_MDATA_INFO,
+	OFFLOAD_HEAAC_INFO,
 	OFFLOAD_SEND_MAX,
 	OFFLOAD_STREAMING_INFO,
+	OFFLOAD_AAC_TYPE,
 };
 
 enum ipi_received_offload {

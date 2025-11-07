@@ -74,6 +74,7 @@ enum adsp_ipi_status adsp_push_message(enum adsp_ipi_id id, void *buf,
 				       unsigned int core_id);
 
 int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, const void *src, int count);
+int adsp_copy_to_sharedmem_tcm(struct adsp_priv *pdata, int id, const void *src, int count);
 int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst, int count);
 
 void adsp_extern_notify_chain(enum ADSP_NOTIFY_EVENT event);

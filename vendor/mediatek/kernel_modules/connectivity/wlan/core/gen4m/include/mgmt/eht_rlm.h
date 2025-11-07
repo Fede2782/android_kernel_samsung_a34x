@@ -94,13 +94,6 @@ void ehtRlmInit(
 	struct ADAPTER *prAdapter);
 void ehtRlmInitHtcACtrlOM(
 	struct ADAPTER *prAdapter);
-uint32_t ehtRlmFillBwIndicationIe(struct ADAPTER *prAdapter,
-				  uint8_t *pucBuffer);
-uint32_t ehtRlmCalMlTrafficIndiIELen(struct ADAPTER *prAdapter,
-				     uint8_t ucBssIndex,
-				     struct STA_RECORD *prStaRec);
-void ehtRlmGenMlTrafficIndiIE(struct ADAPTER *prAdapter,
-			      struct MSDU_INFO *prMsduInfo);
 #if (CFG_SUPPORT_NAN_11BE == 1)
 uint16_t ehtRlmNANFillCapIE(
 	struct ADAPTER *ad,
@@ -110,6 +103,6 @@ uint16_t ehtRlmNANFillOpIE(
 	struct ADAPTER *ad,
 	struct BSS_INFO *bss,
 	uint8_t *buf);
-#endif /* CFG_SUPPORT_NAN_11BE == 1 */
+#endif
 #endif /* CFG_SUPPORT_802_11BE == 1 */
 #endif /* !_EHT_RLM_H */

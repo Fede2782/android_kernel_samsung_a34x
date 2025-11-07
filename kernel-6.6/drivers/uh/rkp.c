@@ -4,14 +4,12 @@
 #include <linux/mm.h>
 #include <asm/pgtable.h>
 
+bool rkp_started __rkp_ro;
 static u64 robuffer_base __rkp_ro;
 static u64 robuffer_size __rkp_ro;
 #ifdef CONFIG_UH_PKVM
-bool rkp_started;
 u64 early_module_core_text[RKP_EARLY_MODULE] = {0,};
 u64 early_module_core_size[RKP_EARLY_MODULE] = {0,};
-#else
-bool rkp_started __rkp_ro;
 #endif
 
 /* init/main.c */
@@ -37,8 +35,12 @@ void __init rkp_init(void)
 	init_data.tramp_pgd = (u64)__pa(tramp_pg_dir);
 	init_data.tramp_valias = (u64)TRAMP_VALIAS;
 #endif
+#ifdef CONFIG_UH_PKVM
+	uh_call(UH_APP_RKP, RKP_START, (u64)&init_data, (u64)&rkp_started, 0, 0);
+#else
 	uh_call(UH_APP_RKP, RKP_START, (u64)&init_data, 0, 0, 0);
 	rkp_started = true;
+#endif
 }
 
 /* init/main.c */

@@ -110,12 +110,14 @@ static int _thermal_throttle(enum DVFS_USER limit_user, enum APU_OPP_INDEX opp)
 
 	switch (limit_user) {
 	case VPU0:
-		for (user = VPU0 ; user < VPU0 + APUSYS_VPU_NUM ; user++)
-			apupw_thermal_limit(user, opp);
+		if (APUSYS_VPU_NUM != 0)
+			for (user = VPU0 ; user < VPU0 + APUSYS_VPU_NUM ; user++)
+				apupw_thermal_limit(user, opp);
 	break;
 	case MDLA0:
-		for (user = MDLA0 ; user < MDLA0 + APUSYS_MDLA_NUM ; user++)
-			apupw_thermal_limit(user, opp);
+		if (APUSYS_MDLA_NUM != 0)
+			for (user = MDLA0 ; user < MDLA0 + APUSYS_MDLA_NUM ; user++)
+				apupw_thermal_limit(user, opp);
 	break;
 	default:
 		pr_info("%s invalid limit_user : %d\n", __func__, limit_user);

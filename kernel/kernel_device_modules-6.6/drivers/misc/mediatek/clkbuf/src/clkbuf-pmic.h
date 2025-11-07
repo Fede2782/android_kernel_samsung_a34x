@@ -45,6 +45,7 @@ struct common_regs {
 	u32 spmi_mask;
 	//struct mutex lock;
 	struct reg_t _static_aux_sel;
+	struct reg_t _xo_en_auxout;
 	struct reg_t _bblpm_auxout;
 	struct reg_t _swbblpm_en;
 	struct reg_t _hwbblpm_sel;

@@ -94,6 +94,8 @@ struct uarthub_drv_cbs {
 	int (*inband_is_tx_complete) (void);
 	int (*inband_enable_ctrl) (int enable);
 	int (*inband_is_support) (void);
+	int (*inband_get_received_sta) (unsigned char *p_esc_sta);
+	int (*is_enable_fw_flow_ctrl_with_inband) (void);
 };
 extern void uarthub_drv_callbacks_register(struct uarthub_drv_cbs *cb);
 extern void uarthub_drv_callbacks_unregister(void);

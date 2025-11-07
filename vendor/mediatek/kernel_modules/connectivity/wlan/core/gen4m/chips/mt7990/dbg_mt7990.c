@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -17,7 +17,6 @@
 #ifdef MT7990
 
 #include "precomp.h"
-#if (DBG_DISABLE_ALL_INFO == 0)
 #include "mt7990.h"
 #include "coda/mt7990/wf_ple_top.h"
 #include "coda/mt7990/wf_pse_top.h"
@@ -748,7 +747,7 @@ void mt7990_show_wfdma_dbg_probe_info(struct ADAPTER *prAdapter,
 		u4DbgIdxValue = 0x100 + dbg_cr_idx[i];
 		HAL_MCR_WR(prAdapter, u4DbgIdxAddr, u4DbgIdxValue);
 		HAL_MCR_RD(prAdapter, u4DbgProbeAddr, &u4DbgProbeValue);
-		DBGLOG(HAL, DEBUG, "\t Write(0x%2x) DBG_PROBE[0x%X]=0x%08X\n",
+		DBGLOG(HAL, INFO, "\t Write(0x%2x) DBG_PROBE[0x%X]=0x%08X\n",
 			u4DbgIdxValue, u4DbgProbeAddr, u4DbgProbeValue);
 	}
 }
@@ -765,29 +764,28 @@ void mt7990_show_wfdma_wrapper_info(struct ADAPTER *prAdapter,
 	if (enum_wfdma_type == WFDMA_TYPE_HOST) {
 		u4DmaCfgCr = 0x7c027044;
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_HIF_BUSY(0x%08x): 0x%08x\n",
+		DBGLOG(INIT, INFO, "WFDMA_HIF_BUSY(0x%08x): 0x%08x\n",
 				u4DmaCfgCr,
 				u4RegValue);
 
 		u4DmaCfgCr = 0x7c027050;
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_AXI_SLPPROT_CTRL(0x%08x): 0x%08x\n",
+		DBGLOG(INIT, INFO, "WFDMA_AXI_SLPPROT_CTRL(0x%08x): 0x%08x\n",
 				u4DmaCfgCr,
 				u4RegValue);
 
 		u4DmaCfgCr = 0x7c027078;
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_AXI_SLPPROT0_CTRL(0x%08x): 0x%08x\n",
+		DBGLOG(INIT, INFO, "WFDMA_AXI_SLPPROT0_CTRL(0x%08x): 0x%08x\n",
 				u4DmaCfgCr,
 				u4RegValue);
 
 		u4DmaCfgCr = 0x7c02707C;
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_AXI_SLPPROT1_CTRL(0x%08x): 0x%08x\n",
+		DBGLOG(INIT, INFO, "WFDMA_AXI_SLPPROT1_CTRL(0x%08x): 0x%08x\n",
 				u4DmaCfgCr,
 				u4RegValue);
 	}
 }
 
-#endif /* DBG_DISABLE_ALL_INFO */
 #endif /* MT7990 */

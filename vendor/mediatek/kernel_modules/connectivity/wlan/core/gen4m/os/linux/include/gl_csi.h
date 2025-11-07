@@ -71,7 +71,6 @@ enum CSI_CONFIG_ITEM_T {
 	CSI_CONFIG_CHAIN_NUMBER,
 	CSI_CONFIG_FILTER_MODE,
 	CSI_CONFIG_OUTPUT_METHOD,
-	CSI_CONFIG_BAND,
 	CSI_CONFIG_ITEM_NUM
 };
 
@@ -119,7 +118,6 @@ enum CSI_EVENT_TLV_TAG {
 	CSI_EVENT_BW_SEG,
 	CSI_EVENT_REMAIN_LAST,
 	CSI_EVENT_RSVD6,
-	CSI_EVENT_TONE_VALID,
 	CSI_EVENT_TLV_TAG_NUM,    /* csi event end, must be exist */
 };
 
@@ -146,8 +144,6 @@ enum CSI_DATA_TLV_TAG {
 	CSI_DATA_RX_RATE,
 	CSI_DATA_RSVD5,
 	CSI_DATA_RSVD6,
-	CSI_DATA_BAND,
-	CSI_DATA_TONE_VALID,
 	CSI_DATA_TLV_TAG_NUM,
 };
 
@@ -195,7 +191,6 @@ struct CSI_DATA_T {
 	uint32_t u4TRxIdx;
 	uint32_t u4Rsvd5;
 	uint32_t u4Rsvd6;
-	uint32_t u4ToneValid;
 	uint32_t u4SegmentNum;
 	uint8_t ucRemainLast;
 };
@@ -285,11 +280,9 @@ struct CSI_TLV_ELEMENT {
  *                             F U N C T I O N   D E C L A R A T I O N S
  *******************************************************************************
  */
-uint8_t glCsiGetBandIdx(struct GLUE_INFO *prGlueInfo);
-void glCsiSetBandIdx(struct GLUE_INFO *prGlueInfo, uint8_t ucBandIdx);
-struct CSI_INFO_T *glCsiGetCSIInfo(struct GLUE_INFO *prGlueInfo);
-uint8_t *glCsiGetCSIBuf(struct GLUE_INFO *prGlueInfo);
-struct CSI_DATA_T *glCsiGetCSIData(struct GLUE_INFO *prGlueInfo);
+struct CSI_INFO_T *glCsiGetCSIInfo(void);
+uint8_t *glCsiGetCSIBuf(void);
+struct CSI_DATA_T *glCsiGetCSIData(void);
 void glCsiSupportInit(struct GLUE_INFO *prGlueInfo);
 void glCsiSupportDeinit(struct GLUE_INFO *prGlueInfo);
 void glCsiSetEnable(struct GLUE_INFO *prGlueInfo,

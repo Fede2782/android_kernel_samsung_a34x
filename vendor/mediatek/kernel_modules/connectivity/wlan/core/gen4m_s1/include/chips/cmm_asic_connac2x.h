@@ -1154,6 +1154,10 @@ void asicConnac2xLowPowerOwnSet(
 void asicConnac2xLowPowerOwnClear(
 	struct ADAPTER *prAdapter,
 	uint8_t *pfgResult);
+void asicConnac2xWfdmaRecord(
+	struct ADAPTER *prAdapter);
+void asicConnac2xWfdmaChkIdxMisMatch(
+	u_int32_t u4Idx, struct RTMP_TX_RING *prTxRing);
 void asicConnac2xProcessSoftwareInterrupt(
 	struct ADAPTER *prAdapter);
 void asicConnac2xSoftwareInterruptMcu(

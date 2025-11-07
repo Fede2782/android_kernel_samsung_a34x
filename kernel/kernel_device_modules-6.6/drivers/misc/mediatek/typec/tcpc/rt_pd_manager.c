@@ -66,6 +66,7 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 	case TCP_NOTIFY_VBUS_SHORT_CC:
 		if (!noti->vsc_status) {
 			dev_info(rpmd->dev, "%s exit short status\n", __func__);
+			break;
 		break;
 		}
 		dev_info(rpmd->dev, "%s enter short status, CC%s%s\n", __func__,

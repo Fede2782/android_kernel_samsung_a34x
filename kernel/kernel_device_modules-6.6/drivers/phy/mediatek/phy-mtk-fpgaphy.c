@@ -398,7 +398,7 @@ unsigned int _U3Read_Reg(unsigned int address)
 
 	pu1Buf = kmalloc(1, GFP_NOIO);
 	if (!pu1Buf)
-		return -ENOMEM;
+		return PHY_FALSE;
 
 	ret = I2cReadReg(U3_PHY_I2C_DEV, address, pu1Buf);
 	if (ret == PHY_FALSE) {

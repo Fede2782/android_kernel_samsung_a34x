@@ -700,6 +700,54 @@ void ppm_cobra_init(void)
 	ppm_info("COBRA init done!\n");
 }
 
+void ppm_cobra_tbl_updating(void)
+{
+	int i, j;
+
+#if IS_ENABLED(CONFIG_MTK_UNIFIED_POWER)
+	{
+		unsigned int core, dyn, lkg, dyn_c, lkg_c, cap;
+
+		/* generate basic power table */
+		ppm_ver("[%s] basic power table:\n", __func__);
+		for (i = 0; i < TOTAL_CORE_NUM; i++) {
+			for (j = 0; j < DVFS_OPP_NUM; j++) {
+				core = (i % CORE_NUM_L) + 1;
+				dyn = upower_get_power(
+					i/CORE_NUM_L, j, UPOWER_DYN);
+				lkg = upower_get_power(
+					i/CORE_NUM_L, j, UPOWER_LKG);
+				dyn_c = upower_get_power(
+					i/CORE_NUM_L + NR_PPM_CLUSTERS,
+					j, UPOWER_DYN);
+				lkg_c = upower_get_power(
+					i/CORE_NUM_L + NR_PPM_CLUSTERS,
+					j, UPOWER_LKG);
+				cap = upower_get_power(
+					i/CORE_NUM_L, j, UPOWER_CPU_STATES);
+
+				cobra_tbl->basic_pwr_tbl[i][j].power_idx =
+					((dyn + lkg) * core +
+					(dyn_c + lkg_c)) / 1000;
+				cobra_tbl->basic_pwr_tbl[i][j].perf_idx =
+					cap * core;
+
+				ppm_ver("[%d][%d] = (%d, %d)\n", i, j,
+				cobra_tbl->basic_pwr_tbl[i][j].power_idx,
+				cobra_tbl->basic_pwr_tbl[i][j].perf_idx);
+			}
+		}
+	}
+#else
+	for (i = 0; i < TOTAL_CORE_NUM; i++) {
+		for (j = 0; j < DVFS_OPP_NUM; j++) {
+			cobra_tbl->basic_pwr_tbl[i][j].power_idx = 0;
+			cobra_tbl->basic_pwr_tbl[i][j].perf_idx = 0;
+		}
+	}
+#endif
+}
+EXPORT_SYMBOL(ppm_cobra_tbl_updating);
 
 void ppm_cobra_dump_tbl(struct seq_file *m)
 {

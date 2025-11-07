@@ -21,6 +21,7 @@ const struct feature_match_entry feature_match[] = {
 	{"feature_immutable_dst_exception", feature_immutable_dst_exception},
 	{"feature_umhbin_path", feature_umhbin_path},
 	{"feature_integrity_check", feature_integrity_check},
+	{"feature_immutable_tgt_exception", feature_immutable_tgt_exception},
 };
 
 void feature_to_string(char *str, unsigned int flags)
@@ -41,28 +42,12 @@ void feature_to_string(char *str, unsigned int flags)
 	}
 }
 
-static int check_array_size(struct rule_item_struct *ptr)
-{
-	unsigned long offset = (unsigned long)ptr - (unsigned long)defex_packed_rules;
-	int min_size = (global_data_size < packfiles_size)?global_data_size:packfiles_size;
-
-	offset += sizeof(struct rule_item_struct);
-
-	if (offset > min_size)
-		return 1;
-
-	offset += ptr->size;
-	if (offset > min_size)
-		return 2;
-	return 0;
-}
-
 static int parse_items(struct d_tree_item *base, size_t path_length, int level)
 {
 	struct d_tree_item tmp_item, *child_item;
 	const char *subdir_ptr;
 	unsigned int subdir_size;
-	static char feature_list[128];
+	static char feature_list[128], work_str[PATH_MAX];
 	int err, ret = 0;
 
 	if (level > 8) {
@@ -80,8 +65,14 @@ static int parse_items(struct d_tree_item *base, size_t path_length, int level)
 	while (child_item) {
 		subdir_size = 0;
 		subdir_ptr = d_tree_get_subpath(child_item, &subdir_size);
-		if (subdir_ptr)
+		if (subdir_ptr) {
+			if (child_item->features & d_tree_item_wildcard) {
+				subdir_size = d_tree_unpack_wildcard(subdir_ptr,
+							subdir_size, work_str, PATH_MAX);
+				subdir_ptr = work_str;
+			}
 			memcpy(work_path + path_length, subdir_ptr, (size_t)subdir_size);
+		}
 		subdir_size += (unsigned int)path_length;
 		work_path[subdir_size] = 0;
 

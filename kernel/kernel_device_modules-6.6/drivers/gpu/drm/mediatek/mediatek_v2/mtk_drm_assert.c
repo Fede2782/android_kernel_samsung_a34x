@@ -356,15 +356,18 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 		return 0;
 	}
 
-	ovl_comp = _handle_phy_top_plane(mtk_crtc);
-	if (ovl_comp == NULL) {
-		DDPPR_ERR("%s: can't find ovl comp\n", __func__);
-		return 0;
-	}
-
 	priv = crtc->dev->dev_private;
 	if (IS_ERR_OR_NULL(priv)) {
 		DDPPR_ERR("%s: can't find priv\n", __func__);
+		return 0;
+	}
+
+	if (priv && priv->data->mmsys_id == MMSYS_MT6991)
+		return 0;
+
+	ovl_comp = _handle_phy_top_plane(mtk_crtc);
+	if (ovl_comp == NULL) {
+		DDPPR_ERR("%s: can't find ovl comp\n", __func__);
 		return 0;
 	}
 

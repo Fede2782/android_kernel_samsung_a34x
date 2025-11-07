@@ -64,11 +64,12 @@ struct uarthub_drv_cbs uarthub_drv_export_cbs = {
 	.get_cmm_bt_awake_sta = uarthub_core_get_cmm_bt_awake_sta,
 	.get_bt_awake_sta = uarthub_core_get_bt_awake_sta,
 	.bt_on_count_inc = uarthub_core_bt_on_count_inc,
-	.inband_set_esc_sta = uarthub_core_inband_set_esc_sta,
+	.inband_set_esc_sta = uarthub_core_inband_set_sta_char,
 	.inband_trigger_ctrl = uarthub_core_inband_trigger_ctrl,
 	.inband_is_tx_complete = uarthub_core_inband_is_tx_complete,
 	.inband_enable_ctrl = uarthub_core_inband_enable_ctrl,
-	.inband_is_support = uarthub_core_inband_is_support
+	.inband_is_support = uarthub_core_inband_is_support,
+	.is_enable_fw_flow_ctrl_with_inband = uarthub_core_is_enable_fw_flow_ctrl_with_inband
 };
 
 /* FPGA test only */

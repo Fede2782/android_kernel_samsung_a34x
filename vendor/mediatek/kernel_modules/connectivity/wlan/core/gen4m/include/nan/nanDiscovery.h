@@ -9,6 +9,10 @@
 #if CFG_SUPPORT_NAN
 
 #define NAN_MAX_VENDOR_PAYLOAD_SIZE 256
+#if (defined(CFG_SUPPORT_NAN_R4_PAIRING) && CFG_SUPPORT_NAN_R4_PAIRING == 1)
+#define SDF_TX_RETRY_COUNT_LIMIT 7
+#define SDF_TX_RETRY_COUNT_LIMIT_TIMEOUT 3000
+#endif /* CFG_SUPPORT_NAN_R4_PAIRING */
 
 extern uint8_t g_u2IndPubId;
 extern uint8_t g_aucNanServiceId[6];
@@ -27,11 +31,13 @@ struct NAN_DISCOVERY_EVENT {
 	uint8_t ucSdf_match_filter_len;
 	uint8_t aucSdf_match_filter[NAN_FW_MAX_MATCH_FILTER_LEN];
 #if (defined(CFG_SUPPORT_NAN_R4_PAIRING) && CFG_SUPPORT_NAN_R4_PAIRING == 1)
-	/* For NAN Pairing */
 	uint8_t ucPairingEnable;
-	uint8_t aucRsvd2[3];
 	uint64_t u8NiraNonce;
 	uint64_t u8NiraTag;
+	uint16_t u2PairingBootstrapMethod;
+	uint8_t ucPairingCacheEnabled;
+	uint8_t ucPairingVerificationEnabled;
+	uint8_t ucPairingNPBA_DialogToken;
 #endif /* CFG_SUPPORT_NAN_R4_PAIRING */
 };
 
@@ -64,18 +70,19 @@ struct NAN_FOLLOW_UP_EVENT {
 
 	/* Tx status */
 	uint32_t tx_status;
+
 #if (defined(CFG_SUPPORT_NAN_R4_PAIRING) && CFG_SUPPORT_NAN_R4_PAIRING == 1)
 	/* Pairing Bootstrapping flow */
-	uint8_t bootstrapping_type;
-	uint8_t bootstrapping_status;
-	uint16_t bootstrapping_method;
+	uint8_t bootstrap_type;
+	uint8_t bootstrap_status;
+	uint16_t bootstrap_method;
+	uint16_t u2ComebackAfter;
+	uint8_t bootstrap_dialog;
 
-
-	/* For SKDA */
+	/* SKDA key data */
 	uint16_t key_length;
 	uint8_t key_data[NAN_KDE_ATTR_BUF_SIZE];
 #endif /* CFG_SUPPORT_NAN_R4_PAIRING */
-
 };
 
 struct NAN_DE_EVENT {
@@ -255,15 +262,15 @@ struct NanFWPublishRequest {
 
 	uint8_t service_name_hash[NAN_SERVICE_HASH_LENGTH];
 #if (defined(CFG_SUPPORT_NAN_R4_PAIRING) && CFG_SUPPORT_NAN_R4_PAIRING == 1)
-	/* NAN Pairing enable and NPK/NIK caching enable */
+	/* Pairing related setting*/
 	uint8_t pairing_enable;
 	uint8_t key_caching_enable;
 
-	/* NAN Pairing Bootstrapping info */
+	/* Bootstrap */
 	uint8_t bootstrap_type;
 	uint16_t bootstrap_method;
 
-	/* NAN Identiry Resolution Attr (NIRA) */
+	/* NIRA */
 	uint8_t nira_enable;
 	uint64_t tag;
 	uint64_t nonce;
@@ -432,15 +439,13 @@ struct NanFWSubscribeRequest {
 	uint8_t sdea_service_specific_info[NAN_MAX_SDEA_LEN];
 
 	uint8_t service_name_hash[NAN_SERVICE_HASH_LENGTH];
-#if (defined(CFG_SUPPORT_NAN_R4_PAIRING) && CFG_SUPPORT_NAN_R4_PAIRING == 1)
-	/* NAN Pairing enable and NPK/NIK caching enable */
+#if (CFG_SUPPORT_NAN_R4_PAIRING == 1)
+	/* Pairing related setting */
 	uint8_t pairing_enable;
 	uint8_t key_caching_enable;
-
-	/* NAN Pairing Bootstrapping info */
 	uint8_t bootstrap_type;
 	uint16_t bootstrap_method;
-#endif /* CFG_SUPPORT_NAN_R4_PAIRING */
+#endif
 } __KAL_ATTRIB_PACKED__ __KAL_ATTRIB_ALIGNED__(4);
 
 __KAL_ATTRIB_PACKED_FRONT__ __KAL_ATTRIB_ALIGNED_FRONT__(4)
@@ -472,17 +477,18 @@ struct NanFWTransmitFollowupRequest {
 	/* Sequence of values indicating the service specific info in SDEA */
 	uint16_t sdea_service_specific_info_len;
 	uint8_t sdea_service_specific_info[NAN_FW_MAX_FOLLOW_UP_SDEA_LEN];
-#if (defined(CFG_SUPPORT_NAN_R4_PAIRING) && CFG_SUPPORT_NAN_R4_PAIRING == 1)
-	/* NAN Pairing enable and NPK/NIK caching enable */
+#if (CFG_SUPPORT_NAN_R4_PAIRING == 1)
+	/* NAN Pairing Cap Enable */
 	uint8_t pairing_enable;
 	uint8_t key_cache_enable;
 
-	/* NAN Pairing Bootstrapping info */
+	/* Pairing related setting */
 	uint8_t bootstrap_enable;
 	uint8_t bootstrap_type;
 	uint16_t bootstrap_method;
 	uint8_t bootstrap_status;
 	uint16_t comeback_after;
+	uint8_t bootstrap_dialogToken;
 #endif /* CFG_SUPPORT_NAN_R4_PAIRING */
 } __KAL_ATTRIB_PACKED__ __KAL_ATTRIB_ALIGNED__(4);
 
@@ -517,6 +523,20 @@ struct _NAN_SERVICE_SESSION_T {
 	uint8_t aucSupportedCipherSuite[NAN_MAX_CIPHER_SUITE_NUM];
 	uint8_t ucNumSCID;
 	uint8_t aaucSupportedSCID[NAN_MAX_SCID_NUM][NAN_SCID_DEFAULT_LEN];
+};
+
+enum NAN_INSTANCE_TYPE {
+	NAN_PUBLISH,
+	NAN_SUBSCRIBE
+};
+
+struct _NAN_INSTANCE_T {
+	enum NAN_INSTANCE_TYPE eType;
+
+	uint8_t ucInstanceID;
+	uint8_t ucServiceNameLength;
+	uint8_t aucServiceName[NAN_MAX_SERVICE_NAME_LEN+1];
+	uint8_t aucServiceHash[NAN_SERVICE_HASH_LENGTH];
 };
 
 struct _NAN_DISC_ENGINE_T {
@@ -566,6 +586,21 @@ struct _NAN_DISC_CMD_MANAGE_SCID_T {
 	uint8_t aucSCID[NAN_SCID_DEFAULT_LEN];
 } __KAL_ATTRIB_PACKED__ __KAL_ATTRIB_ALIGNED__(4);
 
+/* attribute filling functions */
+struct _APPEND_DISC_ATTR_ENTRY_T {
+	/* refer to Table.33 in NAN Tech.Spec v2.0 */
+	uint8_t u8AttrID;
+
+	/* NULL stands for fixed length */
+	size_t(*pfnCalculateVariableAttrLen)
+	(struct ADAPTER *ad, struct NanFWTransmitFollowupRequest *fwReq);
+
+	/* attribute appending */
+	void(*pfnAppendAttr)
+	(struct ADAPTER *ad, struct MSDU_INFO *prMsduInfo,
+	struct NanFWTransmitFollowupRequest *fwReq);
+};
+
 uint32_t nanCancelPublishRequest(struct ADAPTER *prAdapter,
 				 struct NanPublishCancelRequest *msg);
 
@@ -587,6 +622,17 @@ uint32_t nanSubscribeRequest(struct ADAPTER *prAdapter,
 uint32_t nanTransmitRequest(struct ADAPTER *prAdapter,
 			   struct NanTransmitFollowupRequest *msg);
 
+#if CFG_SUPPORT_NAN_R4_PAIRING
+uint32_t nanTransmitRequest_host(struct ADAPTER *prAdapter,
+			   struct NanTransmitFollowupRequest *msg);
+
+uint32_t nanSDFTxDone(struct ADAPTER *prAdapter,
+			struct MSDU_INFO *prMsduInfo,
+			enum ENUM_TX_RESULT_CODE rTxDoneStatus);
+
+void nanSDFRetryTimeout(struct ADAPTER *prAdapter, uintptr_t ulParam);
+#endif /* CFG_SUPPORT_NAN_R4_PAIRING */
+
 void nanCmdManageScid(struct ADAPTER *prAdapter, unsigned char fgAddDelete,
 		      uint8_t ucPubID, uint8_t *pucScid);
 void nanCmdAddCsid(struct ADAPTER *prAdapter, uint8_t ucPubID,
@@ -605,5 +651,66 @@ nanDiscSearchServiceSession(struct ADAPTER *prAdapter,
 struct _NAN_SERVICE_SESSION_T *
 nanDiscAcquireServiceSession(struct ADAPTER *prAdapter,
 			     uint8_t *pucPublishNmiAddr, uint8_t ucPubID);
+
+#if (defined(CFG_SUPPORT_NAN_R4_PAIRING) && CFG_SUPPORT_NAN_R4_PAIRING == 1)
+uint32_t
+nanDiscComposeNAFHeader(struct ADAPTER *prAdapter,
+	      struct MSDU_INFO *prMsduInfo,
+	      enum _NAN_ACTION_T eAction,
+	      uint8_t *pucLocalMacAddr, uint8_t *pucPeerMacAddr);
+
+uint32_t
+nanDiscSendFollowup(IN struct ADAPTER *prAdapter,
+			struct NanFWTransmitFollowupRequest *prNanFollowupReq);
+
+uint32_t
+nanDiscSendSDF(IN struct ADAPTER *prAdapter,
+		     IN struct MSDU_INFO *prMsduInfo, IN uint16_t u2FrameLength,
+		     IN PFN_TX_DONE_HANDLER pfTxDoneHandler,
+		     IN struct STA_RECORD *prSelectStaRec);
+size_t
+nanDiscSdaAttrLength(struct ADAPTER *prAdapter,
+			struct NanFWTransmitFollowupRequest *prNanFollowupReq);
+void
+nanDiscSdaAttrAppend(struct ADAPTER *prAdapter,
+		struct MSDU_INFO *prMsduInfo,
+		struct NanFWTransmitFollowupRequest *prNanFollowupReq);
+
+void
+nanDiscSdaAttrAppendImpl(IN struct ADAPTER *prAdapter,
+	       struct MSDU_INFO *prMsduInfo,
+	       IN struct NanFWTransmitFollowupRequest *prNanFollowupReq,
+	       IN uint8_t ucTypeStatus, IN uint8_t ucReasonCode);
+
+size_t
+nanDiscSdeaAttrLength(struct ADAPTER *prAdapter,
+		struct NanFWTransmitFollowupRequest *prNanFollowupReq);
+void
+nanDiscSdeaAttrAppend(struct ADAPTER *prAdapter,
+		struct MSDU_INFO *prMsduInfo,
+		struct NanFWTransmitFollowupRequest *prNanFollowupReq);
+
+void
+nanDiscSdeaAttrAppendImpl(IN struct ADAPTER *prAdapter,
+	       struct MSDU_INFO *prMsduInfo,
+	       IN struct NanFWTransmitFollowupRequest *prNanFollowupReq,
+	       IN uint8_t ucTypeStatus, IN uint8_t ucReasonCode);
+
+size_t
+nanDiscSharedKeyAttrLength(struct ADAPTER *prAdapter,
+		struct NanFWTransmitFollowupRequest *prNanFollowupReq);
+
+void
+nanDiscSharedKeyAttrAppend(struct ADAPTER *prAdapter,
+		struct MSDU_INFO *prMsduInfo,
+		struct NanFWTransmitFollowupRequest *prNanFollowupReq);
+
+void
+nanDiscSetupInstance(uint8_t ucInstanceId,
+				uint8_t type, uint8_t *service_hash);
+
+uint8_t
+nanDiscIsInstancePub(uint8_t ucInstanceId);
+#endif /* CFG_SUPPORT_NAN_R4_PAIRING */
 #endif
 #endif

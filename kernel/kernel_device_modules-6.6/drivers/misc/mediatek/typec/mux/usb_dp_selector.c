@@ -104,8 +104,10 @@ static int usb_dp_selector_switch_set(struct typec_switch_dev *sw,
 		if (uds->is_dp == true) {
 			/* We should clr this bit, since dp-4lane can not work with U3  */
 			uds_clrbits(uds->selector_reg_address, (1 << 19));
+#if !IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
 #if IS_ENABLED(CONFIG_DEVICE_MODULES_DRM_MEDIATEK)
 			mtk_dp_SWInterruptSet(0x2);
+#endif
 #endif
 			uds->dp_sw_connect = false;
 			uds->is_dp = false;
@@ -116,14 +118,18 @@ static int usb_dp_selector_switch_set(struct typec_switch_dev *sw,
 		switch (uds->uds_ver) {
 		case uds_V1:
 			uds_clrbits(uds->selector_reg_address, (1 << 11));
+#if !IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
 #if IS_ENABLED(CONFIG_DEVICE_MODULES_DRM_MEDIATEK)
 			mtk_dp_aux_swap_enable(true);
+#endif
 #endif
 			break;
 		case uds_V2:
 			uds_clrbits(uds->selector_reg_address, (1 << 18));
+#if !IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
 #if IS_ENABLED(CONFIG_DEVICE_MODULES_DRM_MEDIATEK)
 			mtk_dp_aux_swap_enable(true);
+#endif
 #endif
 			break;
 		default:
@@ -135,14 +141,18 @@ static int usb_dp_selector_switch_set(struct typec_switch_dev *sw,
 		switch (uds->uds_ver) {
 		case uds_V1:
 			uds_setbits(uds->selector_reg_address, (1 << 11));
+#if !IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
 #if IS_ENABLED(CONFIG_DEVICE_MODULES_DRM_MEDIATEK)
 			mtk_dp_aux_swap_enable(false);
+#endif
 #endif
 			break;
 		case uds_V2:
 			uds_setbits(uds->selector_reg_address, (1 << 18));
+#if !IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
 #if IS_ENABLED(CONFIG_DEVICE_MODULES_DRM_MEDIATEK)
 			mtk_dp_aux_swap_enable(false);
+#endif
 #endif
 			break;
 		default:
@@ -199,8 +209,10 @@ static int usb_dp_selector_mux_set(struct typec_mux_dev *mux,
 				break;
 			case uds_V2:
 				uds_setbits(uds->selector_reg_address, (1 << 19));
+#if !IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
 #if IS_ENABLED(CONFIG_DEVICE_MODULES_DRM_MEDIATEK)
 				mtk_dp_set_pin_assign(dp_data->conf);
+#endif
 #endif
 				break;
 			default:
@@ -215,8 +227,10 @@ static int usb_dp_selector_mux_set(struct typec_mux_dev *mux,
 				break;
 			case uds_V2:
 				uds_clrbits(uds->selector_reg_address, (1 << 19));
+#if !IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
 #if IS_ENABLED(CONFIG_DEVICE_MODULES_DRM_MEDIATEK)
 				mtk_dp_set_pin_assign(dp_data->conf);
+#endif
 #endif
 				break;
 			default:
@@ -247,16 +261,24 @@ static int usb_dp_selector_mux_set(struct typec_mux_dev *mux,
 			if (irq) {
 				if (uds->dp_sw_connect == false) {
 					dev_info(uds->dev, "Force connect\n");
+#if !IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
 					mtk_dp_SWInterruptSet(0x4);
+#endif
 					uds->dp_sw_connect = true;
 				}
+#if !IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
 				mtk_dp_SWInterruptSet(0x8);
+#endif
 			} else {
+#if !IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
 				mtk_dp_SWInterruptSet(0x4);
+#endif
 				uds->dp_sw_connect = true;
 			}
 		} else {
+#if !IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
 			mtk_dp_SWInterruptSet(0x2);
+#endif
 			uds->dp_sw_connect = false;
 		}
 #endif
@@ -267,6 +289,7 @@ static int usb_dp_selector_mux_set(struct typec_mux_dev *mux,
 
 static void check_hpd(struct work_struct *work)
 {
+#if !IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
 	struct delayed_work *check_wk = to_delayed_work(work);
 	struct usb_dp_selector *uds = container_of(check_wk,
 					struct usb_dp_selector, check_wk);
@@ -277,6 +300,7 @@ static void check_hpd(struct work_struct *work)
 		mtk_dp_SWInterruptSet(0x4);
 #endif
 	}
+#endif
 }
 
 static int usb_dp_selector_probe(struct platform_device *pdev)

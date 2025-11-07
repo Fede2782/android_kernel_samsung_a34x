@@ -198,6 +198,13 @@
 
 #include "configfs.h"
 
+#define _SUPPORT_CDFS_   /* support CDFS */
+#define _SUPPORT_MAC_   /* support to recognize CDFS on OSX (MAC PC) */
+
+#ifdef _SUPPORT_MAC_
+#define VENDER_CMD_VERSION_INFO	0xfa  /* Image version info */
+#define READ_CD					0xbe
+#endif
 
 /*------------------------------------------------------------------------*/
 
@@ -287,6 +294,12 @@ struct fsg_common {
 	void			*private_data;
 
 	char inquiry_string[INQUIRY_STRING_LEN];
+#ifdef _SUPPORT_CDFS_
+	char vendor_string[8 + 1];
+	char product_string[16 + 1];
+	/* Additional image version info for SUA */
+	char version_string[100 + 1];
+#endif
 };
 
 struct fsg_dev {
@@ -305,6 +318,77 @@ struct fsg_dev {
 	struct usb_ep		*bulk_in;
 	struct usb_ep		*bulk_out;
 };
+
+#ifdef _SUPPORT_CDFS_
+static int send_message(struct fsg_common *common, char *msg)
+{
+	char name_buf[120];
+	char state_buf[120];
+	char *envp[3];
+	int env_offset = 0;
+	struct usb_gadget *gadget = common->gadget;
+
+	pr_info("%s (%s)\n", __func__, msg);
+
+	if (gadget) {
+		snprintf(name_buf, sizeof(name_buf),
+					"SWITCH_NAME=USB_MESSAGE");
+		envp[env_offset++] = name_buf;
+
+		snprintf(state_buf, sizeof(state_buf),
+				"SWITCH_STATE=%s", msg);
+		envp[env_offset++] = state_buf;
+
+		envp[env_offset] = NULL;
+
+		if (!gadget->dev.class) {
+			gadget->dev.class = class_create("usb_msg");
+			if (IS_ERR(gadget->dev.class))
+				return -1;
+		}
+
+		DBG(common, "Send cd eject message to daemon\n");
+
+		kobject_uevent_env(&gadget->dev.kobj, KOBJ_CHANGE, envp);
+	}
+
+	return 0;
+}
+
+static int do_timer_stop(struct fsg_common *common)
+{
+	send_message(common, "time stop");
+
+	return 0;
+}
+
+static int do_timer_reset(struct fsg_common *common)
+{
+	send_message(common, "time reset");
+
+	return 0;
+}
+
+static int get_version_info(struct fsg_common *common, struct fsg_buffhd *bh)
+{
+
+	u8	*buf = (u8 *) bh->buf;
+	u8 return_size = common->data_size_from_cmnd;
+
+	pr_info("usb: %s : common->version_string[%d]=%s\r\n",
+			__func__, common->data_size_from_cmnd, common->version_string);
+
+	memset(buf, 0, common->data_size_from_cmnd);
+	if (return_size > sizeof(common->version_string)) {
+		/* driver version infor reply */
+		memcpy(buf, common->version_string, sizeof(common->version_string));
+		return_size = sizeof(common->version_string);
+	} else {
+		memcpy(buf, common->version_string, return_size);
+	}
+	return return_size;
+}
+#endif /* _SUPPORT_CDFS_ */
 
 static inline int __fsg_is_set(struct fsg_common *common,
 			       const char *func, unsigned line)
@@ -599,7 +683,166 @@ static int sleep_thread(struct fsg_common *common, bool can_freeze,
 					BUF_STATE_EMPTY);
 	return rc ? -EINTR : 0;
 }
+#ifdef _SUPPORT_MAC_
+static void _lba_to_msf(u8 *buf, int lba)
+{
+	lba += 150;
+	buf[0] = (lba / 75) / 60;
+	buf[1] = (lba / 75) % 60;
+	buf[2] = lba % 75;
+}
 
+static void cd_data_to_raw(u8 *buf, int lba)
+{
+	/* sync bytes */
+	buf[0] = 0x00;
+	memset(buf + 1, 0xff, 10);
+	buf[11] = 0x00;
+	buf += 12;
+	/* MSF */
+	_lba_to_msf(buf, lba);
+	buf[3] = 0x01; /* mode 1 data */
+	buf += 4;
+	/* data */
+	buf += 2048;
+	/* XXX: ECC not computed */
+	memset(buf, 0, 288);
+}
+
+static int do_read_cd(struct fsg_common *common)
+{
+	struct fsg_lun		*curlun = common->curlun;
+	u32			lba;
+	struct fsg_buffhd	*bh;
+	int			rc;
+	u32			amount_left;
+	loff_t			file_offset, file_offset_tmp;
+	unsigned int		amount;
+	unsigned int		partial_page;
+	ssize_t			nread;
+
+	u32 nb_sectors, transfer_request;
+
+	nb_sectors = (common->cmnd[6] << 16) |
+			(common->cmnd[7] << 8) | common->cmnd[8];
+	lba = get_unaligned_be32(&common->cmnd[2]);
+
+	if (nb_sectors == 0)
+		return 0;
+
+	if (lba >= curlun->num_sectors) {
+		curlun->sense_data = SS_LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE;
+		return -EINVAL;
+	}
+
+	transfer_request = common->cmnd[9];
+	if ((transfer_request & 0xf8) == 0xf8) {
+		file_offset = ((loff_t) lba) << 11;
+		/* read all data  - 2352 byte */
+		amount_left = 2352;
+	} else {
+		file_offset = ((loff_t) lba) << 9;
+		/* Carry out the file reads */
+		amount_left = common->data_size_from_cmnd;
+	}
+
+	if (unlikely(amount_left == 0))
+		return -EIO;		/* No default reply */
+
+	for (;;) {
+
+		/* Figure out how much we need to read:
+		 * Try to read the remaining amount.
+		 * But don't read more than the buffer size.
+		 * And don't try to read past the end of the file.
+		 * Finally, if we're not at a page boundary, don't read past
+		 *	the next page.
+		 * If this means reading 0 then we were asked to read past
+		 *	the end of file. */
+		amount = min(amount_left, FSG_BUFLEN);
+		amount = min((loff_t) amount,
+				curlun->file_length - file_offset);
+		partial_page = file_offset & (PAGE_SIZE - 1);
+		if (partial_page > 0)
+			amount = min(amount, (unsigned int) PAGE_SIZE -
+					partial_page);
+
+		/* Wait for the next buffer to become available */
+		bh = common->next_buffhd_to_fill;
+		while (bh->state != BUF_STATE_EMPTY) {
+			rc = sleep_thread(common, true, bh);
+			if (rc)
+				return rc;
+		}
+
+		/* If we were asked to read past the end of file,
+		 * end with an empty buffer. */
+		if (amount == 0) {
+			curlun->sense_data =
+				SS_LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE;
+			curlun->sense_data_info = file_offset >> 9;
+			curlun->info_valid = 1;
+			bh->inreq->length = 0;
+			bh->state = BUF_STATE_FULL;
+			break;
+		}
+
+		/* Perform the read */
+		file_offset_tmp = file_offset;
+		if ((transfer_request & 0xf8) == 0xf8) {
+			nread = vfs_read(curlun->filp,
+					((char __user *)bh->buf)+16,
+						amount, &file_offset_tmp);
+		} else {
+			nread = vfs_read(curlun->filp,
+					(char __user *)bh->buf,
+					amount, &file_offset_tmp);
+		}
+		VLDBG(curlun, "file read %u @ %llu -> %d\n", amount,
+				(unsigned long long) file_offset,
+				(int) nread);
+		if (signal_pending(current))
+			return -EINTR;
+
+		if (nread < 0) {
+			LDBG(curlun, "error in file read: %d\n",
+					(int) nread);
+			nread = 0;
+		} else if (nread < amount) {
+			LDBG(curlun, "partial file read: %d/%u\n",
+					(int) nread, amount);
+			nread -= (nread & 511);	/* Round down to a block */
+		}
+		file_offset  += nread;
+		amount_left  -= nread;
+		common->residue -= nread;
+		bh->inreq->length = nread;
+		bh->state = BUF_STATE_FULL;
+
+		/* If an error occurred, report it and its position */
+		if (nread < amount) {
+			curlun->sense_data = SS_UNRECOVERED_READ_ERROR;
+			curlun->sense_data_info = file_offset >> 9;
+			curlun->info_valid = 1;
+			break;
+		}
+
+		if (amount_left == 0)
+			break;		/* No more left to read */
+
+		/* Send this buffer and go read some more */
+		if (!start_in_transfer(common, bh))
+			/* Don't know what to do if common->fsg is NULL */
+			return -EIO;
+		common->next_buffhd_to_fill = bh->next;
+	}
+
+	if ((transfer_request & 0xf8) == 0xf8)
+		cd_data_to_raw(bh->buf, lba);
+
+	return -EIO;		/* No default reply */
+}
+#endif /* _SUPPORT_MAC_ */
 
 /*-------------------------------------------------------------------------*/
 
@@ -1055,6 +1298,10 @@ static int do_inquiry(struct fsg_common *common, struct fsg_buffhd *bh)
 	struct fsg_lun *curlun = common->curlun;
 	u8	*buf = (u8 *) bh->buf;
 
+#ifdef _SUPPORT_CDFS_
+	static char new_product_name[16 + 1];
+#endif
+
 	if (!curlun) {		/* Unsupported LUNs are okay */
 		common->bad_lun_okay = 1;
 		memset(buf, 0, 36);
@@ -1071,6 +1318,24 @@ static int do_inquiry(struct fsg_common *common, struct fsg_buffhd *bh)
 	buf[5] = 0;		/* No special options */
 	buf[6] = 0;
 	buf[7] = 0;
+
+#ifdef _SUPPORT_CDFS_
+	strscpy(new_product_name, common->product_string, 16);
+	new_product_name[16] = '\0';
+	if (strlen(common->product_string) <= 11 &&
+			/* check string length */
+			common->lun > 0) {
+		strncat(new_product_name, " Card", 16);
+		new_product_name[16] = '\0';
+	}
+
+	snprintf(common->inquiry_string,
+		sizeof(common->inquiry_string),
+		"%-8s%-16s%04x",
+		common->vendor_string,
+		new_product_name, 1);
+#endif
+
 	if (curlun->inquiry_string[0])
 		memcpy(buf + 8, curlun->inquiry_string,
 		       sizeof(curlun->inquiry_string));
@@ -1340,6 +1605,18 @@ static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
 					/* Maximum prefetch ceiling */
 		}
 		buf += 12;
+#ifdef _SUPPORT_CDFS_
+	} else if (page_code == 0x2A) {
+		valid_page = 1;
+		buf[0] = 0x2A;		/* Page code */
+		buf[1] = 26;		/* Page length */
+		memset(buf+2, 0, 26);/* None of the fields are changeable */
+		buf[2] = 0x02;
+		buf[3] = 0x02;
+		buf[4] = 0x04;
+		buf[6] = 0x28;
+		buf += 28;
+#endif
 	}
 
 	/*
@@ -1384,6 +1661,11 @@ static int do_start_stop(struct fsg_common *common)
 	 * available for use as soon as it is loaded.
 	 */
 	if (start) {
+#ifdef _SUPPORT_CDFS_
+		if (loej)
+			send_message(common, "Load AT");
+#endif
+
 		if (!fsg_lun_is_open(curlun)) {
 			curlun->sense_data = SS_MEDIUM_NOT_PRESENT;
 			return -EINVAL;
@@ -1406,6 +1688,10 @@ static int do_start_stop(struct fsg_common *common)
 	fsg_lun_close(curlun);
 	up_write(&common->filesem);
 	down_read(&common->filesem);
+
+#ifdef _SUPPORT_CDFS_
+	send_message(common, "Load User");
+#endif
 
 	return 0;
 }
@@ -2134,6 +2420,23 @@ static int do_scsi_command(struct fsg_common *common)
 		if (reply == 0)
 			reply = do_write(common);
 		break;
+#ifdef _SUPPORT_MAC_
+	case READ_CD:
+		common->data_size_from_cmnd = ((common->cmnd[6] << 16)
+						| (common->cmnd[7] << 8)
+						| (common->cmnd[8])) << 9;
+		reply = check_command(common, 12, DATA_DIR_TO_HOST,
+					(0xf<<2) | (7<<7), 1,
+					"READ CD");
+		if (reply == 0)
+			reply = do_read_cd(common);
+		break;
+	/* reply current image version */
+	case VENDER_CMD_VERSION_INFO:
+		common->data_size_from_cmnd = common->cmnd[4];
+		reply = get_version_info(common, bh);
+		break;
+#endif /* _SUPPORT_MAC_ */
 
 	/*
 	 * Some mandatory commands that we recognize but don't implement.
@@ -2143,8 +2446,19 @@ static int do_scsi_command(struct fsg_common *common)
 	 */
 	case FORMAT_UNIT:
 	case RELEASE:
+#ifdef _SUPPORT_CDFS_
+		/* SUA Timer Stop : 0x17 */
+		reply = do_timer_stop(common);
+		break;
+#endif
 	case RESERVE:
+#ifdef _SUPPORT_CDFS_
+		/* SUA Timer Reset : 0x16 */
+		reply = do_timer_reset(common);
+		break;
+#endif
 	case SEND_DIAGNOSTIC:
+		fallthrough;
 
 	default:
 unknown_cmnd:
@@ -2989,6 +3303,14 @@ void fsg_common_set_inquiry_string(struct fsg_common *common, const char *vn,
 		     ? "File-CD Gadget"
 		     : "File-Stor Gadget"),
 		 i);
+#ifdef _SUPPORT_CDFS_
+	/* Default INQUIRY strings */
+	strscpy(common->vendor_string, "SAMSUNG",
+			sizeof(common->vendor_string) - 1);
+	strscpy(common->product_string, "File-Stor Gadget",
+			sizeof(common->product_string) - 1);
+	common->product_string[16] = '\0';
+#endif
 }
 EXPORT_SYMBOL_GPL(fsg_common_set_inquiry_string);
 
@@ -3475,6 +3797,151 @@ static const struct config_item_type fsg_func_type = {
 	.ct_owner	= THIS_MODULE,
 };
 
+#if defined(CONFIG_ANDROID_USB_CONFIGFS_UEVENT)
+extern struct device *android_create_function_device(char *name, void *drvdata,
+			const struct attribute_group **groups);
+static ssize_t inquiry_string_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct usb_function_instance *f = dev_get_drvdata(dev);
+	struct fsg_opts *fsg_opts = fsg_opts_from_func_inst(f);
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", fsg_opts->common->inquiry_string);
+}
+
+static ssize_t inquiry_string_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct usb_function_instance *f = dev_get_drvdata(dev);
+	struct fsg_opts *fsg_opts = fsg_opts_from_func_inst(f);
+
+
+	if (size >= sizeof(fsg_opts->common->inquiry_string))
+		return -EINVAL;
+
+	if (sscanf(buf, "%28s", fsg_opts->common->inquiry_string) != 1)
+		return -EINVAL;
+
+	return size;
+}
+
+static DEVICE_ATTR_RW(inquiry_string);
+
+static ssize_t vendor_string_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct usb_function_instance *f = dev_get_drvdata(dev);
+	struct fsg_opts *fsg_opts = fsg_opts_from_func_inst(f);
+
+	return sprintf(buf, "%s\n", fsg_opts->common->vendor_string);
+}
+
+static ssize_t vendor_string_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct usb_function_instance *f = dev_get_drvdata(dev);
+	struct fsg_opts *fsg_opts = fsg_opts_from_func_inst(f);
+
+	if (size < strlen(buf))
+		return -EINVAL;
+	if (size >= sizeof(fsg_opts->common->vendor_string))
+		return -EINVAL;
+	if (sscanf(buf, "%s", fsg_opts->common->vendor_string) != 1)
+		return -EINVAL;
+
+	pr_info("%s: vendor %s", __func__,
+				fsg_opts->common->vendor_string);
+	return size;
+}
+
+static DEVICE_ATTR_RW(vendor_string);
+
+static ssize_t product_string_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct usb_function_instance *f = dev_get_drvdata(dev);
+	struct fsg_opts *fsg_opts = fsg_opts_from_func_inst(f);
+
+	return sprintf(buf, "%s\n", fsg_opts->common->product_string);
+}
+
+static ssize_t product_string_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct usb_function_instance *f = dev_get_drvdata(dev);
+	struct fsg_opts *fsg_opts = fsg_opts_from_func_inst(f);
+
+	if (size < strlen(buf))
+		return -EINVAL;
+	if (size >= sizeof(fsg_opts->common->product_string))
+		return -EINVAL;
+	if (sscanf(buf, "%s", fsg_opts->common->product_string) != 1)
+		return -EINVAL;
+
+	pr_info("%s: product %s", __func__,
+				fsg_opts->common->product_string);
+	return size;
+}
+
+static DEVICE_ATTR_RW(product_string);
+
+static ssize_t sua_version_info_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct usb_function_instance *f = dev_get_drvdata(dev);
+	struct fsg_opts *fsg_opts = fsg_opts_from_func_inst(f);
+
+	int ret;
+
+	ret = sprintf(buf, "%s\r\n", fsg_opts->common->version_string);
+	pr_info("usb: %s version %s\n", __func__, buf);
+	return ret;
+}
+
+//sys/class/android_usb/android0/f_mass_storage/sua_version_info
+
+static ssize_t sua_version_info_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct usb_function_instance *f = dev_get_drvdata(dev);
+	struct fsg_opts *fsg_opts = fsg_opts_from_func_inst(f);
+
+	int len = 0;
+
+	if (size < sizeof(fsg_opts->common->version_string))
+		memcpy(fsg_opts->common->version_string, buf, size);
+	else {
+		len = sizeof(fsg_opts->common->version_string);
+		memcpy(fsg_opts->common->version_string, buf, len-1);
+	}
+	pr_info("usb: %s, %s\n", __func__, fsg_opts->common->version_string);
+	return size;
+}
+
+static DEVICE_ATTR_RW(sua_version_info);
+
+static struct attribute *mass_storage_function_attrs[] = {
+	&dev_attr_inquiry_string.attr,
+	&dev_attr_vendor_string.attr,
+	&dev_attr_product_string.attr,
+	&dev_attr_sua_version_info.attr,
+	NULL
+};
+ATTRIBUTE_GROUPS(mass_storage_function);
+
+static int create_mass_storage_device(struct usb_function_instance *fi)
+{
+	struct device *dev;
+
+	dev = android_create_function_device("f_mass_storage", NULL, mass_storage_function_groups);
+
+	if (IS_ERR(dev))
+		return PTR_ERR(dev);
+
+	dev_set_drvdata(dev, fi);
+	return 0;
+}
+#endif /*CONFIG_ANDROID_USB_CONFIGFS_UEVENT */
 static void fsg_free_inst(struct usb_function_instance *fi)
 {
 	struct fsg_opts *opts;
@@ -3521,6 +3988,14 @@ static struct usb_function_instance *fsg_alloc_inst(void)
 	config_group_init_type_name(&opts->func_inst.group, "", &fsg_func_type);
 
 	config_group_init_type_name(&opts->lun0.group, "lun.0", &fsg_lun_type);
+
+#if defined(CONFIG_ANDROID_USB_CONFIGFS_UEVENT)
+	if (create_mass_storage_device(&opts->func_inst)) {
+		rc = -ENODEV;
+		goto release_buffers;
+	}
+#endif
+
 	configfs_add_default_group(&opts->lun0.group, &opts->func_inst.group);
 
 	return &opts->func_inst;

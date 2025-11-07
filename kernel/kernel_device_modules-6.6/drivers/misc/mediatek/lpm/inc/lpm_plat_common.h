@@ -14,8 +14,8 @@ enum LPM_PLAT_TRACE_TYPE {
 };
 
 struct LPM_PLAT_TRACE {
-	size_t (*read)(unsigned long offset, void *buf, size_t sz);
-	size_t (*write)(unsigned long offset, const void *buf, size_t sz);
+	ssize_t (*read)(unsigned long offset, void *buf, size_t sz);
+	ssize_t (*write)(unsigned long offset, const void *buf, size_t sz);
 };
 
 /* NOTICE - this enum must synchronize with kernel site */

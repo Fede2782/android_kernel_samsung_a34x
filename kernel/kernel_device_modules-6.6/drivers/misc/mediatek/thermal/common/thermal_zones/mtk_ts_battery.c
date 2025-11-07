@@ -134,7 +134,7 @@ static int get_hw_battery_temp(void)
 	struct power_supply *psy;
 	int ret = 0;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 	psy = power_supply_get_by_name("battery");

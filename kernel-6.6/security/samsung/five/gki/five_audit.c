@@ -18,7 +18,7 @@
 #include <linux/fs.h>
 #include <linux/gfp.h>
 #include <linux/audit.h>
-#include <linux/task_integrity.h>
+#include <linux/version.h>
 #include "five.h"
 #include "five_audit.h"
 #include "five_cache.h"
@@ -75,7 +75,7 @@ static void five_audit_msg(struct task_struct *task, struct file *file,
 	char comm[TASK_COMM_LEN];
 	const char *name = "";
 	struct task_struct *tsk = task ? task : current;
-	struct integrity_iint_cache *iint = NULL;
+	struct five_iint_cache *iint = NULL;
 
 	if (file) {
 		inode = file_inode(file);
@@ -92,12 +92,20 @@ static void five_audit_msg(struct task_struct *task, struct file *file,
 	audit_log_format(ab, " pid=%d", task_pid_nr(tsk));
 	audit_log_format(ab, " tgid=%d", task_tgid_nr(tsk));
 	audit_log_task_context(ab);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+	audit_log_format(ab, " op=%s", op);
+#else
 	audit_log_format(ab, " op=");
 	audit_log_string(ab, op);
+#endif
 	audit_log_format(ab, " cint=0x%x", tint);
 	audit_log_format(ab, " pint=0x%x", prev);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+	audit_log_format(ab, " cause=%s", cause);
+#else
 	audit_log_format(ab, " cause=");
 	audit_log_string(ab, cause);
+#endif
 	audit_log_format(ab, " comm=");
 	audit_log_untrustedstring(ab, get_task_comm(comm, tsk));
 	if (fname) {
@@ -111,7 +119,7 @@ static void five_audit_msg(struct task_struct *task, struct file *file,
 		audit_log_format(ab, " ino=%lu", inode->i_ino);
 		audit_log_format(ab, " i_version=%llu ",
 				inode_query_iversion(inode));
-		iint = integrity_inode_get(inode);
+		iint = five_inode_get(inode);
 		if (iint) {
 			audit_log_format(ab, " five_status=%d ",
 					five_get_cache_status(iint));
@@ -127,27 +135,6 @@ exit:
 		__putname(pathbuf);
 }
 
-void five_audit_tee_msg(const char *func, const char *cause, int rc,
-							uint32_t origin)
-{
-	struct audit_buffer *ab;
-
-	ab = audit_log_start(current->audit_context, GFP_KERNEL,
-			AUDIT_INTEGRITY_DATA);
-	if (unlikely(!ab)) {
-		pr_err("Can't get a context of audit logs\n");
-		return;
-	}
-
-	audit_log_format(ab, " func=");
-	audit_log_string(ab, func);
-	audit_log_format(ab, " cause=");
-	audit_log_string(ab, cause);
-	audit_log_format(ab, " rc=0x%x, ", rc);
-	audit_log_format(ab, " origin=0x%x", origin);
-	audit_log_end(ab);
-}
-
 void five_audit_hexinfo(struct file *file, const char *msg, char *data,
 		size_t data_length)
 {
@@ -156,7 +143,7 @@ void five_audit_hexinfo(struct file *file, const char *msg, char *data,
 	const unsigned char *fname = NULL;
 	char filename[NAME_MAX];
 	char *pathbuf = NULL;
-	struct integrity_iint_cache *iint = NULL;
+	struct five_iint_cache *iint = NULL;
 
 	if (file) {
 		fname = five_d_path(&file->f_path, &pathbuf, filename);
@@ -178,7 +165,7 @@ void five_audit_hexinfo(struct file *file, const char *msg, char *data,
 		audit_log_format(ab, " i_version=%llu ",
 				inode_query_iversion(inode));
 
-		iint = integrity_inode_get(inode);
+		iint = five_inode_get(inode);
 		if (iint) {
 			audit_log_format(ab, " cache_value=%lu ",
 							iint->five_flags);
@@ -189,7 +176,11 @@ void five_audit_hexinfo(struct file *file, const char *msg, char *data,
 		}
 	}
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+	audit_log_format(ab, "%s", msg);
+#else
 	audit_log_string(ab, msg);
+#endif
 	audit_log_n_hex(ab, data, data_length);
 	audit_log_end(ab);
 exit:

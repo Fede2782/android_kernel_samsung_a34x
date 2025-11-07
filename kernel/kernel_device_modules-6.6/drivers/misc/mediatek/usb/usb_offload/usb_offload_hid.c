@@ -1010,7 +1010,7 @@ error:
 
 static int xhci_realloc_hid_ring(struct hid_ep_info *hid, enum usb_offload_mem_id type)
 {
-	return xhci_mtk_realloc_transfer_ring(hid->slot_id, hid->ep_id, type);
+	return xhci_mtk_realloc_transfer_ring(hid->slot_id, hid->ep_id, type, false);
 }
 
 static int xhci_get_ep_state(struct xhci_ep_ctx *ctx)

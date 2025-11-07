@@ -7,9 +7,10 @@ PED_ENABLE=true
 SAFEPLACE_ENABLE=true
 IMMUTABLE_ENABLE=true
 IMMUTABLE_ROOT_ENABLE=false
+IMMUTABLE_ROOT_V2_ENABLE=false
 LP_ENABLE=true
 UMH_RESTRICTION_ENABLE=true
-TRUSTED_MAP_ENABLE=true
+TRUSTED_MAP_ENABLE=false
 USER_BUILD=false
 GKI_BUILD=false
 FACTORY_BUILD=false
@@ -47,8 +48,13 @@ defex-y += defex_rules.o
 defex-$(CONFIG_COMPAT) += catch_engine/defex_catch_list_compat.o
 
 ifeq ($(CONFIG_SECURITY_DEFEX_GKI),y)
+    ifeq ($(CONFIG_DEFEX_KERNEL_ONLY),y)
+        $(warning [DEFEX] Kernel_only BUILD)
+    else
+        $(warning [DEFEX] GKI BUILD)
+        USER_BUILD := true
+    endif
     GKI_BUILD := true
-    USER_BUILD := true
 endif
 
 ifeq ($(CONFIG_SECURITY_DEFEX_NOBOOTPART),y)
@@ -80,6 +86,13 @@ ifeq ($(CONFIG_SECURITY_DEFEX_IMR),y)
     endif
 endif
 
+ifeq ($(CONFIG_SECURITY_DEFEX_IMR_V2),y)
+    ifneq ($(FACTORY_BUILD), true)
+        $(warning [DEFEX] Enable Immutable root v2)
+        IMMUTABLE_ROOT_V2_ENABLE=true
+    endif
+endif
+
 ifeq (,$(TARGET_BUILD_VARIANT))
     ifeq ($(CONFIG_SECURITY_DEFEX_USER),y)
         USER_BUILD := true
@@ -92,24 +105,21 @@ endif
 
 ifneq ($(wildcard $(srctree)/include/crypto/internal/rsa.h),)
     $(warning [DEFEX] INTEGRITY_ENABLE)
-    INTEGRITY_ENABLE=false
+    INTEGRITY_ENABLE=true
 endif
 
 ifeq ($(GKI_BUILD), true)
     DEFEX_DEFINES += -DDEFEX_GKI
     ifeq ($(CONFIG_DEFEX_KERNEL_ONLY),y)
         $(warning [DEFEX] Kernel_only BUILD)
-        USER_BUILD := false
-     else
-        $(warning [DEFEX] GKI BUILD)
-   endif
- else
-    ifeq ($(CONFIG_SECURITY_DEFEX_SINGLE_FILE),y)
-        $(warning [DEFEX] Single rule file MODE.)
-        DEFEX_DEFINES += -DDEFEX_SINGLE_RULES_FILE
-    else
-        $(warning [DEFEX] Multiple rule file MODE.)
     endif
+endif
+
+ifeq ($(CONFIG_SECURITY_DEFEX_SINGLE_FILE),y)
+    $(warning [DEFEX] Single rule file MODE.)
+    DEFEX_DEFINES += -DDEFEX_SINGLE_RULES_FILE
+else
+    $(warning [DEFEX] Multiple rule file MODE.)
 endif
 
 ifeq ($(FACTORY_BUILD), true)
@@ -137,6 +147,13 @@ ifeq ($(IMMUTABLE_ROOT_ENABLE), true)
     DEFEX_DEFINES += -DDEFEX_IMMUTABLE_ROOT_ENABLE
     ifeq ($(CONFIG_SECURITY_DEFEX_IMR_PERMISSIVE),y)
 		DEFEX_DEFINES += -DDEFEX_PERMISSIVE_IMR
+    endif
+endif
+
+ifeq ($(IMMUTABLE_ROOT_V2_ENABLE), true)
+    DEFEX_DEFINES += -DDEFEX_IMMUTABLE_ROOT_V2_ENABLE
+    ifeq ($(CONFIG_SECURITY_DEFEX_IMR_V2_PERMISSIVE),y)
+        DEFEX_DEFINES += -DDEFEX_PERMISSIVE_IMR_V2
     endif
 endif
 
@@ -169,7 +186,6 @@ endif
 ifeq ($(TRUSTED_MAP_ENABLE), true)
     DEFEX_DEFINES += -DDEFEX_TRUSTED_MAP_ENABLE
     DEFEX_DEFINES += -DDEFEX_PERMISSIVE_TM
-    #DEFEX_DEFINES += -DDEFEX_TM_DEFAULT_POLICY_ENABLE
     defex-y += feature_trusted_map/dtm.o
     defex-y += feature_trusted_map/dtm_engine.o
     defex-y += feature_trusted_map/dtm_log.o
@@ -202,7 +218,9 @@ else
     DEFEX_DEFINES += -DDEFEX_PERMISSIVE_TM
     DEFEX_DEFINES += -DDEFEX_PERMISSIVE_IM
     DEFEX_DEFINES += -DDEFEX_PERMISSIVE_IMR
+    DEFEX_DEFINES += -DDEFEX_PERMISSIVE_IMR_V2
     DEFEX_DEFINES += -DDEFEX_PERMISSIVE_LP
+    DEFEX_DEFINES += -DDEFEX_PERMISSIVE_PED
     DEFEX_DEFINES += -DDEFEX_DEBUG_ENABLE
     ifeq ($(SHOW_RULES_ENABLE), true)
         defex-y += debug/defex_rules_show.o
@@ -230,12 +248,24 @@ endif
 
 ccflags-y := -Wformat
 
-ccflags-y += -I$(srctree)/$(src)
-asflags-y += -Isecurity/samsung/defex_lsm
-ccflags-y += -I$(srctree)/$(src)/cert
-asflags-y += -Isecurity/samsung/defex_lsm/cert
+ifneq ($(wildcard $(src)/pack_rules.c),)
+    $(warning DEFEX Use new src)
+    ccflags-y += -I$(src)
+    asflags-y += -Isecurity/samsung/defex_lsm
+    ccflags-y += -I$(src)/cert
+    asflags-y += -Isecurity/samsung/defex_lsm/cert
+    defex_src := $(src)
+else
+    $(warning DEFEX Use old src)
+    ccflags-y += -I$(srctree)/$(src)
+    asflags-y += -Isecurity/samsung/defex_lsm
+    ccflags-y += -I$(srctree)/$(src)/cert
+    asflags-y += -Isecurity/samsung/defex_lsm/cert
+    defex_src := $(srctree)/$(src)
+endif
 
-ifneq ($(wildcard  $(srctree)/$(src)/pack_rules.c),)
+ifneq ($(wildcard  $(defex_src)/pack_rules.c),)
+    $(warning DEFEX found pack_rules)
     ccflags-y += $(DEFEX_DEFINES)
     asflags-y += $(DEFEX_DEFINES)
     hostprogs := pack_rules
@@ -245,7 +275,7 @@ ifneq ($(wildcard  $(srctree)/$(src)/pack_rules.c),)
     DEPEND_LIST := $(obj)/pack_rules
 
     quiet_cmd_pack = PACK    $<
-          cmd_pack = $(obj)/pack_rules -p $< $@ $(srctree)/$(src)/defex_packed_rules.bin
+          cmd_pack = $(obj)/pack_rules -p $< $@ $(defex_src)/defex_packed_rules.bin
 
     quiet_cmd_mkey = MAKEKEY $<
           cmd_mkey = cp -n $< $@ 2>/dev/null || true
@@ -254,32 +284,33 @@ ifneq ($(wildcard  $(srctree)/$(src)/pack_rules.c),)
 
     $(obj)/cert/defex_cert.o: $(obj)/cert/pubkey_eng.der $(obj)/cert/pubkey_user.der
 
-    $(obj)/cert/pubkey_eng.der: $(srctree)/$(src)/cert/x509_five_eng.der
+    $(obj)/cert/pubkey_eng.der: $(defex_src)/cert/x509_five_eng.der
 	$(call cmd,mkey)
 
-    $(obj)/cert/pubkey_user.der: $(srctree)/$(src)/cert/x509_five_user.der
+    $(obj)/cert/pubkey_user.der: $(defex_src)/cert/x509_five_user.der
 	$(call cmd,mkey)
 
-    SOURCE_RULES := $(srctree)/$(src)/defex_rules.c
-    ifneq ($(wildcard $(srctree)/$(src)/file_list),)
+    SOURCE_RULES := $(defex_src)/defex_rules.c
+    ifneq ($(wildcard /$(defex_src)/file_list),)
         $(warning '[DEFEX] file_list found')
-        SOURCE_RULES := $(srctree)/$(src)/defex_rules_reduced.c
+        SOURCE_RULES := $(defex_src)/defex_rules_reduced.c
         DEPEND_LIST += $(SOURCE_RULES)
-        DEPEND_LIST += $(srctree)/$(src)/file_list
+        DEPEND_LIST += $(defex_src)/file_list
         clean-files += $(DEPEND_LIST)
 
         quiet_cmd_reduce = REDUCE  $<
-              cmd_reduce = $(obj)/pack_rules -r $< $@ $(srctree)/$(src)/file_list
+              cmd_reduce = $(obj)/pack_rules -r $< $@ /$(defex_src)/file_list
 
-        $(srctree)/$(src)/defex_rules_reduced.c: $(srctree)/$(src)/defex_rules.c $(obj)/pack_rules
+        $(defex_src)/defex_rules_reduced.c: /$(defex_src)/defex_rules.c $(obj)/pack_rules
 		$(call cmd,reduce)
     endif
 
     $(obj)/defex_packed_rules.inc: $(SOURCE_RULES) $(DEPEND_LIST)
 	$(call cmd,pack)
-	@cp -n $(obj)/pack_rules $(srctree)/$(src)/pack_rules 2>/dev/null || true
+	@cp -n $(obj)/pack_rules $(defex_src)/pack_rules 2>/dev/null || true
 
 else
+    $(warning DEFEX Not found pack_rules)
     ccflags-y += $(DEFEX_DEFINES)
     asflags-y += $(DEFEX_DEFINES)
 endif

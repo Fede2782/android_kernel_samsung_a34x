@@ -27,7 +27,7 @@ struct apu_mem_export_ops {
 
 	/* APUMMU only API */
 	int (*apu_mem_map_iova)     (uint32_t type, uint64_t session, uint64_t device_va,
-								uint32_t buf_size, uint64_t *eva);
+								uint64_t buf_size, uint64_t *eva);
 	int (*apu_mem_iova_decode)  (uint64_t eva, uint64_t *iova);
 	int (*apu_mem_unmap_iova)   (uint64_t session, uint64_t device_va, uint32_t buf_size);
 	int (*apu_mem_table_get)    (uint64_t session, void **tbl_kva, uint32_t *size);

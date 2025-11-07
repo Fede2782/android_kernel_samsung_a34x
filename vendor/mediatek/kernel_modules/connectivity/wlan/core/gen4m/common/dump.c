@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -68,19 +68,22 @@
  * \return (none)
  */
 /*----------------------------------------------------------------------------*/
-void dumpHex(uint8_t *pucStartAddr, uint16_t u2Length)
+void dumpHex(const void *pBuffer, uint16_t u2Length)
 {
 #if !DBG_DISABLE_ALL_LOG
 #define BUFSIZE 100
 #define TEXTSIZE 40
+	const uint8_t *pucStartAddr = pBuffer;
 	uint8_t output[BUFSIZE] = {0};
-	uint8_t text[TEXTSIZE];
+	uint8_t text[2][TEXTSIZE / 2];
 	uint32_t i = 0;
 	uint32_t printed = 0;
 	uint32_t offset = 0;
 
-	ASSERT(pucStartAddr);
 	LOG_FUNC("DUMPHEX ADDRESS: 0x%p, Length: %d\n", pucStartAddr, u2Length);
+
+	if (!pucStartAddr)
+		return;
 
 	while (u2Length > 0) {
 		kalMemZero(text, sizeof(text));
@@ -91,11 +94,13 @@ void dumpHex(uint8_t *pucStartAddr, uint16_t u2Length)
 					pucStartAddr[printed + i],
 					i + 1 == 16 ? "- " :
 					(i + 1) % 16 == 8 ? " " : "");
-			text[i] = isprint(pucStartAddr[printed + i]) ?
-					pucStartAddr[printed + i] : '.';
+			text[i / 16][i % 16] =
+				kalIsPrint(pucStartAddr[printed + i]) ?
+					   pucStartAddr[printed + i] : '.';
 			u2Length--;
 		}
-		LOG_FUNC("%04x: %s\n", printed, output);
+		LOG_FUNC("%04x: %-100s %s %s",
+			 printed, output, text[0], text[1]);
 		printed += 32;
 	}
 #undef BUFSIZE

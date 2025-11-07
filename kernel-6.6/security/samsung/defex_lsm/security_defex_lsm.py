@@ -106,6 +106,10 @@ config = {
                         "src": "kunit_tests/feature_safeplace/*.c",
                         "dst": "security/samsung/defex_lsm/kunit_tests/feature_safeplace/",
                     },
+                    {
+                        "src": "kunit_tests/feature_trusted_map/*.c",
+                        "dst": "security/samsung/defex_lsm/kunit_tests/feature_trusted_map/",
+                    },
                 ],
             },
             "features": [

@@ -45,24 +45,33 @@
 #if CFG_SUPPORT_NAN_EXT
 
 struct NanExt {
-	uint32_t u4FastRecoveryId; /* Store request ID */
-	uint32_t u4SetFastRecovery; /* Log timestamp of entering FR */
+	uint32_t u4FastRecoveryId; /* Store request ID from framework */
+	uint32_t u4SetFastRecoveryPS; /* Log timestamp of entering PS in sec */
+
+	/* Backup time bitmap before entering PS */
+	union {
+		uint32_t u4BackupTimeBitmap;
+		uint8_t ucTimeBitmapBlock[4];
+	};
 };
 
+/**
+ * associating prNDL with
+ * prNDP->ucNdlIndex == prNanExt - g_rFrConfig
+ * prAdapter->rDataPathInfo.arNDL[prNDP->ucNdlIndex]
+ */
 struct NanExt g_rFrConfig[NAN_MAX_SUPPORT_NDL_NUM];
 
 static uint32_t nanFrDeviceEntryHandler(struct ADAPTER *prAdapter,
 				const struct IE_NAN_FR_DEVICE_ENTRY *fr_device)
 {
-	DBGLOG(NAN, DEBUG, "Parsing FR device entry, consuming %zu bytes\n",
+	DBGLOG(NAN, INFO, "Parsing FR device entry, consuming %zu bytes\n",
 	       sizeof(struct IE_NAN_FR_DEVICE_ENTRY));
-	DBGLOG_HEX(NAN, DEBUG, fr_device,
-		   sizeof(struct IE_NAN_FR_DEVICE_ENTRY));
+	DBGLOG_HEX(NAN, INFO, fr_device, sizeof(struct IE_NAN_FR_DEVICE_ENTRY));
 
-	DBGLOG(NAN, DEBUG,
-	       "Device ID: %u\n", fr_device->device_id);
-	DBGLOG(NAN, DEBUG, "reserved: %u\n", fr_device->reserved);
-	DBGLOG(NAN, DEBUG, "Peer NMI: " MACSTR "\n",
+	DBGLOG(NAN, INFO, "Device ID: %u\n", fr_device->device_id);
+	DBGLOG(NAN, INFO, "reserved: %u\n", fr_device->reserved);
+	DBGLOG(NAN, INFO, "Peer NMI: " MACSTR "\n",
 	       MAC2STR(fr_device->aucPeerNMIAddr));
 
 	return sizeof(struct IE_NAN_FR_DEVICE_ENTRY);
@@ -75,7 +84,7 @@ static uint32_t nanParseFrDeviceEntry(struct ADAPTER *prAdapter,
 	uint32_t offset = 0;
 
 	while (offset + sizeof(struct IE_NAN_FR_DEVICE_ENTRY) <= size) {
-		DBGLOG(NAN, DEBUG,
+		DBGLOG(NAN, INFO,
 		       "Parsing FR device id %u, remaining: %u\n",
 		       fr_device->device_id, size - offset);
 
@@ -151,19 +160,19 @@ uint32_t nanProcessFR(struct ADAPTER *prAdapter, const uint8_t *buf,
 	struct IE_NAN_FR_EVENT *e = (struct IE_NAN_FR_EVENT *)buf;
 	uint32_t offset = 0;
 
-	DBGLOG(NAN, DEBUG, "Enter %s, consuming %zu bytes\n",
-	       __func__, sizeof(struct IE_NAN_FR_EVENT));
-	DBGLOG_HEX(NAN, DEBUG, buf, sizeof(struct IE_NAN_FR_EVENT));
+	DBGLOG(NAN, INFO, "Consuming %zu bytes\n",
+	       sizeof(struct IE_NAN_FR_EVENT));
+	DBGLOG_HEX(NAN, INFO, buf, sizeof(struct IE_NAN_FR_EVENT));
 
-	DBGLOG(NAN, DEBUG, "OUI: %d(%02X) (%s)\n",
+	DBGLOG(NAN, INFO, "OUI: %d(%02X) (%s)\n",
 		e->ucNanOui, e->ucNanOui, oui_str(e->ucNanOui));
-	DBGLOG(NAN, DEBUG, "Length: %d\n", e->u2Length);
-	DBGLOG(NAN, DEBUG, "v%d.%d\n", e->ucMajorVersion, e->ucMinorVersion);
-	DBGLOG(NAN, DEBUG, "ReqId: %d\n", e->ucRequestId);
-	DBGLOG(NAN, DEBUG, "Type: %u (%s)\n", e->type, fr_type_str(e->type));
-	DBGLOG(NAN, DEBUG, "SubType: %u (%s)\n",
+	DBGLOG(NAN, INFO, "Length: %d\n", e->u2Length);
+	DBGLOG(NAN, INFO, "v%d.%d\n", e->ucMajorVersion, e->ucMinorVersion);
+	DBGLOG(NAN, INFO, "ReqId: %d\n", e->ucRequestId);
+	DBGLOG(NAN, INFO, "Type: %u (%s)\n", e->type, fr_type_str(e->type));
+	DBGLOG(NAN, INFO, "SubType: %u (%s)\n",
 		e->subtype, fr_subtype_str(e->type, e->subtype));
-	DBGLOG(NAN, DEBUG, "DevNum: %u\n", e->ucNumDev);
+	DBGLOG(NAN, INFO, "DevNum: %u\n", e->ucNumDev);
 
 	if (sizeof(struct IE_NAN_FR_DEVICE_ENTRY) * e->ucNumDev >
 	    FR_EVENT_BODY_SIZE(e)) {
@@ -182,24 +191,25 @@ static void dumpFrResponse(struct IE_NAN_FR_EVENT *r)
 {
 	uint32_t i;
 
-	DBGLOG(NAN, DEBUG, "OUI: %d(%02X) (%s)\n",
+	DBGLOG(NAN, INFO, "OUI: %d(%02X) (%s)\n",
 	       r->ucNanOui, r->ucNanOui, oui_str(r->ucNanOui));
-	DBGLOG(NAN, DEBUG, "Length: %d\n", r->u2Length);
-	DBGLOG(NAN, DEBUG, "v%d.%d\n", r->ucMajorVersion, r->ucMinorVersion);
-	DBGLOG(NAN, DEBUG, "ReqId: %d\n", r->ucRequestId);
-	DBGLOG(NAN, DEBUG, "Type: %d (%s)\n",
+	DBGLOG(NAN, INFO, "Length: %d\n", r->u2Length);
+	DBGLOG(NAN, INFO, "v%d.%d\n", r->ucMajorVersion, r->ucMinorVersion);
+	DBGLOG(NAN, INFO, "ReqId: %d\n", r->ucRequestId);
+	DBGLOG(NAN, INFO, "Type: %d (%s)\n",
 	       r->type, fr_type_str(r->type));
-	DBGLOG(NAN, DEBUG, "Subtype: %d (%s)\n",
+	DBGLOG(NAN, INFO, "Subtype: %d (%s)\n",
 	       r->subtype, fr_subtype_str(r->type, r->subtype));
-	DBGLOG(NAN, DEBUG, "NumDev: %d\n", r->ucNumDev);
+	DBGLOG(NAN, INFO, "NumDev: %d\n", r->ucNumDev);
 
 	for (i = 0; i < r->ucNumDev; i++) {
-		DBGLOG(NAN, DEBUG, "device_id: %d, PeerNMI: " MACSTR "\n",
+		DBGLOG(NAN, INFO, "device_id: %d, PeerNMI: " MACSTR "\n",
 		       r->arDevice[i].device_id,
 		       MAC2STR(r->arDevice[i].aucPeerNMIAddr));
 	}
 }
 
+/* Send Fast Recovery event on removing a specific device */
 static uint32_t nanIndicateFrDeleted(struct ADAPTER *prAdapter,
 				     struct _NAN_NDL_INSTANCE_T *prNDL)
 {
@@ -227,6 +237,12 @@ static uint32_t nanIndicateFrDeleted(struct ADAPTER *prAdapter,
 	return rStatus;
 }
 
+/**
+ * Call on
+ * 1. framework requested to check Fast Recovery status check
+ * 2. the new Fast Recovery device is successfully resigtered
+ * to send a Fast Recovery event.
+ */
 uint32_t nanIndicateActiveFrResponse(struct ADAPTER *prAdapter,
 				uint8_t ucRequestId,
 				enum NAN_FR_PACKET_TYPE type,
@@ -239,10 +255,10 @@ uint32_t nanIndicateActiveFrResponse(struct ADAPTER *prAdapter,
 	uint16_t *pu2Length;
 	uint8_t ucNumNDL;
 	uint32_t u4NdlIdx;
-	uint32_t u4SetFastRecovery;
+	uint32_t u4SetFastRecoveryPS;
 
-	DBGLOG(NAN, DEBUG, "Enter %s, request=%u type=%u subtype=%u\n",
-	       __func__, ucRequestId, type, subtype);
+	DBGLOG(NAN, INFO, "request=%u type=%u subtype=%u\n",
+	       ucRequestId, type, subtype);
 
 	/* Get a buffer to fill response */
 	prResponse = (struct IE_NAN_FR_EVENT *)buf;
@@ -260,7 +276,7 @@ uint32_t nanIndicateActiveFrResponse(struct ADAPTER *prAdapter,
 	}
 
 	prResponse->ucMajorVersion = 2;
-	prResponse->ucMinorVersion = 1;
+	prResponse->ucMinorVersion = 2;
 
 	prResponse->ucRequestId = ucRequestId;
 	prResponse->type = type;
@@ -275,12 +291,13 @@ uint32_t nanIndicateActiveFrResponse(struct ADAPTER *prAdapter,
 		struct _NAN_NDL_INSTANCE_T *prNDL;
 
 		prNDL = &prAdapter->rDataPathInfo.arNDL[u4NdlIdx];
+		u4SetFastRecoveryPS = 0;
 		if (!prNDL->fgNDLValid ||
-		    nanExtGetFr(prNDL, NULL, &u4SetFastRecovery) &&
-		    u4SetFastRecovery != 0)
+		    !nanExtGetFr(prNDL, NULL, &u4SetFastRecoveryPS) ||
+		    u4SetFastRecoveryPS == 0)
 			continue;
 
-		DBGLOG(NAN, DEBUG, "Add #%d FR schedule record %d\n",
+		DBGLOG(NAN, INFO, "Add #%d FR schedule record %d\n",
 		       *pucNumDev, u4NdlIdx);
 		prResponse->arDevice[*pucNumDev].device_id = prNDL->ucIndex;
 		COPY_MAC_ADDR(prResponse->arDevice[*pucNumDev].aucPeerNMIAddr,
@@ -293,26 +310,12 @@ uint32_t nanIndicateActiveFrResponse(struct ADAPTER *prAdapter,
 	dumpFrResponse(prResponse);
 
 	/* Reuse the buffer from passed in from HAL */
-	DBGLOG(NAN, DEBUG, "Copy %zu bytes\n", EXT_MSG_SIZE(prResponse));
+	DBGLOG(NAN, INFO, "Copy %zu bytes\n", EXT_MSG_SIZE(prResponse));
 
 	nanExtSendIndication(prAdapter, prResponse, EXT_MSG_SIZE(prResponse));
 
 done:
 	return rStatus;
-}
-
-uint8_t nanExtHoldNdl(struct _NAN_NDL_INSTANCE_T *prNDL)
-{
-	uint32_t u4SetFastRecovery;
-
-	if (nanExtGetFr(prNDL, NULL, &u4SetFastRecovery) && u4SetFastRecovery) {
-		DBGLOG(NAN, DEBUG,
-		       "In FR skip terminate NDL %u created at %u\n",
-		       prNDL->ucIndex, u4SetFastRecovery);
-		return TRUE;
-	}
-
-	return FALSE;
 }
 
 void nanExtResetNdlConfig(struct _NAN_NDL_INSTANCE_T *prNDL)
@@ -324,8 +327,12 @@ void nanExtResetNdlConfig(struct _NAN_NDL_INSTANCE_T *prNDL)
 		   sizeof(g_rFrConfig[prNDL->ucIndex]));
 }
 
+/**
+ * Get the request id and timestamp set on entering FR PS associated to the NDL
+ * Return: TRUE if retrieved
+ */
 u_int8_t nanExtGetFr(struct _NAN_NDL_INSTANCE_T *prNDL, uint8_t *ucRequestId,
-		     uint32_t *u4SetFastRecovery)
+		     uint32_t *u4SetFastRecoveryPS)
 {
 	struct NanExt *prNanExt;
 
@@ -335,33 +342,110 @@ u_int8_t nanExtGetFr(struct _NAN_NDL_INSTANCE_T *prNDL, uint8_t *ucRequestId,
 	prNanExt = &g_rFrConfig[prNDL->ucIndex];
 	if (ucRequestId)
 		*ucRequestId = prNanExt->u4FastRecoveryId;
-	if (u4SetFastRecovery)
-		*u4SetFastRecovery = prNanExt->u4SetFastRecovery;
+	if (u4SetFastRecoveryPS)
+		*u4SetFastRecoveryPS = prNanExt->u4SetFastRecoveryPS;
 
-	DBGLOG(NAN, DEBUG, "Get FR %u req=%u time=%u\n", prNDL->ucIndex,
-	       prNanExt->u4FastRecoveryId, prNanExt->u4SetFastRecovery);
+	DBGLOG(NAN, INFO, "Get FR %u req=%u time=%u\n", prNDL->ucIndex,
+	       prNanExt->u4FastRecoveryId, prNanExt->u4SetFastRecoveryPS);
 	return TRUE;
 }
 
 /**
- * nanExtSetFr() - Update FR ID and timestamp of the corresponding NDL
+ * nanExtSetFrPs() - Update FR ID and timestamp of the corresponding NDL
  * @prNDL: pointer to NDL
  * @ucRequestId: Fast Recovery request ID
  * @u8BootTime: Time in the unit of microseconds since system boot up
+ *
+ * 1. Backup schedule,
+ * 2. Change DW interval
+ * 3. Change role settings
  */
-u_int8_t nanExtSetFr(struct _NAN_NDL_INSTANCE_T *prNDL, uint8_t ucRequestId,
-		     uint64_t u8BootTime)
+u_int8_t nanExtSetFrPs(struct ADAPTER *prAdapter,
+		       struct _NAN_NDL_INSTANCE_T *prNDL,
+		       struct IE_NAN_ASCC_CMD *cmd, u_int8_t fgEnterSleep)
 {
 	struct NanExt *prNanExt;
+
+	uint8_t ucRequestId = cmd->ucRequestId;
+	uint64_t u8BootTime = 0;
+	struct _NAN_PEER_SCHEDULE_RECORD_T *prPeerSchRecord;
+
 
 	if (!prNDL || prNDL->ucIndex >= ARRAY_SIZE(g_rFrConfig))
 		return FALSE;
 
-	prNanExt = &g_rFrConfig[prNDL->ucIndex];
-	prNanExt->u4FastRecoveryId = ucRequestId;
-	prNanExt->u4SetFastRecovery = (uint32_t)(u8BootTime / USEC_PER_SEC);
-	DBGLOG(NAN, DEBUG, "FR req=%u set %u time=%u\n",
-	       ucRequestId, prNDL->ucIndex, prNanExt->u4SetFastRecovery);
+	prPeerSchRecord = nanSchedLookupPeerSchRecord(prAdapter,
+						      cmd->aucDestNMIAddr);
+	if (fgEnterSleep) {
+		u8BootTime = kalGetBootTime();
+
+		prNanExt = &g_rFrConfig[prNDL->ucIndex];
+		prNanExt->u4FastRecoveryId = ucRequestId;
+		prNanExt->u4SetFastRecoveryPS =
+			(uint32_t)(u8BootTime / USEC_PER_SEC);
+
+		if (prPeerSchRecord)
+			prPeerSchRecord->fgInPowerSaving = TRUE;
+		/**
+		 * TODO:
+		 * 1. Back up timestamp/channel info, from prNDL?
+		 *    Considering the case of multiple channel info combination
+		 * 2. Set as customized to let nanSchedPeerUpdateCommonFAW use
+		 *    customized schedule.
+		 *    nanAsccParseScheduleEntry
+		 *    |-- updatePeerNdpCustomizedSchedule
+		 *        |-- nanUpdateFastRecovery
+		 *        |   |-- nanExtSetFrPs <--HERE
+		 *        |-- nanUpdate(Peer|Globao)CustomizedNdp
+		 *            |-- nanSchedPeerUpdateCommonFAW
+		 *                |-- nanCustomizedNdp
+		 *                    |-- nanCustomizedPeerNdp
+		 *                    |   |-- prNdlCustomized->fgBitmapSet
+		 *                    |   |-- prNdlCustomized->ucOpChannel
+		 *                    |   |-- NAN_TIMELINE_SET
+		 *                    |-- nanCustomizedGlobalNdp
+		 *                        |-- prNdlCustomized->fgBitmapSet
+		 *                        |-- prNdlCustomized->ucOpChannel
+		 *                        |-- NAN_TIMELINE_SET
+		 *
+		 * 2. Save DW interval
+		 * 3. Save role settings
+		 * 4. if no non-sleeping NDP
+		 *    Set DW interval
+		 *    Set role settings
+		 */
+		DBGLOG(NAN, INFO,
+		       "FR req=%u set PS=%u time=%u, bitmap=%02x-%02x-%02x-%02x\n",
+		       ucRequestId, prNDL->ucIndex,
+		       prNanExt->u4SetFastRecoveryPS,
+		       prNanExt->ucTimeBitmapBlock[0],
+		       prNanExt->ucTimeBitmapBlock[1],
+		       prNanExt->ucTimeBitmapBlock[2],
+		       prNanExt->ucTimeBitmapBlock[3]);
+	} else {
+		prNanExt = &g_rFrConfig[prNDL->ucIndex];
+		prNanExt->u4FastRecoveryId = ucRequestId;
+		prNanExt->u4SetFastRecoveryPS = 0; /* not in sleeping */
+		if (prPeerSchRecord)
+			prPeerSchRecord->fgInPowerSaving = FALSE;
+
+		DBGLOG(NAN, INFO,
+		       "FR req=%u set PS=%u time=%u, bitmap=%02x-%02x-%02x-%02x\n",
+		       ucRequestId, prNDL->ucIndex,
+		       prNanExt->u4SetFastRecoveryPS,
+		       prNanExt->ucTimeBitmapBlock[0],
+		       prNanExt->ucTimeBitmapBlock[1],
+		       prNanExt->ucTimeBitmapBlock[2],
+		       prNanExt->ucTimeBitmapBlock[3]);
+		/* TODO:
+		 * 1. Restore backup schedule, how to ?
+		 * 2. Perform reschedule
+		 *
+		 * Optional (if this is the only non-sleeping NDP)
+		 * 3. Change DW interval
+		 * 4. Change role settings
+		 */
+	}
 	return TRUE;
 }
 
@@ -374,17 +458,17 @@ struct _NAN_NDL_INSTANCE_T *nanExtGetReusedNdl(struct ADAPTER *prAdapter)
 				     prAdapter->rWifiVar.ucNanMaxNdpSession);
 
 #if (ENABLE_NDP_UT_LOG == 1)
-	TRACE_FUNC(NAN, DEBUG, "[%s] Enter\n");
+	DBGLOG(NAN, INFO, "Enter, ucNumNDL=%u\n", ucNumNDL);
 #endif
 
 	for (ucNdlIndex = 0; ucNdlIndex < ucNumNDL; ucNdlIndex++) {
 		prNDL = &prAdapter->rDataPathInfo.arNDL[ucNdlIndex];
 
-		if (g_rFrConfig[prNDL->ucIndex].u4SetFastRecovery &&
+		if (g_rFrConfig[prNDL->ucIndex].u4SetFastRecoveryPS &&
 		    (!prOldestFrNDL ||
-		     g_rFrConfig[prNDL->ucIndex].u4SetFastRecovery <
-		     g_rFrConfig[prOldestFrNDL->ucIndex].u4SetFastRecovery)) {
-			DBGLOG(NAN, DEBUG, "Reuse FR NDL %u\n", ucNdlIndex);
+		     g_rFrConfig[prNDL->ucIndex].u4SetFastRecoveryPS <
+		     g_rFrConfig[prOldestFrNDL->ucIndex].u4SetFastRecoveryPS)) {
+			DBGLOG(NAN, INFO, "Reuse FR NDL %u\n", ucNdlIndex);
 			prOldestFrNDL = prNDL;
 		}
 	}
@@ -394,8 +478,15 @@ struct _NAN_NDL_INSTANCE_T *nanExtGetReusedNdl(struct ADAPTER *prAdapter)
 		/* TODO: would the deleted ID == new allocated ID
 		 * confuse the framework handler?
 		 */
-		/* invalidate */
-		g_rFrConfig[prOldestFrNDL->ucIndex].u4SetFastRecovery = 0;
+		/* Reset FR and customized NDP FAW */
+		kalMemZero(&g_rFrConfig[prOldestFrNDL->ucIndex],
+			   sizeof(g_rFrConfig[prOldestFrNDL->ucIndex]));
+
+		/* AScC non-social customized FAW only handled by driver,
+		 * no need to sync to firmware
+		 */
+		nanExtClearCustomNdpFaw(prOldestFrNDL->ucIndex);
+
 		return prOldestFrNDL;
 	}
 	return NULL;

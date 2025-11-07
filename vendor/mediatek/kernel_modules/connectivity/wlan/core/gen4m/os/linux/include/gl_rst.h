@@ -22,7 +22,7 @@
  */
 #include "gl_typedef.h"
 
-#if CFG_MTK_ANDROID_WMT && CFG_SUPPORT_CONNAC1X
+#if CFG_MTK_ANDROID_WMT && IS_ENABLED(CFG_SUPPORT_CONNAC1X)
 #include "wmt_exp.h"
 #endif
 
@@ -30,7 +30,7 @@
 #include "conninfra.h"
 #endif
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 #include "connv3.h"
 #include "conninfra.h"
 #endif
@@ -56,37 +56,14 @@
 #define SER_L0_HANG_LOG_TIME_INTERVAL	3000
 #endif
 
-#ifndef CFG_SUPPORT_SER_DEBUGFS
-#define CFG_SUPPORT_SER_DEBUGFS		0
-#endif
-
 #define WIFI_TRIGGER_ASSERT_TIMEOUT 2000
-
-#define RESET_FLAG_HALT_BIT			(0)
-#define RESET_FLAG_HALT				BIT(0)
-#define RESET_FLAG_START_BIT			(1)
-#define RESET_FLAG_START			BIT(1)
-#define RESET_FLAG_FW_NOTIFY_L05_BIT		(2)
-#define RESET_FLAG_FW_NOTIFY_L05		BIT(2)
-#define RESET_FLAG_FW_NOTIFY_L0_BIT		(3)
-#define RESET_FLAG_FW_NOTIFY_L0			BIT(3)
-#define RESET_FLAG_END_BIT			(4)
-#define RESET_FLAG_END				BIT(4)
-
-#define GLUE_FLAG_RST_PROCESS (RESET_FLAG_HALT | \
-			       RESET_FLAG_START | \
-			       RESET_FLAG_END | \
-			       RESET_FLAG_FW_NOTIFY_L0 | \
-			       RESET_FLAG_FW_NOTIFY_L05)
+#define GLUE_FLAG_RST_PROCESS (GLUE_FLAG_HALT |\
+				GLUE_FLAG_RST_START |\
+				GLUE_FLAG_RST_END)
 #define RST_FLAG_WHOLE_RESET  (RST_FLAG_DO_CORE_DUMP | \
 			       RST_FLAG_PREVENT_POWER_OFF |\
 			       RST_FLAG_DO_WHOLE_RESET)
 #define RST_FLAG_WF_RESET  (RST_FLAG_DO_CORE_DUMP | RST_FLAG_PREVENT_POWER_OFF)
-
-#if (CFG_WIFI_AUTO_RECOVER == 1)
-#define RST_REASON_FW BIT(RST_FW_ASSERT |\
-	RST_BT_TRIGGER | RST_MDDP_MD_TRIGGER_EXCEPTION)
-#endif
 
 /*******************************************************************************
  *                             D A T A   T Y P E S
@@ -126,7 +103,7 @@ enum _ENUM_CHIP_RESET_REASON_TYPE_T {
 	RST_SER_L0P5_FAIL,
 	RST_CMD_EVT_FAIL,
 	RST_WDT,
-	RST_SUBSYS_BUS_TIMEOUT,
+	RST_SUBSYS_BUS_HANG,
 	RST_SMC_CMD_FAIL,
 	RST_DEVAPC,
 	RST_PCIE_NOT_READY,
@@ -134,14 +111,8 @@ enum _ENUM_CHIP_RESET_REASON_TYPE_T {
 	RST_AER_MALFTLP,
 	RST_AER_RXERR,
 	RST_AER_SDES,
-	RST_MMIO_READ,
-	RST_WFDMA_RX_TIMEOUT,
-	RST_MAWD_WAKEUP_FAIL,
+	RST_MCU_INIT_FAIL,
 	RST_RFB_FAIL,
-	RST_WFDMA_MAP_FAIL,
-#if CFG_WIFI_AUTO_RECOVER
-	RST_USER_CMD_TRIGGER,
-#endif
 	RST_REASON_MAX
 };
 
@@ -178,7 +149,6 @@ struct RESET_STRUCT {
 	u_int8_t is_suspend;
 	struct reset_pending_req *pending_req;
 #endif
-	u_int8_t fgIsInitialized;
 };
 
 enum ENUM_RST_MSG {
@@ -198,15 +168,15 @@ enum ENUM_RST_MSG {
 #if CFG_CHIP_RESET_SUPPORT
 #if CFG_MTK_ANDROID_WMT
 extern void update_driver_reset_status(uint8_t fgIsResetting);
+#if KERNEL_VERSION(6, 6, 0) > CFG80211_VERSION_CODE
+extern void update_driver_l0_reset_status(uint8_t fgIsL0Resetting);
+#else
+extern void update_whole_chip_rst_status(uint8_t fgIsL0Resetting);
+#endif
 extern int32_t get_wifi_process_status(void);
 extern int32_t get_wifi_powered_status(void);
 extern int wifi_reset_start(void);
 extern int wifi_reset_end(enum ENUM_RESET_STATUS);
-#if !CFG_SUPPORT_CONNAC1X
-#if KERNEL_VERSION(6, 6, 0) < LINUX_VERSION_CODE
-extern void update_whole_chip_rst_status(uint8_t fgIsWholeChipRst);
-#endif
-#endif
 #endif
 #endif /* CFG_CHIP_RESET_SUPPORT */
 
@@ -222,8 +192,10 @@ extern enum COREDUMP_SOURCE_TYPE g_Coredump_source;
 #if CFG_CHIP_RESET_HANG
 extern u_int8_t fgIsResetHangState;
 #endif
-
+extern uint8_t g_IsNeedWaitAERDump;
 #endif
+
+extern u_int8_t g_IsNeedWaitCoredump;
 /*******************************************************************************
  *                           P R I V A T E   D A T A
  *******************************************************************************
@@ -258,10 +230,10 @@ do { \
 } while (FALSE)
 #else
 #define GL_DEFAULT_RESET_TRIGGER(_prAdapter, _eReason) \
-	DBGLOG(INIT, DEBUG, "DO NOT support chip reset\n")
+	DBGLOG(INIT, INFO, "DO NOT support chip reset\n")
 
 #define GL_USER_DEFINE_RESET_TRIGGER(_prAdapter, _eReason, _u4Flags) \
-	DBGLOG(INIT, DEBUG, "DO NOT support chip reset\n")
+	DBGLOG(INIT, INFO, "DO NOT support chip reset\n")
 #endif
 
 /*******************************************************************************
@@ -273,6 +245,9 @@ extern uint64_t u8ResetTime;
 extern u_int8_t fgSimplifyResetFlow;
 extern char *g_reason;
 #endif
+#if CFG_WMT_RESET_API_SUPPORT
+extern KAL_WAKE_LOCK_T *g_IntrWakeLock;
+#endif
 /*******************************************************************************
  *                              F U N C T I O N S
  *******************************************************************************
@@ -281,7 +256,6 @@ void glSetRstReason(enum _ENUM_CHIP_RESET_REASON_TYPE_T eReason);
 int glGetRstReason(void);
 
 u_int8_t kalIsResetting(void);
-u_int8_t kalIsResetOnEnd(void);
 u_int8_t kalIsRstPreventFwOwn(void);
 
 void glResetUpdateFlag(u_int8_t fgIsResetting);
@@ -292,9 +266,6 @@ void glResetUpdateFwAsserted(u_int8_t isFwAsserted);
 void glResetInit(struct GLUE_INFO *prGlueInfo);
 
 void glResetUninit(void);
-
-void glReseProbeRemoveDone(struct GLUE_INFO *prGlueInfo, int32_t i4Status,
-			   u_int8_t fgIsProbe);
 
 void glSendResetRequest(void);
 
@@ -318,26 +289,26 @@ int wlan_reset_thread_main(void *data);
 int glRstwlanPreWholeChipReset(enum consys_drv_type type, char *reason);
 int glRstwlanPostWholeChipReset(void);
 #endif /* CFG_SUPPORT_CONNINFRA */
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
+#if KERNEL_VERSION(6, 6, 0) > CFG80211_VERSION_CODE
+int wlan_pre_whole_chip_rst_v3(enum connv3_drv_type drv,
+	char *reason);
+#else
 int wlan_pre_whole_chip_rst_v3(enum connv3_drv_type drv,
 	char *reason, unsigned int reset_type);
+#endif
 int wlan_post_whole_chip_rst_v3(void);
 int wlan_pre_whole_chip_rst_v2(enum consys_drv_type drv,
 	char *reason);
 int wlan_post_whole_chip_rst_v2(void);
-#if CFG_MTK_WIFI_DFD_DUMP_SUPPORT
-int wlan_post_reset_on_v3(unsigned int type);
-#endif
 #endif
 u_int8_t kalIsWholeChipResetting(void);
 void glSetRstReasonString(char *reason);
 void kalSetRstEvent(u_int8_t force_dump);
-void kalSetRstFwNotifyL05Event(u_int8_t force_dump);
-void kalSetRstFwNotifyTriggerL0Event(u_int8_t force_dump);
 void glRstSetRstEndEvent(void);
 int reset_wait_for_trigger_completion(void);
 void reset_done_trigger_completion(void);
-void glSetIsNeedWaitCoredumpFlag(uint8_t status);
+void glSetIsNeedWaitCoredumpFlag(uint8_t);
 #else
 void glSetWfsysResetState(struct ADAPTER *prAdapter,
 			  enum ENUM_WFSYS_RESET_STATE_TYPE_T state);

@@ -17,9 +17,10 @@
 #include "c2ps_sysfs.h"
 
 enum C2PS_NOTIFIER_PUSH_TYPE {
-	C2PS_NOTIFIER_UNINIT            = 0x00,
-	C2PS_NOTIFIER_TASK_SINGLE_SHOT  = 0x01,
-	C2PS_NOTIFIER_ANCHOR            = 0x02,
+	C2PS_NOTIFIER_INIT              = 0x00,
+	C2PS_NOTIFIER_UNINIT            = 0x01,
+	C2PS_NOTIFIER_TASK_SINGLE_SHOT  = 0x02,
+	C2PS_NOTIFIER_ANCHOR            = 0x03,
 };
 
 struct C2PS_NOTIFIER_PUSH_TAG {
@@ -69,7 +70,6 @@ static unsigned int background_monitor_duration = BACKGROUND_MONITOR_DURATION;
 static unsigned int c2ps_vip_throttle_time = 12;
 static atomic_t processing_count = ATOMIC_INIT(0);
 unsigned int c2ps_nr_clusters;
-
 struct timer_list background_info_update_timer;
 struct timer_list self_uninit_timer;
 
@@ -360,6 +360,20 @@ static void c2ps_notifier_wq_cb(void)
 	}
 
 	switch (vpPush->ePushType) {
+	case C2PS_NOTIFIER_INIT:
+		atomic_set(&processing_count, 0);
+
+		/* notice that, we reuse vpPush datatype */
+		c2ps_notify_init(vpPush->pid,
+				vpPush->overwrite_uclamp_max[0],
+				vpPush->overwrite_uclamp_max[1],
+				vpPush->overwrite_uclamp_max[2],
+				vpPush->uclamp_max_placeholder1[0],
+				vpPush->uclamp_max_placeholder1[1],
+				vpPush->uclamp_max_placeholder1[2],
+				vpPush->task_id,
+				vpPush->idle_rate_alert);
+		break;
 	case C2PS_NOTIFIER_UNINIT:
 		c2ps_notifier_uninit();
 		break;
@@ -414,6 +428,42 @@ int c2ps_notify_init(
 		ineff_cpu_ceiling_freq0, ineff_cpu_ceiling_freq1, ineff_cpu_ceiling_freq2);
 	C2PS_LOGD("lcore_mcore_um_ratio: %d, um_floor: %d",
 		lcore_mcore_um_ratio, um_floor);
+
+	/* last uninit is not finished */
+	if (unlikely(atomic_read(&processing_count) > 0)) {
+		struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
+
+		C2PS_LOGW("last c2ps_notify_uninit is not finished, push this init to queue\n");
+
+		vpPush = (struct C2PS_NOTIFIER_PUSH_TAG *)
+			c2ps_alloc_atomic(sizeof(*vpPush));
+
+		if (unlikely(!vpPush)) {
+			C2PS_LOGE("OOM\n");
+			return -ENOMEM;
+		}
+
+		if (unlikely(!c2ps_tsk)) {
+			C2PS_LOGE("NULL WorkQueue\n");
+			c2ps_free(vpPush, sizeof(*vpPush));
+			return -ENOMEM;
+		}
+
+		vpPush->ePushType = C2PS_NOTIFIER_INIT;
+		/* notice that, we reuse vpPush datatype */
+		vpPush->pid = cfg_camfps;
+		vpPush->overwrite_uclamp_max[0] = max_uclamp_cluster0;
+		vpPush->overwrite_uclamp_max[1] = max_uclamp_cluster1;
+		vpPush->overwrite_uclamp_max[2] = max_uclamp_cluster2;
+		vpPush->uclamp_max_placeholder1[0] = ineff_cpu_ceiling_freq0;
+		vpPush->uclamp_max_placeholder1[1] = ineff_cpu_ceiling_freq1;
+		vpPush->uclamp_max_placeholder1[2] = ineff_cpu_ceiling_freq2;
+		vpPush->task_id = lcore_mcore_um_ratio;
+		vpPush->idle_rate_alert = um_floor;
+
+		c2ps_queue_work(vpPush, false /* do not update uninit timer */);
+		return 0;
+	}
 
 	// enable sugov per-gear uclamp max feature
 	set_gear_uclamp_ctrl(1);

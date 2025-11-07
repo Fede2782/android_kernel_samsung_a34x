@@ -268,8 +268,8 @@ INT32 wmt_ctrl_rx(P_WMT_CTRL_DATA pWmtCtrlData /*UINT8 *pBuff, UINT32 buffLen, U
 
 	while (readLen == 0 && leftCnt > 0) {	/* got nothing, wait for STP's signal */
 		/* if assert happen, do not wait for any signal again */
-		if (mtk_wcn_stp_get_wmt_trg_assert() == 1
-		    && mtk_wcn_stp_is_wmt_last_close() == 0)
+		if ((mtk_wcn_stp_get_wmt_trg_assert() == 1
+		    && mtk_wcn_stp_is_wmt_last_close() == 0) || wmt_dev_is_close())
 			break;
 		pDev->rWmtRxWq.timeoutValue = WMT_LIB_RX_TIMEOUT/loopCnt;
 		waitRet = wmt_dev_rx_timeout(&pDev->rWmtRxWq);

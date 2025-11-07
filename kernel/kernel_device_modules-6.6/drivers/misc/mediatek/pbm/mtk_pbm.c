@@ -95,7 +95,7 @@ static unsigned int ma_to_mw(unsigned int bat_cur)
 	int ret;
 	unsigned int bat_vol, ret_val;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 	psy = power_supply_get_by_name("battery");
@@ -494,7 +494,7 @@ int pbm_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 	union power_supply_propval val;
 	int ret;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	if (strcmp(psy->desc->name, "mtk-fg-battery") != 0)
 #else
 	if (strcmp(psy->desc->name, "battery") != 0)

@@ -19,13 +19,21 @@ load(
 load("@mgk_info//:dict.bzl",
     "DEFCONFIG_OVERLAYS",
 )
+load("//build/kernel/kleaf/impl:gki_artifacts.bzl", "gki_artifacts", "gki_artifacts_prebuilts")
 
 kernel_versions_and_projects = {
    "6.1": "mgk_64_k61 mgk_64_aging_k61 mgk_64_entry_level_k61 mgk_64_fpga_k61 mgk_64_k61_thinmodem mgk_64_k61_wifi mgk_64_kasan_k61 mgk_64_khwasan_k61 mgk_64_pkvm_k61 mgk_64_vulscan_k61",
    "6.6": "mgk_64_k66",
    "mainline": "mgk_64_kmainline",
 }
-
+gki_boot_img_sizes = {
+    # Assume BUILD_GKI_BOOT_IMG_SIZE is the following
+    "": "67108864",
+    # Assume BUILD_GKI_BOOT_IMG_LZ4_SIZE is the following
+    "lz4": "53477376",
+    # Assume BUILD_GKI_BOOT_IMG_GZ_SIZE is the following
+    "gz": "47185920",
+}
 def get_real_modules_list(common_modules, platform_modules):
     real_modules = []
     for k in common_modules:
@@ -143,10 +151,10 @@ def define_mgk(
         if build == "ack":
             # "ack" build uses kernel/common-x.y (pure) instead of kernel/kernel-x.y (modified) repo as base_kernel
             ack_dir = "common"
-        #elif build == "user":
+        elif build == "user":
             # "user" build applies Kconfig.ext and mgk_*_defconfig in base_kernel, especially disabling
             # CONFIG_MODULE_SIG_ALL, the result may be different from GKI.
-        #    ack_build = "ack"
+            ack_build = "ack"
         if True:
             # for device module tree
             mgk_build_config(
@@ -189,7 +197,7 @@ def define_mgk(
                 defconfig = mgk_defconfig,
                 defconfig_overlays = mgk_defconfig_overlays,
                 build_config_overlays = [],
-                build_variant = build,
+                build_variant = ack_build,
                 kleaf_modules = kleaf_modules + kleaf_eng_modules + kleaf_userdebug_modules + kleaf_user_modules,
                 gki_mixed_build = False,
             )
@@ -204,10 +212,9 @@ def define_mgk(
                     "//conditions:default"                           : ["//{}:kernel_aarch64_sources".format(ack_dir)],
                 }) + [
                     ":mgk_configs",
-                    ":{}_sources".format(name),
                 ],
                 build_config = ":kernel_aarch64_{}_build_config.{}".format(name, build),
-                kconfig_ext = None if build == "ack" else ":Kconfig.ext",
+                kconfig_ext = None if ack_build == "ack" else ":Kconfig.ext",
                 make_goals = [
                     "PAHOLE_FLAGS=--btf_gen_floats",
                     "Image",
@@ -217,10 +224,16 @@ def define_mgk(
                 ],
                 strip_modules=True,
                 outs = DEFAULT_GKI_OUTS,
-                module_outs = common_eng_modules if build == "eng" else common_userdebug_modules if build == "userdebug" else common_user_modules if build == "user" else [],
-                module_implicit_outs = common_modules if build == "ack" else [],
+                module_outs = common_eng_modules if ack_build == "eng" else common_userdebug_modules if ack_build == "userdebug" else common_user_modules if ack_build == "user" else [],
+                module_implicit_outs = common_modules if ack_build == "ack" else [],
                 base_kernel = None,
                 trim_nonlisted_kmi = False,
+            )
+            gki_artifacts(
+                name = "{}_kernel_aarch64_gki_artifacts.{}".format(name, build),
+                kernel_build = "{}_kernel_aarch64.{}".format(name, build),
+                boot_img_sizes = gki_boot_img_sizes,
+                arch = "arm64",
             )
         if True:
             # for device module tree
@@ -336,6 +349,7 @@ def define_mgk(
                 }) + [
                     ":{}.{}".format(name, build),
                     ":{}_internal_modules_install.{}".format(name, build),
+                    ":{}_kernel_aarch64_gki_artifacts.{}".format(name, build),
                 ],
                 flat = False,
             )
@@ -356,6 +370,7 @@ def define_mgk(
                 + [
                     ":{}.{}".format(name, build),
                     ":{}_internal_modules_install.{}".format(name, build),
+                    ":{}_kernel_aarch64_gki_artifacts.{}".format(name, build),
                 ] + ([":{}.{}/{}".format(name, build, m) for m in common_user_modules] if build == "user" else []),
                 flat = False,
             )
@@ -406,6 +421,7 @@ def define_mgk(
                 }) + [
                     ":{}.{}".format(name, build),
                     ":{}_customer_modules_install.{}".format(name, build),
+                    ":{}_kernel_aarch64_gki_artifacts.{}".format(name, build),
                 ],
                 flat = False,
             )
@@ -426,6 +442,7 @@ def define_mgk(
                 + [
                     ":{}.{}".format(name, build),
                     ":{}_customer_modules_install.{}".format(name, build),
+                    ":{}_kernel_aarch64_gki_artifacts.{}".format(name, build),
                 ] + ([":{}.{}/{}".format(name, build, m) for m in common_user_modules] if build == "user" else []),
                 flat = False,
             )
@@ -498,6 +515,14 @@ DEVCIE_MODULES_INCLUDE="-I\\$(DEVICE_MODULES_PATH)/include"
 
         content.append("PRE_DEFCONFIG_CMDS=\"mkdir -p \\${OUT_DIR}/arch/arm64/configs/ && KCONFIG_CONFIG=\\${OUT_DIR}/arch/arm64/configs/${DEFCONFIG} ${ROOT_DIR}/${KERNEL_DIR}/scripts/kconfig/merge_config.sh -m -r " + " ".join(defconfig) + "\"")
         content.append("POST_DEFCONFIG_CMDS=\"\"")
+
+    if (ctx.attr.gki_mixed_build == False) and (ctx.attr.build_variant == "ack"):
+        defconfig = []
+        defconfig.append("${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/gki_defconfig")
+        defconfig.append("${ROOT_DIR}/" + ctx.attr.device_modules_dir + "/kernel/configs/sec_ogki_fragment.config")
+        content.append("PRE_DEFCONFIG_CMDS=\"mkdir -p \\${OUT_DIR}/arch/arm64/configs/ && KCONFIG_CONFIG=\\${OUT_DIR}/arch/arm64/configs/${DEFCONFIG} ${ROOT_DIR}/${KERNEL_DIR}/scripts/kconfig/merge_config.sh -m -r " + " ".join(defconfig) + "\"")
+        content.append("POST_DEFCONFIG_CMDS=\"\"")
+
     content.append("")
 
     if ctx.attr.gki_mixed_build:

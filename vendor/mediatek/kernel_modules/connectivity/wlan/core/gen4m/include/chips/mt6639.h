@@ -44,8 +44,6 @@
 #define CONNAC3X_TOP_HVR			0x88000000
 #endif
 #define CONNAC3X_TOP_FVR			0x88000004
-#define CONNAC3X_PLAT_CFG_ADDR			0x7C05BA38
-#define CONNAC3X_PLAT_CFG_SIZE			64
 #define MT6639_TOP_CFG_BASE			NIC_CONNAC_CFG_BASE
 #define MT6639_PATCH_START_ADDR			0x00900000
 #define MT6639_ARB_AC_MODE_ADDR			(0x820E315C)
@@ -80,16 +78,6 @@
 #endif
 #define WFDMA_MD_MSI_NUM		8
 
-#if CFG_PCIE_LTR_UPDATE
-#define LTR_SNOOP_LATENCY_REQUIREMENT BIT(15)
-#define LTR_NONSNOOP_LATENCY_REQUIREMENT BIT(31)
-#define PCIE_LOW_LATENCY_LTR_VALUE  \
-	(LTR_NONSNOOP_LATENCY_REQUIREMENT | LTR_SNOOP_LATENCY_REQUIREMENT)
-#define PCIE_HIGH_LATENCY_LTR_VALUE \
-	(LTR_NONSNOOP_LATENCY_REQUIREMENT | LTR_SNOOP_LATENCY_REQUIREMENT \
-	| 0x10011001) /* 1 ms */
-#endif
-
 #define MT6639_MEMOEY_REPAIR_CHECK_MASK 0xFFFF
 
 extern struct PLE_TOP_CR rMt6639PleTopCr;
@@ -97,7 +85,7 @@ extern struct PSE_TOP_CR rMt6639PseTopCr;
 extern struct PP_TOP_CR rMt6639PpTopCr;
 
 extern u_int8_t fgIsMcuOff;
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 extern u_int8_t fgTriggerDebugSop;
 #endif
 
@@ -172,18 +160,18 @@ void mt6639_icapDownVcoreClockRate(void);
 
 #if defined(_HIF_PCIE)
 void mt6639_dumpWfsyscpupcr(struct ADAPTER *ad);
-void mt6639_DumpBusStatus(struct ADAPTER *ad);
+void mt6639_DumpBusHangCr(struct ADAPTER *ad);
 void mt6639_dumpPcGprLog(struct ADAPTER *ad, u_int8_t fgIsDumpViaBt);
 void mt6639_dumpN45CoreReg(struct ADAPTER *ad, u_int8_t fgIsDumpViaBt);
 void mt6639_dumpWfTopReg(struct ADAPTER *ad, u_int8_t fgIsDumpViaBt);
 void mt6639_dumpHostVdnrTimeoutInfo(struct ADAPTER *ad);
 void mt6639_dumpWfBusReg(struct ADAPTER *ad, u_int8_t fgIsDumpViaBt);
-void mt6639_dumpCbtopReg(struct ADAPTER *ad);
+uint8_t mt6639_dumpCbtopReg(struct ADAPTER *ad);
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
-void mt6639_dumpPcieReg(void);
-void mt6639_dumpPcieRegWithScanDump(void);
-bool mt6639_CheckDumpViaBt(struct ADAPTER *prAdapter);
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
+uint8_t mt6639_dumpPcieReg(void);
+uint8_t mt6639_dumpPcieRegWithScanDump(void);
+bool mt6639_CheckDumpViaBt(void);
 #endif
 
 u_int8_t mt6639_is_ap2conn_off_readable(struct ADAPTER *ad);

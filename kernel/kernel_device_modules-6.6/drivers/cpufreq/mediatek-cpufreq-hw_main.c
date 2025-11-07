@@ -178,7 +178,7 @@ static unsigned int mtk_cpufreq_hw_get(unsigned int cpu)
 		return index;
 	}
 
-	return -1;
+	return UINT_MAX;
 }
 
 static unsigned int mtk_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,

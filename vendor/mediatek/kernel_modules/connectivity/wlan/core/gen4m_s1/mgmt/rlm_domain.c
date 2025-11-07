@@ -73,6 +73,8 @@
 #include "rlm_channel_latest.h"
 #elif defined(CONFIG_MTK_NEW_DOMAIN_CH)
 #include "rlm_channel.h"
+#elif defined(CONFIG_MTK_N22_DOMAIN_CH)
+#include "rlm_channel_22.h"
 #else
 #include "rlm_channel_legacy.h"
 #endif
@@ -147,7 +149,16 @@ struct TX_PWR_TAG_TABLE {
  *                             D A T A   T Y P E S
  *******************************************************************************
  */
-
+#define SAR_NR_SUB6_BAND_INFO_MASK (BIT(SAR_NR_SUB6_BAND_INFO_2) | \
+					BIT(SAR_NR_SUB6_BAND_INFO_7) | \
+					BIT(SAR_NR_SUB6_BAND_INFO_25) | \
+					BIT(SAR_NR_SUB6_BAND_INFO_38) | \
+					BIT(SAR_NR_SUB6_BAND_INFO_40) | \
+					BIT(SAR_NR_SUB6_BAND_INFO_41) | \
+					BIT(SAR_NR_SUB6_BAND_INFO_48) | \
+					BIT(SAR_NR_SUB6_BAND_INFO_66) | \
+					BIT(SAR_NR_SUB6_BAND_INFO_77) | \
+					BIT(SAR_NR_SUB6_BAND_INFO_78))
 /*******************************************************************************
  *                            P U B L I C   D A T A
  *******************************************************************************
@@ -162,6 +173,7 @@ char *g_au1TxPwrDefaultSetting[] = {
 	"_G_Scenario;3;2;1;[ALL,,,,,,,,,,,]",
 	"_G_Scenario;4;2;1;[ALL,,,,,,,,,,,]",
 	"_G_Scenario;5;2;1;[ALL,,,,,,,,,,,]",
+	"_Cus_TxPwr_Call;1;2;1;[ALL,,,,,,,,,,,,]",
 #else
 	"_SAR_PwrLevel;1;2;1;[2G4,,,,,,,,,][5G,,,,,,,,,]",
 	"_G_Scenario;1;2;1;[ALL,,,,,,,,,]",
@@ -169,6 +181,7 @@ char *g_au1TxPwrDefaultSetting[] = {
 	"_G_Scenario;3;2;1;[ALL,,,,,,,,,]",
 	"_G_Scenario;4;2;1;[ALL,,,,,,,,,]",
 	"_G_Scenario;5;2;1;[ALL,,,,,,,,,]",
+	"_Cus_TxPwr_Call;1;2;1;[ALL,,,,,,,,,]",
 #endif /* CFG_SUPPORT_DYNA_TX_PWR_CTRL_OFDM_SETTING */
 };
 #endif
@@ -316,7 +329,26 @@ struct SUBBAND_CHANNEL g_rRlmSubBand[] = {
  *                           P R I V A T E   D A T A
  *******************************************************************************
  */
+static char *g_sarScenarioName[SAR_NUM] = {
+	"SAR_HEAD",
+	"SAR_BODY",
+	"SAR_NR_MMWAVE",
+	"SAR_NR_SUB6",
+	"SAR_MHS",
+	"SAR_NR_SUB6_BAND_INFO_2",
+	"SAR_NR_SUB6_BAND_INFO_7",
+	"SAR_NR_SUB6_BAND_INFO_25",
+	"SAR_NR_SUB6_BAND_INFO_38",
+	"SAR_NR_SUB6_BAND_INFO_40",
+	"SAR_NR_SUB6_BAND_INFO_41",
+	"SAR_NR_SUB6_BAND_INFO_48",
+	"SAR_NR_SUB6_BAND_INFO_66",
+	"SAR_NR_SUB6_BAND_INFO_77",
+	"SAR_NR_SUB6_BAND_INFO_78"
+};
 
+static uint32_t g_u4SarActBitMap;
+static uint32_t g_u4SarBitMap;
 /*******************************************************************************
  *                                 M A C R O S
  *******************************************************************************
@@ -6366,6 +6398,189 @@ void rlmDomainAssert(u_int8_t cond)
 		DBGLOG(RLM, ERROR, "[WARNING!!] RLM unexpected case.\n");
 	}
 
+}
+/*----------------------------------------------------------------------------*/
+/*!
+ * @brief This function is gen SAR bitmap
+ *
+ * @param[in] eType : SAR cmd type
+ * @param[in] eId : Event ID
+ * @param[in] ucInfo : other info
+ *
+ * @return void
+ */
+/*----------------------------------------------------------------------------*/
+void rlmDomainGenSarBitMap(
+	enum ENUM_SAR_CMD_TYPE eCmdType,
+	int32_t i4Id)
+{
+	bool fgSub6BandInfoValid = TRUE;
+	enum ENUM_SAR_TYPE eSarType = SAR_HEAD;
+
+	DBGLOG(RLM, INFO,
+		"[SAR]SAR bitmap start: [0x%X,0x%X] Cmd type[%d]id[%d]\n",
+		g_u4SarBitMap,
+		g_u4SarActBitMap,
+		eCmdType,
+		i4Id);
+
+	if (eCmdType == SAR_TX_POWER_CALLING) {
+		switch (i4Id) {
+		case HEAD_SAR_BACKOFF_DISABLED:
+			g_u4SarBitMap &= ~BIT(SAR_HEAD);
+			break;
+		case HEAD_SAR_BACKOFF_ENABLED:
+			g_u4SarBitMap |= BIT(SAR_HEAD);
+			break;
+		case BODY_SAR_BACKOFF_DISABLED:
+			g_u4SarBitMap &= ~BIT(SAR_BODY);
+			break;
+		case BODY_SAR_BACKOFF_ENABLED:
+			g_u4SarBitMap |= BIT(SAR_BODY);
+			break;
+		case NR_MMWAVE_SAR_BACKOFF_DISABLED:
+			g_u4SarBitMap &= ~BIT(SAR_NR_MMWAVE);
+			break;
+		case NR_MMWAVE_SAR_BACKOFF_ENABLED:
+			g_u4SarBitMap |= BIT(SAR_NR_MMWAVE);
+			/* mmWave & Sub6/Sub6_Band_info have same priority,
+			 * If mmWave is enable, Sub6/Sub6_Band_info
+			 * should be disable
+			 */
+			g_u4SarBitMap &= ~BIT(SAR_NR_SUB6);
+			g_u4SarBitMap &= ~SAR_NR_SUB6_BAND_INFO_MASK;
+			break;
+		case NR_SUB6_SAR_BACKOFF_DISABLED:
+			g_u4SarBitMap &= ~BIT(SAR_NR_SUB6);
+			g_u4SarBitMap &= ~SAR_NR_SUB6_BAND_INFO_MASK;
+			break;
+		case NR_SUB6_SAR_BACKOFF_ENABLED:
+			g_u4SarBitMap |= BIT(SAR_NR_SUB6);
+			/* Sub6 & mmWave/Sub6_Band_info have same priority,
+			 * If Sub6 is enable, mmWave/Sub6_Band_info
+			 * should be disable
+			 */
+			g_u4SarBitMap &= ~BIT(SAR_NR_MMWAVE);
+			g_u4SarBitMap &= ~SAR_NR_SUB6_BAND_INFO_MASK;
+			break;
+		case SAR_SAR_BACKOFF_DISABLE_ALL:
+			g_u4SarBitMap = 0;
+			break;
+		case MHS_SAR_BACKOFF_DISABLED:
+			g_u4SarBitMap &= ~BIT(SAR_MHS);
+			break;
+		case MHS_SAR_BACKOFF_ENABLED:
+			g_u4SarBitMap |= BIT(SAR_MHS);
+			break;
+		default:
+			DBGLOG(RLM, ERROR, "[SAR]Event ID[%d]not define\n",
+						i4Id);
+			break;
+		}
+	} else if (eCmdType == SAR_TX_POWER_SUB6_BAND) {
+
+		fgSub6BandInfoValid = TRUE;
+
+		switch (i4Id) {
+		case 2:
+			eSarType = SAR_NR_SUB6_BAND_INFO_2;
+			break;
+		case 7:
+			eSarType = SAR_NR_SUB6_BAND_INFO_7;
+			break;
+		case 25:
+			eSarType = SAR_NR_SUB6_BAND_INFO_25;
+			break;
+		case 38:
+			eSarType = SAR_NR_SUB6_BAND_INFO_38;
+			break;
+		case 40:
+			eSarType = SAR_NR_SUB6_BAND_INFO_40;
+			break;
+		case 41:
+			eSarType = SAR_NR_SUB6_BAND_INFO_41;
+			break;
+		case 48:
+			eSarType = SAR_NR_SUB6_BAND_INFO_48;
+			break;
+		case 66:
+			eSarType = SAR_NR_SUB6_BAND_INFO_66;
+			break;
+		case 77:
+			eSarType = SAR_NR_SUB6_BAND_INFO_77;
+			break;
+		case 78:
+			eSarType = SAR_NR_SUB6_BAND_INFO_78;
+			break;
+		default:
+			fgSub6BandInfoValid = FALSE;
+			DBGLOG(RLM, ERROR, "[SAR]Not support sub6_band[%d]\n",
+						i4Id);
+			break;
+		}
+
+		if (fgSub6BandInfoValid) {
+			/* At any given time, only one sub6_band_info
+			 * secnario setting will be enabled.
+			 * Therefore, we will first disable all
+			 * sub6_band_info settings, and then re-enabled
+			 * the setting that needs to be updated.
+			 */
+			g_u4SarBitMap &= ~SAR_NR_SUB6_BAND_INFO_MASK;
+			g_u4SarBitMap |= BIT(eSarType);
+
+			/* Sub6_Band_info & Sub6/mmWave have same priority,
+			 * If Sub6_Band_info is enable, Sub6/mmWave
+			 * should be disable.
+			 */
+			g_u4SarBitMap &= ~BIT(SAR_NR_SUB6);
+			g_u4SarBitMap &= ~BIT(SAR_NR_MMWAVE);
+		}
+	}
+
+	g_u4SarActBitMap = g_u4SarBitMap;
+
+	/* mmWave/Sub6/Sub6_band_info have higher priority than MHS,
+	 * MHS settinngs can be enable only when all mmWave/Sub6/Sub6_band_info
+	 * is disable.
+	 */
+	if (g_u4SarBitMap & BIT(SAR_NR_MMWAVE) ||
+		g_u4SarBitMap & BIT(SAR_NR_SUB6) ||
+		g_u4SarBitMap & SAR_NR_SUB6_BAND_INFO_MASK) {
+		g_u4SarActBitMap &= ~BIT(SAR_MHS);
+	}
+
+	DBGLOG(RLM, INFO, "[SAR]SAR bitmap end: [0x%X,0x%X]\n",
+		g_u4SarBitMap, g_u4SarActBitMap);
+}
+/*----------------------------------------------------------------------------*/
+/*!
+ * @brief This function is use get SAR action bitmap
+ *
+ * @param[in] void
+ *
+ * @return uint32_t : SAR action bitmap
+ */
+/*----------------------------------------------------------------------------*/
+uint32_t rlmDomainGetSarActBitMap(void)
+{
+	return g_u4SarActBitMap;
+}
+/*----------------------------------------------------------------------------*/
+/*!
+ * @brief This function is use get SAR scenario name
+ *
+ * @param[in] eType : SAR scenario type
+ *
+ * @return char * : SAR scenario name
+ */
+/*----------------------------------------------------------------------------*/
+char *rlmDomainGetSarScenarioName(enum ENUM_SAR_TYPE eType)
+{
+	if (eType >= SAR_NUM)
+		return NULL;
+
+	return g_sarScenarioName[eType];
 }
 
 

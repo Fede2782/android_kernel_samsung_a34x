@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -266,7 +266,7 @@ u_int8_t isScanCacheDone(struct GL_SCAN_CACHE_INFO *prScanCache)
 	}
 
 	if (matchLastScanTimeUpdate(prScanCache, rCurrentTime) == TRUE) {
-		log_dbg(REQ, DEBUG, "SCAN_CACHE: set scan cache time (%u)->(%u)\n",
+		log_dbg(REQ, INFO, "SCAN_CACHE: set scan cache time (%u)->(%u)\n",
 			getLastScanTime(prScanCache),
 			rCurrentTime);
 

@@ -1582,8 +1582,6 @@ static irqreturn_t mtk_thread_irq_mraw(int irq, void *data)
 
 static int mtk_mraw_pm_suspend(struct device *dev)
 {
-	struct mtk_mraw_device *mraw_dev = dev_get_drvdata(dev);
-	u32 val;
 	int ret;
 
 	dev_info_ratelimited(dev, "- %s\n", __func__);
@@ -1591,32 +1589,13 @@ static int mtk_mraw_pm_suspend(struct device *dev)
 	if (pm_runtime_suspended(dev))
 		return 0;
 
-	/* Disable ISP's view finder and wait for TG idle */
-	dev_info_ratelimited(dev, "mraw suspend, disable VF\n");
-	val = readl(mraw_dev->base + REG_MRAW_TG_VF_CON);
-	writel(val & (~MRAWTG_VFDATA_EN),
-		mraw_dev->base + REG_MRAW_TG_VF_CON);
-	ret = readl_poll_timeout_atomic(
-					mraw_dev->base + REG_MRAW_TG_INTER_ST, val,
-					(val & MRAWTG_CS_MASK) == MRAWTG_IDLE_ST,
-					USEC_PER_MSEC, MTK_MRAW_STOP_HW_TIMEOUT);
-	if (ret)
-		dev_dbg(dev, "can't stop HW:%d:0x%x\n", ret, val);
-
-	/* Disable CMOS */
-	val = readl(mraw_dev->base + REG_MRAW_TG_SEN_MODE);
-	writel(val & (~MRAWTG_CMOS_EN),
-		mraw_dev->base + REG_MRAW_TG_SEN_MODE);
-
 	/* Force ISP HW to idle */
-	ret = pm_runtime_put_sync(dev);
+	ret = pm_runtime_force_suspend(dev);
 	return ret;
 }
 
 static int mtk_mraw_pm_resume(struct device *dev)
 {
-	struct mtk_mraw_device *mraw_dev = dev_get_drvdata(dev);
-	u32 val;
 	int ret;
 
 	dev_info_ratelimited(dev, "- %s\n", __func__);
@@ -1625,21 +1604,9 @@ static int mtk_mraw_pm_resume(struct device *dev)
 		return 0;
 
 	/* Force ISP HW to resume */
-	ret = pm_runtime_get_sync(dev);
+	ret = pm_runtime_force_resume(dev);
 	if (ret)
 		return ret;
-
-	/* Enable CMOS */
-	dev_info_ratelimited(dev, "mraw resume, enable CMOS/VF\n");
-	val = readl(mraw_dev->base + REG_MRAW_TG_SEN_MODE);
-	writel(val | MRAWTG_CMOS_EN,
-		mraw_dev->base + REG_MRAW_TG_SEN_MODE);
-
-	/* Enable VF */
-	val = readl(mraw_dev->base + REG_MRAW_TG_VF_CON);
-	writel(val | MRAWTG_VFDATA_EN,
-		mraw_dev->base + REG_MRAW_TG_VF_CON);
-
 	return 0;
 }
 

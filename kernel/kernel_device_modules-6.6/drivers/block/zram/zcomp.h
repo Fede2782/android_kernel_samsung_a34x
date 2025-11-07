@@ -13,9 +13,6 @@ struct zcomp_strm {
 	/* compression/decompression buffer */
 	void *buffer;
 	struct crypto_comp *tfm;
-#ifdef CONFIG_ZRAM_EXT
-	void *tmpbuf;
-#endif
 };
 
 /* dynamic per-device compression frontend */

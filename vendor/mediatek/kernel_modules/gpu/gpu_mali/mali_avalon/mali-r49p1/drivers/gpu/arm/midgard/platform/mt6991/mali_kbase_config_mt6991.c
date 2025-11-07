@@ -91,6 +91,16 @@ enum gpu_dvfs_status_step {
 	GPU_DVFS_STATUS_STEP_F = 0xF,
 };
 
+#if IS_ENABLED(CONFIG_MALI_MTK_GPU_IDLE_STRESS_TEST) && IS_ENABLED(CONFIG_MALI_MTK_API_SYNC_UPDATE)
+static struct api_sync_target_level g_api_sync_level[] = {
+	{API_SYNC_LEVEL_0, DATA_LEVEL_0},  /* Reset */
+	{API_SYNC_LEVEL_1, DATA_LEVEL_1},
+	{API_SYNC_LEVEL_2, DATA_LEVEL_2},
+};
+
+#define API_SYNC_LEVEL_NUM (sizeof(g_api_sync_level)/sizeof(g_api_sync_level[0]))
+#endif
+
 static inline void gpu_dvfs_status_footprint(enum gpu_dvfs_status_step step)
 {
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
@@ -293,6 +303,11 @@ static void pm_callback_power_off(struct kbase_device *kbdev)
 #endif /* CONFIG_MALI_MTK_POWER_TRANSITION_TIMEOUT_DEBUG */
 	struct arm_smccc_res res;
 
+#if IS_ENABLED(CONFIG_MALI_MTK_GPU_IDLE_STRESS_TEST) && IS_ENABLED(CONFIG_MALI_MTK_API_SYNC_UPDATE)
+	int temp_mapping_level = 0;
+	ktime_t expiry_time;
+#endif
+
 	dev_dbg(kbdev->dev, "%s\n", __func__);
 
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
@@ -323,10 +338,50 @@ static void pm_callback_power_off(struct kbase_device *kbdev)
 		mtk_notify_gpu_power_change(0);
 		pm_callback_power_off_nolock(kbdev);
 #if IS_ENABLED(CONFIG_MALI_MTK_GPU_IDLE_STRESS_TEST) && IS_ENABLED(CONFIG_MALI_MTK_API_SYNC_UPDATE)
-		if (kbdev->ptp_update_in_progress) {
-			gpufreq_set_mfgsys_config(CONFIG_PTP3, DATA_UPDATE);
-			kbdev->ptp_update_in_progress = false;
+		if (kbdev->api_sync_update_in_progress) {
+			if (kbdev->temp_api_sync_flag == API_SYNC_FLAG_RESET) {
+				if (kbdev->final_api_sync_flag == API_SYNC_FLAG_SET) {
+					/* Reset */
+					gpufreq_set_mfgsys_config(CONFIG_PTP3, (unsigned int)g_api_sync_level[0].mapping_level);
+				} else if (kbdev->final_api_sync_flag == API_SYNC_FLAG_DEBUG) {
+					/* Reset */
+					gpufreq_set_mfgsys_config(CONFIG_PTP3, API_SYNC_FLAG_DEBUG_INIT);
+				} else {
+					/* Force Reset */
+					gpufreq_set_mfgsys_config(CONFIG_PTP3, (unsigned int)g_api_sync_level[0].mapping_level);
+					gpufreq_set_mfgsys_config(CONFIG_PTP3, API_SYNC_FLAG_DEBUG_INIT);
+				}
+			} else if (kbdev->temp_api_sync_flag == API_SYNC_FLAG_SET) {
+				if (kbdev->api_sync_level == g_api_sync_level[1].orig_level)
+					temp_mapping_level = g_api_sync_level[1].mapping_level;
+				else if (kbdev->api_sync_level == g_api_sync_level[2].orig_level)
+					temp_mapping_level = g_api_sync_level[2].mapping_level;
+				else
+					temp_mapping_level = g_api_sync_level[0].mapping_level;
+
+				gpufreq_set_mfgsys_config(CONFIG_PTP3, (unsigned int)temp_mapping_level);
+			} else if (kbdev->temp_api_sync_flag == API_SYNC_FLAG_DEBUG) {
+				gpufreq_set_mfgsys_config(CONFIG_PTP3, (unsigned int)kbdev->api_sync_debug_level);
+			} else {
+				/* Force Reset */
+				gpufreq_set_mfgsys_config(CONFIG_PTP3, (unsigned int)g_api_sync_level[0].mapping_level);
+				gpufreq_set_mfgsys_config(CONFIG_PTP3, API_SYNC_FLAG_DEBUG_INIT);
+			}
+
+			kbdev->api_sync_update_in_progress = false;
 			kbdev->final_api_sync_flag = kbdev->temp_api_sync_flag;
+
+			if (kbdev->final_api_sync_flag == API_SYNC_FLAG_RESET) {
+				hrtimer_cancel(&kbdev->api_sync_timer);
+			} else if (kbdev->final_api_sync_flag == API_SYNC_FLAG_SET) {
+				if (!hrtimer_active(&kbdev->api_sync_timer)) {
+					expiry_time = HR_TIMER_DELAY_MSEC(
+						kbdev->api_sync_timeout_ms);
+					hrtimer_start(&kbdev->api_sync_timer,
+						expiry_time,
+						HRTIMER_MODE_REL);
+				}
+			}
 		}
 #endif
 		mutex_unlock(&g_mfg_lock);
@@ -397,19 +452,14 @@ static void pm_callback_runtime_gpu_active(struct kbase_device *kbdev)
 	mtk_common_ged_dvfs_write_sysram_last_commit_top_idx();
 	mtk_common_ged_dvfs_write_sysram_last_commit_dual();
 
-	if (pm_runtime_status_suspended(kbdev->dev)) {
-		error = pm_runtime_get_sync(kbdev->dev);
-		KBASE_PLATFORM_LOGD("pm_runtime_get_sync returned %d", error);
-	} else {
-		/* Call the async version here, otherwise there could be
-		 * a deadlock if the runtime suspend operation is ongoing.
-		 * Caller would have taken the kbdev->pm.lock and/or the
-		 * scheduler lock, and the runtime suspend callback function
-		 * will also try to acquire the same lock(s).
-		 */
-		error = pm_runtime_get(kbdev->dev);
-		KBASE_PLATFORM_LOGD("pm_runtime_get returned %d", error);
-	}
+	/* Call the async version here, otherwise there could be
+ 	 * a deadlock if the runtime suspend operation is ongoing.
+	 * Caller would have taken the kbdev->pm.lock and/or the
+	 * scheduler lock, and the runtime suspend callback function
+	 * will also try to acquire the same lock(s).
+	 */
+	error = pm_runtime_get(kbdev->dev);
+	KBASE_PLATFORM_LOGD("pm_runtime_get returned %d", error);
 
 	kbdev->pm.runtime_active = true;
 

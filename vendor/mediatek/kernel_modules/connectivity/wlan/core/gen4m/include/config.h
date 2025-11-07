@@ -48,15 +48,6 @@
 #define CFG_BUILT_IN_DRIVER         0
 #endif
 
-/*
- * 0 (ASIC)
- * 1 (CTD bitfile)
- * 2 (SPD bitfile)
- */
-#ifndef CFG_MTK_FPGA_PLATFORM
-#define CFG_MTK_FPGA_PLATFORM			0
-#endif
-
 /* Mike 2016/09/01 ALPS update K3.18 80211_disconnect to K4.4 version*/
 /* work around for any alps K3.18 platform*/
 #ifndef CFG_WPS_DISCONNECT
@@ -161,16 +152,16 @@
 #define CFG_SUPPORT_QA_TOOL	1
 #endif
 
-#if ((CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1))
+#if (CFG_SUPPORT_CONNAC3X == 1)
 #define CFG_SUPPORT_ICAP_SOLICITED_EVENT	1
 #else
 #define CFG_SUPPORT_ICAP_SOLICITED_EVENT	0
 #endif
 
-#if (CFG_SUPPORT_CONNAC1X == 1 || CFG_SUPPORT_CONNAC2X == 1)
-#define CFG_SUPPORT_SMALL_PKT        0
+#if (CFG_SUPPORT_CONNAC3X == 1)
+#define CFG_SUPPORT_CONNAC3X_SMALL_PKT        1
 #else
-#define CFG_SUPPORT_SMALL_PKT        1
+#define CFG_SUPPORT_CONNAC3X_SMALL_PKT        0
 #endif
 
 /* Enable TX BF Support */
@@ -218,11 +209,6 @@
 /* Enable Detection for 2021 Frag/AGG Attack from WFA */
 #define CFG_SUPPORT_FRAG_AGG_VALIDATION 1
 
-/* Enable driver generate op class IE in assoc req */
-#ifndef CFG_SUPPORT_GEN_OP_CLASS
-#define CFG_SUPPORT_GEN_OP_CLASS          0
-#endif /* CFG_SUPPORT_GEN_OP_CLASS */
-
 /*------------------------------------------------------------------------------
  * Enable rx zero copy feature
  *------------------------------------------------------------------------------
@@ -248,25 +234,19 @@
  * Linux version only. Force remove for other platform
  *------------------------------------------------------------------------------
  */
-
-#ifndef CFG_SUPPORT_RETURN_WORK
-#define CFG_SUPPORT_RETURN_WORK 0
-#endif /* CFG_SUPPORT_RETURN_WORK */
-
-#if CFG_SUPPORT_RETURN_WORK
-#define CFG_SUPPORT_RETURN_TASK 0
-#else /* CFG_SUPPORT_RETURN_WORK */
-#define CFG_SUPPORT_RETURN_TASK 1
-#endif /* CFG_SUPPORT_RETURN_WORK */
+#if CFG_SUPPORT_DYNAMIC_PAGE_POOL
+#define CFG_SUPPORT_RETURN_TASK		0
+#define CFG_SUPPORT_RETURN_WORK		1
+#else
+#define CFG_SUPPORT_RETURN_TASK		1
+#define CFG_SUPPORT_RETURN_WORK		0
+#endif /* CFG_SUPPORT_DYNAMIC_PAGE_POOL */
 
 #ifndef LINUX
 #undef CFG_SUPPORT_RETURN_TASK
 #define CFG_SUPPORT_RETURN_TASK		0
+#define CFG_SUPPORT_RETURN_WORK		0
 #endif /* LINUX */
-
-#ifndef CFG_SUPPORT_SKB_ALLOC_WORK
-#define CFG_SUPPORT_SKB_ALLOC_WORK 0
-#endif /* CFG_SUPPORT_SKB_ALLOC_WORK */
 
 /* Enable handling BA Request advance SSN before data in previous window */
 #define CFG_SUPPORT_RX_OOR_BAR	1
@@ -286,6 +266,10 @@
 #define CFG_ENABLE_WAKE_LOCK	0
 #endif
 
+#define CFG_SAP_RPS_SUPPORT	(CFG_EXT_FEATURE && CFG_SUPPORT_CONNAC3X)
+#define CFG_SAP_SUS_SUPPORT	(CFG_EXT_FEATURE && CFG_SUPPORT_CONNAC3X)
+#define CFG_SAP_EXT_CAP_IE	(CFG_EXT_FEATURE && CFG_SUPPORT_CONNAC3X)
+
 #ifndef CFG_SUPPORT_OSHARE
 #define CFG_SUPPORT_OSHARE	1
 #endif
@@ -294,14 +278,7 @@
 #define CFG_SUPPORT_LOWLATENCY_MODE	1
 #endif
 
-#define CFG_TC10_CUSTOMIZED_SCAN CFG_EXT_SCAN
-
-#define CFG_CH_SELECT_ENHANCEMENT (CFG_EXT_FEATURE && CFG_SUPPORT_SAP_CH_SEL)
-
-#define CFG_SAP_RPS_SUPPORT	(CFG_EXT_FEATURE && CFG_SUPPORT_SAP_RPS)
-#define CFG_SAP_SUS_SUPPORT	(CFG_EXT_FEATURE && CFG_SUPPORT_SAP_SUSPEND)
-#define CFG_SAP_EXT_CAP_IE	CFG_EXT_FEATURE
-
+#define CFG_CH_SELECT_ENHANCEMENT	1
 
 #define CFG_SUPPORT_ANT_SWAP		1
 
@@ -325,6 +302,8 @@
 #else
 #define CFG_SUPPORT_MDNS_OFFLOAD_TV 1
 #endif
+
+#define TEST_CODE_FOR_MDNS              0
 #endif
 
 #ifndef CFG_SUPPORT_HE_ER
@@ -344,21 +323,13 @@
 #define CFG_SUPPORT_PHY_ICS             1
 #endif
 
-/*
- * Connac3 PHY ICS version3: free run mode and timer polling
- * via AXI DMA copy data to EMI
- */
-#ifndef CFG_SUPPORT_PHY_ICS_V3
-#define CFG_SUPPORT_PHY_ICS_V3       0
-#endif
-/*
- * Connac3 PHY ICS version4: ring buffer mode and IRQ trigger
- * via AXI DMA copy data to EMI
- */
-#ifndef CFG_SUPPORT_PHY_ICS_V4
-#define CFG_SUPPORT_PHY_ICS_V4       0
+#ifndef CFG_SUPPORT_ICS_TIMER
+#define CFG_SUPPORT_ICS_TIMER           1
 #endif
 
+#ifndef CFG_SUPPORT_ICS_STA
+#define CFG_SUPPORT_ICS_STA		1
+#endif
 #endif
 
 #ifndef CFG_SUPPORT_ICS_TIMESYNC
@@ -383,26 +354,11 @@
 #define FW_DROP_SSN_MAX                        10
 #endif /* CFG_SUPPORT_FW_DROP_SSN */
 
-/*
- * Since skb of TCP pkt is cloned after enabling TSO,
- * we need to decouple txd from skb headroom to prevent unnecessary skb_copy
- * due to CFG_SUPPORT_SKB_CLONED_COPY.
- */
-#ifndef CFG_DEDICATED_TXD
-#define CFG_DEDICATED_TXD                       0
-#endif /* CFG_DEDICATED_TXD */
+#define CFG_SUPPORT_DROP_INVALID_MSDUINFO	0
 
-#if CFG_DEDICATED_TXD
-#define CFG_SUPPORT_SKB_CLONED_COPY             0
-#else /* CFG_DEDICATED_TXD */
-#define CFG_SUPPORT_SKB_CLONED_COPY             1
-#endif /* CFG_DEDICATED_TXD */
+#define CFG_SUPPORT_SKB_CLONED_COPY		1
 
-#if (CFG_TC10_FEATURE == 1)
 #define CFG_SUPPORT_RLM_DOMAIN_LOAD_FILE        1
-#else
-#define CFG_SUPPORT_RLM_DOMAIN_LOAD_FILE        0
-#endif
 
 /* Support windows Scatter/gather IO (NETIF_F_SG) */
 #ifndef CFG_SUPPORT_TX_SG
@@ -418,10 +374,6 @@
 #undef CFG_SUPPORT_WIFI_6G
 #endif
 #define CFG_SUPPORT_WIFI_6G			0
-#endif
-
-#ifndef CFG_SUPPORT_UNII4
-#define CFG_SUPPORT_UNII4			0
 #endif
 
 /*------------------------------------------------------------------------------
@@ -484,10 +436,6 @@
 #define CFG_SUPPORT_TX_WORK                     0
 #endif /* CFG_SUPPORT_TX_WORK */
 
-#ifndef CFG_SUPPORT_PER_CPU_TX
-#define CFG_SUPPORT_PER_CPU_TX                  0
-#endif /* CFG_SUPPORT_PER_CPU_TX */
-
 /*
  * CPU Statistics is a feature to know the cpu scheduling behavior on
  * smartphone
@@ -501,17 +449,6 @@
 #define CPU_STAT_MAX_CPU                        8
 #endif /* CPU_STAT_MAX_CPU */
 #endif /* CFG_SUPPORT_CPU_STAT */
-
-#ifndef CFG_TX_GSO
-#define CFG_TX_GSO                              0
-#endif /* CFG_TX_GSO */
-
-#ifndef CFG_SW_TSO
-#define CFG_SW_TSO                              0
-#endif /* CFG_SW_TSO */
-#if (CFG_DEDICATED_TXD == 0 || CFG_TX_GSO == 0) && (CFG_SW_TSO == 1)
-#error "CFG_SW_TSO is based on CFG_TX_GSO and CFG_DEDICATED_TXD"
-#endif
 
 /* By using GRO at NAPI level, the driver is doing the aggregation to a large
  * SKB very early, right at the receive completion handler. This means that all
@@ -544,35 +481,24 @@
 
 #ifndef CFG_SUPPORT_RX_NAPI_WORK
 #define CFG_SUPPORT_RX_NAPI_WORK                0
+#endif /* CFG_SUPPORT_RX_NAPI_WORK */
+#if (CFG_SUPPORT_RX_NAPI == 0) && (CFG_SUPPORT_RX_NAPI_WORK == 1)
+#error "NAPI_WORK should based on NAPI in gen4m"
 #endif
 
 #ifndef CFG_SUPPORT_RX_NAPI_THREADED
 #define CFG_SUPPORT_RX_NAPI_THREADED            0
 #endif /* CFG_SUPPORT_RX_NAPI_THREADED */
-
-#ifndef CFG_SUPPORT_RX_NAPI_IN_RX_THREAD
-#define CFG_SUPPORT_RX_NAPI_IN_RX_THREAD        0
+#if (CFG_SUPPORT_RX_NAPI == 0) && (CFG_SUPPORT_RX_NAPI_THREADED == 1)
+#error "NAPI Threaded should based on NAPI"
 #endif
-
-#if (CFG_SUPPORT_RX_NAPI == 0) && \
-	((CFG_SUPPORT_RX_NAPI_WORK == 1) || \
-	(CFG_SUPPORT_RX_NAPI_THREADED == 1) || \
-	(CFG_SUPPORT_RX_NAPI_IN_RX_THREAD == 1))
-#error "NAPI feature should based on NAPI in gen4m"
-#endif
-
-#if ((CFG_SUPPORT_RX_NAPI_WORK + \
-	CFG_SUPPORT_RX_NAPI_THREADED + \
-	CFG_SUPPORT_RX_NAPI_IN_RX_THREAD) > 1)
-#error "Cannot enable more than one NAPI feature"
+#if (CFG_SUPPORT_RX_NAPI_WORK == 1) && (CFG_SUPPORT_RX_NAPI_THREADED == 1)
+#error "Cannot enable both RX_NAPI_WORK and RX_NAPI_THREADED"
 #endif
 
 #ifndef CFG_NAPI_DELAY
 #define CFG_NAPI_DELAY 0
 #endif /* CFG_NAPI_DELAY */
-#if (CFG_SUPPORT_RX_NAPI == 0) && (CFG_NAPI_DELAY == 1)
-#error "NAPI Delay cannot enabled without NAPI"
-#endif
 
 /* There is a "budget" concept in original NAPI design. However,
  * the default budget in Linux is 64 and it's hard to aggreate a 64K packet
@@ -608,12 +534,6 @@
 /* #define _HIF_SDIO   1 */
 #endif
 
-/* 1(default): Enable SDIO MAILBOX EXTENSION
- * 0: Disable
- */
-#ifndef CFG_SDIO_MAILBOX_EXTENSION
-#define CFG_SDIO_MAILBOX_EXTENSION                   0
-#endif
 /* 1(default): Enable SDIO ISR & TX/RX status enhance mode
  * 0: Disable
  */
@@ -688,26 +608,8 @@
 #define CFG_ENABLE_CAL_LOG		1
 #define CFG_REPORT_RFBB_VERSION		1
 
-#ifndef CFG_MAX_BSSID_NUM
 #define MAX_BSSID_NUM			4	/* MAX SW BSSID number */
-#else
-#define MAX_BSSID_NUM			CFG_MAX_BSSID_NUM
-#endif
 #define MAX_MLDDEV_NUM			4
-
-#ifndef CFG_ASSERTDUMP_BYPASS_CHIP_RESET
-#define CFG_ASSERTDUMP_BYPASS_CHIP_RESET		0
-#endif
-
-/* 1: Enable One Driver Support Multiple Physical Card
- * 0(default): Disable
- *
- * This config is used to distinguish the variable is access from global or
- * struct GLUE_INFO/ADAPTER to maintain project that non-supported Dual Card
- */
-#ifndef CFG_SUPPORT_MULTI_CARD
-#define CFG_SUPPORT_MULTI_CARD		0
-#endif
 
 #ifndef CFG_CHIP_RESET_SUPPORT
 #define CFG_CHIP_RESET_SUPPORT		1
@@ -722,8 +624,6 @@
 #define CFG_CHIP_RESET_HANG		0
 #endif
 
-#define CFG_WIFI_AUTO_RECOVER		0
-
 #define HW_BSSID_NUM			4	/* HW BSSID number by chip */
 
 #define INVALID_OMAC_IDX		0xFF
@@ -732,6 +632,11 @@
 #define OM_REMAP_IDX_NONE		0xff
 #define MLD_LINK_ID_NONE		0xff
 #define ML_PROBE_RETRY_COUNT		2
+#if (CFG_EXT_ROAMING == 1)
+#define MLD_RETRY_COUNT			1
+#else
+#define MLD_RETRY_COUNT			2
+#endif
 /* Reserve 0~31 for group mld index */
 #define MAT_OWN_MLD_ID_BASE		32
 
@@ -760,9 +665,8 @@
  */
 
 /*! Maximum number of SW TX packet queue */
-#ifndef CFG_TX_MAX_PKT_NUM
-#if defined(MT6653) || defined(MT7990)
-#define CFG_TX_MAX_PKT_NUM                      20000
+#ifdef MT6653
+#define CFG_TX_MAX_PKT_NUM                      11000
 #elif (CFG_SUPPORT_CONNAC3X == 1)
 #define CFG_TX_MAX_PKT_NUM                      8192
 #elif (CFG_SUPPORT_CONNAC2X == 1)
@@ -775,7 +679,6 @@
 #else
 #define CFG_TX_MAX_PKT_NUM                      1024
 #endif
-#endif /* CFG_TX_MAX_PKT_NUM */
 
 /*! Maximum number of SW TX CMD packet buffer */
 #define CFG_TX_MAX_CMD_PKT_NUM                  144 /* WIFI7 support */
@@ -789,6 +692,14 @@
  * Flags and Parameters for RX path
  *------------------------------------------------------------------------------
  */
+
+/*------------------------------------------------------------------------------
+ * CONFIG_TITLE : Move BA from FW to Driver
+ * OWNER            : Puff Wen
+ * Description  : Move BA from FW to Driver
+ *------------------------------------------------------------------------------
+ */
+#define CFG_MOVE_BA_TO_DRIVER                   0
 
 /*! Max. descriptor number - sync. with firmware */
 #if CFG_SLT_SUPPORT
@@ -807,7 +718,6 @@
 						+ CFG_NUM_OF_QM_RX_PKT_NUM)
 
 #define CFG_RX_RFB_MEM_LEAK_THRESHOLD		(CFG_RX_MAX_PKT_NUM / 10)
-#define CFG_RX_RFB_MEM_LEAK_INTERVAL		(5000)
 
 #define CFG_RX_REORDER_Q_THRESHOLD              8
 
@@ -844,12 +754,21 @@
 
 /*! RX BA capability */
 #define CFG_NUM_OF_RX_BA_AGREEMENTS             80
+#if CFG_MOVE_BA_TO_DRIVER
+#define CFG_RX_BA_MAX_WINSIZE                   64
+#endif
 #define CFG_RX_MAX_BA_TID_NUM                   8
 #define CFG_RX_REORDERING_ENABLED               1
 
 /* Cache RX reordering MSDU pointers by SN to locate search starting point */
 #ifndef CFG_SUPPORT_RX_CACHE_INDEX
 #define CFG_SUPPORT_RX_CACHE_INDEX		1
+#endif
+
+#if (CFG_SUPPORT_CONNAC3X == 1)
+#define CFG_PF_ARP_NS_MAX_NUM                   5
+#else
+#define CFG_PF_ARP_NS_MAX_NUM                   3
 #endif
 
 #define CFG_COMPRESSION_DEBUG			0
@@ -877,13 +796,9 @@
 
 #define CFG_PRE_CAL_SLEEP_WAITING_INTERVAL      50000
 
-#if (CFG_MTK_FPGA_PLATFORM != 0)
-#define CFG_DEFAULT_RX_RESPONSE_TIMEOUT         10000
-#else
 #define CFG_DEFAULT_RX_RESPONSE_TIMEOUT         3000
-#endif
 
-#define CFG_PRE_CAL_RX_RESPONSE_TIMEOUT         10000
+#define CFG_PRE_CAL_RX_RESPONSE_TIMEOUT         5000
 
 /*------------------------------------------------------------------------------
  * Flags and Parameters for Protocol Stack
@@ -927,7 +842,7 @@
 
 /*------------------------------------------------------------------------------
  * Flags 1: drop all multicast packets when device suspend
- * Flags 0: drop multicast packets except allow list when device suspend
+ * Flags 0: drop multicast packets except white list when device suspend
  *------------------------------------------------------------------------------
  */
 #define CFG_SUPPORT_DROP_ALL_MC_PACKET		0
@@ -950,11 +865,11 @@
 #define MAX_6G_BAND_CHN_NUM		0
 #endif /* if (CFG_SUPPORT_WIFI_6G == 1) */
 
-#if (CFG_SUPPORT_UNII4 == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 #define MAX_5G_BAND_CHN_NUM		28
 #else
 #define MAX_5G_BAND_CHN_NUM		25
-#endif /* if (CFG_SUPPORT_UNII4 == 1) */
+#endif /* CFG_SUPPORT_CONNAC3X */
 
 #define MAX_PER_BAND_CHN_NUM \
 ((MAX_6G_BAND_CHN_NUM) > (MAX_5G_BAND_CHN_NUM) ? \
@@ -986,18 +901,18 @@
 #define SCAN_CMD_EXT_SSID_NUM                   (0)
 #define SCAN_CMD_EXT_CHNL_NUM                   (32)
 #else
-#define SCAN_CMD_EXT_SSID_NUM                   (6)
+#define SCAN_CMD_EXT_SSID_NUM                   (12)
 #define SCAN_CMD_EXT_CHNL_NUM                   (32)
 #endif
-#define CFG_SCAN_OOB_MAX_NUM                    (10)
+#define CFG_SCAN_OOB_MAX_NUM			(16)
 #define CFG_SCAN_SSID_MAX_NUM (SCAN_CMD_SSID_NUM+SCAN_CMD_EXT_SSID_NUM)
 #define MAXIMUM_OPERATION_CHANNEL_LIST (SCAN_CMD_CHNL_NUM+SCAN_CMD_EXT_CHNL_NUM)
-#define MAX_SHORT_SSID_LEN                      (4)
-#define MAX_BEACON_LENGTH                       (1024)
-#define MAX_IE_LENGTH                           (600)
-#define MAX_BAND_IE_LENGTH                      (100)
-#define MAX_WSC_IE_LENGTH                       (400)
-#define MAX_TPE_IE_LENGTH                       (64)
+#define MAX_SHORT_SSID_LEN			(4)
+#define MAX_IE_LENGTH				(600)
+#define MAX_BAND_IE_LENGTH			(100)
+#define MAX_WSC_IE_LENGTH			(400)
+#define MAX_TPE_IE_LENGTH			(64)
+#define MAX_6GPSC_CHANNEL_NUM			(15)
 
 #define CFG_MAX_NUM_OF_CHNL_INFO		(MAXIMUM_OPERATION_CHANNEL_LIST)
 
@@ -1030,6 +945,12 @@
 #ifndef CFG_DBG_MGT_BUF
 #define CFG_DBG_MGT_BUF                         1
 #endif
+
+#define CFG_HIF_STATISTICS                      0
+
+#define CFG_HIF_RX_STARVATION_WARNING           0
+
+#define CFG_RX_PKTS_DUMP                        0
 
 #ifndef CFG_SUPPORT_STATISTICS
 #define CFG_SUPPORT_STATISTICS			1
@@ -1173,9 +1094,6 @@
 #ifndef CFG_SUPPORT_DFS_MASTER
 #define CFG_SUPPORT_DFS_MASTER                  1
 #endif
-#ifndef CFG_SUPPORT_TRX_LIMITED_CONFIG
-#define CFG_SUPPORT_TRX_LIMITED_CONFIG          0
-#endif
 /* SoftAp Cross Band Channel Switch */
 #ifndef CFG_SUPPORT_IDC_CH_SWITCH
 #define CFG_SUPPORT_IDC_CH_SWITCH               1
@@ -1262,10 +1180,6 @@
 #define CFG_SW_NVRAM_VERSION_CHECK              1
 #define CFG_SUPPORT_NIC_CAPABILITY              1
 
-#ifndef CFG_QUEUE_DEBUG
-#define CFG_QUEUE_DEBUG                         0
-#endif /* CFG_QUEUE_DEBUG */
-
 /*------------------------------------------------------------------------------
  * CONFIG_TITLE : Stress Test Option
  * OWNER        : Puff Wen
@@ -1324,44 +1238,14 @@
  * to trigger roaming scan
  * after skip roaming in one ESSID AP case
  */
-#define CFG_SUPPORT_ROAMING_SKIP_ONE_AP		0
 #define CFG_SUPPORT_DRIVER_ROAMING		(!CFG_EXT_ROAMING)
 #else
-#define CFG_SUPPORT_ROAMING_SKIP_ONE_AP		0
 #define CFG_SUPPORT_DRIVER_ROAMING		0
 
 #endif /* CFG_SUPPORT_ROAMING */
 
 #ifndef CFG_SUPPORT_MLR
-#define CFG_SUPPORT_MLR		0
-#endif
-
-#ifndef CFG_SUPPORT_MLR_V2
-#define CFG_SUPPORT_MLR_V2		0
-#endif
-
-#ifndef CFG_SUPPORT_BALANCE_MLRV2
-#define CFG_SUPPORT_BALANCE_MLRV2		0
-#endif
-
-#ifndef CFG_SUPPORT_BALANCE_MLRP_ALR
-#define CFG_SUPPORT_BALANCE_MLRP_ALR		0
-#endif
-
-#if (CFG_SUPPORT_MLR == 0) && (CFG_SUPPORT_MLR_V2 == 1)
-#error "CFG_SUPPORT_MLR_V2 is based on CFG_SUPPORT_MLR"
-#endif
-
-#if (CFG_SUPPORT_MLR == 0 || CFG_SUPPORT_MLR_V2 == 0) && \
-	(CFG_SUPPORT_BALANCE_MLRV2 == 1)
-#error \
-"CFG_SUPPORT_BALANCE_MLRV2 is based on CFG_SUPPORT_MLR and CFG_SUPPORT_MLR_V2"
-#endif
-
-#if (CFG_SUPPORT_MLR == 0 || CFG_SUPPORT_MLR_V2 == 0) && \
-	(CFG_SUPPORT_BALANCE_MLRP_ALR == 1)
-#error \
-"CFG_SUPPORT_BALANCE_MLRP_ALR is based on CFG_SUPPORT_MLR and CFG_SUPPORT_MLR_V2"
+#define CFG_SUPPORT_MLR				1
 #endif
 
 #define CFG_SUPPORT_SWCR			1
@@ -1382,14 +1266,6 @@
 #else
 #define CFG_SHOW_FULL_MACADDR			0
 #define CFG_SHOW_FULL_IPADDR			0
-#endif
-
-#ifndef CFG_SUPPORT_RSNO
-#define CFG_SUPPORT_RSNO			1
-#endif
-
-#ifndef CFG_DEFAULT_ENABLE_RSNO
-#define CFG_DEFAULT_ENABLE_RSNO			0
 #endif
 
 #ifndef CFG_SUPPORT_VO_ENTERPRISE
@@ -1480,10 +1356,6 @@
 #define CFG_SUPPORT_802_11BE                     0
 #endif
 
-#ifndef CFG_SUPPORT_SAP_BCN_CRI_UPD
-#define CFG_SUPPORT_SAP_BCN_CRI_UPD              0
-#endif
-
 #ifndef CFG_SUPPORT_802_PP_DSCB
 #if CFG_SUPPORT_802_11BE
 #define CFG_SUPPORT_802_PP_DSCB                  1
@@ -1494,14 +1366,6 @@
 
 #ifndef CFG_SUPPORT_802_11BE_MLO
 #define CFG_SUPPORT_802_11BE_MLO                 0
-#endif
-
-#ifndef CFG_SUPPORT_SAP_PUNCTURE
-#define CFG_SUPPORT_SAP_PUNCTURE                 0
-#endif
-
-#ifndef CFG_SUPPORT_SAP_CSA_PUNCTURE
-#define CFG_SUPPORT_SAP_CSA_PUNCTURE             0
 #endif
 
 #ifndef CFG_SUPPORT_802_11BE_EPCS
@@ -1524,45 +1388,13 @@
 #define CFG_MLO_LINK_PLAN_MODE			 0
 #endif
 
-#ifndef CFG_DEFAULT_ENABLE_EMLSR
-#define CFG_DEFAULT_ENABLE_EMLSR		 0
-#endif
-
-#ifndef CFG_MLO_EMLSR_CONCURRENT_ENHANCEMENT
-#define CFG_MLO_EMLSR_CONCURRENT_ENHANCEMENT     0
-#endif
-
-#ifndef CFG_MLO_CONCURRENT_SINGLE_PHY
-#define CFG_MLO_CONCURRENT_SINGLE_PHY     0
-#endif
-
-#ifndef CFG_SUPPORT_MLO_HYBRID
-#define CFG_SUPPORT_MLO_HYBRID     0
-#endif
-
-#ifndef CFG_SUPPORT_MLO_EXTERNAL_AUTH_BY_VENDOR_CMD
-#define CFG_SUPPORT_MLO_EXTERNAL_AUTH_BY_VENDOR_CMD     0
-#endif
-
-#ifndef CFG_SUPPORT_FORCE_LINK_SORT
-#define CFG_SUPPORT_FORCE_LINK_SORT      0
-#endif
-
 #ifndef CFG_SINGLE_BAND_MLSR_56
 #define CFG_SINGLE_BAND_MLSR_56                  0
-#endif
-
-#ifndef CFG_SUPPORT_MLC
-#define CFG_SUPPORT_MLC				 0
 #endif
 
 #if (CFG_SUPPORT_802_11BE_MLO == 1) && (CFG_SUPPORT_802_11BE == 0)
 #error \
 "CFG_SUPPORT_802_11BE should be 1 once CFG_SUPPORT_802_11BE_MLO equals to 1"
-#endif
-
-#ifndef CFG_SUPPORT_DUAL_SAP_SINGLE_LINK_MLO
-#define CFG_SUPPORT_DUAL_SAP_SINGLE_LINK_MLO	0
 #endif
 
 #ifndef CFG_SUPPORT_APS
@@ -1598,8 +1430,6 @@
 /* Refer to CONFIG_MTK_STAGE_SCAN */
 #define CFG_MTK_STAGE_SCAN			1
 
-#define CFG_SUPPORT_AIS_TEST_MODE		BUILD_QA_DBG
-
 /* Enable driver support multicore */
 #ifndef CFG_SUPPORT_MULTITHREAD
 #define CFG_SUPPORT_MULTITHREAD		1
@@ -1616,8 +1446,8 @@
 #define CFG_SUPPORT_MTK_SYNERGY			1
 #endif
 
-#ifndef CFG_SUPPORT_RXSMM_ALLOWLIST
-#define CFG_SUPPORT_RXSMM_ALLOWLIST		1
+#ifndef CFG_SUPPORT_RXSMM_WHITELIST
+#define CFG_SUPPORT_RXSMM_WHITELIST		1
 #endif
 
 #define CFG_SUPPORT_VHT_IE_IN_2G		1
@@ -1638,10 +1468,27 @@
 
 #define CFG_SUPPORT_DYNAMIC_PWR_LIMIT_ANT_TAG	1
 
+#if (CFG_SUPPORT_CONNAC3X == 0) || defined(MT6639)
+#define CFG_SUPPORT_CHAIN_COMP_ARCH 0
+#else
+#define CFG_SUPPORT_CHAIN_COMP_ARCH 1
+#endif
+
+#if (CFG_SUPPORT_CONNAC3X == 0)
+#define CFG_SUPPORT_CHAIN_ABS_ARCH 0
+#else
+#define CFG_SUPPORT_CHAIN_ABS_ARCH 1
+#endif
+
+#define CFG_FIX_2_TX_PORT			0
+
 #define CFG_CHANGE_CRITICAL_PACKET_PRIORITY	1
 
 #ifndef CFG_TX_HIF_PORT_QUEUE
 #define CFG_TX_HIF_PORT_QUEUE		0
+#endif
+#if (CFG_TX_HIF_PORT_QUEUE == 1) && CFG_FIX_2_TX_PORT
+#error "we did not expect fix 2 tx port queue supports TxHifPortQueue"
 #endif
 
 #ifndef CFG_TX_HIF_CREDIT_FEATURE
@@ -1669,10 +1516,6 @@
 #ifndef CFG_SUPPORT_TX_DATA_DELAY
 #define CFG_SUPPORT_TX_DATA_DELAY		0
 #endif
-
-#ifndef CFG_BMC_DISABLE_RETRY_RTS
-#define CFG_BMC_DISABLE_RETRY_RTS	0
-#endif /* CFG_BMC_DISABLE_RETRY_RTS */
 
 /*------------------------------------------------------------------------------
  * Flags of bus error tolerance
@@ -1732,10 +1575,6 @@
 #define CFG_SUPPORT_LLS 0
 #endif
 
-#ifndef CFG_SUPPORT_MBRAIN
-#define CFG_SUPPORT_MBRAIN 0
-#endif
-
 /* Before (including) Android T, use single interface report structure */
 #ifndef AOSP_LLS_V1_SINGLE_INTERFACE
 #define AOSP_LLS_V1_SINGLE_INTERFACE 0
@@ -1791,11 +1630,7 @@
  * Value of scan cache result
  *------------------------------------------------------------------------------
  */
-#if CFG_MTK_ANDROID_WMT && CFG_MTK_WIFI_PLAT_ALPS && !CFG_TC10_CUSTOMIZED_SCAN
-#define CFG_SUPPORT_SCAN_CACHE_RESULT      (1)
-#else
 #define CFG_SUPPORT_SCAN_CACHE_RESULT      (0)
-#endif
 #define CFG_SCAN_CACHE_RESULT_PERIOD       (7000)	/* Unit: ms */
 #define CFG_SCAN_CACHE_MIN_CHANNEL_NUM     (10)
 
@@ -1857,13 +1692,6 @@
 #define CFG_SUPPORT_MSP				1
 
 
-/*------------------------------------------------------------------------------
- * Flags of driver trigger TxTimeout SER
- *------------------------------------------------------------------------------
- */
-#ifndef CFG_DISABLE_TXTIMEOUT_SER
-#define CFG_DISABLE_TXTIMEOUT_SER		0
-#endif
 
 /*------------------------------------------------------------------------------
  * Flags of driver fw customization
@@ -1900,14 +1728,6 @@
  */
 #ifndef CFG_SUPPORT_WIFI_HOST_OFFLOAD
 #define CFG_SUPPORT_WIFI_HOST_OFFLOAD	1
-#endif
-
-/*------------------------------------------------------------------------------
- * Flags for DMA SHDL
- *------------------------------------------------------------------------------
- */
-#ifndef CFG_DYNAMIC_DMASHDL_MAX_QUOTA
-#define CFG_DYNAMIC_DMASHDL_MAX_QUOTA	0
 #endif
 
 /*------------------------------------------------------------------------------
@@ -1984,12 +1804,10 @@
 #endif
 
 /*------------------------------------------------------------------------------
- * Flags of Tx Power Envelope
+ * Enable SDIO 1-bit Data Mode. (Usually debug only)
  *------------------------------------------------------------------------------
  */
-#ifndef CFG_SUPPORT_CE_6G_PWR_REGULATIONS
-#define CFG_SUPPORT_CE_6G_PWR_REGULATIONS 0
-#endif
+#define CFG_SDIO_1BIT_DATA_MODE			0
 
 /*------------------------------------------------------------------------------
  * Single Sku
@@ -2007,20 +1825,16 @@
 #define CFG_SUPPORT_SINGLE_SKU_LOCAL_DB 1
 #endif
 
-#ifndef CFG_SUPPORT_POWER_SKU_ENHANCE
-#define CFG_SUPPORT_POWER_SKU_ENHANCE 0
-#endif
-
-#ifndef CFG_SUPPORT_SINGLE_SKU_DFS_PROTECT
-#define CFG_SUPPORT_SINGLE_SKU_DFS_PROTECT 1
-#endif
-
-#ifndef CFG_SUPPORT_SINGLE_SKU_FORCE_CUSTOM_REG
-#define CFG_SUPPORT_SINGLE_SKU_FORCE_CUSTOM_REG 1
-#endif
-
 #ifndef CFG_SUPPORT_SINGLE_SKU_6G_1SS1T
-#define CFG_SUPPORT_SINGLE_SKU_6G_1SS1T 0
+#define CFG_SUPPORT_SINGLE_SKU_6G_1SS1T 1
+#endif
+
+#ifndef CFG_SUPPORT_BW160
+#define CFG_SUPPORT_BW160 0
+#endif
+
+#ifndef CFG_SUPPORT_BW320
+#define CFG_SUPPORT_BW320 0
 #endif
 
 /*------------------------------------------------------------------------------
@@ -2067,11 +1881,16 @@
  */
 #define CFG_SUPPORT_NCHO	(CFG_EXT_FEATURE)
 #define CFG_SUPPORT_ASSURANCE	(CFG_EXT_FEATURE)
-#define CFG_SUPPORT_LLW_SCAN		(1)
-#define CFG_STAINFO_FEATURE (0)
+#define CFG_SUPPORT_LLW_SCAN		(CFG_EXT_FEATURE)
+#define CFG_STAINFO_FEATURE (CFG_EXT_FEATURE)
 #define CFG_SUPPORT_STA_INFO (CFG_EXT_FEATURE)
 #define CFG_SUPPORT_BW_SELECT (CFG_EXT_FEATURE)
-#define CFG_SUPPORT_UV (CFG_EXT_FEATURE)
+
+/*------------------------------------------------------------------------------
+ * Flags of Randomized TA in MGMT frames while not associated
+ *------------------------------------------------------------------------------
+ */
+#define CFG_SUPPORT_MGMT_TX_RANDOM_TA (CFG_EXT_FEATURE)
 
 /*------------------------------------------------------------------------------
  * Flags of Manipulate TID for UDP packets
@@ -2113,14 +1932,14 @@
 #define CFG_SUPPORT_RX_QUOTA_INFO 1
 
 /*-----------------------------------------------------------------------------
-* Flags to support IOT AP blocklist
+* Flags to support IOT AP blacklist
 *------------------------------------------------------------------------------
 */
-#ifndef CFG_SUPPORT_IOT_AP_BLOCKLIST
-#define CFG_SUPPORT_IOT_AP_BLOCKLIST 1
+#ifndef CFG_SUPPORT_IOT_AP_BLACKLIST
+#define CFG_SUPPORT_IOT_AP_BLACKLIST 1
 #endif
 
-#if CFG_SUPPORT_IOT_AP_BLOCKLIST
+#if CFG_SUPPORT_IOT_AP_BLACKLIST
 #define CFG_IOT_AP_RULE_MAX_CNT 32
 #define CFG_IOT_AP_DATA_MAX_LEN 16
 #endif
@@ -2132,11 +1951,7 @@
 #define CFG_REPORT_MAX_TX_RATE	0
 
 #if (CFG_SUPPORT_STATS_ONE_CMD == 1)
-#if (CFG_TC10_FEATURE == 1)
 #define CFG_STATS_ONE_CMD_PERIOD 200
-#else
-#define CFG_STATS_ONE_CMD_PERIOD 3000
-#endif /* CFG_TC10_FEATURE */
 #endif
 
 /*------------------------------------------------------------------------------
@@ -2225,10 +2040,6 @@
 #define CFG_SUPPORT_CONNFEM 0
 #endif
 
-#ifndef CFG_SUPPORT_XONVRAM
-#define CFG_SUPPORT_XONVRAM 0
-#endif
-
 #ifndef CFG_SUPPORT_PRE_ON_PHY_ACTION
 #define CFG_SUPPORT_PRE_ON_PHY_ACTION 0
 #endif
@@ -2247,10 +2058,6 @@
 
 #ifndef CFG_SUPPORT_MDDP_SHM
 #define CFG_SUPPORT_MDDP_SHM 0
-#endif
-
-#ifndef CFG_SUPPORT_MDDP_DYNAMIC_DISABLE
-#define CFG_SUPPORT_MDDP_DYNAMIC_DISABLE 0
 #endif
 
 /*------------------------------------------------------------------------------
@@ -2291,21 +2098,6 @@
 #else
 #define CFG_SUPPORT_PERSIST_NETDEV 1
 #endif
-
-
-/*------------------------------------------------------------------------------
- * Dynamic tx power control:
- * Support additional tx power setting on CCK AND OFDM
- *
- * No define: CCK,HT20L,HT20H,HT40L,HT40H,HT80L,HT80H,HT160L,HT160H
- * Defined: CCK_L,CCK_H,OFDM_L,OFDM_H,HT20L,HT20H,HT40L,HT40H,HT80L,
- * HT80H,HT160L,HT160H
- *
- * note: need to confirm firmware support this feature
- *       COUNTRY_CHANNEL_TXPOWER_LIMIT_TYPE_COMP_11AC_V2
- *------------------------------------------------------------------------------
- */
-#define CFG_SUPPORT_DYNA_TX_PWR_CTRL_11AC_V2_SETTING 0
 
 /*------------------------------------------------------------------------------
  * Dynamic tx power control:
@@ -2443,11 +2235,7 @@
 #if (CFG_SUPPORT_NAN == 1)
 #define CFG_SUPPORT_NAN_ADVANCE_DATA_CONTROL 2
 #define CFG_SUPPORT_NAN_CARRIER_ON_INIT 1
-#if defined(CFG_NSS) && (CFG_NSS == 1)
-#define CFG_SUPPORT_NAN_DBDC 0
-#else
 #define CFG_SUPPORT_NAN_DBDC 1
-#endif
 #define CFG_NAN_BSS_SEPARATE_SEC_ROLE 0
 #define CFG_NAN_PMF_PATCH 1 /* special handle for peer send PMF w/ NMI */
 #define CFG_NAN_ACTION_FRAME_ADDR                                              \
@@ -2475,18 +2263,12 @@
 #define CFG_SUPPORT_NAN_6G  (CFG_SUPPORT_WIFI_6G)
 #endif
 
-#ifndef CFG_NAN_CONCURRENCY
-#define CFG_NAN_CONCURRENCY (CFG_SUPPORT_NAN)
+#ifndef CFG_MLO_CONCURRENT_NAN
+#define CFG_MLO_CONCURRENT_NAN (0)
 #endif
 
 #ifndef CFG_SUPPORT_NAN_11BE_MLO
 #define CFG_SUPPORT_NAN_11BE_MLO (CFG_SUPPORT_802_11BE_MLO)
-#endif
-
-#if (CFG_SUPPORT_NAN_11BE_MLO == 1)
-#define NAN_LINK_NUM 2
-#else
-#define NAN_LINK_NUM 1
 #endif
 
 #ifndef CFG_SUPPORT_NAN_11BE
@@ -2504,7 +2286,11 @@
 #endif
 
 #ifndef CFG_SUPPORT_MLO_STA_NAN_FALLBACK
-#define CFG_SUPPORT_MLO_STA_NAN_FALLBACK (0)
+#define CFG_SUPPORT_MLO_STA_NAN_FALLBACK (CFG_EXT_FEATURE)
+#endif
+
+#ifndef CFG_SUPPORT_NAN_MGMT_TX
+#define CFG_SUPPORT_NAN_MGMT_TX  (CFG_SUPPORT_NAN)
 #endif
 
 #ifdef SOC7_0
@@ -2535,36 +2321,14 @@
  */
 #define CFG_SUPPORT_TPENHANCE_MODE          0
 
-#define MLD_HYBRID_MLO_LINK_NUM 3
+#ifndef CFG_MTK_FPGA_PLATFORM
+#define CFG_MTK_FPGA_PLATFORM			0
+#endif
 
 #ifdef CFG_MLD_LINK_MAX
 #define MLD_LINK_MAX (CFG_MLD_LINK_MAX)
 #else
 #define MLD_LINK_MAX 1
-#endif
-
-#ifdef CFG_MLD_AP_LINK_MAX
-#define MLD_AP_LINK_MAX (CFG_MLD_AP_LINK_MAX)
-#else
-#define MLD_AP_LINK_MAX 1
-#endif
-
-#ifdef CFG_MLD_STA_LINK_MAX
-#define MLD_STA_LINK_MAX (CFG_MLD_STA_LINK_MAX)
-#else
-#define MLD_STA_LINK_MAX MLD_LINK_MAX
-#endif
-
-#ifdef CFG_MLD_P2P_LINK_MAX
-#define MLD_P2P_LINK_MAX (CFG_MLD_P2P_LINK_MAX)
-#else
-#define MLD_P2P_LINK_MAX MLD_LINK_MAX
-#endif
-
-#ifdef CFG_AP_EHT_DEFAULT_VALUE
-#define AP_EHT_DEFAULT_VALUE (CFG_AP_EHT_DEFAULT_VALUE)
-#else
-#define AP_EHT_DEFAULT_VALUE FEATURE_FORCE_ENABLED
 #endif
 
 #ifdef CFG_DBDC_MODE
@@ -2597,18 +2361,6 @@
 #define DEFAULT_STA_6G_BW (MAX_BW_320_2MHZ)
 #endif
 
-#ifdef CFG_SAP_2G_BW
-#define DEFAULT_SAP_2G_BW (CFG_SAP_2G_BW)
-#else
-#define DEFAULT_SAP_2G_BW (MAX_BW_20MHZ)
-#endif
-
-#ifdef CFG_P2P_2G_BW
-#define DEFAULT_P2P_2G_BW (CFG_P2P_2G_BW)
-#else
-#define DEFAULT_P2P_2G_BW (MAX_BW_20MHZ)
-#endif
-
 #ifndef CFG_MTK_WIFI_SW_WFDMA
 #define CFG_MTK_WIFI_SW_WFDMA			0
 #endif
@@ -2617,32 +2369,16 @@
 #define CFG_MTK_WIFI_SW_EMI_RING		0
 #endif
 
-#ifndef CFG_MTK_WIFI_MBU
-#define CFG_MTK_WIFI_MBU			0
-#endif
-
-#ifndef CFG_SUPPORT_PAGE_POOL_USE_CMA
-#define CFG_SUPPORT_PAGE_POOL_USE_CMA        0
-#endif
-
-#ifndef CFG_MTK_WIFI_MISC_RSV_MEM
-#define CFG_MTK_WIFI_MISC_RSV_MEM		0
-#endif
-
-#ifndef CFG_MTK_WIFI_TX_CMA_MEM
-#define CFG_MTK_WIFI_TX_CMA_MEM		0
-#endif
-
-#ifndef CFG_MTK_WIFI_TX_CMA_MEM_NON_CACHE
-#define CFG_MTK_WIFI_TX_CMA_MEM_NON_CACHE		0
-#endif
-
-#ifndef CFG_MTK_WIFI_TX_MEM_SLIM
-#define CFG_MTK_WIFI_TX_MEM_SLIM        0
+#ifndef CFG_MTK_WIFI_EN_SW_EMI_READ
+#define CFG_MTK_WIFI_EN_SW_EMI_READ		0
 #endif
 
 #ifndef CFG_MTK_WIFI_PCIE_MSI_MASK_BY_MMIO_WRITE
 #define CFG_MTK_WIFI_PCIE_MSI_MASK_BY_MMIO_WRITE	0
+#endif
+
+#ifndef CFG_MTK_WIFI_MISC_RSV_MEM
+#define CFG_MTK_WIFI_MISC_RSV_MEM		0
 #endif
 
 #ifndef CFG_MTK_WIFI_PCIE_CONFIG_SPACE_ACCESS_DBG
@@ -2661,14 +2397,6 @@
 
 #ifndef CFG_MTK_WIFI_WFDMA_WB
 #define CFG_MTK_WIFI_WFDMA_WB			0
-#endif
-
-#ifndef CFG_MTK_WIFI_WFDMA_4_TX_DATA_RING
-#define CFG_MTK_WIFI_WFDMA_4_TX_DATA_RING			0
-#endif
-
-#ifndef CFG_MTK_WIFI_FORCE_RECV_RX
-#define CFG_MTK_WIFI_FORCE_RECV_RX			0
 #endif
 
 #ifndef CFG_SUPPORT_TSF_SYNC
@@ -2720,24 +2448,12 @@
 #define CFG_RFB_TRACK 0
 #endif /* CFG_RFB_TRACK */
 
-#ifndef CFG_RFB_RECOVERY
-#define CFG_RFB_RECOVERY 0
-#endif /* CFG_RFB_RECOVERY */
-
 /* Check the buffer pointer in SWRFB, and attempt to correct from skb->data
  * if the skb->head recognized as a valid address.
  */
 #ifndef CFG_FIX_INCONSISTENT_RFB_POINTER
 #define CFG_FIX_INCONSISTENT_RFB_POINTER 0
 #endif
-
-#ifndef CFG_DEBUG_RX_SEGMENT
-#define CFG_DEBUG_RX_SEGMENT 0
-#endif /* CFG_DEBUG_SEGMENT */
-
-#if CFG_DEBUG_RX_SEGMENT
-#define RX_SEGMENT_DEBUG_TIMEOUT 10 /* unit: second */
-#endif /* CFG_DEBUG_RX_SEGMENT */
 
 /*------------------------------------------------------------------------------
  * Support FreeMsdu tasklet.
@@ -2762,14 +2478,6 @@
 #if (CFG_SUPPORT_TASKLET_FREE_MSDU == 0) && (CFG_SUPPORT_TX_FREE_MSDU_WORK == 1)
 #error "TX_FREE_MSDU_WORK is based on TASKLET_FREE_MSDU."
 #endif
-
-#ifndef CFG_SUPPORT_TX_FREE_SKB_WORK
-#define CFG_SUPPORT_TX_FREE_SKB_WORK 0
-#endif /* CFG_SUPPORT_TX_FREE_SKB_WORK */
-
-#ifndef CFG_ADJUST_NETIF_TH_BY_BAND
-#define CFG_ADJUST_NETIF_TH_BY_BAND 0
-#endif /* CFG_ADJUST_NETIF_TH_BY_BAND */
 
 /*------------------------------------------------------------------------------
  * Flags of Force TX via ALTX Q Support
@@ -2862,8 +2570,8 @@
  * VO w/ ToS = 0xB0 and 0xB8.
  *
  * By disabling QoS R2 w/ CONFIG_WIFI_AT_THE_EDGE_QOS_SUPPORT,
- * two additional ToS 0xC0 and 0xE0 are allowed to map to UP 6, 7.
- * Along with the change in sigma tool by setting VO to ToS=0xCo,
+ * two additional ToS 0xC0 and 0xE0 are allowed to map to UP 7.
+ * Along with the change in sigma tool by setting VO to ToS=0xC0,
  * this makes the intersection values available for QoS R2 and
  * sigma tool for legacy programs.
  */
@@ -2931,15 +2639,6 @@
 #endif
 
 /*------------------------------------------------------------------------------
- * By default, all ARP will be set as TXS and low rate
- * Set this option to limit the scope in critical ARP messages only
- *------------------------------------------------------------------------------
- */
-#ifndef CFG_ONLY_CRITICAL_ARP_SET_TXS_LOWRATE
-#define CFG_ONLY_CRITICAL_ARP_SET_TXS_LOWRATE 0
-#endif
-
-/*------------------------------------------------------------------------------
 * Flags for supported not free pending Tx msduInfo in nicDeactivateNetworkEx()
 * Prevent clear msdu which is still Tx(Host -> Device)
 *------------------------------------------------------------------------------
@@ -2998,10 +2697,6 @@
 #endif /* CFG_SUPPORT_DISABLE_CMD_DDONE_INTR */
 #define CFG_SUPPORT_DISABLE_DATA_DDONE_INTR   1
 
-#define CFG_SUPPORT_DISABLE_TX_DDONE_INTR \
-	(CFG_SUPPORT_DISABLE_DATA_DDONE_INTR && \
-	 CFG_SUPPORT_DISABLE_CMD_DDONE_INTR)
-
 /*------------------------------------------------------------------------------
  * Flags of ATF (ARM Trusted firmware) Support
  *------------------------------------------------------------------------------
@@ -3021,12 +2716,10 @@
  * Flags of CSI (Channel State Information) Support
  *------------------------------------------------------------------------------
  */
-#ifndef CFG_SUPPORT_CSI
-#if (CFG_SUPPORT_CONNAC1X == 1 || CFG_SUPPORT_CONNAC2X == 1)
-#define CFG_SUPPORT_CSI 0
-#else
+#if (CFG_SUPPORT_CONNAC3X == 1)
 #define CFG_SUPPORT_CSI 1
-#endif
+#else
+#define CFG_SUPPORT_CSI 0
 #endif
 
 #if (CFG_SUPPORT_CSI == 1)
@@ -3053,19 +2746,22 @@
 #define CFG_FAST_PATH_SUPPORT 0
 #endif
 
-#define CFG_RTT_TEST_MODE 0
-#define CFG_RTT_MAX_CANDIDATES 10	/* ISTA maximum peer APs */
-#define CFG_RTT_MAX_CLIENTS 1		/* RSTA maximum clients */
-
-#if (CFG_SUPPORT_CONNAC1X == 1 || CFG_SUPPORT_CONNAC2X == 1)
-#define CFG_WIFI_IGTK_GTK_SEPARATE	1
+#if (CFG_SUPPORT_CONNAC3X == 1)
+#define CFG_SUPPORT_RTT 1
 #else
-#define CFG_WIFI_IGTK_GTK_SEPARATE	0
+#define CFG_SUPPORT_RTT 0
 #endif
 
-#if (CFG_MTK_ANDROID_WMT == 1) && (CFG_TC10_FEATURE == 0)
-#define CFG_WIFI_EHT_H2E_CHK		0
+#define CFG_RTT_TEST_MODE 0
+#define CFG_RTT_MAX_CANDIDATES 10
+
+#if (CFG_SUPPORT_CONNAC3X == 1)
+#define CFG_WIFI_IGTK_GTK_SEPARATE	0
 #else
+#define CFG_WIFI_IGTK_GTK_SEPARATE	1
+#endif
+
+#ifndef CFG_WIFI_EHT_H2E_CHK
 #define CFG_WIFI_EHT_H2E_CHK		1
 #endif
 
@@ -3077,9 +2773,7 @@
 #define CONFIG_SUPPORT_OS_IND_RETAINED 0
 #endif
 
-#ifndef CFG_SUPPORT_SW_BIP_GMAC
 #define CFG_SUPPORT_SW_BIP_GMAC		1
-#endif
 
 #ifndef CFG_SUPPORT_DUAL_WTBL_GTK_REKEY_OFFLOAD
 #define CFG_SUPPORT_DUAL_WTBL_GTK_REKEY_OFFLOAD        0
@@ -3195,14 +2889,20 @@
  */
 #if CFG_EXT_FEATURE
 #define CFG_SUPPORT_SA_LOG 1
+#define CFG_SA_LOG_SIMPLIFY 1
+#define CFG_SUPPORT_FW_LOG_SPLIT_AND_REDIRECT 1
 #define CFG_SUPPORT_CABLE_DETECT 1
 #define CFG_HDM_WIFI_SUPPORT 1
 #define CFG_SUPPORT_LOGGER 1
+#define CFG_LOGGER_FWLOG_POLLING 0
 #else
 #define CFG_SUPPORT_SA_LOG 0
+#define CFG_SA_LOG_SIMPLIFY 0
+#define CFG_SUPPORT_FW_LOG_SPLIT_AND_REDIRECT 0
 #define CFG_SUPPORT_CABLE_DETECT 0
 #define CFG_HDM_WIFI_SUPPORT 0
 #define CFG_SUPPORT_LOGGER 0
+#define CFG_LOGGER_FWLOG_POLLING 0
 #endif
 
 #define CFG_ENABLE_MAWD_MD_RING 0
@@ -3222,131 +2922,12 @@
 #define CFG_MTK_P2P_DROP_PROBE_DURING_CSA	1
 
 /*------------------------------------------------------------------------------
- * Flag used for USB auto suspend support
- * Value 0: Disable USB auto suspend.
- * Value 1: Enable USB auto suspend. (only for LP MSP)
- *------------------------------------------------------------------------------
- */
-#ifndef CFG_USB_AUTO_SUSPEND
-#define CFG_USB_AUTO_SUSPEND 0
-#endif
-
-/*------------------------------------------------------------------------------
- * Flags of PCIE LTR update
- *------------------------------------------------------------------------------
- */
-#if defined(_HIF_PCIE)
-#ifndef CFG_PCIE_LTR_UPDATE
-#define CFG_PCIE_LTR_UPDATE 0
-#endif
-#endif
-
-/*------------------------------------------------------------------------------
- * MTK WIFI PCIE support
- *------------------------------------------------------------------------------
- */
-#ifndef CFG_MTK_WIFI_PCIE_SUPPORT
-#define CFG_MTK_WIFI_PCIE_SUPPORT 0
-#endif
-
-/*------------------------------------------------------------------------------
- * MTK PCIE MSI support
- *------------------------------------------------------------------------------
- */
-#ifndef CFG_MTK_WIFI_PCIE_MSI_SUPPORT
-#define CFG_MTK_WIFI_PCIE_MSI_SUPPORT 0
-#endif
-
-/*------------------------------------------------------------------------------
- * New read register api
- *------------------------------------------------------------------------------
- */
-#ifndef CFG_NEW_HIF_DEV_REG_IF
-#define CFG_NEW_HIF_DEV_REG_IF 0
-#endif
-
-/*------------------------------------------------------------------------------
- * High resolution timer
- *------------------------------------------------------------------------------
- */
-#ifndef CFG_SUPPORT_HRTIMER
-#define CFG_SUPPORT_HRTIMER 0
-#endif
-
-/*------------------------------------------------------------------------------
- * New used for update pacing shift for tweak TCP small queue budget
- *------------------------------------------------------------------------------
- */
-#ifndef CFG_UPDATE_PACING_SHIFT_SUPPORT
-#define CFG_UPDATE_PACING_SHIFT_SUPPORT 0
-#endif
-
-/*------------------------------------------------------------------------------
- * Support alloc hif mem from reserved memory
- *------------------------------------------------------------------------------
- */
-#if (CFG_MTK_ANDROID_WMT == 1)
-#define CFG_SUPPORT_WIFI_RSV_MEM 1
-#else
-#ifndef CFG_SUPPORT_WIFI_RSV_MEM
-#define CFG_SUPPORT_WIFI_RSV_MEM 0
-#endif
-#endif
-
-/*------------------------------------------------------------------------------
  * Tx power limit channel definition:
  * 0 : Center Channel (config in rlm_txpwr_data_emi_cent.h)
  * 1 : Primary Channel (config in rlm_txpwr_data_emi_pri.h)
  *------------------------------------------------------------------------------
  */
-#define COUNTRY_CHANNEL_TXPOWER_LIMIT_CHANNEL_DEFINE 1
-
-/*------------------------------------------------------------------------------
- * Flags of using wmt driver to wifi on with test mode
- *------------------------------------------------------------------------------
- */
-#if CFG_MTK_ANDROID_WMT && CFG_TESTMODE_FWDL_SUPPORT
-#define CFG_TESTMODE_WMT_WIFI_ON_SUPPORT 1
-#else
-#define CFG_TESTMODE_WMT_WIFI_ON_SUPPORT 0
-#endif
-
-/*------------------------------------------------------------------------------
- * Dump ch info
- *------------------------------------------------------------------------------
- */
-#ifndef CFG_SURVEY_DUMP_FULL_CHANNEL
-#define CFG_SURVEY_DUMP_FULL_CHANNEL 0
-#endif
-
-/*------------------------------------------------------------------------------
- * SAP beacon protection
- *------------------------------------------------------------------------------
- */
-#if CFG_ENABLE_WIFI_DIRECT
-#ifndef CFG_SUPPORT_SAP_BCN_PROT
-#define CFG_SUPPORT_SAP_BCN_PROT 0
-#endif
-#else
-#undef CFG_SUPPORT_SAP_BCN_PROT
-#define CFG_SUPPORT_SAP_BCN_PROT 0
-#endif
-
-/*------------------------------------------------------------------------------
- * Support Force Driver Own or not.
- *------------------------------------------------------------------------------
- */
-#ifndef CFG_SUPPORT_SDIO_FORCE_DRV_OWN
-#define CFG_SUPPORT_SDIO_FORCE_DRV_OWN  0
-#endif
-
-/*------------------------------------------------------------------------------
- * Support SDIO Reg Db Delay or not.
- *------------------------------------------------------------------------------
- */
-#ifndef CFG_SUPPORT_SDIO_DB_DELAY
-#define CFG_SUPPORT_SDIO_DB_DELAY  0
-#endif
+#define COUNTRY_CHANNEL_TXPOWER_LIMIT_CHANNEL_DEFINE 0
 
 /*******************************************************************************
  *                             D A T A   T Y P E S

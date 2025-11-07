@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -10,7 +10,7 @@
      from MediaTek 802.11 Wireless LAN driver stack to GLUE Layer.
 */
 
-#if defined(MT7961) || defined(MT7922) || defined(MT7902)
+#ifdef MT7961
 
 /*******************************************************************************
 *                         C O M P I L E R   F L A G S
@@ -25,12 +25,6 @@
 #include "mt7961.h"
 #include "coda/mt7961/cbtop_rgu.h"
 #include "coda/mt7961/ssusb_epctl_csr.h"
-#include "hal_wfsys_reset_mt7961.h"
-#if defined(MT7961) || defined(MT7922)
-#include "coda/mt7961/wf_wfdma_host_dma0.h"
-#elif defined(MT7902)
-#include "coda/mt7902/wf_wfdma_host_dma0.h"
-#endif
 
 #if CFG_CHIP_RESET_SUPPORT
 /*******************************************************************************
@@ -319,7 +313,7 @@ u_int8_t mt7961HalPollWfsysSwInitDone(struct ADAPTER *prAdapter)
 {
 #define SER_L05_RST_DONE_TIMEOUT        (2000)
 
-	uint32_t u4CrValue1 = 0, u4Tick;
+	uint32_t u4CrValue1, u4Tick;
 	u_int8_t fgSwInitDone = TRUE;
 
 

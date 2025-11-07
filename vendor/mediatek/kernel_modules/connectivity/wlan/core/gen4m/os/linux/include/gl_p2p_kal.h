@@ -105,8 +105,6 @@ kalP2PUpdateAssocInfo(struct GLUE_INFO *prGlueInfo,
 
 /*UINT_32 kalP2PGetFreqInKHz(P_GLUE_INFO_T prGlueInfo);*/
 
-int32_t mtk_Netdev_To_DevIdx(struct GLUE_INFO *prGlueInfo,
-		void *pvNdev, uint8_t *pucDevIdx);
 int32_t mtk_Netdev_To_RoleIdx(struct GLUE_INFO *prGlueInfo,
 		void *pvNdev,
 		uint8_t *pucRoleIdx);
@@ -252,8 +250,7 @@ kalP2PIndicateRxMgmtFrame(struct ADAPTER *prAdapter,
 		struct GLUE_INFO *prGlueInfo,
 		struct SW_RFB *prSwRfb,
 		u_int8_t fgIsDevInterface,
-		uint8_t ucRoleIdx,
-		uint32_t u4LinkId);
+		uint8_t ucRoleIdx);
 
 void kalP2PIndicateMgmtTxStatus(struct GLUE_INFO *prGlueInfo,
 		struct MSDU_INFO *prMsduInfo,
@@ -296,20 +293,20 @@ kalP2PCacStartedUpdate(struct GLUE_INFO *prGlueInfo,
 
 #if CFG_SUPPORT_HOTSPOT_WPS_MANAGER
 
-u_int8_t kalP2PSetBlockList(struct GLUE_INFO *prGlueInfo,
+u_int8_t kalP2PSetBlackList(struct GLUE_INFO *prGlueInfo,
 		uint8_t rbssid[PARAM_MAC_ADDR_LEN],
 		u_int8_t fgIsblock,
 		uint8_t ucRoleIndex);
 
-u_int8_t kalP2PResetBlockList(struct GLUE_INFO *prGlueInfo,
+u_int8_t kalP2PResetBlackList(struct GLUE_INFO *prGlueInfo,
 		uint8_t ucRoleIndex);
 
 #if CFG_AP_80211KVR_INTERFACE
-void kalP2PCatBlockList(struct GLUE_INFO *prGlueInfo,
+void kalP2PCatBlackList(struct GLUE_INFO *prGlueInfo,
 		bool flag);
 #endif
 
-u_int8_t kalP2PCmpBlockList(struct GLUE_INFO *prGlueInfo,
+u_int8_t kalP2PCmpBlackList(struct GLUE_INFO *prGlueInfo,
 		uint8_t rbssid[PARAM_MAC_ADDR_LEN],
 		uint8_t ucRoleIndex);
 
@@ -330,16 +327,13 @@ void kalP2pIndicateQueuedMgmtFrame(struct GLUE_INFO *prGlueInfo,
 
 void kalP2pIndicateAcsResult(struct GLUE_INFO *prGlueInfo,
 		uint8_t ucRoleIndex,
-		int8_t icLinkId,
 		enum ENUM_BAND eBand,
 		uint8_t ucPrimaryCh,
 		uint8_t ucSecondCh,
 		uint8_t ucSeg0Ch,
 		uint8_t ucSeg1Ch,
 		enum ENUM_MAX_BANDWIDTH_SETTING eChnlBw,
-		enum P2P_VENDOR_ACS_HW_MODE eHwMode,
-		uint16_t u2PunctBitmap,
-		enum ENUM_CHNL_EXT eSco);
+		enum P2P_VENDOR_ACS_HW_MODE eHwMode);
 
 void kalP2pIndicateListenOffloadEvent(
 	struct GLUE_INFO *prGlueInfo,
@@ -374,16 +368,10 @@ void kalP2pIndicateChnlSwitchStarted(struct ADAPTER *prAdapter,
 	struct BSS_INFO *prBssInfo,
 	struct RF_CHANNEL_INFO *prRfChnlInfo,
 	uint8_t ucCsaCount,
-	u_int8_t fgQuiet,
-	u_int8_t fgLockHeld);
+	u_int8_t fgQuiet);
 
 void kalP2pIndicateChnlSwitch(struct ADAPTER *prAdapter,
 		struct BSS_INFO *prBssInfo);
-#if (KERNEL_VERSION(6, 6, 0) <= CFG80211_VERSION_CODE)
-void kalP2pChnlSwitchNotifyWork(struct work_struct *work);
-void kalP2pChnlSwitchStartNotifyWork(struct work_struct *work);
-#endif
-void kalP2pCsaNotifyWorkInit(struct BSS_INFO *prBssInfo);
 
 #if (CFG_SUPPORT_DFS_MASTER == 1)
 int32_t kalP2pFuncPreStartRdd(
@@ -418,8 +406,8 @@ void *kalGetP2pDevScanReq(struct GLUE_INFO *prGlueInfo);
 u_int8_t kalGetP2pDevScanSpecificSSID(struct GLUE_INFO *prGlueInfo);
 
 #if CFG_SUPPORT_IDC_RIL_BRIDGE_NOTIFY
-void kalIdcRegisterRilNotifier(struct GLUE_INFO *prGlueInfo);
-void kalIdcUnregisterRilNotifier(struct GLUE_INFO *prGlueInfo);
+void kalIdcRegisterRilNotifier(void);
+void kalIdcUnregisterRilNotifier(void);
 void kalIdcGetRilInfo(void);
 #endif
 #if CFG_SUPPORT_IDC_RIL_BRIDGE

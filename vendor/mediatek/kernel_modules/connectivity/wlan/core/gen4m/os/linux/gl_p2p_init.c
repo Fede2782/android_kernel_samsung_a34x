@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -82,8 +82,7 @@ void p2pSetSuspendMode(struct GLUE_INFO *prGlueInfo, u_int8_t fgEnable)
 	if (!prGlueInfo->prAdapter->fgIsP2PRegistered ||
 		(prGlueInfo->prAdapter->rP2PNetRegState !=
 			ENUM_NET_REG_STATE_REGISTERED)) {
-		DBGLOG(INIT, DEBUG,
-		       "%s: P2P is not enabled, SKIP!\n", __func__);
+		DBGLOG(INIT, INFO, "%s: P2P is not enabled, SKIP!\n", __func__);
 		return;
 	}
 
@@ -111,7 +110,7 @@ void p2pSetSuspendMode(struct GLUE_INFO *prGlueInfo, u_int8_t fgEnable)
 	}
 
 	if (!prDev) {
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 			"%s: P2P dev is not available, SKIP!\n", __func__);
 		return;
 	}
@@ -304,6 +303,8 @@ u_int8_t p2pRemove(struct GLUE_INFO *prGlueInfo, uint8_t fgIsRtnlLockAcquired)
 	ASSERT(prGlueInfo);
 	ASSERT(prAdapter);
 
+	g_P2pPrDev = NULL;
+
 	/* We must guarantee that all p2p net devices are unregistered with
 	 * kernel before the net devices are freed. Otherwise, when p2pLaunch
 	 * is invoked next time, we will get kernel exception because the old
@@ -322,8 +323,7 @@ retry:
 		if (prAdapter->rP2PRegState == ENUM_P2P_REG_STATE_REGISTERED &&
 			prAdapter->rP2PNetRegState ==
 				ENUM_NET_REG_STATE_REGISTERED) {
-			p2pNetUnregister(prGlueInfo, fgIsRtnlLockAcquired,
-					 FALSE);
+			p2pNetUnregister(prGlueInfo, fgIsRtnlLockAcquired);
 			break;
 		}
 
@@ -357,7 +357,7 @@ retry:
 
 	prAdapter->p2p_scan_report_all_bss = FALSE;
 
-	glUnregisterP2P(prGlueInfo, 0xff, fgIsRtnlLockAcquired);
+	glUnregisterP2P(prGlueInfo, 0xff);
 
 	GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 	prAdapter->rP2PRegState = ENUM_P2P_REG_STATE_UNREGISTERED;

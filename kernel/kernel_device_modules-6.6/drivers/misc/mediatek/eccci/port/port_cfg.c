@@ -429,11 +429,11 @@ static struct port_t md_ccci_ports[] = {
 	{CCCI_RIL_IPC1_TX, CCCI_RIL_IPC1_RX, 1, 1, 0xFF, 0xFF, MD1_NORMAL_HIF,
 		PORT_F_WITH_CHAR_NODE,
 		&char_port_ops, 52, "ccci_cdma_ipc0",},
-#endif
-#endif
 	{CCCI_VT_CTL_TX, CCCI_VT_CTL_RX, 1, 1, 0xFF, 0xFF, MD1_NORMAL_HIF,
 		PORT_F_WITH_CHAR_NODE,
 		&char_port_ops, 53, "ttyC4",},
+#endif
+#endif
 /* NAD test, for md NAD test */
 	{CCCI_AT_TX, CCCI_AT_RX, 1, 1, 0xFF, 0xFF, MD1_NORMAL_HIF,
 		 PORT_F_WITH_CHAR_NODE,

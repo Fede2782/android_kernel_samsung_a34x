@@ -1143,9 +1143,15 @@ u32 get_mode_vb(struct adaptor_ctx *ctx, const struct sensor_mode *mode)
 	if (mode->linetime_in_ns_readout > mode->linetime_in_ns) {
 		line_d = get_line_d(ctx, mode->linetime_in_ns_readout, mode->linetime_in_ns);
 
-		vb = (mode->fll / line_d) - mode->height;
+		if (mode->fll >= (line_d * mode->height))
+			vb = (mode->fll / line_d) - mode->height;
+		else
+			vb = 0;
 	} else {
-		vb = mode->fll - mode->height;
+		if (mode->fll >= mode->height)
+			vb = mode->fll - mode->height;
+		else
+			vb = 0;
 	}
 
 	adaptor_logd(ctx,

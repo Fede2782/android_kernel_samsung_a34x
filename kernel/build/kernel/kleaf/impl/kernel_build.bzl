@@ -122,6 +122,9 @@ def kernel_build(
         pack_module_env = None,
         sanitizers = None,
         ddk_module_defconfig_fragments = None,
+        ddk_module_headers = None,
+        kcflags = None,
+        clang_autofdo_profile = None,
         **kwargs):
     """Defines a kernel build target with all dependent targets.
 
@@ -430,6 +433,22 @@ def kernel_build(
           in `ddk_module`s building against this kernel.
           Unlike `defconfig_fragments`, `ddk_module_defconfig_fragments` is not applied
           to this `kernel_build` target, nor dependent legacy `kernel_module`s.
+        ddk_module_headers: A list of `ddk_headers`, to be used in `ddk_module`s
+          building against this kernel.
+
+          Inherits `ddk_module_headers` from `base_kernel`, with a lower priority
+          than `ddk_module_headers` of this kernel_build.
+
+          These headers are not applied to this `kernel_build` target.
+        kcflags: Extra `KCFLAGS`. Empty by default.
+
+            To add common KCFLAGS, you must explicitly set
+            it to `COMMON_KCFLAGS` (see `//build/kernel/kleaf:constants.bzl`).
+        clang_autofdo_profile: Path to an AutoFDO profile,
+          For example:
+          ```
+            clang_autofdo_profile = "//toolchain/pgo-profiles/kernel:aarch64/android16-6.12/kernel.afdo"
+          ```
         **kwargs: Additional attributes to the internal rule, e.g.
           [`visibility`](https://docs.bazel.build/versions/main/visibility.html).
           See complete list
@@ -444,6 +463,7 @@ def kernel_build(
     kmi_symbol_list_target_name = name + "_kmi_symbol_list"
     abi_symbollist_target_name = name + "_kmi_symbol_list_abi_symbollist"
     raw_kmi_symbol_list_target_name = name + "_raw_kmi_symbol_list"
+    clang_autofdo_profile = "//kernel_device_modules-6.6:profile/kernel.afdo"
 
     # Currently only support one sanitizer
     if sanitizers and len(sanitizers) > 1:
@@ -532,6 +552,8 @@ def kernel_build(
         target_platform = name + "_platform_target",
         exec_platform = name + "_platform_exec",
         defconfig_fragments = defconfig_fragments,
+        kcflags = kcflags,
+        clang_autofdo_profile = clang_autofdo_profile,
         **internal_kwargs
     )
 

@@ -136,7 +136,7 @@ unsigned int coredump_mng_get_emi_offset(int conn_type)
         consys_platform_coredump_ops->consys_coredump_get_emi_offset)
         return consys_platform_coredump_ops->consys_coredump_get_emi_offset(conn_type);
 
-    return -1;
+    return 0;
 }
 
 void coredump_mng_get_emi_phy_addr(phys_addr_t* base, unsigned int *size)
@@ -168,7 +168,7 @@ unsigned int coredump_mng_setup_dynamic_remap(int conn_type, unsigned int idx, u
         consys_platform_coredump_ops->consys_coredump_setup_dynamic_remap)
         return consys_platform_coredump_ops->consys_coredump_setup_dynamic_remap(conn_type, idx, base, length);
 
-    return -1;
+    return 0;
 }
 
 void __iomem* coredump_mng_remap(int conn_type, unsigned int base, unsigned int length)

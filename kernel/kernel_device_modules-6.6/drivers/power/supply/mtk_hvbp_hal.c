@@ -478,7 +478,7 @@ static int hvbp_get_tbat(struct hvbp_hal *hal)
 	union power_supply_propval prop = {0};
 	struct power_supply *bat_psy;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	bat_psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 	bat_psy = power_supply_get_by_name("battery");
@@ -537,7 +537,7 @@ int hvbp_hal_get_soc(struct chg_alg_device *alg, u32 *soc)
 	union power_supply_propval prop = {0};
 	//struct hvbp_hal *hal = chg_alg_dev_get_drv_hal_data(alg);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	bat_psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 	bat_psy = power_supply_get_by_name("battery");

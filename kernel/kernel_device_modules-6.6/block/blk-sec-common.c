@@ -23,6 +23,7 @@ static struct class *blk_sec_class;
 #endif
 
 #include "blk-sec.h"
+#include "../drivers/ufs/vendor/ufs-sec-feature.h"
 #include "../drivers/mmc/core/queue.h"
 
 struct disk_info {
@@ -39,6 +40,8 @@ EXPORT_SYMBOL(blk_sec_common_wq);
 
 static struct disk_info internal_disk;
 static unsigned int internal_min_size_mb = 10 * 1024; /* 10GB */
+
+static char manual_hcgc_status[32] = "off";
 
 #define SECTORS2MB(x) ((x) / 2 / 1024)
 
@@ -156,6 +159,55 @@ static struct device_type blk_sec_type = {
 	.uevent = blk_sec_uevent,
 };
 
+static ssize_t manual_hcgc_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%s\n", manual_hcgc_status);
+}
+
+static ssize_t manual_hcgc_store(struct kobject *kobj, struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+#define BUF_SIZE 32
+	char hcgc_str[BUF_SIZE];
+	char *envp[] = { "NAME=HCGC_BKL_SEC", hcgc_str, NULL, };
+
+	if (!ufs_sec_is_hcgc_allowed())
+		return -EOPNOTSUPP;
+
+	if (strncmp(buf, "on", 2) && strncmp(buf, "off", 3) &&
+			strncmp(buf, "done", 4) && strncmp(buf, "disable", 7) && strncmp(buf, "enable", 6))
+		return -EINVAL;
+
+	if (!strncmp(manual_hcgc_status, "disable", 7) && strncmp(buf, "enable", 6))
+		return -EINVAL;
+
+	memset(manual_hcgc_status, 0, BUF_SIZE);
+
+	if (!strncmp(buf, "done", 4)) {
+		strncpy(manual_hcgc_status, buf, BUF_SIZE - 1);
+		return count;
+	}
+
+	snprintf(hcgc_str, BUF_SIZE, "MANUAL_HCGC=%s", buf);
+	kobject_uevent_env(&blk_sec_dev->kobj, KOBJ_CHANGE, envp);
+
+	if (!strncmp(buf, "enable", 6))
+		strncpy(manual_hcgc_status, "off", BUF_SIZE - 1);
+	else
+		strncpy(manual_hcgc_status, buf, BUF_SIZE - 1);
+
+	return count;
+}
+
+static struct kobj_attribute manual_hcgc_attr = __ATTR(manual_hcgc, 0600, manual_hcgc_show, manual_hcgc_store);
+
+static const struct attribute *blk_sec_attrs[] = {
+	&manual_hcgc_attr.attr,
+	NULL,
+};
+
+static struct kobject *blk_sec_kobj;
+
 static int __init blk_sec_common_init(void)
 {
 	int retval;
@@ -183,6 +235,14 @@ static int __init blk_sec_common_init(void)
 
 	blk_sec_dev->type = &blk_sec_type;
 
+	blk_sec_kobj = kobject_create_and_add("blk_sec", kernel_kobj);
+	if (!blk_sec_kobj)
+		goto destroy_device;
+	if (sysfs_create_files(blk_sec_kobj, blk_sec_attrs)) {
+		kobject_put(blk_sec_kobj);
+		goto destroy_device;
+	}
+
 	blk_sec_common_wq = create_freezable_workqueue("blk_sec_common");
 
 	retval = init_internal_disk_info();
@@ -192,6 +252,15 @@ static int __init blk_sec_common_init(void)
 	}
 
 	return 0;
+
+destroy_device:
+#if IS_ENABLED(CONFIG_DRV_SAMSUNG)
+	sec_device_destroy(blk_sec_dev->devt);
+#else
+	device_destroy(blk_sec_class, MKDEV(0, 0));
+	class_destroy(blk_sec_class);
+#endif
+	return -ENOMEM;
 }
 
 static void __exit blk_sec_common_exit(void)
@@ -202,6 +271,8 @@ static void __exit blk_sec_common_exit(void)
 	device_destroy(blk_sec_class, MKDEV(0, 0));
 	class_destroy(blk_sec_class);
 #endif
+	sysfs_remove_files(blk_sec_kobj, blk_sec_attrs);
+	kobject_put(blk_sec_kobj);
 
 	clear_internal_disk_info();
 }

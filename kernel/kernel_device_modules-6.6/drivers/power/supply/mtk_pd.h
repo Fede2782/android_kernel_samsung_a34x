@@ -7,7 +7,7 @@
 #define __MTK_PD_H
 
 #include "mtk_charger_algorithm_class.h"
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #include "adapter_class.h"
 #endif
 
@@ -155,7 +155,7 @@ struct mtk_pd {
 	bool is_enabled;
 
 	int enable_inductor_protect;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	int pd_list_select;
 	int apdo_num;
 	int fpdo_num;
@@ -217,13 +217,11 @@ extern int pd_hal_charger_enable_chip(struct chg_alg_device *alg,
 	enum chg_idx chgidx, bool enable);
 extern int pd_hal_get_uisoc(struct chg_alg_device *alg);
 extern int pd_hal_get_log_level(struct chg_alg_device *alg);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 extern int pd_hal_set_adapter_cap_type(struct chg_alg_device *alg, enum adapter_cap_type type, int mV, int mA);
 extern bool pd_hal_is_src_usb_suspend_support(struct chg_alg_device *alg);
 extern bool pd_hal_is_src_usb_communication_capable(struct chg_alg_device *alg);
-#if IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
 extern struct pdic_notifier_struct pd_noti;
-#endif
 extern void (*fp_select_pdo)(int num);
 extern int (*fp_sec_pd_select_pps)(int num, int ppsVol, int ppsCur);
 extern int (*fp_sec_pd_get_apdo_max_power)(unsigned int *pdo_pos,

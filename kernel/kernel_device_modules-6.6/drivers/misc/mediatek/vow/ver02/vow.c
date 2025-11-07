@@ -229,6 +229,7 @@ static void vow_set_rec_ipi_queue(unsigned int offset, unsigned int length)
 		vow_rec_queue.rec_ipi_queue_w = 0;
 
 	if (vow_rec_queue.rec_ipi_queue_cnt >= REC_QUEUE_NUM) {
+		VOWDRV_DEBUG("%s, queue full\n", __func__);
 		vow_rec_queue.rec_ipi_queue_cnt = REC_QUEUE_NUM;
 		// queue full, need to shift R to clear the oldest one.
 		vow_rec_queue.rec_ipi_queue_r++;
@@ -1282,6 +1283,7 @@ static void vow_register_vendor_feature(int uuid)
 {
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 	switch (uuid) {
+	case VENDOR_ID_BIXBY:
 	case VENDOR_ID_MTK:
 		vow_register_feature(VOW_VENDOR_M_FEATURE_ID);
 		break;
@@ -1304,6 +1306,7 @@ static void vow_deregister_vendor_feature(int uuid)
 {
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 	switch (uuid) {
+	case VENDOR_ID_BIXBY:
 	case VENDOR_ID_MTK:
 		vow_deregister_feature(VOW_VENDOR_M_FEATURE_ID);
 		break;
@@ -1793,16 +1796,16 @@ static int vow_service_ReadVoiceData_Internal(void)
 			unsigned int idx;
 
 			tmp = (vowserv.kernel_voicedata_idx << 1)
-			      - vowserv.transfer_length;
-			idx = (vowserv.transfer_length >> 1);
-			vow_check_boundary(tmp + idx, vow_vbuf_length);
+			      - vowserv.transfer_length; // unit: byte
+			idx = (vowserv.transfer_length >> 1); //unit: short
+			vow_check_boundary(tmp + (idx << 1), vow_vbuf_length);
 			mutex_lock(&vow_vmalloc_lock);
 			memmove(&vowserv.voicedata_kernel_ptr[0],
 			       &vowserv.voicedata_kernel_ptr[idx],
 			       tmp);
 			mutex_unlock(&vow_vmalloc_lock);
 			mutex_lock(&vow_vmalloc_lock);
-			vowserv.kernel_voicedata_idx -= idx;
+			vowserv.kernel_voicedata_idx -= idx; // unit: short
 			mutex_unlock(&vow_vmalloc_lock);
 		} else {
 			mutex_lock(&vow_vmalloc_lock);

@@ -249,10 +249,27 @@ int smmuv3_issue_cmd(smmu_device_t *dev, uint64_t *cmd)
 	cons_idx = cons_reg & index_mask;
 	smmuv3_show_cmdq_err(dev);
 
-	if (prod_wrap == cons_wrap)
-		q_empty_slots = q_max_entries - (prod_idx - cons_idx);
-	else
-		q_empty_slots = cons_idx - prod_idx;
+	if (prod_wrap == cons_wrap) {
+		if ((prod_idx >= cons_idx)
+		&& (q_max_entries >= (prod_idx - cons_idx))) {
+			q_empty_slots = q_max_entries - (prod_idx - cons_idx);
+		} else {
+			q_empty_slots = 0;
+			pkvm_smmu_ops->puts("abnormal index [prod] [cons] [q_max]");
+			pkvm_smmu_ops->putx64((u64)prod_idx);
+			pkvm_smmu_ops->putx64((u64)cons_idx);
+			pkvm_smmu_ops->putx64((u64)q_max_entries);
+		}
+	} else {
+		if (cons_idx >= prod_idx) {
+			q_empty_slots = cons_idx - prod_idx;
+		} else {
+			q_empty_slots = 0;
+			pkvm_smmu_ops->puts("abnormal index [prod] [cons]");
+			pkvm_smmu_ops->putx64((u64)prod_idx);
+			pkvm_smmu_ops->putx64((u64)cons_idx);
+		}
+	}
 
 	if (q_empty_slots == 0) {
 		cmd_issue_done = 0;

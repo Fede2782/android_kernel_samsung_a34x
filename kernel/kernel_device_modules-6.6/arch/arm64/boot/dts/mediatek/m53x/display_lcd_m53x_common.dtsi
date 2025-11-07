@@ -10,27 +10,6 @@
  */
 
 / {
-	fragment@disp_leds {
-		target-path = "/disp_leds/";
-		__overlay__ {
-			compatible;
-		};
-	};
-
-	fragment@pwmleds {
-		target-path = "/pwmleds/";
-		__overlay__ {
-			compatible;
-		};
-	};
-
-	fragment@i2c_leds {
-		target-path = "/i2c_leds/";
-		__overlay__ {
-			compatible;
-		};
-	};
-
 	fragment@lcd {
 		target-path = "/";
 		__overlay__ {

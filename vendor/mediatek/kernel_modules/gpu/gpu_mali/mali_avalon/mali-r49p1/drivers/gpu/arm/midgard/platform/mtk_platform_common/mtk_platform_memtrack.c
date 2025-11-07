@@ -3,6 +3,8 @@
  * Copyright (c) 2022 MediaTek Inc.
  */
 
+#include <linux/sec_mm.h>
+#include <trace/hooks/mm.h>
 #include <linux/seq_file.h>
 #if IS_ENABLED(CONFIG_PROC_FS)
 #include <linux/proc_fs.h>
@@ -137,12 +139,43 @@ static unsigned int mtk_memtrack_gpu_memory_total(void)
 	return used_pages * 4096;
 }
 
+static unsigned int mtk_memtrack_gpu_swap_total(void)
+{
+	struct kbase_device *kbdev = (struct kbase_device *)mtk_common_get_kbdev();
+
+	if (!kbdev) 
+	    return 0;
+
+	return atomic_read(&kbdev->memdev.compressed_pages_total) * 4096;
+}
+
+
+static void gpu_show_mem(void *data, unsigned int filter, nodemask_t *nodemask)
+{
+	long total_bytes = mtk_memtrack_gpu_memory_total() + mtk_memtrack_gpu_swap_total();
+	long swap_bytes = mtk_memtrack_gpu_swap_total();
+
+	pr_info("%s: %ld kB\n", "GpuTotal", total_bytes >> 10);
+	pr_info("%s: %ld kB\n", "GpuSwap", swap_bytes >> 10);
+}
+
+static void gpu_meminfo(void *data, struct seq_file *m) {
+	long total_bytes = mtk_memtrack_gpu_memory_total() + mtk_memtrack_gpu_swap_total();
+	long swap_bytes = mtk_memtrack_gpu_swap_total();
+
+	show_val_meminfo(m, "GpuTotal", total_bytes >> 10);
+	show_val_meminfo(m, "GpuSwap", swap_bytes >> 10);
+}
+
 int mtk_memtrack_init(struct kbase_device *kbdev)
 {
 	if (IS_ERR_OR_NULL(kbdev))
 		return -1;
 
 	mtk_get_gpu_memory_usage_fp = mtk_memtrack_gpu_memory_total;
+
+	register_trace_android_vh_show_mem(gpu_show_mem, NULL);
+	register_trace_android_vh_meminfo_proc_show(gpu_meminfo, NULL);
 
 	return 0;
 }
@@ -153,6 +186,9 @@ int mtk_memtrack_term(struct kbase_device *kbdev)
 		return -1;
 
 	mtk_get_gpu_memory_usage_fp = NULL;
+
+	unregister_trace_android_vh_show_mem(gpu_show_mem, NULL);
+	unregister_trace_android_vh_meminfo_proc_show(gpu_meminfo, NULL);
 
 	return 0;
 }

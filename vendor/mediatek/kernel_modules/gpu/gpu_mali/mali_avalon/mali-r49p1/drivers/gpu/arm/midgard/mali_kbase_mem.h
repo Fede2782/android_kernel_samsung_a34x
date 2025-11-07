@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2025 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -43,6 +43,7 @@
 #include <linux/version_compat_defs.h>
 #include <linux/sched/mm.h>
 #include <linux/kref.h>
+#include <linux/vmalloc.h>
 
 static inline void kbase_process_page_usage_inc(struct kbase_context *kctx, int pages);
 
@@ -388,6 +389,8 @@ enum kbase_user_buf_state {
  *                 kbase_phy_alloc_mapping_put() pair should be used
  *                 around access to the kernel-side CPU mapping so that
  *                 mapping doesn't disappear whilst it is being accessed.
+ * @delegate_hook: List head to hook onto kbdev deferral control for
+ *                 deferred releases of certain imported buffer types.
  * @properties: Bitmask of properties, e.g. KBASE_MEM_PHY_ALLOC_LARGE.
  * @group_id: A memory group ID to be passed to a platform-specific
  *            memory group manager, if present.
@@ -410,6 +413,7 @@ struct kbase_mem_phy_alloc {
 	enum kbase_memory_category category;
 #endif /* CONFIG_MALI_MTK_MEMORY_DEBUG */
 	struct kbase_vmap_struct *permanent_map;
+	struct list_head delegate_hook;
 	u8 properties;
 	u8 group_id;
 
@@ -442,6 +446,9 @@ struct kbase_mem_phy_alloc {
 			u32 current_mapping_usage_count;
 			struct mm_struct *mm;
 			dma_addr_t *dma_addrs;
+#if MALI_USE_CSF
+			struct kbase_device *kbdev;
+#endif
 			enum kbase_user_buf_state state;
 		} user_buf;
 	} imported;
@@ -499,15 +506,15 @@ enum kbase_page_status {
 /**
  * struct kbase_page_metadata - Metadata for each page in kbase
  *
- * @kbdev:         Pointer to kbase device.
- * @dma_addr:      DMA address mapped to page.
- * @migrate_lock:  A spinlock to protect the private metadata.
- * @data:          Member in union valid based on @status.
- * @status:        Status to keep track if page can be migrated at any
- *                 given moment. MSB will indicate if page is isolated.
- *                 Protected by @migrate_lock.
- * @vmap_count:    Counter of kernel mappings.
- * @group_id:      Memory group ID obtained at the time of page allocation.
+ * @data.mem_pool.kbdev: Pointer to kbase device.
+ * @dma_addr:      	 DMA address mapped to page.
+ * @migrate_lock:  	 A spinlock to protect the private metadata.
+ * @data:          	 Member in union valid based on @status.
+ * @status:        	 Status to keep track if page can be migrated at any
+ *                  	 given moment. MSB will indicate if page is isolated.
+ *                 	 Protected by @migrate_lock.
+ * @vmap_count:    	 Counter of kernel mappings.
+ * @group_id:      	 Memory group ID obtained at the time of page allocation.
  *
  * Each small page will have a reference to this struct in the private field.
  * This will be used to keep track of information required for Linux page
@@ -537,12 +544,12 @@ struct kbase_page_metadata {
 			u64 pgd_vpfn_level[GPU_PAGES_PER_CPU_PAGE];
 #if GPU_PAGES_PER_CPU_PAGE > 1
 			/**
-			 * @pgd_link: Link to the &kbase_mmu_table.pgd_pages_list
+			 * @data.pt_mapped.pgd_link: Link to the &kbase_mmu_table.pgd_pages_list
 			 */
 			struct list_head pgd_link;
 			/**
-			 * @pgd_page: Back pointer to the PGD page that the metadata is
-			 *            associated with
+			 * @data.pt_mapped.pgd_page: Back pointer to the PGD page that
+			 * the metadata is associated with
 			 */
 			struct page *pgd_page;
 			/**
@@ -551,7 +558,8 @@ struct kbase_page_metadata {
 			 */
 			DECLARE_BITMAP(allocated_sub_pages, GPU_PAGES_PER_CPU_PAGE);
 			/**
-			 * @num_allocated_sub_pages: The number of allocated sub pages in @pgd_page
+			 * @data.pt_mapped.num_allocated_sub_pages: The number of allocated
+			 *                                          sub pages in @pgd_page
 			 */
 			s8 num_allocated_sub_pages;
 #endif
@@ -999,8 +1007,14 @@ static inline struct kbase_mem_phy_alloc *kbase_alloc_create(struct kbase_contex
 #endif /* CONFIG_MALI_MTK_MEMORY_DEBUG */
 	alloc->group_id = group_id;
 
-	if (type == KBASE_MEM_TYPE_IMPORTED_USER_BUF)
+	if (type == KBASE_MEM_TYPE_IMPORTED_USER_BUF) {
 		alloc->imported.user_buf.dma_addrs = (void *)(alloc->pages + nr_pages);
+#if MALI_USE_CSF
+		alloc->imported.user_buf.kbdev = kctx->kbdev;
+#endif
+	}
+
+	INIT_LIST_HEAD(&alloc->delegate_hook);
 
 	return alloc;
 }
@@ -2647,6 +2661,61 @@ int kbase_sync_imported_umm(struct kbase_context *kctx, struct kbase_va_region *
 int kbase_mem_copy_to_pinned_user_pages(struct page **dest_pages, void *src_page, size_t *to_copy,
 					unsigned int nr_pages, unsigned int *target_page_nr,
 					size_t offset);
+#if MALI_USE_CSF
+/**
+ * kbase_mem_pool_free_pages_from_deferred_list() - Free pages from deferred_pages_list
+ *
+ * @pool: Pointer to the memory pool.
+ * @from_defer_ctrl: Indicating the caller is defer_controller.
+ *
+ * This function frees pages from the deferred list. The destination of the pages
+ * depends on the pool capacity: firstly it tries to promote pages to the internal
+ * free_pages list, and then it releases the excess pages to kernel.
+ *
+ * The deferred pages shall be freed only if the derferral window is passed.
+ */
+void kbase_mem_pool_free_pages_from_deferred_list(struct kbase_mem_pool *pool,
+						  bool from_defer_ctrl);
+
+/**
+ * kbase_mem_pool_deferred_list_size() - get size of deferred page list
+ *
+ * @pool: Pointer to the memory pool.
+ *
+ * This function return number of pages stored in deferred pages list
+ *
+ * Return: size of deferred page list
+ */
+size_t kbase_mem_pool_deferred_list_size(struct kbase_mem_pool *pool);
+
+/**
+ * kbase_mem_is_pmode_deferral_required() - check if a GPU protm session is inflight
+ *                                          and actions have to be deferred
+ *
+ * @kbdev: Pointer to the device.
+ *
+ * If a protected mode session is currently in progress, it could be the case that
+ * some actions concerning memory pages need to be deferred, like for instance
+ * migrating pages or adding them to a memory pool.
+ * The function returns true if protected mode is active and do_defer
+ * is true, otherwise return false.
+ *
+ * Return: true on deferral required, otherwise false.
+ */
+static inline bool kbase_mem_is_pmode_deferral_required(struct kbase_device *kbdev)
+{
+	struct kbase_csf_protm_mem_pages_defer_ctrl *ctrl = &kbdev->csf.scheduler.pages_defer_ctrl;
+
+	return (ctrl->do_defer &&
+		(atomic_read(&ctrl->protm_event_id) & CSF_SCHED_PROTM_EVENT_FLAGS_MASK));
+}
+#else
+static inline bool kbase_mem_is_pmode_deferral_required(struct kbase_device *kbdev)
+{
+	CSTD_UNUSED(kbdev);
+	return false;
+}
+#endif
 
 /**
  * kbase_mem_allow_alloc - Check if allocation of GPU memory is allowed

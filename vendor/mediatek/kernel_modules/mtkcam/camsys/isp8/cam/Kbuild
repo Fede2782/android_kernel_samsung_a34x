@@ -13,6 +13,7 @@ subdir-ccflags-y += \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/imgsensor/inc \
     -I$(srctree)/$(src)/../../../imgsensor/src-v4l2/frame-sync/ \
     -I$(srctree)/$(src)/../../../imgsensor/inc \
+    -I$(srctree)/$(src)/../../../imgsensor/common/sysfs \
     -I$(DEVICE_MODULES_PATH)/drivers/dma-buf/heaps/ \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu/ \
     -I$(DEVICE_MODULES_PATH)/drivers/clk/mediatek/ \

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# USB Miscellaneous driver configuration
+#
+comment "USB Miscellaneous drivers"
+
+config SEC_USB_LINKLAYER_TEST
+	tristate "USB Link Layer Test driver for Samsung"
+	help
+	 This driver is for generating specific traffic for Super Speed Link
+	 Layer Test Device. Say Y only when you want to conduct USB Super Speed
+	 Link Layer Test for host controllers.

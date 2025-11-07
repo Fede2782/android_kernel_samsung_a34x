@@ -269,6 +269,9 @@ int conap_scp_shm_write(uint8_t *msg_buf, uint32_t msg_sz)
 
 	ret = (uint32_t)wptr;
 
+	if (wptr > buf_len || msg_sz > buf_len)
+		return 0;
+
 	if (wptr + msg_sz > buf_len) {
 		cpsz1 = buf_len - wptr;
 		cpsz2 = msg_sz - cpsz1;
@@ -298,10 +301,10 @@ int conap_scp_shm_read(uint8_t *msg_buf, uint32_t oft, uint32_t msg_sz)
 	phys_addr_t rptr = oft;
 	uint32_t cpsz1, cpsz2;
 
-	if (msg_sz > CONAP_SHM_MAX_PKT_SZ)
+	if (msg_sz > CONAP_SHM_MAX_PKT_SZ || msg_sz >= buf_len)
 		return -1;
 
-	if (oft > buf_len)
+	if (rptr > buf_len)
 		return -1;
 
 	if (rptr + msg_sz > buf_len) {

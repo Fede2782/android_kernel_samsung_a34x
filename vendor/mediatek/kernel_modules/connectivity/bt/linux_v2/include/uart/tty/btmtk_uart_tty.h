@@ -1,26 +1,31 @@
-/* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (c) 2021 MediaTek Inc.
+ *  Copyright (c) 2016,2017 MediaTek Inc.
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *  See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #ifndef _BTMTK_UART_H_
 #define _BTMTK_UART_H_
 #include "btmtk_define.h"
 #include "btmtk_main.h"
+#include "btmtk_buffer_mode.h"
 #include "btmtk_woble.h"
 #include "btmtk_chip_reset.h"
-#include "btmtk_chip_common.h"
 
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
 #include <linux/serial.h>
-#include <linux/of.h>
 #include <linux/of_device.h>
-#include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
 #include <linux/gpio/consumer.h>
 #include <linux/pinctrl/consumer.h>
-#include <linux/regulator/consumer.h>
 #include <linux/clk.h>
 #include <linux/suspend.h>
 #if (USE_DEVICE_NODE == 1)
@@ -29,7 +34,7 @@
 
 #define HCI_HEADER_LEN	4
 
-struct btmtk_stp_hdr {
+struct mtk_stp_hdr {
 	u8	prefix;
 	__be16	dlen;
 	u8	cs;
@@ -39,6 +44,13 @@ struct btmtk_stp_hdr {
 #define STP_HEADER_CRC_LEN	2
 
 #define BTMTKUART_FLAG_STANDALONE_HW	 BIT(0)
+
+/* CMD&Event sent by driver */
+#define READ_REGISTER_CMD_LEN		16
+#define READ_REGISTER_EVT_HDR_LEN		11
+
+#define WRITE_REGISTER_CMD_LEN		24
+#define WRITE_REGISTER_EVT_HDR_LEN		11
 
 /* MCU address offset */
 #define MCU_ADDRESS_OFFSET_CMD 12
@@ -71,6 +83,7 @@ struct btmtk_stp_hdr {
  */
 #define HCI_EV_VENDOR			0xff
 
+#define READ_ADDRESS_EVT_HDR_LEN 7
 #define READ_ADDRESS_EVT_PAYLOAD_OFFSET 7
 #define WOBLE_DEBUG_EVT_TYPE 0xE8
 
@@ -98,13 +111,8 @@ struct btmtk_stp_hdr {
 #endif
 
 #define BTMTK_MAX_SEND_RETRY 10000
-#if (USE_DEVICE_NODE == 1)
-#define BTMTK_MAX_WAIT_RETRY 400
+#define BTMTK_MAX_WAIT_RETRY 200
 #define BTMTK_MAX_WAKEUP_RETRY 4
-#else
-#define BTMTK_MAX_WAIT_RETRY 30000
-#define BTMTK_MAX_WAKEUP_RETRY 2
-#endif
 #define BTMTK_MAX_RECV_ERR_CNT 3
 #define BTMTK_MAX_WAIT_UART_RESUME_CNT 1500
 
@@ -117,9 +125,9 @@ struct btmtk_stp_hdr {
 #define IO_BUF_DELAY_TIME 50
 
 /* Time bound for flush tty: 100ms */
-#define TIMT_BOUND_OF_CHARS_WAIT 40
-#define TIME_BOUND_OF_TTY_FLUSH 100
-#define TIME_BOUND_OF_FW_PKG_DL 2000
+#define TIMT_BOUND_OF_CHARS_WAIT 10
+#define TIME_BOUND_OF_TTY_FLUSH	100
+#define TIME_BOUND_OF_FW_PKG_DL 3000
 #define TIME_DUMP_OF_FW_PKG_DL 50
 
 typedef int (*pdwnc_func) (u8 fgReset);
@@ -182,11 +190,13 @@ struct btmtk_uart_dev {
 	u32			hub_en;
 	u32			sleep_en;
 	u32			flush_en;
+	u32			uart_irq_en;
 	u8			hub_bypass_only;
-	u32			assert_state;
+	phys_addr_t		base;
+	size_t			size;
 
 	/* For uarthub setting */
-	u8			fw_hub_mode;
+	u8			fw_hub_en;
 	u8			crc_en;
 	u8			rhw_en;
 	u8			fw_dl_ready;
@@ -203,6 +213,8 @@ struct btmtk_uart_dev {
 
 	u32			rhw_fail_cnt;
 
+	u32			picus_to_host;
+
 	/* sempaphore to compare event */
 	struct semaphore	evt_comp_sem;
 	/* sempaphore to tty flush & write operation */
@@ -216,10 +228,6 @@ struct btmtk_uart_dev {
 	bool 		is_pre_cal;
 
 	bool		is_pre_on_done;
-
-	/* identify bt sleep flow hw mech */
-	int		sleep_flow_hw_mech_en;
-
 #endif
 };
 
@@ -245,7 +253,7 @@ struct btmtk_uart_dev {
 #define HCIUARTSETWAKEUP _IOW('U', 205, int)
 #define HCIUARTINIT _IOW('U', 206, int)
 #define HCIUARTDEINIT _IOW('U', 207, int)
-#define HCIUARTXOPARAM _IOW('U', 208, CONNXO_CFG_PARAM_STRUCT)
+
 /**
  * parameter settings
  */

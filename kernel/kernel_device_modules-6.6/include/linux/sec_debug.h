@@ -56,9 +56,7 @@ enum sec_reset_reason {
 	SEC_RESET_REASON_SECURE    = (SEC_RESET_REASON_PREFIX | 0x7), /* image secure check fail */
 	SEC_RESET_REASON_FWUP      = (SEC_RESET_REASON_PREFIX | 0x9), /* emergency firmware update */
 	SEC_RESET_REASON_IN_OFFSEQ = (SEC_RESET_REASON_PREFIX | 0xA),
-	#if IS_ENABLED(CONFIG_SEC_ABC)
 	SEC_RESET_REASON_USER_DRAM_TEST   = (SEC_RESET_REASON_PREFIX | 0xB), /* nad user dram test */
-	#endif
 	SEC_RESET_REASON_BOOTLOADER  = (SEC_RESET_REASON_PREFIX | 0xd),
 	SEC_RESET_REASON_EMERGENCY = 0x0,
 	SEC_RESET_REASON_INIT 	   = 0xCAFEBABE,
@@ -237,7 +235,10 @@ void sec_debug_save_core_reg(void *v_regs);
 void sec_debug_save_mmu_reg(sec_debug_mmu_reg_t *mmu_reg);
 
 #if IS_ENABLED(CONFIG_SEC_DEBUG)
+extern unsigned int sec_debug_get_debug_level(void);
 extern bool is_debug_level_low(void);
+extern bool sec_debug_get_force_upload(void);
+
 extern void sec_debug_dump_info(struct pt_regs *regs);
 extern void sec_upload_cause(void *buf);
 #endif

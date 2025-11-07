@@ -264,7 +264,6 @@ saaFsmSteps(IN struct ADAPTER *prAdapter,
 				if (rStatus != WLAN_STATUS_SUCCESS) {
 					cnmTimerInitTimer(prAdapter,
 					   &prStaRec->rTxReqDoneOrRxRespTimer,
-					   (PFN_MGMT_TIMEOUT_FUNC)
 					   saaFsmRunEventTxReqTimeOut,
 					   (unsigned long) prStaRec);
 
@@ -312,7 +311,6 @@ saaFsmSteps(IN struct ADAPTER *prAdapter,
 				if (rStatus != WLAN_STATUS_SUCCESS) {
 					cnmTimerInitTimer(prAdapter,
 					   &prStaRec->rTxReqDoneOrRxRespTimer,
-					   (PFN_MGMT_TIMEOUT_FUNC)
 					   saaFsmRunEventTxReqTimeOut,
 					   (unsigned long) prStaRec);
 
@@ -353,7 +351,6 @@ saaFsmSteps(IN struct ADAPTER *prAdapter,
 				if (rStatus != WLAN_STATUS_SUCCESS) {
 					cnmTimerInitTimer(prAdapter,
 					    &prStaRec->rTxReqDoneOrRxRespTimer,
-					    (PFN_MGMT_TIMEOUT_FUNC)
 					    saaFsmRunEventTxReqTimeOut,
 					    (unsigned long) prStaRec);
 
@@ -765,7 +762,6 @@ saaFsmRunEventTxDone(IN struct ADAPTER *prAdapter,
 
 				cnmTimerInitTimer(prAdapter,
 				    &prStaRec->rTxReqDoneOrRxRespTimer,
-				    (PFN_MGMT_TIMEOUT_FUNC)
 				    saaFsmRunEventRxRespTimeOut,
 				    (unsigned long) prStaRec);
 
@@ -818,7 +814,6 @@ saaFsmRunEventTxDone(IN struct ADAPTER *prAdapter,
 
 				cnmTimerInitTimer(prAdapter,
 				      &prStaRec->rTxReqDoneOrRxRespTimer,
-				      (PFN_MGMT_TIMEOUT_FUNC)
 				      saaFsmRunEventRxRespTimeOut,
 				      (unsigned long) prStaRec);
 
@@ -871,8 +866,7 @@ saaFsmRunEventTxDone(IN struct ADAPTER *prAdapter,
 
 				cnmTimerInitTimer(prAdapter,
 				      &prStaRec->rTxReqDoneOrRxRespTimer,
-				      (PFN_MGMT_TIMEOUT_FUNC)
-					saaFsmRunEventRxRespTimeOut,
+				      saaFsmRunEventRxRespTimeOut,
 				      (unsigned long) prStaRec);
 
 				cnmTimerStartTimer(prAdapter,

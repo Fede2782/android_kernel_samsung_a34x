@@ -18,7 +18,12 @@
 #ifndef _LINUX_PROCA_MEM_INFO_H
 #define _LINUX_PROCA_MEM_INFO_H
 
+#if defined(CONFIG_PROCA_GKI_20)
+#include "proca.h"
+#else
 #include <linux/proca.h>
+#endif
+
 #include <linux/types.h>
 
 struct memory_range {

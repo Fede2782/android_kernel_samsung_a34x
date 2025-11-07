@@ -42,6 +42,7 @@
 
 #if defined(CONFIG_MALI_MTK_GPU_BM_JM)
 #include <gpu_bm.h>
+#include <ged_gpu_bm.h>
 #endif
 
 /**
@@ -1370,7 +1371,7 @@ void kbase_gpu_complete_hw(struct kbase_device *kbdev, unsigned int js, u32 comp
 			if(js == 0) {
 				kbdev->v1->ctx = (u32)next_katom->kctx->id;
 				kbdev->v1->job = next_katom->work_id;
-				kbdev->v1->frame = (u32)next_katom->frame_nr;
+				kbdev->v1->frame = (u32)qos_get_frame_nr();
 				kbdev->v1->freq = js;
 			}
 #endif
@@ -1395,7 +1396,7 @@ void kbase_gpu_complete_hw(struct kbase_device *kbdev, unsigned int js, u32 comp
 			if (js == 0) {
 				kbdev->v1->ctx = (u32)next_katom->kctx->id;
 				kbdev->v1->job = next_katom->work_id;
-				kbdev->v1->frame = (u32)next_katom->frame_nr;
+				kbdev->v1->frame = (u32)qos_get_frame_nr();
 				kbdev->v1->freq = js;
 			}
 		}

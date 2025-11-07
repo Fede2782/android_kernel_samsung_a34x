@@ -108,8 +108,8 @@ static void mt7935_ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 static void mt7935_ConstructPatchName(struct GLUE_INFO *prGlueInfo,
 	uint8_t **apucName, uint8_t *pucNameIdx);
 
-#if CFG_MTK_WIFI_SUPPORT_DSP_FWDL
-static void mt7935_ConstructDspName(struct GLUE_INFO *prGlueInfo,
+#if CFG_MTK_WIFI_SUPPORT_PHY_FWDL
+static void mt7935_ConstructPhyName(struct GLUE_INFO *prGlueInfo,
 	uint8_t **apucName, uint8_t *pucNameIdx);
 #endif
 
@@ -683,9 +683,9 @@ struct FWDL_OPS_T mt7935_fw_dl_ops = {
 #endif
 #endif
 	.getFwVerInfo = NULL,
-#if CFG_MTK_WIFI_SUPPORT_DSP_FWDL
-	.constructDspName = NULL,
-	.downloadDspFw = NULL,
+#if CFG_MTK_WIFI_SUPPORT_PHY_FWDL
+	.constructPhyName = NULL,
+	.downloadPhyFw = NULL,
 #endif
 #else
 #if CFG_SUPPORT_WIFI_DL_BT_PATCH
@@ -697,9 +697,9 @@ struct FWDL_OPS_T mt7935_fw_dl_ops = {
 #endif
 	.getFwVerInfo = wlanParseRamCodeReleaseManifest,
 	.getFlavorVer = mt7935GetFlavorVer,
-#if CFG_MTK_WIFI_SUPPORT_DSP_FWDL
-	.constructDspName = mt7935_ConstructDspName,
-	.downloadDspFw = wlanDownloadDspFw,
+#if CFG_MTK_WIFI_SUPPORT_PHY_FWDL
+	.constructPhyName = mt7935_ConstructPhyName,
+	.downloadPhyFw = wlanDownloadPhyFw,
 #endif
 #endif
 };
@@ -1095,7 +1095,8 @@ static uint32_t mt7935IPCLoadFirmware(struct ADAPTER *prAdapter,
 		goto exit;
 	}
 
-	glGetChipInfo((void **)&prChipInfo);
+	glGetChipInfoByGlue(prGlueInfo, (void **)&prChipInfo);
+
 	if (prChipInfo == NULL) {
 		DBGLOG(INIT, ERROR, "NULL prChipInfo\n");
 		u4Ret = WLAN_STATUS_INVALID_DATA;
@@ -1571,8 +1572,8 @@ static void mt7935_ConstructPatchName(struct GLUE_INFO *prGlueInfo,
 			__LINE__, ret);
 }
 
-#if CFG_MTK_WIFI_SUPPORT_DSP_FWDL
-static void mt7935_ConstructDspName(struct GLUE_INFO *prGlueInfo,
+#if CFG_MTK_WIFI_SUPPORT_PHY_FWDL
+static void mt7935_ConstructPhyName(struct GLUE_INFO *prGlueInfo,
 	uint8_t **apucName, uint8_t *pucNameIdx)
 {
 	int ret = 0;

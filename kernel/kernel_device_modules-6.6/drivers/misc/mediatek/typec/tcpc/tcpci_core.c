@@ -60,7 +60,7 @@ static struct device_attribute tcpc_device_attributes[] = {
 	TCPC_DEVICE_ATTR(caps_info, 0444),
 	TCPC_DEVICE_ATTR(pe_ready, 0444),
 #endif /* CONFIG_USB_POWER_DELIVERY */
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	TCPC_DEVICE_ATTR(ss_factory, 0666),
 #endif
 };
@@ -77,7 +77,7 @@ enum {
 	TCPC_DESC_CAP_INFO,
 	TCPC_DESC_PE_READY,
 #endif /* CONFIG_USB_POWER_DELIVERY */
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	TCPC_DESC_SS_FACTORY,
 #endif
 };
@@ -217,7 +217,7 @@ static ssize_t tcpc_show_property(struct device *dev,
 			break;
 		break;
 #endif /* CONFIG_USB_POWER_DELIVERY */
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	case TCPC_DESC_SS_FACTORY:
 		ret = snprintf(buf, 256, "en = %d\n", tcpc->ss_factory);
 		if (ret < 0)
@@ -356,7 +356,7 @@ static ssize_t tcpc_store_property(struct device *dev,
 		}
 		break;
 #endif /* CONFIG_USB_POWER_DELIVERY */
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	case TCPC_DESC_SS_FACTORY:
 		ret = get_parameters((char *)buf, &val, 1);
 		if (ret < 0) {
@@ -531,15 +531,15 @@ static void bat_update_work_func(struct work_struct *work)
 	if (ret == 0) {
 		if (value.intval == POWER_SUPPLY_STATUS_CHARGING) {
 			TCPC_DBG("%s Battery Charging, soc = %d\n",
-				  __func__, tcpc->bat_soc);
+				 __func__, tcpc->bat_soc);
 			tcpc->charging_status = BSDO_BAT_INFO_CHARGING;
 		} else if (value.intval == POWER_SUPPLY_STATUS_DISCHARGING) {
 			TCPC_DBG("%s Battery Discharging, soc = %d\n",
-				  __func__, tcpc->bat_soc);
+				 __func__, tcpc->bat_soc);
 			tcpc->charging_status = BSDO_BAT_INFO_DISCHARGING;
 		} else {
 			TCPC_DBG("%s Battery Idle, soc = %d\n",
-				  __func__, tcpc->bat_soc);
+				 __func__, tcpc->bat_soc);
 			tcpc->charging_status = BSDO_BAT_INFO_IDLE;
 		}
 	}
@@ -562,7 +562,7 @@ static int bat_nb_call_func(
 	}
 
 	if (val == PSY_EVENT_PROP_CHANGED &&
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		strcmp(psy->desc->name, "mtk-fg-battery") == 0)
 #else
 		strcmp(psy->desc->name, "battery") == 0)
@@ -599,7 +599,7 @@ static void tcpc_event_init_work(struct work_struct *work)
 
 #if CONFIG_USB_PD_REV30
 	INIT_DELAYED_WORK(&tcpc->bat_update_work, bat_update_work_func);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	tcpc->bat_psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 	tcpc->bat_psy = power_supply_get_by_name("battery");

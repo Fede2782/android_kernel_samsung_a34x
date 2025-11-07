@@ -93,6 +93,9 @@
 	MTK_SIP_SMC_CMD(0x52E)
 #define MTK_SIP_KERNEL_DAPC_SUBSYS_GET \
 	MTK_SIP_SMC_CMD(0x531)
+/* SEC Platform Security */
+#define MTK_SIP_KERNEL_SEC_CONTROL \
+	MTK_SIP_SMC_CMD(0x547)
 
 /* Debug related SMC call */
 #define MTK_SIP_KERNEL_CCCI_CONTROL \

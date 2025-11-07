@@ -49,11 +49,10 @@
 #define LP_OWN_BACK_LOOP_DELAY_MIN_US   900
 #define LP_OWN_BACK_LOOP_DELAY_MAX_US   1000
 #define LP_OWN_REQ_CLR_INTERVAL_MS		200
+#define LP_OWN_EINT_CHECK_DELAY			156 /* 5T 32K = 0.156ms */
+#define LP_OWN_EINT_CHECK_RETRY_CNT		2
 #define LP_DBGCR_POLL_ROUND			1
-#define POLL_MAILBOX_TIMEOUT_MS		2048
-#define ISSUE_SW_INT_INTERVAL_MS	200
-#define CLR_MAILBOX_ACK_LOOP_DELAY_MIN_US   900
-#define CLR_MAILBOX_ACK_LOOP_DELAY_MAX_US   1000
+
 /*******************************************************************************
  *                             D A T A   T Y P E S
  *******************************************************************************
@@ -84,48 +83,19 @@ struct PM_PROFILE_SETUP_INFO {
  *******************************************************************************
  */
 #if !CFG_ENABLE_FULL_PM
-#define ACQUIRE_POWER_CONTROL_FROM_PM(_prAdapter, _eDrvOwnSrc)
-#define RECLAIM_POWER_CONTROL_TO_PM(_prAdapter, _fgEnableGINT_in_IST,	 \
-				_eDrvOwnSrc)
-#else /* CFG_ENABLE_FULL_PM */
-#if (CFG_MTK_WIFI_DRV_OWN_DEBUG_MODE == 1)
-#define ACQUIRE_POWER_CONTROL_FROM_PM(_prAdapter, _eDrvOwnSrc)		\
-	{								\
-		struct DRV_OWN_INFO *_prDrvOwnInfo = NULL;		\
-		_prDrvOwnInfo = kalMemZAlloc(				\
-				sizeof(struct DRV_OWN_INFO),		\
-					PHY_MEM_TYPE);			\
-		if (_prDrvOwnInfo != NULL) {				\
-			kalMemCopy(_prDrvOwnInfo->ucThrdName,		\
-				current->comm,				\
-				min(sizeof(_prDrvOwnInfo->ucThrdName) - 1,\
-				kalStrLen(current->comm)));		\
-			_prDrvOwnInfo->rThrdPid = current->pid;		\
-			kalMemCopy(_prDrvOwnInfo->ucFuncName,		\
-				__func__,				\
-				min(sizeof(_prDrvOwnInfo->ucFuncName) - 1,\
-				kalStrLen(__func__)));			\
-			_prDrvOwnInfo->eDrvOwnSrc = _eDrvOwnSrc;	\
-		}							\
-		halSetDriverOwn(_prAdapter, _prDrvOwnInfo);		\
-	}
-#define RECLAIM_POWER_CONTROL_TO_PM(_prAdapter, \
-	_fgEnableGINT_in_IST, _eDrvOwnSrc) \
+#define ACQUIRE_POWER_CONTROL_FROM_PM(_prAdapter)
+#define RECLAIM_POWER_CONTROL_TO_PM(_prAdapter, _fgEnableGINT_in_IST)
+#else
+#define ACQUIRE_POWER_CONTROL_FROM_PM(_prAdapter) \
 	{ \
-		halSetFWOwn(_prAdapter, _fgEnableGINT_in_IST, _eDrvOwnSrc); \
+		wlanAcquirePowerControl(_prAdapter); \
 	}
-#else /* (CFG_MTK_WIFI_DRV_OWN_DEBUG_MODE == 0) */
-#define ACQUIRE_POWER_CONTROL_FROM_PM(_prAdapter, _eDrvOwnSrc)		\
-	{								\
-		   halSetDriverOwn(_prAdapter);				\
-	}
-#define RECLAIM_POWER_CONTROL_TO_PM(_prAdapter, _fgEnableGINT_in_IST,\
-				_eDrvOwnSrc) \
+
+#define RECLAIM_POWER_CONTROL_TO_PM(_prAdapter, _fgEnableGINT_in_IST) \
 	{ \
-		halSetFWOwn(_prAdapter, _fgEnableGINT_in_IST); \
+		nicpmSetFWOwn(_prAdapter, _fgEnableGINT_in_IST); \
 	}
-#endif /* (CFG_MTK_WIFI_DRV_OWN_DEBUG_MODE == 0) */
-#endif /* !CFG_ENABLE_FULL_PM */
+#endif
 
 /*******************************************************************************
  *                   F U N C T I O N   D E C L A R A T I O N S

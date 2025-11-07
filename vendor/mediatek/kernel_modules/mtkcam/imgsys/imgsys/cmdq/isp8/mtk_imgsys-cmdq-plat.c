@@ -76,7 +76,7 @@ void imgsys_cmdq_init_plat8(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgs
 	struct device *dev = imgsys_dev->dev;
 	u32 idx = 0;
 
-	pr_info("%s: +, dev(0x%lx), num(%d)\n", __func__, (unsigned long)dev, nr_imgsys_dev);
+	pr_info("%s: +, dev(0x%pK), num(%d)\n", __func__, dev, nr_imgsys_dev);
 
 	/* Only first user has to do init work queue */
 	if (nr_imgsys_dev == 1) {
@@ -2410,6 +2410,8 @@ bool imgsys_cmdq_ts_enable_plat8(void)
 
 u32 imgsys_wpe_bwlog_enable_plat8(void)
 {
+	if(imgsys_wpe_bwlog_en < 0)
+		imgsys_wpe_bwlog_en = 0;
 	return imgsys_wpe_bwlog_en;
 }
 
@@ -2456,6 +2458,8 @@ bool imgsys_iova_dbg_enable_plat8(void)
 
 u32 imgsys_iova_dbg_port_plat8(void)
 {
+	if(imgsys_iova_dbg_port_en < 0)
+		imgsys_iova_dbg_port_en = 0;
 	return imgsys_iova_dbg_port_en;
 }
 

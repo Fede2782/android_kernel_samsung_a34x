@@ -2821,7 +2821,8 @@ static int md_cd_send_skb(struct ccmni_tx_para_info *tx_info)
 	struct md_cd_queue *queue;
 	struct cldma_request *tx_req;
 	int ret = 0;
-	struct ccci_header *ccci_h = NULL;
+	struct ccci_header *ccci_h_ptr = NULL;
+	struct ccci_header ccci_h;
 	unsigned int ioc_override = 0;
 	unsigned long flags;
 	unsigned int tx_bytes = 0;
@@ -2891,12 +2892,13 @@ static int md_cd_send_skb(struct ccmni_tx_para_info *tx_info)
 		qno, queue->budget, tx_bytes, tx_ch);
 	tx_req = queue->tx_xmit;
 	if (queue->budget > 0 && tx_req->skb == NULL) {
-		ccci_h = (struct ccci_header *)skb_push(skb,
+		ccci_h_ptr = (struct ccci_header *)skb_push(skb,
 			sizeof(struct ccci_header));
-		ccci_h->channel = tx_ch ;
-		ccci_h->data[0] = tx_info->ccmni_idx;
-		ccci_h->data[1] = skb->len;
-		ccci_h->reserved = 0;
+		ccci_h_ptr->channel = tx_ch ;
+		ccci_h_ptr->data[0] = tx_info->ccmni_idx;
+		ccci_h_ptr->data[1] = skb->len;
+		ccci_h_ptr->reserved = 0;
+		memcpy(&ccci_h, ccci_h_ptr, sizeof(struct ccci_header));
 		ccci_md_inc_tx_seq_num(&md_ctrl->traffic_info,
 			(struct ccci_header *)skb->data);
 		/* wait write done */
@@ -2912,10 +2914,10 @@ static int md_cd_send_skb(struct ccmni_tx_para_info *tx_info)
 #if TRAFFIC_MONITOR_INTERVAL
 		md_ctrl->tx_pre_traffic_monitor[queue->index]++;
 		ccci_channel_update_packet_counter(
-			md_ctrl->traffic_info.logic_ch_pkt_pre_cnt, ccci_h);
+			md_ctrl->traffic_info.logic_ch_pkt_pre_cnt, &ccci_h);
 #endif
 		ccci_md_add_log_history(&md_ctrl->traffic_info, OUT,
-			(int)queue->index, ccci_h, 0);
+			(int)queue->index, &ccci_h, 0);
 		/*
 		 * make sure TGPD is ready by here,
 		 * otherwise there is race conditon between
@@ -2934,7 +2936,7 @@ static int md_cd_send_skb(struct ccmni_tx_para_info *tx_info)
 				jiffies + CLDMA_ACTIVE_T * HZ);
 			CCCI_DEBUG_LOG(0, TAG,
 				"md_ctrl->txq_active=%d, qno%d ,ch%d, start_timer=%d\n",
-				md_ctrl->txq_active, qno, ccci_h->channel, ret);
+				md_ctrl->txq_active, qno, ccci_h.channel, ret);
 			ret = 0;
 #endif
 			md_ctrl->tx_busy_warn_cnt = 0;
@@ -2970,7 +2972,7 @@ static int md_cd_send_skb(struct ccmni_tx_para_info *tx_info)
 			 */
 			CCCI_NORMAL_LOG(0, TAG,
 				"ch=%d qno=%d cldma maybe stop, this package will be dropped!\n",
-				ccci_h->channel, qno);
+				ccci_h.channel, qno);
 		}
 		spin_unlock_irqrestore(&md_ctrl->cldma_timeout_lock, flags);
 	} else {

@@ -772,7 +772,7 @@ int mtk_gpueb_dvfs_set_taget_frame_time(unsigned int target_frame_time,
 }
 EXPORT_SYMBOL(mtk_gpueb_dvfs_set_taget_frame_time);
 
-unsigned int mtk_gpueb_set_fallback_mode(int fallback_status)
+int mtk_gpueb_set_fallback_mode(int fallback_status)
 {
 	int ret = 0;
 	struct fdvfs_ipi_data ipi_data;
@@ -787,7 +787,7 @@ unsigned int mtk_gpueb_set_fallback_mode(int fallback_status)
 }
 EXPORT_SYMBOL(mtk_gpueb_set_fallback_mode);
 
-unsigned int mtk_gpueb_set_stability_mode(int stability_status)
+int mtk_gpueb_set_stability_mode(int stability_status)
 {
 	int ret = 0;
 	struct fdvfs_ipi_data ipi_data;
@@ -823,7 +823,7 @@ void mtk_gpueb_dvfs_get_desire_freq_dual(unsigned long *stackNewFreqID,
 }
 EXPORT_SYMBOL(mtk_gpueb_dvfs_get_desire_freq_dual);
 
-unsigned int mtk_gpueb_dvfs_set_mode(unsigned int action)
+int mtk_gpueb_dvfs_set_mode(unsigned int action)
 {
 	int ret = 0;
 	eb_policy_mode = action;
@@ -1676,14 +1676,14 @@ int mtk_gpueb_dvfs_set_taget_frame_time(unsigned int target_frame_time,
 }
 EXPORT_SYMBOL(mtk_gpueb_dvfs_set_taget_frame_time);
 
-unsigned int mtk_gpueb_set_fallback_mode(int fallback_status)
+int mtk_gpueb_set_fallback_mode(int fallback_status)
 {
 	//Do nothing
 	return 0;
 }
 EXPORT_SYMBOL(mtk_gpueb_set_fallback_mode);
 
-unsigned int mtk_gpueb_set_stability_mode(int stability_status)
+int mtk_gpueb_set_stability_mode(int stability_status)
 {
 	//Do nothing
 	return 0;
@@ -1703,7 +1703,7 @@ void mtk_gpueb_dvfs_get_desire_freq_dual(unsigned long *stackNewFreqID,
 }
 EXPORT_SYMBOL(mtk_gpueb_dvfs_get_desire_freq_dual);
 
-unsigned int mtk_gpueb_dvfs_set_mode(unsigned int action)
+int mtk_gpueb_dvfs_set_mode(unsigned int action)
 {
 	//Do nothing
 	return 0;

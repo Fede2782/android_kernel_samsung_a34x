@@ -31,6 +31,7 @@
 #include <crypto/hash.h>
 #include <crypto/hash_info.h>
 #include <linux/freezer.h>
+
 #include "five.h"
 #include "five_porting.h"
 #include "five_vfs.h"
@@ -228,7 +229,7 @@ static int ahash_wait(int err, struct ahash_completion *res)
 		wait_for_completion(&res->completion);
 		reinit_completion(&res->completion);
 		err = res->err;
-		/* fallthrough; */
+		fallthrough;
 	default:
 		pr_crit_ratelimited("ahash calculation failed: err: %d\n", err);
 	}
@@ -257,9 +258,9 @@ static int five_calc_file_hash_atfm(struct file *file,
 		return -ENOMEM;
 
 	init_completion(&res.completion);
-	ahash_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG |
-				   CRYPTO_TFM_REQ_MAY_SLEEP,
-				   ahash_complete, &res);
+	do_ahash_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG |
+				CRYPTO_TFM_REQ_MAY_SLEEP,
+				ahash_complete, &res);
 
 	rc = ahash_wait(crypto_ahash_init(req), &res);
 	if (rc)
@@ -530,6 +531,7 @@ int five_calc_file_hash(struct file *file, u8 hash_algo, u8 *hash,
 
 	return five_calc_file_shash(file, hash_algo, hash, hash_len);
 }
+EXPORT_SYMBOL_GPL(five_calc_file_hash);
 
 int five_calc_data_hash(const uint8_t *data, size_t data_len,
 			uint8_t hash_algo, uint8_t *hash, size_t *hash_len)

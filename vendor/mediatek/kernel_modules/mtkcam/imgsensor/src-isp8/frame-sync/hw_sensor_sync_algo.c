@@ -229,7 +229,7 @@ static unsigned int hw_sync_calc_stg_valid_min_fl_lc_for_shutters(
 	return min_fl_lc;
 }
 
-static unsigned int hw_sync_calc_valid_min_fl_lc_for_shutters(int idx)
+static int hw_sync_calc_valid_min_fl_lc_for_shutters(int idx)
 {
 	unsigned int m_exp_type;
 	unsigned int min_fl_lc = 0;
@@ -289,7 +289,7 @@ static unsigned int hw_sync_get_anti_flicker_fl(const unsigned int flk_en_type,
 		return fl_us;
 
 	flk_en = chk_get_flk_en_type(flk_en_type, __func__);
-	table_idx = flk_en - 1;
+	table_idx = flk_en > 0 ? flk_en - 1 : 0;
 
 	for (i = 0; i < FLK_TABLE_SIZE; ++i) {
 		if (fs_flk_table[table_idx][i][0] == 0)
@@ -586,7 +586,7 @@ hw_fs_alg_solve_frame_length(
 		para[i].out_fl_lc = 0;
 
 		para[i].cal_min_fl_lc =
-			max(hw_sync_calc_valid_min_fl_lc_for_shutters(idx), para[i].min_fl_lc);
+			max_t(unsigned int, hw_sync_calc_valid_min_fl_lc_for_shutters(idx), para[i].min_fl_lc);
 		sensor_infos[idx].prev_hdr_exp = sensor_infos[idx].curr_hdr_exp;
 
 		para[i].cal_min_fl_us = convert2TotalTime(para[i].line_time_in_ns, para[i].cal_min_fl_lc);

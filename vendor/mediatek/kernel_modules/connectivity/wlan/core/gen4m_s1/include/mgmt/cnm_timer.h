@@ -127,6 +127,8 @@ struct TIMER {
 	unsigned long ulDataPtr;
 	PFN_MGMT_TIMEOUT_FUNC pfMgmtTimeOutFunc;
 	enum ENUM_TIMER_WAKELOCK_TYPE_T eType;
+
+	const char *pFuncString;
 };
 
 /*******************************************************************************
@@ -243,7 +245,8 @@ void cnmTimerInitTimerOption(IN struct ADAPTER *prAdapter,
 			     IN struct TIMER *prTimer,
 			     IN PFN_MGMT_TIMEOUT_FUNC pfFunc,
 			     IN unsigned long ulDataPtr,
-			     IN enum ENUM_TIMER_WAKELOCK_TYPE_T eType);
+			     IN enum ENUM_TIMER_WAKELOCK_TYPE_T eType,
+			     IN const char *pFuncString);
 
 void cnmTimerStopTimer(IN struct ADAPTER *prAdapter, IN struct TIMER *prTimer);
 
@@ -263,14 +266,8 @@ static __KAL_INLINE__ int32_t timerPendingTimer(IN struct TIMER *prTimer)
 	return prTimer->rLinkEntry.prNext != NULL;
 }
 
-static __KAL_INLINE__ void cnmTimerInitTimer(IN struct ADAPTER *prAdapter,
-					     IN struct TIMER *prTimer,
-					     IN PFN_MGMT_TIMEOUT_FUNC pfFunc,
-					     IN unsigned long ulDataPtr)
-{
-	cnmTimerInitTimerOption(prAdapter, prTimer, pfFunc, ulDataPtr,
-		TIMER_WAKELOCK_AUTO);
-}
-
+#define cnmTimerInitTimer(_prAdapter, _prUserTimer, _pfFunc, _ulDataPtr)       \
+	cnmTimerInitTimerOption((_prAdapter), (_prUserTimer), (_pfFunc),       \
+				(_ulDataPtr), TIMER_WAKELOCK_AUTO, #_pfFunc)
 
 #endif /* _CNM_TIMER_H */

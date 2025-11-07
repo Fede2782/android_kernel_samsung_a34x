@@ -19,12 +19,15 @@
 #if IS_ENABLED(CONFIG_MTK_APUSYS_IVI)
 #define OPP_OFS			(0) // final opp = opp + opp offset
 #define USER_MAX_OPP_VAL	(0) // fastest speed user can specify
+#define USER_MID_OPP_VAL	(3)
 #define USER_MIN_OPP_VAL	(4 + OPP_OFS) // slowest speed user can specify
 #else
 #define OPP_OFS			(1) // final opp = opp + opp offset
 #define USER_MAX_OPP_VAL	(0) // fastest speed user can specify
+#define USER_MID_OPP_VAL	(2) // dump 2nd opp table
 #define USER_MIN_OPP_VAL	(9 + OPP_OFS) // slowest speed user can specify
 #endif
+#define OPP_TABLE_SIZE		(USER_MIN_OPP_VAL + 1)
 #define TURBO_BOOST_OPP		USER_MAX_OPP_VAL
 #define TURBO_BOOST_VAL		(110)
 #define MTK_POLL_DELAY_US	(10)

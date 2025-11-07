@@ -1248,18 +1248,30 @@ void cnmStaSendUpdateCmd(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 		prCmdContent->ucIsQoS,
 		prCmdContent->ucIsUapsdSupported);
 
-	rStatus = wlanSendSetQueryCmd(prAdapter,	/* prAdapter */
-		CMD_ID_UPDATE_STA_RECORD,		/* ucCID */
-		TRUE,					/* fgSetQuery */
-		fgNeedResp,				/* fgNeedResp */
-		FALSE,					/* fgIsOid */
-		fgNeedResp ? cnmStaRecHandleEventPkt : NULL, NULL,
-		/* pfCmdTimeoutHandler */
-		sizeof(struct CMD_UPDATE_STA_RECORD),	/* u4SetQueryInfoLen */
-		(uint8_t *) prCmdContent,	/* pucInfoBuffer */
-		NULL,				/* pvSetQueryBuffer */
-		0				/* u4SetQueryBufferLen */
-	);
+	if (fgNeedResp)
+		rStatus = wlanSendSetQueryCmd(prAdapter,	/* prAdapter */
+			CMD_ID_UPDATE_STA_RECORD,		/* ucCID */
+			TRUE,					/* fgSetQuery */
+			fgNeedResp,				/* fgNeedResp */
+			FALSE,					/* fgIsOid */
+			cnmStaRecHandleEventPkt,
+			NULL, /* pfCmdTimeoutHandler */
+			sizeof(struct CMD_UPDATE_STA_RECORD),
+			(uint8_t *) prCmdContent,	/* pucInfoBuffer */
+			NULL, /* pvSetQueryBuffer */
+			0 /* u4SetQueryBufferLen */);
+	else
+		rStatus = wlanSendSetQueryCmd(prAdapter,	/* prAdapter */
+			CMD_ID_UPDATE_STA_RECORD,		/* ucCID */
+			TRUE,					/* fgSetQuery */
+			fgNeedResp,				/* fgNeedResp */
+			FALSE,					/* fgIsOid */
+			NULL, NULL,
+			/* pfCmdTimeoutHandler */
+			sizeof(struct CMD_UPDATE_STA_RECORD),
+			(uint8_t *) prCmdContent,	/* pucInfoBuffer */
+			NULL, /* pvSetQueryBuffer */
+			0 /* u4SetQueryBufferLen */);
 
 	cnmMemFree(prAdapter, prCmdContent);
 

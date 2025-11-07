@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -108,7 +108,7 @@ uint32_t dvtSetupPhTput(struct net_device *prNetDev,
 	prAdapter = prGlueInfo->prAdapter;
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, 0);
 
-	ucPhTputMapSize = ARRAY_SIZE(g_rPhTputMap);
+	ucPhTputMapSize = sizeof(g_rPhTputMap) / sizeof(*prPhtputSetting);
 
 	for (ucMapIdx = 0; ucMapIdx < ucPhTputMapSize; ucMapIdx++) {
 		if (u4CaseIndex == g_rPhTputMap[ucMapIdx].u2CmdId)
@@ -182,7 +182,7 @@ uint32_t dvtActivateNetworkPhTput(struct net_device *prNetDev,
         prAdapter = prGlueInfo->prAdapter;
 
 	ASSERT(prAdapter);
-	if (ucBssIndex > prAdapter->ucSwBssIdNum)
+	if (ucBssIndex > prAdapter->ucHwBssIdNum)
 		return 0;
 
 	/* setup BssInfo */
@@ -294,7 +294,7 @@ uint32_t dvtDeactivateNetworkPhTput(struct net_device *prNetDev,
 	prAdapter = prGlueInfo->prAdapter;
 
 	ASSERT(prAdapter);
-	if (ucBssIndex > prAdapter->ucSwBssIdNum)
+	if (ucBssIndex > prAdapter->ucHwBssIdNum)
 		return 0;
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);

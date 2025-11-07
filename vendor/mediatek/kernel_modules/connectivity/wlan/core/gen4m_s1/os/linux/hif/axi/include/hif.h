@@ -312,6 +312,9 @@ struct BUS_INFO {
 				 uint32_t u4Register);
 	void (*getMailboxStatus)(struct ADAPTER *prAdapter, uint32_t *pu4Val);
 	void (*setDummyReg)(struct GLUE_INFO *prGlueInfo);
+	void (*recordWFDMAIdx)(struct ADAPTER *prAdapter);
+	void (*checkIdxMismatch)(u_int32_t u4Idx,
+		struct RTMP_TX_RING *prTxRing);
 	void (*checkDummyReg)(struct GLUE_INFO *prGlueInfo);
 	void (*tx_ring_ext_ctrl)(struct GLUE_INFO *prGlueInfo,
 		struct RTMP_TX_RING *tx_ring, uint32_t index);

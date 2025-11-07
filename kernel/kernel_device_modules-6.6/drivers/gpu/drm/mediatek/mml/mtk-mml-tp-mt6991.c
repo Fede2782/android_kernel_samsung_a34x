@@ -24,11 +24,11 @@
 #define MML_IR_HEIGHT		480
 #define MML_IR_MIN		(MML_IR_WIDTH * MML_IR_HEIGHT)
 #define MML_IR_RSZ_MIN_RATIO	375	/* resize must lower than this ratio */
-#define MML_OUT_MIN_W		784	/* wqhd 1440/2+64=784 */
-#define MML_DL_MAX_W		3840
-#define MML_DL_MAX_H		2400
+#define MML_OUT_MIN_W		2000	/* wqhd 1440/2+64=784 */
+#define MML_DL_MAX_W		1920
+#define MML_DL_MAX_H		1096
 #define MML_DL_RROT_S_PX	(1920 * 1088)
-#define MML_MIN_SIZE		480
+#define MML_MIN_SIZE		720
 #define MML_DC_MAX_DURATION_US	8300
 
 /* use OPP index 0(229Mhz) 1(273Mhz) 2(458Mhz) */
@@ -65,10 +65,10 @@ module_param(mml_racing, int, 0644);
  * 2: force disable
  * 3: force enable
  */
-int mml_dl;
+int mml_dl = 1;
 module_param(mml_dl, int, 0644);
 
-int mml_opp_check = 1;
+int mml_opp_check;
 module_param(mml_opp_check, int, 0644);
 
 int mml_rrot;
@@ -85,11 +85,9 @@ module_param(mml_rrot_single, int, 0644);
 int mml_racing_rsz = 1;
 module_param(mml_racing_rsz, int, 0644);
 
-#ifndef MML_FPGA
-int mml_dpc = 1;
-#else
+
 int mml_dpc;
-#endif
+
 module_param(mml_dpc, int, 0644);
 
 /* 0: off
@@ -985,6 +983,8 @@ static s32 tp_init_cache(struct mml_dev *mml, struct mml_topology_cache *cache,
 
 static inline bool tp_need_resize(struct mml_frame_info *info, bool *can_binning)
 {
+	u32 inw = info->src.width;
+	u32 inh = info->src.height;
 	u32 w = info->dest[0].data.width;
 	u32 h = info->dest[0].data.height;
 	u32 cw = info->dest[0].crop.r.width;
@@ -994,8 +994,8 @@ static inline bool tp_need_resize(struct mml_frame_info *info, bool *can_binning
 		info->dest[0].rotate == MML_ROT_270)
 		swap(w, h);
 
-	mml_msg("[topology]%s target %ux%u crop %ux%u",
-		__func__, w, h, cw, ch);
+	mml_msg("[topology]%s in %ux%u target %ux%u crop %ux%u",
+		__func__, inw, inh, w, h, cw, ch);
 
 	/* default binning off */
 	if (can_binning)
@@ -1006,9 +1006,9 @@ static inline bool tp_need_resize(struct mml_frame_info *info, bool *can_binning
 		if (can_binning && (cw >= w * 2 || ch >= h * 2) &&
 			MML_FMT_YUV420(info->src.format)) {
 			*can_binning = true;
-			if (cw >= w * 2)
+			if (cw >= w * 2 && !(inw & 0x3))
 				cw = cw / 2;
-			if (ch >= h * 2)
+			if (ch >= h * 2 && !(inh & 0x3))
 				ch = ch / 2;
 		}
 	}
@@ -1098,6 +1098,8 @@ static bool tp_check_tput_dl(struct mml_frame_info *info, struct mml_topology_ca
 
 	pixel = max(tputw / 2, destw) * max(tputh, desth) * 11 / 10;
 	tput = pixel / (info->act_time / 1000);
+	if ((rotate != MML_ROT_0 || info->dest[0].flip) && !MML_FMT_COMPRESS(info->src.format))
+		tput = tput * 3 / 2;
 	if (tput < tp->qos[mml_sys_frame].opp_speeds[tp->qos[mml_sys_frame].opp_cnt - 1]) {
 		*dual = mml_rrot_single == 1 ? false : true;
 		goto find_opp;
@@ -1581,7 +1583,7 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 		if (!MML_FMT_ALPHA(info->src.format) ||
 		    info->src.width <= 32 ||
 		    info->dest_cnt != 1 ||
-		    info->dest[0].crop.r.width <= 32 ||
+		    info->dest[0].crop.r.width < 50 ||
 		    info->dest[0].compose.width <= 9)
 			goto not_support;
 		if (mml_isdc(info->mode))

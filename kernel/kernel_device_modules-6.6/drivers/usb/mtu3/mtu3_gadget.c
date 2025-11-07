@@ -13,7 +13,9 @@
 #include "mtu3_trace.h"
 
 #include "u_fs.h"
-
+#if IS_ENABLED(CONFIG_USB_CONFIGFS_F_SS_MON_GADGET)
+#include <../ss_function/f_ss_mon_gadget.h>
+#endif
 #if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
 #include "../../battery/common/sec_charging_common.h"
 #endif
@@ -435,6 +437,8 @@ static int mtu3_gadget_queue(struct usb_ep *ep,
 	struct mtu3 *mtu = mep->mtu;
 	unsigned long flags;
 	int ret = 0;
+	struct list_head *new = NULL;
+	struct list_head *head = NULL;
 
 	if (!req->buf)
 		return -ENODATA;
@@ -487,6 +491,15 @@ static int mtu3_gadget_queue(struct usb_ep *ep,
 	}
 
 	trace_mtu3_gadget_queue(mreq);
+	new = &mreq->list;
+	head = &mep->req_list;
+	if(new == head->prev) {
+		dev_info(mtu->dev, "req double add error,%s %s EP%d(%s), req=%p, maxp=%d, len#%d\n",
+			__func__, mep->is_in ? "TX" : "RX", mreq->epnum, ep->name,
+			mreq, ep->maxpacket, mreq->request.length);
+		ret = -EINVAL;
+		goto error;
+	}
 	list_add_tail(&mreq->list, &mep->req_list);
 	mtu3_insert_gpd(mep, mreq);
 	mtu3_qmu_resume(mep);
@@ -704,7 +717,7 @@ static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 	struct mtu3 *mtu = gadget_to_mtu3(gadget);
 	unsigned long flags;
 
-	dev_dbg(mtu->dev, "%s (%s) for %sactive device\n", __func__,
+	dev_info(mtu->dev, "%s (%s) for %sactive device\n", __func__,
 		is_on ? "on" : "off", mtu->is_active ? "" : "in");
 
 	pm_runtime_get_sync(mtu->dev);
@@ -975,6 +988,11 @@ void mtu3_gadget_suspend(struct mtu3 *mtu)
 		mtu->gadget_driver->suspend(&mtu->g);
 		spin_lock(&mtu->lock);
 	}
+
+#if IS_ENABLED(CONFIG_USB_CONFIGFS_F_SS_MON_GADGET)
+	dev_info(mtu->dev, "make_suspend_current_event\n");
+	make_suspend_current_event();
+#endif
 }
 
 /* called when VBUS drops below session threshold, and in other cases */
@@ -1002,6 +1020,10 @@ void mtu3_gadget_disconnect(struct mtu3 *mtu)
 void mtu3_gadget_reset(struct mtu3 *mtu)
 {
 	dev_info(mtu->dev, "gadget RESET\n");
+
+#if IS_ENABLED(CONFIG_USB_CONFIGFS_F_SS_MON_GADGET)
+	usb_reset_notify(&mtu->g);
+#endif
 
 	/* report disconnect, if we didn't flush EP state */
 	if (mtu->g.speed != USB_SPEED_UNKNOWN)

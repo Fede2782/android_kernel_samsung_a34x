@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -8,7 +8,7 @@
 #define CFG_WAIT_TSSI_READY 0
 #define MAC_TA_ADDRESS_OFFSET_ENB BIT(18)
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 #define PROACTIVE_BW160 3
 #define PROACTIVE_BW320 4
 #endif
@@ -54,7 +54,7 @@ union hetb_tx_usr {
 	u_int32 usr_info;
 };
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 union ehttb_tx_usr {
 	struct {
 		u_int64 aid:8;
@@ -273,7 +273,7 @@ enum ENUM_RF_AT_FUNCID {
 	RF_AT_FUNCID_SET_MPS_NSS = 133,
 	RF_AT_FUNCID_SET_MPS_PACKAGE_BW = 134,
 
-	RF_AT_FUNCID_GET_TX_POWER = 136,
+	RF_AT_FUNCID_GET_CH_TX_PWR_OFFSET = 136,
 	/* Antenna swap feature*/
 	RF_AT_FUNCID_SET_ANT_SWP = 153,
 	RF_AT_FUNCID_SET_RX_MU_AID = 157,
@@ -290,7 +290,7 @@ enum ENUM_RF_AT_FUNCID {
 	/* Set HW TX enable */
 	RF_AT_FUNCID_SET_HWTX_MODE = 167,
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	/* 11 be */
 	RF_AT_FUNCID_SET_PUNCTURE = 168,
 	RF_AT_FUNCID_GET_CFG_ON_OFF = 169,
@@ -307,7 +307,7 @@ enum ENUM_RF_AT_FUNCID {
 	RF_AT_FUNCID_SET_MAX_PE = 191,
 	RF_AT_FUNCID_SET_TX_HE_TB_TTRCR7 = 192,
 	RF_AT_FUNCID_SET_TX_HE_TB_TTRCR8 = 193,
-#endif /* (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1) */
+#endif /* (CFG_SUPPORT_CONNAC3X == 1) */
 
 	/* GAIN CAL */
 	RF_AT_FUNCID_SET_EFEM_MODE = 196,
@@ -316,20 +316,6 @@ enum ENUM_RF_AT_FUNCID {
 	RF_AT_FUNCID_GET_TSSI_MEAS_DBV = 199,
 	RF_AT_FUNCID_SET_GAIN_ENABLE = 200,
 	RF_AT_FUNCID_SET_GAIN_VALUE = 201,
-
-	/* EHT TB dRU enable */
-	RF_AT_FUNCID_SET_EHTTB_DRU_ENABLE = 222,
-
-	/* Get EEPROM/NVRAM/Bufferbin default power */
-	RF_AT_FUNCID_GET_DEFAULT_TX_POWER = 224,
-
-	/* TMR Toae Cal and Restore */
-	RF_AT_FUNCID_SET_TMR_TOAE_CAL_RESOTRE = 225,
-
-	/* Set & get power type. 0:NVRAM, 1:UI*/
-	RF_AT_CMD_SET_GET_POWER_TYPE = 227,
-
-	RF_AT_FUNCID_GET_SLEEP_CHECK = 236,
 
 	RF_AT_FUNCID_NULL = 0xFF
 };
@@ -415,9 +401,9 @@ enum ENUM_ATE_CAP_TYPE {
  *	Global Variable
  *****************************************************************************/
 static struct hqa_m_rx_stat test_hqa_rx_stat;
-#if (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0)
+#if (CFG_SUPPORT_CONNAC3X == 0)
 static u_char g_tx_mode;
-#endif /* (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0) */
+#endif /*(CFG_SUPPORT_CONNAC3X == 0)*/
 
 static u_int32 tm_ch_num_to_freq(u_int32 ch_num)
 {
@@ -450,7 +436,7 @@ static u_int32 tm_bw_hqa_mapping_at(u_int32 bw)
 {
 	u_int32 bw_mapping = 0;
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	/* BW Mapping in QA Tool
 	 * 0: BW20
 	 * 1: BW40
@@ -597,28 +583,6 @@ static s_int32 tm_icap_mode(
 	return SERV_STATUS_SUCCESS;
 }
 
-static s_int32 tm_log_query_auto_test(
-	struct test_wlan_info *winfos,
-	struct param_rdd_log_struct *log_info,
-	u_int32 *buf_len)
-{
-	s_int32 ret = SERV_STATUS_SUCCESS;
-	wlan_oid_handler_t pr_oid_funcptr = winfos->oid_funcptr;
-
-	if (pr_oid_funcptr == NULL)
-		return SERV_STATUS_HAL_OP_INVALID_NULL_POINTER;
-
-	ret = pr_oid_funcptr(winfos, /*call back to ServiceWlanOid*/
-		OP_WLAN_OID_SET_LOG_ONFF,
-		log_info,
-		sizeof(*log_info),
-		NULL,
-		NULL);
-
-	return ret;
-
-}
-
 s_int32 mt_op_set_tr_mac(
 	struct test_wlan_info *winfos,
 	s_int32 op_type, boolean enable, u_char band_idx)
@@ -713,7 +677,7 @@ s_int32 mt_op_set_cfg_on_off(
 {
 	s_int32 ret;
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 
 	ret = tm_rftest_set_auto_test(winfos,
 		RF_AT_FUNCID_SET_DBDC_BAND_IDX, band_idx);
@@ -773,9 +737,9 @@ s_int32 mt_op_set_cfg_on_off(
 	ret = tm_rftest_set_auto_test(
 		winfos, func_index, func_data);
 
-#endif /* (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1) */
+#endif /* (CFG_SUPPORT_CONNAC3X == 1) */
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 err_out:
 #endif
 	return ret;
@@ -790,7 +754,6 @@ s_int32 mt_op_log_on_off(
 {
 	s_int32 ret = SERV_STATUS_SUCCESS;
 	struct param_mtk_wifi_test_struct rf_at_info;
-	struct param_rdd_log_struct log_info;
 	wlan_oid_handler_t pr_oid_funcptr = winfos->oid_funcptr;
 	u_int32 buf_len = 0;
 	u_int32 rxv;
@@ -832,16 +795,6 @@ s_int32 mt_op_log_on_off(
 		}
 
 		/* TOOL_PRINTLOG(RFTEST, ERROR, "[LOG DUMP END]\n"); */
-	}
-
-	if (log_type == ATE_LOG_RDD) {
-
-		log_info.band_idx = band_idx;
-		log_info.log_size = log_size;
-		log_info.log_ctrl = log_ctrl;
-
-		ret = tm_log_query_auto_test(winfos,
-			&log_info, &buf_len);
 	}
 
 	return ret;
@@ -896,9 +849,9 @@ s_int32 mt_op_set_rx_filter_pkt_len(
 
 s_int32 mt_op_get_antswap_capability(
 	struct test_wlan_info *winfos,
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	u_char band_idx,
-#endif /* (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1) */
+#endif /* (CFG_SUPPORT_CONNAC3X == 1) */
 	u_int32 *antswap_support)
 {
 	s_int32 ret = SERV_STATUS_SUCCESS;
@@ -910,7 +863,7 @@ s_int32 mt_op_get_antswap_capability(
 
 	ret = pr_oid_funcptr(winfos, /*call back to ServiceWlanOid*/
 		OP_WLAN_OID_GET_ANTSWAP_CAPBILITY,
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 		(void *)&band_idx,
 #else
 		NULL,
@@ -955,7 +908,7 @@ s_int32 mt_op_set_freq_offset(
 	return ret;
 }
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 s_int32 mt_op_set_freq_offset_C2(
 	struct test_wlan_info *winfos,
 	u_int32 freq_offset, u_char band_idx)
@@ -1338,7 +1291,7 @@ static void mt_op_set_manual_he_tb_value(
 	else
 		cmm.field.ltf_sym_midiam = ltf_sym_code[ru_sta->nss];
 	cmm.field.gi_ltf = configs->sgi;
-	cmm.field.ul_bw = tm_bw_hqa_mapping_at((u_int32) configs->per_pkt_bw);
+	cmm.field.ul_bw = tm_bw_hqa_mapping_at((u_int32) configs->bw);
 	cmm.field.stbc = configs->stbc;
 
 	SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_TRACE,
@@ -1373,7 +1326,7 @@ static void mt_op_set_manual_he_tb_value(
 	usr.field.aid = 0x1;
 	usr.field.allocation = ru_sta->ru_index;
 	usr.field.coding = ru_sta->ldpc;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	usr.field.mcs = ru_sta->rate & ~BIT(4);
 	usr.field.dcm = (ru_sta->rate & BIT(4)) >> 4;
 #else
@@ -1417,7 +1370,7 @@ static void mt_op_set_manual_he_tb_value(
 		RF_AT_FUNCID_SET_TX_HE_TB_TTRCR5, 0xffffffff);
 	tm_rftest_set_auto_test(winfos,
 		RF_AT_FUNCID_SET_TX_HE_TB_TTRCR6, 0xffffffff);
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	tm_rftest_set_auto_test(winfos,
 		RF_AT_FUNCID_SET_TX_HE_TB_TTRCR7, 0);
 	tm_rftest_set_auto_test(winfos,
@@ -1426,7 +1379,7 @@ static void mt_op_set_manual_he_tb_value(
 
 }
 
-#if (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0)
+#if (CFG_SUPPORT_CONNAC3X == 0)
 static s_int32 tm_trans_Preamble_rate(
 	struct test_wlan_info *winfos,
 	struct test_configuration *configs)
@@ -1502,10 +1455,10 @@ static s_int32 tm_trans_Preamble_rate(
 
 	return SERV_STATUS_SUCCESS;
 }
-#endif /* (CFG_SUPPORT_CONNAC3X == 0) || (CFG_SUPPORT_CONNAC5X == 0) */
+#endif /* #if (CFG_SUPPORT_CONNAC3X == 0) */
 
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 static void mt_op_set_manual_eht_tb_value(
 	struct test_wlan_info *winfos,
 	struct test_ru_info *ru_sta,
@@ -1519,20 +1472,11 @@ static void mt_op_set_manual_eht_tb_value(
 	u_int8 ltf_sym_code[] = {
 		0, 0, 1, 2, 2, 3, 3, 4, 4   /* SS 1~8 */
 	};
-	u_int8 i;
 
 	/* setup MAC start */
 	/* step 1-1, common info of TF */
 	sys_ad_zero_mem(&cmm, sizeof(cmm));
 	cmm.field.sig_a_reserved = 0x1fc;
-
-	for (i = 0; i < 4; i++) {
-		if ((configs->seg_sta_cnt[i] > 0) && (ru_sta->dRU_en == TRUE))
-			cmm.field.sig_a_reserved &= ~BIT(2+i);
-	}
-
-	/* assign dRU EN */
-
 	cmm.field.ul_length = ru_sta->l_len;
 	cmm.field.t_pe =
 	(ru_sta->afactor_init & 0x3) | ((ru_sta->pe_disamb & 0x1) << 2);
@@ -1547,7 +1491,7 @@ static void mt_op_set_manual_eht_tb_value(
 		cmm.field.ltf_sym_midiam = ltf_sym_code[nss];
 	cmm.field.gi_ltf = configs->sgi;
 
-	mapping_bw = tm_bw_hqa_mapping_at((u_int32) configs->per_pkt_bw);
+	mapping_bw = tm_bw_hqa_mapping_at((u_int32) configs->bw);
 	if (mapping_bw >= PROACTIVE_BW320)
 		cmm.field.ul_bw = PROACTIVE_BW160;
 	else
@@ -1682,7 +1626,7 @@ s_int32 mt_op_start_tx(
 	u_int32 aifs = configs->ipg_param.ipg;
 	u_int32 pkt_cnt = configs->tx_stat.tx_cnt;
 	s_int32 ret = SERV_STATUS_SUCCESS;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	struct test_ru_info *ru_sta = &configs->ru_info_list[0];
 #endif
 	struct param_mtk_wifi_test_struct rf_at_info;
@@ -1700,7 +1644,7 @@ s_int32 mt_op_start_tx(
 	tm_rftest_set_auto_test(winfos,
 		RF_AT_FUNCID_PKTCNT, pkt_cnt);
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	/* QA tool pass through to FW */
 	tm_rftest_set_auto_test(winfos,
 		RF_AT_FUNCID_PREAMBLE, configs->tx_mode);
@@ -1739,13 +1683,9 @@ s_int32 mt_op_start_tx(
 	tm_rftest_set_auto_test(winfos,
 		RF_AT_FUNCID_RATE, configs->mcs);
 
-	if (ru_sta->dRU_valid)
-		tm_rftest_set_auto_test(winfos,
-			RF_AT_FUNCID_SET_EHTTB_DRU_ENABLE, ru_sta->dRU_en);
-
 #else
 	tm_trans_Preamble_rate(winfos, configs);
-#endif /* (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1) */
+#endif /* (CFG_SUPPORT_CONNAC3X == 1) */
 
 	if (tx_pwr > 0x3F)
 		tx_pwr += 128;
@@ -1769,7 +1709,7 @@ s_int32 mt_op_start_tx(
 	tm_rftest_set_auto_test(winfos,
 		RF_AT_FUNCID_SET_HWTX_MODE, winfos->hw_tx_enable);
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	tm_rftest_set_auto_test(winfos,
 		RF_AT_FUNCID_SET_PUNCTURE, configs->puncture);
 #endif
@@ -1846,7 +1786,7 @@ s_int32 mt_op_start_rx(
 		RF_AT_FUNCID_PREAMBLE, configs->tx_mode);
 
 	if ((configs->tx_mode == TEST_MODE_HE_MU)
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	|| (configs->tx_mode == TEST_MODE_EHT_MU_DL_SU)
 	|| (configs->tx_mode == TEST_MODE_EHT_MU_UL_SU)
 	|| (configs->tx_mode == TEST_MODE_EHT_MU_DL_OFDMA)
@@ -1952,6 +1892,15 @@ s_int32 mt_op_set_channel(
 	}
 
 	tm_rftest_set_auto_test(winfos,
+		RF_AT_FUNCID_CHNL_FREQ, SetFreq);
+
+	if (sys_bw == 6) {
+		SetFreq = tm_ch_num_to_freq((u_int32)central_ch1);
+		tm_rftest_set_auto_test(winfos,
+			(RF_AT_FUNCID_CHNL_FREQ | BIT(16)), SetFreq);
+	}
+
+	tm_rftest_set_auto_test(winfos,
 			RF_AT_FUNCID_SET_CBW,
 			tm_bw_hqa_mapping_at((u_int32)sys_bw));
 
@@ -1971,15 +1920,6 @@ s_int32 mt_op_set_channel(
 	tm_rftest_set_auto_test(winfos,
 		RF_AT_FUNCID_SET_BAND, ch_band);
 
-	tm_rftest_set_auto_test(winfos,
-		RF_AT_FUNCID_CHNL_FREQ, SetFreq);
-
-	if (sys_bw == 6) {
-		SetFreq = tm_ch_num_to_freq((u_int32)central_ch1);
-		tm_rftest_set_auto_test(winfos,
-			(RF_AT_FUNCID_CHNL_FREQ | BIT(16)), SetFreq);
-	}
-
 	return ret;
 }
 
@@ -1997,7 +1937,7 @@ s_int32 mt_op_set_tx_content(
 	u_int32 tx_len = configs->tx_len;
 	s_int32 ret = SERV_STATUS_SUCCESS;
 	wlan_oid_handler_t pr_oid_funcptr = winfos->oid_funcptr;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	u_int32 tx_time = configs->tx_time_param.pkt_tx_time;
 	boolean enable = FALSE;
 #endif
@@ -2022,7 +1962,7 @@ s_int32 mt_op_set_tx_content(
 		RF_AT_FUNCID_SET_PAYLOAD,
 		((gen_payload_rule << 16) | pay_load));
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	enable = configs->tx_time_param.pkt_tx_time_en;
 	if (enable) {
 		tm_rftest_set_auto_test(winfos,
@@ -2084,91 +2024,9 @@ s_int32 mt_op_set_tx_content(
 	sys_ad_move_mem(&func_data, configs->addr2[0] + 4, 2);
 	tm_rftest_set_auto_test(winfos,
 		(RF_AT_FUNCID_SET_TA | MAC_TA_ADDRESS_OFFSET_ENB), func_data);
-#endif  /* (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1) */
+#endif  /* #if (CFG_SUPPORT_CONNAC3X == 1) */
 
 	return ret;
-}
-
-s_int32 mt_op_set_tmr(
-	struct test_wlan_info *winfos,
-	struct test_tmr_info *tmr_info)
-{
-	s_int32 ret = SERV_STATUS_SUCCESS;
-	wlan_oid_handler_t pr_oid_funcptr = winfos->oid_funcptr;
-
-	if (pr_oid_funcptr == NULL)
-		return SERV_STATUS_HAL_OP_INVALID_NULL_POINTER;
-
-	do {
-		ret = tm_rftest_set_auto_test(winfos,
-			RF_AT_FUNCID_SET_DBDC_BAND_IDX, tmr_info->band_idx);
-		if (ret != SERV_STATUS_SUCCESS) {
-			SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_TRACE,
-				("%s RF_AT_FUNCID_SET_DBDC_BAND_IDX ret=%d\n",
-				__func__, ret));
-
-			break;
-		}
-
-		ret = tm_rftest_set_auto_test(winfos,
-			RF_AT_FUNCID_SET_TMR_ROLE, tmr_info->setting);
-
-		if (ret != SERV_STATUS_SUCCESS) {
-			SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_TRACE,
-				("%s RF_AT_FUNCID_SET_TMR_ROLE ret=%d\n",
-				__func__, ret));
-
-			break;
-		}
-
-		ret = tm_rftest_set_auto_test(winfos,
-			RF_AT_FUNCID_SET_TMR_MODULE, tmr_info->version);
-
-		if (ret != SERV_STATUS_SUCCESS) {
-			SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_TRACE,
-				("%s RF_AT_FUNCID_SET_TMR_MODULE ret=%d\n",
-				__func__, ret));
-
-			break;
-		}
-
-		ret = tm_rftest_set_auto_test(winfos,
-			RF_AT_FUNCID_SET_TMR_DBM, tmr_info->through_hold);
-
-		if (ret != SERV_STATUS_SUCCESS) {
-			SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_TRACE,
-				("%s RF_AT_FUNCID_SET_TMR_DBM ret=%d\n",
-				__func__, ret));
-
-			break;
-		}
-
-		ret = tm_rftest_set_auto_test(winfos,
-			RF_AT_FUNCID_SET_TMR_ITER, tmr_info->iter);
-
-		if (ret != SERV_STATUS_SUCCESS) {
-			SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_TRACE,
-				("%s RF_AT_FUNCID_SET_TMR_ITER ret=%d\n",
-				__func__, ret));
-
-			break;
-		}
-
-		ret = tm_rftest_set_auto_test(winfos,
-			RF_AT_FUNCID_SET_TMR_TOAE_CAL_RESOTRE,
-			tmr_info->toae_cal);
-
-		if (ret != SERV_STATUS_SUCCESS) {
-			SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_TRACE, (
-				"%s RF_AT_FUNCID_SET_TMR_TOAE_CAL_RESOTRE ret=%d\n",
-				__func__, ret));
-
-			break;
-		}
-	} while (0);
-
-	return ret;
-
 }
 
 s_int32 mt_op_set_preamble(
@@ -2181,7 +2039,7 @@ s_int32 mt_op_set_preamble(
 	if (pr_oid_funcptr == NULL)
 		return SERV_STATUS_HAL_OP_INVALID_NULL_POINTER;
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	/* QA tool pass through to FW
 	typedef enum
 	{
@@ -2230,7 +2088,7 @@ s_int32 mt_op_set_rate(
 	if (pr_oid_funcptr == NULL)
 		return SERV_STATUS_HAL_OP_INVALID_NULL_POINTER;
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	/* QA tool pass through to FW */
 
 #else
@@ -2458,7 +2316,7 @@ s_int32 mt_op_dbdc_continuous_tx(
 			RF_AT_FUNCID_SET_PRIMARY_CH,
 			configs->pri_sel);
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 		/* QA tool pass through to FW */
 		ret = tm_rftest_set_auto_test(winfos,
 			RF_AT_FUNCID_PREAMBLE, tx_mode);
@@ -2508,7 +2366,7 @@ s_int32 mt_op_dbdc_continuous_tx(
 			tm_rftest_set_auto_test(winfos,
 				RF_AT_FUNCID_RATE, rate);
 		}
-#endif /* (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1) */
+#endif /* (CFG_SUPPORT_CONNAC3X == 1) */
 
 		ret = tm_rftest_set_auto_test(winfos,
 			RF_AT_FUNCID_SET_CBW,
@@ -2665,7 +2523,7 @@ s_int32 mt_op_set_icap_start(
 	pr_rbist_info->en_bit_width = winfos->icap_bitwidth;
 	/* 0:Support on-chip, 1:Support on-the fly */
 	pr_rbist_info->arch = winfos->icap_arch;
-#if (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0)
+#if (CFG_SUPPORT_CONNAC3X == 0) /* qatool will send phy idx to gen4m */
 	pr_rbist_info->phy_idx = winfos->icap_phy_idx;
 #endif
 	SERV_LOG(SERV_DBG_CAT_MISC, SERV_DBG_LVL_WARN,
@@ -2842,7 +2700,7 @@ s_int32 mt_op_set_band_mode(
 	s_int32 ret = SERV_STATUS_SUCCESS;
 	wlan_oid_handler_t pr_oid_funcptr = winfos->oid_funcptr;
 	u_int32 dbdc_enb;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	u_int32 fw_band_mode;
 #endif
 
@@ -2856,9 +2714,8 @@ s_int32 mt_op_set_band_mode(
 
 	SET_TEST_DBDC(winfos, dbdc_enb);
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 
-	/* band_state->band_mode BIT24: TEST_BAND_MODE_SINGLE_BAND0/1 */
 	fw_band_mode =
 		(band_state->band_mode & 0xffffff00) |	dbdc_enb;
 
@@ -3060,11 +2917,11 @@ s_int32 mt_op_get_tx_pwr(
 	tm_rftest_set_auto_test(winfos,
 		RF_AT_FUNCID_SET_DBDC_BAND_IDX, band_idx);
 
-#if (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0)
+#if (CFG_SUPPORT_CONNAC3X == 0)
 	tm_trans_Preamble_rate(winfos, configs);
-#endif /* (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0) */
+#endif /* #if (CFG_SUPPORT_CONNAC3X == 0) */
 
-	rf_at_info.func_idx = RF_AT_FUNCID_GET_TX_POWER;
+	rf_at_info.func_idx = RF_AT_FUNCID_GET_CH_TX_PWR_OFFSET;
 	rf_at_info.func_data = 0;
 
 	ret = tm_rftest_query_auto_test(winfos,
@@ -3081,91 +2938,6 @@ s_int32 mt_op_get_tx_pwr(
 			("%s:  fail!\n",
 			__func__));
 	}
-
-	return ret;
-}
-
-s_int32 mt_op_get_tx_default_pwr(
-	struct test_wlan_info *winfos,
-	struct test_configuration *configs,
-	u_char band_idx,
-	u_char channel,
-	u_char ant_idx,
-	u_int32 *power)
-{
-	s_int32 ret = SERV_STATUS_SUCCESS;
-	wlan_oid_handler_t pr_oid_funcptr = winfos->oid_funcptr;
-	struct param_mtk_wifi_test_struct rf_at_info;
-	u_int32 buf_len = 0;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
-	struct test_ru_info *ru_sta = &configs->ru_info_list[0];
-#endif
-
-	if (pr_oid_funcptr == NULL)
-		return SERV_STATUS_HAL_OP_INVALID_NULL_POINTER;
-
-	tm_rftest_set_auto_test(winfos,
-		RF_AT_FUNCID_SET_DBDC_BAND_IDX, band_idx);
-
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
-	tm_rftest_set_auto_test(winfos,
-		RF_AT_FUNCID_PREAMBLE, configs->tx_mode);
-
-	if ((configs->tx_mode == TEST_MODE_HE_TB) ||
-		(configs->tx_mode == TEST_MODE_EHT_TB_UL_OFDMA)) {
-		if (ru_sta->valid) {
-			configs->dmnt_ru_idx = 0;
-
-			/* apply ru rate*/
-			configs->mcs = ru_sta->rate;
-			configs->nss = ru_sta->nss;
-			configs->ldpc = ru_sta->ldpc;
-			if (configs->tx_mode == TEST_MODE_HE_TB)
-				/*Do Calc Manual HE TB TX*/
-				mt_op_set_manual_he_tb_value(winfos,
-				ru_sta, configs);
-			else
-				/*Do Calc Manual EHT TB TX*/
-				mt_op_set_manual_eht_tb_value(winfos,
-				ru_sta, configs);
-		}
-	}
-
-	tm_rftest_set_auto_test(winfos,
-		RF_AT_FUNCID_RATE, configs->mcs);
-#else
-	tm_trans_Preamble_rate(winfos, configs);
-#endif /* (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1) */
-
-	rf_at_info.func_idx = RF_AT_FUNCID_GET_DEFAULT_TX_POWER;
-	rf_at_info.func_data = 0;
-
-	ret = tm_rftest_query_auto_test(winfos,
-		&rf_at_info, &buf_len);
-
-	if (ret == SERV_STATUS_SUCCESS)	{
-		*power = rf_at_info.func_data;
-
-		SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_TRACE,
-			("%s: pwr:%u!\n",
-			__func__, *power));
-	} else {
-		SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_TRACE,
-			("%s:  fail!\n",
-			__func__));
-	}
-
-	return ret;
-}
-
-s_int32 mt_op_set_get_pwr_type(
-	struct test_wlan_info *winfos,
-	u_int32_t powertype)
-{
-	s_int32 ret = SERV_STATUS_SUCCESS;
-
-	ret = tm_rftest_set_auto_test(winfos,
-		RF_AT_CMD_SET_GET_POWER_TYPE, powertype);
 
 	return ret;
 }
@@ -3218,7 +2990,7 @@ s_int32 mt_op_get_freq_offset(
 	return ret;
 }
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 s_int32 mt_op_get_freq_offset_C2(
 	struct test_wlan_info *winfos,
 	u_char band_idx,
@@ -3252,7 +3024,7 @@ s_int32 mt_op_get_cfg_on_off(
 {
 	s_int32 ret = SERV_STATUS_SUCCESS;
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	struct param_mtk_wifi_test_struct rf_at_info;
 	u_int32 buf_len = 0;
 
@@ -3437,7 +3209,7 @@ s_int32 mt_op_set_dpd(
 	return SERV_STATUS_SUCCESS;
 }
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 s_int32 mt_op_set_max_pac_ext(
 	struct test_wlan_info *winfos,
 	u_int32 max_pac_ext)
@@ -3506,33 +3278,6 @@ s_int32 mt_op_set_rdd_test(
 	u_int32 rdd_sel,
 	u_int32 enable)
 {
-	struct test_rdd_params rdd_info;
-	s_int32 ret = SERV_STATUS_SUCCESS;
-	wlan_oid_handler_t pr_oid_funcptr = winfos->oid_funcptr;
-
-	if (pr_oid_funcptr == NULL)
-		return SERV_STATUS_HAL_OP_INVALID_NULL_POINTER;
-
-	rdd_info.rdd_idx = rdd_idx;
-	rdd_info.rdd_sel = rdd_sel;
-
-
-	if (enable) {
-		ret = pr_oid_funcptr(winfos, /*call back to ServiceWlanOid*/
-			OP_WLAN_OID_SET_TEST_RDD_START,
-			&rdd_info,
-			sizeof(rdd_info),
-			NULL,
-			NULL);
-	} else {
-		ret = pr_oid_funcptr(winfos, /*call back to ServiceWlanOid*/
-			OP_WLAN_OID_SET_TEST_RDD_STOP,
-			&rdd_info,
-			sizeof(rdd_info),
-			NULL,
-			NULL);
-	}
-
 	return SERV_STATUS_SUCCESS;
 }
 
@@ -3550,30 +3295,6 @@ s_int32 mt_op_get_rdd_cnt(
 	u_int32 *rdd_cnt,
 	u_int32 *rdd_dw_num)
 {
-	s_int32 ret = SERV_STATUS_SUCCESS;
-	wlan_oid_handler_t pr_oid_funcptr = winfos->oid_funcptr;
-	struct test_rdd_dump_params rdd_info;
-
-	if (pr_oid_funcptr == NULL)
-		return SERV_STATUS_HAL_OP_INVALID_NULL_POINTER;
-
-	ret = pr_oid_funcptr(winfos, /*call back to ServiceWlanOid*/
-		OP_WLAN_OID_GET_RDD_CNT,
-		&rdd_info,
-		sizeof(rdd_info),
-		NULL,
-		NULL);
-	SERV_LOG(SERV_DBG_CAT_MISC, SERV_DBG_LVL_WARN,
-		("%s : %d, %d\n", __func__,
-		rdd_info.rdd_cnt, rdd_info.rdd_dw_num));
-	if (ret == SERV_STATUS_SUCCESS) {
-		SERV_LOG(SERV_DBG_CAT_MISC, SERV_DBG_LVL_WARN,
-		("%s : %d, %d\n", __func__,
-		rdd_info.rdd_cnt, rdd_info.rdd_dw_num));
-		*rdd_cnt = rdd_info.rdd_cnt;
-		*rdd_dw_num = rdd_info.rdd_dw_num;
-	}
-
 	return SERV_STATUS_SUCCESS;
 }
 
@@ -3582,51 +3303,6 @@ s_int32 mt_op_get_rdd_content(
 	u_int32 *content,
 	u_int32 *total_cnt)
 {
-	s_int32 ret = SERV_STATUS_SUCCESS;
-	struct test_rdd_log *result = NULL;
-	s_int32 *pulse = NULL;
-	wlan_oid_handler_t pr_oid_funcptr = winfos->oid_funcptr;
-	struct test_log_dump_cb rdd_info;
-	int32_t idx = 0;
-
-	if (pr_oid_funcptr == NULL)
-		return SERV_STATUS_HAL_OP_INVALID_NULL_POINTER;
-
-	ret = pr_oid_funcptr(winfos, /*call back to ServiceWlanOid*/
-		OP_WLAN_OID_GET_RDD_CONTENT,
-		&rdd_info,
-		sizeof(rdd_info),
-		NULL,
-		NULL);
-
-	if (ret == SERV_STATUS_SUCCESS) {
-
-		SERV_LOG(SERV_DBG_CAT_MISC, SERV_DBG_LVL_WARN,
-		("%s : %d, %d, %d, %d\n", __func__,
-		idx, rdd_info.len, rdd_info.idx, rdd_info.entry[0].un_dumped));
-
-		do {
-			idx = (idx % (rdd_info.len));
-			/* 1 pulse: 64 bits */
-			result = &rdd_info.entry[idx].rdd;
-			pulse = (s_int32 *)result->buffer;
-
-			rdd_info.entry[idx].un_dumped = FALSE;
-
-			*content = pulse[0];
-			content++;
-			*content = pulse[1];
-			content++;
-			*total_cnt = *total_cnt + 2;
-
-			INC_RING_INDEX1(idx, rdd_info.len);
-		} while (idx != rdd_info.idx);
-
-		SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_ERROR,
-		("[After RDD dumping] idx: %d, end: %d, total_cnt: %d\n",
-		idx, rdd_info.len, *total_cnt));
-	}
-
 	return SERV_STATUS_SUCCESS;
 }
 
@@ -3673,7 +3349,7 @@ s_int32 mt_op_get_rx_stat_band(
 	if (pr_oid_funcptr == NULL)
 		return SERV_STATUS_HAL_OP_INVALID_NULL_POINTER;
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 
 	rx_stat_test.seq_num = 0;
 	rx_stat_test.total_num = sizeof(test_hqa_rx_stat);
@@ -3823,7 +3499,7 @@ s_int32 mt_op_get_rx_stat_band(
 			SERV_OS_NTOHL(
 			test_hqa_rx_stat.phy_rx_mdrdy_cnt_ofdm_band1);
 	}
-#endif /* (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1) */
+#endif /* (CFG_SUPPORT_CONNAC3X == 1) */
 
 	return ret;
 }
@@ -3847,7 +3523,7 @@ s_int32 mt_op_get_rx_stat_path(
 	s_int32 ret = SERV_STATUS_SUCCESS;
 
 	switch (blk_idx) {
-#if (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0)
+#if (CFG_SUPPORT_CONNAC3X == 0)
 	case ANT_WF0:
 		rx_st_path->rcpi =
 			SERV_OS_NTOHL(test_hqa_rx_stat.rcpi0);
@@ -3955,7 +3631,7 @@ s_int32 mt_op_get_rx_stat_user(
 	struct test_rx_stat_user_info *rx_st_user)
 {
 	s_int32 ret = SERV_STATUS_SUCCESS;
-#if (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0)
+#if (CFG_SUPPORT_CONNAC3X == 0)
 	rx_st_user->freq_offset_from_rx =
 		SERV_OS_NTOHL(test_hqa_rx_stat.freq_offset_from_rx);
 
@@ -3978,7 +3654,7 @@ s_int32 mt_op_get_rx_stat_user(
 	rx_st_user->snr =
 		SERV_OS_NTOHL(
 		test_hqa_rx_stat.rInfoUser[0].u4Snr);
-#endif /* (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0) */
+#endif /*(CFG_SUPPORT_CONNAC3X == 1)*/
 
 	return ret;
 }
@@ -3991,7 +3667,7 @@ s_int32 mt_op_get_rx_stat_comm(
 {
 	s_int32 ret = SERV_STATUS_SUCCESS;
 
-#if (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0)
+#if (CFG_SUPPORT_CONNAC3X == 0)
 	rx_st_comm->rx_fifo_full =
 		SERV_OS_NTOHL(test_hqa_rx_stat.rx_fifo_full);
 	rx_st_comm->aci_hit_low =
@@ -4054,7 +3730,7 @@ s_int32 mt_op_get_wf_path_comb(
 	if (!path_len)
 		return SERV_STATUS_HAL_OP_INVALID_NULL_POINTER;
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 
 	*path_len = 2;
 	for (i = 0; i < *path_len; i++)
@@ -4083,7 +3759,7 @@ s_int32 mt_op_listmode_cmd(
 	struct test_wlan_info *winfos,
 	u_int8 *para,
 	u_int16 para_len,
-	u_int32 *rsp_len,
+	uint32_t *rsp_len,
 	void *rsp_data)
 {
 	s_int32 ret = SERV_STATUS_SUCCESS;
@@ -4238,24 +3914,3 @@ s_int32 mt_op_get_tssi_meas_dbv(
 	return ret;
 }
 
-s_int32 mt_op_get_sleep_check(
-	struct test_wlan_info *winfos,
-	u_int32 action,
-	u_int32 *sleep_result)
-{
-	s_int32 ret = SERV_STATUS_SUCCESS;
-	u_int32 buf_len = 0;
-	struct param_mtk_wifi_test_struct rf_at_info;
-
-	rf_at_info.func_idx = RF_AT_FUNCID_GET_SLEEP_CHECK;
-	rf_at_info.func_data = action;
-	ret = tm_rftest_query_auto_test(winfos,
-			&rf_at_info, &buf_len);
-
-	if (ret == SERV_STATUS_SUCCESS)
-		*sleep_result = rf_at_info.func_data;
-	else
-		*sleep_result = 0;
-
-	return ret;
-}

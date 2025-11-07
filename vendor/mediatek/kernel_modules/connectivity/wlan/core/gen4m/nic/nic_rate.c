@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -386,8 +386,7 @@ nicRateCode2DataRate(
 		u4PhyRateIn100Kbps = (nicGetHwRateByPhyRate(
 					      ucPhyRate & BITS(0, 3))) * 5;
 	} else {
-		DBGLOG(INIT, ERROR, "Invalid TxMode = %x\n", u2TxMode);
-		return 0;
+		ASSERT(FALSE);
 	}
 	return u4PhyRateIn100Kbps;
 }
@@ -822,7 +821,7 @@ uint16_t nicGetStatIdxInfo(struct ADAPTER *prAdapter,
 			ucWlanIdxExist = aucWlanIdxArray[ucIdx];
 
 			if (ucWlanIdxExist == ucWlanIdx) {
-				DBGLOG(REQ, DEBUG,
+				DBGLOG(REQ, INFO,
 				    "=== Matched, Mask=0x%x, ucIdx=%d ===\n",
 				    u2ValidBitMask, ucIdx);
 				return ucIdx;
@@ -836,7 +835,7 @@ uint16_t nicGetStatIdxInfo(struct ADAPTER *prAdapter,
 			if (~u2ValidBitMask & BIT(ucIdx)) {
 				u2ValidBitMask |= BIT(ucIdx);
 				aucWlanIdxArray[ucIdx] = ucWlanIdx;
-				DBGLOG(REQ, DEBUG,
+				DBGLOG(REQ, INFO,
 				    "=== New Add, Mask=0x%x, ucIdx=%d ===\n",
 				    u2ValidBitMask, ucIdx);
 				return ucIdx;

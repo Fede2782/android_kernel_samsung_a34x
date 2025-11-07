@@ -116,3 +116,11 @@ config MTK_TYPEC_WATER_DETECT_BY_PCB
 	  need to be enabled.
 	  Say Yes to let PCB decides enabling water detection or not.
 	  If unsure, say N.
+
+config SEC_HICCUP
+	bool "SEC HICCUP"
+	default n
+	help
+	  Say Y to enable SEC HICCUP
+	  information
+	  Say N to disable

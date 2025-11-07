@@ -210,16 +210,15 @@ uint64_t StatsEnvTimeGet(void);
 void StatsEnvTxTime2Hif(struct ADAPTER *prAdapter,
 			struct MSDU_INFO *prMsduInfo);
 
-void StatsEnvRxTime2Host(struct ADAPTER *prAdapter, void *pvPacket);
+void StatsEnvRxTime2Host(struct ADAPTER *prAdapter,
+	void *pvPacket, void *prNetDev);
 
 #if (CFG_SUPPORT_STATISTICS == 1)
-void StatsRxPktInfoDisplay(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb);
-void StatsTxPktInfoDisplay(struct ADAPTER *prAdapter, void *pvPacket);
+void StatsRxPktInfoDisplay(struct SW_RFB *prSwRfb);
+void StatsTxPktInfoDisplay(void *pvPacket);
 #else
-static inline void StatsRxPktInfoDisplay(struct ADAPTER *prAdapter,
-						struct SW_RFB *prSwRfb) { };
-static inline void StatsTxPktInfoDisplay(struct ADAPTER *prAdapter,
-						void *pvPacket) { };
+static inline void StatsRxPktInfoDisplay(struct SW_RFB *prSwRfb) { };
+static inline void StatsTxPktInfoDisplay(void *pvPacket) { };
 #endif
 
 void StatsResetTxRx(void);

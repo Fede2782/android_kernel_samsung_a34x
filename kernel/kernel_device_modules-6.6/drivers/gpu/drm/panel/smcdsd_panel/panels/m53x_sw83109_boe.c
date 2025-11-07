@@ -973,8 +973,12 @@ static int sw83109_boe_displayon(struct lcd_info *lcd)
 
 	dev_info(&lcd->ld->dev, "%s\n", __func__);
 
+	/* for update aod brightness */
+	/* during DOZE<->DOZE_SUSPEND, drm_panel_enable skipped because mainline consider as duplicate call */
+	if (lcd->doze_state)
+		smcdsd_panel_set_brightness(lcd, 1);
+
 	/* 12. Display On(29h) */
-	//send_cmd(SW83109_BOE_00_DISPLAY_ON, ARRAY_SIZE(SW83109_BOE_00_DISPLAY_ON));
 	/* Display on cmd will be sent .set_dispon_cmdq */
 
 	smcdsd_dsi_tx_package(lcd, &PACKAGE_LIST[MSG_IDX_BASE][GET_ENUM_WITH_NAME(MSG_SW83109_BOE_00_DISPLAY_ON)]);

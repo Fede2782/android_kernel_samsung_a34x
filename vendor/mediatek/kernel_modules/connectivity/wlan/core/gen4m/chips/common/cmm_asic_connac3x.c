@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -37,6 +37,9 @@
 #include "mddp.h"
 #endif /* CFG_MTK_MDDP_SUPPORT */
 
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
+#include "connv3.h"
+#endif
 /*******************************************************************************
 *                              C O N S T A N T S
 ********************************************************************************
@@ -71,7 +74,7 @@ uint32_t g_au4UsbPollAddrTbl[] = {
 	CONNAC3X_UDMA_WL_TX_SCH_ADDR,
 	CONNAC3X_UDMA_AR_CMD_FIFO_ADDR,
 	WF_WFDMA_HOST_DMA0_WPDMA_GLO_CFG_EXT2_CSR_TX_DROP_MODE_TEST_ADDR,
-	CONNAC3X_WFDMA_HIF_MISC_HIF_BUSY_ADDR,
+	WF_WFDMA_EXT_WRAP_CSR_WFDMA_HIF_MISC_HIF_BUSY_ADDR,
 	CONNAC3X_UDMA_WL_STOP_DP_OUT_ADDR
 };
 uint32_t g_au4UsbPollMaskTbl[] = {
@@ -85,7 +88,7 @@ uint32_t g_au4UsbPollMaskTbl[] = {
 	CONNAC3X_UDMA_WL_TX_SCH_MASK,
 	CONNAC3X_UDMA_AR_CMD_FIFO_MASK,
 	WF_WFDMA_HOST_DMA0_WPDMA_GLO_CFG_EXT2_CSR_TX_DROP_MODE_TEST_MASK,
-	CONNAC3X_WFDMA_HIF_MISC_HIF_BUSY_MASK,
+	WF_WFDMA_EXT_WRAP_CSR_WFDMA_HIF_MISC_HIF_BUSY_MASK,
 	CONNAC3X_UDMA_WL_STOP_DP_OUT_DROP_MASK
 };
 uint32_t g_au4UsbPollValueTbl[] = {
@@ -117,15 +120,14 @@ void asicConnac3xCapInit(
 	uint32_t u4HostWpdamBase = 0;
 
 	ASSERT(prAdapter);
+	if (prAdapter->chip_info->is_support_wfdma1)
+		u4HostWpdamBase = CONNAC3X_HOST_WPDMA_1_BASE;
+	else
+		u4HostWpdamBase = CONNAC3X_HOST_WPDMA_0_BASE;
 
 	prGlueInfo = prAdapter->prGlueInfo;
 	prChipInfo = prAdapter->chip_info;
 	prBusInfo = prChipInfo->bus_info;
-	u4HostWpdamBase = prChipInfo->u4HostWfdmaBaseAddr;
-	if (u4HostWpdamBase == 0) {
-		DBGLOG(HAL, ERROR, "HostWfdmaBaseAddr is not set\n");
-		return;
-	}
 
 	prChipInfo->u2HifTxdSize = 0;
 	prChipInfo->u2TxInitCmdPort = 0;
@@ -149,8 +151,6 @@ void asicConnac3xCapInit(
 #endif /* CFG_SUPPORT_MSP == 1 */
 	prChipInfo->asicRxGetRcpiValueFromRxv =
 			asicConnac3xRxGetRcpiValueFromRxv;
-	prChipInfo->asicRxGetRxModeValueFromRxv =
-			asicConnac3xRxGetRxModeValueFromRxv;
 #if (CFG_SUPPORT_PERF_IND == 1)
 	prChipInfo->asicRxPerfIndProcessRXV = asicConnac3xRxPerfIndProcessRXV;
 #endif
@@ -185,12 +185,9 @@ void asicConnac3xCapInit(
 		prChipInfo->ucPacketFormat = TXD_PKT_FORMAT_TXD;
 		prChipInfo->u4HifDmaShdlBaseAddr = CONNAC3X_HIF_DMASHDL_BASE;
 
-		if (prBusInfo && prBusInfo->lowPowerOwnInit)
-			prBusInfo->lowPowerOwnInit(prAdapter);
-		else
-			HAL_MCR_WR(prAdapter,
-				   CONNAC3X_BN0_IRQ_ENA_ADDR,
-				   BIT(0));
+		HAL_MCR_WR(prAdapter,
+				CONNAC3X_BN0_IRQ_ENA_ADDR,
+				BIT(0));
 
 		if (prChipInfo->is_support_asic_lp) {
 			HAL_MCR_WR(prAdapter,
@@ -216,15 +213,6 @@ void asicConnac3xCapInit(
 #endif /* CFG_ENABLE_FW_DOWNLOAD == 1 */
 		break;
 #endif /* _HIF_USB */
-#if defined(_HIF_SDIO)
-	case MT_DEV_INF_SDIO:
-		prChipInfo->u2HifTxdSize = SDIO_HIF_TXD_LEN;
-		prChipInfo->fillHifTxDesc = fillSdioHifTxDesc;
-		prChipInfo->u4ExtraTxByteCount =
-				EXTRA_TXD_SIZE_FOR_TX_BYTE_COUNT;
-		prChipInfo->ucPacketFormat = TXD_PKT_FORMAT_TXD_PAYLOAD;
-		break;
-#endif /* _HIF_SDIO */
 	default:
 		break;
 	}
@@ -266,7 +254,7 @@ static void asicConnac3xFillInitCmdTxdInfo(
 	if (pucSeqNum)
 		*pucSeqNum = prInitHifTxHeader->rInitWifiCmd.ucSeqNum;
 
-	DBGLOG(INIT, INFO, "TX CMD: ID[0x%02X] SEQ[%u] LEN[%u]\n",
+	DBGLOG(INIT, VOC, "TX CMD: ID[0x%02X] SEQ[%u] LEN[%u]\n",
 			prInitHifTxHeader->rInitWifiCmd.ucCID,
 			prInitHifTxHeader->rInitWifiCmd.ucSeqNum,
 			prCmdInfo->u2InfoBufLen);
@@ -311,7 +299,7 @@ static void asicConnac3xFillCmdTxdInfo(
 			prWifiCmd->ucCID, prWifiCmd->ucSeqNum,
 			prWifiCmd->ucSetQuery, prCmdInfo->u2InfoBufLen);
 	else
-		DBGLOG_LIMITED(TX, DEBUG,
+		DBGLOG_LIMITED(TX, INFO,
 			"TX CMD: ID[0x%02X] SEQ[%u] SET[%u] LEN[%u]\n",
 			prWifiCmd->ucCID, prWifiCmd->ucSeqNum,
 			prWifiCmd->ucSetQuery, prCmdInfo->u2InfoBufLen);
@@ -387,11 +375,20 @@ u_int8_t asicConnac3xWfdmaDummyCrRead(
 	uint32_t *pu4Value)
 {
 	u_int32_t u4Addr = CONNAC3X_WFDMA_DUMMY_CR;
+#if CFG_MTK_WIFI_EN_SW_EMI_READ
+	struct BUS_INFO *prBusInfo = prAdapter->chip_info->bus_info;
+	struct WIFI_VAR *prWifiVar = &prAdapter->rWifiVar;
+	struct SW_EMI_RING_INFO *prSwEmiRingInfo = &prBusInfo->rSwEmiRingInfo;
 	u_int8_t fgRet = FALSE;
 
-	HAL_MCR_EMI_RD(prAdapter, u4Addr, pu4Value, &fgRet);
+	if (IS_FEATURE_ENABLED(prWifiVar->fgEnSwEmiRead) &&
+	    prSwEmiRingInfo->rOps.read) {
+		fgRet = prSwEmiRingInfo->rOps.read(
+			prAdapter->prGlueInfo, u4Addr, pu4Value);
+	}
 	if (!fgRet)
-		HAL_RMCR_RD(HIF_READ, prAdapter, u4Addr, pu4Value);
+#endif
+		HAL_MCR_RD(prAdapter, u4Addr, pu4Value);
 
 	return (*pu4Value & CONNAC3X_WFDMA_NEED_REINIT_BIT) == 0 ? TRUE : FALSE;
 }
@@ -426,8 +423,8 @@ u_int8_t asicConnac3xWfdmaIsNeedReInit(
 
 #if 0
 	/* for bus hang debug purpose */
-	if (prAdapter->chip_info->checkbusNoAck)
-		prAdapter->chip_info->checkbusNoAck((void *) prAdapter, TRUE);
+	if (prAdapter->chip_info->checkbushang)
+		prAdapter->chip_info->checkbushang((void *) prAdapter, TRUE);
 #endif
 
 	fgNeedReInit = asicConnac3xWfdmaDummyCrRead(prAdapter, &u4RegValue);
@@ -462,7 +459,7 @@ static void asicConnac3xWfdmaReInitImpl(struct ADAPTER *prAdapter)
 		}
 	}
 #else /* CFG_MTK_WIFI_WFDMA_BK_RS */
-	DBGLOG(INIT, DEBUG, "WFDMA reinit due to deep sleep\n");
+	DBGLOG(INIT, INFO, "WFDMA reinit due to deep sleep\n");
 	halWpdmaInitRing(prAdapter->prGlueInfo, true);
 #endif /* CFG_MTK_WIFI_WFDMA_BK_RS */
 #elif defined(_HIF_USB)
@@ -581,7 +578,7 @@ void asicConnac3xWfdmaStop(struct GLUE_INFO *prGlueInfo, u_int8_t enable)
 	uint32_t u4DmaCfgCr;
 
 	u4DmaCfgCr = asicConnac3xWfdmaCfgAddrGet(prGlueInfo, 0);
-	HAL_RMCR_RD(HIF_READ, prAdapter, u4DmaCfgCr, &GloCfg.word);
+	HAL_MCR_RD(prAdapter, u4DmaCfgCr, &GloCfg.word);
 
 	if (enable == TRUE) {
 		GloCfg.field_conn3x.tx_dma_en = 0;
@@ -667,17 +664,20 @@ u_int8_t asicConnac3xWfdmaWaitIdle(
 	uint32_t i = 0;
 	uint32_t u4RegAddr = 0;
 	union WPDMA_GLO_CFG_STRUCT GloCfg = {0};
+	struct BUS_INFO *prBusInfo = prGlueInfo->prAdapter->chip_info->bus_info;
 	struct ADAPTER *prAdapter = prGlueInfo->prAdapter;
 
-	if (index == 0 || index == 1)
-		u4RegAddr = asicConnac3xWfdmaCfgAddrGet(prGlueInfo, index);
+	if (index == 0)
+		u4RegAddr = prBusInfo->host_dma0_base;
+	else if (index == 1)
+		u4RegAddr = prBusInfo->host_dma1_base;
 	else {
 		DBGLOG(HAL, ERROR, "Unknown wfdma index(=%d)\n", index);
 		return FALSE;
 	}
 
 	do {
-		HAL_RMCR_RD(HIF_READ, prAdapter, u4RegAddr, &GloCfg.word);
+		HAL_MCR_RD(prAdapter, u4RegAddr, &GloCfg.word);
 		if ((GloCfg.field_conn3x.tx_dma_busy == 0) &&
 		    (GloCfg.field_conn3x.rx_dma_busy == 0)) {
 			DBGLOG(HAL, TRACE, "==>  DMAIdle, GloCfg=0x%x\n",
@@ -687,7 +687,7 @@ u_int8_t asicConnac3xWfdmaWaitIdle(
 		kalUdelay(wait_us);
 	} while ((i++) < round);
 
-	DBGLOG(HAL, DEBUG, "==>  DMABusy, GloCfg=0x%x\n", GloCfg.word);
+	DBGLOG(HAL, INFO, "==>  DMABusy, GloCfg=0x%x\n", GloCfg.word);
 
 	return FALSE;
 }
@@ -695,53 +695,53 @@ u_int8_t asicConnac3xWfdmaWaitIdle(
 void asicConnac3xWfdmaTxRingBasePtrExtCtrl(
 	struct GLUE_INFO *prGlueInfo,
 	struct RTMP_TX_RING *tx_ring,
-	u_int32_t index,
-	u_int32_t u4DefVal)
+	u_int32_t index)
 {
 	struct BUS_INFO *prBusInfo;
-	struct ADAPTER *prAdapter;
+	struct ADAPTER *prAdapter = prGlueInfo->prAdapter;
 	uint32_t phy_addr_ext = 0;
+	u_int32_t u4RegValue = 0;
 
-	prAdapter = prGlueInfo->prAdapter;
-	prBusInfo = prAdapter->chip_info->bus_info;
+	prBusInfo = prGlueInfo->prAdapter->chip_info->bus_info;
 
 	if (prBusInfo->u4DmaMask <= 32)
-		goto end;
+		return;
 
 	phy_addr_ext = (((uint64_t)tx_ring->Cell[0].AllocPa >>
 			DMA_BITS_OFFSET) & DMA_HIGHER_4BITS_MASK) << 16;
 
-end:
-	HAL_MCR_WR(prAdapter, tx_ring->hw_cnt_addr,
-		   u4DefVal | phy_addr_ext);
-
+	u4RegValue = tx_ring->u4RingSize & MT_RING_CNT_MASK;
+	phy_addr_ext |= u4RegValue;
 	DBGLOG(HAL, TRACE, "phy_addr_ext=0x%x\n", phy_addr_ext);
+
+	HAL_MCR_WR(prAdapter, tx_ring->hw_cnt_addr,
+			phy_addr_ext);
 }
 
 void asicConnac3xWfdmaRxRingBasePtrExtCtrl(
 	struct GLUE_INFO *prGlueInfo,
 	struct RTMP_RX_RING *rx_ring,
-	u_int32_t index,
-	u_int32_t u4DefVal)
+	u_int32_t index)
 {
 	struct BUS_INFO *prBusInfo;
-	struct ADAPTER *prAdapter;
+	struct ADAPTER *prAdapter = prGlueInfo->prAdapter;
 	uint32_t phy_addr_ext = 0;
+	u_int32_t u4RegValue = 0;
 
-	prAdapter = prGlueInfo->prAdapter;
-	prBusInfo = prAdapter->chip_info->bus_info;
+	prBusInfo = prGlueInfo->prAdapter->chip_info->bus_info;
 
 	if (prBusInfo->u4DmaMask <= 32)
-		goto end;
+		return;
 
 	phy_addr_ext = (((uint64_t)rx_ring->Cell[0].AllocPa >>
 			DMA_BITS_OFFSET) & DMA_HIGHER_4BITS_MASK) << 16;
 
-end:
-	HAL_MCR_WR(prAdapter, rx_ring->hw_cnt_addr,
-		   u4DefVal | phy_addr_ext);
-
+	u4RegValue = rx_ring->u4RingSize & MT_RING_CNT_MASK;
+	phy_addr_ext |= u4RegValue;
 	DBGLOG(HAL, TRACE, "phy_addr_ext=0x%x\n", phy_addr_ext);
+
+	HAL_MCR_WR(prAdapter, rx_ring->hw_cnt_addr,
+			phy_addr_ext);
 }
 
 
@@ -797,8 +797,8 @@ void asicConnac3xWfdmaTxRingExtCtrl(
 		prBusInfo->host_tx_ring_ext_ctrl_base + ext_offset;
 	HAL_MCR_WR(prAdapter, tx_ring->hw_desc_base_ext,
 		   CONNAC3X_TX_RING_DISP_MAX_CNT);
-	asicConnac3xWfdmaTxRingBasePtrExtCtrl(
-		prGlueInfo, tx_ring, index, tx_ring->u4RingSize);
+	asicConnac3xWfdmaTxRingBasePtrExtCtrl(prGlueInfo,
+		tx_ring, index);
 }
 
 void asicConnac3xWfdmaRxRingExtCtrl(
@@ -841,150 +841,9 @@ void asicConnac3xWfdmaRxRingExtCtrl(
 
 	HAL_MCR_WR(prAdapter, rx_ring->hw_desc_base_ext,
 		   CONNAC3X_RX_RING_DISP_MAX_CNT);
-	asicConnac3xWfdmaRxRingBasePtrExtCtrl(
-		prGlueInfo, rx_ring, index, rx_ring->u4RingSize);
+	asicConnac3xWfdmaRxRingBasePtrExtCtrl(prGlueInfo,
+		rx_ring, index);
 }
-
-#if CFG_MTK_WIFI_WFDMA_WB
-void asicConnac3xAllocWfdmaWbBuffer(struct GLUE_INFO *prGlueInfo,
-				    bool fgAllocMem)
-{
-	struct GL_HIF_INFO *prHifInfo;
-	struct mt66xx_chip_info *prChipInfo;
-	struct HIF_MEM_OPS *prMemOps;
-	struct RTMP_DMABUF *prBuf;
-	struct RTMP_DMABUF *prRingDmyRd, *prRingDmyWr;
-
-	prHifInfo = &prGlueInfo->rHifInfo;
-	prChipInfo = prGlueInfo->prAdapter->chip_info;
-	prMemOps = &prHifInfo->rMemOps;
-
-	if (!prChipInfo->is_support_wfdma_write_back)
-		return;
-
-	if (!prMemOps->allocExtBuf)
-		return;
-
-	prRingDmyRd = &prHifInfo->rRingDmyRd;
-	prRingDmyWr = &prHifInfo->rRingDmyWr;
-	prRingDmyRd->AllocSize = sizeof(uint32_t);
-	prRingDmyWr->AllocSize = sizeof(uint32_t);
-	if (fgAllocMem) {
-		prMemOps->allocExtBuf(prHifInfo, prRingDmyRd,
-				      WFDMA_WB_MEMORY_ALIGNMENT);
-		prMemOps->allocExtBuf(prHifInfo, prRingDmyWr,
-				      WFDMA_WB_MEMORY_ALIGNMENT);
-	}
-	kalMemZero(prRingDmyRd->AllocVa, prRingDmyRd->AllocSize);
-	kalMemZero(prRingDmyWr->AllocVa, prRingDmyWr->AllocSize);
-
-	/* add debug memory */
-	if (prChipInfo->wb_dmy_dbg_size) {
-		prBuf = &prHifInfo->rRingDmyDbg;
-		prBuf->AllocSize = prChipInfo->wb_dmy_dbg_size;
-		if (fgAllocMem)
-			prMemOps->allocExtBuf(prHifInfo, prBuf,
-					      WFDMA_WB_MEMORY_ALIGNMENT);
-		kalMemZero(prBuf->AllocVa, prBuf->AllocSize);
-	}
-
-	if (prChipInfo->wb_int_sta_size) {
-		prBuf = &prHifInfo->rRingIntSta;
-		prBuf->AllocSize = prChipInfo->wb_int_sta_size;
-		if (fgAllocMem)
-			prMemOps->allocExtBuf(prHifInfo, prBuf,
-					      WFDMA_WB_MEMORY_ALIGNMENT);
-		kalMemZero(prBuf->AllocVa, prBuf->AllocSize);
-	}
-	if (prChipInfo->wb_didx_size) {
-		prBuf = &prHifInfo->rRingDidx;
-		prBuf->AllocSize = prChipInfo->wb_didx_size;
-		if (fgAllocMem)
-			prMemOps->allocExtBuf(prHifInfo, prBuf,
-					      WFDMA_WB_MEMORY_ALIGNMENT);
-		kalMemZero(prBuf->AllocVa, prBuf->AllocSize);
-	}
-	if (prChipInfo->wb_cidx_size) {
-		prBuf = &prHifInfo->rRingCidx;
-		prBuf->AllocSize = prChipInfo->wb_cidx_size;
-		if (fgAllocMem)
-			prMemOps->allocExtBuf(prHifInfo, prBuf,
-					      WFDMA_WB_MEMORY_ALIGNMENT);
-		kalMemZero(prBuf->AllocVa, prBuf->AllocSize);
-	}
-	if (prChipInfo->wb_hw_done_flag_size) {
-		prBuf = &prHifInfo->rHwDoneFlag;
-		prBuf->AllocSize = prChipInfo->wb_hw_done_flag_size;
-		if (fgAllocMem)
-			prMemOps->allocExtBuf(prHifInfo, prBuf,
-					      WFDMA_WB_MEMORY_ALIGNMENT);
-		kalMemZero(prBuf->AllocVa, prBuf->AllocSize);
-	}
-	if (prChipInfo->wb_sw_done_flag_size) {
-		prBuf = &prHifInfo->rSwDoneFlag;
-		prBuf->AllocSize = prChipInfo->wb_sw_done_flag_size;
-		if (fgAllocMem)
-			prMemOps->allocExtBuf(prHifInfo, prBuf,
-					      WFDMA_WB_MEMORY_ALIGNMENT);
-		kalMemZero(prBuf->AllocVa, prBuf->AllocSize);
-	}
-
-	if (prChipInfo->wb_md_int_sta_size) {
-		prBuf = &prHifInfo->rRingMdIntSta;
-		prBuf->AllocSize = prChipInfo->wb_md_int_sta_size;
-		if (fgAllocMem)
-			prMemOps->allocExtBuf(prHifInfo, prBuf,
-					      WFDMA_WB_MEMORY_ALIGNMENT);
-		kalMemZero(prBuf->AllocVa, prBuf->AllocSize);
-	}
-	if (prChipInfo->wb_md_didx_size) {
-		prBuf = &prHifInfo->rRingMdDidx;
-		prBuf->AllocSize = prChipInfo->wb_md_didx_size;
-		if (fgAllocMem)
-			prMemOps->allocExtBuf(prHifInfo, prBuf,
-					      WFDMA_WB_MEMORY_ALIGNMENT);
-		kalMemZero(prBuf->AllocVa, prBuf->AllocSize);
-	}
-}
-
-void asicConnac3xFreeWfdmaWbBuffer(struct GLUE_INFO *prGlueInfo)
-{
-	struct GL_HIF_INFO *prHifInfo;
-	struct mt66xx_chip_info *prChipInfo;
-	struct HIF_MEM_OPS *prMemOps;
-
-	prHifInfo = &prGlueInfo->rHifInfo;
-	prChipInfo = prGlueInfo->prAdapter->chip_info;
-	prMemOps = &prHifInfo->rMemOps;
-
-	if (!prChipInfo->is_support_wfdma_write_back)
-		return;
-
-	if (!prMemOps->freeExtBuf)
-		return;
-
-	prMemOps->freeExtBuf(prHifInfo, &prHifInfo->rRingDmyRd);
-	prMemOps->freeExtBuf(prHifInfo, &prHifInfo->rRingDmyWr);
-
-	if (prChipInfo->wb_dmy_dbg_size)
-		prMemOps->freeExtBuf(prHifInfo, &prHifInfo->rRingDmyDbg);
-	if (prChipInfo->wb_int_sta_size)
-		prMemOps->freeExtBuf(prHifInfo, &prHifInfo->rRingIntSta);
-	if (prChipInfo->wb_didx_size)
-		prMemOps->freeExtBuf(prHifInfo, &prHifInfo->rRingDidx);
-	if (prChipInfo->wb_cidx_size)
-		prMemOps->freeExtBuf(prHifInfo, &prHifInfo->rRingCidx);
-	if (prChipInfo->wb_hw_done_flag_size)
-		prMemOps->freeExtBuf(prHifInfo, &prHifInfo->rHwDoneFlag);
-	if (prChipInfo->wb_sw_done_flag_size)
-		prMemOps->freeExtBuf(prHifInfo, &prHifInfo->rSwDoneFlag);
-
-	if (prChipInfo->wb_md_int_sta_size)
-		prMemOps->freeExtBuf(prHifInfo, &prHifInfo->rRingMdIntSta);
-	if (prChipInfo->wb_md_didx_size)
-		prMemOps->freeExtBuf(prHifInfo, &prHifInfo->rRingMdDidx);
-}
-#endif /* CFG_MTK_WIFI_WFDMA_WB */
 
 void asicConnac3xEnablePlatformIRQ(struct ADAPTER *prAdapter)
 {
@@ -1008,8 +867,9 @@ void asicConnac3xEnablePlatformIRQ(struct ADAPTER *prAdapter)
 #if (CFG_SUPPORT_HOST_OFFLOAD == 1)
 	/* IrqId_1 is MAWD interrupt */
 	if (IS_FEATURE_ENABLED(prWifiVar->fgEnableMawd) &&
-	    KAL_TEST_AND_CLEAR_BIT(1, prHifInfo->ulHifIntEnBits))
+	    KAL_TEST_AND_CLEAR_BIT(1, prHifInfo->ulHifIntEnBits)) {
 		enable_irq(prHifInfo->u4IrqId_1);
+	}
 #endif /* CFG_SUPPORT_HOST_OFFLOAD == 1 */
 }
 
@@ -1030,6 +890,14 @@ void asicConnac3xDisablePlatformIRQ(struct ADAPTER *prAdapter)
 	disable_irq_nosync(prHifInfo->u4IrqId);
 	KAL_SET_BIT(0, prHifInfo->ulHifIntEnBits);
 #endif
+
+#if (CFG_SUPPORT_HOST_OFFLOAD == 1)
+	/* IrqId_1 is MAWD interrupt */
+	if (IS_FEATURE_ENABLED(prWifiVar->fgEnableMawd)) {
+		disable_irq_nosync(prHifInfo->u4IrqId_1);
+		KAL_SET_BIT(1, prHifInfo->ulHifIntEnBits);
+	}
+#endif /* CFG_SUPPORT_HOST_OFFLOAD == 1 */
 }
 
 #if defined(_HIF_AXI)
@@ -1044,6 +912,28 @@ void asicConnac3xDisablePlatformSwIRQ(struct ADAPTER *prAdapter)
 }
 #endif
 
+void asicConnac3xDisableExtInterrupt(
+	struct ADAPTER *prAdapter)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	union WPDMA_INT_MASK IntMask;
+
+	ASSERT(prAdapter);
+
+	prGlueInfo = prAdapter->prGlueInfo;
+
+	IntMask.word = 0;
+
+	HAL_MCR_WR(prAdapter,
+		CONNAC3X_WPDMA_EXT_INT_MASK(CONNAC3X_HOST_EXT_CONN_HIF_WRAP),
+		IntMask.word);
+	HAL_MCR_RD(prAdapter,
+		CONNAC3X_WPDMA_EXT_INT_MASK(CONNAC3X_HOST_EXT_CONN_HIF_WRAP),
+		&IntMask.word);
+
+	DBGLOG(HAL, TRACE, "%s\n", __func__);
+}
+
 void asicConnac3xLowPowerOwnRead(
 	struct ADAPTER *prAdapter,
 	u_int8_t *pfgResult)
@@ -1055,7 +945,7 @@ void asicConnac3xLowPowerOwnRead(
 	if (prChipInfo->is_support_asic_lp) {
 		u_int32_t u4RegValue = 0;
 
-		HAL_RMCR_RD(LPOWN_READ, prAdapter,
+		HAL_MCR_RD(prAdapter,
 				CONNAC3X_BN0_LPCTL_ADDR,
 				&u4RegValue);
 		*pfgResult = (u4RegValue &
@@ -1065,7 +955,7 @@ void asicConnac3xLowPowerOwnRead(
 		*pfgResult = TRUE;
 }
 
-#if (CFG_MTK_WIFI_DRV_OWN_INT_MODE == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_DRV_OWN_INT_MODE)
 void asicConnac3xLowPowerOwnSet(
 	struct ADAPTER *prAdapter,
 	u_int8_t *pfgResult)
@@ -1105,14 +995,9 @@ void asicConnac3xLowPowerOwnClear(
 			prChipInfo->bus_info->hwControlVote(prAdapter,
 				FALSE, PCIE_VOTE_USER_DRVOWN);
 #endif
-#if CFG_MTK_WIFI_PCIE_SUPPORT && (CFG_TC10_FEATURE == 0)
-		mtk_pcie_dump_link_info(0);
-#endif
-
-		if (prChipInfo->setCrypto) {
-			DBGLOG(HAL, TRACE, "setCrypto\n");
+		DBGLOG(HAL, TRACE, "setCrypto\n");
+		if (prChipInfo->setCrypto)
 			prChipInfo->setCrypto(prAdapter);
-		}
 
 		clear_bit(GLUE_FLAG_DRV_OWN_INT_BIT,
 			&prAdapter->prGlueInfo->ulFlag);
@@ -1120,12 +1005,15 @@ void asicConnac3xLowPowerOwnClear(
 		HAL_MCR_WR(prAdapter,
 			CONNAC3X_BN0_LPCTL_ADDR,
 			PCIE_LPCR_HOST_CLR_OWN);
+
+		if (prAdapter->rWifiVar.u4DrvOwnMode == 1)
+			kalMdelay(10);
 	}
 
 	*pfgResult = TRUE;
 }
 
-#else /* (CFG_MTK_WIFI_DRV_OWN_INT_MODE == 0) */
+#else /* !IS_ENABLED(CFG_MTK_WIFI_DRV_OWN_INT_MODE) */
 
 void asicConnac3xLowPowerOwnSet(
 	struct ADAPTER *prAdapter,
@@ -1142,7 +1030,7 @@ void asicConnac3xLowPowerOwnSet(
 			CONNAC3X_BN0_LPCTL_ADDR,
 			PCIE_LPCR_HOST_SET_OWN);
 
-		HAL_RMCR_RD(LPOWN_READ, prAdapter,
+		HAL_MCR_RD(prAdapter,
 			CONNAC3X_BN0_LPCTL_ADDR,
 			&u4RegValue);
 
@@ -1180,7 +1068,7 @@ void asicConnac3xLowPowerOwnClear(
 			CONNAC3X_BN0_LPCTL_ADDR,
 			PCIE_LPCR_HOST_CLR_OWN);
 
-		HAL_RMCR_RD(LPOWN_READ, prAdapter,
+		HAL_MCR_RD(prAdapter,
 			CONNAC3X_BN0_LPCTL_ADDR,
 			&u4RegValue);
 
@@ -1190,20 +1078,22 @@ void asicConnac3xLowPowerOwnClear(
 	} else
 		*pfgResult = TRUE;
 }
-#endif /* (CFG_MTK_WIFI_DRV_OWN_INT_MODE == 0) */
+#endif /* !IS_ENABLED(CFG_MTK_WIFI_DRV_OWN_INT_MODE) */
 
 void asicConnac3xProcessSoftwareInterrupt(
 	struct ADAPTER *prAdapter)
 {
 	struct GLUE_INFO *prGlueInfo;
 	struct GL_HIF_INFO *prHifInfo;
-	struct mt66xx_chip_info *prChipInfo;
-	struct HIF_MEM_OPS *prMemOps;
-	struct ERR_RECOVERY_CTRL_T *prErrRecoveryCtrl;
-	struct HIF_MEM *prMem = NULL;
-	uint32_t u4Status = 0, u4Addr = 0, u4Idx;
-	uint32_t u4HostWpdamBase = 0;
+#if CFG_MTK_WIFI_EN_SW_EMI_READ
+	struct BUS_INFO *prBusInfo;
+	struct WIFI_VAR *prWifiVar;
+	struct SW_EMI_RING_INFO *prSwEmiRingInfo;
 	u_int8_t fgRet = FALSE;
+#endif
+	struct ERR_RECOVERY_CTRL_T *prErrRecoveryCtrl;
+	uint32_t u4Status = 0, u4Addr = 0;
+	uint32_t u4HostWpdamBase = 0;
 
 	if (prAdapter->prGlueInfo == NULL) {
 		DBGLOG(HAL, ERROR, "prGlueInfo is NULL\n");
@@ -1212,61 +1102,48 @@ void asicConnac3xProcessSoftwareInterrupt(
 
 	prGlueInfo = prAdapter->prGlueInfo;
 	prHifInfo = &prGlueInfo->rHifInfo;
-	prMemOps = &prHifInfo->rMemOps;
-	prChipInfo = prAdapter->chip_info;
+#if CFG_MTK_WIFI_EN_SW_EMI_READ
+	prBusInfo = prAdapter->chip_info->bus_info;
+	prWifiVar = &prAdapter->rWifiVar;
+	prSwEmiRingInfo = &prBusInfo->rSwEmiRingInfo;
+#endif
 	prErrRecoveryCtrl = &prHifInfo->rErrRecoveryCtl;
-	u4HostWpdamBase = prChipInfo->u4HostWfdmaBaseAddr;
-	if (u4HostWpdamBase == 0) {
-		DBGLOG(HAL, ERROR, "HostWfdmaBaseAddr is not set\n");
-		return;
+
+	if (prAdapter->chip_info->is_support_wfdma1)
+		u4HostWpdamBase = CONNAC3X_HOST_WPDMA_1_BASE;
+	else
+		u4HostWpdamBase = CONNAC3X_HOST_WPDMA_0_BASE;
+
+	u4Addr = CONNAC3X_WPDMA_MCU2HOST_SW_INT_STA(u4HostWpdamBase);
+#if CFG_MTK_WIFI_EN_SW_EMI_READ
+	if (IS_FEATURE_ENABLED(prWifiVar->fgEnSwEmiRead) &&
+	    prSwEmiRingInfo->rOps.read) {
+		fgRet = prSwEmiRingInfo->rOps.read(
+			prGlueInfo, u4Addr, &u4Status);
 	}
 
-	if (prMemOps->getWifiMiscRsvEmi) {
-		prMem = prMemOps->getWifiMiscRsvEmi(
-			prChipInfo, WIFI_MISC_MEM_BLOCK_SER_STATUS);
-	}
-
-	if (prMem && prMem->va) {
-		struct SER_EMI_STATUS *prEmiSta =
-			(struct SER_EMI_STATUS *)prMem->va;
-
-		for (u4Idx = 0; u4Idx < HIF_EMI_SER_STATUS_SIZE; u4Idx++) {
-			if (prEmiSta->ucStatus[u4Idx]) {
-				u4Status |= BIT(u4Idx);
-				prEmiSta->ucStatus[u4Idx] = 0;
-			}
-		}
-
-		if (u4Status)
-			DBGLOG(HAL, DEBUG, "STA[0x%08x]\n", u4Status);
-	} else {
-		u4Addr = CONNAC3X_WPDMA_MCU2HOST_SW_INT_STA(u4HostWpdamBase);
-		HAL_MCR_EMI_RD(prAdapter, u4Addr, &u4Status, &fgRet);
-		if (!fgRet)
-			HAL_RMCR_RD(SER_READ, prAdapter, u4Addr, &u4Status);
-	}
-
-	if (u4Status) {
-		u4Addr = CONNAC3X_WPDMA_MCU2HOST_SW_INT_STA(u4HostWpdamBase);
-		HAL_MCR_WR(prAdapter, u4Addr, u4Status);
-	}
+	if (!fgRet)
+#endif
+		kalDevRegRead(prGlueInfo, u4Addr, &u4Status);
 
 	prErrRecoveryCtrl->u4BackupStatus = u4Status;
 	if (u4Status & ERROR_DETECT_SUBSYS_BUS_TIMEOUT) {
 		DBGLOG(INIT, ERROR, "[SER][L0.5] wfsys timeout!!\n");
-		GL_DEFAULT_RESET_TRIGGER(prAdapter, RST_SUBSYS_BUS_TIMEOUT);
+		GL_DEFAULT_RESET_TRIGGER(prAdapter, RST_SUBSYS_BUS_HANG);
 	} else if (u4Status & ERROR_DETECT_MASK) {
 		prErrRecoveryCtrl->u4Status = u4Status;
 		halHwRecoveryFromError(prAdapter);
 	} else
 		DBGLOG(HAL, TRACE, "undefined SER status[0x%x].\n", u4Status);
+	kalDevRegWrite(prGlueInfo,
+			CONNAC3X_WPDMA_MCU2HOST_SW_INT_STA(u4HostWpdamBase),
+			u4Status);
 }
 
 void asicConnac3xSoftwareInterruptMcu(
 	struct ADAPTER *prAdapter, u_int32_t intrBitMask)
 {
 	struct GLUE_INFO *prGlueInfo;
-	struct mt66xx_chip_info *prChipInfo;
 	uint32_t u4McuWpdamBase = 0;
 
 	if (prAdapter == NULL || prAdapter->prGlueInfo == NULL) {
@@ -1275,13 +1152,10 @@ void asicConnac3xSoftwareInterruptMcu(
 	}
 
 	prGlueInfo = prAdapter->prGlueInfo;
-	prChipInfo = prAdapter->chip_info;
-	u4McuWpdamBase = prChipInfo->u4McuWfdmaBaseAddr;
-	if (u4McuWpdamBase == 0) {
-		DBGLOG(HAL, ERROR, "McuWfdmaBaseAddr is not set\n");
-		return;
-	}
-
+	if (prAdapter->chip_info->is_support_wfdma1)
+		u4McuWpdamBase = CONNAC3X_MCU_WPDMA_1_BASE;
+	else
+		u4McuWpdamBase = CONNAC3X_MCU_WPDMA_0_BASE;
 	kalDevRegWrite(prGlueInfo,
 		CONNAC3X_WPDMA_HOST2MCU_SW_INT_SET(u4McuWpdamBase),
 		intrBitMask);
@@ -1292,11 +1166,15 @@ uint32_t asicConnac3xGetMdSoftwareInterruptStatus(
 {
 	struct GLUE_INFO *prGlueInfo;
 	struct GL_HIF_INFO *prHifInfo;
-	struct mt66xx_chip_info *prChipInfo;
+#if CFG_MTK_WIFI_EN_SW_EMI_READ
+	struct BUS_INFO *prBusInfo;
+	struct WIFI_VAR *prWifiVar;
+	struct SW_EMI_RING_INFO *prSwEmiRingInfo;
+	u_int8_t fgRet = FALSE;
+#endif
 	struct ERR_RECOVERY_CTRL_T *prErrRecoveryCtrl;
 	uint32_t u4Status = 0, u4Addr = 0;
 	uint32_t u4HostWpdamBase = 0;
-	u_int8_t fgRet = FALSE;
 
 	if (prAdapter->prGlueInfo == NULL) {
 		DBGLOG(HAL, ERROR, "prGlueInfo is NULL\n");
@@ -1305,18 +1183,29 @@ uint32_t asicConnac3xGetMdSoftwareInterruptStatus(
 
 	prGlueInfo = prAdapter->prGlueInfo;
 	prHifInfo = &prGlueInfo->rHifInfo;
-	prChipInfo = prAdapter->chip_info;
+#if CFG_MTK_WIFI_EN_SW_EMI_READ
+	prBusInfo = prAdapter->chip_info->bus_info;
+	prWifiVar = &prAdapter->rWifiVar;
+	prSwEmiRingInfo = &prBusInfo->rSwEmiRingInfo;
+#endif
 	prErrRecoveryCtrl = &prHifInfo->rErrRecoveryCtl;
-	u4HostWpdamBase = prChipInfo->u4HostWfdmaBaseAddr;
-	if (u4HostWpdamBase == 0) {
-		DBGLOG(HAL, ERROR, "HostWfdmaBaseAddr is not set\n");
-		return 0;
-	}
+
+	if (prAdapter->chip_info->is_support_wfdma1)
+		u4HostWpdamBase = CONNAC3X_HOST_WPDMA_1_BASE;
+	else
+		u4HostWpdamBase = CONNAC3X_HOST_WPDMA_0_BASE;
 
 	u4Addr = CONNAC3X_WPDMA_MCU2MD_SW_INT_STA(u4HostWpdamBase);
-	HAL_MCR_EMI_RD(prAdapter, u4Addr, &u4Status, &fgRet);
+#if CFG_MTK_WIFI_EN_SW_EMI_READ
+	if (IS_FEATURE_ENABLED(prWifiVar->fgEnSwEmiRead) &&
+	    prSwEmiRingInfo->rOps.read) {
+		fgRet = prSwEmiRingInfo->rOps.read(
+			prGlueInfo, u4Addr, &u4Status);
+	}
+
 	if (!fgRet)
-		HAL_RMCR_RD(SER_READ, prAdapter, u4Addr, &u4Status);
+#endif
+		kalDevRegRead(prGlueInfo, u4Addr, &u4Status);
 
 	return u4Status & BITS(0, 15);
 }
@@ -1369,29 +1258,24 @@ void asicConnac3xWfdmaInitForUSB(
 
 	prBusInfo = prChipInfo->bus_info;
 
-	if (prChipInfo->u4HostWfdmaBaseAddr == 0) {
-		DBGLOG(HAL, ERROR, "WfdmaBaseAddr is not set\n");
-		return;
-	}
-	if (prChipInfo->u4DmaShdlBaseAddr == 0) {
-		DBGLOG(HAL, ERROR, "DmaShdlBaseAddr is not set\n");
-		return;
-	}
-
-	/* HAL_RMCR_RD(HIF_USB, prAdapter, 0x7c00e400, &u4WfdmaCr); */
+	/* HAL_MCR_RD(prAdapter, 0x7c00e400, &u4WfdmaCr); */
 	/* HAL_MCR_WR(prAdapter, 0x7c00e400, 0xFF); */
 
-	HAL_RMCR_RD(HIF_USB, prAdapter, 0x7c021100, &u4WfdmaCr);
+	HAL_MCR_RD(prAdapter, 0x7c021100, &u4WfdmaCr);
 	HAL_MCR_WR(prAdapter, 0x7c021100, 0x0);
 
-	u4WfdmaAddr = CONNAC3X_TX_RING_EXT_CTRL_BASE(
-		prChipInfo->u4HostWfdmaBaseAddr);
+	if (prChipInfo->is_support_wfdma1) {
+		u4WfdmaAddr =
+		CONNAC3X_TX_RING_EXT_CTRL_BASE(CONNAC3X_HOST_WPDMA_1_BASE);
+	} else {
+		u4WfdmaAddr =
+		CONNAC3X_TX_RING_EXT_CTRL_BASE(CONNAC3X_HOST_WPDMA_0_BASE);
+	}
 	/*
 	 * HOST_DMA1_WPDMA_TX_RING0_EXT_CTRL ~ HOST_DMA1_WPDMA_TX_RING4_EXT_CTRL
 	 */
 	for (idx = 0; idx < USB_TX_EPOUT_NUM; idx++) {
-		HAL_RMCR_RD(HIF_USB, prAdapter,
-			       u4WfdmaAddr + (idx*4), &u4WfdmaCr);
+		HAL_MCR_RD(prAdapter, u4WfdmaAddr + (idx*4), &u4WfdmaCr);
 		u4WfdmaCr &= ~CONNAC3X_WFDMA_DISP_MAX_CNT_MASK;
 		u4WfdmaCr |= CONNAC3X_TX_RING_DISP_MAX_CNT;
 		u4WfdmaCr &= ~CONNAC3X_WFDMA_DISP_BASE_PTR_MASK;
@@ -1400,7 +1284,7 @@ void asicConnac3xWfdmaInitForUSB(
 	}
 
 	/* HOST_DMA1_WPDMA_TX_RING16_EXT_CTRL_ADDR */
-	HAL_RMCR_RD(HIF_USB, prAdapter, u4WfdmaAddr + 0x40, &u4WfdmaCr);
+	HAL_MCR_RD(prAdapter, u4WfdmaAddr + 0x40, &u4WfdmaCr);
 	u4WfdmaCr &= ~CONNAC3X_WFDMA_DISP_MAX_CNT_MASK;
 	u4WfdmaCr |= CONNAC3X_TX_RING_DISP_MAX_CNT;
 	u4WfdmaCr &= ~CONNAC3X_WFDMA_DISP_BASE_PTR_MASK;
@@ -1408,35 +1292,62 @@ void asicConnac3xWfdmaInitForUSB(
 	HAL_MCR_WR(prAdapter, u4WfdmaAddr + 0x40, u4WfdmaCr);
 
 	/* HOST_DMA1_WPDMA_TX_RING15_EXT_CTRL_ADDR */
-	HAL_RMCR_RD(HIF_USB, prAdapter, u4WfdmaAddr + 0x3c, &u4WfdmaCr);
+	HAL_MCR_RD(prAdapter, u4WfdmaAddr + 0x3c, &u4WfdmaCr);
 	u4WfdmaCr &= ~CONNAC3X_WFDMA_DISP_MAX_CNT_MASK;
 	u4WfdmaCr |= CONNAC3X_TX_RING_DISP_MAX_CNT;
 	u4WfdmaCr &= ~CONNAC3X_WFDMA_DISP_BASE_PTR_MASK;
 	u4WfdmaCr |= 0x02c00000;
 	HAL_MCR_WR(prAdapter, u4WfdmaAddr + 0x3c, u4WfdmaCr);
 
-	u4WfdmaAddr = CONNAC3X_WPDMA_GLO_CFG(
-		prChipInfo->u4HostWfdmaBaseAddr);
-	HAL_RMCR_RD(HIF_USB, prAdapter, u4WfdmaAddr, &u4WfdmaCr);
-	u4WfdmaCr &= ~(CONNAC3X_WPDMA1_GLO_CFG_OMIT_RX_INFO);
-	u4WfdmaCr |=
-		(CONNAC3X_WPDMA1_GLO_CFG_OMIT_TX_INFO |
-		 CONNAC3X_WPDMA1_GLO_CFG_OMIT_RX_INFO_PFET2 |
-		 CONNAC3X_WPDMA1_GLO_CFG_FW_DWLD_Bypass_dmashdl |
-		 CONNAC3X_WPDMA1_GLO_CFG_RX_DMA_EN |
-		 CONNAC3X_WPDMA1_GLO_CFG_TX_DMA_EN);
-	HAL_MCR_WR(prAdapter, u4WfdmaAddr, u4WfdmaCr);
+	if (prChipInfo->is_support_wfdma1) {
+		u4WfdmaAddr =
+			CONNAC3X_WPDMA_GLO_CFG(CONNAC3X_HOST_WPDMA_1_BASE);
+		HAL_MCR_RD(prAdapter, u4WfdmaAddr, &u4WfdmaCr);
+		u4WfdmaCr |=
+			(CONNAC3X_WPDMA1_GLO_CFG_OMIT_TX_INFO |
+			 CONNAC3X_WPDMA1_GLO_CFG_OMIT_RX_INFO |
+			 CONNAC3X_WPDMA1_GLO_CFG_FW_DWLD_Bypass_dmashdl |
+			 CONNAC3X_WPDMA1_GLO_CFG_RX_DMA_EN |
+			 CONNAC3X_WPDMA1_GLO_CFG_TX_DMA_EN);
+		HAL_MCR_WR(prAdapter, u4WfdmaAddr, u4WfdmaCr);
+
+		/* Enable WFDMA0 RX for receiving data frame */
+		u4WfdmaAddr =
+			CONNAC3X_WPDMA_GLO_CFG(CONNAC3X_HOST_WPDMA_0_BASE);
+		HAL_MCR_RD(prAdapter, u4WfdmaAddr, &u4WfdmaCr);
+		u4WfdmaCr |=
+			(CONNAC3X_WPDMA1_GLO_CFG_RX_DMA_EN);
+		HAL_MCR_WR(prAdapter, u4WfdmaAddr, u4WfdmaCr);
+	} else {
+		u4WfdmaAddr =
+			CONNAC3X_WPDMA_GLO_CFG(CONNAC3X_HOST_WPDMA_0_BASE);
+		HAL_MCR_RD(prAdapter, u4WfdmaAddr, &u4WfdmaCr);
+		u4WfdmaCr &= ~(CONNAC3X_WPDMA1_GLO_CFG_OMIT_RX_INFO);
+		u4WfdmaCr |=
+			(CONNAC3X_WPDMA1_GLO_CFG_OMIT_TX_INFO |
+			 CONNAC3X_WPDMA1_GLO_CFG_OMIT_RX_INFO_PFET2 |
+			 CONNAC3X_WPDMA1_GLO_CFG_FW_DWLD_Bypass_dmashdl |
+			 CONNAC3X_WPDMA1_GLO_CFG_RX_DMA_EN |
+			 CONNAC3X_WPDMA1_GLO_CFG_TX_DMA_EN);
+		HAL_MCR_WR(prAdapter, u4WfdmaAddr, u4WfdmaCr);
+
+	}
 
 	prChipInfo->is_support_dma_shdl = wlanCfgGetUint32(prAdapter,
 				    "DmaShdlEnable",
-				    FEATURE_ENABLED, FEATURE_DEBUG_ONLY);
+				    FEATURE_ENABLED);
 	if (!prChipInfo->is_support_dma_shdl) {
 		/*
 		 *	To disable 0x7C0252B0[6] DMASHDL
 		 */
-		u4WfdmaAddr = CONNAC3X_WPDMA_GLO_CFG_EXT0(
-			prChipInfo->u4HostWfdmaBaseAddr);
-		HAL_RMCR_RD(HIF_USB, prAdapter, u4WfdmaAddr, &u4WfdmaCr);
+		if (prChipInfo->is_support_wfdma1) {
+			u4WfdmaAddr = CONNAC3X_WPDMA_GLO_CFG_EXT0(
+					CONNAC3X_HOST_WPDMA_1_BASE);
+		} else {
+			u4WfdmaAddr = CONNAC3X_WPDMA_GLO_CFG_EXT0(
+					CONNAC3X_HOST_WPDMA_0_BASE);
+		}
+		HAL_MCR_RD(prAdapter, u4WfdmaAddr, &u4WfdmaCr);
 		u4WfdmaCr &= ~CONNAC3X_WPDMA1_GLO_CFG_EXT0_TX_DMASHDL_EN;
 		HAL_MCR_WR(prAdapter, u4WfdmaAddr, u4WfdmaCr);
 
@@ -1447,8 +1358,8 @@ void asicConnac3xWfdmaInitForUSB(
 		 *	1: Enable
 		 */
 		u4WfdmaAddr = CONNAC3X_HOST_DMASHDL_SW_CONTROL(
-			prChipInfo->u4DmaShdlBaseAddr);
-		HAL_RMCR_RD(HIF_USB, prAdapter, u4WfdmaAddr, &u4WfdmaCr);
+					CONNAC3X_HOST_DMASHDL);
+		HAL_MCR_RD(prAdapter, u4WfdmaAddr, &u4WfdmaCr);
 		u4WfdmaCr |= CONNAC3X_HIF_DMASHDL_BYPASS_EN;
 		HAL_MCR_WR(prAdapter, u4WfdmaAddr, u4WfdmaCr);
 	}
@@ -1459,21 +1370,6 @@ void asicConnac3xWfdmaInitForUSB(
 
 uint8_t asicConnac3xUsbEventEpDetected(struct ADAPTER *prAdapter)
 {
-	struct GL_HIF_INFO *prHifInfo;
-	struct GLUE_INFO *prGlueInfo;
-
-	prGlueInfo = prAdapter->prGlueInfo;
-
-	if (prGlueInfo == NULL) {
-		DBGLOG(INIT, ERROR, "prGlueInfo is NULL.\n");
-		goto out;
-	}
-
-	prHifInfo = &prGlueInfo->rHifInfo;
-	prHifInfo->eEventEpType = EVENT_EP_TYPE_DATA_EP;
-
-out:
-	/* CONNAC3 EVT use PSE, expect that the EVT is always from the EP4 */
 	return USB_DATA_EP_IN;
 }
 
@@ -1494,7 +1390,7 @@ void asicConnac3xEnableUsbFWDL(
 	prChipInfo = prAdapter->chip_info;
 	prBusInfo = prChipInfo->bus_info;
 
-	HAL_RMCR_RD(HIF_USB, prAdapter, prBusInfo->u4UdmaTxQsel, &u4Value);
+	HAL_MCR_RD(prAdapter, prBusInfo->u4UdmaTxQsel, &u4Value);
 	if (fgEnable)
 		u4Value |= FW_DL_EN;
 	else
@@ -1513,7 +1409,7 @@ void asicConnac3xUdmaRxFlush(
 
 	prBusInfo = prAdapter->chip_info->bus_info;
 
-	HAL_RMCR_RD(HIF_USB, prAdapter, prBusInfo->u4UdmaWlCfg_0_Addr,
+	HAL_MCR_RD(prAdapter, prBusInfo->u4UdmaWlCfg_0_Addr,
 		   &u4Value);
 	if (bEnable)
 		u4Value |= UDMA_WLCFG_0_RX_FLUSH_MASK;
@@ -1555,7 +1451,7 @@ u_int8_t asicConnac3xUsbResume(
 	glUsbSetState(&prGlueInfo->rHifInfo, USB_STATE_PRE_RESUME);
 
 	if (asicConnac3xWfdmaIsNeedReInit(prAdapter)) {
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 		       "Deep sleep happens in suspend\n");
 
 		/* reinit USB because LP could clear WFDMA's CR */
@@ -1564,9 +1460,10 @@ u_int8_t asicConnac3xUsbResume(
 	}
 
 	for (u4Loop = 0; u4Loop < MAX_POLLING_LOOP; u4Loop++) {
-		for (u4Idx = 0; u4Idx < ARRAY_SIZE(g_au4UsbPollAddrTbl);
+		for (u4Idx = 0;
+			u4Idx < sizeof(g_au4UsbPollAddrTbl)/sizeof(uint32_t);
 			u4Idx++) {
-			HAL_RMCR_RD(HIF_USB, prAdapter,
+			HAL_MCR_RD(prAdapter,
 				g_au4UsbPollAddrTbl[u4Idx], &u4Value);
 			if ((u4Value & g_au4UsbPollMaskTbl[u4Idx])
 				!= g_au4UsbPollValueTbl[u4Idx]) {
@@ -1662,10 +1559,6 @@ void fillConnac3xNicTxDescAppendWithSdo(
 		prHwTxDescAppend->CR4_APPEND.u2PktFlags =
 			HIF_PKT_FLAGS_CT_INFO_APPLY_TXD;
 #endif
-#if CFG_SUPPORT_WED_PROXY
-	prHwTxDescAppend->CR4_APPEND.u2PktFlags =
-		HIF_PKT_FLAGS_CT_INFO_APPLY_TXD;
-#endif
 	prHwTxDescAppend->CR4_APPEND.ucBssIndex =
 		prMsduInfo->ucBssIndex;
 	prHwTxDescAppend->CR4_APPEND.ucWtblIndex =
@@ -1742,7 +1635,19 @@ void fillConnac3xTxDescAppendByMawdSdo(
 	union mawd_l2tbl rL2Tbl = {0};
 	uint16_t u2EtherTypeLen = 0, u2Port = TX_RING_DATA0;
 	uint8_t ucType = 0;
+	uint32_t u4NumIPv4 = 0, u4NumIPv6 = 0;
+	uint8_t pucIPv4Addr[IPV4_ADDR_LEN * CFG_PF_ARP_NS_MAX_NUM * 2];
+	uint8_t pucIPv6Addr[IPV6_ADDR_LEN * CFG_PF_ARP_NS_MAX_NUM];
 	uint8_t ucIpVer, u4TxDSize;
+
+	kalGetIPv4Address(wlanGetNetDev(prAdapter->prGlueInfo, 0),
+		CFG_PF_ARP_NS_MAX_NUM, pucIPv4Addr,
+			  &u4NumIPv4);
+#if IS_ENABLED(CONFIG_IPV6)
+	kalGetIPv6Address(wlanGetNetDev(prAdapter->prGlueInfo, 0),
+		CFG_PF_ARP_NS_MAX_NUM, pucIPv6Addr,
+			  &u4NumIPv6);
+#endif
 
 	prChipInfo = prAdapter->chip_info;
 	prBusInfo = prChipInfo->bus_info;
@@ -1758,13 +1663,13 @@ void fillConnac3xTxDescAppendByMawdSdo(
 	WLAN_GET_FIELD_BE16(&pucData[ETHER_HEADER_LEN - ETHER_TYPE_LEN],
 			    &u2EtherTypeLen);
 
-	DBGLOG(HAL, DEBUG, "EtherType [0x%08x]\n", u2EtherTypeLen);
+	DBGLOG(HAL, INFO, "EtherType [0x%08x]\n", u2EtherTypeLen);
 	if (ucIpVer == IP_VERSION_4) {
-		DBGLOG(HAL, DEBUG, "is IPV4[0x%08x]\n", u2EtherTypeLen);
+		DBGLOG(HAL, INFO, "is IPV4[0x%08x]\n", u2EtherTypeLen);
 		ucType = 1;
 	}
 	if (ucIpVer == IP_VERSION_6) {
-		DBGLOG(HAL, DEBUG, "is IPV6[0x%08x]\n", u2EtherTypeLen);
+		DBGLOG(HAL, INFO, "is IPV6[0x%08x]\n", u2EtherTypeLen);
 		ucType = 2;
 	}
 	if (ucType) {
@@ -1822,8 +1727,8 @@ void fillConnac3xTxDescAppendByMawdSdo(
 	prHwTxDescAppend->CR4_APPEND.au2BufLen[1] =
 		(prMsduInfo->u2FrameLength - ETH_HLEN) | (u4AddrExt << 12);
 
-	DBGLOG(HAL, DEBUG, "Fill HIF TXD + payload[%d]\n", u4MawdPacketCnt++);
-	DBGLOG_MEM32(HAL, DEBUG, pTxCell->AllocVa,
+	DBGLOG(HAL, INFO, "Fill HIF TXD + payload[%d]\n", u4MawdPacketCnt++);
+	DBGLOG_MEM32(HAL, INFO, pTxCell->AllocVa,
 		     NIC_TX_DESC_AND_PADDING_LENGTH +
 		     prChipInfo->txd_append_size);
 }
@@ -1878,7 +1783,7 @@ void fillConnac3xTxDescTxByteCount(
 	ASSERT(prTxDesc);
 
 	prChipInfo = prAdapter->chip_info;
-	u4TxByteCount += nicTxGetFrameLength(prMsduInfo);
+	u4TxByteCount += prMsduInfo->u2FrameLength;
 
 	if (IsPacketGoThruDataPath(prMsduInfo))
 		u4TxByteCount += prChipInfo->u4ExtraTxByteCount;
@@ -1901,7 +1806,6 @@ void asicConnac3xInitTxdHook(
 
 	prTxDescOps->nic_txd_long_format_op = nic_txd_v3_long_format_op;
 	prTxDescOps->nic_txd_tid_op = nic_txd_v3_tid_op;
-	prTxDescOps->nic_txd_pkt_format_op = nic_txd_v3_pkt_format_op;
 	prTxDescOps->nic_txd_queue_idx_op = nic_txd_v3_queue_idx_op;
 #if (CFG_TCP_IP_CHKSUM_OFFLOAD == 1)
 	prTxDescOps->nic_txd_chksum_op = nic_txd_v3_chksum_op;
@@ -1989,16 +1893,11 @@ void asicConnac3xRxProcessRxvforMSP(struct ADAPTER *prAdapter,
 		return;
 	}
 
-	/* reduce rxv processing */
-	if (!IS_RX_MPDU_BEGIN(prRetSwRfb->ucPayloadFormat))
-		return;
-
 	if (prRetSwRfb->ucGroupVLD & BIT(RX_GROUP_VLD_3)) {
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
-		prStaRec = mldGetStaRecByBandAndBssid(prAdapter,
-				prRetSwRfb->ucHwBandIdx,
-				prRetSwRfb->ucHwBssIdx,
-				prRetSwRfb->ucWlanIdx);
+		prStaRec = mldGetStaRecByBandIdx(prAdapter,
+				&prAdapter->arStaRec[prRetSwRfb->ucStaRecIdx],
+				prRetSwRfb->ucHwBandIdx);
 		if (!prStaRec)
 			return;
 		ucStaRecIdx = prStaRec->ucIndex;
@@ -2111,28 +2010,6 @@ uint8_t asicConnac3xRxGetRcpiValueFromRxv(
 	return ucRcpiValue;
 }
 
-uint8_t asicConnac3xRxGetRxModeValueFromRxv(struct SW_RFB *prSwRfb)
-{
-	uint8_t ucRxModeValue = 0;
-	struct HW_MAC_RX_STS_GROUP_3_V2 *prGroup3 = NULL;
-
-	if (!prSwRfb) {
-		DBGLOG(RX, WARN, "prSwRfb is NULL\n");
-		return 0xFF;
-	}
-
-	if ((prSwRfb->ucGroupVLD & BIT(RX_GROUP_VLD_3)) == 0) {
-		DBGLOG(RX, WARN, "RXD group 3 is not valid\n");
-		return 0xFF;
-	}
-
-	prGroup3 = (struct HW_MAC_RX_STS_GROUP_3_V2 *)
-				prSwRfb->prRxStatusGroup3;
-	ucRxModeValue = CONNAC3X_HAL_RX_VECTOR_GET_RX_MODE(prGroup3);
-
-	return ucRxModeValue;
-}
-
 #if (CFG_SUPPORT_PERF_IND == 1)
 void asicConnac3xRxPerfIndProcessRXV(struct ADAPTER *prAdapter,
 			       struct SW_RFB *prSwRfb,
@@ -2218,57 +2095,6 @@ u_int8_t conn2_rst_L0_notify_step2(void)
 }
 #endif
 
-#if defined(_HIF_PCIE) || defined(_HIF_AXI) || defined(_HIF_USB)
-void asicConnac3xDmashdlLiteSetTotalPlePsePageSize(
-	struct ADAPTER *prAdapter,
-	uint16_t u2PlePageSize, uint16_t u2PsePageSize)
-{
-	struct BUS_INFO *prBusInfo;
-	struct DMASHDL_CFG *prCfg;
-	uint32_t u4Val = 0;
-
-	prBusInfo = prAdapter->chip_info->bus_info;
-	prCfg = prBusInfo->prDmashdlCfg;
-
-	u4Val |= (u2PlePageSize << prCfg->rPleTotalPageSize.u4Shift) &
-		prCfg->rPleTotalPageSize.u4Mask;
-	u4Val |= (u2PsePageSize << prCfg->rPseTotalPageSize.u4Shift) &
-		prCfg->rPseTotalPageSize.u4Mask;
-
-	HAL_MCR_WR(prAdapter, prCfg->rPleTotalPageSize.u4Addr, u4Val);
-}
-
-void asicConnac3xDmashdlLiteSetQueueMapping(
-	struct ADAPTER *prAdapter, uint8_t ucQueue, uint8_t ucGroup)
-{
-	struct BUS_INFO *prBusInfo;
-	struct DMASHDL_CFG *prCfg;
-	uint32_t u4Addr, u4Mask, u4Shft;
-	uint32_t u4Val = 0, u4Idx = 0;
-
-	prBusInfo = prAdapter->chip_info->bus_info;
-	prCfg = prBusInfo->prDmashdlCfg;
-
-	if (ucQueue >= prCfg->ucQueueNum)
-		return;
-
-	if (ucGroup >= prCfg->u4GroupNum)
-		return;
-
-	u4Idx = ucQueue >> 2;
-	u4Addr = prCfg->rQueueMapping0Queue0.u4Addr + (u4Idx << 2);
-	u4Mask = prCfg->rQueueMapping0Queue0.u4Mask << ((ucQueue % 4) << 3);
-	u4Shft = (ucQueue % 4) << 3;
-
-	u4Val = prCfg->u4Queue2Group[u4Idx];
-	u4Val &= ~u4Mask;
-	u4Val |= (ucGroup << u4Shft) & u4Mask;
-	/* restore queue mapping CR value to dmashdl cfg */
-	prCfg->u4Queue2Group[u4Idx] = u4Val;
-
-	HAL_MCR_WR(prAdapter, u4Addr, u4Val);
-}
-
 void asicConnac3xDmashdlSetPlePsePktMaxPage(
 	struct ADAPTER *prAdapter,
 	uint16_t u2MaxPlePage, uint16_t u2MaxPsePage)
@@ -2286,6 +2112,31 @@ void asicConnac3xDmashdlSetPlePsePktMaxPage(
 		 prCfg->rPsePacketMaxSize.u4Mask;
 
 	HAL_MCR_WR(prAdapter, prCfg->rPlePacketMaxSize.u4Addr, u4Val);
+}
+
+void asicConnac3xDmashdlGetPktMaxPage(struct ADAPTER *prAdapter)
+{
+	struct BUS_INFO *prBusInfo;
+	struct DMASHDL_CFG *prCfg;
+	uint32_t u4Val = 0;
+	uint32_t ple_pkt_max_sz;
+	uint32_t pse_pkt_max_sz;
+
+	prBusInfo = prAdapter->chip_info->bus_info;
+	prCfg = prBusInfo->prDmashdlCfg;
+
+	HAL_MCR_RD(prAdapter, prCfg->rPlePacketMaxSize.u4Addr, &u4Val);
+
+	ple_pkt_max_sz = (u4Val & prCfg->rPlePacketMaxSize.u4Mask) >>
+		prCfg->rPlePacketMaxSize.u4Shift;
+	pse_pkt_max_sz = (u4Val & prCfg->rPsePacketMaxSize.u4Mask) >>
+		prCfg->rPsePacketMaxSize.u4Shift;
+
+	DBGLOG(HAL, INFO, "DMASHDL PLE_PACKET_MAX_SIZE (0x%08x): 0x%08x\n",
+		prCfg->rPlePacketMaxSize.u4Addr, u4Val);
+	DBGLOG(HAL, INFO, "PLE/PSE packet max size=0x%03x/0x%03x\n",
+		ple_pkt_max_sz, pse_pkt_max_sz);
+
 }
 
 void asicConnac3xDmashdlSetRefill(struct ADAPTER *prAdapter, uint8_t ucGroup,
@@ -2311,6 +2162,20 @@ void asicConnac3xDmashdlSetRefill(struct ADAPTER *prAdapter, uint8_t ucGroup,
 	prCfg->u4RefillCtrl = u4Val;
 
 	HAL_MCR_WR(prAdapter, prCfg->rGroup0RefillDisable.u4Addr, u4Val);
+}
+
+void asicConnac3xDmashdlGetRefill(struct ADAPTER *prAdapter)
+{
+	struct BUS_INFO *prBusInfo;
+	struct DMASHDL_CFG *prCfg;
+	uint32_t u4Val = 0;
+
+	prBusInfo = prAdapter->chip_info->bus_info;
+	prCfg = prBusInfo->prDmashdlCfg;
+
+	HAL_MCR_RD(prAdapter, prCfg->rGroup0RefillDisable.u4Addr, &u4Val);
+	DBGLOG(HAL, INFO, "DMASHDL ReFill Control (0x%08x): 0x%08x\n",
+		prCfg->rGroup0RefillDisable.u4Addr, u4Val);
 }
 
 void asicConnac3xDmashdlSetMinMaxQuota(
@@ -2341,6 +2206,31 @@ void asicConnac3xDmashdlSetMinMaxQuota(
 	HAL_MCR_WR(prAdapter, u4Addr, u4Val);
 }
 
+void asicConnac3xDmashdlGetGroupControl(struct ADAPTER *prAdapter,
+					uint8_t ucGroup)
+{
+	struct BUS_INFO *prBusInfo;
+	struct DMASHDL_CFG *prCfg;
+	uint32_t u4Addr;
+	uint32_t u4Val = 0;
+	uint32_t max_quota;
+	uint32_t min_quota;
+
+	prBusInfo = prAdapter->chip_info->bus_info;
+	prCfg = prBusInfo->prDmashdlCfg;
+
+	u4Addr = prCfg->rGroup0ControlMaxQuota.u4Addr + (ucGroup << 2);
+
+	HAL_MCR_RD(prAdapter, u4Addr, &u4Val);
+
+	max_quota = GET_DMASHDL_MAX_QUOTA_NUM(u4Val);
+	min_quota = GET_DMASHDL_MIN_QUOTA_NUM(u4Val);
+	DBGLOG(HAL, INFO, "\tDMASHDL Group%d control(0x%08x): 0x%08x\n",
+		ucGroup, u4Addr, u4Val);
+	DBGLOG(HAL, INFO, "\tmax/min quota = 0x%03x/ 0x%03x\n",
+		max_quota, min_quota);
+
+}
 void asicConnac3xDmashdlSetQueueMapping(
 	struct ADAPTER *prAdapter, uint8_t ucQueue, uint8_t ucGroup)
 {
@@ -2424,6 +2314,85 @@ void asicConnac3xDmashdlSetSlotArbiter(
 		   u4Val);
 }
 
+uint32_t asicConnac3xDmashdlGetRsvCount(struct ADAPTER *prAdapter,
+					uint8_t ucGroup)
+{
+	struct BUS_INFO *prBusInfo;
+	struct DMASHDL_CFG *prCfg;
+	uint32_t u4Addr;
+	uint32_t u4Val = 0;
+	uint32_t rsv_cnt = 0;
+
+	prBusInfo = prAdapter->chip_info->bus_info;
+	prCfg = prBusInfo->prDmashdlCfg;
+
+	u4Addr = prCfg->rStatusRdGp0RsvCnt.u4Addr + (ucGroup << 2);
+
+	HAL_MCR_RD(prAdapter, u4Addr, &u4Val);
+
+	rsv_cnt = (u4Val & prCfg->rStatusRdGp0RsvCnt.u4Mask) >>
+		prCfg->rStatusRdGp0RsvCnt.u4Shift;
+
+	DBGLOG(HAL, INFO, "\tDMASHDL Status_RD_GP%d(0x%08x): 0x%08x\n",
+		ucGroup, u4Addr, u4Val);
+	DBGLOG(HAL, TRACE, "\trsv_cnt = 0x%03x\n", rsv_cnt);
+	return rsv_cnt;
+}
+
+uint32_t asicConnac3xDmashdlGetSrcCount(struct ADAPTER *prAdapter,
+					uint8_t ucGroup)
+{
+	struct BUS_INFO *prBusInfo;
+	struct DMASHDL_CFG *prCfg;
+	uint32_t u4Addr;
+	uint32_t u4Val = 0;
+	uint32_t src_cnt = 0;
+
+	prBusInfo = prAdapter->chip_info->bus_info;
+	prCfg = prBusInfo->prDmashdlCfg;
+
+	u4Addr = prCfg->rStatusRdGp0SrcCnt.u4Addr + (ucGroup << 2);
+
+	HAL_MCR_RD(prAdapter, u4Addr, &u4Val);
+
+	src_cnt = (u4Val & prCfg->rStatusRdGp0SrcCnt.u4Mask) >>
+		prCfg->rStatusRdGp0SrcCnt.u4Shift;
+
+	DBGLOG(HAL, TRACE, "\tsrc_cnt = 0x%03x\n", src_cnt);
+	return src_cnt;
+}
+
+void asicConnac3xDmashdlGetPKTCount(struct ADAPTER *prAdapter, uint8_t ucGroup)
+{
+	struct BUS_INFO *prBusInfo;
+	struct DMASHDL_CFG *prCfg;
+	uint32_t u4Addr;
+	uint32_t u4Val = 0;
+	uint32_t pktin_cnt = 0;
+	uint32_t ask_cnt = 0;
+
+	prBusInfo = prAdapter->chip_info->bus_info;
+	prCfg = prBusInfo->prDmashdlCfg;
+
+	if ((ucGroup & 0x1) == 0)
+		u4Addr = prCfg->rRdGroupPktCnt0.u4Addr + (ucGroup << 1);
+	else
+		u4Addr = prCfg->rRdGroupPktCnt0.u4Addr + ((ucGroup-1) << 1);
+
+	HAL_MCR_RD(prAdapter, u4Addr, &u4Val);
+	DBGLOG(HAL, INFO, "\tDMASHDL RD_group_pkt_cnt_%d(0x%08x): 0x%08x\n",
+		ucGroup / 2, u4Addr, u4Val);
+	if ((ucGroup & 0x1) == 0) {
+		pktin_cnt = GET_EVEN_GROUP_PKT_IN_CNT(u4Val);
+		ask_cnt = GET_EVEN_GROUP_ASK_CNT(u4Val);
+	} else {
+		pktin_cnt = GET_ODD_GROUP_PKT_IN_CNT(u4Val);
+		ask_cnt = GET_ODD_GROUP_ASK_CNT(u4Val);
+	}
+	DBGLOG(HAL, INFO, "\tpktin_cnt = 0x%02x, ask_cnt = 0x%02x",
+		pktin_cnt, ask_cnt);
+}
+
 void asicConnac3xDmashdlSetOptionalControl(
 	struct ADAPTER *prAdapter,
 	uint16_t u2HifAckCntTh, uint16_t u2HifGupActMap, uint32_t u4DefVal)
@@ -2448,129 +2417,6 @@ void asicConnac3xDmashdlSetOptionalControl(
 	HAL_MCR_WR(prAdapter, u4Addr, u4Val);
 }
 
-#if (CFG_DYNAMIC_DMASHDL_MAX_QUOTA == 1)
-uint32_t asicConnac3xDynamicDmashdlGetInUsedMaxQuota(
-	struct ADAPTER *prAdapter,
-	uint32_t u4GroupIdx,
-	uint32_t u4DefMaxQuota)
-{
-	struct WMM_QUOTA_STATUS *prWmmStatus;
-	uint8_t ucWmmIdx = u4GroupIdx / 4, ucAc = u4GroupIdx % 4;
-
-	prWmmStatus = &prAdapter->rWmmQuotaStatus[ucWmmIdx];
-	if (ucAc == WMM_AC_VO_INDEX || !prWmmStatus->fgIsUsed)
-		return u4DefMaxQuota;
-
-	return prWmmStatus->u4Quota;
-}
-
-uint32_t asicConnac3xUpdateDynamicDmashdlQuota(
-	struct ADAPTER *prAdapter,
-	uint8_t ucWmmIndex,
-	uint32_t u4MaxQuota)
-{
-	struct mt66xx_chip_info *prChipInfo;
-	struct BUS_INFO *prBusInfo;
-	struct DMASHDL_CFG *prCfg;
-	uint8_t ucGroupIdx, ucAcIdx;
-	uint32_t u4Idx;
-	uint16_t u2MaxQuotaFinal, u2MinQuota = 0;
-	u_int8_t fgIsMaxQuotaInvalid = FALSE;
-	uint32_t u4BufSize = 512, u4Pos = 0;
-	char *aucBuf;
-
-	aucBuf = (char *)kalMemAlloc(u4BufSize, VIR_MEM_TYPE);
-	if (aucBuf)
-		kalMemZero(aucBuf, u4BufSize);
-
-	prChipInfo = prAdapter->chip_info;
-	prBusInfo = prChipInfo->bus_info;
-	prCfg = prBusInfo->prDmashdlCfg;
-	u2MinQuota = prChipInfo->u4DefaultMinQuota;
-
-	if (u4MaxQuota > (DMASHDL_MAX_QUOTA_MASK >> DMASHDL_MAX_QUOTA_OFFSET))
-		fgIsMaxQuotaInvalid = TRUE;
-
-	for (u4Idx = 0; u4Idx < WMM_AC_INDEX_NUM; u4Idx++) {
-		if (u4Idx == WMM_AC_VO_INDEX)
-			continue;
-
-		ucAcIdx = u4Idx + (ucWmmIndex * WMM_AC_INDEX_NUM);
-		ucGroupIdx = prCfg->aucQueue2Group[ucAcIdx];
-		u2MaxQuotaFinal = u4MaxQuota;
-		/* Set quota to default */
-		if (fgIsMaxQuotaInvalid)
-			u2MaxQuotaFinal = prChipInfo->u4DefaultMaxQuota;
-
-		if (u2MaxQuotaFinal == 0 ||
-		    (prCfg->au2MaxQuota[ucGroupIdx] == u2MaxQuotaFinal))
-			continue;
-
-		if (u2MaxQuotaFinal < u2MinQuota)
-			u2MaxQuotaFinal = u2MinQuota;
-
-		prCfg->au2MaxQuota[ucGroupIdx] = u2MaxQuotaFinal;
-		asicConnac3xDmashdlSetMinMaxQuota(
-			prAdapter,
-			ucGroupIdx,
-			u2MinQuota,
-			u2MaxQuotaFinal);
-
-		if (aucBuf) {
-			u4Pos += kalSnprintf(
-				aucBuf + u4Pos, u4BufSize - u4Pos,
-				"WmmIndex[%u] Ac[%u] Group[%u] MaxQuota[0x%x]",
-				ucWmmIndex, ucAcIdx, ucGroupIdx,
-				u2MaxQuotaFinal);
-		}
-	}
-
-	if (aucBuf) {
-		if (u4Pos)
-			DBGLOG(HAL, DEBUG, "%s\n", aucBuf);
-		kalMemFree(aucBuf, VIR_MEM_TYPE, u4BufSize);
-	}
-
-	return WLAN_STATUS_SUCCESS;
-}
-
-uint32_t asicConnac3xDynamicDmashdlQuotaDecision(
-	struct ADAPTER *prAdapter,
-	uint8_t ucWmmIndex)
-{
-	struct mt66xx_chip_info *prChipInfo = prAdapter->chip_info;
-	enum ENUM_MBMC_BN eHwBand = ENUM_BAND_AUTO;
-	enum ENUM_BAND eBand = BAND_NULL;
-	uint32_t u4Band = 0, u4Quota = 0;
-
-	if (ucWmmIndex >= HW_WMM_NUM)
-		return 0;
-
-	eHwBand = prAdapter->rWmmQuotaReqCS[ucWmmIndex].eHwBand;
-	eBand = prAdapter->rWmmQuotaReqCS[ucWmmIndex].eBand;
-	if (eHwBand >= ENUM_BAND_NUM)
-		return 0;
-
-	/* MLO use Hw band */
-	if (prAdapter->rWmmQuotaReqCS[ucWmmIndex].fgIsMldMulti)
-		return prChipInfo->au4DmaMaxQuotaBand[eHwBand];
-
-	if (eBand == BAND_NULL || eBand >= BAND_NUM)
-		return prChipInfo->u4DefaultMaxQuota;
-
-	u4Band = (uint32_t)eBand - 1;
-	u4Quota = prChipInfo->au4DmaMaxQuotaRfBand[u4Band];
-	if (u4Quota > prChipInfo->au4DmaMaxQuotaBand[eHwBand])
-		u4Quota = prChipInfo->au4DmaMaxQuotaBand[eHwBand];
-
-	DBGLOG(HAL, TRACE, "WmmIdx[%u] HwBand[%u] Band[%u] MaxQuota[0x%x]\n",
-	       ucWmmIndex, eHwBand, eBand, u4Quota);
-
-	return u4Quota;
-}
-#endif /* CFG_DYNAMIC_DMASHDL_MAX_QUOTA == 1 */
-
-#endif /* #if defined(_HIF_PCIE) || defined(_HIF_AXI) || defined(_HIF_USB) */
 #if CFG_WMT_RESET_API_SUPPORT
 static void handle_wfsys_reset(struct ADAPTER *prAdapter)
 {
@@ -2578,31 +2424,24 @@ static void handle_wfsys_reset(struct ADAPTER *prAdapter)
 
 	wifi_coredump_set_enable(TRUE);
 	if (kalIsResetting()) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"Wi-Fi Driver trigger, need do complete.\n");
 		reset_done_trigger_completion();
 	} else if (fgIsDrvTriggerWholeChipReset) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"Ignore fw assert due to whole chip reset ongoing.\n");
-	} else if (kalGetShutdownState()) {
-		DBGLOG(HAL, DEBUG,
-			"Ignore fw assert due to device shutdown.\n");
 	} else {
-		if (prAdapter->fgIsSkipFWL05) {
-			DBGLOG(HAL, ERROR,
-				"Ignore fw assert due to before rom patch dl\n");
-			/* To do: send msg to do dfd dump by rom cmd */
-			return;
-		}
 		DBGLOG(HAL, ERROR, "FW trigger assert.\n");
+#if CFG_WMT_RESET_API_SUPPORT && CFG_ENABLE_WAKE_LOCK
+		if (!KAL_WAKE_LOCK_ACTIVE(NULL, g_IntrWakeLock))
+			KAL_WAKE_LOCK(NULL, g_IntrWakeLock);
+#endif
 		g_Coredump_source = COREDUMP_SOURCE_WF_FW;
 
 		glSetRstReason(RST_FW_ASSERT);
 
-		prAdapter->u4HifDbgFlag |= DEG_HIF_DEFAULT_DUMP;
-		kalSetHifDbgEvent(prAdapter->prGlueInfo);
-
 		glResetUpdateFlag(TRUE);
+		glResetUpdateFwAsserted(TRUE);
 
 #if CFG_MTK_MDDP_SUPPORT
 #if (CFG_PCIE_GEN_SWITCH == 1)
@@ -2610,10 +2449,10 @@ static void handle_wfsys_reset(struct ADAPTER *prAdapter)
 #endif /* CFG_PCIE_GEN_SWITCH */
 #endif /* CFG_MTK_MDDP_SUPPORT */
 
-		if (dbg_ops && dbg_ops->dumpBusStatus)
-			dbg_ops->dumpBusStatus(prAdapter);
+		if (dbg_ops && dbg_ops->dumpBusHangCr)
+			dbg_ops->dumpBusHangCr(prAdapter);
 
-		kalSetRstFwNotifyL05Event(TRUE);
+		kalSetRstEvent(TRUE);
 	}
 }
 
@@ -2621,19 +2460,17 @@ static void handle_whole_chip_reset(struct ADAPTER *prAdapter)
 {
 	struct CHIP_DBG_OPS *dbg_ops = prAdapter->chip_info->prDebugOps;
 
-	if (kalGetShutdownState()) {
-		DBGLOG(HAL, DEBUG,
-			"Ignore fw assert due to device shutdown.\n");
-		return;
-	}
-
 	DBGLOG(HAL, ERROR,
 		"FW trigger whole chip reset.\n");
-
+#if CFG_WMT_RESET_API_SUPPORT && CFG_ENABLE_WAKE_LOCK
+	if (!KAL_WAKE_LOCK_ACTIVE(NULL, g_IntrWakeLock))
+		KAL_WAKE_LOCK(NULL, g_IntrWakeLock);
+#endif
 	wifi_coredump_set_enable(TRUE);
+	g_Coredump_source = COREDUMP_SOURCE_WF_FW;
 	glResetUpdateFlag(TRUE);
+	g_IsWfsysBusHang = TRUE;
 	glResetUpdateFwAsserted(TRUE);
-	g_IsWfsysBusNoAck = TRUE;
 
 #if CFG_MTK_MDDP_SUPPORT
 #if (CFG_PCIE_GEN_SWITCH == 1)
@@ -2641,10 +2478,15 @@ static void handle_whole_chip_reset(struct ADAPTER *prAdapter)
 #endif /* CFG_PCIE_GEN_SWITCH */
 #endif /* CFG_MTK_MDDP_SUPPORT */
 
-	if (dbg_ops && dbg_ops->dumpBusStatus)
-		dbg_ops->dumpBusStatus(prAdapter);
+	if (dbg_ops && dbg_ops->dumpBusHangCr)
+		dbg_ops->dumpBusHangCr(prAdapter);
 
-	kalSetRstFwNotifyTriggerL0Event(TRUE);
+#if (CFG_WIFI_FORCE_FULL_COREDUMP == 1)
+	/* skip force dump and keep full coredump */
+	kalSetRstEvent(FALSE);
+#else
+	kalSetRstEvent(TRUE);
+#endif
 }
 #endif
 
@@ -2681,11 +2523,9 @@ u_int8_t asicConnac3xSwIntHandler(struct ADAPTER *prAdapter)
 	if (fgRet == FALSE || u4Status == 0)
 		goto exit;
 
-#if (DBG_DISABLE_ALL_INFO == 0)
 	if (!(prGlueInfo->ulFlag & GLUE_FLAG_HALT) &&
 	    (u4Status & BIT(SW_INT_FW_LOG)))
 		fw_log_handler();
-#endif
 
 #if CFG_WMT_RESET_API_SUPPORT
 	if (u4Status & BIT(SW_INT_SUBSYS_RESET))
@@ -2693,12 +2533,6 @@ u_int8_t asicConnac3xSwIntHandler(struct ADAPTER *prAdapter)
 
 	if (u4Status & BIT(SW_INT_WHOLE_RESET))
 		handle_whole_chip_reset(prAdapter);
-
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
-	if (u4Status & BIT(SW_INT_PMIC_RESET))
-		connv3_trigger_pmic_irq(CONNV3_DRV_TYPE_WIFI,
-			"fw trigger PMIC reset");
-#endif
 #endif
 
 #if defined(_HIF_PCIE)
@@ -2758,7 +2592,7 @@ uint32_t asicConnac3xQueryPmicInfo(struct ADAPTER *prAdapter)
 	DBGLOG(INIT, TRACE, "PMIC ID: 0x%x.\n", prPmicEvent->u4PmicId);
 	DBGLOG_MEM32(INIT, TRACE, &prPmicEvent->aucPMICCoreDumpbuf[0],
 		prPmicEvent->u4Length);
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 	connv3_update_pmic_state(CONNV3_DRV_TYPE_WIFI,
 		&prPmicEvent->aucPMICCoreDumpbuf[0],
 		prPmicEvent->u4Length);
@@ -2772,105 +2606,43 @@ exit:
 	return u4Status;
 }
 
-const struct DEBUG_DUMP_REGIOM debug_info_region[NUM_OF_SYSTEM_DEBUG_INFO] = {
-	{DEBUG_INFO_PMIC_DUMP,
-		DEBUG_INFO_PMIC_DUMP_LENG}, /*PMIC INFO*/
-	{DEBUG_INFO_DFD_CB_INFRA_INFO,
-		DEBUG_INFO_DFD_CB_INFRA_INFO_LENG}, /*CB_INFRA INFO*/
-	{DEBUG_INFO_DFD_CB_INFRA_SRAM,
-		DEBUG_INFO_DFD_CB_INFRA_SRAM_LENG}, /*CB_INFRA SRAM*/
-	{DEBUG_INFO_DFD_CB_INFRA_WF_SRAM,
-		DEBUG_INFO_DFD_CB_INFRA_WF_SRAM_LENG}, /*CB_INFRA WIFI SRAM*/
-	{DEBUG_INFO_DFD_CB_INFRA_BT_SRAM,
-		DEBUG_INFO_DFD_CB_INFRA_BT_SRAM_LENG}, /*CB_INFRA BT SRAM*/
-	{DEBUG_INFO_DFD_CB_INFRA_DEBUG_INFO,
-		DEBUG_INFO_DFD_CB_INFRA_DEBUG_INFO_LENG}, /*CB_INFRA DBG INFO*/
-	{DEBUG_INFO_DFD_WF_DEBUG_INFO,
-		DEBUG_INFO_DFD_WF_DEBUG_INFO_LENG}, /*WIFI DEBUG INFO*/
-	{DEBUG_INFO_DFD_BT_DEBUG_INFO,
-		DEBUG_INFO_DFD_BT_DEBUG_INFO_LENG}, /*BT DEBUG INFO*/
-};
-
-uint32_t asicConnac3xQueryDFDInfo(
-	struct ADAPTER *prAdapter, uint32_t u4InfoIdx, uint32_t u4Offset,
-	uint32_t u4Length, uint8_t *pBuf)
-{
-	uint32_t u4DFDInfoLength = 0;
-#if CFG_MTK_WIFI_DFD_DUMP_SUPPORT
-	struct INIT_CMD_DFD_INFO_QUERY rCmd = {0};
-	struct INIT_EVENT_DFD_INFO_QUERY *prDfdEvent = NULL;
-	uint32_t u4EventSize = 0;
-	uint32_t u4Status = WLAN_STATUS_FAILURE;
-
-	if (u4Length > debug_info_region[u4InfoIdx].u4Length) {
-		DBGLOG(INIT, ERROR, "length %d over [%d]%d\n",
-			u4Length, u4InfoIdx,
-			debug_info_region[u4InfoIdx].u4Length);
-		goto exit;
-	}
-
-	rCmd.u4InfoIdx = u4InfoIdx;
-	rCmd.u4Offset = u4Offset;
-	rCmd.u4Length = u4Length;
-
-	u4EventSize = sizeof(struct INIT_EVENT_DFD_INFO_QUERY);
-	prDfdEvent = kalMemAlloc(u4EventSize, VIR_MEM_TYPE);
-	if (!prDfdEvent) {
-		DBGLOG(INIT, ERROR, "Allocate event packet FAILED.\n");
-		goto exit;
-	}
-	kalMemZero(prDfdEvent, u4EventSize);
-
-	u4Status = wlanSendInitSetQueryCmd(prAdapter,
-		INIT_CMD_ID_DFD_INFO_QUERY, &rCmd, sizeof(rCmd),
-		TRUE, FALSE,
-		INIT_EVENT_ID_CMD_RESULT, prDfdEvent, u4EventSize);
-	if (u4Status != WLAN_STATUS_SUCCESS) {
-		DBGLOG(INIT, ERROR, "[%d] Get EVT(%d) failed\n",
-			u4InfoIdx, prDfdEvent->u4Length);
-		goto exit;
-	}
-
-	if (prDfdEvent->u4Length > DEBUG_INFO_DFD_MAX_EVENT_LEN ||
-	    prDfdEvent->u4Length == 0) {
-		DBGLOG(INIT, ERROR, "[%d] Unexpected dump length: %d.\n",
-			u4InfoIdx, prDfdEvent->u4Length);
-		goto exit;
-	}
-
-	kalMemCopy(pBuf, prDfdEvent->aucDFDInfoBuf, prDfdEvent->u4Length);
-	u4DFDInfoLength = prDfdEvent->u4Length;
-	DBGLOG(INIT, TRACE, "[%d] Get dump length: %d\n",
-		u4InfoIdx, u4DFDInfoLength);
-	/* DBGLOG_MEM32(INIT, DEBUG, &prDfdEvent->aucDFDInfoBuf[0], 32); */
-
-exit:
-	if (prDfdEvent)
-		kalMemFree(prDfdEvent, VIR_MEM_TYPE, u4EventSize);
-#endif
-	return u4DFDInfoLength;
-}
-
 uint32_t asicConnac3xGetFwVer(struct ADAPTER *prAdapter)
 {
 	uint32_t u4SwVer = 0;
 
-	u4SwVer = nicGetChipSwVer(prAdapter) + 1;
+	u4SwVer = nicGetChipSwVer() + 1;
 
 	return u4SwVer;
 }
 
 int connsys_power_on(void)
 {
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 	struct mt66xx_chip_info *chip = NULL;
 #endif
 	int ret = 0;
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
+	int retry = 0;
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
-	ret = connv3_pwr_on(CONNV3_DRV_TYPE_WIFI);
-	if (ret) {
-		DBGLOG(HAL, ERROR, "connv3_pwr_on failed, ret=%d\n",
+	while (retry <= 25) {
+		ret = connv3_pwr_on(CONNV3_DRV_TYPE_WIFI);
+		if (ret == CONNV3_ERR_RST_ONGOING) {
+			DBGLOG(INIT, WARN,
+				"Wi-Fi on during L0 reset.\n");
+			kalMsleep(200);
+			retry++;
+			continue;
+		} else if (ret == 0) {
+			break;
+		}
+		DBGLOG(HAL, ERROR,
+			"connv3_pwr_on failed, ret=%d\n",
+			ret);
+		return ret;
+	}
+	if (retry > 25) {
+		DBGLOG(INIT, ERROR,
+			"Retry connv3_pwr_on timeout, ret=%d\n",
 			ret);
 		return ret;
 	}
@@ -2900,7 +2672,7 @@ int connsys_power_done(void)
 {
 	int ret = 0;
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 	ret = connv3_pwr_on_done(CONNV3_DRV_TYPE_WIFI);
 	if (ret)
 		DBGLOG(HAL, ERROR,
@@ -2913,7 +2685,7 @@ int connsys_power_done(void)
 
 void connsys_power_off(void)
 {
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 	struct mt66xx_chip_info *chip = NULL;
 
 	glGetChipInfo((void **)&chip);
@@ -2929,14 +2701,14 @@ void connsys_power_off(void)
 }
 
 #if CFG_MTK_ANDROID_WMT
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 static int wlan_pre_pwr_on(void)
 {
 	struct mt66xx_hif_driver_data *prDriverData =
 		get_platform_driver_data();
 	struct mt66xx_chip_info *prChipInfo = prDriverData->chip_info;
 
-	TRACE_FUNC(INIT, DEBUG, "%s\n");
+	DBGLOG(INIT, INFO, "wlan_pre_pwr_on\n");
 
 	return wlan_pinctrl_action(prChipInfo, WLAN_PINCTRL_MSG_FUNC_ON);
 }
@@ -2944,14 +2716,13 @@ static int wlan_pre_pwr_on(void)
 static int wlan_efuse_on(void)
 {
 	int32_t ret = 0;
-	struct task_struct *cutTask = current;
 
-	TRACE_FUNC(INIT, DEBUG, "%s.\n");
-
-	/*Setup sub_wifi_thrd run on non X core */
-	kalSetRunOnNonXCore(cutTask);
+	DBGLOG(INIT, INFO, "wlan_efuse_on.\n");
 
 	/* expect unlock wfsys at the end of do_cal_cb */
+#if CFG_WIFI_LEROY_MP2
+	rtnl_lock();
+#endif
 	wfsys_lock();
 	set_cal_enabled(FALSE);
 	ret = wlanFuncOnImpl();
@@ -2965,8 +2736,12 @@ exit:
 	if (ret) {
 		DBGLOG(INIT, ERROR, "failed, ret=%d\n", ret);
 		wfsys_unlock();
+#if CFG_WIFI_LEROY_MP2
+		rtnl_unlock();
+#endif
 	}
 
+	/* unlock released by precal_docal */
 	return ret;
 }
 
@@ -2979,12 +2754,15 @@ static void __wlan_pwr_on_notify(struct work_struct *work)
 #if CFG_ENABLE_WAKE_LOCK
 	KAL_WAKE_LOCK_T *prWlanOnOffWakeLock;
 #endif
-	TRACE_FUNC(INIT, DEBUG, "%s.\n");
+	DBGLOG(INIT, INFO, "__wlan_pwr_on_notify.\n");
 
 #if CFG_ENABLE_WAKE_LOCK
 	KAL_WAKE_LOCK_INIT(NULL,
 		prWlanOnOffWakeLock, "WLAN pwr_on");
 	KAL_WAKE_LOCK(NULL, prWlanOnOffWakeLock);
+#endif
+#if CFG_WIFI_LEROY_MP2
+	rtnl_lock();
 #endif
 	wfsys_lock();
 
@@ -3009,6 +2787,9 @@ exit:
 	if (ret)
 		DBGLOG(INIT, ERROR, "failed, ret=%d\n", ret);
 	wfsys_unlock();
+#if CFG_WIFI_LEROY_MP2
+	rtnl_unlock();
+#endif
 #if CFG_ENABLE_WAKE_LOCK
 	KAL_WAKE_UNLOCK(NULL, prWlanOnOffWakeLock);
 	KAL_WAKE_LOCK_DESTROY(NULL, prWlanOnOffWakeLock);
@@ -3022,63 +2803,12 @@ u_int8_t is_pwr_on_notify_processing(void)
 
 static int wlan_pwr_on_notify(void)
 {
-	DBGLOG(INIT, DEBUG, "wlan_pwr_on_notify.\n");
+	DBGLOG(INIT, INFO, "wlan_pwr_on_notify.\n");
 
 	schedule_work(&pwr_on_notify_work);
 
 	return 0;
 }
-
-static int wlan_chip_power_down_notify(unsigned int notify)
-{
-	while (get_wifi_process_status() == 3) {
-		DBGLOG_LIMITED(REQ, WARN,
-			"Wi-Fi off process is ongoing, wait here.\n");
-		msleep(50);
-	}
-
-	if ((!get_wifi_process_status() && !get_wifi_powered_status()) ||
-	    (kalGetShutdownState() == 2))
-		glNotifyPciePowerDown();
-
-#if CFG_TESTMODE_WMT_WIFI_ON_SUPPORT
-	/* prevent turn on wifi by wmt driver before precal finished */
-	/* so we register cb function after precal done */
-	register_set_wifi_test_mode_fwdl_handler(set_wifi_test_mode_fwdl);
-#endif
-
-	return 0;
-}
-
-#if CFG_MTK_ANDROID_WMT && CFG_WIFI_PLAT_SHUTDOWN_SUPPORT
-static int wlan_pre_fmd(void)
-{
-#define MAX_WAIT_OFF_DONE 10
-
-	int retry = 0;
-
-	if (kalGetShutdownState()) {
-		while (kalGetShutdownState() == 1) {
-			if (retry > MAX_WAIT_OFF_DONE) {
-				DBGLOG(INIT, WARN,
-					"shutdown off over 1s, retry = %d\n",
-					retry);
-			}
-			kalMsleep(100);
-			retry++;
-		}
-	} else
-		wlanShutdown();
-
-	DBGLOG(INIT, DEBUG, "wifi off success\n");
-	return 0;
-}
-
-static int wlan_post_fmd(void)
-{
-	return wlan_chip_power_down_notify(0);
-}
-#endif
 
 static void unregister_connv3_cbs(void)
 {
@@ -3106,7 +2836,6 @@ static void register_connv3_cbs(void)
 	kalMemZero(&cb, sizeof(cb));
 	cb.pwr_on_cb.pre_power_on = wlan_pre_pwr_on;
 	cb.pwr_on_cb.power_on_notify = wlan_pwr_on_notify;
-	cb.pwr_on_cb.chip_power_down_notify = wlan_chip_power_down_notify;
 
 	INIT_WORK(&pwr_on_notify_work, __wlan_pwr_on_notify);
 
@@ -3118,19 +2847,9 @@ static void register_connv3_cbs(void)
 	cb.pre_cal_cb.pre_cal_error = wlan_precal_err;
 #endif
 
-#if KERNEL_VERSION(6, 6, 0) < LINUX_VERSION_CODE
-#if CFG_MTK_ANDROID_WMT && CFG_WIFI_PLAT_SHUTDOWN_SUPPORT
-	cb.fmd_cb.pre_fmd_cb = wlan_pre_fmd;
-	cb.fmd_cb.post_fmd_cb = wlan_post_fmd;
-#endif
-#endif
-
 #if CFG_CHIP_RESET_SUPPORT
 	cb.rst_cb.pre_whole_chip_rst = wlan_pre_whole_chip_rst_v3;
 	cb.rst_cb.post_whole_chip_rst = wlan_post_whole_chip_rst_v3;
-#if CFG_MTK_WIFI_DFD_DUMP_SUPPORT
-	cb.rst_cb.post_reset_on = wlan_post_reset_on_v3;
-#endif
 #endif
 
 	WIPHY_PRIV(wlanGetWiphy(), prGlueInfo);
@@ -3204,7 +2923,7 @@ static struct devapc_vio_callbacks wlan_devapc_vio_handle = {
 
 void unregister_plat_connsys_cbs(void)
 {
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 	unregister_connv3_cbs();
 #endif
 
@@ -3215,7 +2934,7 @@ void register_plat_connsys_cbs(void)
 {
 	register_chrdev_cbs();
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 	register_connv3_cbs();
 #endif
 
@@ -3228,73 +2947,4 @@ void register_plat_connsys_cbs(void)
 }
 #endif
 
-#if CFG_NEW_HIF_DEV_REG_IF
-static void connac3xInitValidMmioReadReasonAry(
-	struct mt66xx_chip_info *prChipInfo)
-{
-	uint32_t u4Idx, u4Num, u4Size = prChipInfo->u4ValidMmioReadReasonSize;
-
-	if (prChipInfo->fgIsInitValidMmioReadAry)
-		return;
-
-	for (u4Idx = 0; u4Idx < u4Size; u4Idx++) {
-		u4Num = prChipInfo->prValidMmioReadReason[u4Idx];
-		prChipInfo->aucValidMmioReadAry[u4Num] = TRUE;
-	}
-
-	u4Size = prChipInfo->u4NoMmioReadReasonSize;
-	for (u4Idx = 0; u4Idx < u4Size; u4Idx++) {
-		u4Num = prChipInfo->prNoMmioReadReason[u4Idx];
-		prChipInfo->aucNoMmioReadReasonAry[u4Num] = TRUE;
-	}
-
-	prChipInfo->fgIsInitValidMmioReadAry = TRUE;
-}
-
-u_int8_t connac3xIsValidMmioReadReason(
-	struct mt66xx_chip_info *prChipInfo, enum HIF_DEV_REG_REASON eReason)
-{
-	connac3xInitValidMmioReadReasonAry(prChipInfo);
-
-	if (eReason >= HIF_DEV_REG_MAX)
-		return FALSE;
-
-	return prChipInfo->aucValidMmioReadAry[eReason];
-}
-
-u_int8_t connac3xIsNoMmioReadReason(
-	struct mt66xx_chip_info *prChipInfo, enum HIF_DEV_REG_REASON eReason)
-{
-	if (eReason >= HIF_DEV_REG_MAX)
-		return FALSE;
-
-	return prChipInfo->aucNoMmioReadReasonAry[eReason];
-}
-#endif /* CFG_NEW_HIF_DEV_REG_IF */
-
-#if defined(_HIF_PCIE) || defined(_HIF_AXI)
-void connac3xClearEvtRingTillCmdRingEmpty(struct ADAPTER *prAdapter)
-{
-	struct GL_HIF_INFO *prHifInfo;
-	struct RTMP_TX_RING *prTxRing;
-	uint32_t u4Idx = 0;
-
-	prHifInfo = &prAdapter->prGlueInfo->rHifInfo;
-	prTxRing = &prHifInfo->TxRing[TX_RING_CMD];
-	for (u4Idx = 0; u4Idx < HIF_CMD_POWER_OFF_RETRY_COUNT; u4Idx++) {
-		halWpdmaProcessCmdDmaDone(prAdapter->prGlueInfo, TX_RING_CMD);
-		if (prTxRing->u4UsedCnt == 0)
-			break;
-
-		kalMsleep(HIF_CMD_POWER_OFF_RETRY_TIME);
-		nicProcessISTWithSpecifiedCount(prAdapter, 1);
-
-	}
-	if (u4Idx) {
-		DBGLOG(HAL, DEBUG,
-		       "try to clear event ring, cmd[%u] retry[%u]\n",
-		       prTxRing->u4UsedCnt, u4Idx);
-	}
-}
-#endif /*_HIF_PCIE || _HIF_AXI */
 #endif /* CFG_SUPPORT_CONNAC3X == 1 */

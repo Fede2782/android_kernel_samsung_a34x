@@ -20,6 +20,9 @@ void defex_init_features(void)
 {
 #ifdef DEFEX_PED_ENABLE
 global_features_status |= FEATURE_CHECK_CREDS;
+#ifdef DEFEX_PERMISSIVE_PED
+global_features_status |= FEATURE_CHECK_CREDS_SOFT;
+#endif /* DEFEX_PERMISSIVE_PED */
 #endif /* DEFEX_PED_ENABLE */
 #ifdef DEFEX_INTEGRITY_ENABLE
 global_features_status |= FEATURE_INTEGRITY;
@@ -51,6 +54,12 @@ global_features_status |= (DEFEX_TM_DEBUG_VIOLATIONS | FEATURE_TRUSTED_MAP);
 global_features_status |= FEATURE_TRUSTED_MAP_SOFT;
 #endif /* DEFEX_PERMISSIVE_TM */
 #endif /* DEFEX_TRUSTED_MAP_ENABLE */
+#ifdef DEFEX_IMMUTABLE_ROOT_V2_ENABLE
+global_features_status |= FEATURE_IMMUTABLE_ROOT_V2;
+#ifdef DEFEX_PERMISSIVE_IMR_V2
+global_features_status |= FEATURE_IMMUTABLE_ROOT_V2_SOFT;
+#endif /* DEFEX_PERMISSIVE_IMR_V2 */
+#endif /* DEFEX_IMMUTABLE_ROOT_V2_ENABLE */
 }
 
 #if defined(DEFEX_DEBUG_ENABLE) || defined(DEFEX_LOG_BUFFER_ENABLE) \

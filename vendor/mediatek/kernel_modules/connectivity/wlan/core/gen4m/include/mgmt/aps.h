@@ -19,8 +19,8 @@
  */
 
 struct CU_INFO {
-	uint32_t u4TotalCount;
-	uint32_t u4TotalCu;
+	uint32_t ucTotalCount;
+	uint32_t ucTotalCu;
 	enum ENUM_BAND eBand;
 };
 
@@ -37,7 +37,6 @@ struct APS_INFO {
 #endif
 	uint8_t ucConsiderEsp;
 	uint8_t fgIsGBandCoex;
-	uint16_t u4EssApNum;
 };
 
 struct AP_COLLECTION {
@@ -59,22 +58,9 @@ struct AP_COLLECTION {
 	uint8_t fgIsAllLinkConnected;
 	enum ENUM_MLO_MODE eMloMode;
 	uint8_t ucMaxSimuLinks;
-	uint8_t fgIsLastDeauth;
 	uint32_t u4TotalTput;
 	uint32_t u4TotalScore;
 	uint8_t aucAddr[MAC_ADDR_LEN]; /* mld addr or bssid */
-};
-
-struct AP_SCORE_INFO {
-	struct BSS_DESC *aprTarget[APS_LINK_MAX];
-	uint8_t ucLinkNum;
-	enum ENUM_MLO_LINK_PLAN eLinkPlan;
-	uint8_t fgIsMatchBssid;
-	uint8_t fgIsMatchBssidHint;
-	enum ENUM_MLO_MODE eMloMode;
-	uint8_t ucMaxSimuLinks;
-	uint32_t u4TotalTput;
-	uint32_t u4TotalScore;
 };
 
 #if (CFG_SUPPORT_AVOID_DESENSE == 1)
@@ -91,15 +77,6 @@ extern const struct WFA_DESENSE_CHANNEL_LIST desenseChList[BAND_NUM];
 	(_ch >= desenseChList[_band].ucChLowerBound) && \
 	(_ch <= desenseChList[_band].ucChUpperBound)))
 #endif
-
-static const char * const apucBandStr[BAND_NUM] = {
-	"NULL",
-	"2.4G",
-	"5G",
-#if (CFG_SUPPORT_WIFI_6G == 1)
-	"6G",
-#endif
-};
 
 /*******************************************************************************
  *                            P U B L I C   D A T A
@@ -128,13 +105,10 @@ static const char * const apucBandStr[BAND_NUM] = {
 
 struct BSS_DESC *apsSearchBssDescByScore(struct ADAPTER *prAdapter,
 	enum ENUM_ROAMING_REASON eRoamReason,
-	uint8_t ucBssIndex, struct BSS_DESC_SET *prBssDescSet,
-	uint8_t silent_mode);
+	uint8_t ucBssIndex, struct BSS_DESC_SET *prBssDescSet);
 
-enum ENUM_MLO_LINK_PLAN apsLinksToLinkPlan(
-	struct BSS_DESC *aprLink[], uint8_t ucLinkNum);
-
-const char *apsGetLinkPlanStr(enum ENUM_MLO_LINK_PLAN eLinkPlan);
+enum ENUM_MLO_LINK_PLAN apsSearchLinkPlan(struct ADAPTER *prAdapter,
+	uint8_t ucRfBandBmap, uint8_t ucLinkNum);
 
 #endif
 

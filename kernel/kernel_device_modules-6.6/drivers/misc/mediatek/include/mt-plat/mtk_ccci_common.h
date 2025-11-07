@@ -777,7 +777,7 @@ int mtk_ccci_register_md_state_cb(
  * Get a fixed and continuous block of memory
  * from the dts to store dump info.
  */
-//#define MTK_TC10_FEATURE_DUMP_BUF_FROM_DT
+#define MTK_TC10_FEATURE_DUMP_BUF_FROM_DT
 
 
 /*

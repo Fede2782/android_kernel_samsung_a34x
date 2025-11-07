@@ -11,10 +11,6 @@
 #include "mtu3_dr.h"
 #include "mtu3_debug.h"
 
-#if IS_ENABLED(CONFIG_USB_NOTIFY_LAYER)
-#include <linux/usb_notify.h>
-#endif
-
 #define USB2_PORT 2
 #define USB3_PORT 3
 
@@ -148,16 +144,6 @@ static void ssusb_mode_sw_work(struct work_struct *work)
 
 	if (current_role == desired_role)
 		return;
-	
-#if IS_ENABLED(CONFIG_USB_NOTIFY_LAYER)
-	if (desired_role == USB_ROLE_HOST && is_blocked(get_otg_notify(), NOTIFY_BLOCK_TYPE_HOST)) {
-		dev_err(ssusb->dev, "NOTIFY_BLOCK_TYPE_HOST\n");
-		return;
-	} else if (desired_role == USB_ROLE_DEVICE && is_blocked(get_otg_notify(), NOTIFY_BLOCK_TYPE_CLIENT)) {
-		dev_err(ssusb->dev, "NOTIFY_BLOCK_TYPE_CLIENT\n");
-		return;
-	}
-#endif
 
 	dev_dbg(ssusb->dev, "set role : %s\n", usb_role_string(desired_role));
 	mtu3_dbg_trace(ssusb->dev, "set role : %s", usb_role_string(desired_role));

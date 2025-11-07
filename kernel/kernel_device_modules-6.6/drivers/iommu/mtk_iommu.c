@@ -2140,7 +2140,7 @@ static void mtk_iommu_get_resv_regions(struct device *dev,
 		resv = data->plat_data->iova_region + i;
 
 		/* Only reserve when the region is inside the current domain */
-		if (resv->iova_base <= curdom->iova_base ||
+		if (resv->iova_base < curdom->iova_base ||
 		    resv->iova_base + resv->size >= curdom->iova_base + curdom->size)
 			continue;
 

@@ -6,6 +6,18 @@ set -e
 # DEVICE_MODULES_DIR=$(basename $(dirname $0))
 source "${DEVICE_MODULES_DIR}/kernel/kleaf/_setup_env.sh"
 
+# Generate OGKI files
+if [ -n "${SEC_OGKI_OUT_CMDS}" ]; then
+  echo "========================================================"
+  echo " Running 'sec_ogki_out_cmds' command(s):"
+  eval ${SEC_OGKI_OUT_CMDS}
+fi
+
+SOURCE_DATE_EPOCH=`date "+%s"`
+OGKI_SCMVERSION="{\"SCMVERSION\":\"-ab${BUILD_NUMBER}\", \"SOURCE_DATE_EPOCH\":${SOURCE_DATE_EPOCH}}"
+echo "${OGKI_SCMVERSION}" > ./kernel-${KERNEL_VERSION_NUM}/workspace_status.json
+SOURCE_DATE_EPOCH=0
+
 build_scope=internal
 if [ ! -d "vendor/mediatek/tests/kernel" ]
 then

@@ -35,7 +35,7 @@ static int pool_refill_check_memory_pages = (4 * SZ_1M / PAGE_SIZE);
 static int pool_recycle_high_water = -1; //600;
 static int pool_recycle_low_water = -1; //300;
 
-static unsigned int pool_refill_high_water[NUM_ORDERS] = {100, 100, 0};
+static unsigned int pool_refill_high_water[NUM_ORDERS] = {0, 100, 0};
 static unsigned int pool_refill_low_water[NUM_ORDERS] = {40, 40, 0};
 
 static unsigned long total_high_wmark_pages;

@@ -112,12 +112,7 @@ enum ENUM_USB_END_POINT {
 #define USB_TX_DATA_BUFF_SIZE           (32*1024)
 #define USB_RX_EVENT_BUF_SIZE           (CFG_RX_MAX_PKT_SIZE + 3 + LEN_USB_RX_PADDING_CSO + 4)
 #define USB_RX_WDT_BUF_SIZE             (1)
-#define MDP_MAX_MSDU_SIZE               (0x680 << 3) /* 13312 Bytes */
-#define MAX_RXD_SIZE                    (192)
-#define HIF_RX_HEADER_SIZE              (12)
-#define USB_RX_DATA_BUF_SIZE            ((MDP_MAX_MSDU_SIZE + MAX_RXD_SIZE +\
-					 HIF_RX_HEADER_SIZE + \
-					 LEN_USB_RX_PADDING_CSO + 4)+ \
+#define USB_RX_DATA_BUF_SIZE            (CFG_RX_MAX_PKT_SIZE + \
 					 min(USB_RX_AGGREGTAION_LIMIT * 1024, \
 					     (USB_RX_AGGREGTAION_PKT_LIMIT * \
 					      (CFG_RX_MAX_PKT_SIZE + 3 + LEN_USB_RX_PADDING_CSO) + 4)))
@@ -138,7 +133,7 @@ enum ENUM_USB_END_POINT {
 #define DEVICE_VENDOR_REQUEST_OUT       (0x40)
 #define DEVICE_VENDOR_REQUEST_OUT_CONNAC2       (0x5F)
 #define VENDOR_TIMEOUT_MS               (1000)
-#if CFG_MTK_FPGA_PLATFORM
+#if (CFG_MTK_FPGA_PLATFORM == 1)
 #define BULK_TIMEOUT_MS                 (3500)
 #else
 #define BULK_TIMEOUT_MS                 (1500)
@@ -160,9 +155,6 @@ enum ENUM_USB_END_POINT {
 #define VND_REQ_BUF_SIZE                (16)
 #define VND_REQ_UHW_READ                (0x01)
 #define VND_REQ_UHW_WRITE               (0x02)
-#if CFG_DC_USB_WOW_CALLBACK
-#define VND_REQ_USB_SHUTDOWN            (0x55)
-#endif
 /* When vendor requests keep fail over this TH, bypass subsequent vendor
  * requests since chip may not work and reset is required.
  */
@@ -299,9 +291,6 @@ struct GL_HIF_INFO {
 	u_int8_t fgIntReadClear;
 	u_int8_t fgMbxReadClear;
 	u_int8_t fgEventEpDetected;
-#if CFG_DC_USB_WOW_CALLBACK
-	u_int8_t fgUsbShutdown;
-#endif
 	enum EVENT_EP_TYPE eEventEpType;
 };
 
@@ -425,9 +414,6 @@ int32_t mtk_usb_vendor_request(struct GLUE_INFO *prGlueInfo,
 		uint8_t uEndpointAddress, uint8_t RequestType,
 	    uint8_t Request, uint16_t Value, uint16_t Index,
 	    void *TransferBuffer, uint32_t TransferBufferLength);
-#if CFG_DC_USB_WOW_CALLBACK
-void mtk_usb_shutdown_vnd_cmd(struct GLUE_INFO *prGlueInfo);
-#endif
 
 void glUsbEnqueueReq(struct GL_HIF_INFO *prHifInfo, struct list_head *prHead, struct USB_REQ *prUsbReq,
 		     spinlock_t *prLock, u_int8_t fgHead);

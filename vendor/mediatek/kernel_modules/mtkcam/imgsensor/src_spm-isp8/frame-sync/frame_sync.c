@@ -3566,7 +3566,7 @@ unsigned int FrameSyncInit(struct FrameSync **pframeSync)
 	ret = fs_con_create_sysfs_file(dev);
 #endif
 
-	return ret;
+	return (unsigned int)ret;
 }
 
 

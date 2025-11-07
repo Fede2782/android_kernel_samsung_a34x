@@ -309,13 +309,11 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_wdma *priv = dev_id;
 	struct mtk_ddp_comp *wdma = NULL;
-	struct mtk_cwb_info *cwb_info = NULL;
 	struct mtk_drm_private *drm_priv = NULL;
 	static unsigned long long underrun_old_ts;
 	unsigned long long underrun_new_ts = 0;
 	bool ufbc = priv->info_data->is_support_ufbc;
 	unsigned int reg_insta = ufbc ? DISP_REG_UFBC_WDMA_INTSTA : DISP_REG_WDMA_INTSTA;
-	unsigned int buf_idx;
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
@@ -363,18 +361,6 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 		DDPIRQ("[IRQ] %s: frame complete!, ufbc:%d\n",
 			mtk_dump_comp_str(wdma), ufbc);
 
-		if (mtk_crtc) {
-			drm_priv = mtk_crtc->base.dev->dev_private;
-			cwb_info = mtk_crtc->cwb_info;
-			if (cwb_info && cwb_info->enable &&
-				cwb_info->comp->id == wdma->id &&
-				drm_priv && !drm_priv->cwb_is_preempted) {
-				buf_idx = cwb_info->buf_idx;
-				cwb_info->buffer[buf_idx].timestamp = 100;
-				atomic_set(&mtk_crtc->cwb_task_active, 1);
-				wake_up_interruptible(&mtk_crtc->cwb_wq);
-			}
-		}
 		if (mtk_crtc && mtk_crtc->dc_main_path_commit_task) {
 			atomic_set(
 				&mtk_crtc->dc_main_path_commit_event, 1);

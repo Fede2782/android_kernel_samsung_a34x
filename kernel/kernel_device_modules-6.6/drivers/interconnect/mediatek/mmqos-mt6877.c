@@ -89,7 +89,7 @@ static const struct mtk_node_desc node_descs_mt6877[] = {
 	DEFINE_MNODE(hw_vdec_ufo_ext,
 		MASTER_LARB_PORT(M4U_PORT_L4_VDEC_UFO_EXT), 7, false, 0x2, SLAVE_LARB(4)),
 	DEFINE_MNODE(hw_vdec_pp_ext,
-		MASTER_LARB_PORT(M4U_PORT_L4_VDEC_PP_EXT), 8, true, 0x2, SLAVE_LARB(4)),
+		MASTER_LARB_PORT(M4U_PORT_L4_VDEC_PP_EXT), 7, true, 0x2, SLAVE_LARB(4)),
 	DEFINE_MNODE(hw_vdec_pred_rd_ext,
 		MASTER_LARB_PORT(M4U_PORT_L4_VDEC_PRED_RD_EXT), 7, false, 0x2, SLAVE_LARB(4)),
 	DEFINE_MNODE(hw_vdec_pred_wr_ext,

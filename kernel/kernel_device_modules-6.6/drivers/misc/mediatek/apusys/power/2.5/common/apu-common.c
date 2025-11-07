@@ -273,7 +273,8 @@ int apu_boost2opp(struct apu_dev *ad, int boost)
 		return -EINVAL;
 
 	/* minus 1 for opp inex starts from 0 */
-	max_st = ad->df->profile->max_state - 1;
+	max_st = (u32)(ad->df->profile->max_state - 1);
+
 	if (boost >= 100) {
 		opp = 0;
 	} else {
@@ -357,7 +358,7 @@ unsigned long apu_opp2volt(struct apu_dev *ad, int opp)
 	struct dev_pm_opp *pm_opp = NULL;
 
 	if (!_valid_ad(ad))
-		return -EINVAL;
+		return (unsigned long)(-EINVAL);
 
 	max_st = ad->df->profile->max_state - 1;
 	if (opp < 0)
@@ -396,7 +397,7 @@ unsigned long apu_opp2freq_n_df(struct apu_dev *ad, int opp)
 	struct dev_pm_opp *pm_opp = NULL;
 
 	if (IS_ERR(ad) || IS_ERR_OR_NULL(ad->dev))
-		return -EINVAL;
+		return (unsigned long)(-EINVAL);
 
 	max_st = dev_pm_opp_get_opp_count(ad->dev) - 1;
 
@@ -432,7 +433,7 @@ unsigned long apu_opp2volt_n_df(struct apu_dev *ad, int opp)
 	struct dev_pm_opp *pm_opp = NULL;
 
 	if (IS_ERR(ad) || IS_ERR_OR_NULL(ad->dev))
-		return -EINVAL;
+		return (unsigned long)(-EINVAL);
 
 	max_st = dev_pm_opp_get_opp_count(ad->dev) - 1;
 	if (opp < 0)

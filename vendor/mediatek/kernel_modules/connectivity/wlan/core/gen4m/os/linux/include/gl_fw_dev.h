@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: BSD-2-Clause */
 #ifndef _GL_FW_DEV_H_
 #define _GL_FW_DEV_H_
 

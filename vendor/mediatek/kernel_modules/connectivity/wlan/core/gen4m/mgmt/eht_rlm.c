@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -130,28 +130,12 @@ static void ehtRlmFillBW80MCSMap(
 	struct EHT_SUPPORTED_MCS_BW80_160_320_FIELD *_prEhtSupportedMcsSet
 			= (struct EHT_SUPPORTED_MCS_BW80_160_320_FIELD *)
 				prEhtSupportedMcsSet;
-	struct WIFI_VAR *prWifiVar = &prAdapter->rWifiVar;
 
 	kalMemZero((void *) prEhtSupportedMcsSet,
 		sizeof(struct EHT_SUPPORTED_MCS_BW80_160_320_FIELD));
 	ucSupportedNss = wlanGetSupportNss(prAdapter,
 		prBssInfo->ucBssIndex);
-
-	DBGLOG(RLM, INFO,
-		"eht uc80MNss: %d, op tx: %d, op rx: %d\n",
-		ucSupportedNss,
-		prBssInfo->ucOpChangeTxNss,
-		prBssInfo->ucOpChangeRxNss);
-#if CFG_ENABLE_WIFI_DIRECT
-#if CFG_SUPPORT_TRX_LIMITED_CONFIG
-	if (p2pFuncGetForceTrxConfig(prAdapter) ==
-		P2P_FORCE_TRX_CONFIG_MCS9)
-		ucMcsMap = prBssInfo->ucOpChangeRxNss +
-			(prBssInfo->ucOpChangeTxNss << 4);
-	else
-#endif
-#endif
-		ucMcsMap = ucSupportedNss + (ucSupportedNss << 4);
+	ucMcsMap = ucSupportedNss + (ucSupportedNss << 4);
 
 	if (prAdapter->fgMcsMapBeenSet & SET_EHT_BW80_MCS_MAP) {
 		WLAN_SET_FIELD_24(_prEhtSupportedMcsSet,
@@ -165,47 +149,11 @@ static void ehtRlmFillBW80MCSMap(
 			_prEhtSupportedMcsSet->eht_mcs_10_11 = ucMcsMap;
 		if (map >= EHT_CAP_INFO_MCS_MAP_MCS13)
 			_prEhtSupportedMcsSet->eht_mcs_12_13 = ucMcsMap;
-	} else if (IS_BSS_AIS(prBssInfo) && prWifiVar->ucStaMaxMcsMap != 0xFF) {
-		if (prWifiVar->ucStaMaxMcsMap >= HE_CAP_INFO_MCS_MAP_MCS9)
-			_prEhtSupportedMcsSet->eht_mcs_0_9 = ucMcsMap;
-		else
-			_prEhtSupportedMcsSet->eht_mcs_0_9 = 0;
-		if (prWifiVar->ucStaMaxMcsMap >= HE_CAP_INFO_MCS_MAP_MCS11)
-			_prEhtSupportedMcsSet->eht_mcs_10_11 = ucMcsMap;
-		else
-			_prEhtSupportedMcsSet->eht_mcs_10_11 = 0;
-		if (prWifiVar->ucStaMaxMcsMap >= EHT_CAP_INFO_MCS_MAP_MCS13)
-			_prEhtSupportedMcsSet->eht_mcs_12_13 = ucMcsMap;
-		else
-			_prEhtSupportedMcsSet->eht_mcs_12_13 = 0;
 	} else {
 		_prEhtSupportedMcsSet->eht_mcs_0_9 = ucMcsMap;
-#if CFG_ENABLE_WIFI_DIRECT
-#if CFG_SUPPORT_TRX_LIMITED_CONFIG
-		if (p2pFuncGetForceTrxConfig(prAdapter) ==
-			P2P_FORCE_TRX_CONFIG_MCS9) {
-			_prEhtSupportedMcsSet->eht_mcs_10_11 = 0;
-			_prEhtSupportedMcsSet->eht_mcs_12_13 = 0;
-		} else {
-			_prEhtSupportedMcsSet->eht_mcs_10_11 =
-				ucMcsMap;
-			_prEhtSupportedMcsSet->eht_mcs_12_13 =
-				ucMcsMap;
-		}
-#else
-	_prEhtSupportedMcsSet->eht_mcs_10_11 = ucMcsMap;
-	_prEhtSupportedMcsSet->eht_mcs_12_13 = ucMcsMap;
-#endif
-#else
-	_prEhtSupportedMcsSet->eht_mcs_10_11 = ucMcsMap;
-	_prEhtSupportedMcsSet->eht_mcs_12_13 = ucMcsMap;
-#endif
+		_prEhtSupportedMcsSet->eht_mcs_10_11 = ucMcsMap;
+		_prEhtSupportedMcsSet->eht_mcs_12_13 = ucMcsMap;
 	}
-
-	DBGLOG(RLM, TRACE, "EHT BW80 MCS Map: %x %x %x",
-		_prEhtSupportedMcsSet->eht_mcs_12_13,
-		_prEhtSupportedMcsSet->eht_mcs_10_11,
-		_prEhtSupportedMcsSet->eht_mcs_0_9);
 }
 
 static void ehtRlmFillBW20MCSMap(
@@ -216,29 +164,12 @@ static void ehtRlmFillBW20MCSMap(
 	uint8_t ucMcsMap, ucSupportedNss;
 	struct EHT_SUPPORTED_MCS_BW20_FIELD *_prEhtSupportedMcsSet =
 		(struct EHT_SUPPORTED_MCS_BW20_FIELD *) prEhtSupportedMcsSet;
-	struct WIFI_VAR *prWifiVar = &prAdapter->rWifiVar;
 
 	kalMemZero((void *) prEhtSupportedMcsSet,
 		sizeof(struct EHT_SUPPORTED_MCS_BW20_FIELD));
 	ucSupportedNss = wlanGetSupportNss(prAdapter,
 		prBssInfo->ucBssIndex);
 	ucMcsMap = ucSupportedNss + (ucSupportedNss << 4);
-
-	DBGLOG(RLM, INFO,
-		"eht uc20MNss: %d, op tx: %d, op rx: %d\n",
-		ucSupportedNss,
-		prBssInfo->ucOpChangeTxNss,
-		prBssInfo->ucOpChangeRxNss);
-#if CFG_ENABLE_WIFI_DIRECT
-#if CFG_SUPPORT_TRX_LIMITED_CONFIG
-	if (p2pFuncGetForceTrxConfig(prAdapter) ==
-		P2P_FORCE_TRX_CONFIG_MCS9)
-		ucMcsMap = prBssInfo->ucOpChangeRxNss +
-			(prBssInfo->ucOpChangeTxNss << 4);
-	else
-#endif
-#endif
-		ucMcsMap = ucSupportedNss + (ucSupportedNss << 4);
 
 	if (prAdapter->fgMcsMapBeenSet & SET_EHT_BW20_MCS_MAP) {
 		WLAN_SET_FIELD_32(_prEhtSupportedMcsSet,
@@ -249,54 +180,16 @@ static void ehtRlmFillBW20MCSMap(
 		_prEhtSupportedMcsSet->eht_bw20_mcs_0_7 = ucMcsMap;
 		if (map >= HE_CAP_INFO_MCS_MAP_MCS9)
 			_prEhtSupportedMcsSet->eht_bw20_mcs_8_9 = ucMcsMap;
-		else
-			_prEhtSupportedMcsSet->eht_bw20_mcs_8_9 = 0;
 		if (map >= HE_CAP_INFO_MCS_MAP_MCS11)
 			_prEhtSupportedMcsSet->eht_bw20_mcs_10_11 = ucMcsMap;
-		else
-			_prEhtSupportedMcsSet->eht_bw20_mcs_10_11 = 0;
 		if (map >= EHT_CAP_INFO_MCS_MAP_MCS13)
-			_prEhtSupportedMcsSet->eht_bw20_mcs_12_13 = ucMcsMap;
-		else
-			_prEhtSupportedMcsSet->eht_bw20_mcs_12_13 = 0;
-	} else if (IS_BSS_AIS(prBssInfo) && prWifiVar->ucStaMaxMcsMap != 0xFF) {
-		_prEhtSupportedMcsSet->eht_bw20_mcs_0_7 = ucMcsMap;
-		if (prWifiVar->ucStaMaxMcsMap >= HE_CAP_INFO_MCS_MAP_MCS9)
-			_prEhtSupportedMcsSet->eht_bw20_mcs_8_9 = ucMcsMap;
-		if (prWifiVar->ucStaMaxMcsMap >= HE_CAP_INFO_MCS_MAP_MCS11)
-			_prEhtSupportedMcsSet->eht_bw20_mcs_10_11 = ucMcsMap;
-		if (prWifiVar->ucStaMaxMcsMap >= EHT_CAP_INFO_MCS_MAP_MCS13)
 			_prEhtSupportedMcsSet->eht_bw20_mcs_12_13 = ucMcsMap;
 	} else {
 		_prEhtSupportedMcsSet->eht_bw20_mcs_0_7 = ucMcsMap;
 		_prEhtSupportedMcsSet->eht_bw20_mcs_8_9 = ucMcsMap;
-#if CFG_ENABLE_WIFI_DIRECT
-#if CFG_SUPPORT_TRX_LIMITED_CONFIG
-		if (p2pFuncGetForceTrxConfig(prAdapter) ==
-			P2P_FORCE_TRX_CONFIG_MCS9) {
-			_prEhtSupportedMcsSet->eht_bw20_mcs_10_11 = 0;
-			_prEhtSupportedMcsSet->eht_bw20_mcs_12_13 = 0;
-		} else {
-			_prEhtSupportedMcsSet->eht_bw20_mcs_10_11 =
-				ucMcsMap;
-			_prEhtSupportedMcsSet->eht_bw20_mcs_12_13 =
-				ucMcsMap;
-		}
-#else
 		_prEhtSupportedMcsSet->eht_bw20_mcs_10_11 = ucMcsMap;
 		_prEhtSupportedMcsSet->eht_bw20_mcs_12_13 = ucMcsMap;
-#endif
-#else
-		_prEhtSupportedMcsSet->eht_bw20_mcs_10_11 = ucMcsMap;
-		_prEhtSupportedMcsSet->eht_bw20_mcs_12_13 = ucMcsMap;
-#endif
 	}
-
-	DBGLOG(RLM, TRACE, "EHT BW20 MCS Map: %x %x %x %x",
-		_prEhtSupportedMcsSet->eht_bw20_mcs_12_13,
-		_prEhtSupportedMcsSet->eht_bw20_mcs_10_11,
-		_prEhtSupportedMcsSet->eht_bw20_mcs_8_9,
-		_prEhtSupportedMcsSet->eht_bw20_mcs_0_7);
 }
 
 void ehtRlmFillCapIE(
@@ -311,7 +204,7 @@ void ehtRlmFillCapIE(
 	uint32_t phy_cap_2 = 0;
 	uint32_t u4OverallLen = OFFSET_OF(struct IE_EHT_CAP, aucVarInfo[0]);
 	uint8_t eht_mcs15_mru = EHT_MCS15_MRU_106_or_52_w_26_tone;
-	uint8_t ucSupportedNss = 0, ucDutNss = 0;
+	uint8_t ucSupportedNss = 0;
 	int8_t eht_bw = 0;
 	u_int8_t fgBfEn = TRUE;
 
@@ -325,11 +218,8 @@ void ehtRlmFillCapIE(
 	prEhtCap->ucId = ELEM_ID_RESERVED;
 	prEhtCap->ucExtId = ELEM_EXT_ID_EHT_CAPS;
 
-	ucDutNss = wlanGetSupportNss(prAdapter, prBssInfo->ucBssIndex);
-	if (ucDutNss >= 1)
-		ucSupportedNss = ucDutNss - 1;
-	else
-		ucSupportedNss = 0;
+	ucSupportedNss = wlanGetSupportNss(prAdapter,
+		prBssInfo->ucBssIndex) - 1;
 
 	/* MAC capabilities */
 	EHT_RESET_MAC_CAP(prEhtCap->ucEhtMacCap);
@@ -347,16 +237,8 @@ void ehtRlmFillCapIE(
 	/* SET_EHT_MAC_CAP_TXOP_SHARING(prEhtCap->ucEhtMacCap); */
 
 	/* SCS: default support for STA */
-	if (IS_BSS_AIS(prBssInfo) && IS_FEATURE_ENABLED(prWifiVar->fgEnTuao))
+	if (IS_BSS_AIS(prBssInfo))
 		SET_EHT_MAC_CAP_SCS(prEhtCap->ucEhtMacCap);
-
-	/*
-	 * RTWT support bit
-	 */
-#if (CFG_SUPPORT_RTWT == 1)
-	if (IS_FEATURE_ENABLED(prWifiVar->ucRTWTSupport))
-		SET_EHT_MAC_CAP_RESTRICTED_TWT(prEhtCap->ucEhtMacCap);
-#endif
 
 	/* PHY capabilities */
 	EHT_RESET_PHY_CAP(prEhtCap->ucEhtPhyCap);
@@ -516,7 +398,7 @@ void ehtRlmFillCapIE(
 	/* phy_cap_2 &= ~DOT11BE_PHY_CAP_MU_BFER_160M; */
 	/* phy_cap_2 &= ~DOT11BE_PHY_CAP_MU_BFER_320M; */
 
-	DBGLOG(RLM, INFO,
+	DBGLOG(RLM, INFO2,
 		"[%d] eht_bw=%d, phy_cap_1=0x%x, phy_cap_2=0x%x\n",
 		prBssInfo->ucBssIndex,
 		eht_bw, phy_cap_1, phy_cap_2);
@@ -700,7 +582,6 @@ static void ehtRlmFillOpIE(
 	uint32_t u4OverallLen = sizeof(struct IE_EHT_OP);
 	uint8_t eht_bw = 0;
 	struct EHT_OP_INFO *prEhtOpInfo;
-	struct EHT_SUPPORTED_MCS_BW20_FIELD *prEhtMcsSet;
 
 	ASSERT(prAdapter);
 	ASSERT(prBssInfo);
@@ -708,8 +589,6 @@ static void ehtRlmFillOpIE(
 
 	prEhtOp = (struct IE_EHT_OP *)
 		(((uint8_t *)prMsduInfo->prPacket)+prMsduInfo->u2FrameLength);
-	prEhtMcsSet = (struct EHT_SUPPORTED_MCS_BW20_FIELD *)
-		&prEhtOp->u4BasicEhtMcsNssSet;
 
 	prEhtOp->ucId = ELEM_ID_RESERVED;
 	prEhtOp->ucExtId = ELEM_EXT_ID_EHT_OP;
@@ -717,64 +596,52 @@ static void ehtRlmFillOpIE(
 	/* MAC capabilities */
 	EHT_RESET_OP(prEhtOp->ucEhtOpParams);
 
+	EHT_SET_OP_PARAM_OP_INFO_PRESENT(prEhtOp->ucEhtOpParams);
+
 	eht_bw = cnmOpModeGetMaxBw(prAdapter, prBssInfo);
 #if CFG_SUPPORT_NAN
 	if (prBssInfo->eNetworkType == NETWORK_TYPE_NAN)
 		eht_bw = MAX_BW_320_1MHZ;
 #endif
 
-	if ((prBssInfo->eBand == BAND_5G
-#if (CFG_SUPPORT_WIFI_6G == 1)
-	     || prBssInfo->eBand == BAND_6G
-#endif /* CFG_SUPPORT_WIFI_6G */
-	    ) &&
-	    ((eht_bw == MAX_BW_320_1MHZ || eht_bw == MAX_BW_320_2MHZ) ||
-	     prBssInfo->fgIsEhtDscbPresent))
-		EHT_SET_OP_PARAM_OP_INFO_PRESENT(prEhtOp->ucEhtOpParams);
-
 	/* Basic EHT-MCS And Nss Set */
-	kalMemZero(prEhtMcsSet, sizeof(*prEhtMcsSet));
-	prEhtMcsSet->eht_bw20_mcs_0_7 = 1 + (1 << 4);
-
-	if (!EHT_IS_OP_PARAM_OP_INFO_PRESENT(prEhtOp->ucEhtOpParams))
-		goto exit;
+	ehtRlmFillBW20MCSMap(
+		prAdapter, prBssInfo,
+		(uint8_t *) &prEhtOp->u4BasicEhtMcsNssSet);
 
 	/* filling operation info field */
 	prEhtOpInfo = (struct EHT_OP_INFO *) prEhtOp->aucVarInfo;
-	kalMemZero(prEhtOpInfo, sizeof(*prEhtOpInfo));
 
 	/* fixed field in operation info */
 	prEhtOpInfo->ucControl = ehtRlmGetEhtOpBwByBssOpBw(eht_bw);
-	prEhtOpInfo->ucCCFS0 =
-		nicGetS1(prBssInfo->eBand,
-			 prBssInfo->ucPrimaryChannel,
-			 prBssInfo->eBssSCO,
-			 eht_bw);
-	prEhtOpInfo->ucCCFS1 =
-		nicGetS2(prBssInfo->eBand,
-			 prBssInfo->ucPrimaryChannel,
-			 eht_bw);
+	prEhtOpInfo->ucCCFS0 = nicGetEhtS1(prBssInfo->eBand,
+		prBssInfo->ucPrimaryChannel, rlmGetVhtOpBwByBssOpBw(eht_bw));
+	prEhtOpInfo->ucCCFS1 = nicGetEhtS2(prBssInfo->eBand,
+		prBssInfo->ucPrimaryChannel, rlmGetVhtOpBwByBssOpBw(eht_bw));
 	u4OverallLen += 3;
 
+	DBGLOG(RLM, INFO2, "EHT channel width: %d\n",
+		prEhtOpInfo->ucControl);
+
 #if CFG_SUPPORT_802_PP_DSCB
-	if (prBssInfo->fgIsEhtDscbPresent) {
-		EHT_SET_OP_PARAM_DIS_SUBCHANNEL_PRESENT(
-			prEhtOp->ucEhtOpParams);
-		prEhtOpInfo->u2EhtDisSubChanBitmap =
-			prBssInfo->u2EhtDisSubChanBitmap;
+	if (IS_BSS_APGO(prBssInfo) &&
+		(EHT_IS_OP_PARAM_OP_INFO_PRESENT(prEhtOp->ucEhtOpParams))) {
+
+		if (prBssInfo->fgIsEhtDscbPresent) {
+			EHT_SET_OP_PARAM_DIS_SUBCHANNEL_PRESENT(
+				prEhtOp->ucEhtOpParams);
+			prEhtOpInfo->u2EhtDisSubChanBitmap =
+				prBssInfo->u2EhtDisSubChanBitmap;
+			u4OverallLen += 2;
+		} else {
+			EHT_RESET_OP_PARAM_DIS_SUBCHANNEL_PRESENT(
+				prEhtOp->ucEhtOpParams);
+			prEhtOpInfo->u2EhtDisSubChanBitmap = 0;
+		}
 		u4OverallLen += 2;
 	}
 #endif
 
-	DBGLOG(RLM, TRACE,
-		"params=0x%x control=%u ccfs0=%u ccfs1=%u bitmap=0x%x\n",
-		prEhtOp->ucEhtOpParams,
-		prEhtOpInfo->ucControl,
-		prEhtOpInfo->ucCCFS0,
-		prEhtOpInfo->ucCCFS1,
-		prEhtOpInfo->u2EhtDisSubChanBitmap);
-
-exit:
 	prEhtOp->ucLength = u4OverallLen - ELEM_HDR_LEN;
 
 	prMsduInfo->u2FrameLength += IE_SIZE(prEhtOp);
@@ -892,7 +759,7 @@ void ehtRlmRecCapInfo(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 	 */
 	if (IE_SIZE(prEhtCap) < (sizeof(struct IE_EHT_CAP))) {
 		DBGLOG(SCN, WARN,
-			"EHT_CAP IE_SIZE err(%d)!\n", IE_SIZE(prEhtCap));
+			"EHT_CAP IE_LEN err(%d)!\n", IE_LEN(prEhtCap));
 		return;
 	}
 
@@ -911,6 +778,10 @@ void ehtRlmRecOperation(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 	struct IE_EHT_OP *prEhtOp = (struct IE_EHT_OP *) pucIE;
 	struct EHT_OP_INFO *prEhtOpInfo;
 	uint8_t ucVhtOpBw = 0;
+#if CFG_SUPPORT_802_PP_DSCB
+	uint8_t  u1PreDscbPresent = 0;
+	uint16_t u2PreDscBitmap = 0;
+#endif
 
 	if (!(prStaRec->ucDesiredPhyTypeSet & PHY_TYPE_BIT_EHT))
 		return;
@@ -920,7 +791,7 @@ void ehtRlmRecOperation(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 	 */
 	if (IE_SIZE(prEhtOp) < (sizeof(struct IE_EHT_OP))) {
 		DBGLOG(SCN, WARN,
-			"EHT_OP IE_SIZE err(%d)!\n", IE_SIZE(prEhtOp));
+			"HE_OP IE_LEN err(%d)!\n", IE_LEN(prEhtOp));
 		return;
 	}
 
@@ -940,8 +811,7 @@ void ehtRlmRecOperation(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 		prBssInfo->ucVhtChannelWidth = ucVhtOpBw;
 		prBssInfo->ucVhtChannelFrequencyS1 = nicGetS1(
 			prBssInfo->eBand, prBssInfo->ucPrimaryChannel,
-			prBssInfo->eBssSCO,
-			rlmGetBssOpBwByVhtAndHtOpInfo(prBssInfo));
+			prBssInfo->ucVhtChannelWidth);
 		prBssInfo->ucVhtChannelFrequencyS2 = 0;
 		prBssInfo->ucEhtCtrl = prEhtOpInfo->ucControl;
 		prBssInfo->ucEhtCcfs0 = prEhtOpInfo->ucCCFS0;
@@ -962,6 +832,8 @@ void ehtRlmRecOperation(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 	prStaRec->ucVhtOpChannelWidth = prBssInfo->ucVhtChannelWidth;
 
 #if CFG_SUPPORT_802_PP_DSCB
+
+	u1PreDscbPresent = prBssInfo->fgIsEhtDscbPresent;
 
 	if (EHT_IS_OP_PARAM_DIS_SUBCHANNEL_PRESENT(prEhtOp->ucEhtOpParams))
 		prBssInfo->fgIsEhtDscbPresent = TRUE;
@@ -985,6 +857,7 @@ void ehtRlmRecOperation(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 			OFFSET_OF(struct EHT_OP_INFO, u2EhtDisSubChanBitmap);
 		prEhtDscbInfo = (struct EHT_DSCB_INFO *)
 			(((uint8_t *) pucIE) + u4EhtOffset);
+		u2PreDscBitmap = prBssInfo->u2EhtDisSubChanBitmap;
 		prBssInfo->u2EhtDisSubChanBitmap =
 			prEhtDscbInfo->u2DisSubChannelBitmap;
 	} else if (prBssInfo->fgIsEhtDscbPresent) {
@@ -999,12 +872,14 @@ void ehtRlmRecOperation(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 		u4EhtOffset = OFFSET_OF(struct IE_EHT_OP, aucVarInfo[0]);
 		prEhtDscbInfo = (struct EHT_DSCB_INFO *)
 			(((uint8_t *) pucIE) + u4EhtOffset);
+		u2PreDscBitmap = prBssInfo->u2EhtDisSubChanBitmap;
 		prBssInfo->u2EhtDisSubChanBitmap =
 			prEhtDscbInfo->u2DisSubChannelBitmap;
 	} else {
 		/* prBssInfo->fgIsEhtDscbPresent == 0
 		 * No dscb IE in beacon IE, so init DSCB as 0
 		*/
+		u2PreDscBitmap = prBssInfo->u2EhtDisSubChanBitmap;
 		prBssInfo->u2EhtDisSubChanBitmap = 0;
 	}
 
@@ -1013,7 +888,8 @@ void ehtRlmRecOperation(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 	else
 		prBssInfo->fgEhtMcs15Disable = FALSE;
 
-	DBGLOG(RLM, INFO, "DscbBitmap: 0x%x\n",
+	nicUpdateDscb(prAdapter, prBssInfo, u1PreDscbPresent, u2PreDscBitmap);
+	DBGLOG(RLM, LOUD, "DscbBitmap: 0x%x\n",
 		prBssInfo->u2EhtDisSubChanBitmap);
 
 #endif
@@ -1085,126 +961,6 @@ void ehtRlmInitHtcACtrlOM(struct ADAPTER *prAdapter)
 	EHT_SET_HTC_HE_OM_UL_MU_DATA_DISABLE(prAdapter->u4HeHtcOM, 0);
 }
 
-uint32_t ehtRlmFillBwIndicationIe(struct ADAPTER *prAdapter,
-				  uint8_t *pucBuffer)
-{
-	struct WIFI_VAR *prWifiVar = &prAdapter->rWifiVar;
-	struct IE_BW_INDICATION *prBwIndIe;
-	struct EHT_OP_INFO *prInfo;
-	uint8_t ucOpBw;
-
-	switch (prWifiVar->ucNewChannelWidth) {
-	case VHT_OP_CHANNEL_WIDTH_320_1:
-		ucOpBw = MAX_BW_320_1MHZ;
-		break;
-	case VHT_OP_CHANNEL_WIDTH_320_2:
-		ucOpBw = MAX_BW_320_2MHZ;
-		break;
-	case VHT_OP_CHANNEL_WIDTH_160:
-		ucOpBw = MAX_BW_160MHZ;
-		break;
-	case VHT_OP_CHANNEL_WIDTH_80:
-		ucOpBw = MAX_BW_80MHZ;
-		break;
-	default:
-		DBGLOG(RLM, WARN,
-			"Unsupported bw(%u) for be indication ie\n",
-			prWifiVar->ucNewChannelWidth);
-		ucOpBw = MAX_BW_20MHZ;
-		return 0;
-	}
-
-	prBwIndIe = (struct IE_BW_INDICATION *)pucBuffer;
-	prBwIndIe->ucId = ELEM_ID_EXTENSION;
-	prBwIndIe->ucLength = 5;
-	prBwIndIe->ucExtId = ELEM_EXT_ID_BW_INDICATION;
-	prBwIndIe->ucParam = 0;
-
-	prInfo = (struct EHT_OP_INFO *)prBwIndIe->aucVarInfo;
-	prInfo->ucControl = ehtRlmGetEhtOpBwByBssOpBw(ucOpBw);
-	prInfo->ucCCFS0 =
-		nicGetS1(prWifiVar->eNewBand,
-			 prWifiVar->ucNewChannelNumber,
-			 prWifiVar->ucSecondaryOffset,
-			 ucOpBw);
-	prInfo->ucCCFS1 =
-		nicGetS2(prWifiVar->eNewBand,
-			 prWifiVar->ucNewChannelNumber,
-			 ucOpBw);
-
-#if (CFG_SUPPORT_SAP_CSA_PUNCTURE == 1)
-	if (prWifiVar->u2NewPunctBitmap) {
-		BW_INDICATION_SET_DIS_SUBCHANNEL_PRESENT(
-			prBwIndIe->ucParam);
-		prBwIndIe->ucLength += 2;
-		prInfo->u2EhtDisSubChanBitmap =
-			prWifiVar->u2NewPunctBitmap;
-	}
-#endif /* CFG_SUPPORT_SAP_CSA_PUNCTURE */
-
-	DBGLOG(RLM, TRACE,
-		"param=%u control=%u ccfs0=%u ccfs1=%u bitmap=0x%x\n",
-		prBwIndIe->ucParam,
-		prInfo->ucControl,
-		prInfo->ucCCFS0,
-		prInfo->ucCCFS1,
-		BW_INDICATION_IS_DIS_SUBCHANNEL_PRESENT(prBwIndIe->ucParam) ?
-			prInfo->u2EhtDisSubChanBitmap : 0);
-
-	return IE_SIZE(prBwIndIe);
-}
-
-uint32_t ehtRlmCalMlTrafficIndiIELen(struct ADAPTER *prAdapter,
-				     uint8_t ucBssIndex,
-				     struct STA_RECORD *prStaRec)
-{
-	struct BSS_INFO *prBssInfo;
-	struct MLD_BSS_INFO *prMldBssInfo;
-
-	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
-	prMldBssInfo = mldBssGetByBss(prAdapter, prBssInfo);
-	if (!prBssInfo || prBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT ||
-	    !IS_MLD_BSSINFO_MULTI(prMldBssInfo))
-		return 0;
-
-	return sizeof(struct IE_MULTI_LINK_TRAFFIC_INDICATION);
-}
-
-void ehtRlmGenMlTrafficIndiIE(struct ADAPTER *prAdapter,
-			      struct MSDU_INFO *prMsduInfo)
-{
-	struct WIFI_VAR *prWifiVar = &prAdapter->rWifiVar;
-	struct BSS_INFO *prBssInfo;
-	struct MLD_BSS_INFO *prMldBssInfo;
-	struct IE_MULTI_LINK_TRAFFIC_INDICATION *prIe;
-	uint8_t ucMldLinkMax;
-
-	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prMsduInfo->ucBssIndex);
-	prMldBssInfo = mldBssGetByBss(prAdapter, prBssInfo);
-	if (!prBssInfo || prBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT ||
-	    !IS_MLD_BSSINFO_MULTI(prMldBssInfo))
-		return;
-
-	if (IS_BSS_AP(prAdapter, prBssInfo))
-		ucMldLinkMax = prWifiVar->ucApMldLinkMax;
-	else
-		ucMldLinkMax = prWifiVar->ucP2pMldLinkMax;
-
-	prIe = (struct IE_MULTI_LINK_TRAFFIC_INDICATION *)
-		((uintptr_t)prMsduInfo->prPacket +
-		 (uintptr_t)prMsduInfo->u2FrameLength);
-
-	kalMemZero(prIe, sizeof(*prIe));
-
-	prIe->ucId = ELEM_ID_EXTENSION;
-	prIe->ucLength = 4;
-	prIe->ucExtId = ELEM_EXT_ID_MLT_INDICATION;
-	prIe->u2Ctrl = ((ucMldLinkMax - 1) & BITS(0, 3)) << 0;
-	/* Leave indication list to be filled in fw */
-
-	prMsduInfo->u2FrameLength += IE_SIZE(prIe);
-}
-#if (CFG_SUPPORT_NAN == 1)
 #if (CFG_SUPPORT_NAN_11BE == 1)
 uint16_t ehtRlmNANFillCapIE(
 	struct ADAPTER *ad,
@@ -1311,7 +1067,6 @@ uint16_t ehtRlmNANFillOpIE(
 
 	return u2FrameLength;
 }
-#endif /* CFG_SUPPORT_NAN_11BE */
-#endif /* CFG_SUPPORT_NAN */
+#endif
 
 #endif /* CFG_SUPPORT_802_11BE == 1 */

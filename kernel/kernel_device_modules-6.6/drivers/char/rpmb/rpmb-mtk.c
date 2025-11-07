@@ -92,6 +92,12 @@ static DEFINE_MUTEX(rpmb_mutex);
 #define RPMB_REQUEST_MAGIC		0x44444444
 #define RPMB_REPLY_MAGIC		0x66666666
 
+#define RECOVERY_BOOT	2
+#define KERNEL_POWER_OFF_CHARGING_BOOT	8
+#define LOW_POWER_OFF_CHARGING_BOOT	9
+
+#define MAX_RETRY_CNT	100
+
 struct rpmb_req {
 	uint16_t type;
 	uint16_t addr;
@@ -104,6 +110,7 @@ struct rpmb_ctx {
 	struct rpmb_req *req;
 };
 static struct task_struct *iwsock_th;
+static int boot_mode;
 #endif
 
 /* For nl socket */
@@ -3163,6 +3170,9 @@ static int dt_get_boot_type(void)
 		ret = tags->boottype;
 		if ((ret > 2) || (ret < 0))
 			ret = BOOTDEV_SDMMC;
+#if IS_ENABLED(CONFIG_TEEGRIS_TEE_SUPPORT)
+		boot_mode = tags->bootmode;
+#endif
 	} else {
 		pr_notice("[%s] 'atag,boot' is not found\n", __func__);
 	}
@@ -3292,9 +3302,12 @@ TEEC_Result teegris_rpmb_run(TEEC_Context *context)
 		/* Received exception. */
 		if (mmc && mmc->card)
 			rpmb_gp_execute_emmc(cmdId);
+#endif
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_MMC_MTK_PRO) && IS_ENABLED(CONFIG_DEVICE_MODULES_SCSI_UFS_MEDIATEK)
 		else
 #endif
 #if IS_ENABLED(CONFIG_DEVICE_MODULES_SCSI_UFS_MEDIATEK)
+		if (dt_get_boot_type() == BOOTDEV_UFS)
 			rpmb_gp_execute_ufs(cmdId);
 #endif
 		mutex_unlock(&rpmb_mutex);
@@ -3332,6 +3345,13 @@ int teegris_rpmb_thread(void *data)
 	int cnt = 0;
 	int recovery_cnt = 0;
 	TEEC_Result res = -1;
+
+	if (boot_mode == RECOVERY_BOOT
+			|| boot_mode == KERNEL_POWER_OFF_CHARGING_BOOT
+			|| boot_mode == LOW_POWER_OFF_CHARGING_BOOT) {
+		MSG(ERR, "Recovery or Charging boot. Do not run TEEgris RPMB\n");
+		return -1;
+	}
 
 recovery:
 	rpmb_gp_session =
@@ -3647,7 +3667,8 @@ static int rpmb_iwsock_thread(void *context)
 	struct rpmb_ctx *ctx;
 	struct sock_desc *rpmb_conn;
 #if IS_ENABLED(CONFIG_DEVICE_MODULES_MMC_MTK_PRO)
-	struct mmc_host *mmc = mtk_mmc_host[0];
+	struct mmc_host *mmc;
+	int retry_cnt;
 #endif
 
 	MSG(INFO, "%s teegris iwsock thread start\n", __func__);
@@ -3686,13 +3707,31 @@ static int rpmb_iwsock_thread(void *context)
 		mutex_lock(&rpmb_mutex);
 #if IS_ENABLED(CONFIG_DEVICE_MODULES_MMC_MTK_PRO)
 		/* Received exception. */
-		if (mmc && mmc->card)
+		retry_cnt = 0;
+retry:
+		mmc = mtk_mmc_host[0];
+		if (mmc && mmc->card && dev_get_drvdata(&mmc->card->dev))
 			rpmb_iwsock_execute_emmc(ctx);
+#endif
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_MMC_MTK_PRO) && IS_ENABLED(CONFIG_DEVICE_MODULES_SCSI_UFS_MEDIATEK)
 		else
 #endif
 #if IS_ENABLED(CONFIG_DEVICE_MODULES_SCSI_UFS_MEDIATEK)
+		if (dt_get_boot_type() == BOOTDEV_UFS)
 			rpmb_iwsock_execute_ufs(ctx);
 #endif
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_MMC_MTK_PRO)
+		else {
+			if (retry_cnt++ > MAX_RETRY_CNT) {
+				ret = -ENODEV;
+				mutex_unlock(&rpmb_mutex);
+				goto release_sock;
+			}
+			msleep(100);
+			goto retry;
+		}
+#endif
+
 		mutex_unlock(&rpmb_mutex);
 
 		ret = rpmb_send_reply(rpmb_conn);
@@ -3772,9 +3811,13 @@ static int __init rpmb_init(void)
 #endif
 
 #if IS_ENABLED(CONFIG_TEEGRIS_TEE_SUPPORT)
+#ifndef CONFIG_TEEGRIS_RPMB_SUPPORT
 	open_th = kthread_run(teegris_rpmb_thread, NULL, "teegris rpmb");
 	if (IS_ERR(open_th))
 		MSG(ERR, "%s, init kthread_run failed!\n", __func__);
+#else
+	(void) open_th;
+#endif
 
 	iwsock_th = kthread_run(rpmb_iwsock_thread, NULL, "rpmb_iwsock");
 	if (IS_ERR(iwsock_th))

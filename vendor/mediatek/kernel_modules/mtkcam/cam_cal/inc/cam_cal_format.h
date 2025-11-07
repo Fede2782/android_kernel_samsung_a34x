@@ -20,6 +20,7 @@
 #define CAM_CAL_AWB_BITEN (0x01<<0)
 #define CAM_CAL_AF_BITEN (0x01<<1)
 #define CAM_CAL_NONE_BITEN (0x00)
+#define CAM_CAL_DUAL_CAM_SIZE 760
 
 #define CAM_CAL_ERR_NO_DEVICE       0x8FFFFFFF
 #define CAM_CAL_ERR_NO_CMD          0x1FFFFFFF
@@ -174,6 +175,8 @@ struct STRUCT_CAM_CAL_SINGLE_2A_STRUCT {
 	unsigned short S2aAf[8];      //0x012c
 	struct STRUCT_CAM_CAL_PREGAIN_STRUCT S2aAwb; //0x012c
 	struct STRUCT_CAM_CAL_AF_STRUCT S2aAF_t;
+	unsigned char  ModuleHeader[24];
+	unsigned char  paf_calibration_data[2048];
 };
 
 /** @brief This structure defines the PDAF Table.  */
@@ -181,6 +184,12 @@ struct STRUCT_CAM_CAL_SINGLE_2A_STRUCT {
 struct STRUCT_CAM_CAL_PDAF_STRUCT {
 	unsigned int Size_of_PDAF;
 	unsigned char Data[CAM_CAL_PDAF_SIZE];
+};
+
+/** @brief This structure defines the Dual Cam Table.  */
+struct STRUCT_CAM_CAL_DUAL_CAM_STRUCT {
+	unsigned int Size_of_DualCam;
+	unsigned char Data[CAM_CAL_DUAL_CAM_SIZE];
 };
 
 /** @brief This enum defines the CAM_CAL Table.  */
@@ -194,6 +203,7 @@ struct STRUCT_CAM_CAL_DATA_STRUCT {
 	struct STRUCT_CAM_CAL_SINGLE_LSC_STRUCT   SingleLsc;
 	struct STRUCT_CAM_CAL_SINGLE_2A_STRUCT    Single2A;
 	struct STRUCT_CAM_CAL_PDAF_STRUCT         PDAF;
+	struct STRUCT_CAM_CAL_DUAL_CAM_STRUCT     DualCam;
 	struct STRUCT_CAM_CAL_Stereo_Data_STRUCT  Stereo_Data;
 	unsigned char LensDrvId[10];
 };

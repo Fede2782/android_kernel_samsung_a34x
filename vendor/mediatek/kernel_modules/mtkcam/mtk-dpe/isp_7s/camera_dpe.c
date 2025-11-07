@@ -2111,7 +2111,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				&_req->m_pDpeConfig[ucnt],
 				sizeof(struct DPE_Config));
 		}
-		f += (t-1);
+		f += (t > 1 ? t-1 : 0);
 	} else {
 		memcpy(frames[f].data, &_req->m_pDpeConfig[ucnt],
 						sizeof(struct DPE_Config));
@@ -2162,7 +2162,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			pd_frame_num = pDpeConfig->Dpe_DVSSettings.pd_frame_num;
 			memcpy(&_req->m_pDpeConfig[ucnt], frames[f].data,
 						sizeof(struct DPE_Config));
-			f += (pd_frame_num-1);
+			f += (pd_frame_num > 1 ? pd_frame_num - 1 : 0);
 		} else {
 			memcpy(&_req->m_pDpeConfig[ucnt], frames[f].data,
 						sizeof(struct DPE_Config));
@@ -2780,9 +2780,12 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 
 	engStartX = pDpeConfig->Dpe_DVPSettings.eng_start_x;
 	engStartY = pDpeConfig->Dpe_DVPSettings.eng_start_y;
-	frmWidth = pDpeConfig->Dpe_DVPSettings.frm_width - engStartX;
-	frmHeight = pDpeConfig->Dpe_DVPSettings.frm_height - (engStartY * 2);
-	engWidth = pDpeConfig->Dpe_DVPSettings.frm_width - (engStartX * 2);
+	frmWidth = pDpeConfig->Dpe_DVPSettings.frm_width > engStartX ?
+		pDpeConfig->Dpe_DVPSettings.frm_width - engStartX : 0;
+	frmHeight = pDpeConfig->Dpe_DVPSettings.frm_height > (engStartY * 2) ?
+		pDpeConfig->Dpe_DVPSettings.frm_height - (engStartY * 2) : 0;
+	engWidth = pDpeConfig->Dpe_DVPSettings.frm_width > (engStartX * 2) ?
+		pDpeConfig->Dpe_DVPSettings.frm_width - (engStartX * 2) : 0;
 	engHeight = frmHeight;
 	occStartX = engStartX;
 	occStartY = 0;
@@ -3666,7 +3669,7 @@ unsigned int Compute_Para(struct DPE_Config *pDpeConfig,
 
 	w_width = (tile_num*tile_occ_width)+(2*egn_st_x);
 	while (w_width > pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch) {
-		tile_num = tile_num - 1;
+		tile_num = tile_num > 1 ? tile_num-1 : 0;
 		w_width = (tile_num*tile_occ_width)+(2*egn_st_x);
 	}
 	if (tile_num > 0) {
@@ -6104,7 +6107,8 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		if (cfgs[f].Dpe_DVSSettings.is_pd_mode) {
 			pcfgs = &cfgs[f];
 			Get_Tile_Info(pcfgs);
-		m_real_ReqNum += (cfgs[f].Dpe_DVSSettings.pd_frame_num-1);
+		m_real_ReqNum += (cfgs[f].Dpe_DVSSettings.pd_frame_num > 1 ?
+			cfgs[f].Dpe_DVSSettings.pd_frame_num - 1 : 0);
 		}
 	}
 	kreq.m_pDpeConfig = cfgs;

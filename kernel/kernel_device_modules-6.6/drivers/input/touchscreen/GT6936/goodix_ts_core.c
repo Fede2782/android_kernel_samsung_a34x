@@ -1728,6 +1728,7 @@ static int goodix_ts_pm_suspend(struct device *dev)
 
 	//ts_info("enter");
 	reinit_completion(&core_data->resume_done);
+	goodix_ts_suspend(core_data);
 	return 0;
 }
 /**
@@ -1740,6 +1741,7 @@ static int goodix_ts_pm_resume(struct device *dev)
 		dev_get_drvdata(dev);
 
 	//ts_info("enter");
+	goodix_ts_resume(core_data);
 	complete_all(&core_data->resume_done);
 	return 0;
 }

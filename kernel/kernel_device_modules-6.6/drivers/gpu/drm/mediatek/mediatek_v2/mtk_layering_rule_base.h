@@ -148,6 +148,7 @@ struct layering_rule_info_t {
 	unsigned int rpo_in_max_height;
 	u32 bk_mml_dl_lye;
 	bool need_repaint;
+	bool ovl_exdma_rule;
 };
 
 enum SCN_FACTOR {

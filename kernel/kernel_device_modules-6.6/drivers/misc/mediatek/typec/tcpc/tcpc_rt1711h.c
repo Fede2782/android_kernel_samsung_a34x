@@ -963,6 +963,7 @@ static int rt1711_tcpc_deinit(struct tcpc_device *tcpc)
 	if (cc1 != TYPEC_CC_DRP_TOGGLING &&
 	    (cc1 != TYPEC_CC_VOLT_OPEN || cc2 != TYPEC_CC_VOLT_OPEN)) {
 	rt1711_set_cc(tcpc, TYPEC_CC_OPEN);
+
 		usleep_range(20000, 30000);
 	}
 	rt1711_i2c_write8(tcpc, RT1711H_REG_SWRESET, 1);

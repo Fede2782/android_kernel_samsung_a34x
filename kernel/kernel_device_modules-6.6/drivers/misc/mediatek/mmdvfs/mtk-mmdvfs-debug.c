@@ -221,8 +221,8 @@ void mmdvfs_debug_status_dump(struct seq_file *file)
 
 	spin_lock_irqsave(&g_mmdvfs->lock, flags);
 	for (i = 0; i < g_mmdvfs->clk_count; i++)
-		mmdvfs_debug_dump_line(file, "[%#010x] = %#010x", g_mmdvfs->clk_base_pa + g_mmdvfs->clk_ofs[i],
-			readl(g_mmdvfs->clk_base + g_mmdvfs->clk_ofs[i]));
+		mmdvfs_debug_dump_line(file, "clk i:%d val:%#010x",
+			i, readl(g_mmdvfs->clk_base + g_mmdvfs->clk_ofs[i]));
 
 	/* MMDVFS_DBG_VER1 */
 	mmdvfs_debug_dump_line(file, "VER1: mux controlled by vcore regulator:");
@@ -417,7 +417,7 @@ sram_dump:
 		return;
 	}
 
-	mmdvfs_debug_dump_line(file, "VER3.5: mux controlled by vcp sram:%#lx", (unsigned long)(void *)SRAM_BASE);
+	mmdvfs_debug_dump_line(file, "VER3.5: mux controlled by vcp sram:");
 	// usr
 	for (k = 0; k < SRAM_USR_NUM; k++) {
 		i = readl(SRAM_REC_CNT_USR(k)) % SRAM_REC_CNT;

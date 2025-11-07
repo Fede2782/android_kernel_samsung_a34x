@@ -176,8 +176,8 @@ struct mtk_mipitx_data {
 	int (*power_on_signal)(struct phy *phy);
 	void (*pll_unprepare)(struct clk_hw *hw);
 	int (*power_off_signal)(struct phy *phy);
-	unsigned int (*dsi_get_pcw)(unsigned long data_rate, unsigned int pcw_ratio);
-	unsigned int (*dsi_get_pcw_khz)(unsigned long data_rate_khz, unsigned int pcw_ratio);
+	int (*dsi_get_pcw)(unsigned long data_rate, unsigned int pcw_ratio);
+	int (*dsi_get_pcw_khz)(unsigned long data_rate_khz, unsigned int pcw_ratio);
 	unsigned int (*dsi_get_data_rate)(struct phy *phy);
 	void (*backup_mipitx_impedance)(struct mtk_mipi_tx *mipi_tx);
 	void (*refill_mipitx_impedance)(struct mtk_mipi_tx *mipi_tx);
@@ -246,7 +246,7 @@ void mtk_mipi_tx_clear_bits(struct mtk_mipi_tx *mipi_tx, u32 offset, u32 bits);
 void mtk_mipi_tx_set_bits(struct mtk_mipi_tx *mipi_tx, u32 offset, u32 bits);
 void mtk_mipi_tx_update_bits(struct mtk_mipi_tx *mipi_tx, u32 offset,
 		u32 mask, u32 data);
-unsigned int _dsi_get_pcw(unsigned long data_rate, unsigned int pcw_ratio);
+int _dsi_get_pcw(unsigned long data_rate, unsigned int pcw_ratio);
 unsigned int _dsi_get_data_rate(struct phy *phy);
 unsigned int _dsi_get_data_rate_mt6983(struct phy *phy);
 void backup_mipitx_impedance(struct mtk_mipi_tx *mipi_tx);

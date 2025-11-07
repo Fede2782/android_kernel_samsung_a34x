@@ -26,15 +26,16 @@
 
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define DPCAEE(fmt, args...) \
-	do { \
-		char str[200]; \
-		int r; \
-		pr_info("[dpc][err] %s:%d " fmt "\n", __func__, __LINE__, ##args); \
-		r = snprintf(str, 199, "DPC:" fmt, ##args); \
-		if (r < 0) \
-			pr_info("snprintf error\n"); \
-		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT |DB_OPT_MMPROFILE_BUFFER, \
-				       str, fmt, ##args); \
+	do {                                                                                     \
+		char str[200];                                                                   \
+		int r;                                                                           \
+		pr_info("[dpc][err] %s:%d " fmt "\n", __func__, __LINE__, ##args);               \
+		r = snprintf(str, 199, "DPC:" fmt, ##args);                                      \
+		if (r < 0)                                                                       \
+			pr_info("snprintf error\n");                                             \
+		aee_kernel_warning_api(__FILE__, __LINE__,                                       \
+				       DB_OPT_DEFAULT | DB_OPT_FTRACE | DB_OPT_MMPROFILE_BUFFER, \
+				       str, fmt, ##args);                                        \
 	} while (0)
 #else /* !CONFIG_MTK_AEE_FEATURE */
 #define DPCAEE(fmt, args...) \
@@ -328,12 +329,14 @@ static void dpc_dvfs_set(const enum mtk_dpc_subsys subsys, const u8 level, bool 
 static bool dpc_is_power_on(void);
 static bool mminfra_is_power_on(void);
 static u8 bw_to_level(const u32 total_bw);
+static void dpc_analysis(void);
 
 struct mtk_dpc {
 	struct platform_device *pdev;
 	struct device *dev;
 	struct device *pd_dev;			/* mminfra mtcmos */
 	struct device *root_dev;		/* disp_vcore mtcmos */
+	struct notifier_block smi_nb;
 	struct notifier_block pm_nb;
 	struct notifier_block vcp_nb;
 	int disp_irq;

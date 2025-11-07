@@ -218,10 +218,12 @@ int sec_save_context(int cpu, void *v_regs)
 	return 0;
 }
 
-static void secdbg_show_debug_level(void)
+unsigned int sec_debug_get_debug_level(void)
 {
 	pr_info("%s: debug_level=%d\n", __func__, debug_level);
+	return (unsigned int)debug_level;
 }
+EXPORT_SYMBOL(sec_debug_get_debug_level);
 
 bool is_debug_level_low(void)
 {
@@ -234,6 +236,18 @@ bool is_debug_level_low(void)
 	return false;
 }
 EXPORT_SYMBOL(is_debug_level_low);
+
+bool sec_debug_get_force_upload(void)
+{
+	if(debug_level == 0) {
+		pr_info("%s: NO\n", __func__);	
+		return false;
+	}
+
+	pr_info("%s: YES, debug_level=%d\n", __func__, debug_level);	
+	return true;
+}
+EXPORT_SYMBOL(sec_debug_get_force_upload);
 
 #define task_contributes_to_load(task)  ((task->__state & TASK_UNINTERRUPTIBLE) != 0 && \
 		(task->__state & TASK_FROZEN) == 0 && \
@@ -268,8 +282,12 @@ static void sec_dump_one_task_info(struct task_struct *tsk, bool is_main)
 		state >>= 1;
 	}
 
-	wchan = secdbg_get_wchan(tsk);
-	snprintf(symname, KSYM_NAME_LEN, "%ps", (void*)wchan);
+	if (tsk->on_cpu && tsk->on_rq && task_thread_info(tsk)->cpu != smp_processor_id()) {
+		symname[0]='\0';
+	} else {
+		wchan = secdbg_get_wchan(tsk);
+		snprintf(symname, KSYM_NAME_LEN, "%ps", (void *)wchan);
+	}	
 
 	touch_softlockup_watchdog();
 
@@ -304,10 +322,15 @@ static void sec_dump_task_info(void)
 	struct task_struct *curr_thr;
 
 	pr_info("\n");
-	pr_info(" current proc : %d %s\n", current->pid, current->comm);
-	pr_info(" ----------------------------------------------------------------------------------------------------------------------------\n");
-	pr_info("     pid  uTime(ms)  sTime(ms)    exec(ns)  stat  cpu       wchan           user_pc        task_struct       comm   sym_wchan\n");
-	pr_info(" ----------------------------------------------------------------------------------------------------------------------------\n");
+	pr_info(" current proc : %d %s\n",
+			current->pid, current->comm);
+	pr_info("--------------------------------------------------------"
+			"-------------------------------------------------\n");
+	pr_info("%8s %16s %16s %16s %16s %6s %3s %16s  %16s %s\n",
+			"pid", "uTime", "sTime", "last_arrival", "last_queued", "stat", "cpu",
+			"task_struct", "comm", "[wait channel]");
+	pr_info("--------------------------------------------------------"
+			"-------------------------------------------------\n");
 
 	/* processes */
 	frst_tsk = &init_task;
@@ -332,7 +355,8 @@ static void sec_dump_task_info(void)
 		if (curr_tsk == frst_tsk)
 			break;
 	}
-	pr_info(" ----------------------------------------------------------------------------------------------------------------------------\n");
+	pr_info("--------------------------------------------------------"
+			"-------------------------------------------------\n");
 }
 
 static void sec_dump_irq_info(void)
@@ -511,7 +535,7 @@ static int sec_debug_probe(struct platform_device *pdev)
 	smp_call_function(sec_debug_init_mmu, NULL, 1);
 	sec_debug_init_mmu(NULL);
 
-	secdbg_show_debug_level();
+	pr_info("%s: debug_level=%d\n", __func__, debug_level);
 
 	return 0;
 }

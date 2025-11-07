@@ -51,6 +51,9 @@ enum {
 	TASK_SCENE_MD_DL                = 35,
 	TASK_SCENE_MD_UL                = 36,
 	TASK_SCENE_RV_SPK_PROCESS       = 37,
+	TASK_SCENE_DIRECT               = 38,
+	TASK_SCENE_FAST_MEDIA           = 39,
+	TASK_SCENE_SEPARATE             = 40,
 #if IS_ENABLED(CONFIG_MTK_ADSP_AUTO_HFP_CLIENT_SUPPORT)
 	TASK_SCENE_HFP_CLIENT_RX,
 #endif

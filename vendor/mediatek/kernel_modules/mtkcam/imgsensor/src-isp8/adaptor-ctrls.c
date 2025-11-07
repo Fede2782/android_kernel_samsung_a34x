@@ -137,7 +137,7 @@ static void dump_perframe_info(struct adaptor_ctx *ctx, struct mtk_hdr_ae *ae_ct
 	}
 	mutex_unlock(&ctx->ebd_lock);
 
-	adaptor_logi(ctx,
+	adaptor_logd(ctx,
 		"[inf:%d] idx:%d, req_no:%u, sub_sof_no:%u, req_id:%d, [LLLE->SSSE] 64bit s(%llu/%llu/%llu/%llu/%llu) g(%d/%d/%d/%d/%d), w(%llu/%llu/%llu/%llu/%llu,%d/%d/%d/%d/%d) sub_tag:%u, ctx:(fl:(%u,lut:%u/%u/%u)/RG:(%u,%u/%u/%u/%u/%u), min_fl:%u, flick_en:%u, fsync(%d):(%u,%u/%u/%u/%u/%u), mode:(line_time:%u, margin:%u, scen:%u; STG:(rout_l:%u, r_margin:%u, ext_fl:%u)), fast_mode:%u), sys_ts:(%llu->%llu/%llu(+%u)/%llu(+%u))%s\n",
 		ctx->seninf_idx,
 		ctx->idx,
@@ -1136,9 +1136,16 @@ u32 get_mode_vb(struct adaptor_ctx *ctx, const struct sensor_mode *mode)
 	if (mode->linetime_in_ns_readout > mode->linetime_in_ns) {
 		line_d = get_line_d(ctx, mode->linetime_in_ns_readout, mode->linetime_in_ns);
 
-		vb = (mode->fll / line_d) - mode->height;
+		vb = (mode->fll / line_d);
+		if (vb > mode->height)
+			vb -= mode->height;
+		else
+			vb = 0;
 	} else {
-		vb = mode->fll - mode->height;
+		if (mode->fll > mode->height)
+			vb = mode->fll - mode->height;
+		else
+			vb = 0;
 	}
 
 	adaptor_logd(ctx, "vb %u|%llu|%llu|%u|%u\n",
@@ -1185,6 +1192,10 @@ int get_sof_timeout(struct adaptor_ctx *ctx, const struct sensor_mode *mode)
 static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sensor_mode *mode)
 {
 	int ret = 0;
+#ifdef CONFIG_CAMERA_ADAPTIVE_MIPI_V2
+	union feature_para para;
+	u32 len, tmp = 0;
+#endif
 
 	if (mode == NULL)
 		return -EINVAL;
@@ -1208,10 +1219,30 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 			ctrl->val = 1;
 		break;
 	case V4L2_CID_MTK_SENSOR_PIXEL_RATE:
-		ctrl->val = mode->mipi_pixel_rate;
+#ifdef GET_CUSTOMIZED_PIXEL_RATE
+		para.u64[0] = mode->id;
+		para.u64[1] = (u64)&tmp;
+
+		subdrv_call(ctx, feature_control,
+			SENSOR_FEATURE_GET_MIPI_PIXEL_RATE,
+			para.u8, &len);
+		ctrl->val = tmp;
+#else
+		ctrl->val = mode->cust_pixel_rate;
+#endif
 		break;
 	case V4L2_CID_MTK_CUST_SENSOR_PIXEL_RATE:
+#ifdef CONFIG_CAMERA_ADAPTIVE_MIPI_V2
+		para.u64[0] = mode->id;
+		para.u64[1] = (u64)&tmp;
+		subdrv_call(ctx, feature_control,
+			SENSOR_FEATURE_GET_MIPI_PIXEL_RATE,
+			para.u8, &len);
+		ctrl->val = tmp;
+		adaptor_logi(ctx, "custom sensor mipi pixel rate ctrl->val=%u\n", tmp);
+#else
 		ctrl->val = mode->cust_pixel_rate;
+#endif
 		break;
 	case V4L2_CID_MTK_STAGGER_INFO:
 	{
@@ -1459,6 +1490,15 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_STAGGER_AE_CTRL:
 		{
 			struct mtk_hdr_ae *ae_ctrl = ctrl->p_new.p;
+
+			/* check night hyperlapse sync flag */
+			if ((ae_ctrl->exposure.le_exposure & (1ULL << 63)) == (1ULL << 63)) {
+				adaptor_logd(ctx, "night hyperlapse sync flag\n");
+
+				para.u64[0] = 0x1;
+				ae_ctrl->exposure.le_exposure &= ~(1ULL << 63);
+				subdrv_call(ctx, feature_control, SENSOR_FEATURE_SET_NIGHT_HYPERLAPSE_SYNC, para.u8, &len);
+			}
 
 			ADAPTOR_SYSTRACE_BEGIN("SensorWorker::s_ae_ctrl %d %d %d %d %d %d",
 				ae_ctrl->req_id,
@@ -1818,6 +1858,15 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			return -1;
 
 		adaptor_logi(ctx, "V4L2_CID_MTK_SENSOR_POWER val = %d\n", ctrl->val);
+
+		if (ctx->sensor_power_on_profile_flag && *(ctx->sensor_power_on_profile_flag)) {
+			ctx->subctx.power_on_profile_en = (bool *)ctx->sensor_power_on_profile_flag;
+			adaptor_logi(ctx, "power_on_profile_en is enabled\n");
+		} else {
+			ctx->subctx.power_on_profile_en = NULL;
+			adaptor_logi(ctx, "power_on_profile_en is disabled\n");
+		}
+
 		if (ctrl->val){
 			adaptor_hw_power_on(ctx);
 			ret = adaptor_ixc_do_daa(&ctx->ixc_client);

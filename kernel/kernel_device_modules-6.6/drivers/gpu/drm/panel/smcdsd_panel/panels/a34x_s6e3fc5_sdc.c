@@ -370,7 +370,7 @@ static int smcdsd_panel_send_msg(struct lcd_info *lcd, int force)
 	package[count++] = GET_PACKAGE(&PACKAGE_LIST[MSG_IDX_BASE][GET_ENUM_WITH_NAME(MSG_S6E3FC5_SDC_BRIGHTNESS)], lcd->brightness);
 
 	/* ACL */
-	package[count++] = GET_PACKAGE(&PACKAGE_LIST[MSG_IDX_BASE][acl_table[lcd->adaptive_control][!!lcd->mask_state])];
+	package[count++] = GET_PACKAGE(&PACKAGE_LIST[MSG_IDX_BASE][acl_table[lcd->adaptive_control][!!lcd->mask_state]]);
 
 	/* IRC */
 	package[count++] = GET_PACKAGE(&PACKAGE_LIST[MSG_IDX_BASE][irc_table[lcd->irc_mode]]);
@@ -897,6 +897,11 @@ static int s6e3fc5_sdc_displayon(struct lcd_info *lcd)
 	int ret = 0;
 
 	dev_info(&lcd->ld->dev, "%s\n", __func__);
+
+	/* for update aod brightness */
+	/* during DOZE<->DOZE_SUSPEND, drm_panel_enable skipped because mainline consider as duplicate call */
+	if (lcd->doze_state)
+		smcdsd_panel_set_brightness(lcd, 1);
 
 	/* 12. Display On(29h) */
 	/* Display on cmd will be sent .set_dispon_cmdq */
@@ -2532,27 +2537,34 @@ static int smcdsd_panel_hbm_set_lcm_cmdq(struct platform_device *p, bool en)
 {
 	struct lcd_info *lcd = get_lcd_info(p);
 	int hbm_done = 0;
+	int tx_cmd = 1;
 
 	lcd->mask_state = en;
 
-	dev_info(&lcd->ld->dev, "%s: en(%d->%d) te_cnt(%d) refresh(%3u) %llu\n", __func__,
+	if (lcd->doze_state)
+		tx_cmd = 0;
+
+	dev_info(&lcd->ld->dev, "%s: en(%d->%d) te_cnt(%d) refresh(%3u) %llu%s\n", __func__,
 		lcd->hbm_en, en, lcd->te_cnt, lcd->vrefresh,
-		lcd->hbm_time_stamp ? div_u64(local_clock() - lcd->hbm_time_stamp, NSEC_PER_USEC) : 0);
+		lcd->hbm_time_stamp ? div_u64(local_clock() - lcd->hbm_time_stamp, NSEC_PER_USEC) : 0, lcd->doze_state ? "doze" : "");
 
 	lcd->hbm_time_stamp = local_clock();
 
 	if (en == true) {
 		if (lcd->te_cnt == 1 + 0) {
-			smcdsd_dsi_tx_package(lcd, GET_PACKAGE(&PACKAGE_LIST[MSG_IDX_BASE][GET_ENUM_WITH_NAME(MSG_S6E3FC5_SDC_PREPARE_FINGER_PRINT)], !!(lcd->mask_state | lcd->hbm_en), lcd->brightness));
+			if (tx_cmd)
+				smcdsd_dsi_tx_package(lcd, GET_PACKAGE(&PACKAGE_LIST[MSG_IDX_BASE][GET_ENUM_WITH_NAME(MSG_S6E3FC5_SDC_PREPARE_FINGER_PRINT)], !!(lcd->mask_state | lcd->hbm_en), lcd->brightness));
 		} else if (lcd->te_cnt == 1 + 2) {
-			smcdsd_panel_set_brightness(lcd, 1);
+			if (tx_cmd)
+				smcdsd_panel_set_brightness(lcd, 1);
 			hbm_done = lcd->vrefresh == 60 ? 1 : hbm_done;	/* 60: No Delay after command */
 		} else if (lcd->te_cnt == 1 + 3) {
 			hbm_done = lcd->vrefresh == 120 ? 1 : hbm_done;	/* 120: 1TE delay after command  */
 		}
 	} else if (en == false) {
 		if (lcd->te_cnt == 1 + 0) {
-			smcdsd_panel_set_brightness(lcd, 1);
+			if (tx_cmd)
+				smcdsd_panel_set_brightness(lcd, 1);
 			hbm_done = lcd->vrefresh == 60 ? 1 : hbm_done;	/* 60: No Delay after command  */
 		} else if (lcd->te_cnt == 1 + 1) {
 			hbm_done = lcd->vrefresh == 120 ? 1 : hbm_done;	/* 120: 1TE delay after command  */

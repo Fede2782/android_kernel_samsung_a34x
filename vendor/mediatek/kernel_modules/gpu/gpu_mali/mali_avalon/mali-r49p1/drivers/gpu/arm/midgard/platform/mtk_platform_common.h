@@ -128,4 +128,10 @@ void mtk_set_gpufreq_clock_parking_unlock(unsigned long *pFlags);
 int mtk_set_gpufreq_clock_parking(int clksrc);
 #endif /* CONFIG_MALI_MTK_SHADER_PWR_CTL_WA */
 
+#if IS_ENABLED(CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG)
+void mtk_common_upf_counter_add(void);
+unsigned long long mtk_common_upf_counter_get(void);
+void mtk_common_upf_counter_reset(void);
+#endif /* CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG */
+
 #endif /* __MTK_PLATFORM_COMMON_H__ */

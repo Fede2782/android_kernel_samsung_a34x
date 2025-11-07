@@ -50,13 +50,11 @@ extern const struct net_device_ops p2p_netdev_ops;
 #define OID_SET_GET_STRUCT_LENGTH		4096
 
 #define MAX_P2P_IE_SIZE	5
-
-#ifdef CFG_P2P_MAXIMUM_CLIENT_COUNT
-#define P2P_MAXIMUM_CLIENT_COUNT                    CFG_P2P_MAXIMUM_CLIENT_COUNT
-#else
+#if CFG_TC10_FEATURE
 #define P2P_MAXIMUM_CLIENT_COUNT                    10
+#else
+#define P2P_MAXIMUM_CLIENT_COUNT                    16
 #endif
-
 #define P2P_DEFAULT_CLIENT_COUNT 4
 
 /******************************************************************************
@@ -81,8 +79,6 @@ extern const struct net_device_ops p2p_netdev_ops;
 struct GL_P2P_INFO {
 	/* Todo : should move to the glueinfo or not*/
 	/*UINT_8 ucRoleInterfaceNum;*//* TH3 multiple P2P */
-
-	void *aprRoleHandler;
 
 #if CFG_ENABLE_WIFI_DIRECT_CFG_80211
 	/*struct wireless_dev *prRoleWdev[KAL_P2P_NUM];*//* TH3 multiple P2P */
@@ -113,6 +109,8 @@ struct GL_P2P_INFO {
 
 	/*ENUM_PARAM_MEDIA_STATE_T eState;*//* TH3 multiple P2P */
 	/*UINT_32 u4PacketFilter;*//* TH3 multiple P2P */
+	/* TH3 multiple P2P */
+	/*PARAM_MAC_ADDRESS aucMCAddrList[MAX_NUM_GROUP_ADDR];*/
 
 	/* connection-requested peer information *//* TH3 multiple P2P */
 	/*UINT_8 aucConnReqDevName[32];*//* TH3 multiple P2P */
@@ -146,7 +144,7 @@ struct GL_P2P_INFO {
 #endif
 
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
-	uint8_t aucMlIE[ELEM_HDR_LEN + MAX_LEN_OF_MLIE];
+	uint8_t aucMlIE[MAX_LEN_OF_MLIE];
 	uint16_t u2MlIELen;
 #endif
 
@@ -168,7 +166,7 @@ struct GL_P2P_INFO {
 #endif
 
 #if CFG_SUPPORT_HOTSPOT_WPS_MANAGER
-	uint8_t aucBlockMACList[P2P_MAXIMUM_CLIENT_COUNT][PARAM_MAC_ADDR_LEN];
+	uint8_t aucblackMACList[P2P_MAXIMUM_CLIENT_COUNT][PARAM_MAC_ADDR_LEN];
 	uint8_t ucMaxClients;
 #endif
 
@@ -181,12 +179,11 @@ struct GL_P2P_INFO {
 
 	enum ENUM_CHNL_SWITCH_POLICY eChnlSwitchPolicy;
 	u_int8_t fgChannelSwitchReq;
-
-	uint32_t u4LinkId;
 };
 
 struct GL_P2P_DEV_INFO {
 	uint32_t u4PacketFilter;
+	uint8_t aucMCAddrList[MAX_NUM_GROUP_ADDR][PARAM_MAC_ADDR_LEN];
 	uint8_t ucWSCRunning;
 };
 
@@ -307,15 +304,13 @@ u_int8_t glRegisterP2P(struct GLUE_INFO *prGlueInfo,
 		const char *prDevName2,
 		uint8_t ucApMode);
 
-u_int8_t glUnregisterP2P(struct GLUE_INFO *prGlueInfo, uint8_t ucIdx,
-	uint8_t fgIsRtnlLockAcquired);
+u_int8_t glUnregisterP2P(struct GLUE_INFO *prGlueInfo, uint8_t ucIdx);
 
 u_int8_t p2pNetRegister(struct GLUE_INFO *prGlueInfo,
 		uint8_t fgIsRtnlLockAcquired);
 
 u_int8_t p2pNetUnregister(struct GLUE_INFO *prGlueInfo,
-		uint8_t fgIsRtnlLockAcquired,
-		u_int8_t fgIsWiphyLockHeld);
+		uint8_t fgIsRtnlLockAcquired);
 
 
 u_int8_t p2PAllocInfo(struct GLUE_INFO *prGlueInfo, uint8_t ucIdex);

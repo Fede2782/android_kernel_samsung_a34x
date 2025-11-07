@@ -1146,6 +1146,8 @@ static u32 get_pd_pwr_status(int pd_id)
 		return 0;
 
 	for (i = 0; i < ARRAY_SIZE(pd_pwr_sta); i++) {
+		if (pd_pwr_sta[i].base == mmpc)
+			continue;
 		if (pd_id == pd_pwr_sta[i].pd_id) {
 			val = get_mt6991_reg_value(pd_pwr_sta[i].base, pd_pwr_sta[i].ofs);
 			if ((val & pd_pwr_sta[i].msk) == pd_pwr_sta[i].msk)

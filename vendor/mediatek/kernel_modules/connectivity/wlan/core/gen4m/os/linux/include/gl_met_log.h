@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2020 MediaTek Inc.
  */
@@ -42,9 +41,7 @@
  *******************************************************************************
  */
 void met_log_print_data(uint8_t *buffer, uint32_t size,
-	uint32_t module_id, uint32_t project_id, uint32_t chip_id);
-void met_log_print_long_data(uint8_t *buffer, uint32_t size,
-	uint32_t module_id, uint32_t project_id, uint32_t chip_id);
+	uint32_t project_id, uint32_t chip_id);
 int met_log_start(struct GLUE_INFO *prGlueInfo);
 int met_log_stop(struct GLUE_INFO *prGlueInfo);
 #endif /* CFG_SUPPORT_MET_LOG */

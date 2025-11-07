@@ -1063,22 +1063,26 @@ unsigned int read_data_region(struct EEPROM_DRV_FD_DATA *pdata,
 			mutex_lock(&pdata->pdrv->eeprom_mutex);
 		dts_addr = client->addr;
 		client->addr = (cfg->i2c_write_id >> 1);
-		ret = cfg->read_function(client, offset, buf, size);
+		ret = cfg->read_function(client, pdata->sensor_info, offset, buf, size);
 		client->addr = dts_addr;
 		if (pdata)
 			mutex_unlock(&pdata->pdrv->eeprom_mutex);
 	} else {
+		debug_log("no customized\n");
+		ret = 0;		
+		/*
 		debug_log("no customized. i2c read 0x%02x %d %d\n", (client->addr << 1), offset, size);
 		if (pdata)
 			mutex_lock(&pdata->pdrv->eeprom_mutex);
 		ret = Common_read_region(client, offset, buf, size);
 		if (pdata)
 			mutex_unlock(&pdata->pdrv->eeprom_mutex);
+		*/
 	}
 	return ret;
 }
 
-int read_cam_cal(unsigned int sensor_id, unsigned char *buf,
+int read_cam_cal(struct EEPROM_DRV_FD_DATA *pdata, unsigned int sensor_id, unsigned char *buf,
 			unsigned int offset, unsigned int size)
 {
 	struct STRUCT_CAM_CAL_CONFIG_STRUCT *config;
@@ -1099,12 +1103,17 @@ int read_cam_cal(unsigned int sensor_id, unsigned char *buf,
 			break;
 	}
 
+/*This code is not used in SS code flow for reading calibertion data*/
 	if (index < cam_cal_number) {
 		must_log("sensor_id = 0x%x layout type %s found", sensor_id, config->name);
 		if (config->read_function)
-			return config->read_function(config->client, offset, buf, size);
-		else
-			return Common_read_region(config->client, offset, buf, size);
+			return 0;
+			//return config->read_function(config->client, offset, buf, size);
+		else {
+			debug_log("no customized\n");
+			return 0;
+			//return Common_read_region(config->client, offset, buf, size);
+		}
 	}
 	error_log("sensor_id = 0x%x layout type not found", sensor_id);
 	return 0;

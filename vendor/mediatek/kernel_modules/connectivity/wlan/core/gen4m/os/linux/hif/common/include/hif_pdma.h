@@ -15,7 +15,7 @@
 #include <linux/hashtable.h>
 #include "mt66xx_reg.h"
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 #include "connv3.h"
 #endif
 
@@ -23,22 +23,26 @@
  *                              C O N S T A N T S
  *******************************************************************************
  */
-#if (CFG_SUPPORT_CONNAC1X == 1)
 #define NUM_OF_WFDMA1_TX_RING			0
 #define NUM_OF_WFDMA1_RX_RING			0
-#else
+
+#if (CFG_SUPPORT_CONNAC2X == 1 || CFG_SUPPORT_CONNAC3X == 1)
+
+#undef NUM_OF_WFDMA1_TX_RING
 #ifdef CONFIG_NUM_OF_WFDMA_TX_RING
 #define NUM_OF_WFDMA1_TX_RING			(CONFIG_NUM_OF_WFDMA_TX_RING)
 #else
 #define NUM_OF_WFDMA1_TX_RING			1  /* WA CMD Ring */
 #endif
 
+#undef NUM_OF_WFDMA1_RX_RING
 #ifdef CONFIG_NUM_OF_WFDMA_RX_RING
 #define NUM_OF_WFDMA1_RX_RING			(CONFIG_NUM_OF_WFDMA_RX_RING)
 #else
 #define NUM_OF_WFDMA1_RX_RING			5
 #endif
-#endif /* CFG_SUPPORT_CONNAC1X == 1 */
+
+#endif /* CFG_SUPPORT_CONNAC2X == 1 */
 
 /*
  * 6 data ring:
@@ -54,9 +58,9 @@
 #define NUM_OF_TX_RING				(8 + NUM_OF_WFDMA1_TX_RING)
 #define NUM_OF_RX_RING				(2 + NUM_OF_WFDMA1_RX_RING)
 
-#define RX_RING_MAX_SIZE			4095
 
 #if defined(CONFIG_MTK_WIFI_BW320)
+#define RX_RING_MAX_SIZE			4095
 #ifdef BELLWETHER
 #define TX_RING_SIZE				1024
 #else
@@ -64,40 +68,41 @@
 #endif
 #define TX_RING_DATA_SIZE			TX_RING_SIZE
 
-#define CMA_MEM_MAX_SIZE			128
-
-#ifdef CFG_NUM_OF_TX_CMD_RING_SIZE
-#define TX_RING_CMD_SIZE			(CFG_NUM_OF_TX_CMD_RING_SIZE)
+/*
+ * MT7925 (Owl) does not need to do Redownload.
+ * The FWDL binary size becomes larger, so the
+ * TX CMD RING size needs to be larger.
+ */
+#if defined(MT7925)
+#define TX_RING_CMD_SIZE			512
 #else
 #define TX_RING_CMD_SIZE			320
-#endif /* CFG_NUM_OF_TX_CMD_RING_SIZE */
+#endif
 
 #define HIF_NUM_OF_QM_RX_PKT_NUM		10240
 #define HIF_PLE_PAGE_SIZE			0xBC0
 #define HIF_AMSDU_COUNT				4
-#if defined(MT6653) || defined(MT7990)
+#ifdef MT6653
 #define HIF_TX_MSDU_TOKEN_NUM			28000
 #else
 #define HIF_TX_MSDU_TOKEN_NUM \
 	(HIF_PLE_PAGE_SIZE * HIF_AMSDU_COUNT)
 #endif
-#define HIF_TX_MSDU_TOKEN_NUM_MIN	(1024 * 7)
 /* ToDo fine tune for owl EHT160 */
 #elif defined(CONFIG_MTK_WIFI_HE160) || defined(CONFIG_MTK_WIFI_EHT160)
+#define RX_RING_MAX_SIZE			1024
 #define TX_RING_SIZE				1024
 #define TX_RING_DATA_SIZE			1024
 #if defined(MT7925)
 #define TX_RING_CMD_SIZE			512
-#define HIF_TX_MSDU_TOKEN_NUM			8064
 #else
 #define TX_RING_CMD_SIZE			256
-#define HIF_TX_MSDU_TOKEN_NUM			(TX_RING_DATA_SIZE * 4)
 #endif
 #define HIF_NUM_OF_QM_RX_PKT_NUM		4096
-
-
+#define HIF_TX_MSDU_TOKEN_NUM			(TX_RING_DATA_SIZE * 4)
 
 #elif defined(CONFIG_MTK_WIFI_HE80)
+#define RX_RING_MAX_SIZE			1024
 #define TX_RING_SIZE				1024
 #define TX_RING_DATA_SIZE			1024
 #if defined(MT7925)
@@ -109,6 +114,7 @@
 #define HIF_TX_MSDU_TOKEN_NUM			(TX_RING_DATA_SIZE * 2)
 
 #elif defined(CONFIG_MTK_WIFI_VHT80)
+#define RX_RING_MAX_SIZE			512
 #define TX_RING_SIZE				512
 #define TX_RING_DATA_SIZE			512
 #if defined(MT7925)
@@ -120,6 +126,7 @@
 #define HIF_TX_MSDU_TOKEN_NUM			(TX_RING_DATA_SIZE * 3)
 
 #else
+#define RX_RING_MAX_SIZE			512
 #define TX_RING_SIZE				256
 #define TX_RING_DATA_SIZE			256
 #if defined(MT7925)
@@ -157,7 +164,7 @@
 #define HIF_TX_BUFF_COUNT_TC5				4096
 
 /* enable/disable TX resource control */
-#define HIF_TX_RESOURCE_CTRL                CFG_SUPPORT_HIF_TX_RESOURCE_CTRL
+#define HIF_TX_RESOURCE_CTRL                1
 /* enable/disable TX resource control PLE */
 #define HIF_TX_RESOURCE_CTRL_PLE            0
 
@@ -261,11 +268,12 @@
 #define WFDMA_MAGIC_CNT_NUM      16
 #define INDCMD_MAGIC_CNT_NUM     8
 #define RX_BLK_MAGIC_CNT_NUM     4
+#define MAWD_RX_BLK_RING_SIZE    (RX_RING_MAX_SIZE)
 #define MAWD_ENABLE_WAKEUP_SLEEP 1
-#define MAWD_POWER_UP_RETRY_CNT  50000
+#define MAWD_POWER_UP_RETRY_CNT  10000
 #define MAWD_POWER_UP_WAIT_TIME  10
 #define MAWD_MAX_PATCH_NUM       19
-#define MAWD_MD_TX_RING_NUM      3
+#define MAWD_MD_TX_RING_NUM      2
 
 #if CFG_ENABLE_MAWD_MD_RING
 #define MAWD_TX_RING_OFFSET      2
@@ -276,7 +284,7 @@
 
 #define RRO_HASH_TABLE_SIZE      (RX_RING_MAX_SIZE * 3)
 #define RRO_BA_BITMAP_SIZE       128
-#if CFG_MTK_FPGA_PLATFORM
+#if (CFG_MTK_FPGA_PLATFORM == 1)
 #define RRO_MAX_STA_NUM          8
 #else
 #define RRO_MAX_STA_NUM          16
@@ -294,84 +302,22 @@
 #endif
 
 #define WFDMA_MEMORY_ALIGNMENT      8
-#define WFDMA_RXDMAD_SDP_MEMORY_ALIGNMENT  32
 #define WFDMA_WB_MEMORY_ALIGNMENT   256
 #define WFDMA_WB_MEMORY_SIZE   256
-
-#define WFDMA_TX_RING_MAX_NUM    (CFG_NUM_OF_WFDMA_WB_TX_RING)
-#define WFDMA_RX_RING_MAX_NUM    16
 
 #define HIF_INT_TIME_DEBUG              0
 
 #define FW_BIN_FLAVOR_KEY		"flavor-bin"
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 #if CFG_TC10_FEATURE
 #define DEFAULT_MEMDUMP_KEY		"default-memdump"
 #endif
 #endif
 
-#define TX_MSDU_MEM_ALLOC_MAX_TIME	3000
-
-#if CFG_NEW_HIF_DEV_REG_IF
-#define HIF_DEV_REG_HISTORY_SIZE    100
-#endif /* CFG_NEW_HIF_DEV_REG_IF */
-
 #if CFG_SUPPORT_HIF_REG_WORK
 #define HIF_REG_WORK_WAIT_TIME	100  /* 100us */
-#define HIF_REG_WORK_WAIT_CNT	10000
+#define HIF_REG_WORK_WAIT_CNT	1000
 #endif /* CFG_SUPPORT_HIF_REG_WORK */
-
-#define HIF_EMI_SER_STATUS_SIZE		16
-
-#define HIF_RX_DMA_DONE_MAX_FAIL_CNT	3
-
-enum WIFI_MEM_OPER_SETS {
-	/* TRX DESC */
-	WF_MEM_OP_TRX_DESC_ZERO_COPY_PATH = 0,
-	WF_MEM_OP_TRX_DESC_COPY_PATH,
-
-	/* TX DATA */
-	WF_MEM_OP_TX_DATA_ZERO_COPY_PATH,
-	WF_MEM_OP_TX_DATA_COPY_PATH,
-	WF_MEM_OP_TX_DATA_COPY_PATH_TX_DYN_CMA,
-	WF_MEM_OP_TX_DATA_COPY_PATH_TX_NON_CACHE,
-
-	/* TX CMD */
-	WF_MEM_OP_TX_CMD_ZERO_COPY_PATH,
-	WF_MEM_OP_TX_CMD_COPY_PATH,
-
-	/* RX DATA */
-	WF_MEM_OP_RX_DATA_ZERO_COPY_PATH,
-	WF_MEM_OP_RX_DATA_COPY_PATH,
-	WF_MEM_OP_RX_DATA_ZERO_COPY_PATH_PAGE_POOL,
-
-	/* RX EVT */
-	WF_MEM_OP_RX_EVT_ZERO_COPY_PATH,
-	WF_MEM_OP_RX_EVT_COPY_PATH,
-
-	/* TX DUMP */
-	WF_MEM_OP_TX_DUMP_ZERO_COPY_PATH,
-	WF_MEM_OP_TX_DUMP_COPY_PATH,
-	WF_MEM_OP_TX_DUMP_NULL,
-
-	/* RX DUMP */
-	WF_MEM_OP_RX_DUMP_ZERO_COPY_PATH,
-	WF_MEM_OP_RX_DUMP_COPY_PATH,
-	WF_MEM_OP_RX_DUMP_NULL,
-
-	/* EXT_BUF */
-	WF_MEM_OP_EXT_BUF_ZERO_COPY_PATH,
-	WF_MEM_OP_EXT_BUF_COPY_PATH,
-	WF_MEM_OP_EXT_BUF_NULL,
-
-	/* RUNTIME_MEM */
-	WF_MEM_OP_RUNTIME_MEM_ZERO_COPY_PATH,
-	WF_MEM_OP_RUNTIME_MEM_NULL,
-
-	/* WIFI_MISC */
-	WF_MEM_OP_WIFI_MISC_EMI_ENABLE,
-	WF_MEM_OP_WIFI_MISC_EMI_NULL,
-};
 
 /*******************************************************************************
  *                                 M A C R O S
@@ -422,61 +368,38 @@ enum WIFI_MEM_OPER_SETS {
 	memcpy_toio((void *)((_A)->CSRBaseAddress + (_D)), (void *) _S, _N); \
 }
 
-#if CFG_MTK_WIFI_WFDMA_WB
-#define HAL_GET_RING_DIDX(_RSN, _A, _R, _V)	\
+#define HAL_SET_RING_CIDX(_G, _R, _V) \
+{ \
+	kalDevRegWrite(_G, _R->hw_cidx_addr, _V << _R->hw_cidx_shift); \
+}
+
+#define HAL_GET_RING_CIDX(_G, _R, _V) \
 do { \
-	if (_R->fgEnEmiDidx) { \
-		*_V = (*_R->pu2EmiDidx & _R->hw_didx_mask); \
+	kalDevRegRead(_G, _R->hw_cidx_addr, _V); \
+	*_V = (*_V & _R->hw_cidx_mask) >> _R->hw_cidx_shift; \
+} while (0)
+
+#if CFG_MTK_WIFI_WFDMA_WB
+#define HAL_GET_RING_DIDX(_G, _R, _V) \
+do { \
+	if (_R->fgEnEmiIdx) { \
+		*_V = *_R->pu2EmiIdx; \
 	} else { \
-		HAL_RMCR_RD(_RSN, _A, _R->hw_didx_addr, _V); \
+		kalDevRegRead(_G, _R->hw_didx_addr, _V); \
 		*_V = (*_V & _R->hw_didx_mask) >> _R->hw_didx_shift; \
 	} \
 } while (0)
-
-#define HAL_SET_RING_CIDX(_A, _R, _V) \
-{ \
-	if (_R->fgEnEmiCidx) { \
-		_R->u4LastCidx = *_R->pu2EmiCidx; \
-		_R->u4LastDidx = *_R->pu2EmiDidx; \
-		*_R->pu2EmiCidx = _V; \
-		if (_R->triggerCidx) \
-			_R->triggerCidx(_A->prGlueInfo, _R); \
-	} else { \
-		HAL_MCR_WR(_A, _R->hw_cidx_addr, _V << _R->hw_cidx_shift); \
-	} \
-}
-
-#define HAL_GET_RING_CIDX(_RSN, _A, _R, _V)	\
-do { \
-	if (_R->fgEnEmiCidx) { \
-		*_V = *_R->pu2EmiCidx; \
-	} else { \
-		HAL_RMCR_RD(_RSN, _A, _R->hw_cidx_addr, _V); \
-		*_V = (*_V & _R->hw_cidx_mask) >> _R->hw_cidx_shift; \
-	} \
-} while (0)
 #else
-#define HAL_GET_RING_DIDX(_RSN, _A, _R, _V) \
+#define HAL_GET_RING_DIDX(_G, _R, _V) \
 do { \
-	HAL_RMCR_RD(_RSN, _A, _R->hw_didx_addr, _V); \
+	kalDevRegRead(_G, _R->hw_didx_addr, _V); \
 	*_V = (*_V & _R->hw_didx_mask) >> _R->hw_didx_shift; \
-} while (0)
-
-#define HAL_SET_RING_CIDX(_A, _R, _V) \
-{ \
-	HAL_MCR_WR(_A, _R->hw_cidx_addr, _V << _R->hw_cidx_shift);	\
-}
-
-#define HAL_GET_RING_CIDX(_RSN, _A, _R, _V)	\
-do { \
-	HAL_RMCR_RD(_RSN, _A, _R->hw_cidx_addr, _V); \
-	*_V = (*_V & _R->hw_cidx_mask) >> _R->hw_cidx_shift; \
 } while (0)
 #endif /* CFG_ENABLE_MAWD_MD_RING */
 
-#define HAL_GET_RING_MCNT(_RSN, _A, _R, _V) \
+#define HAL_GET_RING_MCNT(_G, _R, _V) \
 do { \
-	HAL_RMCR_RD(_RSN, _A, _R->hw_cnt_addr, _V); \
+	kalDevRegRead(_G, _R->hw_cnt_addr, _V); \
 	*_V = (*_V & _R->hw_cnt_mask) >> _R->hw_cnt_shift; \
 } while (0)
 
@@ -525,24 +448,14 @@ struct GL_HIF_INFO;
 enum ENUM_WIFI_RSV_MEM_IDX {
 	WIFI_RSV_MEM_WFDMA = 0,
 	WIFI_RSV_MEM_WIFI_MISC,
-#if (CFG_MTK_WIFI_TX_CMA_MEM_NON_CACHE == 1)
-	WIFI_RSV_MEM_WIFI_CMA_NON_CACHE,
-#endif /* CFG_MTK_WIFI_TX_CMA_MEM_NON_CACHE */
 	WIFI_RSV_MEM_MAX_NUM
 };
 
 enum WIFI_MISC_MEM_BLOCK_NAME {
 	WIFI_MISC_MEM_BLOCK_NON_MMIO = 0,
 	WIFI_MISC_MEM_BLOCK_TX_POWER_LIMIT,
-	WIFI_MISC_MEM_BLOCK_TX_POWER_STATUS,
-	WIFI_MISC_MEM_BLOCK_SER_STATUS,
-	WIFI_MISC_MEM_BLOCK_SCREEN_STATUS,
-	WIFI_MISC_MEM_BLOCK_WF_M_BRAIN,
-	WIFI_MISC_MEM_BLOCK_WF_GEN_SWITCH,
-	WIFI_MISC_MEM_BLOCK_WF_RSVED,
-	WIFI_MISC_MEM_BLOCK_PRECAL,
 	WIFI_MISC_MEM_BLOCK_MULTIBAND_TX_POWER_LIMIT,
-	WIFI_MISC_MEM_BLOCK_PERF_IND,
+	WIFI_MISC_MEM_BLOCK_WF_GEN_SWITCH,
 	WIFI_MISC_MEM_BLOCK_MAX_NUM
 };
 
@@ -673,14 +586,10 @@ struct RTMP_TX_RING {
 	struct RTMP_DMACB Cell[TX_RING_SIZE];
 	uint32_t TxCpuIdx;
 	uint32_t TxDmaIdx;
-	uint32_t TxCpuIdxRec;
-	uint32_t TxDmaIdxRec;
 	uint32_t u4BufSize;
 	uint32_t u4RingSize;
-	uint32_t u4RingIdx;
 	uint32_t TxSwUsedIdx;
 	uint32_t u4UsedCnt;
-	uint32_t u4TotalCnt;
 	uint32_t hw_desc_base;
 	uint32_t hw_desc_base_ext;
 	uint32_t hw_cidx_addr;
@@ -695,14 +604,8 @@ struct RTMP_TX_RING {
 	spinlock_t rTxDmaQLock;
 	u_int8_t fgStopRecycleDmad;
 #if CFG_MTK_WIFI_WFDMA_WB
-	u_int8_t fgEnEmiDidx;
-	u_int8_t fgEnEmiCidx;
-	uint16_t *pu2EmiDidx;
-	uint32_t *pu2EmiCidx;
-	uint32_t u4LastCidx;
-	uint32_t u4LastDidx;
-	void (*triggerCidx)(struct GLUE_INFO *prGlueInfo,
-			    struct RTMP_TX_RING *prTxRing);
+	u_int8_t fgEnEmiIdx;
+	uint16_t *pu2EmiIdx;
 #endif /* CFG_ENABLE_MAWD_MD_RING */
 };
 
@@ -712,7 +615,6 @@ struct RTMP_RX_RING {
 	uint32_t RxDmaIdx;
 	uint32_t u4BufSize;
 	uint32_t u4RingSize;
-	uint32_t u4RingIdx;
 	u_int8_t fgRxSegPkt;
 	uint32_t hw_desc_base;
 	uint32_t hw_desc_base_ext;
@@ -727,30 +629,15 @@ struct RTMP_RX_RING {
 	uint32_t hw_cnt_shift;
 	bool fgIsDumpLog;
 	bool fgIsWaitRxDmaDoneTimeout;
-	uint32_t u4RxDmaDoneFailCnt;
 	uint32_t u4LastRxEventWaitDmaDoneCnt;
 	uint32_t u4PendingCnt;
-	uint32_t u4TotalCnt;
-#if (CFG_SUPPORT_PDMA_SCATTER == 1)
-	void *pvSegPkt;
-	uint32_t u4SegPktLen;
-	uint32_t u4SegPktLenMax;
-	uint32_t u4SegPktIdx;
-	uint32_t u4SegPktIdxMax;
-#endif
+	void *pvPacket;
+	uint32_t u4PacketLen;
 	uint32_t u4MagicCnt;
 #if CFG_MTK_WIFI_WFDMA_WB
-	u_int8_t fgEnEmiDidx;
-	u_int8_t fgEnEmiCidx;
-	uint16_t *pu2EmiDidx;
-	uint32_t *pu2EmiCidx;
-	uint32_t u4LastCidx;
-	uint32_t u4LastDidx;
-	void (*triggerCidx)(struct GLUE_INFO *prGlueInfo,
-			    struct RTMP_RX_RING *prRxRing);
+	u_int8_t fgEnEmiIdx;
+	uint16_t *pu2EmiIdx;
 #endif /* CFG_ENABLE_MAWD_MD_RING */
-	uint32_t u4CidxRec;
-	uint32_t u4CidxErrCnt;
 };
 
 struct PCIE_CHIP_CR_MAPPING {
@@ -773,22 +660,15 @@ struct ap2wf_remap {
 	uint32_t base_addr;
 };
 
-struct remap_range {
-	const uint32_t start;
-	const uint32_t end;
-};
-
 struct PCIE_CHIP_CR_REMAPPING {
 	const struct pcie2ap_remap *pcie2ap;
-	const struct pcie2ap_remap *pcie2ap_cbtop;
 	const struct ap2wf_remap *ap2wf;
-	const struct remap_range *cbtop_ranges;
 };
 
 struct MSDU_TOKEN_ENTRY {
 	uint32_t u4Token;
 	u_int8_t fgInUsed;
-	uint64_t u8Tm;
+	struct timespec64 rTs;
 	uint32_t u4CpuIdx;	/* tx ring cell index */
 	struct MSDU_INFO *prMsduInfo;
 	void *prPacket;
@@ -799,9 +679,7 @@ struct MSDU_TOKEN_ENTRY {
 	uint16_t u2Port; /* tx ring number */
 	uint8_t ucWlanIndex;
 	uint8_t ucBssIndex;
-	uint32_t key;
-	struct hlist_node node; /* htbl node */
-	struct list_head msdu_list;
+
 	/* Log info for key TX packets */
 	u_int8_t fgTxDoneHandler;
 	uint8_t ucTxSeqNum;
@@ -827,20 +705,10 @@ struct WFD_LLS_TX_BIT_RATE {
 
 struct MSDU_TOKEN_INFO {
 	uint32_t u4UsedCnt;
+	struct MSDU_TOKEN_ENTRY *aprTokenStack[HIF_TX_MSDU_TOKEN_NUM];
 	spinlock_t rTokenLock;
 	struct MSDU_TOKEN_ENTRY arToken[HIF_TX_MSDU_TOKEN_NUM];
 	uint32_t u4TokenNum;
-	uint32_t u4FifoErrCnt;
-#if CFG_SUPPORT_HIF_FIFO_TOKEN
-	struct kfifo rTokenFifo;
-	void **aucTokenFifoBuf;
-	uint32_t u4TokenFifoLen;
-#else
-	struct list_head used_msdu_list; /* msdu wait tx done */
-	struct hlist_head used_msdu_htbl[HIF_TX_MSDU_TOKEN_NUM];
-#endif
-	struct list_head init_msdu_list; /* msdu w/o data */
-	struct list_head free_msdu_list; /* msdu w/ data */
 
 	/* control bss index packet number */
 	uint32_t u4TxBssCnt[MAX_BSSID_NUM];
@@ -899,10 +767,6 @@ struct ERR_RECOVERY_CTRL_T {
 	uint32_t u4TimeoutCnt;
 };
 
-struct SER_EMI_STATUS {
-	uint8_t ucStatus[HIF_EMI_SER_STATUS_SIZE];
-};
-
 struct SW_WFDMA_INFO;
 
 struct SW_WFDMAD {
@@ -959,32 +823,15 @@ struct SW_EMI_CTX {
 	uint32_t au4Val[SW_EMI_RING_SIZE];
 };
 
-#if CFG_MTK_WIFI_MBU
-struct MBU_MSI_MIRROR {
-	uint32_t u4IntSta;
-	uint32_t au4SidebandSignal[2];
-	uint32_t au4Rsv;
-};
-struct MBU_EMI_CTX {
-	uint32_t u4LowVal;
-	uint32_t u4HighVal;
-	uint32_t au4Rsv[2];
-	struct MBU_MSI_MIRROR arMsiMirror[8];
-};
-#endif /* CFG_MTK_WIFI_MBU */
-
 #if CFG_MTK_WIFI_SW_EMI_RING
+struct SW_EMI_RING_INFO;
+
 struct SW_EMI_RING_OPS {
 	void (*init)(struct GLUE_INFO *prGlueInfo);
-	void (*uninit)(struct GLUE_INFO *prGlueInfo);
 	u_int8_t (*read)(struct GLUE_INFO *prGlueInfo, uint32_t u4Addr,
 			 uint32_t *pu4Val);
-	u_int8_t (*read8)(struct GLUE_INFO *prGlueInfo, uint32_t u4Addr,
-			  uint32_t *pu4LowVal, uint32_t *pu4HighVal);
 	void (*triggerInt)(struct GLUE_INFO *prGlueInfo);
-	void (*enableDebug)(struct GLUE_INFO *prGlueInfo);
 	void (*debug)(struct GLUE_INFO *prGlueInfo);
-	void (*dumpDebugCr)(struct GLUE_INFO *prGlueInfo);
 };
 
 struct SW_EMI_RING_INFO {
@@ -995,16 +842,6 @@ struct SW_EMI_RING_INFO {
 	uint32_t u4CcifTchnumAddr;
 	uint32_t u4CcifChlNum;
 	uint32_t u4ReadBlockCnt;
-#if CFG_MTK_WIFI_MBU
-	struct MBU_EMI_CTX *prMbuEmiData;
-	uint32_t u4RemapAddr;
-	uint32_t u4RemapVal;
-	uint32_t u4RemapDefVal;
-	uint32_t u4RemapRegAddr;
-	uint32_t u4RemapBusAddr;
-	uint32_t u4TimeoutCnt;
-	u_int8_t fgIsDumpDebugCr;
-#endif
 };
 #endif /* CFG_MTK_WIFI_SW_EMI_RING */
 
@@ -1038,13 +875,6 @@ enum ENUM_DMA_INT_TYPE {
 enum ENUM_WFDMA_RING_TYPE {
 	TX_RING,
 	RX_RING
-};
-
-enum ENUM_RX_SEGMENT_TYPE {
-	RX_SEGMENT_NONE = 0,
-	RX_SEGMENT_FIRST,
-	RX_SEGMENT_MIDDLE,
-	RX_SEGMENT_LAST
 };
 
 #if (CFG_SUPPORT_HOST_OFFLOAD == 1)
@@ -1128,7 +958,7 @@ enum pcie_msi_int_type {
 	MDDP_INT,
 	CCIF_INT,
 	AP_DRV_OWN,
-	PCIE_GEN_SWITCH_INT,
+	PCIE_INT,
 	NONE_INT
 };
 
@@ -1137,7 +967,7 @@ struct pcie_msi_layout {
 	irqreturn_t (*top_handler)(int irq, void *dev_instance);
 	irqreturn_t (*thread_handler)(int irq, void *dev_instance);
 	enum pcie_msi_int_type type;
-	int32_t irq_num;
+	uint32_t irq_num;
 };
 
 struct pcie_msi_info {
@@ -1146,10 +976,6 @@ struct pcie_msi_info {
 	u_int8_t fgMsiEnabled;
 	uint32_t u4MsiNum;
 	unsigned long ulEnBits;
-#if CFG_SUPPORT_WED_PROXY
-	unsigned long address_lo;
-	unsigned long address_hi;
-#endif
 };
 
 enum pcie_msi_wfdma_ring {
@@ -1175,52 +1001,7 @@ struct WFDMA_EMI_RING_IDX_1 {
 	uint16_t u2RxRing[5];
 	uint16_t Rsv[3];
 };
-
-struct WFDMA_EMI_DONE_FLAG {
-	uint32_t tx_int0;
-	uint32_t tx_int1;
-	uint32_t rx_int0;
-	uint32_t rx_int1;
-	uint32_t err_int;
-	uint32_t sw_int;
-	uint32_t subsys_int;
-	uint32_t rro;
-#if (CFG_SUPPORT_WFDMA_WB_INT_MASK == 1)
-	uint32_t tx_int0_mask;
-	uint32_t tx_int1_mask;
-	uint32_t rx_int0_mask;
-	uint32_t rx_int1_mask;
-	uint32_t err_int_mask;
-	uint32_t sw_int_mask;
-	uint32_t subsys_int_mask;
-	uint32_t rro_mask;
-#endif /* CFG_SUPPORT_WFDMA_WB_INT_MASK */
-};
-
-struct WFDMA_EMI_RING_DIDX {
-	uint16_t tx_ring[WFDMA_TX_RING_MAX_NUM];
-	uint16_t rx_ring[WFDMA_RX_RING_MAX_NUM];
-};
-
-struct WFDMA_EMI_RING_CIDX {
-	uint32_t tx_ring[WFDMA_TX_RING_MAX_NUM];
-	uint32_t rx_ring[WFDMA_RX_RING_MAX_NUM];
-};
 #endif /* CFG_MTK_WIFI_WFDMA_WB */
-
-struct EMI_WIFI_MISC_RSV_MEM_INFO {
-	const enum WIFI_MISC_MEM_BLOCK_NAME block_name;
-	uint32_t size;
-	struct HIF_MEM rRsvEmiMem;
-};
-
-#if CFG_NEW_HIF_DEV_REG_IF
-struct HIF_DEV_REG_RECORD {
-	enum HIF_DEV_REG_REASON eReason;
-	uint32_t u4Reg;
-	uint32_t u4Mod;
-};
-#endif /* CFG_NEW_HIF_DEV_REG_IF */
 
 #if CFG_SUPPORT_HIF_REG_WORK
 enum WF_REG_REQ_OP {
@@ -1229,19 +1010,17 @@ enum WF_REG_REQ_OP {
 	WF_REG_NUM
 };
 
-enum WF_REG_REQ_STATUS {
-	WF_REG_PENDING = 0,
-	WF_REG_SUCCESS,
-	WF_REG_FAILURE,
-	WF_REG_DROP,
-	WF_REG_STATUS_NUM
+struct EMI_WIFI_MISC_RSV_MEM_INFO {
+	const enum WIFI_MISC_MEM_BLOCK_NAME block_name;
+	uint32_t size;
+	struct HIF_MEM rRsvEmiMem;
 };
 
 struct WF_REG_REQ {
 	enum WF_REG_REQ_OP eOp;
 	uint32_t u4Addr;
 	uint32_t u4Val;
-	enum WF_REG_REQ_STATUS eStatus;
+	u_int8_t fgIsDone;
 };
 #endif /* CFG_SUPPORT_HIF_REG_WORK */
 
@@ -1260,31 +1039,23 @@ uint8_t halSetRxRingHwAddr(
 	struct RTMP_RX_RING *prRxRing,
 	struct BUS_INFO *prBusInfo,
 	uint32_t u4SwRingIdx);
-uint32_t halWpdmaGetTxDmaDoneCnt(struct GLUE_INFO *prGlueInfo,
-				 uint8_t ucRingNum);
 void halWpdmaProcessCmdDmaDone(struct GLUE_INFO *prGlueInfo,
 			       uint16_t u2Port);
 void halWpdmaProcessDataDmaDone(struct GLUE_INFO *prGlueInfo,
 				uint16_t u2Port);
 u_int8_t halIsWfdmaRxRingReady(struct GLUE_INFO *prGlueInfo, uint8_t ucRingNum);
-u_int8_t halIsWfdmaRxRingsEmpty(struct GLUE_INFO *prGlueInfo);
 uint32_t halWpdmaGetRxDmaDoneCnt(struct GLUE_INFO *prGlueInfo,
 				 uint8_t ucRingNum);
 uint32_t halGetWfdmaRxCnt(struct ADAPTER *prAdapter);
-bool halInitOneMsduTokenInfo(struct ADAPTER *prAdapter,
-	struct MSDU_TOKEN_ENTRY *prToken, uint32_t u4Idx);
-void halUninitOneMsduTokenInfo(struct ADAPTER *prAdapter,
-	struct MSDU_TOKEN_ENTRY *prToken);
-u_int8_t halInitMsduTokenInfo(struct ADAPTER *prAdapter);
+void halInitMsduTokenInfo(struct ADAPTER *prAdapter);
 void halUninitMsduTokenInfo(struct ADAPTER *prAdapter);
 uint32_t halGetMsduTokenFreeCnt(struct ADAPTER *prAdapter);
 struct MSDU_TOKEN_ENTRY *halGetMsduTokenEntry(struct ADAPTER *prAdapter,
 					      uint32_t u4TokenNum);
 struct MSDU_TOKEN_ENTRY *halAcquireMsduToken(struct ADAPTER *prAdapter,
-		uint8_t ucBssIdx, struct MSDU_INFO *prMsduInfo);
+					     uint8_t ucBssIdx);
 void halReturnMsduToken(struct ADAPTER *prAdapter, uint32_t u4TokenNum);
-u_int8_t halHandleAllTokensUnused(
-	struct ADAPTER *prAdapter, u_int8_t fgIsCheck);
+void halReturnTimeoutMsduToken(struct ADAPTER *prAdapter);
 void halTxUpdateCutThroughDesc(struct GLUE_INFO *prGlueInfo,
 			       struct MSDU_INFO *prMsduInfo,
 			       struct MSDU_TOKEN_ENTRY *prFillToken,
@@ -1388,16 +1159,7 @@ void halHwRecoveryTimeout(unsigned long arg);
 void halHwRecoveryFromError(struct ADAPTER *prAdapter);
 #if (CFG_SUPPORT_TX_DATA_DELAY == 1)
 void halStartTxDelayTimer(struct ADAPTER *prAdapter);
-void halCancleTxDelayTimer(struct ADAPTER *prAdapter);
-u_int8_t halCheckAndStartTxDelayTimer(struct ADAPTER *prAdapter);
 #endif
-#if CFG_SUPPORT_HIF_RX_NAPI
-uint32_t halGetTxMsduCnt(struct ADAPTER *prAdapter);
-uint32_t halIsTxMsduWithTxDoneCb(struct ADAPTER *prAdapter);
-#endif /* CFG_SUPPORT_HIF_RX_NAPI */
-
-u_int8_t halIsWfdmaRxCidxChanged(struct ADAPTER *prAdapter, uint32_t u4Idx);
-void halDetectHifStall(struct ADAPTER *prAdapter);
 
 /* Debug functions */
 void halShowPdmaInfo(struct ADAPTER *prAdapter);
@@ -1410,6 +1172,8 @@ void kalDumpRxRing(struct GLUE_INFO *prGlueInfo,
 		   uint32_t u4Num, bool fgDumpContent);
 int wf_ioremap_read(phys_addr_t addr, unsigned int *val);
 int wf_ioremap_write(phys_addr_t addr, unsigned int val);
+void halEnableSlpProt(struct GLUE_INFO *prGlueInfo);
+void halDisableSlpProt(struct GLUE_INFO *prGlueInfo);
 
 void halSwWfdmaInit(struct GLUE_INFO *prGlueInfo);
 void halSwWfdmaUninit(struct GLUE_INFO *prGlueInfo);
@@ -1423,31 +1187,20 @@ void halSwWfdmaGetDidx(struct GLUE_INFO *prGlueInfo, uint32_t *pu4Didx);
 bool halSwWfdmaWriteCmd(struct GLUE_INFO *prGlueInfo);
 bool halSwWfdmaProcessDmaDone(struct GLUE_INFO *prGlueInfo);
 void halSwWfdmaDumpDebugLog(struct GLUE_INFO *prGlueInfo);
-#if CFG_MTK_WIFI_SW_EMI_RING
+
 void halSwEmiInit(struct GLUE_INFO *prGlueInfo);
 u_int8_t halSwEmiRead(struct GLUE_INFO *prGlueInfo, uint32_t u4Addr,
 		      uint32_t *pu4Val);
 void halSwEmiDebug(struct GLUE_INFO *prGlueInfo);
-#endif
-#if CFG_MTK_WIFI_MBU
-void halMbuInit(struct GLUE_INFO *prGlueInfo);
-void halMbuUninit(struct GLUE_INFO *prGlueInfo);
-u_int8_t halMbuRead4(struct GLUE_INFO *prGlueInfo, uint32_t u4ReadAddr,
-		     uint32_t *pu4Val);
-u_int8_t halMbuRead8(struct GLUE_INFO *prGlueInfo, uint32_t u4ReadAddr,
-		     uint32_t *pu4LowVal, uint32_t *pu4HighVal);
-void halMbuEnableDebug(struct GLUE_INFO *prGlueInfo);
-void halMbuDebug(struct GLUE_INFO *prGlueInfo);
-#endif
 
 #if (CFG_SUPPORT_HOST_OFFLOAD == 1)
 /* Host Offload */
 void halRroTurnOff(struct GLUE_INFO *prGlueInfo);
 void halRroInit(struct GLUE_INFO *prGlueInfo);
 void halRroUninit(struct GLUE_INFO *prGlueInfo);
-void halOffloadAllocMem(struct GLUE_INFO *prGlueInfo, u_int8_t fgAllocMem);
+void halOffloadAllocMem(struct GLUE_INFO *prGlueInfo);
 void halOffloadFreeMem(struct GLUE_INFO *prGlueInfo);
-void halRroAllocMem(struct GLUE_INFO *prGlueInfo, u_int8_t fgAllocMem);
+void halRroAllocMem(struct GLUE_INFO *prGlueInfo);
 void halRroResetMem(struct GLUE_INFO *prGlueInfo);
 void halRroAllocRcbList(struct GLUE_INFO *prGlueInfo);
 void halRroFreeRcbList(struct GLUE_INFO *prGlueInfo);
@@ -1476,7 +1229,6 @@ u_int8_t halMawdSleep(struct GLUE_INFO *prGlueInfo);
 void halMawdReset(struct GLUE_INFO *prGlueInfo);
 void halMawdUpdateL2Tbl(struct GLUE_INFO *prGlueInfo,
 			union mawd_l2tbl rL2Tbl, uint32_t u4Set);
-void halMawdDumpSram(struct GLUE_INFO *prGlueInfo);
 #else
 static inline int halMawdPwrOn(void) { return 0; }
 static inline void halMawdPwrOff(void) {}
@@ -1484,42 +1236,19 @@ static inline void halMawdPwrOff(void) {}
 
 int halInitResvMem(struct platform_device *pdev,
 		enum ENUM_WIFI_RSV_MEM_IDX u4RsvMemIdx);
-#if (CFG_MTK_WIFI_TX_CMA_MEM == 1)
-int halInitTxCmaMem(struct platform_device *pdev);
-void halFreeTxCmaMem(struct platform_device *pdev);
-bool halTxDataCmaIsCmaMem(void);
-void wifi_tx_cma_set_mem_data_num(struct ADAPTER *prAdapter,
-	uint32_t size);
-uint32_t wifi_tx_cma_get_mem_size(void);
-uint32_t wifi_tx_cma_get_mem_data_num(void);
-void halCopyPathAllocTxCmaTxDataBuf(
-	struct MSDU_TOKEN_ENTRY *prToken, uint32_t u4Idx);
-bool halCopyPathCopyTxCmaTxData(struct MSDU_TOKEN_ENTRY *prToken,
-			  void *pucSrc, uint32_t u4Len);
-phys_addr_t halCopyPathTxCmaMapTxBuf(struct GL_HIF_INFO *prHifInfo,
-			  void *pucBuf, uint32_t u4Offset, uint32_t u4Len);
-void halCopyPathTxCmaUnmapTxBuf(struct GL_HIF_INFO *prHifInfo,
-			   phys_addr_t rDmaAddr, uint32_t u4Len);
-#endif /* CFG_MTK_WIFI_TX_CMA_MEM */
+int halAllocHifMem(struct platform_device *pdev,
+		   struct mt66xx_hif_driver_data *prDriverData);
+void halFreeHifMem(struct platform_device *pdev,
+		  enum ENUM_WIFI_RSV_MEM_IDX u4RsvMemIdx);
 void halCopyPathAllocTxDesc(struct GL_HIF_INFO *prHifInfo,
 			    struct RTMP_DMABUF *prDescRing,
 			    uint32_t u4Num);
 void halCopyPathAllocRxDesc(struct GL_HIF_INFO *prHifInfo,
 			    struct RTMP_DMABUF *prDescRing,
 			    uint32_t u4Num);
-#if CFG_SUPPORT_WIFI_RSV_MEM
-int halAllocHifMem(struct platform_device *pdev,
-		   struct mt66xx_hif_driver_data *prDriverData);
-void halFreeHifMem(struct platform_device *pdev,
-		  enum ENUM_WIFI_RSV_MEM_IDX u4RsvMemIdx);
-#endif
-#if (CFG_MTK_ANDROID_WMT == 1)
 void halCopyPathAllocExtBuf(struct GL_HIF_INFO *prHifInfo,
 			    struct RTMP_DMABUF *prDescRing,
 			    uint32_t u4Align);
-void halCopyPathFreeExtBuf(struct GL_HIF_INFO *prHifInfo,
-			   struct RTMP_DMABUF *prDescRing);
-#endif
 bool halCopyPathAllocTxCmdBuf(struct RTMP_DMABUF *prDmaBuf,
 			      uint32_t u4Num, uint32_t u4Idx);
 void halCopyPathAllocTxDataBuf(struct MSDU_TOKEN_ENTRY *prToken,
@@ -1542,6 +1271,8 @@ bool halCopyPathCopyRxData(struct GL_HIF_INFO *prHifInfo,
 			   struct RTMP_DMACB *pRxCell,
 			   struct RTMP_DMABUF *prDmaBuf,
 			   struct SW_RFB *prSwRfb);
+void halCopyPathFreeExtBuf(struct GL_HIF_INFO *prHifInfo,
+			   struct RTMP_DMABUF *prDescRing);
 void halCopyPathDumpTx(struct GL_HIF_INFO *prHifInfo,
 		       struct RTMP_TX_RING *prTxRing,
 		       uint32_t u4Idx, uint32_t u4DumpLen);
@@ -1575,21 +1306,17 @@ bool halZeroCopyPathCopyRxData(struct GL_HIF_INFO *prHifInfo,
 			   struct RTMP_DMACB *pRxCell,
 			   struct RTMP_DMABUF *prDmaBuf,
 			   struct SW_RFB *prSwRfb);
-phys_addr_t halZeroCopyPathMapTxDataBuf(struct GL_HIF_INFO *prHifInfo,
-			  void *pucBuf, uint32_t u4Offset, uint32_t u4Len);
-phys_addr_t halZeroCopyPathMapTxCmdBuf(struct GL_HIF_INFO *prHifInfo,
+phys_addr_t halZeroCopyPathMapTxBuf(struct GL_HIF_INFO *prHifInfo,
 			  void *pucBuf, uint32_t u4Offset, uint32_t u4Len);
 phys_addr_t halZeroCopyPathMapRxBuf(struct GL_HIF_INFO *prHifInfo,
 			  void *pucBuf, uint32_t u4Offset, uint32_t u4Len);
-void halZeroCopyPathUnmapTxDataBuf(struct GL_HIF_INFO *prHifInfo,
-			   phys_addr_t rDmaAddr, uint32_t u4Len);
-void halZeroCopyPathUnmapTxCmdBuf(struct GL_HIF_INFO *prHifInfo,
+void halZeroCopyPathUnmapTxBuf(struct GL_HIF_INFO *prHifInfo,
 			   phys_addr_t rDmaAddr, uint32_t u4Len);
 void halZeroCopyPathUnmapRxBuf(struct GL_HIF_INFO *prHifInfo,
 			   phys_addr_t rDmaAddr, uint32_t u4Len);
 void halZeroCopyPathFreeDesc(struct GL_HIF_INFO *prHifInfo,
 			 struct RTMP_DMABUF *prDescRing);
-void halZeroCopyPathFreeCmdBuf(void *pucSrc, uint32_t u4Len);
+void halZeroCopyPathFreeBuf(void *pucSrc, uint32_t u4Len);
 void halZeroCopyPathFreePacket(struct GL_HIF_INFO *prHifInfo,
 			   void *pvPacket, uint32_t u4Num);
 void halZeroCopyPathDumpTx(struct GL_HIF_INFO *prHifInfo,
@@ -1598,22 +1325,24 @@ void halZeroCopyPathDumpTx(struct GL_HIF_INFO *prHifInfo,
 void halZeroCopyPathDumpRx(struct GL_HIF_INFO *prHifInfo,
 		       struct RTMP_RX_RING *prRxRing,
 		       uint32_t u4Idx, uint32_t u4DumpLen);
-struct HIF_MEM *halGetWiFiMiscRsvEmi(
-	struct mt66xx_chip_info *prChipInfo,
-	enum WIFI_MISC_MEM_BLOCK_NAME u4idx);
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 u_int8_t kalDevRegReadViaBT(struct GLUE_INFO *prGlueInfo,
 				uint32_t u4Register, uint32_t *pu4Value);
 u_int8_t kalDevRegWriteViaBT(struct GLUE_INFO *prGlueInfo,
 				uint32_t u4Register, uint32_t u4Value);
 #endif
+struct HIF_MEM *halGetWiFiMiscRsvEmi(
+	struct mt66xx_chip_info *prChipInfo,
+	enum WIFI_MISC_MEM_BLOCK_NAME u4idx);
 
-#if CFG_SUPPORT_PAGE_POOL_USE_CMA
+#if CFG_SUPPORT_RX_PAGE_POOL
 void halZeroCopyPathFreePagePoolPacket(struct GL_HIF_INFO *prHifInfo,
 				       void *pvPacket, uint32_t u4Num);
 void *halZeroCopyPathAllocPagePoolRxBuf(struct GL_HIF_INFO *prHifInfo,
 					struct RTMP_DMABUF *prDmaBuf,
 					uint32_t u4Num, uint32_t u4Idx);
+
+void kalSkbMarkForRecycle(struct sk_buff *pkt);
 #if CFG_SUPPORT_DYNAMIC_PAGE_POOL
 void kalSetupPagePoolPageMaxMinNum(uint32_t u4Min, uint32_t u4Max);
 uint32_t kalGetPagePoolPageNum(void);
@@ -1622,8 +1351,7 @@ u_int8_t kalIncPagePoolPageNum(void);
 u_int8_t kalDecPagePoolPageNum(void);
 u_int8_t kalSetPagePoolPageNum(uint32_t u4Num);
 #endif
-struct sk_buff *kalAllocRxSkbFromCmaPp(
-	struct GLUE_INFO *prGlueInfo, uint8_t **ppucData);
+struct sk_buff *kalAllocRxSkb(uint8_t **ppucData);
 u_int8_t kalCreateHifSkbList(struct mt66xx_chip_info *prChipInfo);
 void kalReleaseHifSkbList(void);
 struct sk_buff *kalAllocHifSkb(void);
@@ -1633,22 +1361,13 @@ extern struct page *wifi_page_pool_alloc_page(void) __attribute__((weak));
 extern void wifi_page_pool_set_page_num(uint32_t num) __attribute__((weak));
 extern uint32_t wifi_page_pool_get_page_num(void) __attribute__((weak));
 extern uint32_t wifi_page_pool_get_max_page_num(void) __attribute__((weak));
-#endif /* CFG_SUPPORT_PAGE_POOL_USE_CMA */
-
+#endif
 void halWpdmaStopRecycleDmad(struct GLUE_INFO *prGlueInfo,
 				       uint16_t u2Port);
-#if (CFG_MTK_WIFI_TX_CMA_MEM_NON_CACHE == 1)
-int halInitTxCmaNonCacheMem(struct platform_device *pdev);
-int halUninitTxCmaNonCacheMem(void);
-int halAllocHifMemForTxCmaNonCache(
-	struct platform_device *pdev,
-	struct mt66xx_hif_driver_data *prDriverData);
-void halGetTxCmaNonCacheMemUsage(void);
-#endif /* CFG_MTK_WIFI_TX_CMA_MEM_NON_CACHE */
 #if (CFG_MTK_WIFI_MISC_RSV_MEM == 1)
 int halAllocHifMemForWiFiMisc(struct platform_device *pdev,
 		   struct mt66xx_hif_driver_data *prDriverData);
-#endif
+#endif /* CFG_MTK_WIFI_MISC_RSV_MEM */
 #if CFG_SUPPORT_HIF_REG_WORK
 void wf_reg_enable(u_int8_t fgEn);
 int32_t wf_reg_read_wrapper(void *priv,

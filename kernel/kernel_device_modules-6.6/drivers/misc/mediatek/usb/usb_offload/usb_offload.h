@@ -274,6 +274,8 @@ struct usb_offload_dev {
 	bool enable_adv_lowpwr;
 	bool adv_lowpwr;
 	bool adv_lowpwr_dl_only;
+	bool idle_lowpwr;
+	bool enable_idle_lowpwr;
 	bool is_streaming;
 	bool tx_streaming;
 	bool rx_streaming;
@@ -285,6 +287,8 @@ struct usb_offload_dev {
 	bool adsp_ready;
 	struct ssusb_offload *ssusb_offload_notify;
 	struct mutex dev_lock;
+	struct mutex xhci_lock;
+	struct mutex event_lock;
 	u64 *mapping_table;
 	void *tracer;
 };
@@ -324,7 +328,7 @@ extern unsigned int debug_memory_log;
 extern u32 sram_version;
 extern struct usb_offload_buffer *usb_offload_get_ring_buf(dma_addr_t phy);
 extern int xhci_mtk_realloc_transfer_ring(unsigned int slot_id, unsigned int ep_id,
-	enum usb_offload_mem_id mem_type);
+	enum usb_offload_mem_id mem_type, bool is_rsv);
 extern int soc_init_aud_intf(void);
 extern int mtk_offload_init_rsv_dram(int min_alloc_order);
 extern int mtk_offload_init_rsv_sram(int min_alloc_order);

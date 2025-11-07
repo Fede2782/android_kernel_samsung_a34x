@@ -323,7 +323,7 @@ static int dlpt_get_uisoc(void)
 	union power_supply_propval prop;
 	int ret;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 	psy = power_supply_get_by_name("battery");

@@ -2122,8 +2122,6 @@ static irqreturn_t mtk_thread_irq_camsv(int irq, void *data)
 
 static int mtk_camsv_pm_suspend(struct device *dev)
 {
-	struct mtk_camsv_device *sv_dev = dev_get_drvdata(dev);
-	u32 val;
 	int ret;
 
 	dev_info_ratelimited(dev, "- %s\n", __func__);
@@ -2131,35 +2129,13 @@ static int mtk_camsv_pm_suspend(struct device *dev)
 	if (pm_runtime_suspended(dev))
 		return 0;
 
-	/* Disable ISP's view finder and wait for TG idle */
-	dev_info(dev, "camsv suspend, disable VF\n");
-	val = readl(sv_dev->base + REG_CAMSVCENTRAL_VF_CON);
-	writel(val & (~CAMSVCENTRAL_VFDATA_EN),
-		sv_dev->base + REG_CAMSVCENTRAL_VF_CON);
-#ifdef CAMSV_TODO
-	// camsv todo: implement this usage
-	ret = readl_poll_timeout_atomic(
-					sv_dev->base + REG_CAMSV_TG_INTER_ST, val,
-					(val & CAMSV_TG_CS_MASK) == CAMSV_TG_IDLE_ST,
-					USEC_PER_MSEC, MTK_CAMSV_STOP_HW_TIMEOUT);
-	if (ret)
-		dev_info(dev, "can't stop HW:%d:0x%x\n", ret, val);
-#endif
-
-	/* Disable CMOS */
-	val = readl(sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE);
-	writel(val & (~CAMSVCENTRAL_CMOS_EN),
-		sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE);
-
 	/* Force ISP HW to idle */
-	ret = pm_runtime_put_sync(dev);
+	ret = pm_runtime_force_suspend(dev);
 	return ret;
 }
 
 static int mtk_camsv_pm_resume(struct device *dev)
 {
-	struct mtk_camsv_device *sv_dev = dev_get_drvdata(dev);
-	u32 val;
 	int ret;
 
 	dev_info_ratelimited(dev, "- %s\n", __func__);
@@ -2168,20 +2144,9 @@ static int mtk_camsv_pm_resume(struct device *dev)
 		return 0;
 
 	/* Force ISP HW to resume */
-	ret = pm_runtime_get_sync(dev);
+	ret = pm_runtime_force_resume(dev);
 	if (ret)
 		return ret;
-
-	/* Enable CMOS */
-	dev_info(dev, "camsv resume, enable CMOS/VF\n");
-	val = readl(sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE);
-	writel(val | CAMSVCENTRAL_CMOS_EN,
-		sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE);
-
-	/* Enable VF */
-	val = readl(sv_dev->base + REG_CAMSVCENTRAL_VF_CON);
-	writel(val | CAMSVCENTRAL_VFDATA_EN,
-		sv_dev->base + REG_CAMSVCENTRAL_VF_CON);
 
 	return 0;
 }

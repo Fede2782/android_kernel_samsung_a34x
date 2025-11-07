@@ -27,9 +27,10 @@
 
 #define to_ctx(__sd) container_of(__sd, struct adaptor_ctx, sd)
 
+#define PREFIX "[D/D]"
 #define adaptor_logd(_ctx, format, args...) do { \
 	if ((_ctx) && unlikely(*((_ctx)->sensor_debug_flag))) { \
-		dev_info((_ctx)->dev, "[%s][%s][%s] " format, \
+		dev_info((_ctx)->dev, PREFIX "[%s][%s][%s] " format, \
 			(_ctx)->sd.name, \
 			((_ctx)->subdrv) ? ((_ctx)->subdrv->name) : "null", __func__, ##args); \
 	} \
@@ -37,7 +38,7 @@
 
 #define adaptor_loge(_ctx, format, args...) do { \
 	if (_ctx) { \
-		dev_info((_ctx)->dev, "[%s][%s][%s] ERROR: " format, \
+		dev_info((_ctx)->dev, PREFIX "[%s][%s][%s] ERROR: " format, \
 			(_ctx)->sd.name, \
 			((_ctx)->subdrv) ? ((_ctx)->subdrv->name) : "null", __func__, ##args); \
 	} \
@@ -45,7 +46,7 @@
 
 #define adaptor_logm(_ctx, format, args...) do { \
 	if ((_ctx) && unlikely(*((_ctx)->sensor_debug_flag)==2)) { \
-		dev_info((_ctx)->dev, "[%s][%s][%s] " format, \
+		dev_info((_ctx)->dev, PREFIX "[%s][%s][%s] " format, \
 			(_ctx)->sd.name, \
 			((_ctx)->subdrv) ? ((_ctx)->subdrv->name) : "null", __func__, ##args); \
 	} \
@@ -53,7 +54,7 @@
 
 #define adaptor_logi(_ctx, format, args...) do { \
 	if (_ctx) { \
-		dev_info((_ctx)->dev, "[%s][%s][%s] " format, \
+		dev_info((_ctx)->dev, PREFIX "[%s][%s][%s] " format, \
 			(_ctx)->sd.name, \
 			((_ctx)->subdrv) ? ((_ctx)->subdrv->name) : "null", __func__, ##args); \
 	} \

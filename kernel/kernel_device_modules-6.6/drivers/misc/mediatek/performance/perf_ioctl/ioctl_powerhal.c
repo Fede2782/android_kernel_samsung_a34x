@@ -94,7 +94,7 @@ static long adpf_device_ioctl(struct file *filp,
 			}
 
 			threadIds = kcalloc(t_msgKM->threadIds_size,
-				t_msgKM->threadIds_size*sizeof(__s32),
+				sizeof(__s32),
 				GFP_KERNEL);
 
 			if(!threadIds) {
@@ -134,7 +134,7 @@ static long adpf_device_ioctl(struct file *filp,
 			}
 
 			workDuration = kcalloc(t_msgKM->work_duration_size,
-				t_msgKM->work_duration_size*sizeof(struct _ADPF_WORK_DURATION),
+				sizeof(struct _ADPF_WORK_DURATION),
 				GFP_KERNEL);
 
 			if(!workDuration) {
@@ -176,7 +176,7 @@ static long adpf_device_ioctl(struct file *filp,
 			}
 
 			threadIds = kcalloc(t_msgKM->threadIds_size,
-				t_msgKM->threadIds_size*sizeof(__s32), GFP_KERNEL);
+				sizeof(__s32), GFP_KERNEL);
 
 			if(!threadIds) {
 				pr_debug("ADPF_SET_THREADS threadIds is NULL");

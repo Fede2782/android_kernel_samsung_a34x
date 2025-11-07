@@ -83,8 +83,6 @@ enum ENUM_RX_RING_IDX {
 	RX_RING_DATA3,
 	RX_RING_DATA4,
 	RX_RING_DATA5,
-	RX_RING_EVT1,
-	RX_RING_EVT2,
 	RX_RING_MAX,
 };
 
@@ -108,18 +106,13 @@ enum ENUM_RRO_IND_REASON {
 };
 #endif /* CFG_SUPPORT_HOST_OFFLOAD == 1 */
 
-#if CFG_PCIE_LTR_UPDATE
-enum ENUM_PCIE_LTR_STATE {
-	PCIE_LTR_STATE_TX_START = 0,
-	PCIE_LTR_STATE_TX_END,
-	PCIE_LTR_STATE_NUM
-};
-#endif
-
 /*******************************************************************************
  *                            P U B L I C   D A T A
  *******************************************************************************
  */
+#if defined(_HIF_USB)
+extern struct TIMER rSerSyncTimer;
+#endif
 
 /*******************************************************************************
  *                           P R I V A T E   D A T A
@@ -136,36 +129,6 @@ enum ENUM_PCIE_LTR_STATE {
 #define HAL_CLEAR_FLAG(_M, _F)           ((_M)->u4HwFlags &= ~(_F))
 #define HAL_TEST_FLAG(_M, _F)            ((_M)->u4HwFlags & (_F))
 #define HAL_TEST_FLAGS(_M, _F)           (((_M)->u4HwFlags & (_F)) == (_F))
-
-#if CFG_MTK_WIFI_SW_EMI_RING
-#define HAL_MCR_EMI_RD(_prAdapter, _u4Offset, _pu4Value, _puRet) { \
-	struct ADAPTER *_A = _prAdapter; \
-	if (_A) { \
-		*_puRet = kalDevRegReadByEmi( \
-			_A->prGlueInfo, _u4Offset, _pu4Value); \
-	} else { \
-		*_puRet = FALSE; \
-	} \
-}
-
-#define HAL_MCR_EMI_RD8(_prAdapter, _u4Offset, _pu4Low, _pu4High, _puRet) { \
-	struct ADAPTER *_A = _prAdapter; \
-	if (_A) { \
-		*_puRet = kalDevRegReadByEmi8( \
-			_A->prGlueInfo, _u4Offset, _pu4Low, _pu4High); \
-	} else { \
-		*_puRet = FALSE; \
-	} \
-}
-#else
-#define HAL_MCR_EMI_RD(_prAdapter, _u4Offset, _pu4Value, _puRet) { \
-	*_puRet = FALSE; \
-}
-
-#define HAL_MCR_EMI_RD8(_prAdapter, _u4Offset, _pu4Value, _puRet) {	\
-	*_puRet = FALSE; \
-}
-#endif /* CFG_MTK_WIFI_SW_EMI_RING */
 
 #if defined(_HIF_SDIO)
 #define HAL_MCR_RD(_prAdapter, _u4Offset, _pu4Value) \
@@ -199,8 +162,6 @@ do { \
 			(uint32_t) (_u4Offset)); \
 	} \
 } while (0)
-
-#define HAL_RMCR_RD(_RSN, _A, _R, _V)	HAL_MCR_RD(_A, _R, _V)
 
 #define HAL_MCR_WR(_prAdapter, _u4Offset, _u4Value) \
 do { \
@@ -331,8 +292,6 @@ do { \
 #define L1_REMAP_BASE_MASK (0xffff << 16)
 #define GET_L1_REMAP_BASE(p) (((p) & L1_REMAP_BASE_MASK) >> 16)
 
-#define CONN_INFRA_ON_ADDR_START	0x20000000
-#define CONN_INFRA_ON_ADDR_END		0x20ffffff
 #define CONN_INFRA_PHY_ADDR_START	0x18000000
 #define CONN_INFRA_PHY_ADDR_END		0x183fffff
 #define WFSYS_PHY_ADDR_START		0x18400000
@@ -344,7 +303,7 @@ do { \
 #define CBTOP2_PHY_ADDR_START		0xf0000000
 #define CBTOP2_PHY_ADDR_END		0xffffffff
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 #define WF_MCUSYS_VDNR_GEN_BUS_U_DEBUG_CTRL_START 0x810f0000
 #define WF_MCUSYS_VDNR_GEN_BUS_U_DEBUG_CTRL_END 0x810f043c
 #define CONN_MCU_BUS_CR_START 0x830c1000
@@ -358,15 +317,10 @@ do { \
 #endif
 
 #define CONN_INFRA_MCU_ADDR_START	0x7c000000
-#define CONN_INFRA_MCU_ADDR_END		0x7cffffff
+#define CONN_INFRA_MCU_ADDR_END		0x7c3fffff
 #define CONN_INFRA_MCU_TO_PHY_ADDR_OFFSET \
 	(CONN_INFRA_MCU_ADDR_START - CONN_INFRA_PHY_ADDR_START)
-#define CONN_INFRA_ON_ADDR_OFFSET \
-	(CONN_INFRA_ON_ADDR_START - CONN_INFRA_PHY_ADDR_START)
 
-#define IS_CONN_INFRA_ON_ADDR(_reg) \
-	((_reg) >= CONN_INFRA_ON_ADDR_START && (_reg) \
-		<= CONN_INFRA_ON_ADDR_END)
 #define IS_CONN_INFRA_PHY_ADDR(_reg) \
 	((_reg) >= CONN_INFRA_PHY_ADDR_START && (_reg) \
 		<= CONN_INFRA_PHY_ADDR_END)
@@ -385,7 +339,7 @@ do { \
 	((_reg) >= CONN_INFRA_MCU_ADDR_START && (_reg) \
 			<= CONN_INFRA_MCU_ADDR_END)
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 #define IS_WF_MCUSYS_VDNR_ADDR(_reg) \
 	((_reg) >= WF_MCUSYS_VDNR_GEN_BUS_U_DEBUG_CTRL_START && (_reg) \
 			<= WF_MCUSYS_VDNR_GEN_BUS_U_DEBUG_CTRL_END)
@@ -397,66 +351,17 @@ do { \
 			<= CONN_MCU_CONFG_CFG_DBG1_ADDR_END)
 #endif
 
-#if (CFG_NEW_HIF_DEV_REG_IF == 1)
-#define HAL_RMCR_RD(_RSN, _A, _R, _V) \
+#define HAL_MCR_RD(_prAdapter, _u4Offset, _pu4Value) \
 { \
-	struct ADAPTER *_AD = _A; \
-	if (_AD == NULL) { \
-		kalDevRegRead( \
-			HIF_DEV_REG_##_RSN, NULL, _R, _V); \
+	if (_prAdapter == NULL) { \
+		kalDevRegRead(NULL, _u4Offset, _pu4Value); \
 	} else { \
-		if (_AD->rAcpiState == ACPI_STATE_D3) \
+		if (_prAdapter->rAcpiState == ACPI_STATE_D3) {	\
 			ASSERT(0); \
-		kalDevRegRead( \
-			HIF_DEV_REG_##_RSN, _AD->prGlueInfo, _R, _V); \
+		} \
+		kalDevRegRead(_prAdapter->prGlueInfo, _u4Offset, _pu4Value); \
 	} \
 }
-
-#define HAL_RMCR_RD_RANGE(_RSN, _A, _R, _B, _S, _RET) \
-{ \
-	struct ADAPTER *_AD = _A; \
-	if (_AD == NULL) { \
-		_RET = kalDevRegReadRange( \
-			HIF_DEV_REG_##_RSN, NULL, _R, _B, _S); \
-	} else { \
-		if (_AD->rAcpiState == ACPI_STATE_D3) \
-			ASSERT(0); \
-		_RET = kalDevRegReadRange( \
-			HIF_DEV_REG_##_RSN, _AD->prGlueInfo, \
-			_R, _B, _S); \
-	} \
-	_RET; \
-}
-#else
-#define HAL_MCR_RD(_A, _R, _V) \
-{ \
-	struct ADAPTER *_AD = _A; \
-	if (_AD == NULL) { \
-		kalDevRegRead(NULL, _R, _V); \
-	} else { \
-		if (_AD->rAcpiState == ACPI_STATE_D3) \
-			ASSERT(0); \
-		kalDevRegRead(_AD->prGlueInfo, _R, _V); \
-	} \
-}
-
-#define HAL_MCR_RD_RANGE(_A, _R, _B, _S, _RET) \
-{ \
-	struct ADAPTER *_AD = _A; \
-	if (_AD == NULL) { \
-		_RET = kalDevRegReadRange(NULL, _R, _B, _S); \
-	} else { \
-		if (_AD->rAcpiState == ACPI_STATE_D3) \
-			ASSERT(0); \
-		_RET = kalDevRegReadRange(_AD->prGlueInfo, _R, _B, _S); \
-	} \
-	_RET; \
-}
-
-#define HAL_RMCR_RD(_RSN, _A, _R, _V)	HAL_MCR_RD(_A, _R, _V)
-#define HAL_RMCR_RD_RANGE(_RSN, _A, _R, _B, _S, _RET) \
-	HAL_MCR_RD_RANGE(_A, _R, _B, _S, _RET)
-#endif /* CFG_NEW_HIF_DEV_REG_IF */
 
 #define HAL_MCR_WR(_prAdapter, _u4Offset, _u4Value) \
 { \
@@ -496,37 +401,20 @@ do { \
 
 #endif /* #if defined(_HIF_SDIO) */
 
-#if (CFG_NEW_HIF_DEV_REG_IF == 1)
-#define HAL_MCR_WR_FIELD(_R, _A, _O, _u4FieldVal, _ucShft, _u4Mask) \
+#define HAL_MCR_WR_FIELD(_prAdapter, _u4Offset, _u4FieldVal, _ucShft, _u4Mask) \
 { \
 	uint32_t u4CrValue = 0; \
-	HAL_RMCR_RD(_R, _A, _O, &u4CrValue);	\
+	HAL_MCR_RD(_prAdapter, _u4Offset, &u4CrValue); \
 	u4CrValue &= (~_u4Mask); \
 	u4CrValue |= ((_u4FieldVal << _ucShft) & _u4Mask); \
-	HAL_MCR_WR(_A, _O, u4CrValue); \
+	HAL_MCR_WR(_prAdapter, _u4Offset, u4CrValue); \
 }
 
-#define HAL_MCR_RD_FIELD(_R, _A, _O, _ucShft, _u4Mask, pu4Val) \
+#define HAL_MCR_RD_FIELD(_prAdapter, _u4Offset, _ucShft, _u4Mask, pu4Val) \
 { \
-	HAL_RMCR_RD(_R, _A, _O, pu4Val); \
+	HAL_MCR_RD(_prAdapter, _u4Offset, pu4Val); \
 	*pu4Val = ((*pu4Val & _u4Mask) >> _ucShft); \
 }
-#else
-#define HAL_MCR_WR_FIELD(_A, _O, _u4FieldVal, _ucShft, _u4Mask) \
-{ \
-	uint32_t u4CrValue = 0; \
-	HAL_MCR_RD(_A, _O, &u4CrValue);	\
-	u4CrValue &= (~_u4Mask); \
-	u4CrValue |= ((_u4FieldVal << _ucShft) & _u4Mask); \
-	HAL_MCR_WR(_A, _O, u4CrValue); \
-}
-
-#define HAL_MCR_RD_FIELD(_A, _O, _ucShft, _u4Mask, pu4Val) \
-{ \
-	HAL_MCR_RD(_A, _O, pu4Val); \
-	*pu4Val = ((*pu4Val & _u4Mask) >> _ucShft); \
-}
-#endif /* CFG_NEW_HIF_DEV_REG_IF */
 
 #define HAL_WRITE_TX_DATA(_prAdapter, _prMsduInfo) \
 { \
@@ -603,99 +491,47 @@ do { \
 	*pu2Version = (u4Value & PCIE_HIF_SYS_REV); \
 }
 
-#if (CFG_MTK_WIFI_ON_READ_BY_CFG_SPACE == 1) && defined(_HIF_PCIE)
-#define HAL_WIFI_FUNC_READY_CHECK(_prAdapter, _checkItem, _pfgResult) \
-do { \
-	uint32_t u4Value = 0; \
-	glReadPcieCfgSpace(PCIE_CFGSPACE_BASE_OFFSET, &u4Value); \
-	*_pfgResult = (((u4Value >> PCIE_CFGSPACE_FW_STATUS_SYNC_SHIFT) \
-		       & PCIE_CFGSPACE_FW_STATUS_SYNC_MASK) \
-		       == (PCIE_CFGSPACE_FW_STATUS_SYNC_MASK)) ? TRUE : FALSE; \
-} while (0)
-#else
+#if CFG_MTK_WIFI_EN_SW_EMI_READ
 #define HAL_WIFI_FUNC_READY_CHECK(_prAdapter, _checkItem, _pfgResult) \
 do { \
 	struct mt66xx_chip_info *prChipInfo = NULL; \
+	struct SW_EMI_RING_INFO *prSwEmiRingInfo; \
 	uint32_t u4Value = 0; \
 	u_int8_t fgRet = FALSE; \
 	if (!_prAdapter->chip_info) \
 		ASSERT(0); \
 	*_pfgResult = FALSE; \
 	prChipInfo = _prAdapter->chip_info; \
-	HAL_MCR_EMI_RD(_prAdapter, prChipInfo->sw_sync0, &u4Value, &fgRet); \
+	prSwEmiRingInfo = &_prAdapter->chip_info->bus_info->rSwEmiRingInfo; \
+	if (IS_FEATURE_ENABLED(_prAdapter->rWifiVar.fgEnSwEmiRead) && \
+		prSwEmiRingInfo->rOps.read) { \
+		fgRet = prSwEmiRingInfo->rOps.read( \
+			_prAdapter->prGlueInfo, \
+			prChipInfo->sw_sync0, \
+			&u4Value); \
+	} \
 	if (!fgRet) \
-		HAL_RMCR_RD(ONOFF_READ, _prAdapter, \
-			       prChipInfo->sw_sync0, &u4Value);	\
+		HAL_MCR_RD(_prAdapter, prChipInfo->sw_sync0, &u4Value); \
 	if ((u4Value & (_checkItem << prChipInfo->sw_ready_bit_offset)) \
 	     == (_checkItem << prChipInfo->sw_ready_bit_offset)) \
 		*_pfgResult = TRUE; \
 } while (0)
-#endif /* CFG_MTK_WIFI_EN_SW_EMI_READ */
-
-#if (CFG_MTK_WIFI_SUPPORT_SW_SYNC_BY_EMI == 1)
-#define HAL_WIFI_FUNC_OFF_CHECK(_prAdapter, _checkItem, _pfgResult) \
+#else
+#define HAL_WIFI_FUNC_READY_CHECK(_prAdapter, _checkItem, _pfgResult) \
 do { \
 	struct mt66xx_chip_info *prChipInfo = NULL; \
-	uint32_t u4Value = _checkItem; \
-	int32_t i4Ret = -1; \
+	uint32_t u4Value = 0; \
 	if (!_prAdapter->chip_info) \
 		ASSERT(0); \
 	*_pfgResult = FALSE; \
 	prChipInfo = _prAdapter->chip_info; \
-					\
-	if (!prChipInfo->sw_sync_emi_info[SW_SYNC_ON_OFF_TAG].isValid) { \
-		DBGLOG(INIT, ERROR, \
-		"WiFi Off EMI is invalid, offset:[0x%08x].\n", \
-		prChipInfo->sw_sync_emi_info[SW_SYNC_ON_OFF_TAG].offset);\
-		break; \
-	} \
-	i4Ret = emi_mem_read(prChipInfo, \
-			prChipInfo->\
-			sw_sync_emi_info[SW_SYNC_ON_OFF_TAG].offset, \
-			&u4Value, \
-			sizeof(u4Value)); \
-	if (i4Ret != 0) {\
-		DBGLOG(INIT, ERROR, \
-		"Read WiFi off EMI offset:[0x%08x] failed.\n", \
-		prChipInfo->\
-		sw_sync_emi_info[SW_SYNC_ON_OFF_TAG].offset); \
-	} else if (u4Value == prChipInfo->wifi_off_magic_num) { \
+	HAL_MCR_RD(_prAdapter, prChipInfo->sw_sync0, &u4Value); \
+	if ((u4Value & (_checkItem << prChipInfo->sw_ready_bit_offset)) \
+	     == (_checkItem << prChipInfo->sw_ready_bit_offset)) \
 		*_pfgResult = TRUE; \
-	} \
 } while (0)
+#endif
 
-#define HAL_WIFI_FUNC_GET_STATUS(_prAdapter, _u4Result) \
-do { \
-	struct mt66xx_chip_info *prChipInfo = NULL; \
-	struct BUS_INFO *prBusInfo = NULL; \
-	uint32_t u4Value = 0; \
-	int32_t i4Ret = -1; \
-	if (!_prAdapter->chip_info || !_prAdapter->chip_info->bus_info) \
-		ASSERT(0); \
-	prChipInfo = _prAdapter->chip_info; \
-	prBusInfo = prChipInfo->bus_info; \
-	\
-	if (!prChipInfo->sw_sync_emi_info[SW_SYNC_ON_OFF_TAG].isValid) { \
-		HAL_RMCR_RD(ONOFF_READ, _prAdapter, \
-		       prChipInfo->sw_sync0, &_u4Result); \
-	} else { \
-		i4Ret = emi_mem_read(prChipInfo, \
-			prChipInfo->\
-			sw_sync_emi_info[SW_SYNC_ON_OFF_TAG].offset, \
-			&_u4Result, \
-			sizeof(_u4Result)); \
-		if (i4Ret != 0) \
-			DBGLOG(INIT, ERROR, \
-			"Read EMI offset: [0x%08x] failed.\n", \
-			prChipInfo->\
-			sw_sync_emi_info[SW_SYNC_ON_OFF_TAG].offset); \
-	} \
-	if (prBusInfo->getMailboxStatus) {	\
-		prBusInfo->getMailboxStatus(_prAdapter, &u4Value);	\
-		DBGLOG(INIT, DEBUG, "Mailbox: 0x%x\n", u4Value); \
-	} \
-} while (0)
-#else /* CFG_MTK_WIFI_SUPPORT_SW_SYNC_BY_EMI == 0 */
 #define HAL_WIFI_FUNC_OFF_CHECK(_prAdapter, _checkItem, _pfgResult) \
 do { \
 	HAL_WIFI_FUNC_READY_CHECK(_prAdapter, _checkItem, _pfgResult); \
@@ -711,14 +547,12 @@ do { \
 		ASSERT(0); \
 	prChipInfo = _prAdapter->chip_info; \
 	prBusInfo = prChipInfo->bus_info; \
-	HAL_RMCR_RD(ONOFF_READ, _prAdapter, \
-		       prChipInfo->sw_sync0, &_u4Result);	\
+	HAL_MCR_RD(_prAdapter, prChipInfo->sw_sync0, &_u4Result); \
 	if (prBusInfo->getMailboxStatus) {	\
 		prBusInfo->getMailboxStatus(_prAdapter, &u4Value);	\
-		DBGLOG(INIT, DEBUG, "Mailbox: 0x%x\n", u4Value); \
+		DBGLOG(INIT, INFO, "Mailbox: 0x%x\n", u4Value); \
 	} \
 } while (0)
-#endif /* CFG_MTK_WIFI_SUPPORT_SW_SYNC_BY_EMI */
 
 #define HAL_INTR_DISABLE(_prAdapter)
 
@@ -854,8 +688,7 @@ do { \
 		ASSERT(0); \
 	} else {\
 		prChipInfo = _prAdapter->chip_info; \
-		HAL_RMCR_RD(LPOWN_READ, _prAdapter, \
-			       prChipInfo->sw_sync0, &u4Value); \
+		HAL_MCR_RD(_prAdapter, prChipInfo->sw_sync0, &u4Value); \
 		u4Value &= ~(WIFI_FUNC_DUMMY_REQ << \
 			prChipInfo->sw_ready_bit_offset);\
 		HAL_MCR_WR(prAdapter, prChipInfo->sw_sync0, u4Value);\
@@ -983,13 +816,8 @@ do { \
 	halPollDbgCr(_prAdapter, LP_DBGCR_POLL_ROUND); \
 } while (0)
 
-#if (defined(CFG_SDIO_MAILBOX_EXTENSION) && (CFG_SDIO_MAILBOX_EXTENSION == 1))
-#define HAL_WIFI_FUNC_GET_STATUS(_prAdapter, _u4Result) \
-	halGetMailbox(_prAdapter, ENUM_SDIO_MAILBOX_STATUS, &_u4Result)
-#else
 #define HAL_WIFI_FUNC_GET_STATUS(_prAdapter, _u4Result) \
 	halGetMailbox(_prAdapter, 0, &_u4Result)
-#endif
 
 #define HAL_INTR_DISABLE(_prAdapter) \
 	HAL_MCR_WR(_prAdapter, \
@@ -1029,7 +857,7 @@ do { \
 			*_pfgResult = TRUE; \
 		} \
 	} else \
-		DBGLOG(INIT, DEBUG, "[SER][L0.5]skip set fw own\n"); \
+		DBGLOG(INIT, INFO, "[SER][L0.5]skip set fw own\n"); \
 }
 
 #define HAL_LP_OWN_CLR(_prAdapter, _pfgResult) \
@@ -1045,99 +873,6 @@ do { \
 		*_pfgResult = TRUE; \
 	} \
 }
-
-#if (CFG_SUPPORT_SDIO_DB_DELAY == 1)
-
-#define HAL_LP_DB_DELAY_CLEAR(_prAdapter, _pfgResult) \
-{ \
-	if (_pfgResult != NULL) { \
-		uint32_t u4RegValue = 0; \
-		*_pfgResult = TRUE; \
-		HAL_MCR_RD(_prAdapter, \
-			MCR_WHLPCR, \
-			&u4RegValue); \
-		if ((u4RegValue & WHLPCR_REG_DB_DELAY_CNT_ENABLE) != 0) { \
-			u4RegValue &= WHLPCR_FORCE_DRV_OWN; \
-			HAL_MCR_WR(_prAdapter, \
-				MCR_WHLPCR, \
-				u4RegValue); \
-			HAL_MCR_RD(_prAdapter, MCR_WHLPCR, &u4RegValue); \
-			if ((u4RegValue \
-				& WHLPCR_REG_DB_DELAY_CNT_ENABLE) != 0) { \
-				*_pfgResult = FALSE; \
-			} \
-		} \
-	} \
-}
-
-#define HAL_LP_DB_DELAY_SET(_prAdapter, _pfgResult) \
-{ \
-	if (_pfgResult != NULL) { \
-		uint32_t u4RegValue = 0; \
-		*_pfgResult = FALSE; \
-		HAL_MCR_RD(_prAdapter, MCR_WHLPCR, &u4RegValue); \
-		if ((u4RegValue & WHLPCR_REG_DB_DELAY_CNT_ENABLE) != 0) { \
-			*_pfgResult = TRUE; \
-		} else { \
-			u4RegValue &= WHLPCR_FORCE_DRV_OWN; \
-			u4RegValue |= WHLPCR_REG_DB_DELAY_CNT_ENABLE; \
-			u4RegValue |= (WHLPCR_REG_DB_DELAY_CNT_0x60 << \
-					WHLPCR_REG_DB_DELAY_CNT_SHIFT); \
-			HAL_MCR_WR(_prAdapter, \
-				MCR_WHLPCR, \
-				u4RegValue); \
-			HAL_MCR_RD(_prAdapter, MCR_WHLPCR, &u4RegValue); \
-			if ((u4RegValue \
-				& WHLPCR_REG_DB_DELAY_CNT_ENABLE) != 0) { \
-				*_pfgResult = TRUE; \
-			} \
-		} \
-	} \
-}
-
-#endif
-
-#if (CFG_SUPPORT_SDIO_FORCE_DRV_OWN == 1)
-#define HAL_LP_FORCE_DRV_OWN_SET(_prAdapter, _pfgResult) \
-{ \
-	uint32_t u4RegValue = 0; \
-	*_pfgResult = FALSE; \
-	/* Software set LP force driver own*/ \
-	HAL_MCR_RD(_prAdapter, MCR_WHLPCR, &u4RegValue); \
-	if ((u4RegValue & \
-		(WHLPCR_FORCE_DRV_OWN | WHLPCR_IS_DRIVER_OWN)) != 0) { \
-		*_pfgResult = TRUE; \
-	} else { \
-		u4RegValue &= (WHLPCR_REG_DB_DELAY_CNT_MASK | \
-				WHLPCR_REG_DB_DELAY_CNT_ENABLE); \
-		u4RegValue |= WHLPCR_FORCE_DRV_OWN; \
-		HAL_MCR_WR(_prAdapter, MCR_WHLPCR, u4RegValue); \
-		HAL_MCR_RD(_prAdapter, MCR_WHLPCR, &u4RegValue); \
-		if (((u4RegValue & WHLPCR_FORCE_DRV_OWN) != 0) && \
-			((u4RegValue & WHLPCR_IS_DRIVER_OWN) == 0)) { \
-			*_pfgResult = TRUE; \
-		} \
-	} \
-}
-
-#define HAL_LP_FORCE_DRV_OWN_CLR(_prAdapter, _pfgResult) \
-{ \
-	uint32_t u4RegValue = 0; \
-	*_pfgResult = TRUE; \
-	HAL_MCR_RD(_prAdapter, \
-		MCR_WHLPCR, \
-		&u4RegValue); \
-	if ((u4RegValue & WHLPCR_FORCE_DRV_OWN) != 0) { \
-		u4RegValue &= (WHLPCR_REG_DB_DELAY_CNT_MASK | \
-				WHLPCR_REG_DB_DELAY_CNT_ENABLE); \
-		HAL_MCR_WR(_prAdapter, MCR_WHLPCR, u4RegValue); \
-		HAL_MCR_RD(_prAdapter, MCR_WHLPCR, &u4RegValue); \
-		if ((u4RegValue & WHLPCR_FORCE_DRV_OWN) != 0) { \
-			*_pfgResult = FALSE; \
-		} \
-	} \
-}
-#endif
 
 #define HAL_GET_ABNORMAL_INTERRUPT_REASON_CODE(_prAdapter, pu4AbnormalReason) \
 { \
@@ -1297,17 +1032,6 @@ do { \
 #define HAL_IS_FW_OWNBACK_INTR(u4IntrStatus) \
 	((u4IntrStatus & WHISR_FW_OWN_BACK_INT) ? TRUE : FALSE)
 
-#if (defined(CFG_SDIO_MAILBOX_EXTENSION) && (CFG_SDIO_MAILBOX_EXTENSION == 1))
-#define HAL_PUT_MAILBOX(prAdapter, u4MboxId, u4Data) \
-{ \
-	halPutMailbox(prAdapter, u4MboxId, u4Data); \
-}
-
-#define HAL_GET_MAILBOX(prAdapter, u4MboxId, pu4Data) \
-{ \
-	halGetMailbox(prAdapter, u4MboxId, pu4Data); \
-}
-#else
 #define HAL_PUT_MAILBOX(prAdapter, u4MboxId, u4Data) \
 { \
 	ASSERT(u4MboxId < 2); \
@@ -1323,7 +1047,6 @@ do { \
 		((u4MboxId == 0) ? MCR_D2HRM0R : MCR_D2HRM1R), \
 		pu4Data); \
 }
-#endif
 
 #define HAL_SET_MAILBOX_READ_CLEAR(prAdapter, fgEnableReadClear) \
 { \
@@ -1369,6 +1092,7 @@ do { \
 #define HAL_RESUME_TX_RX(_prAdapter) nicSerStartTxRx(_prAdapter)
 
 #define HAL_TOGGLE_WFSYS_RST(_prAdapter)  halToggleWfsysRst(_prAdapter)
+
 #endif
 
 #if defined(_HIF_USB)
@@ -1659,24 +1383,9 @@ uint32_t halRxWaitResponse(struct ADAPTER *prAdapter,
 void halEnableInterrupt(struct ADAPTER *prAdapter);
 void halDisableInterrupt(struct ADAPTER *prAdapter);
 
-#if (CFG_MTK_WIFI_DRV_OWN_DEBUG_MODE == 1)
-uint32_t halSetDriverOwn(struct ADAPTER *prAdapter,
-	struct DRV_OWN_INFO *prDrvOwnInfo);
-void halSetFWOwn(struct ADAPTER *prAdapter,
-	u_int8_t fgEnableGlobalInt,
-	enum ENUM_DRV_OWN_SRC eDrvOwnSrc);
-uint32_t halUpdateDrvOwnInfo(struct ADAPTER *prAdapter,
-			     struct DRV_OWN_INFO *prDrvOwnInfo,
-			     enum DRV_OWN_INFO_ACTION eAction,
-			     uint32_t u4Result,
-			     uint8_t **ppucLog);
-void halAccessDrvOwnTable(struct ADAPTER *prAdapter,
-			enum DRV_OWN_INFO_ACTION eAction);
-#else
-uint32_t halSetDriverOwn(struct ADAPTER *prAdapter);
+u_int8_t halSetDriverOwn(struct ADAPTER *prAdapter);
 void halSetFWOwn(struct ADAPTER *prAdapter,
 	u_int8_t fgEnableGlobalInt);
-#endif
 
 void halDevInit(struct ADAPTER *prAdapter);
 void halEnableFWDownload(struct ADAPTER *prAdapter,
@@ -1723,7 +1432,6 @@ uint32_t halReleaseIOBuffer(struct ADAPTER *prAdapter);
 void halDeAggRxPktWorker(struct work_struct *work);
 void halRxTasklet(uintptr_t data);
 void halRxWork(struct GLUE_INFO *prGlueInfo);
-void halTxWork(struct GLUE_INFO *prGlueInfo);
 void halTxCompleteTasklet(uintptr_t data);
 void halPrintHifDbgInfo(struct ADAPTER *prAdapter);
 u_int8_t halIsTxResourceControlEn(struct ADAPTER *prAdapter);
@@ -1745,7 +1453,9 @@ void halTxReturnFreeResource_v1(struct ADAPTER *prAdapter,
 uint8_t halTxRingDataSelect(struct ADAPTER *prAdapter,
 	struct MSDU_INFO *prMsduInfo);
 void halUpdateTxMaxQuota(struct ADAPTER *prAdapter);
-void halTriggerSwInterrupt(struct ADAPTER *prAdapter, uint32_t u4Bit);
+#if CFG_MTK_MDDP_SUPPORT
+void halNotifyMdCrash(struct ADAPTER *prAdapter);
+#endif
 u_int8_t halTxIsBssCntFull(struct ADAPTER *prAdapter, uint8_t ucBssIndex);
 void halUpdateBssTokenCnt(struct ADAPTER *prAdapter, uint8_t ucBssIndex);
 #if (CFG_TX_HIF_CREDIT_FEATURE == 1)

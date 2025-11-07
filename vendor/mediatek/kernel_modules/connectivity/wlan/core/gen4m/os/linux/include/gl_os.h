@@ -25,11 +25,7 @@
  * Flags for LINUX(OS) dependent
  *------------------------------------------------------------------------------
  */
-#if CFG_SUPPORT_MULTI_CARD
-#define CFG_MAX_WLAN_DEVICES 2 /* number of wlan card will coexist */
-#else
 #define CFG_MAX_WLAN_DEVICES 1 /* number of wlan card will coexist */
-#endif
 
 #define CFG_MAX_TXQ_NUM 4 /* number of tx queue for support multi-queue h/w  */
 
@@ -200,10 +196,6 @@
 extern struct ADAPTER *g_prAdapter;
 #endif
 
-#if CFG_SW_TSO
-#include <net/tso.h>
-#endif /* CFG_SW_TSO */
-
 #include "gl_typedef.h"
 #include "typedef.h"
 #include "queue.h"
@@ -247,22 +239,14 @@ extern struct ADAPTER *g_prAdapter;
 #include "agent.h"
 #endif
 
-#include <linux/miscdevice.h>   /* for misc_register, and SYNTH_MINOR */
-
-#if CFG_SUPPORT_CSI
-#include "nic_cmd_event.h"
-#include "gl_csi.h"
-#endif
-
 extern u_int8_t fgIsMcuOff;
 extern u_int8_t fgIsBusAccessFailed;
 #if CFG_MTK_WIFI_PCIE_SUPPORT
 extern u_int8_t fgIsPcieDataTransDisabled;
 #endif /* CFG_MTK_WIFI_PCIE_SUPPORT */
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 extern u_int8_t fgTriggerDebugSop;
 #endif
-extern u_int32_t u4SdesDetectTime;
 extern const struct ieee80211_iface_combination
 	*p_mtk_iface_combinations_sta;
 extern const int32_t mtk_iface_combinations_sta_num;
@@ -282,6 +266,7 @@ extern uint8_t g_aucNvram_OnlyPreCal[];
 #define GLUE_FLAG_TIMEOUT               BIT(3)
 #define GLUE_FLAG_TXREQ                 BIT(4)
 #define GLUE_FLAG_SER_TIMEOUT           BIT(5)
+#define GLUE_FLAG_SUB_MOD_MULTICAST     BIT(7)
 #define GLUE_FLAG_FRAME_FILTER          BIT(8)
 #define GLUE_FLAG_FRAME_FILTER_AIS      BIT(9)
 
@@ -291,6 +276,7 @@ extern uint8_t g_aucNvram_OnlyPreCal[];
 #define GLUE_FLAG_TIMEOUT_BIT           (3)
 #define GLUE_FLAG_TXREQ_BIT             (4)
 #define GLUE_FLAG_SER_TIMEOUT_BIT       (5)
+#define GLUE_FLAG_SUB_MOD_MULTICAST_BIT (7)
 #define GLUE_FLAG_FRAME_FILTER_BIT      (8)
 #define GLUE_FLAG_FRAME_FILTER_AIS_BIT  (9)
 
@@ -300,6 +286,8 @@ extern uint8_t g_aucNvram_OnlyPreCal[];
 #define GLUE_FLAG_HIF_TX_CMD			BIT(13)
 #define GLUE_FLAG_RX_TO_OS			BIT(14)
 #define GLUE_FLAG_HIF_FW_OWN			BIT(15)
+#define GLUE_FLAG_HIF_PRT_HIF_DBG_INFO		BIT(16)
+#define GLUE_FLAG_UPDATE_WMM_QUOTA		BIT(17)
 #define GLUE_FLAG_HIF_MDDP			BIT(18)
 #define GLUE_FLAG_DRV_INT			BIT(19)
 
@@ -319,64 +307,44 @@ extern uint8_t g_aucNvram_OnlyPreCal[];
 #define GLUE_FLAG_HIF_MDDP_BIT			(18)
 #define GLUE_FLAG_DRV_INT_BIT			(19)
 
+#define GLUE_FLAG_RST_START BIT(18)
+#define GLUE_FLAG_RST_START_BIT 18
+#define GLUE_FLAG_RST_END BIT(19)
+#define GLUE_FLAG_RST_END_BIT 19
+
 #if CFG_SUPPORT_NAN /* notice the bit differnet with 7668 */
-#define GLUE_FLAG_NAN_MULTICAST			BIT(20)
-#define GLUE_FLAG_NAN_MULTICAST_BIT		(20)
+#define GLUE_FLAG_NAN_MULTICAST_BIT (20)
+#define GLUE_FLAG_NAN_MULTICAST BIT(20)
 #endif
 
 #if (CFG_SUPPORT_POWER_THROTTLING == 1)
 #define GLUE_FLAG_CNS_PWR_LEVEL_BIT		(21)
-#define GLUE_FLAG_CNS_PWR_LEVEL			BIT(21)
 #define GLUE_FLAG_CNS_PWR_TEMP_BIT		(22)
+#define GLUE_FLAG_CNS_PWR_LEVEL			BIT(21)
 #define GLUE_FLAG_CNS_PWR_TEMP			BIT(22)
 #endif
 
-#define GLUE_FLAG_RX_DIRECT_INT_BIT		(23)
-#define GLUE_FLAG_RX_DIRECT_INT			BIT(23)
+#define GLUE_FLAG_RX_DIRECT_INT_BIT             (23)
+#define GLUE_FLAG_RX_DIRECT_INT                 BIT(23)
 
-#define GLUE_FLAG_MGMT_DIRECT_HIF_TX_BIT	(24)
-#define GLUE_FLAG_MGMT_DIRECT_HIF_TX		BIT(24)
+#define GLUE_FLAG_MGMT_DIRECT_HIF_TX_BIT        (24)
+#define GLUE_FLAG_MGMT_DIRECT_HIF_TX            BIT(24)
 
-#define GLUE_FLAG_SER_INT_BIT			(25)
-#define GLUE_FLAG_SER_INT			BIT(25)
+#define GLUE_FLAG_SER_INT_BIT                   (25)
+#define GLUE_FLAG_SER_INT                       BIT(25)
 
 #define GLUE_FLAG_DRV_OWN_INT_BIT		(26)
 #define GLUE_FLAG_DRV_OWN_INT			BIT(26)
 
-#define GLUE_FLAG_DISABLE_PERF_BIT		(27)
-#define GLUE_FLAG_DISABLE_PERF			BIT(27)
+#define GLUE_FLAG_DISABLE_PERF_BIT              (27)
+#define GLUE_FLAG_DISABLE_PERF                  BIT(27)
 
-#define GLUE_FLAG_TX_TIMEOUT_DUMP_BIT		(28)
+#define GLUE_FLAG_TX_TIMEOUT_DUMP_BIT	(28)
 #define GLUE_FLAG_TX_TIMEOUT_DUMP		BIT(28)
 
-#define GLUE_FLAG_HRTIMER_BIT			(29)
-#define GLUE_FLAG_HRTIMER			BIT(29)
-
-#define GLUE_FLAG_CONNECTIVITY_LOG_BIT		(31)
-#define GLUE_FLAG_CONNECTIVITY_LOG		BIT(31)
-
-#define HIF_FLAG_AER_RESET		BIT(0)
-#define HIF_FLAG_AER_RESET_BIT		(0)
-
-#define HIF_FLAG_MSI_RECOVERY		BIT(1)
-#define HIF_FLAG_MSI_RECOVERY_BIT	(1)
-
-#define HIF_FLAG_ALL_TOKENS_UNUSED	BIT(2)
-#define HIF_FLAG_ALL_TOKENS_UNUSED_BIT	(2)
-
-#define HIF_FLAG_UPDATE_STATUS		BIT(3)
-#define HIF_FLAG_UPDATE_STATUS_BIT	(3)
-
-#if CFG_SUPPORT_HIF_RX_NAPI
-#define HIF_RX_NAPI_SET_DRV_OWN_BIT		(0)
-#define HIF_RX_NAPI_SET_FW_OWN_BIT		(1)
-#define HIF_RX_NAPI_SCHE_NAPI_BIT		(2)
-#endif
-
-#if CFG_SUPPORT_HIF_TX_NAPI
-#define HIF_TX_NAPI_SET_FW_OWN_BIT		(0)
-#define HIF_TX_NAPI_SCHE_NAPI_BIT		(1)
-#define HIF_TX_NAPI_TOKENS_UNUSED_BIT		(2)
+#if CFG_EXT_FEATURE
+#define GLUE_FLAG_CONNECTIVITY_LOG_BIT	(29)
+#define GLUE_FLAG_CONNECTIVITY_LOG		BIT(29)
 #endif
 
 #define GLUE_BOW_KFIFO_DEPTH        (1024)
@@ -496,21 +464,13 @@ enum ENUM_PKT_FLAG {
 	ENUM_PKT_TCP_ACK,	/* TCP ACK */
 #endif /* CFG_SUPPORT_TPENHANCE_MODE */
 	ENUM_PKT_ICMPV6,	/* ICMPV6 */
-#if (CFG_IP_FRAG_DISABLE_HW_CHECKSUM == 1)
+#ifdef CFG_IP_FRAG_DISABLE_HW_CHECKSUM
 	ENUM_PKT_IP_FRAG,	/* fragmented IP packet */
-	ENUM_PKT_IPV6_FRAG,	/* fragmented IP packet */
 #endif
 #if CFG_SUPPORT_TX_MGMT_USE_DATAQ
 	ENUM_PKT_802_11_MGMT,
 #endif
 	ENUM_PKT_FLAG_NUM
-};
-
-enum ENUM_SHUTDOWN_STATE {
-	SHUTDOWN_STATE_INIT, /*wifi on*/
-	SHUTDOWN_STATE_ONGOING,
-	SHUTDOWN_STATE_DONE,
-	SHUTDOWN_STATE_NUM
 };
 
 enum ENUM_WLAN_DRV_BUF_TYPE_T {
@@ -541,41 +501,16 @@ enum ENUM_WMM_UP {
 	WMM_UP_INDEX_NUM
 };
 
-#define WORKER_NAME_STR_MAX    32
-#define CON_WORK_MAX           4 /* must be power of 2 */
-#define CON_WORK_SHIFT         2 /* modify it when CON_WORK_MAX change */
-#define CON_WORK_MASK          BITS(0, (CON_WORK_SHIFT - 1))
-#define CPU_BIG_CORE_START_IDX 4
-typedef void(*PFN_CON_WORK_FUNC) (struct GLUE_INFO *pr, uint8_t ucIdx);
-/* concurrent worker */
-struct CON_WORK {
-	uint8_t ucIdx;
-	KAL_WAKE_LOCK_T *wakelock;
-	struct workqueue_struct *prWorkQueue;
-	struct work_struct rWork;
-	PFN_CON_WORK_FUNC func;
-	struct GLUE_INFO *pr;
-};
-
 #if CFG_SUPPORT_CPU_STAT
 enum ENUM_CPU_STAT_CNT {
 	CPU_TX_IN,
 	CPU_RX_IN,
-#if CFG_SUPPORT_PER_CPU_TX
-	CPU_TX_PER_CPU,
-#endif /* CFG_SUPPORT_PER_CPU_TX */
 #if CFG_SUPPORT_TX_WORK
 	CPU_TX_WORK_DONE,
 #endif /* CFG_SUPPORT_TX_WORK */
 #if CFG_SUPPORT_RX_WORK
 	CPU_RX_WORK_DONE,
 #endif /* CFG_SUPPORT_RX_WORK */
-#if CFG_SUPPORT_SKB_ALLOC_WORK
-	CPU_SKB_ALLOC_DONE,
-#endif /* CFG_SUPPORT_SKB_ALLOC_WORK */
-#if CFG_SUPPORT_TX_FREE_SKB_WORK
-	CPU_TX_FREE_SKB_DONE,
-#endif /* CFG_SUPPORT_TX_FREE_SKB_WORK */
 	CPU_STATISTICS_MAX
 };
 #endif /* CFG_SUPPORT_CPU_STAT */
@@ -599,11 +534,6 @@ enum ENUM_WORK {
 #if CFG_SUPPORT_HIF_REG_WORK
 	HIF_REG_WORK,
 #endif /* CFG_SUPPORT_HIF_REG_WORK */
-#if CFG_SUPPORT_HIF_TX_NAPI
-	HIF_TX_WORK,
-#endif /* CFG_SUPPORT_HIF_TX_NAPI */
-	/* Need this idle enum to avoid arGlwork[0] in GLUE_INFO */
-	IDLE_WORK,
 	WORK_MAX
 };
 
@@ -620,56 +550,16 @@ struct WORK_CONTAINER {
 	enum ENUM_WORK_INDEX eIdx;
 };
 
-enum ENUM_WORK_FLAG {
-	ENUM_WORK_FLAG_NONE,
-	ENUM_WORK_FLAG_MULTIWORK,
-	ENUM_WORK_FLAG_MAX
-};
-
 struct GL_WORK {
 	int32_t i4WorkCpu; /* controlled by CPU Boost */
 	struct workqueue_struct *prWorkQueue;
 	uint8_t *sWorkQueueName;
 	struct WORK_CONTAINER rWorkContainer[WORKER_MAX];
-	enum ENUM_WORK_FLAG eWorkFlag;
+	u_int8_t fgMultipleWork;
 	enum ENUM_WORK_INDEX eWorkIdx;
 };
 
-#define WORK_SET_FLAG(_w, _eWorkflag) \
-	((_w)->eWorkFlag = _eWorkflag)
-
-#define WORK_IS_FLAG(_w, _eWorkflag) \
-	((_w)->eWorkFlag == _eWorkflag)
-
 typedef void (*GL_WORK_FUNC) (struct work_struct *work);
-
-#if CFG_SUPPORT_SKB_ALLOC_WORK
-struct SKB_ALLOC_INFO {
-	struct CON_WORK rConWork[CON_WORK_MAX];
-	uint32_t u4ReqNum[CON_WORK_MAX];
-	struct sk_buff_head rFreeSkbQ;
-	uint32_t u4ScheCnt;
-	uint32_t u4TotalReqNum;
-	unsigned long ulScheMask;
-	enum CPU_CORE_TYPE eCoreType;
-	unsigned long ulNoMemMask;
-};
-#endif /* CFG_SUPPORT_SKB_ALLOC_WORK */
-
-#if CFG_SUPPORT_TX_FREE_SKB_WORK
-struct TX_FREE_QUEUE_INFO {
-	struct QUE rQue;
-	spinlock_t lock;
-	uint32_t u4TotalCnt;
-};
-
-struct TX_FREE_INFO {
-	struct CON_WORK rConWork[CON_WORK_MAX];
-	struct TX_FREE_QUEUE_INFO rQueInfo[CON_WORK_MAX];
-	int32_t i4QueIdxCnt;
-	enum CPU_CORE_TYPE eCoreType;
-};
-#endif /* CFG_SUPPORT_TX_FREE_SKB_WORK */
 
 struct GL_IO_REQ {
 	struct QUE_ENTRY rQueEntry;
@@ -681,7 +571,6 @@ struct GL_IO_REQ {
 	uint32_t *pu4QryInfoLen;
 	uint32_t rStatus;
 	uint8_t ucBssIndex;
-	struct CMD_INFO *prCmdInfo;
 };
 
 #if CFG_ENABLE_BT_OVER_WIFI
@@ -735,13 +624,13 @@ struct GL_SCAN_CACHE_INFO {
 
 #if CFG_SUPPORT_PERF_IND
 	struct GL_PERF_IND_INFO {
-		uint32_t u4CurTxBytes[MAX_BSSID_NUM]; /* Byte */
-		uint32_t u4CurRxBytes[MAX_BSSID_NUM]; /* Byte */
-		uint16_t u2CurRxRate[MAX_BSSID_NUM]; /* Unit 500 Kbps */
-		uint8_t ucCurRxRCPI0[MAX_BSSID_NUM];
-		uint8_t ucCurRxRCPI1[MAX_BSSID_NUM];
-		uint8_t ucCurRxNss[MAX_BSSID_NUM]; /* 1NSS Data Counter */
-		uint8_t ucCurRxNss2[MAX_BSSID_NUM]; /* 2NSS Data Counter */
+		uint32_t u4CurTxBytes[BSSID_NUM]; /* Byte */
+		uint32_t u4CurRxBytes[BSSID_NUM]; /* Byte */
+		uint16_t u2CurRxRate[BSSID_NUM]; /* Unit 500 Kbps */
+		uint8_t ucCurRxRCPI0[BSSID_NUM];
+		uint8_t ucCurRxRCPI1[BSSID_NUM];
+		uint8_t ucCurRxNss[BSSID_NUM]; /* 1NSS Data Counter */
+		uint8_t ucCurRxNss2[BSSID_NUM]; /* 2NSS Data Counter */
 	};
 #endif /* CFG_SUPPORT_SCAN_CACHE_RESULT */
 
@@ -755,46 +644,6 @@ struct FT_IES {
 	uint32_t u4IeLength;
 };
 
-struct GL_CH_SWITCH_WORK {
-#if (KERNEL_VERSION(6, 6, 0) <= CFG80211_VERSION_CODE)
-	struct work_struct rChSwitchNotifyWork;
-	u_int8_t fgWorkInit;
-#endif
-};
-
-struct GL_CH_SWITCH_START_WORK {
-#if (KERNEL_VERSION(6, 6, 0) <= CFG80211_VERSION_CODE)
-	struct work_struct rChSwitchStartNotifyWork;
-	u_int8_t fgWorkInit;
-	struct RF_CHANNEL_INFO rRfChnlInfo;
-#endif
-};
-
-#if CFG_SUPPORT_PER_CPU_TX
-struct _PER_CPU_TX_INFO {
-	struct tasklet_struct rTask;
-	struct sk_buff_head rSkbQ;
-};
-
-struct PER_CPU_TX_INFO {
-	struct _PER_CPU_TX_INFO __percpu *prInfo;
-	u_int8_t fgReady;
-	unsigned long ulRunningMask;
-};
-
-#define PER_CPU_TX_WAITING_TIMEOUT 100 /* ms */
-#define PER_CPU_TX_SET_RUN(prPerCpuTxInfo, cpu, fgRunning) \
-	do { \
-		if (fgRunning) \
-			set_bit(cpu, &prPerCpuTxInfo->ulRunningMask); \
-		else \
-			clear_bit(cpu, &prPerCpuTxInfo->ulRunningMask); \
-	} while (0)
-
-#define PER_CPU_TX_IS_RUNNING(prPerCpuTxInfo) \
-	(READ_ONCE(prPerCpuTxInfo->ulRunningMask) != 0)
-#endif /* CFG_SUPPORT_PER_CPU_TX */
-
 #if CFG_NAPI_DELAY
 #define NAPI_DELAY_ENABLE_BIT    (0)
 #define NAPI_DELAY_START_BIT     (1)
@@ -806,6 +655,10 @@ struct PER_CPU_TX_INFO {
  */
 struct GL_P2P_INFO;	/* declare GL_P2P_INFO_T */
 struct GL_P2P_DEV_INFO;	/* declare GL_P2P_DEV_INFO_T */
+
+#if WLAN_INCLUDE_SYS
+struct PARAM_RESET_RECORD_INFO;
+#endif
 
 struct GLUE_INFO {
 	/* Device handle */
@@ -821,16 +674,13 @@ struct GLUE_INFO {
 	/* struct net_device_stats rNetDevStats; */
 
 	/* Wireless statistics struct net_device */
-	struct iw_statistics rIwStats[MAX_BSSID_NUM];
+	struct iw_statistics rIwStats[BSSID_NUM];
 
 	/* spinlock to sync power save mechanism */
 	spinlock_t rSpinLock[SPIN_LOCK_NUM];
 
 	/* Mutex to protect interruptible section */
 	struct mutex arMutex[MUTEX_NUM];
-#if CFG_SUPPORT_RX_PAGE_POOL
-	struct mutex arMutexPagePool[PAGE_POOL_NUM];
-#endif
 
 	/* semaphore for ioctl */
 	struct semaphore ioctl_sem;
@@ -838,7 +688,6 @@ struct GLUE_INFO {
 	uint64_t u8Cookie;
 
 	unsigned long ulFlag;		/* GLUE_FLAG_XXX */
-	unsigned long ulHifFlag;	/* HIF_FLAG_XXX */
 	uint32_t u4PendFlag;
 	/* UINT_32 u4TimeoutFlag; */
 	u_int8_t fgOidWaiting; /* TRUE: waiter enters ioctl, FALSE: completed */
@@ -856,6 +705,7 @@ struct GLUE_INFO {
 	uint32_t u4TxStartTh[MAX_BSSID_NUM];
 	int32_t ai4TxPendingFrameNumPerQueue[MAX_BSSID_NUM][CFG_MAX_TXQ_NUM];
 	int32_t i4TxPendingFrameNum;
+	int32_t i4TxPendingCmdDataFrameNum;
 	int32_t i4TxPendingCmdNum;
 
 	/* Tx: for NetDev to BSS index mapping */
@@ -905,6 +755,10 @@ struct GLUE_INFO {
 		rNanDissolveComp;
 	struct completion
 		rNanHaltComp;	/* indicate halt complete in NAN initial flow */
+#if (CFG_SUPPORT_MLO_STA_NAN_FALLBACK == 1)
+	struct completion
+		rNanAisComp;
+#endif
 #endif
 
 #if CFG_SUPPORT_NCHO
@@ -944,14 +798,8 @@ struct GLUE_INFO {
 	/* cpu statistics */
 	atomic_t aCpuStatCnt[CPU_STATISTICS_MAX][CPU_STAT_MAX_CPU];
 #endif /* CFG_SUPPORT_CPU_STAT */
-#if CFG_SUPPORT_SKB_ALLOC_WORK
-	struct SKB_ALLOC_INFO rSkbAllocInfo;
-#endif /* CFG_SUPPORT_SKB_ALLOC_WORK */
 	struct GL_WORK arGlWork[WORK_MAX];
 	struct tasklet_struct rRxTask;
-#if CFG_SUPPORT_PER_CPU_TX
-	struct PER_CPU_TX_INFO rPerCpuTxInfo;
-#endif /* CFG_SUPPORT_PER_CPU_TX */
 	uint8_t fgRxTaskReady;
 	uint32_t u4RxTaskScheduleCnt;
 #if (CFG_SUPPORT_RETURN_TASK == 1)
@@ -1043,21 +891,15 @@ struct GLUE_INFO {
 
 	KAL_WAKE_LOCK_T *rIntrWakeLock;
 	KAL_WAKE_LOCK_T *rTimeoutWakeLock;
-#if CFG_ENABLE_WAKE_LOCK && \
-	(CFG_MTK_WIFI_DRV_OWN_INT_MODE == 1)
-	KAL_WAKE_LOCK_T *prDrvOwnWakeLock;
-#endif
 #if CFG_ENABLE_WAKE_LOCK && CFG_SUPPORT_RX_WORK
 	KAL_WAKE_LOCK_T *rRxWorkerLock;
-#endif
-#if CFG_ENABLE_WAKE_LOCK && CFG_SUPPORT_HIF_TX_NAPI
-	KAL_WAKE_LOCK_T *rHifTxWorkerLock;
 #endif
 #if CFG_ENABLE_WAKE_LOCK && CFG_SUPPORT_PWR_LMT_EMI
 	KAL_WAKE_LOCK_T *rTxPowerEmiWakeLock;
 #endif
-#if CFG_ENABLE_WAKE_LOCK && CFG_SUPPORT_HRTIMER
-	KAL_WAKE_LOCK_T *prHrtimerWakeLock;
+#if (IS_ENABLED(CFG_MTK_WIFI_DRV_OWN_INT_MODE) \
+	&& CFG_ENABLE_WAKE_LOCK)
+	KAL_WAKE_LOCK_T *rDrvOwnWakeLock;
 #endif
 
 #if CFG_MET_PACKET_TRACE_SUPPORT
@@ -1065,15 +907,15 @@ struct GLUE_INFO {
 	uint16_t u2MetUdpPort;
 #endif
 
+#if WLAN_INCLUDE_SYS
+	struct PARAM_RESET_RECORD_INFO *prRstInfo;
+#endif
+
 #if CFG_SUPPORT_TASKLET_FREE_MSDU
 	struct kfifo rTxMsduRetFifo;
 	uint8_t *prTxMsduRetFifoBuf;
 	uint32_t u4TxMsduRetFifoLen;
 #endif /* CFG_SUPPORT_TASKLET_FREE_MSDU */
-
-#if CFG_SUPPORT_TX_FREE_SKB_WORK
-	struct TX_FREE_INFO rTxFreeInfo;
-#endif /* CFG_SUPPORT_TX_FREE_SKB_WORK */
 
 #if CFG_SUPPORT_RX_GRO
 	struct net_device dummy_dev;
@@ -1089,7 +931,6 @@ struct GLUE_INFO {
 	u_int8_t fgNapiReady;
 	uint8_t *prRxKfifoBuf;
 	uint32_t u4RxKfifoBufLen;
-	u_int8_t fgNapiScheduled;
 #if CFG_NAPI_DELAY
 	struct hrtimer rNapiDelayTimer;
 	unsigned long ulNapiDelayFlag;
@@ -1111,11 +952,11 @@ struct GLUE_INFO {
 	uint32_t u4AmpduRefNum[CFG_MONITOR_BAND_NUM];
 #endif
 
-	int32_t i4RssiCache[MAX_BSSID_NUM];
-	uint32_t u4TxLinkSpeedCache[MAX_BSSID_NUM];
-	uint32_t u4RxLinkSpeedCache[MAX_BSSID_NUM];
-	uint32_t u4TxBwCache[MAX_BSSID_NUM];
-	uint32_t u4RxBwCache[MAX_BSSID_NUM];
+	int32_t i4RssiCache[BSSID_NUM];
+	uint32_t u4TxLinkSpeedCache[BSSID_NUM];
+	uint32_t u4RxLinkSpeedCache[BSSID_NUM];
+	uint32_t u4TxBwCache[BSSID_NUM];
+	uint32_t u4RxBwCache[BSSID_NUM];
 
 #if CFG_AP_80211KVR_INTERFACE
 	struct delayed_work rChanNoiseControlWork;
@@ -1124,6 +965,7 @@ struct GLUE_INFO {
 
 #if CFG_SUPPORT_LOGGER
 	struct delayed_work rLoggerWork;
+	struct delayed_work rFwLoggerWork;
 #endif
 
 	uint32_t u4InfType;
@@ -1169,7 +1011,7 @@ struct GLUE_INFO {
 
 	/* FW Roaming */
 	/* store the FW roaming enable state which FWK determines */
-	/* if it's = 0, ignore the block/allowlists settings from FWK */
+	/* if it's = 0, ignore the black/whitelists settings from FWK */
 	uint32_t u4FWRoamingEnable;
 
 	/*service for test mode*/
@@ -1199,33 +1041,11 @@ struct GLUE_INFO {
 	struct sk_buff_head rCoreDumpSkbQueue;
 #endif
 
-#if (CFG_SURVEY_DUMP_FULL_CHANNEL == 1)
-	struct CHANNEL_TIMING_T  rChanTimeRecord[CH_MAX_NUM];
-	uint8_t u1NoiseLevel;
-#endif
-
 #if CFG_SUPPORT_CSI
 	wait_queue_head_t waitq_csi;
 #endif
 	unsigned long fgIsInSuspend;
-
-#if CFG_SUPPORT_RX_PAGE_POOL
-	struct page_pool *aprPagePool[PAGE_POOL_NUM];
-	uint32_t u4LastAllocIdx;
-#endif
-
-#if CFG_WIFI_TESTMODE_FW_REDOWNLOAD
-	/* Flag indicating if test-mode L0.5 firmware download is initiated */
-	u_int8_t fgTestFwDl;
-	/* Flag denoting the completion of the L0.5 firmware download process */
-	u_int8_t fgTestL0P5Done;
-	/* Flag indicating Current Test Mode */
-	u_int8_t fgTestModeStatus;
-	/* Wait queue for synchronization during test-mode L0.5 reset */
-	wait_queue_head_t waitQTestFwDl;
-	/* Thread responsible for handling test-mode transition */
-	struct task_struct *prTestFwDlThread;
-#endif
+	u_int8_t fgIsPendingMsi;
 
 #if CFG_SUPPORT_HIF_REG_WORK
 	struct kfifo rHifRegFifo;
@@ -1234,117 +1054,7 @@ struct GLUE_INFO {
 	uint32_t u4HifRegFifoLen;
 	uint32_t u4HifRegStartCnt;
 	uint32_t u4HifRegReqCnt;
-#if CFG_MTK_WIFI_MBU
-	uint32_t u4MbuTimeoutCnt;
-#endif
 #endif /* CFG_SUPPORT_HIF_REG_WORK */
-	u_int8_t fgWlanUevent;
-#if CFG_SUPPORT_TPUT_FACTOR
-#if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
-	cpumask_t hif_cpu_mask;
-#endif
-#endif /* CFG_SUPPORT_TPUT_FACTOR */
-
-	/* GLUE_INFO reserved START area for each wlanProbe */
-	u_int8_t reserved_start;
-
-	uint32_t u4DevNum;
-
-	const struct firmware *fw_entry;
-
-	struct net_device *prNetDevice;
-
-	struct wireless_dev *prP2pWdev[KAL_P2P_NUM];
-	struct wireless_dev *prP2pRoleWdev[KAL_P2P_NUM];
-	struct net_device *prP2pDev[KAL_P2P_NUM];
-
-	struct service_test *prServiceTest;
-
-	uint8_t aucFbName[WORKER_NAME_STR_MAX];
-	struct notifier_block wlan_fb_notifier;
-	struct notifier_block wlan_netdev_notifier;
-	struct notifier_block inetaddr_notifier;
-#if CFG_POWER_OFF_CTRL_SUPPORT
-	struct notifier_block wf_pdwnc_notifier;
-#endif
-
-#if CFG_SUPPORT_IDC_RIL_BRIDGE || CFG_SUPPORT_IDC_RIL_BRIDGE_NOTIFY
-	struct notifier_block ril_notifier_block;
-	int init_ril_notifier;
-#endif
-
-	int32_t u4HaltFlag;
-	struct semaphore halt_sem;
-
-	struct delayed_work workq;
-	/* 20150205 added work queue for sched_scan to avoid
-	 *          cfg80211 stop schedule scan dead loack
-	 */
-	struct delayed_work sched_workq;
-
-#if CFG_ENABLE_EARLY_SUSPEND
-	struct early_suspend wlan_early_suspend_desc;
-#endif
-
-	/* This u32 is only for DriverCmdRead/Write,
-	 * should not be used by other function
-	 */
-	int32_t i4NextDriverReadLen;
-
-#ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
-	struct dentry *dbgFsDir;
-#endif
-#if (CFG_SUPPORT_SER_DEBUGFS == 1)
-	struct dentry *serDbgFsDir;
-#endif
-
-#if CFG_SUPPORT_CSI
-	struct CSI_INFO_T rCSIInfo;
-	uint8_t aucCSIBuf[CSI_MAX_BUFFER_SIZE];
-	uint8_t ucCSIBandIdx;
-#endif
-
-	struct miscdevice wlan_object;
-
-#if (CFG_SUPPORT_STATISTICS == 1)
-	struct WAKE_INFO_T *prWakeInfoStatics;
-#endif
-
-	uint32_t u4McrOffset;
-
-	u_int8_t wlan_perf_monitor_force_enable;
-
-	u_int8_t fgCmdDumpIsDone;
-
-	struct ECO_INFO eco_info;
-
-	u_int8_t reserved_end;
-	/* GLUE_INFO reserved END area for each wlanProbe */
-
-#if CFG_SUPPORT_MULTI_CARD
-	struct wireless_dev *prWdev[KAL_AIS_NUM];
-
-	struct proc_dir_entry *prProcRoot;
-
-#if CFG_SUPPORT_SINGLE_SKU
-	struct mtk_regd_control rMtkRegdControl;
-	u_int8_t bTxBfBackoffExists;
-#endif
-
-	/* public for both Legacy Wi-Fi / P2P access */
-	struct ieee80211_supported_band mtk_band_2ghz;
-	struct ieee80211_supported_band mtk_band_5ghz;
-#if (CFG_SUPPORT_WIFI_6G == 1)
-	struct ieee80211_supported_band mtk_band_6ghz;
-#endif
-
-	uint8_t aucMiscName[10];
-
-	struct KAL_HALT_CTRL_T rHaltCtrl;
-
-	/* format: "wlanInterfaceName wiphyName" */
-	uint8_t aucWlanLog[25];
-#endif /* CFG_SUPPORT_MULTI_CARD */
 };
 
 typedef irqreturn_t(*PFN_WLANISR) (int irq, void *dev_id,
@@ -1468,52 +1178,32 @@ struct NETDEV_PRIVATE_GLUE_INFO {
 #if CFG_SUPPORT_NAN
 	unsigned char ucIsNan;
 #endif
-	uint8_t ucMldBssIdx;
-	uint32_t u4OsMgmtFrameFilter;
 };
 
-struct PACKET_PRIVATE_COMMON_DATA {  /* total: 8byte */
-	uint8_t ucBssIdx;            /* 1byte */
-	uint8_t aucReserved[3];      /* 3byte */
-	uint16_t u2Flag;             /* 2byte */
-	uint16_t u2IpId;             /* 2byte */
-};
-
-struct PACKET_PRIVATE_TX_DATA {      /* total: 24byte */
-	uint8_t ucTid;               /* 1byte */
-	uint8_t ucHeaderLen;         /* 1byte */
-	uint8_t ucFlag;              /* 1byte */
-	uint8_t ucSeqNo;             /* 1byte */
-	uint16_t u2FrameLen;         /* 2byte */
-	uint16_t u2Sn;               /* 2byte */
-	uint32_t u4Cookie;           /* 4byte */
-	OS_SYSTIME rArrivalTime;     /* 4byte */
-	uint64_t u8ArriveTime;       /* 8byte */
-};
-
-struct PACKET_PRIVATE_RX_DATA {      /* total: 24byte */
-	u_int8_t fgIsIndependentPkt; /* 1byte */
-#if CFG_SUPPORT_WED_PROXY
-	uint8_t aucReserved[3];      /* 3byte */
-	uint32_t u4PpeType;          /* 4byte */
-#else
-	uint8_t aucReserved[7];      /* 7byte */
-#endif
-	uint64_t u8IntTime;          /* 8byte */
-	uint64_t u8RxTime;           /* 8byte */
-};
-
-/*
- * sizeof(cb): 48 bytes
- * compile time size check in glPacketDataTypeCheck
- */
 struct PACKET_PRIVATE_DATA {
-	struct QUE_ENTRY rQueEntry;                     /* 16byte */
-	struct PACKET_PRIVATE_COMMON_DATA rCommonData;  /*  8byte */
-	union {                                         /* 24byte */
-		struct PACKET_PRIVATE_TX_DATA rTxData;
-		struct PACKET_PRIVATE_RX_DATA rRxData;
-	};
+	/* tx/rx both use cb */
+	struct QUE_ENTRY rQueEntry;  /* 16byte total:16 */
+
+	uint8_t ucBssIdx;	/* 1byte */
+	/* only rx use cb */
+	u_int8_t fgIsIndependentPkt; /* 1byte */
+	/* only tx use cb */
+	uint8_t ucTid;		/* 1byte */
+	uint8_t ucHeaderLen;	/* 1byte */
+	uint8_t ucProfilingFlag;	/* 1byte */
+	uint8_t ucSeqNo;		/* 1byte */
+	uint16_t u2Flag;		/* 2byte total:24 */
+
+	uint16_t u2IpId;		/* 2byte */
+	uint16_t u2FrameLen;	/* 2byte */
+	OS_SYSTIME rArrivalTime;/* 4byte total:32 */
+
+	uint64_t u8ArriveTime;	/* 8byte total:40 */
+};
+
+struct PACKET_PRIVATE_RX_DATA {
+	uint64_t u8IntTime;	/* 8byte */
+	uint64_t u8RxTime;	/* 8byte */
 };
 
 struct CMD_CONNSYS_FW_LOG {
@@ -1523,7 +1213,7 @@ struct CMD_CONNSYS_FW_LOG {
 };
 
 #if CFG_MTK_ANDROID_WMT
-#if !CFG_SUPPORT_CONNAC1X
+#if !IS_ENABLED(CFG_SUPPORT_CONNAC1X)
 struct MTK_WCN_WLAN_CB_INFO {
 	int (*wlan_probe_cb)(void);
 	int (*wlan_remove_cb)(void);
@@ -1552,10 +1242,6 @@ enum BOOTMODE {
 	FASTBOOT = 99,
 	DOWNLOAD_BOOT = 100,
 	UNKNOWN_BOOT
-};
-
-struct WLANDEV_INFO {
-	struct net_device *prDev;
 };
 
 /*******************************************************************************
@@ -1614,15 +1300,6 @@ struct WLANDEV_INFO {
 #define GLUE_GET_PKT_PRIVATE_DATA(_p) \
 	((struct PACKET_PRIVATE_DATA *)(&(((struct sk_buff *)(_p))->cb[0])))
 
-#define GLUE_GET_PKT_PRIVATE_COMMON_DATA(_p) \
-	(&(GLUE_GET_PKT_PRIVATE_DATA(_p)->rCommonData))
-
-#define GLUE_GET_PKT_PRIVATE_RX_DATA(_p) \
-	(&(GLUE_GET_PKT_PRIVATE_DATA(_p)->rRxData))
-
-#define GLUE_GET_PKT_PRIVATE_TX_DATA(_p) \
-	(&(GLUE_GET_PKT_PRIVATE_DATA(_p)->rTxData))
-
 #define GLUE_GET_PKT_QUEUE_ENTRY(_p)    \
 	    (&(GLUE_GET_PKT_PRIVATE_DATA(_p)->rQueEntry))
 
@@ -1631,95 +1308,77 @@ struct WLANDEV_INFO {
 	    - offsetof(struct sk_buff, cb[0])))
 
 #define GLUE_SET_PKT_TID(_p, _tid) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->ucTid = (uint8_t)(_tid))
+	    (GLUE_GET_PKT_PRIVATE_DATA(_p)->ucTid = (uint8_t)(_tid))
 
 #define GLUE_GET_PKT_TID(_p) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->ucTid)
+	    (GLUE_GET_PKT_PRIVATE_DATA(_p)->ucTid)
 
 #define GLUE_SET_PKT_FLAG(_p, _flag) \
-	(GLUE_GET_PKT_PRIVATE_COMMON_DATA(_p)->u2Flag |= BIT(_flag))
+	(GLUE_GET_PKT_PRIVATE_DATA(_p)->u2Flag |= BIT(_flag))
 
 #define GLUE_TEST_PKT_FLAG(_p, _flag) \
-	(GLUE_GET_PKT_PRIVATE_COMMON_DATA(_p)->u2Flag & BIT(_flag))
+	(GLUE_GET_PKT_PRIVATE_DATA(_p)->u2Flag & BIT(_flag))
 
 #define GLUE_IS_PKT_FLAG_SET(_p) \
-	(GLUE_GET_PKT_PRIVATE_COMMON_DATA(_p)->u2Flag)
+	(GLUE_GET_PKT_PRIVATE_DATA(_p)->u2Flag)
 
 #define GLUE_SET_PKT_BSS_IDX(_p, _ucBssIndex) \
-	(GLUE_GET_PKT_PRIVATE_COMMON_DATA(_p)->ucBssIdx = \
-		(uint8_t)(_ucBssIndex))
+	    (GLUE_GET_PKT_PRIVATE_DATA(_p)->ucBssIdx = (uint8_t)(_ucBssIndex))
 
 #define GLUE_GET_PKT_BSS_IDX(_p) \
-	(GLUE_GET_PKT_PRIVATE_COMMON_DATA(_p)->ucBssIdx)
+	    (GLUE_GET_PKT_PRIVATE_DATA(_p)->ucBssIdx)
 
 #define GLUE_SET_PKT_HEADER_LEN(_p, _ucMacHeaderLen) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->ucHeaderLen = \
-		(uint8_t)(_ucMacHeaderLen))
+	    (GLUE_GET_PKT_PRIVATE_DATA(_p)->ucHeaderLen = \
+	    (uint8_t)(_ucMacHeaderLen))
 
 #define GLUE_GET_PKT_HEADER_LEN(_p) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->ucHeaderLen)
+	    (GLUE_GET_PKT_PRIVATE_DATA(_p)->ucHeaderLen)
 
 #define GLUE_SET_PKT_FRAME_LEN(_p, _u2PayloadLen) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->u2FrameLen = \
-		(uint16_t)(_u2PayloadLen))
+	(GLUE_GET_PKT_PRIVATE_DATA(_p)->u2FrameLen = (uint16_t)(_u2PayloadLen))
 
 #define GLUE_GET_PKT_FRAME_LEN(_p) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->u2FrameLen)
+	    (GLUE_GET_PKT_PRIVATE_DATA(_p)->u2FrameLen)
 
 #define GLUE_SET_PKT_ARRIVAL_TIME(_p, _rSysTime) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->rArrivalTime = \
-		(OS_SYSTIME)(_rSysTime))
+	(GLUE_GET_PKT_PRIVATE_DATA(_p)->rArrivalTime = (OS_SYSTIME)(_rSysTime))
 
 #define GLUE_GET_PKT_ARRIVAL_TIME(_p)    \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->rArrivalTime)
+	    (GLUE_GET_PKT_PRIVATE_DATA(_p)->rArrivalTime)
 
 #define GLUE_SET_PKT_IP_ID(_p, _u2IpId) \
-	(GLUE_GET_PKT_PRIVATE_COMMON_DATA(_p)->u2IpId = (uint16_t)(_u2IpId))
+	(GLUE_GET_PKT_PRIVATE_DATA(_p)->u2IpId = (uint16_t)(_u2IpId))
 
 #define GLUE_GET_PKT_IP_ID(_p) \
-	(GLUE_GET_PKT_PRIVATE_COMMON_DATA(_p)->u2IpId)
+	    (GLUE_GET_PKT_PRIVATE_DATA(_p)->u2IpId)
 
 #define GLUE_SET_PKT_SEQ_NO(_p, _ucSeqNo) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->ucSeqNo = (uint8_t)(_ucSeqNo))
+	(GLUE_GET_PKT_PRIVATE_DATA(_p)->ucSeqNo = (uint8_t)(_ucSeqNo))
 
 #define GLUE_GET_PKT_SEQ_NO(_p) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->ucSeqNo)
+	    (GLUE_GET_PKT_PRIVATE_DATA(_p)->ucSeqNo)
 
 #define GLUE_SET_PKT_FLAG_PROF_MET(_p) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->ucFlag |= BIT(0))
+	    (GLUE_GET_PKT_PRIVATE_DATA(_p)->ucProfilingFlag |= BIT(0))
 
 #define GLUE_GET_PKT_IS_PROF_MET(_p) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->ucFlag & BIT(0))
-
-#define GLUE_SET_PKT_CONTROL_PORT_TX(_p) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->ucFlag |= BIT(1))
-
-#define GLUE_GET_PKT_IS_CONTROL_PORT_TX(_p) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->ucFlag & BIT(1))
-
-#define GLUE_SET_PKT_SN_VALID(_p) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->ucFlag |= BIT(2))
-
-#define GLUE_GET_PKT_IS_SN_VALID(_p) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->ucFlag & BIT(2))
+	    (GLUE_GET_PKT_PRIVATE_DATA(_p)->ucProfilingFlag & BIT(0))
 
 #define GLUE_SET_PKT_XTIME(_p, _rSysTime) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->u8ArriveTime = (uint64_t)(_rSysTime))
+	(GLUE_GET_PKT_PRIVATE_DATA(_p)->u8ArriveTime = (uint64_t)(_rSysTime))
 
 #define GLUE_GET_PKT_XTIME(_p)    \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->u8ArriveTime)
-
-#define GLUE_SET_PKT_TX_COOKIE(_p, _cookie) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->u4Cookie = (_cookie))
-
-#define GLUE_GET_PKT_TX_COOKIE(_p) \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->u4Cookie)
+	(GLUE_GET_PKT_PRIVATE_DATA(_p)->u8ArriveTime)
 
 #define GLUE_GET_INDEPENDENT_PKT(_p)    \
-	(GLUE_GET_PKT_PRIVATE_RX_DATA(_p)->fgIsIndependentPkt)
+	(GLUE_GET_PKT_PRIVATE_DATA(_p)->fgIsIndependentPkt)
 
 #define GLUE_SET_INDEPENDENT_PKT(_p, _fgIsIndePkt) \
-	(GLUE_GET_PKT_PRIVATE_RX_DATA(_p)->fgIsIndependentPkt = _fgIsIndePkt)
+	(GLUE_GET_PKT_PRIVATE_DATA(_p)->fgIsIndependentPkt = _fgIsIndePkt)
+
+#define GLUE_GET_PKT_PRIVATE_RX_DATA(_p) \
+	((struct PACKET_PRIVATE_RX_DATA *)(&(((struct sk_buff *)(_p))->cb[24])))
 
 #define GLUE_RX_SET_PKT_INT_TIME(_p, _rTime) \
 	(GLUE_GET_PKT_PRIVATE_RX_DATA(_p)->u8IntTime = (uint64_t)(_rTime))
@@ -1732,23 +1391,6 @@ struct WLANDEV_INFO {
 
 #define GLUE_RX_GET_PKT_RX_TIME(_p) \
 	(GLUE_GET_PKT_PRIVATE_RX_DATA(_p)->u8RxTime)
-
-#if CFG_SUPPORT_WED_PROXY
-#define GLUE_RX_SET_PKT_PPE_TYPE(_p, _idx) \
-	(GLUE_GET_PKT_PRIVATE_RX_DATA(_p)->u4PpeType = (uint32_t)(_idx))
-
-#define GLUE_RX_GET_PKT_PPE_TYPE(_p) \
-	(GLUE_GET_PKT_PRIVATE_RX_DATA(_p)->u4PpeType)
-#endif
-
-#define GLUE_SET_PKT_SN(_p, _rSn) \
-	do { \
-		GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->u2Sn = (uint16_t)(_rSn); \
-		GLUE_SET_PKT_SN_VALID(_p); \
-	} while (0)
-
-#define GLUE_GET_PKT_SN(_p)    \
-	(GLUE_GET_PKT_PRIVATE_TX_DATA(_p)->u2Sn)
 
 #define GLUE_GET_TX_PKT_ETHER_DEST_ADDR(_p)    \
 		(((struct sk_buff *)(_p))->data)
@@ -1856,9 +1498,6 @@ struct WLANDEV_INFO {
 #define PCIE_GEN3    3
 #endif
 
-#define GLUE_GET_WIPHY(pr) \
-	pr->prDevHandler->ieee80211_ptr->wiphy
-
 /*----------------------------------------------------------------------------*/
 /* Macros of Data Type Check                                                  */
 /*----------------------------------------------------------------------------*/
@@ -1899,10 +1538,10 @@ static __KAL_INLINE__ void glPacketDataTypeCheck(void)
  */
 #if WLAN_INCLUDE_PROC
 int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo);
-int32_t procRemoveProcfs(struct GLUE_INFO *prGlueInfo);
+int32_t procRemoveProcfs(void);
 
 
-int32_t procInitFs(struct GLUE_INFO *prGlueInfo);
+int32_t procInitFs(void);
 int32_t procUninitProcFs(void);
 
 
@@ -1919,12 +1558,19 @@ int32_t sysRemoveSysfs(void);
 int32_t sysInitFs(void);
 int32_t sysUninitSysFs(void);
 void sysMacAddrOverride(uint8_t *prMacAddr);
-void sysResetTrigger(void);
-void sysResetRecoveryReport(void);
-void sysResetTriggerCollectLogs(void);
+void sysResetRecordCustomizeData(struct GLUE_INFO *prGlueInfo,
+	uint8_t *pucCustomizeData, uint32_t u4CustomizeDataLen,
+	uint32_t u4SubDataFlag);
+void sysResetRecordTrace(struct GLUE_INFO *prGlueInfo);
+void sysResetRecordFwPc(uint32_t *pc_dump, uint32_t u4PcLogNum);
+void sysRecoveryReportInit(struct GLUE_INFO *prGlueInfo);
+void sysHangRecoveryReport(void);
+void sysHangTriggerCollectLogs(void);
 void sysInitWifiVer(void);
 void sysGetExtCfg(struct ADAPTER *prAdapter);
 #endif /* WLAN_INCLUDE_SYS */
+
+void wlanInitExtFeatureOptionImpl(struct ADAPTER *prAdapter, uint8_t *pucKey);
 
 #if CFG_SUPPORT_CABLE_DETECT
 void cable_detect_gpio_parse(void);
@@ -1936,8 +1582,12 @@ u_int8_t glRegisterAmpc(struct GLUE_INFO *prGlueInfo);
 u_int8_t glUnregisterAmpc(struct GLUE_INFO *prGlueInfo);
 #endif
 
+#if CFG_ENABLE_WIFI_DIRECT
+void p2pSetMulticastListWorkQueueWrapper(struct GLUE_INFO
+		*prGlueInfo);
+#endif
+
 struct GLUE_INFO *wlanGetGlueInfo(void);
-struct GLUE_INFO *wlanGetGlueInfoByWiphy(struct wiphy *wiphy);
 #if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
 u16 wlanSelectQueue(struct net_device *dev,
 		    struct sk_buff *skb,
@@ -1983,55 +1633,34 @@ uint32_t wlanConnac3XDownloadBufferBin(struct ADAPTER *prAdapter);
 #endif
 
 #if CFG_CHIP_RESET_SUPPORT
-int32_t wlanOffAtReset(struct net_device *prDev);
+int32_t wlanOffAtReset(void);
 
-int32_t wlanOnAtReset(struct net_device *prDev);
+int32_t wlanOnAtReset(void);
 #endif
-
-u_int8_t wlanIsProbing(void);
-u_int8_t wlanIsRemoving(void);
-
-uint32_t wlanSearchDevIdx(struct device *prDev);
-int wlanGetDevIdx(struct net_device *prDev);
-struct GLUE_INFO *wlanDevGetGlueInfo(struct device *prDev);
-struct GLUE_INFO *wlanGetGlueInfoByNum(uint32_t u4DevNum);
-
-struct semaphore *wlanGetHaltSem(struct GLUE_INFO *prGlueInfo);
 
 /*******************************************************************************
  *			 E X T E R N A L   F U N C T I O N S / V A R I A B L E
  *******************************************************************************
  */
-#if (CFG_SUPPORT_MULTI_CARD == 0)
+extern struct net_device *gPrP2pDev[KAL_P2P_NUM];
 extern struct wireless_dev *gprWdev[KAL_AIS_NUM];
-#endif
+extern uint32_t g_u4DevIdx[KAL_P2P_NUM];
 extern enum ENUM_NVRAM_STATE g_NvramFsm;
 
-extern struct WLANDEV_INFO arWlanDevInfo[CFG_MAX_WLAN_DEVICES];
-extern uint32_t u4WlanDevNum;
 
-#if CFG_MTK_WIFI_DFD_DUMP_SUPPORT
-extern bool fgIsPreOnProcessing;
-#endif
 #ifdef CFG_DRIVER_INF_NAME_CHANGE
 extern char *gprifnameap;
 extern char *gprifnamep2p;
 extern char *gprifnamesta;
 #endif /* CFG_DRIVER_INF_NAME_CHANGE */
 
-void wlanRegisterInetAddrNotifier(struct GLUE_INFO *prGlueInfo);
-void wlanUnregisterInetAddrNotifier(struct GLUE_INFO *prGlueInfo);
+void wlanRegisterInetAddrNotifier(void);
+void wlanUnregisterInetAddrNotifier(void);
 void wlanRegisterNetdevNotifier(void);
 void wlanUnregisterNetdevNotifier(void);
 #if CFG_POWER_OFF_CTRL_SUPPORT
-extern void wlanRegisterRebootNotifier(struct GLUE_INFO *prGlueInfo);
-extern void wlanUnregisterRebootNotifier(struct GLUE_INFO *prGlueInfo);
-#endif
-
-#if CFG_MTK_ANDROID_WMT && CFG_TESTMODE_WMT_WIFI_ON_SUPPORT
-typedef void (*set_test_mode_on) (const int);
-extern void register_set_wifi_test_mode_fwdl_handler(
-	set_test_mode_on handler);
+extern void wlanRegisterRebootNotifier(void);
+extern void wlanUnregisterRebootNotifier(void);
 #endif
 
 #if CFG_MTK_ANDROID_WMT
@@ -2039,12 +1668,6 @@ typedef int (*set_p2p_mode) (struct net_device *netdev,
 			     struct PARAM_CUSTOM_P2P_SET_STRUCT p2pmode);
 extern void register_set_p2p_mode_handler(
 	set_p2p_mode handler);
-#endif
-
-#if ((CFG_MTK_ANDROID_WMT) && (CFG_TESTMODE_WMT_WIFI_ON_SUPPORT))
-typedef uint8_t (*is_wifi_in_test_mode) (struct net_device *netdev);
-extern void register_is_wifi_in_test_mode_handler(
-	is_wifi_in_test_mode handler);
 #endif
 
 #if CFG_ENABLE_EARLY_SUSPEND
@@ -2112,10 +1735,6 @@ extern const uint8_t *kalFindVendorIe(uint32_t oui, int type,
 void wlanNvramSetState(enum ENUM_NVRAM_STATE state);
 enum ENUM_NVRAM_STATE wlanNvramGetState(void);
 
-#if (CFG_SUPPORT_CONNFEM == 1 && CFG_CONNFEM_DEFAULT == 1)
-uint32_t wlanConnFemGetId(void);
-#endif
-
 #if (CFG_SUPPORT_POWER_THROTTLING == 1)
 int connsys_power_event_notification(enum conn_pwr_event_type type,
 	void *data);
@@ -2133,7 +1752,7 @@ uint32_t connsysFwLogControl(struct ADAPTER *prAdapter,
 #endif
 #ifdef CFG_SUPPORT_SNIFFER_RADIOTAP
 int32_t sysCreateMonDbgFs(struct GLUE_INFO *prGlueInfo);
-void sysRemoveMonDbgFs(struct GLUE_INFO *prGlueInfo);
+void sysRemoveMonDbgFs(void);
 #endif
 
 #if CFG_CHIP_RESET_SUPPORT && !CFG_WMT_RESET_API_SUPPORT
@@ -2142,7 +1761,7 @@ extern void WfsysResetHdlr(struct work_struct *work);
 
 #if CFG_MTK_ANDROID_WMT
 extern void update_driver_loaded_status(uint8_t loaded);
-#if CFG_SUPPORT_CONNAC1X
+#if IS_ENABLED(CFG_SUPPORT_CONNAC1X)
 extern int mtk_wcn_consys_hw_wifi_paldo_ctrl(unsigned int enable);
 #else
 extern int mtk_wcn_wlan_reg(
@@ -2156,17 +1775,7 @@ extern void glCustomGenlInit(void);
 extern void glCustomGenlDeinit(void);
 #endif
 
-struct wireless_dev **wlanGetWirelessDevice(struct GLUE_INFO *prGlueInfo);
-
-#if (CFG_MTK_ANDROID_WMT || CFG_MTK_MDDP_SUPPORT) && \
-	(CFG_SUPPORT_MULTI_CARD == 0)
-/*
- * wlanGetWiphy is only use for feature that no support multi-card case
- * For the feature can support multi-card case, please use wlanGetWiphyByWdev
- */
 struct wiphy *wlanGetWiphy(void);
-#endif
-struct wiphy *wlanGetWiphyByWdev(struct wireless_dev *prWdev);
 
 uint8_t wlanGetBssIdx(struct net_device *ndev);
 
@@ -2184,15 +1793,6 @@ u_int8_t wlanIsAisDev(struct net_device *prDev);
 void wlanNotifyFwSuspend(struct GLUE_INFO *prGlueInfo,
 			 struct net_device *prDev, u_int8_t fgSuspend);
 
-#if CFG_MTK_ANDROID_WMT
-uint8_t kalGetShutdownState(void);
-#endif
-#if CFG_MTK_ANDROID_WMT && CFG_WIFI_PLAT_SHUTDOWN_SUPPORT
-void wlanShutdown(void);
-#endif
-#if CFG_MTK_WIFI_DFD_DUMP_SUPPORT
-int wlanFuncPreOnImpl(void);
-#endif
 int wlanFuncOnImpl(void);
 void wlanFuncOffImpl(void);
 int wlanFuncOn(void);

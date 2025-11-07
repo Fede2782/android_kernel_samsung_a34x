@@ -80,12 +80,21 @@ spinlock_t qof_lock;
 static bool is_smi_use_qof_locked[ISP8_PWR_NUM] = {false};
 static bool is_poll_event_mode;
 
+module_param(g_qof_ver, uint, 0644);
+MODULE_PARM_DESC(g_qof_ver, "imgsys qof ctrl params, 0 (default)");
+
+module_param(g_ftrace_time, uint, 0644);
+MODULE_PARM_DESC(g_ftrace_time, "imgsys qof ctrl params, 0 (default)");
+
 /* dbg params*/
 static bool imgsys_ftrace_qof_thread_en;
 static int g_qof_debug_level;
 
 module_param(imgsys_ftrace_qof_thread_en, bool, 0644);
 MODULE_PARM_DESC(imgsys_ftrace_qof_thread_en, "imgsys ftrace thread enable, 0 (default)");
+
+module_param(g_qof_debug_level, int, 0644);
+MODULE_PARM_DESC(g_qof_debug_level, "imgsys qof ctrl params, 0 (default)");
 
 enum QOF_CNT_CTRL {
 	QOF_CNT_CTRL_ADD,
@@ -2167,16 +2176,10 @@ static void imgsys_qof_set_dbg_thread(bool enable)
 
 int mtk_imgsys_qof_ctrl(const char *val, const struct kernel_param *kp)
 {
-	int ret;
-	ret = sscanf(val, "%u %u %u", &g_qof_debug_level, &g_qof_ver, &g_ftrace_time);
 	QOF_LOGI("g_qof_debug_level[%u], force ver:g_qof_ver[%u], g_ftrace_time[%u]\n",
 		g_qof_debug_level,
 		g_qof_ver,
 		g_ftrace_time);
-	if (ret <= 0) {
-		QOF_LOGE("sscanf ret is wrong %d\n", ret);
-		return 0;
-	}
 	if (g_qof_debug_level == QOF_DEBUG_MODE_IMMEDIATE_DUMP)
 		mtk_imgsys_cmdq_qof_dump(0, false);
 	else if (g_qof_debug_level == QOF_DEBUG_MODE_IMMEDIATE_CG_DUMP)

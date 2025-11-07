@@ -10,7 +10,7 @@
 
 #define GHPM_TIMESTAMP_MONITOR_EN          (1)
 #define GPUEB_WAIT_OFF_FAIL_WRITE_DUMMY    (1)
-#define GHPM_MFG0_OFF_TIMEOUT_KE           (0)
+#define GHPM_TIMEOUT_ERR_KE                (0)
 #define GPUEB_WAIT_OFF_FAIL_FLAG           (0xBADDEAD)
 
 #define GHPM_IPI_TIMEOUT                   (5000)
@@ -54,6 +54,8 @@
 /* MFG_VCORE_AO_CONFIG */
 #define MFG_RPC_DUMMY_REG                  (g_mfg_vcore_ao_config_base + 0x18) /* 0x4B860018 */
 #define MFG_RPC_DUMMY_REG_1                (g_mfg_vcore_ao_config_base + 0x1C) /* 0x4B86001C */
+#define MFG_RPC_AO_CLK_CFG                 (g_mfg_vcore_ao_config_base + 0x78) /* 0x4B860078 */
+#define CG_FAXI_CK_SOC_IN_FREE_RUN         (BIT(0))
 #define MFGSYS_PROTECT_EN_SET_0            (g_mfg_vcore_ao_config_base + 0x80) /* 0x4B860080 */
 #define MFGSYS_PROTECT_EN_STA_0            (g_mfg_vcore_ao_config_base + 0x88) /* 0x4B860088 */
 #define MFG_SODI_EMI                       (g_mfg_vcore_ao_config_base + 0xCC) /* 0x4B8600CC */
@@ -75,6 +77,7 @@
 		type == POLLING_GHPM_ON_TIMEOUT_ERR ? __stringify(POLLING_GHPM_ON_TIMEOUT_ERR) : \
 		type == POLLING_GPUEB_RESUME_START ? __stringify(POLLING_GPUEB_RESUME_START) : \
 		type == POLLING_GPUEB_RESUME_TIMEOUT ? __stringify(POLLING_GPUEB_RESUME_TIMEOUT) : \
+		type == GHPM_OFF_ON_RECOVERY ? __stringify(GHPM_OFF_ON_RECOVERY) : \
 		type == GPUEB_ON_DONE ? __stringify(GPUEB_ON_DONE) : \
 		type == IPI_SUSPEND_GPUEB ? __stringify(IPI_SUSPEND_GPUEB) : \
 		type == POLLING_GPUEB_OFF_START ? __stringify(POLLING_GPUEB_OFF_START) : \
@@ -97,6 +100,7 @@ enum ghpm_timestamp_monitor_point {
 	POLLING_GHPM_ON_TIMEOUT_ERR,
 	POLLING_GPUEB_RESUME_START,
 	POLLING_GPUEB_RESUME_TIMEOUT,
+	GHPM_OFF_ON_RECOVERY,
 	GPUEB_ON_DONE,
 	IPI_SUSPEND_GPUEB,
 	POLLING_GPUEB_OFF_START,

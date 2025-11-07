@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -106,8 +106,8 @@ static void soc7_0asicConnac2xWpdmaConfig(struct GLUE_INFO *prGlueInfo,
 
 static void soc7_0EnableFwDlMode(struct ADAPTER *prAdapter);
 
-static int soc7_0_CheckBusNoAck(void *adapter, uint8_t ucWfResetEnable);
-static void soc7_0_DumpBusStatus(struct ADAPTER *prAdapter);
+static int soc7_0_CheckBusHang(void *adapter, uint8_t ucWfResetEnable);
+static void soc7_0_DumpBusHangCr(struct ADAPTER *prAdapter);
 
 #if (CFG_SUPPORT_CONNINFRA == 1)
 static int soc7_0_ConnacPccifon(struct ADAPTER *prAdapter);
@@ -118,6 +118,10 @@ static u_int8_t soc7_0_get_sw_interrupt_status(struct ADAPTER *prAdapter,
 	uint32_t *status);
 
 static void soc7_0_DumpWfsyscpupcr(struct ADAPTER *prAdapter);
+
+#if (CFG_CHECK_DRVOWN_EINT == 1)
+static void soc7_0_CheckDrvownEint(struct ADAPTER *prAdapter);
+#endif
 
 static uint32_t soc7_0_SetupRomEmi(struct ADAPTER *prAdapter);
 static void soc7_0_SetupFwDateInfo(struct ADAPTER *prAdapter,
@@ -458,8 +462,6 @@ struct BUS_INFO soc7_0_bus_info = {
 	.setRxRingHwAddr = soc7_0SetRxRingHwAddr,
 	.wfdmaAllocRxRing = soc7_0WfdmaAllocRxRing,
 	.enableFwDlMode = soc7_0EnableFwDlMode,
-	.recordWFDMAIdx = asicConnac2xWfdmaRecord,
-	.checkIdxMismatch = asicConnac2xWfdmaChkIdxMisMatch,
 	.setDmaIntMask = soc7_0configWfDmaIntMask,
 	.clearEvtRingTillCmdRingEmpty =
 		soc7_0clearEvtRingTillCmdRingEmpty,
@@ -532,105 +534,11 @@ struct CHIP_DBG_OPS soc7_0_DebugOps = {
 	.get_rx_link_stats = soc7_0_get_rx_link_stats,
 #endif
 	.dumpwfsyscpupcr = soc7_0_DumpWfsyscpupcr,
-	.dumpBusStatus = soc7_0_DumpBusStatus,
+	.dumpBusHangCr = soc7_0_DumpBusHangCr,
 };
 
 
 #if CFG_SUPPORT_QA_TOOL
-#if (CONFIG_WLAN_SERVICE == 1)
-struct test_capability soc7_0_toolCapability = {
-	/* u_int32 version; */
-	8,
-	/* u_int32 tag_num; */
-	2,
-	/* struct test_capability_ph_cap ph_cap; */
-	{
-		/* GET_CAPABILITY_TAG_PHY */
-		1,	/* u_int32 tag; */
-
-		/* GET_CAPABILITY_TAG_PHY_LEN */
-		16,	/* u_int32 tag_len; */
-
-		/* BIT0: 11 a/b/g, BIT1: 11n, BIT2: 11ac, BIT3: 11ax */
-		0xF,	/* u_int32 protocol; */
-
-		/* 1:1x1, 2:2x2, ... */
-		2,	/* u_int32 max_ant_num; */
-
-		/* BIT0: DBDC support */
-		1,	/* u_int32 dbdc; */
-
-		/* BIT0: TxLDPC, BTI1: RxLDPC, BIT2: TxSTBC, BIT3: RxSTBC */
-		0xF,	/* u_int32 coding; */
-
-		/* BIT0: 2.4G, BIT1: 5G, BIT2: 6G */
-		0x7,	/* u_int32 channel_band; */
-
-		/* BIT0: BW20, BIT1: BW40, BIT2: BW80 */
-		/* BIT3: BW160C, BIT4: BW80+80(BW160NC) */
-		/* BIT5: BW320*/
-		0x1F,	/* u_int32 bandwidth; */
-
-		/* BIT[15:0]: Band0 2.4G, 0x1 */
-		/* BIT[31:16]: Band1 5G, 6G, 0x6 */
-		0x00060001,	/* u_int32 channel_band_dbdc;*/
-
-		/* BIT[15:0]: Band2 N/A, 0x0 */
-		/* BIT[31:16]: Band3 N/A, 0x0 */
-		0x00000000,	/* u_int32 channel_band_dbdc_ext */
-
-		/* BIT[7:0]: Support phy 0x1 (bitwise),
-		 *           phy0)
-		 */
-		/* BIT[15:8]: Support Adie 0x1 (bitwise)*/
-		0x0101,	/* u_int32 phy_adie_index; CFG_SUPPORT_CONNAC3X */
-
-		/* BIT[7:0]: Band0 TX path 2 */
-		/* BIT[15:8]: Band0 RX path 2 */
-		/* BIT[23:16]: Band1 TX path 2 */
-		/* BIT[31:24]: Band1 RX path 2 */
-		0x02020202,	/* u_int32 band_0_1_wf_path_num; */
-
-		/* BIT[7:0]: Band2 TX path 0 */
-		/* BIT[15:8]: Band2 RX path 0 */
-		/* BIT[23:16]: Band3 TX path 0 */
-		/* BIT[31:24]: Band3 RX path 0 */
-		0x00000000,	/* u_int32 band_2_3_wf_path_num; */
-
-		/* BIT[7:0]: Band0 BW40, 0x3 */
-		/* BIT[15:8]: Band1 BW160, 0x1F */
-		/* BIT[23:16]: Band2 N/A, 0x0 */
-		/* BIT[31:24]: Band3 N/A, 0x0 */
-		0x00001F03,	/* u_int32 band_bandwidth; */
-
-		{ 0, 0, 0, 0 }	/* u_int32 reserved[4]; */
-	},
-
-	/* struct test_capability_ext_cap ext_cap; */
-	{
-		/* GET_CAPABILITY_TAG_PHY_EXT */
-		2,	/* u_int32 tag; */
-		/* GET_CAPABILITY_TAG_PHY_EXT_LEN */
-		16,	/* u_int32 tag_len; */
-
-		/* BIT0: AntSwap 0 */
-		/* BIT1: HW TX support 1 */
-		/* BIT2: Little core support 0 */
-		/* BIT3: XTAL trim support 0 */
-		/* BIT4: DBDC/MIMO switch support 1 */
-		/* BIT5: eMLSR support 0 */
-		/* BIT6: MLR+, ALR support 0 */
-		/* BIT7: Bandwidth duplcate debug support 0 */
-		/* BIT8: dRU support 0 */
-		0x12,	/*u_int32 feature1; */
-
-		/* u_int32 reserved[15]; */
-		{ 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0 }
-	}
-};
-#endif
-
 struct ATE_OPS_T soc7_0_AteOps = {
 	/* ICapStart phase out , wlan_service instead */
 	.setICapStart = connacSetICapStart,
@@ -641,9 +549,6 @@ struct ATE_OPS_T soc7_0_AteOps = {
 	.getRbistDataDumpEvent = nicExtEventICapIQData,
 	.icapRiseVcoreClockRate = soc7_0_icapRiseVcoreClockRate,
 	.icapDownVcoreClockRate = soc7_0_icapDownVcoreClockRate,
-#if (CONFIG_WLAN_SERVICE == 1)
-	.tool_capability = &soc7_0_toolCapability,
-#endif
 };
 #endif /* CFG_SUPPORT_QA_TOOL */
 
@@ -676,7 +581,6 @@ struct mt66xx_chip_info mt66xx_chip_info_soc7_0 = {
 	.patch_addr = SOC7_0_PATCH_START_ADDR,
 	.is_support_cr4 = FALSE,
 	.is_support_wacpu = FALSE,
-	.sw_sync_emi_info = NULL,
 	.txd_append_size = SOC7_0_TX_DESC_APPEND_LENGTH,
 	.rxd_size = SOC7_0_RX_DESC_LENGTH,
 	.init_evt_rxd_size = SOC7_0_RX_DESC_LENGTH,
@@ -712,7 +616,7 @@ struct mt66xx_chip_info mt66xx_chip_info_soc7_0 = {
 	.get_sw_interrupt_status = soc7_0_get_sw_interrupt_status,
 	.chip_capability = BIT(CHIP_CAPA_FW_LOG_TIME_SYNC),
 #endif
-	.checkbusNoAck = soc7_0_CheckBusNoAck,
+	.checkbushang = soc7_0_CheckBusHang,
 #if (CFG_SUPPORT_PRE_ON_PHY_ACTION == 1)
 	.calDebugCmd = wlanCalDebugCmd,
 #endif
@@ -1209,7 +1113,7 @@ static void soc7_0configWfDmaIntMask(struct GLUE_INFO *prGlueInfo,
 	HAL_MCR_RD(prGlueInfo->prAdapter,
 		   WF_WFDMA_HOST_DMA0_HOST_INT_ENA_ADDR, &u4Val);
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "HOST_INT_ENA(0x%08x):0x%08x, En:%u, Type:0x%x, Word:0x%08x\n",
 	       WF_WFDMA_HOST_DMA0_HOST_INT_ENA_ADDR,
 	       u4Val,
@@ -1225,29 +1129,26 @@ static void soc7_0clearEvtRingTillCmdRingEmpty(
 	struct BUS_INFO *prBusInfo = NULL;
 	uint32_t u4Retry = 0;
 	struct RTMP_TX_RING *prTxRing;
-	uint32_t u4CpuIdx = 0, u4DmaIdx = 0, u4Addr = 0;
+	uint32_t u4CpuIdx = 0, u4DmaIdx = 0;
 
 	prHifInfo = &prAdapter->prGlueInfo->rHifInfo;
 	prBusInfo = prAdapter->chip_info->bus_info;
 
 	u4Retry = 0;
 	prTxRing = &prHifInfo->TxRing[TX_RING_CMD];
-	kalDevRegRead(prAdapter->prGlueInfo, prTxRing->hw_desc_base, &u4Addr);
 	kalDevRegRead(prAdapter->prGlueInfo, prTxRing->hw_cidx_addr, &u4CpuIdx);
 	kalDevRegRead(prAdapter->prGlueInfo, prTxRing->hw_didx_addr, &u4DmaIdx);
 	while (u4CpuIdx != u4DmaIdx) {
-		if (u4Retry >= HIF_CMD_POWER_OFF_RETRY_COUNT || u4Addr == 0)
+		if (u4Retry >= HIF_CMD_POWER_OFF_RETRY_COUNT)
 			break;
 		kalMsleep(HIF_CMD_POWER_OFF_RETRY_TIME);
 		u4Retry++;
 		nicProcessISTWithSpecifiedCount(prAdapter, 1);
-		DBGLOG_LIMITED(INIT, DEBUG,
+		DBGLOG_LIMITED(INIT, INFO,
 		       "cmd ring cidx[%u] != didx[%u] try to clear event ring, retry: %u\n",
 		       u4CpuIdx, u4DmaIdx, u4Retry);
 		kalDevRegRead(prAdapter->prGlueInfo,
 			      prTxRing->hw_didx_addr, &u4DmaIdx);
-		kalDevRegRead(prAdapter->prGlueInfo,
-			      prTxRing->hw_desc_base, &u4Addr);
 	}
 }
 
@@ -1284,12 +1185,12 @@ int soc7_0_Trigger_fw_assert(struct ADAPTER *prAdapter)
 	int ret = 0;
 	int value = 0;
 
-	if (g_IsWfsysBusNoAck == TRUE) {
-		DBGLOG(HAL, DEBUG,
+	if (g_IsWfsysBusHang == TRUE) {
+		DBGLOG(HAL, INFO,
 			"Already trigger conninfra whole chip reset.\n");
 		return -EBUSY;
 	}
-	DBGLOG(HAL, DEBUG, "Trigger fw assert start.\n");
+	DBGLOG(HAL, INFO, "Trigger fw assert start.\n");
 	wf_ioremap_read(WF_TRIGGER_AP2CONN_EINT, &value);
 	value &= 0xFFFFFF7F;
 	wf_ioremap_write(WF_TRIGGER_AP2CONN_EINT, value);
@@ -1405,7 +1306,7 @@ static int wf_pwr_on_consys_mcu(struct ADAPTER *prAdapter)
 	uint32_t value = 0;
 	uint32_t polling_count;
 	uint32_t u4WfIpVersion = 0;
-	DBGLOG(INIT, DEBUG, "wmmcu power-on start.\n");
+	DBGLOG(INIT, INFO, "wmmcu power-on start.\n");
 
 #if (CFG_WLAN_LK_FWDL_SUPPORT == 0)
 	/* Setup CONNSYS firmware in EMI */
@@ -1646,6 +1547,30 @@ static int wf_pwr_on_consys_mcu(struct ADAPTER *prAdapter)
 	value |= 0x00000100;
 	wf_ioremap_write(DEBUG_CTRL_AO_WFMCU_PWA_CTRL3, value);
 
+#if (CFG_CHECK_DRVOWN_EINT == 1)
+	/* Set conn2wf remapping window
+	 * Address: 0x830C_0120
+	 * Data: 32'h81050000
+	 * Action: write
+	 */
+	kalDevRegWrite(NULL, WF_MCU_BUS_CR_AP2WF_REMAP_1_ADDR,
+		0x81050000);
+
+	/* Set cirq IRQ_DBGSEL for dump eint status
+	 * Address: 0x1850_00F4[7:0]
+	 * Data: 8'h80
+	 * Action: write
+	 */
+	wf_ioremap_read(0x185000f4, &value);
+	DBGLOG(HAL, INFO, "RD 0x810500f4 = %08x\n", value);
+	value &= 0xffffff00;
+	value |= 0x00000080;
+	wf_ioremap_write(0x185000f4, value);
+	DBGLOG(HAL, INFO, "WR 0x810500f4 = %08x\n", value);
+	wf_ioremap_read(0x185000f4, &value);
+	DBGLOG(HAL, INFO, "RD 0x810500f4 = %08x\n", value);
+#endif
+
 	/* Enable wfsys bus timeout (debug ctrl ao)
 	 * Address: 0x1850_0000[4] 0x1850_0000[3] 0x1850_0000[2]
 	 * Data: 1'b1 1'b1 1'b1
@@ -1712,7 +1637,7 @@ static int wf_pwr_on_consys_mcu(struct ADAPTER *prAdapter)
 	value &= ~CONN_HOST_CSR_TOP_CONN_INFRA_WAKEPU_WF_CONN_INFRA_WAKEPU_WF_MASK;
 	wf_ioremap_write(CONN_HOST_CSR_TOP_CONN_INFRA_WAKEPU_WF_ADDR, value);
 
-	DBGLOG(INIT, DEBUG, "wmmcu power-on done.\n");
+	DBGLOG(INIT, INFO, "wmmcu power-on done.\n");
 	return ret;
 }
 
@@ -1743,7 +1668,7 @@ static int wf_pwr_off_consys_mcu(struct ADAPTER *prAdapter)
 	}
 #endif
 
-	DBGLOG(INIT, DEBUG, "wmmcu power-off start.\n");
+	DBGLOG(INIT, INFO, "wmmcu power-off start.\n");
 
 	ret = wake_up_conninfra_off();
 	if (ret)
@@ -1851,8 +1776,8 @@ static int wf_pwr_off_consys_mcu(struct ADAPTER *prAdapter)
 	/* Release WFSYS semaphore */
 	u4ChipID = kalGetChipID();
 
-	if (u4ChipID == 0x6897 || u4ChipID == 0x6878 || u4ChipID == 0x6899) {
-		/* for mt6897, mt6878, mt6899
+	if (u4ChipID == 0x6897 || u4ChipID == 0x6878) {
+		/* for mt6897 and mt6878
 		 * 0x18000158[0]=1'b0
 		 * Action: write
 		 */
@@ -2004,6 +1929,7 @@ static int wf_pwr_off_consys_mcu(struct ADAPTER *prAdapter)
 	wf_ioremap_write(CONN_SEMAPHORE_CONN_SEMA24_M0_OWN_REL_ADDR, value);
 
 release_wfsys_sem_done:
+
 	/* Clear WFSYS ccif irq with ack
 	 * Address: 0x1803_D014[7:0]
 	 * Data: 8'hff
@@ -2014,14 +1940,6 @@ release_wfsys_sem_done:
 	value |= 0x000000FF;
 	HAL_MCR_WR(prAdapter,
 		AP2WF_CONN_INFRA_ON_CCIF4_AP2WF_PCCIF_ACK_ADDR, value);
-
-	/* Read A-die top_ck_en_1
-	 * Address: 0x18003124
-	 * Action: read
-	 */
-	wf_ioremap_read(CONN_WT_SLP_CTL_REG_WB_SLP_TOP_CK_1_ADDR, &value);
-	DBGLOG(INIT, DEBUG, "Read A-die top_ck_en_1 (0x%x)\n", value);
-	udelay(50);
 
 	/* Disable A-die top_ck_en_1
 	 * Address: 0x18003124[0]
@@ -2111,10 +2029,10 @@ static uint32_t soc7_0_McuInit(struct ADAPTER *prAdapter)
 
 	ret = wf_pwr_on_consys_mcu(prAdapter);
 	if (ret) {
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 			"wf_pwr_on_consys_mcu failed, ret=%d\n",
 			ret);
-		soc7_0_DumpBusStatus(prAdapter);
+		soc7_0_DumpBusHangCr(prAdapter);
 		goto exit;
 	}
 
@@ -2123,7 +2041,7 @@ static uint32_t soc7_0_McuInit(struct ADAPTER *prAdapter)
 	 */
 	HAL_LP_OWN_RD(prAdapter, &result);
 	if (result) {
-		DBGLOG(INIT, DEBUG, "set fw own after mcu idle loop.\n");
+		DBGLOG(INIT, INFO, "set fw own after mcu idle loop.\n");
 		HAL_LP_OWN_SET(prAdapter, &result);
 	}
 
@@ -2143,10 +2061,10 @@ static void soc7_0_McuDeInit(struct ADAPTER *prAdapter)
 
 	ret = wf_pwr_off_consys_mcu(prAdapter);
 	if (ret) {
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 			"wf_pwr_off_consys_mcu failed, ret=%d\n",
 			ret);
-		soc7_0_DumpBusStatus(prAdapter);
+		soc7_0_DumpBusHangCr(prAdapter);
 	}
 }
 
@@ -2218,7 +2136,7 @@ static uint32_t soc7_0_SetupRomEmi(struct ADAPTER *prAdapter)
 
 exit:
 	if (u4Status != WLAN_STATUS_SUCCESS)
-		DBGLOG(INIT, DEBUG, "u4Status = %u\n", u4Status);
+		DBGLOG(INIT, INFO, "u4Status = %u\n", u4Status);
 
 	return u4Status;
 }
@@ -2278,20 +2196,50 @@ static void soc7_0_DumpWfsyscpupcr(struct ADAPTER *prAdapter)
 			    var_lp);
 	}
 
-	DBGLOG(HAL, DEBUG, "wm pc=%s%s%s%s%s\n",
+	DBGLOG(HAL, INFO, "wm pc=%s%s%s%s%s\n",
 	       log_buf_pc[0],
 	       log_buf_pc[1],
 	       log_buf_pc[2],
 	       log_buf_pc[3],
 	       log_buf_pc[4]);
 
-	DBGLOG(HAL, DEBUG, "wm lp=%s%s%s%s%s\n",
+	DBGLOG(HAL, INFO, "wm lp=%s%s%s%s%s\n",
 	       log_buf_lp[0],
 	       log_buf_lp[1],
 	       log_buf_lp[2],
 	       log_buf_lp[3],
 	       log_buf_lp[4]);
 }
+
+#if (CFG_CHECK_DRVOWN_EINT == 1)
+static void soc7_0_CheckDrvownEint(struct ADAPTER *prAdapter)
+{
+	u_int32_t u4RegValue = 0;
+
+	DBGLOG(INIT, INFO, "Dump driver own EINT\n");
+
+	/* WR 0x1806_0B00[0] = 0x1 */
+	HAL_MCR_RD(prAdapter, 0x7c060B00, &u4RegValue);
+	u4RegValue |= 0x1;
+	HAL_MCR_WR(prAdapter, 0x7c060B00, u4RegValue);
+
+	/* WR 0x1806_0B04[4:0] = 0x6 */
+	HAL_MCR_RD(prAdapter, 0x7c060B04, &u4RegValue);
+	u4RegValue &= ~BITS(0, 4);
+	u4RegValue |= 0x6;
+	HAL_MCR_WR(prAdapter, 0x7c060B04, u4RegValue);
+
+	/* WR 0x1806_0B14[2:0] = 0x1 */
+	HAL_MCR_RD(prAdapter, 0x7c060B14, &u4RegValue);
+	u4RegValue &= ~BITS(0, 2);
+	u4RegValue |= 0x1;
+	HAL_MCR_WR(prAdapter, 0x7c060B14, u4RegValue);
+
+	/* RD 0x1806_0B10 (WF_AON_DBG_FLAG) */
+	HAL_MCR_RD(prAdapter, 0x7c060B10, &u4RegValue);
+	DBGLOG(HAL, INFO, "RD 0x7c060B10 = %08x\n", u4RegValue);
+}
+#endif
 
 static void soc7_0_DumpPcLrLog(struct ADAPTER *prAdapter)
 {
@@ -2548,21 +2496,25 @@ static void soc7_0_DumpOtherCr(struct ADAPTER *prAdapter)
 #define	HANG_OTHER_LOG_NUM		2
 	uint32_t u4Val = 0;
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"Host_CSR - mailbox and other CRs");
 
 	connac2x_DbgCrRead(NULL, 0x18060010, &u4Val);
-	DBGLOG(INIT, DEBUG, "0x18060010=[0x%08x]\n", u4Val);
+	DBGLOG(INIT, INFO, "0x18060010=[0x%08x]\n", u4Val);
 	connac2x_DbgCrRead(NULL, 0x180600f0, &u4Val);
-	DBGLOG(INIT, DEBUG, "0x180600f0=[0x%08x]\n", u4Val);
+	DBGLOG(INIT, INFO, "0x180600f0=[0x%08x]\n", u4Val);
 	connac2x_DbgCrRead(prAdapter, 0x18400120, &u4Val);
-	DBGLOG(INIT, DEBUG, "0x18400120=[0x%08x]\n", u4Val);
+	DBGLOG(INIT, INFO, "0x18400120=[0x%08x]\n", u4Val);
+
+#if (CFG_CHECK_DRVOWN_EINT == 1)
+	soc7_0_CheckDrvownEint(prAdapter);
+#endif
 
 	set_wf_monflg_on_mailbox_wf();
 
 	/* pooling host_mailbox_wf status */
 	wf_ioremap_read(CONN_HOST_CSR_TOP_WF_ON_MONFLG_OUT_ADDR, &u4Val);
-	DBGLOG(INIT, DEBUG, "0x%08x=[0x%08x]\n",
+	DBGLOG(INIT, INFO, "0x%08x=[0x%08x]\n",
 		CONN_HOST_CSR_TOP_WF_ON_MONFLG_OUT_ADDR,
 		u4Val);
 
@@ -2576,13 +2528,13 @@ static void soc7_0_DumpOtherCr(struct ADAPTER *prAdapter)
 
 	/* MCIF_MD_STATUS_CR */
 	connac2x_DbgCrRead(NULL, 0x10001BF4, &u4Val);
-	DBGLOG(INIT, DEBUG, "MD_AOR_STATUS 0x10001BF4=[%x]\n", u4Val);
+	DBGLOG(INIT, INFO, "MD_AOR_STATUS 0x10001BF4=[%x]\n", u4Val);
 
 	/* Dump WFDMA CR */
 	connac2x_DbgCrRead(NULL, 0x184be008, &u4Val);
-	DBGLOG(INIT, DEBUG, "WFDMA clock 0x184be008=[%x]\n", u4Val);
+	DBGLOG(INIT, INFO, "WFDMA clock 0x184be008=[%x]\n", u4Val);
 	connac2x_DbgCrRead(NULL, 0x184c0800, &u4Val);
-	DBGLOG(INIT, DEBUG, "WFDMA rst 0x184c0800=[%x]\n", u4Val);
+	DBGLOG(INIT, INFO, "WFDMA rst 0x184c0800=[%x]\n", u4Val);
 	connac2x_DumpCrRange(prAdapter, 0x18024200, 7, "WFDMA 0x18024200");
 	connac2x_DumpCrRange(prAdapter, 0x18024300, 16, "WFDMA 0x18024300");
 	connac2x_DumpCrRange(prAdapter, 0x18024380, 16, "WFDMA x18024380");
@@ -2641,18 +2593,18 @@ static void soc7_0_DumpHostCr(struct ADAPTER *prAdapter)
 	soc7_0_DumpWFDMACr(prAdapter);
 }
 
-static void soc7_0_DumpBusStatus(struct ADAPTER *prAdapter)
+static void soc7_0_DumpBusHangCr(struct ADAPTER *prAdapter)
 {
 	conninfra_is_bus_hang();
 	soc7_0_DumpHostCr(prAdapter);
 }
 
-static int soc7_0_CheckBusNoAck(void *adapter, uint8_t ucWfResetEnable)
+static int soc7_0_CheckBusHang(void *adapter, uint8_t ucWfResetEnable)
 {
 	struct ADAPTER *prAdapter = (struct ADAPTER *) adapter;
 	int ret = 1;
 	int conninfra_read_ret = 0;
-	int conninfra_bus_ret = 0;
+	int conninfra_hang_ret = 0;
 	uint8_t conninfra_reset = FALSE;
 	uint32_t u4Value = 0;
 	uint32_t u4WfdmaRstVal = 0;
@@ -2660,11 +2612,7 @@ static int soc7_0_CheckBusNoAck(void *adapter, uint8_t ucWfResetEnable)
 	uint32_t u4WfIpVersion = 0;
 
 	if (prAdapter == NULL)
-		DBGLOG(HAL, DEBUG, "prAdapter NULL\n");
-	else
-		DBGLOG(HAL, TRACE, " Start, fgIsFwOwn:%d\n",
-			prAdapter->fgIsFwOwn);
-
+		DBGLOG(HAL, INFO, "prAdapter NULL\n");
 	do {
 /*
  * 1. Check "AP2CONN_INFRA ON step is ok"
@@ -2675,13 +2623,12 @@ static int soc7_0_CheckBusNoAck(void *adapter, uint8_t ucWfResetEnable)
 			DBGLOG(HAL, ERROR,
 				"conninfra_reg_readable fail(%d)\n",
 				conninfra_read_ret);
-			conninfra_bus_ret = conninfra_is_bus_hang();
-			if (conninfra_bus_ret > 0) {
+			conninfra_hang_ret = conninfra_is_bus_hang();
+			if (conninfra_hang_ret > 0) {
 				conninfra_reset = TRUE;
 
 				DBGLOG(HAL, ERROR,
-					"conninfra_bus_ret(%d), Reset\n",
-					conninfra_bus_ret);
+					"conninfra_is_bus_hang, Chip reset\n");
 			} else {
 				/*
 				* not readable, but no_hang or rst_ongoing
@@ -2750,20 +2697,20 @@ static int soc7_0_CheckBusNoAck(void *adapter, uint8_t ucWfResetEnable)
 
 	if (ret > 0) {
 		if (conninfra_reg_readable_for_coredump() == 1 ||
-			((conninfra_bus_ret != CONNINFRA_ERR_RST_ONGOING) &&
-			(conninfra_bus_ret != CONNINFRA_INFRA_BUS_HANG) &&
-			(conninfra_bus_ret !=
+			((conninfra_hang_ret != CONNINFRA_ERR_RST_ONGOING) &&
+			(conninfra_hang_ret != CONNINFRA_INFRA_BUS_HANG) &&
+			(conninfra_hang_ret !=
 				CONNINFRA_AP2CONN_RX_SLP_PROT_ERR) &&
-			(conninfra_bus_ret !=
+			(conninfra_hang_ret !=
 				CONNINFRA_AP2CONN_TX_SLP_PROT_ERR) &&
-			(conninfra_bus_ret != CONNINFRA_AP2CONN_CLK_ERR)))
+			(conninfra_hang_ret != CONNINFRA_AP2CONN_CLK_ERR)))
 			soc7_0_DumpHostCr(prAdapter);
 
 		if (conninfra_reset) {
-			g_IsWfsysBusNoAck = TRUE;
+			g_IsWfsysBusHang = TRUE;
 			glResetWholeChipResetTrigger("bus hang");
 		} else if (ucWfResetEnable) {
-			g_IsWfsysBusNoAck = TRUE;
+			g_IsWfsysBusHang = TRUE;
 			glResetWholeChipResetTrigger("wifi bus hang");
 		}
 	} else {

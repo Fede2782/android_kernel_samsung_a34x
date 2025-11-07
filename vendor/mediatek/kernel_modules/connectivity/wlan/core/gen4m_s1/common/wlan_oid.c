@@ -1430,6 +1430,11 @@ wlanoidSetConnect(IN struct ADAPTER *prAdapter,
 		}
 	}
 
+	/* Init join status to a non-zero value to prevent returning
+	 * status success due to auth/assoc no response or valid ap selection
+	 */
+	prConnSettings->u2JoinStatus = STATUS_CODE_AUTH_TIMEOUT;
+
 	/* Check former assocIE to prevent memory leakage in situations like
 	* upper layer requests connection without disconnecting first, ...
 	*/
@@ -2285,6 +2290,7 @@ wlanoidSetReloadDefaults(IN struct ADAPTER *prAdapter,
 			prCmdInfo->eCmdType = COMMAND_TYPE_NETWORK_IOCTL;
 			prCmdInfo->u2InfoBufLen = cmd_size;
 			prCmdInfo->pfCmdDoneHandler = nicCmdEventSetCommon;
+			prCmdInfo->pCmdDoneHandlerStr = "nicCmdEventSetCommon";
 			prCmdInfo->pfCmdTimeoutHandler = nicOidCmdTimeoutCommon;
 			prCmdInfo->fgIsOid = TRUE;
 			prCmdInfo->ucCID = CMD_ID_ADD_REMOVE_KEY;
@@ -2760,9 +2766,11 @@ wlanoidSetAddKey(IN struct ADAPTER *prAdapter, IN void *pvSetBuffer,
 	prCmdInfo->u2InfoBufLen = cmd_size;
 #if CFG_SUPPORT_REPLAY_DETECTION
 	prCmdInfo->pfCmdDoneHandler = nicCmdEventSetAddKey;
+	prCmdInfo->pCmdDoneHandlerStr = "nicCmdEventSetAddKey";
 	prCmdInfo->pfCmdTimeoutHandler = nicOidCmdTimeoutSetAddKey;
 #else
 	prCmdInfo->pfCmdDoneHandler = nicCmdEventSetCommon;
+	prCmdInfo->pCmdDoneHandlerStr = "nicCmdEventSetCommon";
 	prCmdInfo->pfCmdTimeoutHandler = nicOidCmdTimeoutCommon;
 #endif
 	prCmdInfo->fgIsOid = TRUE;
@@ -3313,6 +3321,7 @@ wlanSetRemoveKey(IN struct ADAPTER *prAdapter,
 	/* prCmdInfo->ucBssIndex = prRemovedKey->ucBssIdx; */
 	prCmdInfo->u2InfoBufLen = cmd_size;
 	prCmdInfo->pfCmdDoneHandler = nicCmdEventSetCommon;
+	prCmdInfo->pCmdDoneHandlerStr = "nicCmdEventSetCommon";
 	prCmdInfo->pfCmdTimeoutHandler = nicOidCmdTimeoutCommon;
 	prCmdInfo->fgIsOid = fgIsOid;
 	prCmdInfo->ucCID = CMD_ID_ADD_REMOVE_KEY;
@@ -3489,6 +3498,7 @@ wlanoidSetDefaultKey(IN struct ADAPTER *prAdapter,
 	prCmdInfo->eCmdType = COMMAND_TYPE_NETWORK_IOCTL;
 	prCmdInfo->u2InfoBufLen = cmd_size;
 	prCmdInfo->pfCmdDoneHandler = nicCmdEventSetCommon;
+	prCmdInfo->pCmdDoneHandlerStr = "nicCmdEventSetCommon";
 	prCmdInfo->pfCmdTimeoutHandler = nicOidCmdTimeoutCommon;
 	prCmdInfo->fgIsOid = TRUE;
 	prCmdInfo->ucCID = CMD_ID_DEFAULT_KEY_ID;
@@ -4957,7 +4967,7 @@ wlanoidQueryMaxLinkSpeed(IN struct ADAPTER *prAdapter,
 */
 /*----------------------------------------------------------------------------*/
 uint32_t
-wlanSendSetQueryExtCmd(
+__wlanSendSetQueryExtCmd(
 	struct ADAPTER *prAdapter,
 	uint8_t ucCID,
 	uint8_t ucExtCID,
@@ -4965,6 +4975,7 @@ wlanSendSetQueryExtCmd(
 	u_int8_t fgNeedResp,
 	u_int8_t fgIsOid,
 	PFN_CMD_DONE_HANDLER pfCmdDoneHandler,
+	const char *pCmdDoneHandlerStr,
 	PFN_CMD_TIMEOUT_HANDLER pfCmdTimeoutHandler,
 	uint32_t u4SetQueryInfoLen,
 	uint8_t *pucInfoBuffer,
@@ -4994,6 +5005,7 @@ wlanSendSetQueryExtCmd(
 	prCmdInfo->eCmdType = COMMAND_TYPE_NETWORK_IOCTL;
 	prCmdInfo->u2InfoBufLen = cmd_size;
 	prCmdInfo->pfCmdDoneHandler = pfCmdDoneHandler;
+	prCmdInfo->pCmdDoneHandlerStr = pCmdDoneHandlerStr;
 	prCmdInfo->pfCmdTimeoutHandler = pfCmdTimeoutHandler;
 	prCmdInfo->fgIsOid = fgIsOid;
 	prCmdInfo->ucCID = ucCID;
@@ -5034,6 +5046,7 @@ wlanoidSetEfusBufferMode(IN struct ADAPTER *prAdapter,
 	struct CMD_EFUSE_BUFFER_MODE *prCmdSetEfuseBufModeInfo =
 			NULL;
 	PFN_CMD_DONE_HANDLER pfCmdDoneHandler;
+	const char *pCmdDoneHandlerStr;
 	uint32_t u4EfuseContentSize, u4QueryInfoLen;
 	u_int8_t fgSetQuery, fgNeedResp;
 	uint32_t rWlanStatus = WLAN_STATUS_SUCCESS;
@@ -5070,6 +5083,7 @@ wlanoidSetEfusBufferMode(IN struct ADAPTER *prAdapter,
 		u4EfuseContentSize  = sizeof(struct BIN_CONTENT) *
 				      EFUSE_CONTENT_SIZE;
 		pfCmdDoneHandler = nicCmdEventSetCommon;
+		pCmdDoneHandlerStr = "nicCmdEventSetCommon";
 		fgSetQuery = TRUE;
 		fgNeedResp = FALSE;
 	} else {
@@ -5080,6 +5094,7 @@ wlanoidSetEfusBufferMode(IN struct ADAPTER *prAdapter,
 		u4EfuseContentSize = EFUSE_CONTENT_BUFFER_SIZE;
 #endif
 		pfCmdDoneHandler = NULL;
+		pCmdDoneHandlerStr = NULL;
 		fgSetQuery = FALSE;
 		fgNeedResp = TRUE;
 	}
@@ -5098,13 +5113,14 @@ wlanoidSetEfusBufferMode(IN struct ADAPTER *prAdapter,
 		   prSetEfuseBufModeInfo->aBinContent,
 		   u4EfuseContentSize);
 
-	rWlanStatus = wlanSendSetQueryExtCmd(prAdapter,
+	rWlanStatus = __wlanSendSetQueryExtCmd(prAdapter,
 				CMD_ID_LAYER_0_EXT_MAGIC_NUM,
 				EXT_CMD_ID_EFUSE_BUFFER_MODE,
 				fgSetQuery,
 				fgNeedResp,
 				TRUE,
 				pfCmdDoneHandler,
+				pCmdDoneHandlerStr,
 				nicOidCmdTimeoutCommon,
 				u4QueryInfoLen,
 				(uint8_t *) (prCmdSetEfuseBufModeInfo),
@@ -5789,23 +5805,37 @@ struct TXBF_CMD_DONE_HANDLER {
 	uint32_t u4TxBfCmdId;
 	void (*pFunc)(struct ADAPTER *, struct CMD_INFO *,
 		      uint8_t *);
+	const char *pFuncStr;
 };
 
 struct TXBF_CMD_DONE_HANDLER rTxBfCmdDoneHandler[] = {
-	{BF_SOUNDING_OFF, nicCmdEventSetCommon},
-	{BF_SOUNDING_ON, nicCmdEventSetCommon},
-	{BF_DATA_PACKET_APPLY, nicCmdEventSetCommon},
-	{BF_PFMU_MEM_ALLOCATE, nicCmdEventSetCommon},
-	{BF_PFMU_MEM_RELEASE, nicCmdEventSetCommon},
-	{BF_PFMU_TAG_READ, nicCmdEventPfmuTagRead},
-	{BF_PFMU_TAG_WRITE, nicCmdEventSetCommon},
-	{BF_PROFILE_READ, nicCmdEventPfmuDataRead},
-	{BF_PROFILE_WRITE, nicCmdEventSetCommon},
-	{BF_PN_READ, nicCmdEventSetCommon},
-	{BF_PN_WRITE, nicCmdEventSetCommon},
-	{BF_PFMU_MEM_ALLOC_MAP_READ, nicCmdEventSetCommon},
+	{BF_SOUNDING_OFF,
+		nicCmdEventSetCommon, "nicCmdEventSetCommon"},
+	{BF_SOUNDING_ON,
+		nicCmdEventSetCommon, "nicCmdEventSetCommon"},
+	{BF_DATA_PACKET_APPLY,
+		nicCmdEventSetCommon, "nicCmdEventSetCommon"},
+	{BF_PFMU_MEM_ALLOCATE,
+		nicCmdEventSetCommon, "nicCmdEventSetCommon"},
+	{BF_PFMU_MEM_RELEASE,
+		nicCmdEventSetCommon, "nicCmdEventSetCommon"},
+	{BF_PFMU_TAG_READ,
+		nicCmdEventPfmuTagRead, "nicCmdEventPfmuTagRead"},
+	{BF_PFMU_TAG_WRITE,
+		nicCmdEventSetCommon, "nicCmdEventSetCommon"},
+	{BF_PROFILE_READ,
+		nicCmdEventPfmuDataRead, "nicCmdEventPfmuDataRead"},
+	{BF_PROFILE_WRITE,
+		nicCmdEventSetCommon, "nicCmdEventSetCommon"},
+	{BF_PN_READ,
+		nicCmdEventSetCommon, "nicCmdEventSetCommon"},
+	{BF_PN_WRITE,
+		nicCmdEventSetCommon, "nicCmdEventSetCommon"},
+	{BF_PFMU_MEM_ALLOC_MAP_READ,
+		nicCmdEventSetCommon, "nicCmdEventSetCommon"},
 #if CFG_SUPPORT_TX_BF_FPGA
-	{BF_PFMU_SW_TAG_WRITE, nicCmdEventSetCommon}
+	{BF_PFMU_SW_TAG_WRITE,
+		nicCmdEventSetCommon, "nicCmdEventSetCommon"}
 #endif
 };
 
@@ -5863,18 +5893,19 @@ wlanoidTxBfAction(IN struct ADAPTER *prAdapter,
 		return WLAN_STATUS_NOT_SUPPORTED;
 	}
 
-	rWlanStatus = wlanSendSetQueryExtCmd(prAdapter,
-					     CMD_ID_LAYER_0_EXT_MAGIC_NUM,
-					     EXT_CMD_ID_BF_ACTION,
-					     fgSetQuery,
-					     fgNeedResp,
-					     TRUE,
-					     rTxBfCmdDoneHandler[ucIdx].pFunc,
-					     nicOidCmdTimeoutCommon,
-					     sizeof(union CMD_TXBF_ACTION),
-					     (uint8_t *) &rCmdTxBfActionInfo,
-					     pvSetBuffer,
-					     u4SetBufferLen);
+	rWlanStatus = __wlanSendSetQueryExtCmd(prAdapter,
+					   CMD_ID_LAYER_0_EXT_MAGIC_NUM,
+					   EXT_CMD_ID_BF_ACTION,
+					   fgSetQuery,
+					   fgNeedResp,
+					   TRUE,
+					   rTxBfCmdDoneHandler[ucIdx].pFunc,
+					   rTxBfCmdDoneHandler[ucIdx].pFuncStr,
+					   nicOidCmdTimeoutCommon,
+					   sizeof(union CMD_TXBF_ACTION),
+					   (uint8_t *) &rCmdTxBfActionInfo,
+					   pvSetBuffer,
+					   u4SetBufferLen);
 
 	return rWlanStatus;
 }
@@ -5892,6 +5923,7 @@ wlanoidMuMimoAction(IN struct ADAPTER *prAdapter,
 	uint32_t u4MuMimoCmdId;
 	void (*pFunc)(struct ADAPTER *, struct CMD_INFO *,
 		      uint8_t *);
+	const char *pFuncStr = NULL;
 
 	DEBUGFUNC("wlanoidMuMimoAction");
 
@@ -5923,20 +5955,25 @@ wlanoidMuMimoAction(IN struct ADAPTER *prAdapter,
 	}
 
 	pFunc = nicCmdEventSetCommon;
-	if (u4MuMimoCmdId == MU_HQA_GET_QD)
+	pFuncStr = "nicCmdEventSetCommon";
+	if (u4MuMimoCmdId == MU_HQA_GET_QD) {
 		pFunc = nicCmdEventGetQd;
-	else if (u4MuMimoCmdId == MU_HQA_GET_CALC_LQ)
+		pFuncStr = "nicCmdEventGetQd";
+	} else if (u4MuMimoCmdId == MU_HQA_GET_CALC_LQ) {
 		pFunc = nicCmdEventGetCalcLq;
-	else if (u4MuMimoCmdId == MU_GET_CALC_INIT_MCS)
+		pFuncStr = "nicCmdEventGetCalcLq";
+	} else if (u4MuMimoCmdId == MU_GET_CALC_INIT_MCS) {
 		pFunc = nicCmdEventGetCalcInitMcs;
+		pFuncStr = "nicCmdEventGetCalcInitMcs;";
+	}
 
-	rWlanStatus = wlanSendSetQueryExtCmd(prAdapter,
+	rWlanStatus = __wlanSendSetQueryExtCmd(prAdapter,
 					     CMD_ID_LAYER_0_EXT_MAGIC_NUM,
 					     EXT_CMD_ID_MU_CTRL,
 					     fgSetQuery,
 					     fgNeedResp,
 					     TRUE,
-					     pFunc,
+					     pFunc, pFuncStr,
 					     nicOidCmdTimeoutCommon,
 					     sizeof(union CMD_MUMIMO_ACTION),
 					     (uint8_t *) &rCmdMuMimoActionInfo,
@@ -10206,6 +10243,7 @@ uint32_t rftestSetATInfo(IN struct ADAPTER *prAdapter,
 	prCmdInfo->eCmdType = COMMAND_TYPE_GENERAL_IOCTL;
 	prCmdInfo->u2InfoBufLen = cmd_size;
 	prCmdInfo->pfCmdDoneHandler = nicCmdEventSetCommon;
+	prCmdInfo->pCmdDoneHandlerStr = "nicCmdEventSetCommon";
 	prCmdInfo->pfCmdTimeoutHandler = nicOidCmdTimeoutCommon;
 	prCmdInfo->fgIsOid = TRUE;
 	prCmdInfo->ucCID = CMD_ID_TEST_CTRL;
@@ -10531,6 +10569,7 @@ rftestQueryATInfo(IN struct ADAPTER *prAdapter,
 	prCmdInfo->eCmdType = COMMAND_TYPE_GENERAL_IOCTL;
 	prCmdInfo->u2InfoBufLen = cmd_size;
 	prCmdInfo->pfCmdDoneHandler = nicCmdEventQueryRfTestATInfo;
+	prCmdInfo->pCmdDoneHandlerStr = "nicCmdEventQueryRfTestATInfo";
 	prCmdInfo->pfCmdTimeoutHandler = nicOidCmdTimeoutCommon;
 	prCmdInfo->fgIsOid = TRUE;
 	prCmdInfo->ucCID = CMD_ID_TEST_CTRL;
@@ -10603,12 +10642,13 @@ uint32_t rftestSetFrequency(IN struct ADAPTER *prAdapter,
  */
 /*----------------------------------------------------------------------------*/
 uint32_t
-wlanSendSetQueryCmd(IN struct ADAPTER *prAdapter,
+__wlanSendSetQueryCmd(IN struct ADAPTER *prAdapter,
 		    uint8_t ucCID,
 		    u_int8_t fgSetQuery,
 		    u_int8_t fgNeedResp,
 		    u_int8_t fgIsOid,
 		    PFN_CMD_DONE_HANDLER pfCmdDoneHandler,
+		    const char *pCmdDoneHandlerStr,
 		    PFN_CMD_TIMEOUT_HANDLER pfCmdTimeoutHandler,
 		    uint32_t u4SetQueryInfoLen,
 		    uint8_t *pucInfoBuffer, OUT void *pvSetQueryBuffer,
@@ -10640,6 +10680,7 @@ wlanSendSetQueryCmd(IN struct ADAPTER *prAdapter,
 	prCmdInfo->eCmdType = COMMAND_TYPE_NETWORK_IOCTL;
 	prCmdInfo->u2InfoBufLen = cmd_size;
 	prCmdInfo->pfCmdDoneHandler = pfCmdDoneHandler;
+	prCmdInfo->pCmdDoneHandlerStr = pCmdDoneHandlerStr;
 	prCmdInfo->pfCmdTimeoutHandler = pfCmdTimeoutHandler;
 	prCmdInfo->fgIsOid = fgIsOid;
 	prCmdInfo->ucCID = ucCID;
@@ -10880,6 +10921,7 @@ wlanoidSetWapiMode(IN struct ADAPTER *prAdapter,
 	prCmdInfo->ucBssIndex = AIS_DEFAULT_INDEX;
 	prCmdInfo->u2InfoBufLen = CMD_HDR_SIZE + 4;
 	prCmdInfo->pfCmdDoneHandler = nicCmdEventSetCommon;
+	prCmdInfo->pCmdDoneHandlerStr = "nicCmdEventSetCommon";
 	prCmdInfo->pfCmdTimeoutHandler = NULL;
 	prCmdInfo->fgIsOid = TRUE;
 	prCmdInfo->ucCID = CMD_ID_WAPI_MODE;
@@ -11141,6 +11183,7 @@ wlanoidSetWapiKey(IN struct ADAPTER *prAdapter,
 	prCmdInfo->eCmdType = COMMAND_TYPE_NETWORK_IOCTL;
 	prCmdInfo->u2InfoBufLen = cmd_size;
 	prCmdInfo->pfCmdDoneHandler = nicCmdEventSetCommon;
+	prCmdInfo->pCmdDoneHandlerStr = "nicCmdEventSetCommon";
 	prCmdInfo->pfCmdTimeoutHandler = nicOidCmdTimeoutCommon;
 	prCmdInfo->fgIsOid = TRUE;
 	prCmdInfo->ucCID = CMD_ID_ADD_REMOVE_KEY;
@@ -13202,6 +13245,7 @@ wlanoidSetGtkRekeyData(IN struct ADAPTER *prAdapter,
 	prCmdInfo->eCmdType = COMMAND_TYPE_NETWORK_IOCTL;
 	prCmdInfo->u2InfoBufLen = cmd_size;
 	prCmdInfo->pfCmdDoneHandler = nicCmdEventSetCommon;
+	prCmdInfo->pCmdDoneHandlerStr = "nicCmdEventSetCommon";
 	prCmdInfo->pfCmdTimeoutHandler = nicOidCmdTimeoutCommon;
 	prCmdInfo->fgIsOid = TRUE;
 	prCmdInfo->ucCID = CMD_ID_SET_GTK_REKEY_DATA;

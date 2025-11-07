@@ -19,6 +19,12 @@ void p2pFsmRunEventScanRequest(struct ADAPTER *prAdapter,
 void p2pFsmRunEventChGrant(struct ADAPTER *prAdapter,
 		struct MSG_HDR *prMsgHdr);
 
+void p2pFsmRunEventNetDeviceRegister(struct ADAPTER *prAdapter,
+		struct MSG_HDR *prMsgHdr);
+
+void p2pFsmRunEventUpdateMgmtFrame(struct ADAPTER *prAdapter,
+		struct MSG_HDR *prMsgHdr);
+
 #if CFG_SUPPORT_WFD
 void p2pFsmRunEventWfdSettingUpdate(struct ADAPTER *prAdapter,
 		struct MSG_HDR *prMsgHdr);

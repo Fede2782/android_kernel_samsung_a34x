@@ -383,6 +383,10 @@ config MALI_MEMORY_COMPRESSION
 	help
 	  This option enables Mali memory compression support on CSF GPUs.
 
+config MALI_MTK_GPU_FREQUENCY_TRACE
+	bool "provide gpu_frequency trace event"
+	default n
+
 source "$(MALI_KCONFIG_EXT_PREFIX)drivers/gpu/arm/midgard/tests/Kconfig"
 
 endif

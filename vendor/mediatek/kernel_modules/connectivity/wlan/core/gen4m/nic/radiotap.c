@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -549,7 +549,7 @@ void radiotapFillRadiotap(struct ADAPTER *prAdapter,
 	}
 
 	if (ucFillRadiotap == FALSE) {
-		DBGLOG(RX, TRACE, "fill radiotap info fail!\n");
+		DBGLOG(RX, ERROR, "fill radiotap info fail!\n");
 		goto bypass;
 	}
 

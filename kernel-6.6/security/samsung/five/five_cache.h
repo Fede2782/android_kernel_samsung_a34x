@@ -21,11 +21,11 @@
 #ifndef __LINUX_FIVE_CACHE_H
 #define __LINUX_FIVE_CACHE_H
 
-#include "security/integrity/integrity.h"
+#include "five_iint.h"
 
 enum five_file_integrity five_get_cache_status(
-		const struct integrity_iint_cache *iint);
-void five_set_cache_status(struct integrity_iint_cache *iint,
+		const struct five_iint_cache *iint);
+void five_set_cache_status(struct five_iint_cache *iint,
 		enum five_file_integrity status);
 
 #endif // __LINUX_FIVE_CACHE_H

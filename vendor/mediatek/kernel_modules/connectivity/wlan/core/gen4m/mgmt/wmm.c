@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -221,6 +221,38 @@ static uint8_t wmmNewDlgToken(void)
 	return sWmmDlgToken++;
 }
 
+static void wmmComposeTspecTxFrame(void *prPacket, enum TSPEC_OP_CODE eOpCode,
+				   struct PARAM_QOS_TSPEC *prTsParam,
+				   uint16_t u2FrameCtrl,
+				   struct BSS_INFO *prBssInfo,
+				   struct STA_RECORD *prStaRec)
+{
+	struct WMM_ACTION_TSPEC_FRAME *prActionFrame = NULL;
+
+	prActionFrame = prPacket;
+
+	WLAN_SET_FIELD_16(&prActionFrame->u2FrameCtrl, u2FrameCtrl);
+	COPY_MAC_ADDR(prActionFrame->aucDestAddr, prStaRec->aucMacAddr);
+	COPY_MAC_ADDR(prActionFrame->aucSrcAddr, prBssInfo->aucOwnMacAddr);
+	COPY_MAC_ADDR(prActionFrame->aucBSSID, prStaRec->aucMacAddr);
+	prActionFrame->u2SeqCtrl = 0;
+
+	prActionFrame->ucCategory = CATEGORY_WME_MGT_NOTIFICATION;
+	if (eOpCode == TX_ADDTS_REQ) {
+		prActionFrame->ucAction = ACTION_ADDTS_REQ;
+		prActionFrame->ucDlgToken = (prTsParam->ucDialogToken == 0)
+						    ? wmmNewDlgToken()
+						    : prTsParam->ucDialogToken;
+	} else if (eOpCode == TX_DELTS_REQ) {
+		prActionFrame->ucAction = ACTION_DELTS;
+		/* dialog token should be always 0 in delts frame */
+		prActionFrame->ucDlgToken = 0;
+	}
+
+	/* this field only meanful in ADD TS response, otherwise set to 0 */
+	prActionFrame->ucStatusCode = 0;
+}
+
 /* follow WMM spec, send add/del tspec request frame */
 static void wmmTxTspecFrame(struct ADAPTER *prAdapter, uint8_t ucTid,
 	enum TSPEC_OP_CODE eOpCode,
@@ -233,8 +265,6 @@ static void wmmTxTspecFrame(struct ADAPTER *prAdapter, uint8_t ucTid,
 	struct STA_RECORD *prStaRec =
 		aisGetTargetStaRec(prAdapter, ucBssIndex);
 	struct MSDU_INFO *prMsduInfo = NULL;
-	struct WMM_ACTION_TSPEC_FRAME *prActionFrame = NULL;
-	uint16_t u2FrameCtrl = MAC_FRAME_ACTION;
 
 	if (!prStaRec || !prTsParam || !prBssInfo) {
 		DBGLOG(WMM, ERROR, "prStaRec NULL %d, prTsParam NULL %d\n",
@@ -243,7 +273,7 @@ static void wmmTxTspecFrame(struct ADAPTER *prAdapter, uint8_t ucTid,
 	}
 	/*build ADDTS for TID*/
 	/*1 compose Action frame Fix field*/
-	DBGLOG(WMM, DEBUG, "Tspec Action to AP=" MACSTR "\n",
+	DBGLOG(WMM, INFO, "Tspec Action to AP=" MACSTR "\n",
 	       MAC2STR(prStaRec->aucMacAddr));
 
 	prMsduInfo = cnmMgtPktAlloc(prAdapter, ACTION_ADDTS_REQ_FRAME_LEN);
@@ -257,31 +287,8 @@ static void wmmTxTspecFrame(struct ADAPTER *prAdapter, uint8_t ucTid,
 
 	kalMemZero(prMsduInfo->prPacket, ACTION_ADDTS_REQ_FRAME_LEN);
 
-	prActionFrame = (struct WMM_ACTION_TSPEC_FRAME *)prMsduInfo->prPacket;
-
-	/*********frame header**********************/
-	WLAN_SET_FIELD_16(&prActionFrame->u2FrameCtrl, u2FrameCtrl);
-	COPY_MAC_ADDR(prActionFrame->aucDestAddr, prStaRec->aucMacAddr);
-	COPY_MAC_ADDR(prActionFrame->aucSrcAddr, prBssInfo->aucOwnMacAddr);
-	COPY_MAC_ADDR(prActionFrame->aucBSSID, prStaRec->aucMacAddr);
-	prActionFrame->u2SeqCtrl = 0;
-
-	/********Frame body*************/
-	prActionFrame->ucCategory =
-		CATEGORY_WME_MGT_NOTIFICATION; /*CATEGORY_QOS_ACTION;*/
-	if (eOpCode == TX_ADDTS_REQ) {
-		prActionFrame->ucAction = ACTION_ADDTS_REQ;
-		prActionFrame->ucDlgToken = (prTsParam->ucDialogToken == 0)
-						    ? wmmNewDlgToken()
-						    : prTsParam->ucDialogToken;
-	} else if (eOpCode == TX_DELTS_REQ) {
-		prActionFrame->ucAction = ACTION_DELTS;
-		prActionFrame->ucDlgToken =
-			0; /* dialog token should be always 0 in delts frame */
-	}
-
-	/* this field only meanful in ADD TS response, otherwise set to 0 */
-	prActionFrame->ucStatusCode = 0;
+	wmmComposeTspecTxFrame(prMsduInfo->prPacket, eOpCode, prTsParam,
+			       MAC_FRAME_ACTION, prBssInfo, prStaRec);
 
 	/*DumpData((PUINT_8)prMsduInfo->prPacket,u2PayLoadLen, "ADDTS-FF");*/
 
@@ -301,22 +308,22 @@ void wmmSetupTspecTimeOut(struct ADAPTER *prAdapter, uintptr_t ulParam)
 	struct TSPEC_INFO *prTsInfo = (struct TSPEC_INFO *)ulParam;
 
 	if (!prTsInfo) {
-		DBGLOG(WMM, DEBUG, "Wrong TS info\n");
+		DBGLOG(WMM, INFO, "Wrong TS info\n");
 		return;
 	}
 
 	switch (prTsInfo->eState) {
 	case QOS_TS_ACTIVE:
-		DBGLOG(WMM, DEBUG, "Update TS TIMEOUT for TID %d\n",
+		DBGLOG(WMM, INFO, "Update TS TIMEOUT for TID %d\n",
 			prTsInfo->ucTid);
 		break;
 	case QOS_TS_SETUPING:
-		DBGLOG(WMM, DEBUG, "ADD TS TIMEOUT for TID %d\n",
+		DBGLOG(WMM, INFO, "ADD TS TIMEOUT for TID %d\n",
 			prTsInfo->ucTid);
 		prTsInfo->eState = QOS_TS_INACTIVE;
 		break;
 	default:
-		DBGLOG(WMM, DEBUG,
+		DBGLOG(WMM, INFO,
 		       "Shouldn't start this timer when Ts %d in state %d\n",
 		       prTsInfo->ucTid, prTsInfo->eState);
 		break;
@@ -339,7 +346,7 @@ uint8_t wmmCalculateUapsdSetting(struct ADAPTER *prAdapter,
 		ucBssIndex);
 
 	if (!prAisBssInfo || !prWmmInfo) {
-		DBGLOG(WMM, DEBUG, "prWmmInfo is null %d\n", ucBssIndex);
+		DBGLOG(WMM, INFO, "prWmmInfo is null %d\n", ucBssIndex);
 		return 0;
 	}
 
@@ -390,7 +397,7 @@ void wmmSyncPsParamWithFw(struct ADAPTER *prAdapter, uint8_t ucAc,
 			    sizeof(struct CMD_SET_WMM_PS_TEST_STRUCT),
 			    (uint8_t *)&rSetWmmPsTestParam, NULL, 0);
 
-	DBGLOG(WMM, DEBUG, "Ac=%d, Uapsd 0x%02x\n",
+	DBGLOG(WMM, INFO, "Ac=%d, Uapsd 0x%02x\n",
 	       ucAc, rSetWmmPsTestParam.bmfgApsdEnAc);
 }
 
@@ -431,8 +438,8 @@ void wmmSyncAcParamWithFw(struct ADAPTER *prAdapter, uint8_t ucAc,
 	if (u2MediumTime)
 		u2MediumTime = 153;
 #endif
-	prAcmCtrl->u8AdmittedTime = u2MediumTime * 32;
-	prAcmCtrl->u8IntervalEndSec = 0;
+	prAcmCtrl->u4AdmittedTime = u2MediumTime * 32;
+	prAcmCtrl->u4IntervalEndSec = 0;
 #endif
 	kalMemZero(&rCmdUpdateAcParam, sizeof(rCmdUpdateAcParam));
 	rCmdUpdateAcParam.ucAcIndex = ucAc;
@@ -443,7 +450,7 @@ void wmmSyncAcParamWithFw(struct ADAPTER *prAdapter, uint8_t ucAc,
 		FALSE, NULL, NULL, sizeof(struct CMD_UPDATE_AC_PARAMS),
 		(uint8_t *)&rCmdUpdateAcParam, NULL, 0);
 
-	DBGLOG(WMM, DEBUG, "Ac=%d, MediumTime=%d PhyRate=%u\n",
+	DBGLOG(WMM, INFO, "Ac=%d, MediumTime=%d PhyRate=%u\n",
 	       ucAc, u2MediumTime, u4PhyRate);
 
 	wmmSyncPsParamWithFw(prAdapter, ucAc, ucBssIndex);
@@ -456,7 +463,7 @@ uint8_t wmmHasActiveTspec(struct WMM_INFO *prWmmInfo)
 	uint8_t ucACList = 0;
 
 	if (!prWmmInfo) {
-		DBGLOG(WMM, DEBUG, "prWmmInfo is null\n");
+		DBGLOG(WMM, INFO, "prWmmInfo is null\n");
 		return 0;
 	}
 
@@ -496,13 +503,13 @@ void wmmTspecSteps(struct ADAPTER *prAdapter, uint8_t ucTid,
 	if (prAisBssInfo->eConnectionState !=
 		    MEDIA_STATE_CONNECTED ||
 	    prAisFsmInfo->eCurrentState == AIS_STATE_DISCONNECTING) {
-		DBGLOG(WMM, DEBUG,
+		DBGLOG(WMM, INFO,
 		       "ignore OP code %d when medium disconnected\n", eOpCode);
 		return;
 	}
 
 	if (ucTid >= WMM_TSPEC_ID_NUM) {
-		DBGLOG(WMM, DEBUG, "Invalid TID %d\n", ucTid);
+		DBGLOG(WMM, INFO, "Invalid TID %d\n", ucTid);
 		return;
 	}
 
@@ -518,7 +525,7 @@ void wmmTspecSteps(struct ADAPTER *prAdapter, uint8_t ucTid,
 		if (eOpCode != TX_ADDTS_REQ)
 			break;
 		if (!prQosTspec) {
-			DBGLOG(WMM, DEBUG, "Lack of Tspec Param\n");
+			DBGLOG(WMM, INFO, "Lack of Tspec Param\n");
 			break;
 		}
 		/*Send ADDTS req Frame*/
@@ -540,7 +547,7 @@ void wmmTspecSteps(struct ADAPTER *prAdapter, uint8_t ucTid,
 		    eOpCode == DISC_DELTS_REQ) {
 			cnmTimerStopTimer(prAdapter, &prCurTs->rAddTsTimer);
 			prCurTs->eState = QOS_TS_INACTIVE;
-			DBGLOG(WMM, DEBUG, "Del Ts %d in setuping state\n",
+			DBGLOG(WMM, INFO, "Del Ts %d in setuping state\n",
 			       ucTid);
 			break;
 		} else if (eOpCode != RX_ADDTS_RSP ||
@@ -649,7 +656,7 @@ void wmmTspecSteps(struct ADAPTER *prAdapter, uint8_t ucTid,
 
 			if (prParam->ucStatusCode !=
 			    WMM_TS_STATUS_ADMISSION_ACCEPTED) {
-				DBGLOG(WMM, DEBUG,
+				DBGLOG(WMM, INFO,
 				       "Update TS %d request was rejected by BSS\n",
 				       ucTid);
 				break;
@@ -679,7 +686,7 @@ static uint32_t wmmRunEventActionTxDone(struct ADAPTER *prAdapter,
 					struct MSDU_INFO *prMsduInfo,
 					enum ENUM_TX_RESULT_CODE rTxDoneStatus)
 {
-	DBGLOG(WMM, DEBUG, "Status %d\n", rTxDoneStatus);
+	DBGLOG(WMM, INFO, "Status %d\n", rTxDoneStatus);
 	return WLAN_STATUS_SUCCESS;
 }
 
@@ -696,10 +703,10 @@ void DumpData(uint8_t *prAddr, uint8_t uLen, char *tag)
 	uLen = (uLen > 128) ? 128 : uLen;
 	loop = uLen / 16;
 	if (tag)
-		DBGLOG(WMM, DEBUG, "++++++++ dump data \"%s\" p=%p len=%d\n",
+		DBGLOG(WMM, INFO, "++++++++ dump data \"%s\" p=%p len=%d\n",
 		       tag, prAddr, uLen);
 	else
-		DBGLOG(WMM, DEBUG, "++++++ dump data p=%p, len=%d\n", prAddr,
+		DBGLOG(WMM, INFO, "++++++ dump data p=%p, len=%d\n", prAddr,
 		       uLen);
 
 	while (loop) {
@@ -709,7 +716,7 @@ void DumpData(uint8_t *prAddr, uint8_t uLen, char *tag)
 			buf[k * 3 + 2] = ' ';
 		}
 		buf[16 * 3] = 0;
-		DBGLOG(WMM, DEBUG, "%s\n", buf);
+		DBGLOG(WMM, INFO, "%s\n", buf);
 		loop--;
 		p += 16;
 	}
@@ -723,8 +730,8 @@ void DumpData(uint8_t *prAddr, uint8_t uLen, char *tag)
 		uLen--;
 	}
 	buf[k * 3] = 0;
-	DBGLOG(WMM, DEBUG, "%s\n", buf);
-	DBGLOG(WMM, DEBUG, "====== end dump data\n");
+	DBGLOG(WMM, INFO, "%s\n", buf);
+	DBGLOG(WMM, INFO, "====== end dump data\n");
 }
 
 /* TSM related */
@@ -739,10 +746,10 @@ static void wmmQueryTsmResult(struct ADAPTER *prAdapter,
 		aisGetWMMInfo(prAdapter, ucBssIndex);
 	struct CMD_GET_TSM_STATISTICS rGetTsmStatistics = {0};
 
-	DBGLOG(WMM, DEBUG, "[%d] Query TSM statistics, tid = %d\n",
+	DBGLOG(WMM, INFO, "[%d] Query TSM statistics, tid = %d\n",
 		ucBssIndex,
 		prTsmReq->ucTID);
-	DBGLOG(WMM, DEBUG, "%p , aci %d, duration %d\n", prTsmReq,
+	DBGLOG(WMM, INFO, "%p , aci %d, duration %d\n", prTsmReq,
 		prTsmReq->ucACI, prTsmReq->u2Duration);
 
 	rGetTsmStatistics.ucBssIdx = ucBssIndex;
@@ -865,7 +872,7 @@ void wmmStartTsmMeasurement(struct ADAPTER *prAdapter, uintptr_t ulParam,
 	}
 	prStaRec = prAisBssInfo->prStaRecOfAP;
 	if (!prStaRec) {
-		DBGLOG(WMM, DEBUG, "No station record found for "MACSTR"\n",
+		DBGLOG(WMM, INFO, "No station record found for "MACSTR"\n",
 			MAC2STR(prTsmReq->aucPeerAddr));
 		cnmMemFree(prAdapter, prTsmReq);
 		rrmScheduleNextRm(prAdapter,
@@ -885,7 +892,7 @@ void wmmStartTsmMeasurement(struct ADAPTER *prAdapter, uintptr_t ulParam,
 		 */
 		if (prStaRec->afgAcmRequired[prTsmReq->ucACI] &&
 		    !(ucTsAcs & BIT(prTsmReq->ucACI))) {
-			DBGLOG(WMM, DEBUG,
+			DBGLOG(WMM, INFO,
 			       "ACM is set for UP %d, but No tspec is setup\n",
 			       ucTid);
 			rrmScheduleNextRm(prAdapter,
@@ -937,7 +944,7 @@ void wmmStartTsmMeasurement(struct ADAPTER *prAdapter, uintptr_t ulParam,
 			/* if exist normal tsm on the same ts, replace it */
 			if (prActiveTsmReq->prTsmReq)
 				cnmMemFree(prAdapter, prActiveTsmReq->prTsmReq);
-			DBGLOG(WMM, DEBUG, "%p tid %d, aci %d, duration %d\n",
+			DBGLOG(WMM, INFO, "%p tid %d, aci %d, duration %d\n",
 				prTsmReq, prTsmReq->ucTID, prTsmReq->ucACI,
 				prTsmReq->u2Duration);
 			prActiveTsmReq->ucBssIdx = ucBssIndex;
@@ -981,7 +988,7 @@ void wmmStartTsmMeasurement(struct ADAPTER *prAdapter, uintptr_t ulParam,
 	rTsmStatistics.ucTid = prTsmReq->ucTID;
 	rTsmStatistics.ucEnabled = TRUE;
 	COPY_MAC_ADDR(rTsmStatistics.aucPeerAddr, prTsmReq->aucPeerAddr);
-	DBGLOG(WMM, DEBUG, "enabled=%d, tid=%d\n", rTsmStatistics.ucEnabled,
+	DBGLOG(WMM, INFO, "enabled=%d, tid=%d\n", rTsmStatistics.ucEnabled,
 	       ucTid);
 	wlanSendSetQueryCmd(prAdapter, CMD_ID_SET_TSM_STATISTICS_REQUEST, TRUE,
 			    FALSE, FALSE, NULL, NULL,
@@ -1034,7 +1041,7 @@ u_int8_t wmmParseQosAction(struct ADAPTER *prAdapter,
 
 	prWlanActionFrame = (struct WLAN_ACTION_FRAME *)prSwRfb->pvHeader;
 
-	DBGLOG(WMM, DEBUG, "[%d] Action=%d\n",
+	DBGLOG(WMM, INFO, "[%d] Action=%d\n",
 		ucBssIndex,
 		prWlanActionFrame->ucAction);
 	switch (prWlanActionFrame->ucAction) {
@@ -1059,7 +1066,7 @@ u_int8_t wmmParseQosAction(struct ADAPTER *prAdapter,
 			rStepParam.ucStatusCode = prAddTsRsp->ucStatusCode;
 			pucIE = (uint8_t *)prAddTsRsp->aucInfoElem;
 		} else {
-			DBGLOG(WMM, DEBUG,
+			DBGLOG(WMM, INFO,
 			       "Not supported category %d for action %d\n",
 			       prWlanActionFrame->ucCategory,
 			       prWlanActionFrame->ucAction);
@@ -1095,7 +1102,7 @@ u_int8_t wmmParseQosAction(struct ADAPTER *prAdapter,
 					rStepParam.ucApsd =
 						rTspec.rTsInfo.ucApsd;
 				} else {
-					DBGLOG(WMM, DEBUG,
+					DBGLOG(WMM, INFO,
 					       "can't parse Tspec IE?!\n");
 				}
 				break;
@@ -1156,7 +1163,7 @@ u_int8_t wmmParseTspecIE(struct ADAPTER *prAdapter, uint8_t *pucIE,
 	uint8_t *pucTemp = NULL;
 
 	if (IE_ID(pucIE) == ELEM_ID_TSPEC) {
-		DBGLOG(WMM, DEBUG, "found 802.11 Tspec Information Element\n");
+		DBGLOG(WMM, INFO, "found 802.11 Tspec Information Element\n");
 		/* todo: implement 802.11 Tspec here, assign value to
 		 ** u4TsInfoValue and pucTemp
 		 */
@@ -1171,7 +1178,7 @@ u_int8_t wmmParseTspecIE(struct ADAPTER *prAdapter, uint8_t *pucIE,
 
 		/* WMM TSPEC length */
 		if (prIeWmmTspec->ucLength < ELEM_MAX_LEN_WMM_TSPEC) {
-			DBGLOG(WMM, DEBUG, "Abnormal IE length\n");
+			DBGLOG(WMM, INFO, "Abnormal IE length\n");
 			return FALSE;
 		}
 
@@ -1228,7 +1235,7 @@ u_int8_t wmmParseTspecIE(struct ADAPTER *prAdapter, uint8_t *pucIE,
 	WLAN_GET_FIELD_16(pucTemp, &prTspec->u2MediumTime);
 	pucTemp += 2;
 	ASSERT((pucTemp == (IE_SIZE(pucIE) + pucIE)));
-	DBGLOG(WMM, DEBUG, "TsId=%d, TrafficType=%d, PSB=%d, MediumTime=%d\n",
+	DBGLOG(WMM, INFO, "TsId=%d, TrafficType=%d, PSB=%d, MediumTime=%d\n",
 	       prTspec->rTsInfo.ucTid, prTspec->rTsInfo.ucTrafficType,
 	       prTspec->rTsInfo.ucApsd, prTspec->u2MediumTime);
 	return TRUE;
@@ -1293,7 +1300,7 @@ void wmmComposeTsmRpt(struct ADAPTER *prAdapter, struct CMD_INFO *prCmdInfo,
 	if (u2IeSize + prRmRep->u2ReportFrameLen > RM_REPORT_FRAME_MAX_LENGTH)
 		rrmTxRadioMeasurementReport(prAdapter, ucBssIndex);
 
-	DBGLOG(WMM, DEBUG, "tid %d, aci %d\n", prCurrentTsmReq->prTsmReq->ucTID,
+	DBGLOG(WMM, INFO, "tid %d, aci %d\n", prCurrentTsmReq->prTsmReq->ucTID,
 	       prCurrentTsmReq->prTsmReq->ucACI);
 	prTsmRpt =
 		(struct IE_MEASUREMENT_REPORT *)(prRmRep->pucReportFrameBuff +
@@ -1470,7 +1477,7 @@ uint32_t wmmDumpActiveTspecs(struct ADAPTER *prAdapter, uint8_t *pucBuffer,
 				break;
 			u2BufferLen -= (uint16_t)i4BytesWritten;
 		} else
-			DBGLOG(WMM, DEBUG,
+			DBGLOG(WMM, INFO,
 			       "Tid %d, AC %d, Dir %d, Uapsd %d, MediumTime %d, PhyRate %u\n",
 			       ucTid, prTspec->eAC, prTspec->eDir,
 			       prTspec->fgUapsd, prTspec->u2MediumTime,
@@ -1538,7 +1545,7 @@ uint32_t wmmCalculatePktUsedTime(struct BSS_INFO *prBssInfo,
 
 		u4TxTime = wmmAcmTxTimeHtCal(ucSecurityPadding, u2PktLen, 7,
 					     ucFlags);
-		DBGLOG(WMM, DEBUG,
+		DBGLOG(WMM, INFO,
 		       "MCS 7, Tx %d bytes, SecExtra %d bytes, Flags %02x, Time %u us\n",
 		       u2PktLen, ucSecurityPadding, ucFlags, u4TxTime);
 	} else {
@@ -1567,7 +1574,7 @@ uint32_t wmmCalculatePktUsedTime(struct BSS_INFO *prBssInfo,
 				ucFlags |= FLAG_S_PREAMBLE;
 			u4TxTime = wmmAcmTxTimeCal(ucSecurityPadding, u2PktLen,
 					u2DataRate, aucDataRate[i], ucFlags);
-			DBGLOG(WMM, DEBUG,
+			DBGLOG(WMM, INFO,
 			       "DataRate %d, BasicRate %d, Tx %d bytes, SecExtra %d bytes, Flags %02x, Time %u us\n",
 			       u2DataRate, aucDataRate[i], u2PktLen,
 			       ucSecurityPadding, ucFlags, u4TxTime);
@@ -1595,29 +1602,29 @@ u_int8_t wmmAcmCanDequeue(struct ADAPTER *prAdapter, uint8_t ucAc,
 	struct SOFT_ACM_CTRL *prAcmCtrl = NULL;
 	struct WMM_INFO *prWmmInfo =
 		aisGetWMMInfo(prAdapter, ucBssIndex);
-	uint64_t u8CurTime = 0;
+	uint32_t u4CurTime = 0;
 
 	if (!prWmmInfo) {
-		DBGLOG(WMM, DEBUG, "prWmmInfo is null %d\n", ucBssIndex);
+		DBGLOG(WMM, INFO, "prWmmInfo is null %d\n", ucBssIndex);
 		return FALSE;
 	}
 
 	prAcmCtrl = &prWmmInfo->arAcmCtrl[ucAc];
-	if (!prAcmCtrl->u8AdmittedTime)
+	if (!prAcmCtrl->u4AdmittedTime)
 		return FALSE;
 
-	u8CurTime = kal_div64_u64(kalGetBootTime(), USEC_PER_SEC);
+	u4CurTime = (uint32_t)(kalGetBootTime() / USEC_PER_SEC);
 
-	if (!TIME_BEFORE(u8CurTime, prAcmCtrl->u8IntervalEndSec)) {
-		u8CurTime++;
-		DBGLOG(WMM, DEBUG,
-		       "AC %d, Admitted %lu, LastEnd %lu, NextEnd %lu, LastUsed %lu, LastDeq %d\n",
-		       ucAc, prAcmCtrl->u8AdmittedTime,
-		       prAcmCtrl->u8IntervalEndSec, u8CurTime,
-		       prAcmCtrl->u8AdmittedTime - prAcmCtrl->u8RemainTime,
+	if (!TIME_BEFORE(u4CurTime, prAcmCtrl->u4IntervalEndSec)) {
+		u4CurTime++;
+		DBGLOG(WMM, INFO,
+		       "AC %d, Admitted %u, LastEnd %u, NextEnd %u, LastUsed %u, LastDeq %d\n",
+		       ucAc, prAcmCtrl->u4AdmittedTime,
+		       prAcmCtrl->u4IntervalEndSec, u4CurTime,
+		       prAcmCtrl->u4AdmittedTime - prAcmCtrl->u4RemainTime,
 		       prAcmCtrl->u2DeqNum);
-		prAcmCtrl->u8IntervalEndSec = u8CurTime;
-		prAcmCtrl->u8RemainTime = prAcmCtrl->u8AdmittedTime;
+		prAcmCtrl->u4IntervalEndSec = u4CurTime;
+		prAcmCtrl->u4RemainTime = prAcmCtrl->u4AdmittedTime;
 		prAcmCtrl->u2DeqNum = 0;
 		/* Stop the next dequeue timer due to we will dequeue right now.
 		 */
@@ -1626,48 +1633,47 @@ u_int8_t wmmAcmCanDequeue(struct ADAPTER *prAdapter, uint8_t ucAc,
 	}
 	if (!u4PktTxTime) {
 		DBGLOG(WMM, TRACE, "AC %d, can dq %d\n", ucAc,
-		       (prAcmCtrl->u8RemainTime > 0));
-		return (prAcmCtrl->u8RemainTime > 0);
+		       (prAcmCtrl->u4RemainTime > 0));
+		return (prAcmCtrl->u4RemainTime > 0);
 	}
 	/* If QM request to dequeue, and have enough medium time,  then dequeue
 	 */
-	if (prAcmCtrl->u8RemainTime >= u4PktTxTime) {
+	if (prAcmCtrl->u4RemainTime >= u4PktTxTime) {
 		prAcmCtrl->u2DeqNum++;
-		prAcmCtrl->u8RemainTime -= u4PktTxTime;
-		DBGLOG(WMM, DEBUG, "AC %d, Remain %lu, DeqNum %d\n", ucAc,
-		       prAcmCtrl->u8RemainTime, prAcmCtrl->u2DeqNum);
-		if (prAcmCtrl->u8RemainTime > 0)
+		prAcmCtrl->u4RemainTime -= u4PktTxTime;
+		DBGLOG(WMM, INFO, "AC %d, Remain %u, DeqNum %d\n", ucAc,
+		       prAcmCtrl->u4RemainTime, prAcmCtrl->u2DeqNum);
+		if (prAcmCtrl->u4RemainTime > 0)
 			return TRUE;
 	}
 	/* If not enough medium time to dequeue next packet, should start a
 	 * timer to schedue next dequeue
-	 * We didn't consider the case u8RemainTime is enough to dequeue
+	 * We didn't consider the case u4RemainTime is enough to dequeue
 	 * packets except the head of the
 	 * station tx queue, because it is too complex to implement dequeue
 	 * routine.
-	 * We should reset u8RemainTime to 0, used to skip next dequeue request
+	 * We should reset u4RemainTime to 0, used to skip next dequeue request
 	 * if still in this deq interval.
 	 * the dequeue interval is 1 second according to WMM-AC specification.
 	 */
-	prAcmCtrl->u8RemainTime = 0;
+	prAcmCtrl->u4RemainTime = 0;
 	/* Start a timer to schedule next dequeue interval, since application
 	 * may stop sending data to driver,
 	 * but driver still pending some data to dequeue
 	 */
 	if (!timerPendingTimer(&prWmmInfo->rAcmDeqTimer)) {
-		uint64_t u8EndMsec = prAcmCtrl->u8IntervalEndSec * 1000;
+		uint32_t u4EndMsec = prAcmCtrl->u4IntervalEndSec * 1000;
 
-		u8CurTime = kal_div64_u64(kalGetBootTime(),
-					USEC_PER_MSEC);
+		u4CurTime = (uint32_t)(kalGetBootTime() / USEC_PER_MSEC);
 
-		/* It is impossible that u4EndMsec is less than u8CurTime */
-		u8EndMsec = u8EndMsec - u8CurTime +
+		/* It is impossible that u4EndMsec is less than u4CurTime */
+		u4EndMsec = u4EndMsec - u4CurTime +
 			    20; /* the timeout duration at least 2 jiffies */
 		cnmTimerStartTimer(prAdapter, &prWmmInfo->rAcmDeqTimer,
-				   (uint32_t)u8EndMsec);
-		DBGLOG(WMM, DEBUG,
-		       "AC %d, will start next deq interval after %lu ms\n",
-		       ucAc, u8EndMsec);
+				   u4EndMsec);
+		DBGLOG(WMM, INFO,
+		       "AC %d, will start next deq interval after %u ms\n",
+		       ucAc, u4EndMsec);
 	}
 	return FALSE;
 }
@@ -1931,7 +1937,7 @@ static uint16_t wmmAcmTxTimeHtCal(uint16_t u2SecExtra, uint16_t u2EthBodyLen,
 static void wmmAcmDequeueTimeOut(struct ADAPTER *prAdapter,
 				 uintptr_t ulParamPtr)
 {
-	DBGLOG(WMM, DEBUG, "Timeout, trigger to do ACM dequeue\n");
+	DBGLOG(WMM, INFO, "Timeout, trigger to do ACM dequeue\n");
 	kalSetEvent(prAdapter->prGlueInfo);
 
 	/* for TX direct, continue TX */

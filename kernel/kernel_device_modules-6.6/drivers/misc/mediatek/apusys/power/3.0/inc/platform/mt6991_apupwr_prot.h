@@ -41,6 +41,8 @@
 #define DRV_STAT_SYNC_REG               SPARE_DBG_REG7
 #define MBRAIN_DATA_SYNC_0_REG          SPARE_DBG_REG8  // pll recording
 #define MBRAIN_DATA_SYNC_1_REG          SPARE_DBG_REG9  // vapu recording
+#define ENGINE_PWR_ON_REC				SPARE_DBG_REG15 // engine pwron recording
+#define HWVOTER_OPP_REG					SPARE_DBG_REG16 // cur eng freq recording
 #define MBRAIN_RCX_CNT                  0xF798          // PLL WA retry count, rcx on
 #define MBRAIN_RCX_DUMPMNOCPLL_REG      0xF700          // PLL WA retry count, rcx on
 #define MBRAIN_RCX_DUMPUPPLL_REG        0xF800          // PLL WA retry count, rcx on
@@ -128,7 +130,12 @@ struct tiny_dvfs_opp_tbl {
 	int tbl_size;   // entry number
 	struct tiny_dvfs_opp_entry opp[USER_MIN_OPP_VAL + 1];   // entry data
 };
-void mt6991_aputop_opp_limit(struct aputop_func_param *aputop,
+extern int mt6991_mdla_pll_freq[OPP_TABLE_SIZE];
+extern int mt6991_mvpu_pll_freq[OPP_TABLE_SIZE];
+extern int cur_mvpu_pll_freq;
+extern int cur_mdla_pll_freq;
+
+void mt6991_aputop_opp_limit(int upper_opp, int low_opp,
 		enum apu_opp_limit_type type);
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 int mt6991_apu_top_dbg_open(struct inode *inode, struct file *file);
@@ -139,4 +146,9 @@ ssize_t mt6991_apu_top_dbg_write(
 int mt6991_init_remote_data_sync(void __iomem *reg_base);
 int mt6991_drv_cfg_remote_sync(struct aputop_func_param *aputop);
 int mt6991_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src);
+/* new function for freq upper and lower limit */
+int mt6991_set_freq_limit(int upper_limit, int lower_limit,
+		int *request_id, int calltype);
+void mt6991_request_opp_table(void);
+void mt6991_request_cur_freq(void);
 #endif

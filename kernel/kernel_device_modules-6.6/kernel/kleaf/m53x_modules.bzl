@@ -16,6 +16,7 @@ product_device_modules = [
     "drivers/input/sec_input/sec_cmd.ko",
     "drivers/input/sec_input/sec_tclm_v2.ko",
     "drivers/leds/leds-mt6360.ko",
+    "drivers/samsung/pm/sec_wakeup_cpu_allocator.ko",
 ]
 
 product_gki_modules = [

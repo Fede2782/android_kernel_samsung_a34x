@@ -533,6 +533,10 @@ static int ce_fw_sram_show(struct seq_file *s, void *v)
 	while (ce_reg_addr[offset++] == CE_REG_DUMP_MAGIC_NUM) {
 		start = ce_reg_addr[offset++];
 		end = ce_reg_addr[offset++];
+		if (start >= end) {
+			seq_puts(s, "---- dump ce register fail, payload is invalid ----\n");
+			break;
+		}
 		size = end - start;
 
 		seq_printf(s, "---- dump ce register from 0x%08x to 0x%08x ----\n",

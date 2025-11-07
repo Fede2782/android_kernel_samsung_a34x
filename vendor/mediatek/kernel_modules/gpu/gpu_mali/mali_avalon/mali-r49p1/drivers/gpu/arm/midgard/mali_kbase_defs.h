@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2011-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2025 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -74,6 +74,10 @@
 #include <linux/sizes.h>
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
+
+#if IS_ENABLED(CONFIG_MALI_MTK_GPU_IDLE_STRESS_TEST) && IS_ENABLED(CONFIG_MALI_MTK_API_SYNC_UPDATE)
+#include <linux/hrtimer.h>
+#endif
 
 #if IS_ENABLED(CONFIG_MALI_MTK_PREVENT_PRINTK_TOO_MUCH)
 #include "platform/mtk_platform_utils.h"
@@ -161,8 +165,22 @@
 #endif /* CONFIG_MALI_MTK_ACP_FORCE_SYNC_DEBUG */
 
 #if IS_ENABLED(CONFIG_MALI_MTK_GPU_IDLE_STRESS_TEST) && IS_ENABLED(CONFIG_MALI_MTK_API_SYNC_UPDATE)
-#define API_SYNC_FLAG_RESET 6
-#define API_SYNC_FLAG_SET 7
+#define API_SYNC_FLAG_RESET 0x00060000
+#define API_SYNC_FLAG_SET   0x00070000
+#define API_SYNC_FLAG_DEBUG 0x39000000
+#define API_SYNC_FLAG_DEBUG_INIT (API_SYNC_FLAG_DEBUG | 0x00030000)
+
+#define API_SYNC_LEVEL_0 0
+#define API_SYNC_LEVEL_1 3
+#define API_SYNC_LEVEL_2 6
+
+#define API_SYNC_DEFAULT_TIMEOUT_MS 360000
+#define API_SYNC_MAXIMUM_TIMEOUT_MIN 0xFF
+
+struct api_sync_target_level {
+	int orig_level;
+	int mapping_level;
+};
 #endif
 
 /* Forward declarations */
@@ -330,6 +348,14 @@ struct kbase_fault {
  *                           it is NULL.
  * @scratch_mem:             Scratch memory used for MMU operations, which are
  *                           serialized by the @mmu_lock.
+ * @scratch_mem.teardown_pages: Scratch memory used for backup copies of whole
+ *                           PGD pages when tearing down levels upon
+ *                           termination of the MMU table.
+ * @scratch_mem.free_pgds:   Scratch memory used for insertion, update and teardown
+ *                           operations to store a temporary list of PGDs to be freed
+ *                           at the end of the operation.
+ * @scratch_mem.free_pgds.pgds: Array of pointers to PGDs to free.
+ * @scratch_mem.free_pgds.head_index: Index of first free element in the PGDs array.
  * @pgd_pages_list:          List head to link all 16K/64K pages allocated for the PGDs of mmut.
  *                           These pages will be used to allocate 4KB PGD pages for
  *                           the GPU page table.
@@ -346,11 +372,6 @@ struct kbase_mmu_table {
 	u8 group_id;
 	struct kbase_context *kctx;
 	union {
-		/**
-		 * @teardown_pages: Scratch memory used for backup copies of whole
-		 *                  PGD pages when tearing down levels upon
-		 *                  termination of the MMU table.
-		 */
 		struct {
 			/**
 			 * @levels: Array of PGD pages, large enough to copy one PGD
@@ -358,15 +379,8 @@ struct kbase_mmu_table {
 			 */
 			u64 levels[MIDGARD_MMU_BOTTOMLEVEL][GPU_PAGE_SIZE / sizeof(u64)];
 		} teardown_pages;
-		/**
-		 * @free_pgds: Scratch memory used for insertion, update and teardown
-		 *             operations to store a temporary list of PGDs to be freed
-		 *             at the end of the operation.
-		 */
 		struct {
-			/** @pgds: Array of pointers to PGDs to free. */
 			phys_addr_t pgds[MAX_FREE_PGDS];
-			/** @head_index: Index of first free element in the PGDs array. */
 			size_t head_index;
 		} free_pgds;
 	} scratch_mem;
@@ -405,6 +419,7 @@ static inline int kbase_as_has_page_fault(struct kbase_as *as, struct kbase_faul
  */
 struct kbasep_mem_device {
 	atomic_t used_pages;
+	atomic_t compressed_pages_total;
 };
 
 struct kbase_clk_rate_listener;
@@ -536,10 +551,13 @@ struct kbase_pm_device_data {
 
 /**
  * struct kbase_mem_pool - Page based memory pool for kctx/kbdev
+ *
+ * @link_to_ctrl:              For hook onto the deferred_mem_pools_list
  * @kbdev:                     Kbase device where memory is used
  * @cur_size:                  Number of free pages currently in the pool (may exceed
  *                             @max_size in some corner cases)
  * @max_size:                  Maximum number of free pages in the pool
+ * @deferred_size:             Number of pages in deferred_pages_list
  * @order:                     order = 0 refers to a pool of small pages
  *                             order != 0 refers to a pool of 2 MB pages, so
  *                             order = 9 (when small page size is 4KB,  2^9 *  4KB = 2 MB)
@@ -551,6 +569,10 @@ struct kbase_pm_device_data {
  * @pool_lock:                 Lock protecting the pool - must be held when modifying
  *                             @cur_size and @page_list
  * @page_list:                 List of free pages in the pool
+ * @deferred_pages_list:       List of deferred pages.
+ *                             This is to implement deferred release during protected mode.
+ *                             Pages will be returned to free pages list
+ *                             when GPU leaves protected mode.
  * @reclaim:                   Shrinker for kernel reclaim of free pages
  * @isolation_in_progress_cnt: Number of pages in pool undergoing page isolation.
  *                             This is used to avoid race condition between pool termination
@@ -558,6 +580,7 @@ struct kbase_pm_device_data {
  * @next_pool:                 Pointer to next pool where pages can be allocated when this
  *                             pool is empty. Pages will spill over to the next pool when
  *                             this pool is full. Can be NULL if there is no next pool.
+ * @defer_seq:                 Sequence number for last protected mode entries
  * @dying:                     true if the pool is being terminated, and any ongoing
  *                             operations should be abandoned
  * @dont_reclaim:              true if the shrinker is forbidden from reclaiming memory from
@@ -575,7 +598,12 @@ struct kbase_mem_pool {
 	atomic_t isolation_in_progress_cnt;
 
 	struct kbase_mem_pool *next_pool;
-
+#if MALI_USE_CSF
+	struct list_head link_to_ctrl;
+	atomic_t deferred_size;
+	struct list_head deferred_pages_list;
+	atomic_t defer_seq;
+#endif
 	bool dying;
 	bool dont_reclaim;
 };
@@ -684,10 +712,13 @@ struct kbase_mmu_mode const *kbase_mmu_mode_get_aarch64(void);
 #define DEVNAME_SIZE 16
 
 #if defined(CONFIG_MALI_MTK_GPU_BM_JM)
+#ifndef JOB_STATUS_QOS
+#define JOB_STATUS_QOS
 struct job_status_qos {
 	phys_addr_t phyaddr;
 	size_t size;
 };
+#endif
 #endif /* CONFIG_MALI_MTK_GPU_BM_JM */
 
 /**
@@ -745,6 +776,8 @@ struct kbase_process {
 #if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
 	struct kobject kobj;
 	struct kbase_device *kbdev;
+	atomic_t term_processing;
+	int store_count;
 #endif
 };
 
@@ -1291,9 +1324,15 @@ struct kbase_device {
 	struct kbase_backend_time backend_time;
 
 #if IS_ENABLED(CONFIG_MALI_MTK_GPU_IDLE_STRESS_TEST) && IS_ENABLED(CONFIG_MALI_MTK_API_SYNC_UPDATE)
-	bool ptp_update_in_progress;
+	bool api_sync_update_in_progress;
 	int temp_api_sync_flag;
 	int final_api_sync_flag;
+	int api_sync_level;
+	bool api_sync_force_reset;
+	bool api_sync_restore_always_on;
+	unsigned int api_sync_timeout_ms;
+	struct hrtimer api_sync_timer;
+	int api_sync_debug_level;
 #endif
 
 	bool cache_clean_in_progress;
@@ -1902,12 +1941,6 @@ static char category_str_list[KBASE_MEM_COUNT][10] = {"API", "GROW", "JIT", "MMU
  *                        device to powered on so as to dump the CPU/GPU timestamps.
  * @waiting_soft_jobs_lock: Lock to protect @waiting_soft_jobs list from concurrent
  *                        accesses.
- * @dma_fence:            Object containing list head for the list of dma-buf fence
- *                        waiting atoms and the waitqueue to process the work item
- *                        queued for the atoms blocked on the signaling of dma-buf
- *                        fences.
- * @dma_fence.waiting_resource: list head for the list of dma-buf fence
- * @dma_fence.wq:         waitqueue to process the work item queued
  * @as_nr:                id of the address space being used for the scheduled in
  *                        context. This is effectively part of the Run Pool, because
  *                        it only has a valid setting (!=KBASEP_AS_NR_INVALID) whilst
@@ -1971,7 +2004,6 @@ static char category_str_list[KBASE_MEM_COUNT][10] = {"API", "GROW", "JIT", "MMU
  *                        context, across all slots.
  * @slots_pullable:       Bitmask of slots, indicating the slots for which the
  *                        context has pullable atoms in the runnable tree.
- * @work:                 Work structure used for deferred ASID assignment.
  * @completed_jobs:       List containing completed atoms for which base_jd_event is
  *                        to be posted.
  * @work_count:           Number of work items, corresponding to atoms, currently
@@ -2328,5 +2360,38 @@ static inline u64 kbase_get_lock_region_min_size_log2(struct kbase_gpu_props con
 /* Conversion helpers for setting up high resolution timers */
 #define HR_TIMER_DELAY_MSEC(x) (ns_to_ktime(((u64)(x)) * 1000000U))
 #define HR_TIMER_DELAY_NSEC(x) (ns_to_ktime(x))
+
+#if IS_ENABLED(CONFIG_MALI_MTK_FW_ERR_DEBUG)
+/**
+ * Dump debug information to locate the timeout function when the fw error happened;
+ */
+#define wait_event_timeout_on_fw(kbdev, wq_head, condition, timeout)		\
+({										\
+	bool *unresponsive = &kbdev->csf.firmware_unrecoverable;		\
+	long __ret = wait_event_timeout(wq_head, *unresponsive||(condition), timeout);	\
+	if (*unresponsive && !(condition))					\
+	{									\
+		__ret = 0;							\
+		dev_warn(kbdev->dev,"time out for unresponsive FW");	\
+	}									\
+	__ret;									\
+})
+
+
+#if KERNEL_VERSION(4, 13, 1) <= LINUX_VERSION_CODE
+#define wait_event_killable_timeout_on_fw(kbdev, wq_head, condition, timeout)	\
+({										\
+	bool *unresponsive = &kbdev->csf.firmware_unrecoverable;		\
+	long __ret = wait_event_killable_timeout(wq_head, *unresponsive||(condition), timeout);	\
+	if (*unresponsive && !(condition))					\
+	{									\
+		__ret = 0;							\
+		dev_warn(kbdev->dev,"time out for unresponsive FW");	\
+	}									\
+	__ret;									\
+})
+
+#endif
+#endif /* CONFIG_MALI_MTK_FW_ERR_DEBUG */
 
 #endif /* _KBASE_DEFS_H_ */

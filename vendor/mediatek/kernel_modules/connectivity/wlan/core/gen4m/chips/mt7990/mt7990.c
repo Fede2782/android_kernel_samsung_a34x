@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -17,7 +17,6 @@
 #include "mt7990.h"
 #include "coda/mt7990/wf_wfdma_host_dma0.h"
 #include "coda/mt7990/wf_wfdma_mcu_dma0.h"
-#include "coda/mt7990/wf_hif_dmashdl_top.h"
 #include "coda/mt7990/wf_pse_top.h"
 #include "coda/mt7990/pcie_mac_ireg.h"
 #include "coda/mt7990/conn_infra_rgu_on.h"
@@ -315,11 +314,9 @@ struct BUS_INFO mt7990_bus_info = {
 	.wfmda_wm_rx_group = mt7990_wfmda_wm_rx_group,
 	.wfmda_wm_rx_group_len = ARRAY_SIZE(mt7990_wfmda_wm_rx_group),
 	.prDmashdlCfg = &rMt7990DmashdlCfg,
-#if (DBG_DISABLE_ALL_INFO == 0)
 	.prPleTopCr = &rMt7990PleTopCr,
 	.prPseTopCr = &rMt7990PseTopCr,
 	.prPpTopCr = &rMt7990PpTopCr,
-#endif
 	.prPseGroup = mt7990_pse_group,
 	.u4PseGroupLen = ARRAY_SIZE(mt7990_pse_group),
 	.pdmaSetup = mt7990WpdmaConfig,
@@ -376,7 +373,6 @@ struct TX_DESC_OPS_T mt7990_TxDescOps = {
 
 struct RX_DESC_OPS_T mt7990_RxDescOps = {};
 
-#if (DBG_DISABLE_ALL_INFO == 0)
 struct CHIP_DBG_OPS mt7990_DebugOps = {
 	.showPdmaInfo = connac3x_show_wfdma_info,
 	.showPseInfo = connac3x_show_pse_info,
@@ -384,7 +380,6 @@ struct CHIP_DBG_OPS mt7990_DebugOps = {
 	.showTxdInfo = connac3x_show_txd_Info,
 	.showWtblInfo = connac3x_show_wtbl_info,
 	.get_rssi_from_wtbl = connac3x_get_rssi_from_wtbl,
-	.showUmacWtblInfo = connac3x_show_umac_wtbl_info,
 	.showCsrInfo = NULL,
 	.showDmaschInfo = connac3x_show_dmashdl_info,
 	.showHifInfo = NULL,
@@ -395,7 +390,6 @@ struct CHIP_DBG_OPS mt7990_DebugOps = {
 	.show_wfdma_dbg_probe_info = mt7990_show_wfdma_dbg_probe_info,
 	.show_wfdma_wrapper_info = mt7990_show_wfdma_wrapper_info,
 };
-#endif /* DBG_DISABLE_ALL_INFO */
 
 struct mt66xx_chip_info mt66xx_chip_info_mt7990 = {
 	.bus_info = &mt7990_bus_info,
@@ -404,18 +398,15 @@ struct mt66xx_chip_info mt66xx_chip_info_mt7990 = {
 #endif /* CFG_ENABLE_FW_DOWNLOAD */
 	.prTxDescOps = &mt7990_TxDescOps,
 	.prRxDescOps = &mt7990_RxDescOps,
-#if (DBG_DISABLE_ALL_INFO == 0)
 	.prDebugOps = &mt7990_DebugOps,
-#endif
 	.chip_id = MT7990_CHIP_ID,
 	.should_verify_chip_id = FALSE,
-	.sw_sync0 = CONNAC3X_CONN_CFG_ON_CONN_ON_MISC_ADDR,
+	.sw_sync0 = Connac3x_CONN_CFG_ON_CONN_ON_MISC_ADDR,
 	.sw_ready_bits = WIFI_FUNC_NO_CR4_READY_BITS,
 	.sw_ready_bit_offset =
 		Connac3x_CONN_CFG_ON_CONN_ON_MISC_DRV_FM_STAT_SYNC_SHFT,
 	.is_support_cr4 = FALSE,
 	.is_support_wacpu = FALSE,
-	.sw_sync_emi_info = NULL,
 	.txd_append_size = MT7990_TX_DESC_APPEND_LENGTH,
 	.rxd_size = MT7990_RX_DESC_LENGTH,
 	.init_evt_rxd_size = MT7990_RX_INIT_DESC_LENGTH,
@@ -442,10 +433,6 @@ struct mt66xx_chip_info mt66xx_chip_info_mt7990 = {
 	.u4LmacWtblDUAddr = CONNAC3X_WIFI_LWTBL_BASE,
 	.u4UmacWtblDUAddr = CONNAC3X_WIFI_UWTBL_BASE,
 	.isSupportMddpAOR = false,
-	.u4HostWfdmaBaseAddr = WF_WFDMA_HOST_DMA0_BASE,
-	.u4HostWfdmaWrapBaseAddr = 0x7c027000,
-	.u4McuWfdmaBaseAddr = WF_WFDMA_MCU_DMA0_BASE,
-	.u4DmaShdlBaseAddr = WF_HIF_DMASHDL_TOP_BASE,
 	.cmd_max_pkt_size = CFG_TX_MAX_PKT_SIZE, /* size 1600 */
 };
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -339,7 +339,7 @@ uint32_t CmdExtBssInfoUpdate2WA(
 	struct CMD_BSSINFO_UPDATE_T *prCmdContent;
 
 	ASSERT(pAd);
-	if (ucBssIndex > pAd->ucSwBssIdNum)
+	if (ucBssIndex > pAd->ucHwBssIdNum)
 		return WLAN_STATUS_FAILURE;
 
 	prBssInfo = pAd->aprBssInfo[ucBssIndex];

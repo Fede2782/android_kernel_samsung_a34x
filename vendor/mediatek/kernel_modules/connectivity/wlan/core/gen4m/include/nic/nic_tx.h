@@ -196,10 +196,13 @@
 /*Customization: sk_buff mark for special packet that need raise priority */
 #define NIC_TX_SKB_PRIORITY_MARK_BIT	31 /*Mediatek define, 0x80000000*/
 
+#define HW_MAC_TX_DESC_APPEND_T_LENGTH          44
+#define NIC_TX_HEAD_ROOM \
+	(NIC_TX_DESC_LONG_FORMAT_LENGTH + NIC_TX_DESC_PADDING_LENGTH \
+	+ HW_MAC_TX_DESC_APPEND_T_LENGTH)
+
 #define NIC_MSDU_REPORT_DUMP_TIMEOUT		5	/* sec */
-#define NIC_MSDU_REPORT_SAP_DUMP_TIMEOUT	20	/* sec */
 #define NIC_MSDU_REPORT_TIMEOUT_SER_TIME	20	/* sec */
-#define NIC_MSDU_REPORT_DISABLE_SER_TIME	0
 
 /*------------------------------------------------------------------------*/
 /* Tx status related information                                          */
@@ -520,6 +523,8 @@ enum ENUM_TX_STATISTIC_COUNTER {
 	TX_MSDUINFO_COUNT,
 	TX_DIRECT_DEQUEUE_COUNT,
 	TX_DIRECT_MSDUINFO_COUNT,
+	TX_IN_COPY_COUNT,
+	TX_FREE_PACKET_COUNT,
 	TX_STATISTIC_COUNTER_NUM
 };
 
@@ -594,13 +599,6 @@ enum ENUM_MSDU_CONTROL_FLAG {
 	MSDU_CONTROL_FLAG_HIDE_INFO = BIT(2),
 	MSDU_CONTROL_FLAG_MGNT_2_CMD_QUE = BIT(3),
 	MSDU_CONTROL_FLAG_FORCE_LINK = BIT(4),
-	MSDU_CONTROL_FLAG_DIS_MAT = BIT(5),
-};
-
-enum ENUM_PROTECTION_FRAME_OPTION_FLAG {
-	PTF_OPT_HW_SETTING = BIT(0),
-	PTF_OPT_RTS_CTS_PROCEDURE = BIT(1),
-	PTF_OPT_DISABLE_RTS = BIT(2),
 };
 
 enum ENUM_MSDU_RATE_MODE {
@@ -701,6 +699,10 @@ struct TX_CTRL {
 	/* to tracking management frames need TX done callback */
 	struct QUE rTxMgmtTxingQueue;
 
+#if CFG_HIF_STATISTICS
+	uint32_t u4TotalTxAccessNum;
+	uint32_t u4TotalTxPacketNum;
+#endif
 	uint32_t au4Statistics[TX_STATISTIC_COUNTER_NUM];
 
 	/* Number to track forwarding frames */
@@ -761,7 +763,6 @@ struct PKT_PROFILE {
 	uint64_t u8EnqTime;
 	uint64_t u8DeqTime;
 	uint64_t u8HifTxTime;
-	uint64_t u8HifAcqrMsduTime;
 #endif
 };
 #endif
@@ -876,13 +877,12 @@ struct MSDU_INFO {
 	/* UINT_8 ucPsSessionID; */
 	/* TRUE means this is the last packet of the burst for (STA, TID) */
 	/* BOOLEAN fgIsBurstEnd; */
+#if CFG_MOVE_BA_TO_DRIVER
+	uint8_t ucTID;
+#endif
 
 	/* Compose TxDesc in main_thread and place here */
 	uint8_t *aucTxDescBuffer;
-
-#if CFG_DEDICATED_TXD
-	uint8_t aucDedicatedTxd[NIC_TX_DESC_AND_PADDING_LENGTH];
-#endif /* CFG_DEDICATED_TXD */
 
 
 #if CFG_SUPPORT_NAN
@@ -902,7 +902,12 @@ struct MSDU_INFO {
 	 * without SKB shared info size, used for kalBuildSkb().
 	 */
 	uint32_t u4MgmtLength;
-	u_int8_t fgMgmtForceAutoRate;
+	uint8_t fgNullUseDataQ;
+
+#if CFG_SUPPORT_DROP_INVALID_MSDUINFO
+	/* sanity drop flag */
+	u_int8_t fgDrop;
+#endif /* CFG_SUPPORT_DROP_INVALID_MSDUINFO */
 
 #if CFG_SUPPORT_TX_MGMT_USE_DATAQ
 	uint64_t u8Cookie;
@@ -918,10 +923,6 @@ struct MSDU_INFO {
 #endif
 	/* roaming packet. move to new sta rec */
 	u_int8_t fgIsMovePkt;
-
-#if CFG_SW_TSO
-	struct TSO_SW rTsoSw;
-#endif /* CFG_SW_TSO */
 };
 
 #define HIF_PKT_FLAGS_CT_INFO_APPLY_TXD            BIT(0)
@@ -1095,10 +1096,6 @@ struct TX_DESC_OPS_T {
 	uint8_t (*nic_txd_tid_op)(
 		void *prTxDesc,
 		uint8_t ucTid,
-		uint8_t fgSet);
-	uint8_t (*nic_txd_pkt_format_op)(
-		void *prTxDesc,
-		uint8_t ucFormat,
 		uint8_t fgSet);
 	uint8_t (*nic_txd_queue_idx_op)(
 		void *prTxDesc,
@@ -2066,6 +2063,9 @@ void nicTxPrintMetRTP(struct ADAPTER *prAdapter,
 	struct MSDU_INFO *prMsduInfo, void *prPacket,
 	uint32_t u4PacketLen, u_int8_t bFreeSkb);
 
+void nicDumpTxMgmtPacketHex(struct ADAPTER *prAdapter,
+			    struct MSDU_INFO *prMsduInfo);
+
 void nicTxProcessTxDoneEvent(struct ADAPTER *prAdapter,
 	struct WIFI_EVENT *prEvent);
 
@@ -2164,9 +2164,7 @@ uint8_t nicTxGetAcIdxByTc(uint8_t ucTC);
  */
 
 u_int8_t isNetAbsent(struct ADAPTER *prAdapter, struct BSS_INFO *prBssInfo);
+void nicTxForceAmsduForCert(struct ADAPTER *prAdapter,
+				u_int8_t *prTxDescBuffer);
 
-uint32_t nicTxGetFrameLength(struct MSDU_INFO *prMsduInfo);
-
-void nicRefillPendingPktTxdForCsa(struct ADAPTER *prAdapter,
-				  struct STA_RECORD *prStaRec);
 #endif /* _NIC_TX_H */

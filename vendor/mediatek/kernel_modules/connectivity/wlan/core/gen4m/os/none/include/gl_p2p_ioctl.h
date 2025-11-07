@@ -325,15 +325,6 @@ mtk_p2p_cfg80211_change_iface(struct wiphy *wiphy,
 int mtk_p2p_cfg80211_del_iface(struct wiphy *wiphy,
 		struct wireless_dev *wdev);
 
-#if (KERNEL_VERSION(6, 0, 0) <= CFG80211_VERSION_CODE) && \
-	(CFG_SUPPORT_802_11BE_MLO == 1)
-int mtk_p2p_cfg80211_add_intf_link(struct wiphy *wiphy,
-	struct wireless_dev *wdev, unsigned int link_id);
-
-void mtk_p2p_cfg80211_del_intf_link(struct wiphy *wiphy,
-	struct wireless_dev *wdev, unsigned int link_id);
-#endif
-
 int
 mtk_p2p_cfg80211_add_key(struct wiphy *wiphy,
 		struct net_device *ndev,

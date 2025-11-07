@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -53,7 +53,9 @@ p2pDevStateInit_IDLE(struct ADAPTER *prAdapter,
 								u4Idx, FALSE);
 				if ((prRoleHandler != NULL) &&
 				(prRoleHandler != prDevHandler) &&
-				!p2pFuncIsAPMode(prAdapter, u4Idx)) {
+				!p2pFuncIsAPMode(
+				prAdapter->rWifiVar.prP2PConnSettings
+				[u4Idx])) {
 					fgIsShareInterface = FALSE;
 					break;
 				}
@@ -260,7 +262,7 @@ p2pDevStateInit_CHNL_ON_HAND(struct ADAPTER *prAdapter,
 		else
 			u4TimeoutMs = prChnlReqInfo->u4MaxInterval;
 
-		log_dbg(P2P, INFO,
+		log_dbg(P2P, TRACE,
 			"Start channel on hand timer, Cookie: 0x%llx, Interval: %d\n",
 			prChnlReqInfo->u8Cookie, u4TimeoutMs);
 
@@ -442,7 +444,9 @@ p2pDevStateAbort_OFF_CHNL_TX(struct ADAPTER *prAdapter,
 			prChnlReqInfo);
 }				/* p2pDevSateAbort_OFF_CHNL_TX */
 
-void p2pComposeLoProbeRsp(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
+void p2pComposeLoProbeRsp(
+	struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex)
 {
 	struct WLAN_BEACON_FRAME rProbeRspFrame;
 	struct WLAN_BEACON_FRAME *prFrame;
@@ -470,7 +474,7 @@ void p2pComposeLoProbeRsp(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 		ucBssIndex);
 	if (!prBssInfo) {
-		DBGLOG(P2P, INFO,
+		DBGLOG(P2P, WARN,
 			"Bss is not active\n");
 		return;
 	}
@@ -516,9 +520,10 @@ void p2pComposeLoProbeRsp(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 #endif
 
 	/* compose p2p probe rsp frame */
-	prNewMgmtTxMsdu = p2pFuncProcessP2pProbeRsp(prAdapter, ucBssIndex,
-						    FALSE, fgHide,
-						    &rProbeRspFrame);
+	prNewMgmtTxMsdu =
+		p2pFuncProcessP2pProbeRsp(prAdapter,
+		ucBssIndex, FALSE, fgHide,
+		&rProbeRspFrame);
 
 	if (prNewMgmtTxMsdu) {
 		cnmMgtPktFree(prAdapter, prMgmtTxMsdu);
@@ -536,7 +541,8 @@ void p2pComposeLoProbeRsp(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 #endif
 	}
 
-	prFrame = (struct WLAN_BEACON_FRAME *)prMgmtTxMsdu->prPacket;
+	prFrame = (struct WLAN_BEACON_FRAME *)
+		prMgmtTxMsdu->prPacket;
 
 	DBGLOG(P2P, TRACE,
 		"Dump probe response content to FW.\n");
@@ -578,7 +584,7 @@ p2pDevStateInit_LISTEN_OFFLOAD(
 		bss = GET_BSS_INFO_BY_INDEX(prAdapter,
 			pLoInfo->ucBssIndex);
 		if (!bss) {
-			DBGLOG(P2P, INFO,
+			DBGLOG(P2P, WARN,
 				"Bss is not active\n");
 			return FALSE;
 		}

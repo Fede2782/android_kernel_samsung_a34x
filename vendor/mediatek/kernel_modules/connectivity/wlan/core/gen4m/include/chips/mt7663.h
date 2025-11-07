@@ -36,7 +36,6 @@
 #define MT7663_RX_DESC_LENGTH                   16
 #define MT7663_RX_INIT_EVENT_LENGTH             8
 #define MT7663_RX_EVENT_HDR_LENGTH              12
-#define PCIE_NEW_HIF_BASE			(0x7c030000)
 
 /*******************************************************************************
  *                         D A T A   T Y P E S

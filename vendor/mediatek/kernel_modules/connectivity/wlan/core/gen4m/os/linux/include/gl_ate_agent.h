@@ -19,7 +19,7 @@
  *                    E X T E R N A L   R E F E R E N C E S
  *******************************************************************************
  */
-#if (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0)
+#if (CFG_SUPPORT_CONNAC3X == 0)
 extern uint32_t u4RxStatSeqNum;
 #else
 extern uint16_t u2RxStatSeqNum;
@@ -116,10 +116,8 @@ struct ATE_OPS_T {
 	uint32_t u4EmiEndAddress;
 	uint32_t u4EmiMsbAddress;
 	uint32_t u4CapSource;
-#if (CONFIG_WLAN_SERVICE == 1)
-	struct test_capability *tool_capability;
-#endif
 };
+
 
 /*******************************************************************************
  *                  F U N C T I O N   D E C L A R A T I O N S

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -61,70 +61,60 @@ static enum ENUM_CHNL_EXT rlmGetSco(struct ADAPTER *prAdapter,
 void rlmUpdate6GOpInfo(struct ADAPTER *prAdapter,
 		struct BSS_INFO *prBssInfo)
 {
-	struct _6G_OPER_INFOR_T *pr6gOperInfo;
-	uint8_t ucMaxBandwidth;
-	uint8_t ucSeg0 = 0, ucSeg1 = 0;
+	uint8_t ucMaxBandwidth, ucS1, ucS2;
 
-	if (IS_BSS_APGO(prBssInfo) == FALSE || prBssInfo->eBand != BAND_6G)
-		return;
+	if (IS_BSS_APGO(prBssInfo) && prBssInfo->eBand == BAND_6G) {
+		uint8_t ucVhtChannelWidth = kal_min_t(
+			uint8_t,
+			prBssInfo->ucVhtChannelWidth,
+			VHT_OP_CHANNEL_WIDTH_160);
 
-	pr6gOperInfo = &prBssInfo->r6gOperInfor;
+		HE_SET_6G_OP_INFOR_PRESENT(prBssInfo->ucHeOpParams);
 
-	HE_SET_6G_OP_INFOR_PRESENT(prBssInfo->ucHeOpParams);
+		/* HE bandwidth is no more than bw160 */
+		ucMaxBandwidth = kal_min_t(
+			uint8_t,
+			rlmGetBssOpBwByVhtAndHtOpInfo(prBssInfo),
+			MAX_BW_160MHZ);
 
-	ucMaxBandwidth = rlmGetBssOpBwByVhtAndHtOpInfo(prBssInfo);
-#if (CFG_SUPPORT_SAP_PUNCTURE == 1)
-	if (prBssInfo->fgIsEhtDscbPresent) {
-		/* get seg0 & seg1 with original bandwidth for puncturing */
-		ucSeg0 = nicGetS1(prBssInfo->eBand,
-				  prBssInfo->ucPrimaryChannel,
-				  prBssInfo->eBssSCO,
-				  ucMaxBandwidth);
-		ucSeg1 = nicGetS2(prBssInfo->eBand,
-				  prBssInfo->ucPrimaryChannel,
-				  ucMaxBandwidth);
+		ucS1 = nicGetS1(prBssInfo->eBand,
+				prBssInfo->ucPrimaryChannel,
+				ucVhtChannelWidth);
 
-		rlmPunctUpdateLegacyBw(prBssInfo->eBand,
-				       prBssInfo->u2EhtDisSubChanBitmap,
-				       prBssInfo->ucPrimaryChannel,
-				       &ucMaxBandwidth,
-				       &ucSeg0,
-				       &ucSeg1,
-				       NULL);
+		ucS2 = nicGetS2(prBssInfo->eBand,
+				prBssInfo->ucPrimaryChannel,
+				ucVhtChannelWidth,
+				ucS1);
+
+		prBssInfo->r6gOperInfor.rControl.bits.ChannelWidth =
+			heRlmMaxBwToHeBw(ucMaxBandwidth);
+		prBssInfo->r6gOperInfor.ucPrimaryChannel =
+			prBssInfo->ucPrimaryChannel;
+
+		/* If the BSS channel width is 160 MHz then the Channel Center
+		 * Frequency Segment 0 field indicates the channel center
+		 * frequency index of the primary 80 MHz. The Channel Center
+		 * Frequency Segment 1 field indicates the channel center
+		 * frequency index of the 160 MHz channel on which the BSS
+		 * operates in the 6 GHz band.
+		 */
+		if (ucMaxBandwidth == MAX_BW_160MHZ) {
+			prBssInfo->r6gOperInfor.ucChannelCenterFreqSeg0 = ucS2;
+			prBssInfo->r6gOperInfor.ucChannelCenterFreqSeg1 = ucS1;
+		} else {
+			prBssInfo->r6gOperInfor.ucChannelCenterFreqSeg0 = ucS1;
+			prBssInfo->r6gOperInfor.ucChannelCenterFreqSeg1 = ucS2;
+		}
+
+		prBssInfo->r6gOperInfor.ucMinimumRate = 6;
+
+		DBGLOG(RLM, INFO,
+			"Set 6G operating info: BW[%d] CH[%d] S1[%d] S2[%d]\n",
+			prBssInfo->r6gOperInfor.rControl.bits.ChannelWidth,
+			prBssInfo->r6gOperInfor.ucPrimaryChannel,
+			prBssInfo->r6gOperInfor.ucChannelCenterFreqSeg0,
+			prBssInfo->r6gOperInfor.ucChannelCenterFreqSeg1);
 	}
-#endif /* CFG_SUPPORT_SAP_PUNCTURE */
-
-	ucMaxBandwidth = kal_min_t(uint8_t,
-				   ucMaxBandwidth,
-				   MAX_BW_160MHZ);
-	/* re-sync seg0 & seg1 channel in case puncture takes effect. */
-	ucSeg0 = nicGetS1(prBssInfo->eBand,
-			  prBssInfo->ucPrimaryChannel,
-			  prBssInfo->eBssSCO,
-			  ucMaxBandwidth);
-	ucSeg1 = nicGetS2(prBssInfo->eBand,
-			  prBssInfo->ucPrimaryChannel,
-			  ucMaxBandwidth);
-
-	pr6gOperInfo->rControl.bits.ChannelWidth =
-		heRlmMaxBwToHeBw(ucMaxBandwidth);
-#if (CFG_SUPPORT_WIFI_6G_PWR_MODE == 1)
-	pr6gOperInfo->rControl.bits.RegulatoryInfo =
-		HE_REG_INFO_VERY_LOW_POWER;
-#endif
-	pr6gOperInfo->ucPrimaryChannel =
-		prBssInfo->ucPrimaryChannel;
-	pr6gOperInfo->ucChannelCenterFreqSeg0 = ucSeg0;
-	pr6gOperInfo->ucChannelCenterFreqSeg1 = ucSeg1;
-	pr6gOperInfo->ucMinimumRate = 6;
-
-	DBGLOG(RLM, TRACE,
-		"Set 6G operating info: BW[%d] REG[%d] CH[%d] Seg0[%d] Seg1[%d]\n",
-		pr6gOperInfo->rControl.bits.ChannelWidth,
-		pr6gOperInfo->rControl.bits.RegulatoryInfo,
-		pr6gOperInfo->ucPrimaryChannel,
-		pr6gOperInfo->ucChannelCenterFreqSeg0,
-		pr6gOperInfo->ucChannelCenterFreqSeg1);
 }
 #endif
 
@@ -173,16 +163,8 @@ void rlmBssUpdateChannelParams(struct ADAPTER *prAdapter,
 	if (prBssInfo->ucPhyTypeSet & PHY_TYPE_BIT_VHT) {
 		for (i = 0; i < 8; i++)
 			prBssInfo->u2VhtBasicMcsSet |= BITS(2 * i, (2 * i + 1));
-#if CFG_SUPPORT_TRX_LIMITED_CONFIG
-		if (p2pFuncGetForceTrxConfig(prAdapter) ==
-				P2P_FORCE_TRX_CONFIG_MCS7)
-			prBssInfo->u2VhtBasicMcsSet &=
-				(VHT_CAP_INFO_MCS_MAP_MCS7
-				<< VHT_CAP_INFO_MCS_1SS_OFFSET);
-		else
-#endif
-			prBssInfo->u2VhtBasicMcsSet &=
-				(VHT_CAP_INFO_MCS_MAP_MCS9
+		prBssInfo->u2VhtBasicMcsSet &=
+			(VHT_CAP_INFO_MCS_MAP_MCS9
 				<< VHT_CAP_INFO_MCS_1SS_OFFSET);
 
 		ucMaxBw = cnmOpModeGetMaxBw(prAdapter,
@@ -224,6 +206,14 @@ void rlmBssUpdateChannelParams(struct ADAPTER *prAdapter,
 		prBssInfo->ucHeOpParams[1]
 			|= HE_OP_PARAM1_TXOP_DUR_RTS_THRESHOLD_MASK;
 
+		/* Disable BSS color support*/
+		if (!prAdapter->rWifiVar.fgSapAddTPEIE) {
+			prBssInfo->ucBssColorInfo |=
+				BIT(HE_OP_BSSCOLOR_BSS_COLOR_DISABLE_SHFT);
+		}
+		prBssInfo->ucBssColorInfo |=
+			BIT(HE_OP_BSSCOLOR_BSS_COLOR_SHFT);
+
 		prBssInfo->u2HeBasicMcsSet |= (HE_CAP_INFO_MCS_MAP_MCS7 << 0);
 		for (i = 1; i < 8; i++)
 			prBssInfo->u2HeBasicMcsSet |=
@@ -238,8 +228,6 @@ void rlmBssUpdateChannelParams(struct ADAPTER *prAdapter,
 		}
 
 #if (CFG_SUPPORT_WIFI_6G == 1)
-		ucMaxBw = cnmOpModeGetMaxBw(prAdapter, prBssInfo);
-		rlmFillVhtOpInfoByBssOpBw(prBssInfo, ucMaxBw);
 		rlmUpdate6GOpInfo(prAdapter, prBssInfo);
 #endif
 	} else {
@@ -470,21 +458,13 @@ void rlmHandleObssStatusEventPkt(struct ADAPTER *prAdapter,
 	ASSERT(prAdapter);
 	ASSERT(prObssStatus);
 	ASSERT(prObssStatus->ucBssIndex
-		< prAdapter->ucSwBssIdNum);
+		< prAdapter->ucHwBssIdNum);
 
 	prBssInfo =
 		GET_BSS_INFO_BY_INDEX(prAdapter, prObssStatus->ucBssIndex);
 
 	if (!prBssInfo || prBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT)
 		return;
-
-	DBGLOG(RLM, TRACE,
-		"erp_prot=%u ht_prot=%u gf=%u rifs=%u force_20m=%u\n",
-		prObssStatus->ucObssErpProtectMode,
-		prObssStatus->ucObssHtProtectMode,
-		prObssStatus->ucObssGfOperationMode,
-		prObssStatus->ucObssRifsOperationMode,
-		prObssStatus->ucObssBeaconForcedTo20M);
 
 	prBssInfo->fgObssErpProtectMode =
 		(u_int8_t) prObssStatus->ucObssErpProtectMode;
@@ -639,6 +619,478 @@ u_int8_t rlmUpdateParamsForAP(struct ADAPTER *prAdapter,
 
 	return fgUpdateBeacon;
 }
+#if 0
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief    Initial the channel list from the domain information.
+ *           This function is called after P2P initial
+ *           and Domain information changed.
+ *           Make sure the device is disconnected
+ *           while changing domain information.
+ *
+ * \param[in] prAdapter  Pointer of ADAPTER_T
+ *
+ * \return boolean value if probe response frame is
+ */
+/*----------------------------------------------------------------------------*/
+void rlmFuncInitialChannelList(struct ADAPTER *prAdapter)
+{
+	struct P2P_CONNECTION_SETTINGS *prP2pConnSetting =
+		(struct P2P_CONNECTION_SETTINGS *) NULL;
+	struct DOMAIN_INFO_ENTRY *prDomainInfoEntry =
+		(struct DOMAIN_INFO_ENTRY *) NULL;
+	struct DOMAIN_SUBBAND_INFO *prDomainSubBand =
+		(struct DOMAIN_SUBBAND_INFO *) NULL;
+	struct CHANNEL_ENTRY_FIELD *prChannelEntryField =
+		(struct CHANNEL_ENTRY_FIELD *) NULL;
+	uint32_t u4Idx = 0, u4IdxII = 0;
+	uint8_t ucBufferSize = P2P_MAX_SUPPORTED_CHANNEL_LIST_SIZE;
+#if 0
+	uint8_t ucSocialChnlSupport = 0, ucAutoChnl = 0;
+#endif
+
+	do {
+		ASSERT_BREAK(prAdapter != NULL);
+
+		prP2pConnSetting = prAdapter->rWifiVar.prP2PConnSettings;
+#if 0
+		ucAutoChnl = prP2pConnSetting->ucOperatingChnl;
+#endif
+
+		prDomainInfoEntry = rlmDomainGetDomainInfo(prAdapter);
+
+		ASSERT_BREAK((prDomainInfoEntry != NULL)
+			&& (prP2pConnSetting != NULL));
+
+		prChannelEntryField =
+			(struct CHANNEL_ENTRY_FIELD *)
+				prP2pConnSetting->aucChannelEntriesField;
+
+		for (u4Idx = 0; u4Idx < MAX_SUBBAND_NUM; u4Idx++) {
+			prDomainSubBand = &prDomainInfoEntry->rSubBand[u4Idx];
+
+			if (((prDomainSubBand->ucBand == BAND_5G)
+				&& (!prAdapter->fgEnable5GBand))
+			    || (prDomainSubBand->ucBand == BAND_NULL)) {
+				continue;
+			}
+
+			if (ucBufferSize <
+				(P2P_ATTRI_LEN_CHANNEL_ENTRY
+				+ prDomainSubBand->ucNumChannels)) {
+				/* Buffer is not enough
+				 * to include all supported channels.
+				 */
+				break;	/* for */
+			}
+
+			prChannelEntryField->ucRegulatoryClass =
+				prDomainSubBand->ucRegClass;
+			prChannelEntryField->ucNumberOfChannels =
+				prDomainSubBand->ucNumChannels;
+
+			for (u4IdxII = 0;
+				u4IdxII < prDomainSubBand->ucNumChannels;
+				u4IdxII++) {
+				prChannelEntryField
+					->aucChannelList[u4IdxII] =
+				    prDomainSubBand->ucFirstChannelNum
+				    + (u4IdxII
+				    * prDomainSubBand->ucChannelSpan);
+
+#if 0
+				switch (prChannelEntryField
+					->aucChannelList[u4IdxII]) {
+				case 1:
+					ucSocialChnlSupport = 1;
+					break;
+				case 6:
+					ucSocialChnlSupport = 6;
+					break;
+				case 11:
+					ucSocialChnlSupport = 11;
+					break;
+				default:
+					break;
+				}
+
+#endif
+			}
+
+			if (ucBufferSize >= (P2P_ATTRI_LEN_CHANNEL_ENTRY
+				+ prChannelEntryField->ucNumberOfChannels))
+				ucBufferSize -= (P2P_ATTRI_LEN_CHANNEL_ENTRY
+				+ prChannelEntryField->ucNumberOfChannels);
+			else
+				break;
+
+			prChannelEntryField =
+				(struct CHANNEL_ENTRY_FIELD *)
+				((uintptr_t) prChannelEntryField +
+				P2P_ATTRI_LEN_CHANNEL_ENTRY +
+				(uintptr_t)
+				prChannelEntryField->ucNumberOfChannels);
+
+		}
+
+#if 0
+		if (prP2pConnSetting->ucListenChnl == 0) {
+			prP2pConnSetting->ucListenChnl =
+				P2P_DEFAULT_LISTEN_CHANNEL;
+
+			if (ucSocialChnlSupport != 0) {
+				/* 1. User Not Set LISTEN channel.
+				 * 2. Social channel is not empty.
+				 */
+				prP2pConnSetting->ucListenChnl =
+					ucSocialChnlSupport;
+			}
+		}
+#endif
+
+		/* TODO: 20110921 frog - */
+		/* If LISTEN channel is not set,
+		 * a random supported channel would be set.
+		 * If no social channel is supported,
+		 * DEFAULT channel would be set.
+		 */
+
+		prP2pConnSetting->ucRfChannelListSize =
+			P2P_MAX_SUPPORTED_CHANNEL_LIST_SIZE - ucBufferSize;
+
+#if 0
+		/* User not set OPERATE channel. */
+		if (prP2pConnSetting->ucOperatingChnl == 0) {
+
+			if (scnQuerySparseChannel(prAdapter, NULL, &ucAutoChnl))
+				break;	/* while */
+
+			ucBufferSize = prP2pConnSetting->ucRfChannelListSize;
+
+			prChannelEntryField =
+				(struct CHANNEL_ENTRY_FIELD *)
+				prP2pConnSetting->aucChannelEntriesField;
+
+			while (ucBufferSize != 0) {
+				if (prChannelEntryField
+					->ucNumberOfChannels != 0) {
+					ucAutoChnl =
+					prChannelEntryField->aucChannelList[0];
+					break;	/* while */
+				}
+
+				else {
+					prChannelEntryField =
+						(struct CHANNEL_ENTRY_FIELD *)
+						((uint32_t) prChannelEntryField
+						+ P2P_ATTRI_LEN_CHANNEL_ENTRY
+						+ (uint32_t)
+						prChannelEntryField
+						->ucNumberOfChannels);
+
+					ucBufferSize -=
+						(P2P_ATTRI_LEN_CHANNEL_ENTRY
+						+
+						prChannelEntryField
+						->ucNumberOfChannels);
+				}
+
+			}
+
+		}
+#endif
+		/* We assume user would not set a channel
+		 * not in the channel list.
+		 * If so, the operating channel still depends
+		 * on target device supporting capability.
+		 */
+
+		/* TODO: 20110921 frog - */
+		/* If the Operating channel is not set,
+		 * a channel from supported channel list is set automatically.
+		 * If there is no supported channel in channel list,
+		 * a DEFAULT channel is set.
+		 */
+
+	} while (FALSE);
+
+#if 0
+	prP2pConnSetting->ucOperatingChnl = ucAutoChnl;
+#endif
+}				/* rlmFuncInitialChannelList */
+
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief    Find a common channel list from the local channel list info
+ *           & target channel list info.
+ *
+ * \param[in] prAdapter  Pointer of ADAPTER_T
+ *
+ * \return boolean value if probe response frame is
+ */
+/*----------------------------------------------------------------------------*/
+void
+rlmFuncCommonChannelList(struct ADAPTER *prAdapter,
+		struct CHANNEL_ENTRY_FIELD *prChannelEntryII,
+		uint8_t ucChannelListSize)
+{
+	struct P2P_CONNECTION_SETTINGS *prP2pConnSetting =
+		(struct P2P_CONNECTION_SETTINGS *) NULL;
+	struct CHANNEL_ENTRY_FIELD *prChannelEntryI =
+	    (struct CHANNEL_ENTRY_FIELD *) NULL,
+	    prChannelEntryIII = (struct CHANNEL_ENTRY_FIELD *) NULL;
+	uint8_t aucCommonChannelList[P2P_MAX_SUPPORTED_CHANNEL_LIST_SIZE];
+	uint8_t ucOriChnlSize = 0, ucNewChnlSize = 0;
+
+	do {
+
+		ASSERT_BREAK(prAdapter != NULL);
+
+		prP2pConnSetting = prAdapter->rWifiVar.prP2PConnSettings;
+
+		prChannelEntryIII =
+			(struct CHANNEL_ENTRY_FIELD *) aucCommonChannelList;
+
+		while (ucChannelListSize > 0) {
+
+			prChannelEntryI =
+				(struct CHANNEL_ENTRY_FIELD *)
+				prP2pConnSetting->aucChannelEntriesField;
+			ucOriChnlSize = prP2pConnSetting->ucRfChannelListSize;
+
+			while (ucOriChnlSize > 0) {
+				if (prChannelEntryI->ucRegulatoryClass ==
+					prChannelEntryII->ucRegulatoryClass) {
+
+					prChannelEntryIII->ucRegulatoryClass =
+					prChannelEntryI->ucRegulatoryClass;
+
+					/* TODO: Currently we assume
+					 * that the regulatory class the same,
+					 * the channels are the same.
+					 */
+					kalMemCopy(
+					prChannelEntryIII->aucChannelList,
+					prChannelEntryII->aucChannelList,
+					prChannelEntryII->ucNumberOfChannels);
+
+					prChannelEntryIII->ucNumberOfChannels =
+					prChannelEntryII->ucNumberOfChannels;
+
+					ucNewChnlSize +=
+				    P2P_ATTRI_LEN_CHANNEL_ENTRY +
+				    prChannelEntryIII->ucNumberOfChannels;
+
+					prChannelEntryIII =
+						(struct CHANNEL_ENTRY_FIELD *)
+						((uintptr_t)
+						prChannelEntryIII +
+						P2P_ATTRI_LEN_CHANNEL_ENTRY +
+						(uintptr_t)
+						prChannelEntryIII
+						->ucNumberOfChannels);
+				}
+
+				ucOriChnlSize -= (P2P_ATTRI_LEN_CHANNEL_ENTRY
+					+ prChannelEntryI->ucNumberOfChannels);
+
+				prChannelEntryI =
+					(struct CHANNEL_ENTRY_FIELD *)
+					((uintptr_t) prChannelEntryI +
+					P2P_ATTRI_LEN_CHANNEL_ENTRY +
+					(uintptr_t)
+					prChannelEntryI->ucNumberOfChannels);
+
+			}
+
+			ucChannelListSize -=
+				(P2P_ATTRI_LEN_CHANNEL_ENTRY
+				+ prChannelEntryII->ucNumberOfChannels);
+
+			prChannelEntryII = (struct CHANNEL_ENTRY_FIELD *)
+				((uintptr_t) prChannelEntryII +
+				P2P_ATTRI_LEN_CHANNEL_ENTRY +
+				(uintptr_t)
+				prChannelEntryII->ucNumberOfChannels);
+
+		}
+
+		kalMemCopy(prP2pConnSetting->aucChannelEntriesField,
+			aucCommonChannelList,
+			ucNewChnlSize);
+		prP2pConnSetting->ucRfChannelListSize = ucNewChnlSize;
+
+	} while (FALSE);
+}				/* rlmFuncCommonChannelList */
+
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief
+ *
+ * \param[in]
+ *
+ * \return none
+ */
+/*----------------------------------------------------------------------------*/
+uint8_t rlmFuncFindOperatingClass(struct ADAPTER *prAdapter,
+	uint8_t ucChannelNum)
+{
+	uint8_t ucRegulatoryClass = 0, ucBufferSize = 0;
+	struct P2P_CONNECTION_SETTINGS *prP2pConnSetting =
+		(struct P2P_CONNECTION_SETTINGS *) NULL;
+	struct CHANNEL_ENTRY_FIELD *prChannelEntryField =
+		(struct CHANNEL_ENTRY_FIELD *) NULL;
+	uint32_t u4Idx = 0;
+
+	do {
+		ASSERT_BREAK(prAdapter != NULL);
+
+		prP2pConnSetting = prAdapter->rWifiVar.prP2PConnSettings;
+		ucBufferSize = prP2pConnSetting->ucRfChannelListSize;
+		prChannelEntryField =
+			(struct CHANNEL_ENTRY_FIELD *)
+			prP2pConnSetting->aucChannelEntriesField;
+
+		while (ucBufferSize != 0) {
+
+			for (u4Idx = 0;
+				u4Idx < prChannelEntryField->ucNumberOfChannels;
+				u4Idx++) {
+				if (prChannelEntryField->aucChannelList[u4Idx]
+					== ucChannelNum) {
+					ucRegulatoryClass =
+						prChannelEntryField
+						->ucRegulatoryClass;
+					break;
+				}
+
+			}
+
+			if (ucRegulatoryClass != 0)
+				break;	/* while */
+
+			prChannelEntryField =
+				(struct CHANNEL_ENTRY_FIELD *)
+				((uintptr_t) prChannelEntryField +
+				P2P_ATTRI_LEN_CHANNEL_ENTRY +
+				(uintptr_t)
+				prChannelEntryField->ucNumberOfChannels);
+
+			ucBufferSize -=
+				(P2P_ATTRI_LEN_CHANNEL_ENTRY
+				+ prChannelEntryField->ucNumberOfChannels);
+
+		}
+
+	} while (FALSE);
+
+	return ucRegulatoryClass;
+}				/* rlmFuncFindOperatingClass */
+
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief
+ *
+ * \param[in]
+ *
+ * \return none
+ */
+/*----------------------------------------------------------------------------*/
+u_int8_t
+rlmFuncFindAvailableChannel(struct ADAPTER *prAdapter,
+		uint8_t ucCheckChnl,
+		uint8_t *pucSuggestChannel,
+		u_int8_t fgIsSocialChannel,
+		u_int8_t fgIsDefaultChannel)
+{
+	u_int8_t fgIsResultAvailable = FALSE;
+	struct CHANNEL_ENTRY_FIELD *prChannelEntry =
+		(struct CHANNEL_ENTRY_FIELD *) NULL;
+	struct P2P_CONNECTION_SETTINGS *prP2pConnSetting =
+		(struct P2P_CONNECTION_SETTINGS *) NULL;
+	uint8_t ucBufferSize = 0, ucIdx = 0, ucChannelSelected = 0;
+
+	do {
+		ASSERT_BREAK(prAdapter != NULL);
+
+		if (fgIsDefaultChannel)
+			ucChannelSelected = P2P_DEFAULT_LISTEN_CHANNEL;
+
+		prP2pConnSetting = prAdapter->rWifiVar.prP2PConnSettings;
+		ucBufferSize = prP2pConnSetting->ucRfChannelListSize;
+		prChannelEntry =
+			(struct CHANNEL_ENTRY_FIELD *)
+			prP2pConnSetting->aucChannelEntriesField;
+
+		while ((ucBufferSize != 0) && (!fgIsResultAvailable)) {
+
+			for (ucIdx = 0;
+				ucIdx < prChannelEntry->ucNumberOfChannels;
+				ucIdx++) {
+
+				if ((!fgIsSocialChannel) ||
+				    (prChannelEntry->aucChannelList[ucIdx]
+						== 1) ||
+				    (prChannelEntry->aucChannelList[ucIdx]
+						== 6) ||
+				    (prChannelEntry->aucChannelList[ucIdx]
+						== 11)) {
+
+					if (prChannelEntry
+						->aucChannelList[ucIdx] <= 11) {
+						/* 2.4G. */
+						ucChannelSelected =
+							prChannelEntry
+							->aucChannelList[ucIdx];
+					} else if ((
+						prChannelEntry
+						->aucChannelList[ucIdx] < 52)
+						&&
+						(prChannelEntry
+						->aucChannelList[ucIdx] > 14)) {
+
+						/* 2.4G + 5G. */
+						ucChannelSelected =
+							prChannelEntry
+							->aucChannelList[ucIdx];
+					}
+
+					if (ucChannelSelected == ucCheckChnl) {
+						fgIsResultAvailable = TRUE;
+						break;
+					}
+				}
+
+			}
+
+			ucBufferSize -=
+				(P2P_ATTRI_LEN_CHANNEL_ENTRY
+				+ prChannelEntry->ucNumberOfChannels);
+
+			prChannelEntry =
+				(struct CHANNEL_ENTRY_FIELD *)
+				((uintptr_t) prChannelEntry +
+				P2P_ATTRI_LEN_CHANNEL_ENTRY +
+				(uintptr_t)
+				prChannelEntry->ucNumberOfChannels);
+
+		}
+
+		if ((!fgIsResultAvailable)
+			&& (pucSuggestChannel != NULL)) {
+			log_dbg(P2P, TRACE,
+			       "The request channel %d is not available, sugguested channel:%d\n",
+			       ucCheckChnl, ucChannelSelected);
+
+			/* Given a suggested channel. */
+			*pucSuggestChannel = ucChannelSelected;
+		}
+
+	} while (FALSE);
+
+	return fgIsResultAvailable;
+}
+#endif
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -717,7 +1169,8 @@ enum ENUM_CHNL_EXT rlmDecideScoForAP(struct ADAPTER *prAdapter,
 	/* Overwrite SCO settings by wifi cfg */
 	if (IS_BSS_P2P(prBssInfo)) {
 		/* AP mode */
-		if (IS_BSS_AP(prAdapter, prBssInfo)) {
+		if (p2pFuncIsAPMode(prAdapter->rWifiVar
+			.prP2PConnSettings[prBssInfo->u4PrivateData])) {
 			if (prAdapter->rWifiVar.ucApSco == CHNL_EXT_SCA
 				|| prAdapter->rWifiVar.ucApSco == CHNL_EXT_SCB)
 				eTempSCO =
@@ -764,7 +1217,8 @@ enum ENUM_CHNL_EXT rlmDecideScoForAP(struct ADAPTER *prAdapter,
 	/* Overwrite SCO settings by wifi cfg bandwidth setting */
 	if (IS_BSS_P2P(prBssInfo)) {
 		/* AP mode */
-		if (IS_BSS_AP(prAdapter, prBssInfo)) {
+		if (p2pFuncIsAPMode(prAdapter->rWifiVar
+			.prP2PConnSettings[prBssInfo->u4PrivateData])) {
 			if (prBssInfo->eBand == BAND_2G4)
 				ucMaxBandwidth =
 					prAdapter->rWifiVar.ucAp2gBandwidth;
@@ -973,8 +1427,7 @@ uint8_t rlmGetVhtS1ForAP(struct ADAPTER *prAdapter,
 		ucFreq1Channel = nicGetS1(
 			prBssInfo->eBand,
 			prBssInfo->ucPrimaryChannel,
-			prBssInfo->eBssSCO,
-			rlmGetBssOpBwByVhtAndHtOpInfo(prBssInfo));
+			prBssInfo->ucVhtChannelWidth);
 	}
 
 	return ucFreq1Channel;
@@ -988,12 +1441,10 @@ void rlmGetChnlInfoForCSA(struct ADAPTER *prAdapter,
 {
 	struct BSS_INFO *prBssInfo = NULL;
 	enum ENUM_BAND eBandOrig, eBandCsa;
-	enum ENUM_CHNL_EXT eScoCsa;
 
 	prBssInfo = prAdapter->aprBssInfo[ucBssIdx];
 
 	prRfChnlInfo->ucChannelNum = ucCh;
-	eScoCsa = nicGetSco(prAdapter, eBand, ucCh);
 
 	eBandCsa = eBand;
 	prRfChnlInfo->eBand = eBandCsa;
@@ -1002,22 +1453,13 @@ void rlmGetChnlInfoForCSA(struct ADAPTER *prAdapter,
 	eBandOrig = prBssInfo->eBand;
 	prBssInfo->eBand = eBandCsa;
 	prRfChnlInfo->ucChnlBw = cnmGetBssMaxBw(prAdapter, ucBssIdx);
-	prRfChnlInfo->eSco = eScoCsa;
-#if (CFG_SUPPORT_802_11BE == 1)
-	if ((!(prBssInfo->ucPhyTypeSet &
-		PHY_TYPE_BIT_EHT)) &&
-		(prRfChnlInfo->ucChnlBw >=
-		MAX_BW_320_1MHZ))
-		prRfChnlInfo->ucChnlBw = MAX_BW_160MHZ;
-#endif
 	prBssInfo->eBand = eBandOrig; /* Restore BSS eBand */
 
 	prRfChnlInfo->u2PriChnlFreq =
 		nicChannelNum2Freq(ucCh, eBandCsa) / 1000;
-	prRfChnlInfo->u4CenterFreq1 = nicGetS1Freq(eBandCsa, ucCh, eScoCsa,
-		prRfChnlInfo->ucChnlBw);
-	prRfChnlInfo->u4CenterFreq2 = nicGetS2Freq(eBandCsa, ucCh,
-		prRfChnlInfo->ucChnlBw);
+	prRfChnlInfo->u4CenterFreq1 = nicGetS1Freq(prAdapter,
+		eBandCsa, prRfChnlInfo->ucChannelNum, prRfChnlInfo->ucChnlBw);
+	prRfChnlInfo->u4CenterFreq2 = 0;
 
 	if ((eBand == BAND_5G) &&
 		(ucCh >= 52 && ucCh <= 144))
@@ -1025,186 +1467,5 @@ void rlmGetChnlInfoForCSA(struct ADAPTER *prAdapter,
 	else
 		prRfChnlInfo->fgDFS = FALSE;
 }
-
-#if (CFG_SUPPORT_SAP_PUNCTURE == 1)
-static void rlmPunctUpdateLegacyBw80(uint16_t u2Bitmap, uint8_t ucPriChannel,
-				     uint8_t *pucSeg0)
-{
-	uint8_t ucFirstChan = *pucSeg0 - 6, ucSecChan;
-
-	switch (u2Bitmap) {
-	case 0x6:
-		*pucSeg0 = 0;
-		return;
-	case 0x8:
-	case 0x4:
-	case 0x2:
-	case 0x1:
-	case 0xC:
-	case 0x3:
-		if (ucPriChannel < *pucSeg0)
-			*pucSeg0 -= 4;
-		else
-			*pucSeg0 += 4;
-		break;
-	}
-
-	if (ucPriChannel < *pucSeg0)
-		ucSecChan = ucPriChannel + 4;
-	else
-		ucSecChan = ucPriChannel - 4;
-
-	if (u2Bitmap & BIT((ucSecChan - ucFirstChan) / 4))
-		*pucSeg0 = 0;
-}
-
-static void rlmPunctUpdateLegacyBw160(uint16_t u2Bitmap, uint8_t ucPriChannel,
-				      uint8_t *pucBw, uint8_t *pucSeg0)
-{
-	if (ucPriChannel < *pucSeg0) {
-		*pucSeg0 -= 8;
-		if (u2Bitmap & 0x0F) {
-			*pucBw = MAX_BW_40MHZ;
-			rlmPunctUpdateLegacyBw80(u2Bitmap & 0xF, ucPriChannel,
-						 pucSeg0);
-		}
-	} else {
-		*pucSeg0 += 8;
-		if (u2Bitmap & 0xF0) {
-			*pucBw = MAX_BW_40MHZ;
-			rlmPunctUpdateLegacyBw80((u2Bitmap & 0xF0) >> 4,
-						 ucPriChannel, pucSeg0);
-		}
-	}
-}
-
-void rlmPunctUpdateLegacyBw(enum ENUM_BAND eBand, uint16_t u2Bitmap,
-			    uint8_t ucPriChannel, uint8_t *pucBw,
-			    uint8_t *pucSeg0, uint8_t *pucSeg1,
-			    uint8_t *pucOpClass)
-{
-	uint8_t ucCenterCh, ucSecCh;
-
-	if (*pucBw < MAX_BW_80MHZ || *pucBw > MAX_BW_80_80_MHZ)
-		return;
-
-	switch (*pucBw) {
-	case MAX_BW_80MHZ:
-	case MAX_BW_80_80_MHZ:
-		ucCenterCh = *pucSeg0;
-		ucSecCh = *pucSeg1;
-		break;
-	case MAX_BW_160MHZ:
-		ucCenterCh = *pucSeg1;
-		ucSecCh = 0;
-		break;
-	default:
-		return;
-	}
-
-	if ((*pucBw == MAX_BW_80MHZ || *pucBw == MAX_BW_80_80_MHZ) &&
-	    (u2Bitmap & 0xF)) {
-		*pucBw = MAX_BW_40MHZ;
-		rlmPunctUpdateLegacyBw80(u2Bitmap & 0xF, ucPriChannel,
-					 &ucCenterCh);
-	}
-
-	if (*pucBw == MAX_BW_160MHZ && (u2Bitmap & 0xFF)) {
-		*pucBw = MAX_BW_80MHZ;
-		ucSecCh = 0;
-		rlmPunctUpdateLegacyBw160(u2Bitmap & 0xFF, ucPriChannel,
-					  pucBw, &ucCenterCh);
-	}
-
-	*pucSeg0 = nicGetS1(eBand, ucPriChannel, CHNL_EXT_RES, *pucBw);
-	*pucSeg1 = nicGetS2(eBand, ucPriChannel, *pucBw);
-
-	if (pucOpClass) {
-		struct RF_CHANNEL_INFO rChannelInfo;
-
-		rChannelInfo.eBand = eBand;
-		rChannelInfo.ucChnlBw = *pucBw;
-		/* Sco no matter for BW > 40 MHz */
-		rChannelInfo.eSco = CHNL_EXT_RES;
-		rChannelInfo.ucChannelNum = ucPriChannel;
-		rChannelInfo.u2PriChnlFreq =
-			nicChannelNum2Freq(ucPriChannel,
-					   eBand) / 1000;
-		rChannelInfo.u4CenterFreq1 =
-			nicGetS1Freq(eBand, ucPriChannel,
-				     rChannelInfo.eSco, *pucBw);
-		rChannelInfo.u4CenterFreq2 =
-			nicGetS2Freq(eBand, ucPriChannel, *pucBw);
-
-		*pucOpClass = nicChannelInfo2OpClass(&rChannelInfo);
-	}
-}
-
-u_int8_t rlmValidatePunctBitmap(struct ADAPTER *prAdapter,
-				enum ENUM_BAND eBand,
-				enum ENUM_MAX_BANDWIDTH_SETTING eBw,
-				uint8_t ucPriCh, uint16_t u2PunctBitmap)
-{
-	uint8_t ucIdx, ucCount, ucStartCh, ucCenterCh, ucVhtBw;
-	uint16_t u2Bitmap, u2PriChBit;
-	const uint16_t *prValidBitmaps;
-
-	if (!u2PunctBitmap)
-		return TRUE;
-
-	u2Bitmap = ~u2PunctBitmap;
-	if (!u2Bitmap)
-		return FALSE;
-
-	ucVhtBw = rlmGetVhtOpBwByBssOpBw(eBw);
-	ucCenterCh = nicGetS1(eBand, ucPriCh, CHNL_EXT_RES, ucVhtBw);
-
-	switch (eBw) {
-	case MAX_BW_80MHZ:
-		if (u2PunctBitmap > 0xF || ucCenterCh < 7)
-			return FALSE;
-		u2Bitmap &= 0xF;
-		prValidBitmaps = PUNCT_VALID_BITMAP_80;
-		ucCount = ARRAY_SIZE(PUNCT_VALID_BITMAP_80);
-		ucStartCh = ucCenterCh - 6;
-		break;
-
-	case MAX_BW_160MHZ:
-		if (u2PunctBitmap > 0xFF || ucCenterCh < 15)
-			return FALSE;
-		u2Bitmap &= 0xFF;
-		prValidBitmaps = PUNCT_VALID_BITMAP_160;
-		ucCount = ARRAY_SIZE(PUNCT_VALID_BITMAP_160);
-		ucStartCh = ucCenterCh - 14;
-		break;
-
-	case MAX_BW_320_1MHZ:
-	case MAX_BW_320_2MHZ:
-		if (ucCenterCh < 31)
-			return FALSE;
-		u2Bitmap &= 0xFFFF;
-		prValidBitmaps = PUNCT_VALID_BITMAP_320;
-		ucCount = ARRAY_SIZE(PUNCT_VALID_BITMAP_320);
-		ucStartCh = ucCenterCh - 30;
-		break;
-
-	default:
-		return FALSE;
-	}
-
-	u2PriChBit = (uint16_t)((ucPriCh - ucStartCh) / 4);
-
-	/* Primary channel cannot be punctured */
-	if (!(u2Bitmap & BIT(u2PriChBit)))
-		return FALSE;
-
-	for (ucIdx = 0; ucIdx < ucCount; ucIdx++) {
-		if (prValidBitmaps[ucIdx] == u2Bitmap)
-			return TRUE;
-	}
-
-	return FALSE;
-}
-#endif /* CFG_SUPPORT_SAP_PUNCTURE */
 
 #endif /* CFG_ENABLE_WIFI_DIRECT */

@@ -1,7 +1,7 @@
 # Task Integrity Verifier
 
 config FIVE
-	bool "File Based Task Integrity Verifier (FIVE)(based on IMA)"
+	tristate "File Based Task Integrity Verifier (FIVE)(based on IMA)"
 	depends on INTEGRITY && DM_VERITY && BLK_DEV_LOOP
 	select CRYPTO
 	select CRYPTO_SHA1

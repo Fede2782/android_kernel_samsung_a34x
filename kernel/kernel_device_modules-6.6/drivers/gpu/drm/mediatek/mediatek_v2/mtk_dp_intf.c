@@ -19,6 +19,8 @@
 #else
 #include "mtk-cmdq-ext.h"
 #endif
+#include <video/videomode.h>
+
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
@@ -50,6 +52,13 @@
 #define DP_OUTPUT_SETTING				0x0014
 	#define RB_SWAP							BIT(0)
 #define DP_SIZE							0x0018
+#define OUT_BIT				18
+#define OUT_BIT_MASK			(0x3 << 18)
+#define OUT_BIT_8			0x00
+#define OUT_BIT_10			0x01
+#define OUT_BIT_12			0x02
+#define OUT_BIT_16			0x03
+
 #define DP_TGEN_HWIDTH					0x0020
 #define DP_TGEN_HPORCH					0x0024
 #define DP_TGEN_VWIDTH					0x0028
@@ -136,14 +145,17 @@ struct mtk_dp_intf_resolution_cfg {
 	unsigned int clksrc;
 	unsigned int con1;
 	unsigned int clk;
+	unsigned int tvppll_clk;
+	unsigned int dp_clk;
 };
 
 enum TVDPLL_CLK {
-	TCK_26M = 0,
+	TVDPLL_PLL = 0,
 	TVDPLL_D2 = 1,
 	TVDPLL_D4 = 2,
 	TVDPLL_D8 = 3,
 	TVDPLL_D16 = 4,
+	TCK_26M = 5,
 };
 
 enum MT6897_TVDPLL_CLK {
@@ -162,12 +174,12 @@ enum MT6989_TVDPLL_CLK {
 };
 
 enum MT6991_TVDPLL_CLK {
-	MT6991_TCK_26M = 0,
-	MT6991_TVDPLL_D16 = 1,
-	MT6991_TVDPLL_D8 = 2,
-	MT6991_TVDPLL_D4 = 3,
-	MT6991_TVDPLL_D2 = 4,
-	MT6991_TVDPLL_PLL = 5,
+	MT6991_TVDPLL_PLL = 0,
+	MT6991_TVDPLL_D16 = 4,
+	MT6991_TVDPLL_D8 = 3,
+	MT6991_TVDPLL_D4 = 2,
+	MT6991_TVDPLL_D2 = 1,
+	MT6991_TCK_26M = 5,
 };
 
 enum MT6899_TVDPLL_CLK {
@@ -178,533 +190,6 @@ enum MT6899_TVDPLL_CLK {
 	MT6899_TVDPLL_D2 = 4,
 };
 
-static const struct mtk_dp_intf_resolution_cfg mt6895_resolution_cfg[SINK_MAX] = {
-	[SINK_640_480] = {
-					.clksrc = TVDPLL_D16,
-					.con1 = 0x840F81F8
-				},
-	[SINK_800_600] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_1280_720] = {
-					.clksrc = TVDPLL_D8,
-					.con1 = 0x8416DFB4
-				},
-	[SINK_1280_960] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_1280_1024] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_1920_1080] = {
-					.clksrc = TVDPLL_D16,
-					.con1 = 0x8216D89D
-				},
-	[SINK_1080_2460] = {
-					.clksrc = TVDPLL_D16,
-					.con1 = 0x821AC941
-				},
-	[SINK_1920_1200] = {
-					.clksrc = TVDPLL_D16,
-					.con1 = 0x8217B645
-				},
-	[SINK_1920_1440] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_2560_1440] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_2560_1600] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_3840_2160_30] = {
-					.clksrc = TVDPLL_D8,
-					.con1 = 0x8216D89D
-				},
-	[SINK_3840_2160] = {
-					.clksrc = TVDPLL_D2,
-					.con1 = 0x8316D89D
-				}, //htotal = 1500  //con1 = 0x83109D89; //htotal = 1600
-	[SINK_7680_4320] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-};
-
-static const struct mtk_dp_intf_resolution_cfg mt6983_resolution_cfg[SINK_MAX] = {
-	[SINK_640_480] = {
-					.clksrc = TVDPLL_D16,
-					.con1 = 0x840F81F8
-				},
-	[SINK_800_600] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_1280_720] = {
-					.clksrc = TVDPLL_D8,
-					.con1 = 0x8416DFB4
-				},
-	[SINK_1280_960] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_1280_1024] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_1920_1080] = {
-					.clksrc = TVDPLL_D16,
-					.con1 = 0x8216D89D
-				},
-	[SINK_1920_1080_120_RB] = {
-					.clksrc = TVDPLL_D8,
-					.con1 = 0x82160000
-				},
-	[SINK_1920_1080_120] = {
-					.clksrc = TVDPLL_D8,
-					.con1 = 0x8216D89D
-				},
-	[SINK_1080_2460] = {
-					.clksrc = TVDPLL_D16,
-					.con1 = 0x821AC941
-				},
-	[SINK_1920_1200] = {
-					.clksrc = TVDPLL_D16,
-					.con1 = 0x8217B645
-				},
-	[SINK_1920_1440] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_2560_1440] = {
-					.clksrc = TVDPLL_D8,
-					.con1 = 0x821293B1
-				},
-	[SINK_2560_1600] = {
-					.clksrc = TVDPLL_D8,
-					.con1 = 0x8214A762
-				},
-	[SINK_3840_2160_30] = {
-					.clksrc = TVDPLL_D8,
-					.con1 = 0x8216D89D
-				},
-	[SINK_3840_2160] = {
-					.clksrc = TVDPLL_D4,
-					.con1 = 0x830F93B1
-				}, //htotal = 1500  //con1 = 0x83109D89; //htotal = 1600
-	[SINK_7680_4320] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-};
-
-static const struct mtk_dp_intf_resolution_cfg mt6985_resolution_cfg[SINK_MAX] = {
-	[SINK_640_480] = {
-					.clksrc = TVDPLL_D16,
-					.con1 = 0x840F81F8
-				},
-	[SINK_800_600] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_1280_720] = {
-					.clksrc = TVDPLL_D8,
-					.con1 = 0x8416DFB4
-				},
-	[SINK_1280_960] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_1280_1024] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_1920_1080] = {
-					.clksrc = TVDPLL_D16,
-					.con1 = 0x8216D89D
-				},
-	[SINK_1920_1080_120] = {
-					.clksrc = TVDPLL_D8,
-					.con1 = 0x8216D89D
-				},
-	[SINK_1080_2460] = {
-					.clksrc = TVDPLL_D16,
-					.con1 = 0x821AC941
-				},
-	[SINK_1920_1200] = {
-					.clksrc = TVDPLL_D16,
-					.con1 = 0x8217B645
-				},
-	[SINK_1920_1440] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_2560_1440] = {
-					.clksrc = TVDPLL_D8,
-					.con1 = 0x821293B1
-				},
-	[SINK_2560_1600] = {
-					.clksrc = TVDPLL_D8,
-					.con1 = 0x8214A762
-				},
-	[SINK_3840_2160_30] = {
-					.clksrc = TVDPLL_D8,
-					.con1 = 0x8216D89D
-				},
-	[SINK_3840_2160] = {
-					.clksrc = TVDPLL_D4,
-					.con1 = 0x8216D89D
-				}, //htotal = 1500  //con1 = 0x83109D89; //htotal = 1600
-	[SINK_7680_4320] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-};
-
-static const struct mtk_dp_intf_resolution_cfg mt6897_resolution_cfg[SINK_MAX] = {
-	[SINK_640_480] = {
-					.clksrc = MT6897_TVDPLL_D16,
-					.con1 = 0x840F81F8
-				},
-	[SINK_800_600] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_1280_720] = {
-					.clksrc = MT6897_TVDPLL_D8,
-					.con1 = 0x8416DFB4
-				},
-	[SINK_1280_960] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_1280_1024] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_1920_1080] = {
-					.clksrc = MT6897_TVDPLL_D16,
-					.con1 = 0x8216D89D
-				},
-	[SINK_1920_1080_120] = {
-					.clksrc = MT6897_TVDPLL_D8,
-					.con1 = 0x8216D89D
-				},
-	[SINK_1080_2460] = {
-					.clksrc = MT6897_TVDPLL_D16,
-					.con1 = 0x821AC941
-				},
-	[SINK_1920_1200] = {
-					.clksrc = MT6897_TVDPLL_D16,
-					.con1 = 0x8217B645
-				},
-	[SINK_1920_1440] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_2560_1440] = {
-					.clksrc = MT6897_TVDPLL_D8,
-					.con1 = 0x821293B1
-				},
-	[SINK_2560_1600] = {
-					.clksrc = MT6897_TVDPLL_D8,
-					.con1 = 0x8214A762
-				},
-	[SINK_3840_2160_30] = {
-					.clksrc = MT6897_TVDPLL_D8,
-					.con1 = 0x8216D89D
-				},
-	[SINK_3840_2160] = {
-					.clksrc = MT6897_TVDPLL_D4,
-					.con1 = 0x8216D89D
-				}, //htotal = 1500  //con1 = 0x83109D89; //htotal = 1600
-	[SINK_7680_4320] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-};
-
-static const struct mtk_dp_intf_resolution_cfg mt6989_resolution_cfg[SINK_MAX] = {
-	[SINK_640_480] = {
-					.clksrc = MT6989_TVDPLL_D16,
-					.con1 = 0x840F81F8
-				},
-	[SINK_800_600] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_1280_720] = {
-					.clksrc = MT6989_TVDPLL_D8,
-					.con1 = 0x8416DFB4
-				},
-	[SINK_1280_960] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_1280_1024] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_1920_1080] = {
-					.clksrc = MT6989_TVDPLL_D16,
-					.con1 = 0x8216D89D
-				},
-	[SINK_1920_1080_120] = {
-					.clksrc = MT6989_TVDPLL_D8,
-					.con1 = 0x8216D89D
-				},
-	[SINK_1080_2460] = {
-					.clksrc = MT6989_TVDPLL_D16,
-					.con1 = 0x821AC941
-				},
-	[SINK_1920_1200] = {
-					.clksrc = MT6989_TVDPLL_D16,
-					.con1 = 0x8217B645
-				},
-	[SINK_1920_1440] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-	[SINK_2560_1440] = {
-					.clksrc = MT6989_TVDPLL_D8,
-					.con1 = 0x821293B1
-				},
-	[SINK_2560_1600] = {
-					.clksrc = MT6989_TVDPLL_D8,
-					.con1 = 0x8214A762
-				},
-	[SINK_3840_2160_30] = {
-					.clksrc = MT6989_TVDPLL_D8,
-					.con1 = 0x8216D89D
-				},
-	[SINK_3840_2160] = {
-					.clksrc = MT6989_TVDPLL_D4,
-					.con1 = 0x8216D89D
-				}, //htotal = 1500  //con1 = 0x83109D89; //htotal = 1600
-	[SINK_7680_4320] = {
-					.clksrc = 0,
-					.con1 = 0
-				},
-};
-
-static const struct mtk_dp_intf_resolution_cfg mt6991_resolution_cfg[SINK_MAX] = {
-	[SINK_640_480] = {
-					.clksrc = MT6991_TVDPLL_D16,
-					.con1 = 0x840F81F8,
-					.clk = 37125
-				},
-	[SINK_800_600] = {
-					.clksrc = MT6991_TCK_26M,
-					.con1 = 0,
-					.clk = 26000
-				},
-	[SINK_1280_720] = {
-					.clksrc = MT6991_TVDPLL_D8,
-					.con1 = 0x8416DFB4,
-					.clk = 74250
-				},
-	[SINK_1280_960] = {
-					.clksrc = MT6991_TCK_26M,
-					.con1 = 0,
-					.clk = 26000
-				},
-	[SINK_1280_1024] = {
-					.clksrc = MT6991_TCK_26M,
-					.con1 = 0,
-					.clk = 26000
-				},
-	[SINK_1920_1080] = {
-					.clksrc = MT6991_TVDPLL_D16,
-					.con1 = 0x8216D89D,
-					.clk = 37125
-				},
-	[SINK_1920_1080_120] = {
-					.clksrc = MT6991_TVDPLL_D8,
-					.con1 = 0x8216D89D,
-					.clk = 74250
-				},
-	[SINK_1080_2460] = {
-					.clksrc = MT6991_TVDPLL_D16,
-					.con1 = 0x821AC941,
-					.clk = 37125
-				},
-	[SINK_1920_1200] = {
-					.clksrc = MT6991_TVDPLL_D16,
-					.con1 = 0x8217B645,
-					.clk = 37125
-				},
-	[SINK_1920_1440] = {
-					.clksrc = MT6991_TCK_26M,
-					.con1 = 0,
-					.clk = 26000
-				},
-	[SINK_2560_1440] = {
-					.clksrc = MT6991_TVDPLL_D8,
-					.con1 = 0x821293B1,
-					.clk = 74250
-				},
-	[SINK_2560_1600] = {
-					.clksrc = MT6991_TVDPLL_D8,
-					.con1 = 0x8214A762,
-					.clk = 74250
-				},
-	[SINK_3840_2160_30] = {
-					.clksrc = MT6991_TVDPLL_D8,
-					.con1 = 0x8216D89D,
-					.clk = 74250
-				},
-	[SINK_3840_2160] = {
-					.clksrc = MT6991_TVDPLL_D4,
-					.con1 = 0x8216D89D,
-					.clk = 148500
-				}, //htotal = 1500  //con1 = 0x83109D89; //htotal = 1600
-	[SINK_7680_4320] = {
-					.clksrc = MT6991_TCK_26M,
-					.con1 = 0,
-					.clk = 26000
-				},
-};
-
-static const struct mtk_dp_intf_resolution_cfg mt6899_resolution_cfg[SINK_MAX] = {
-	[SINK_640_480] = {
-					.clksrc = MT6899_TVDPLL_D16,
-					.con1 = 0x840F81F8,
-					.clk = 37125
-				},
-	[SINK_800_600] = {
-					.clksrc = MT6899_TCK_26M,
-					.con1 = 0,
-					.clk = 26000
-				},
-	[SINK_1280_720] = {
-					.clksrc = MT6899_TVDPLL_D8,
-					.con1 = 0x8416DFB4,
-					.clk = 74250
-				},
-	[SINK_1280_960] = {
-					.clksrc = MT6899_TCK_26M,
-					.con1 = 0,
-					.clk = 26000
-				},
-	[SINK_1280_1024] = {
-					.clksrc = MT6899_TCK_26M,
-					.con1 = 0,
-					.clk = 26000
-				},
-	[SINK_1920_1080] = {
-					.clksrc = MT6899_TVDPLL_D16,
-					.con1 = 0x8216D89D,
-					.clk = 37125
-				},
-	[SINK_1920_1080_120] = {
-					.clksrc = MT6899_TVDPLL_D8,
-					.con1 = 0x8216D89D,
-					.clk = 74250
-				},
-	[SINK_1080_2460] = {
-					.clksrc = MT6899_TVDPLL_D16,
-					.con1 = 0x821AC941,
-					.clk = 37125
-				},
-	[SINK_1920_1200] = {
-					.clksrc = MT6899_TVDPLL_D16,
-					.con1 = 0x8217B645,
-					.clk = 37125
-				},
-	[SINK_1920_1440] = {
-					.clksrc = MT6899_TCK_26M,
-					.con1 = 0,
-					.clk = 26000
-				},
-	[SINK_2560_1440] = {
-					.clksrc = MT6899_TVDPLL_D8,
-					.con1 = 0x821293B1,
-					.clk = 74250
-				},
-	[SINK_2560_1600] = {
-					.clksrc = MT6899_TVDPLL_D8,
-					.con1 = 0x8214A762,
-					.clk = 74250
-				},
-	[SINK_3840_2160_30] = {
-					.clksrc = MT6899_TVDPLL_D8,
-					.con1 = 0x8216D89D,
-					.clk = 74250
-				},
-	[SINK_3840_2160] = {
-					.clksrc = MT6899_TVDPLL_D4,
-					.con1 = 0x8216D89D,
-					.clk = 148500
-				}, //htotal = 1500  //con1 = 0x83109D89; //htotal = 1600
-	[SINK_7680_4320] = {
-					.clksrc = MT6899_TCK_26M,
-					.con1 = 0,
-					.clk = 26000
-				},
-};
-
-struct mtk_dp_intf_video_clock {
-	char	compatible[128];
-	const struct mtk_dp_intf_resolution_cfg *resolution_cfg;
-	unsigned int con0_reg;
-	unsigned int con1_reg;
-};
-
-static const struct mtk_dp_intf_video_clock mt6895_dp_intf_video_clock = {
-	.compatible = "mediatek,mt6895-apmixedsys",
-	.resolution_cfg = mt6895_resolution_cfg,
-	.con0_reg = 0x248,
-	.con1_reg = 0x24C
-};
-
-static const struct mtk_dp_intf_video_clock mt6983_dp_intf_video_clock = {
-	.compatible = "mediatek,mt6983-apmixedsys",
-	.resolution_cfg = mt6983_resolution_cfg,
-	.con0_reg = 0x248,
-	.con1_reg = 0x24C
-};
-
-static const struct mtk_dp_intf_video_clock mt6985_dp_intf_video_clock = {
-	.compatible = "mediatek,mt6985-apmixedsys",
-	.resolution_cfg = mt6985_resolution_cfg,
-	.con0_reg = 0x248,
-	.con1_reg = 0x24C
-};
-
-static const struct mtk_dp_intf_video_clock mt6897_dp_intf_video_clock = {
-	.compatible = "mediatek,mt6897-apmixedsys",
-	.resolution_cfg = mt6897_resolution_cfg,
-	.con0_reg = 0x248,
-	.con1_reg = 0x24C
-};
-
-static const struct mtk_dp_intf_video_clock mt6989_dp_intf_video_clock = {
-	.compatible = "mediatek,mt6989-apmixedsys",
-	.resolution_cfg = mt6989_resolution_cfg,
-	.con0_reg = 0x248,
-	.con1_reg = 0x24C
-};
-
-static const struct mtk_dp_intf_video_clock mt6991_dp_intf_video_clock = {
-	.compatible = "mediatek,mt6991-apmixedsys",
-	.resolution_cfg = mt6991_resolution_cfg,
-	.con0_reg = 0x248,
-	.con1_reg = 0x24C
-};
-
-static const struct mtk_dp_intf_video_clock mt6899_dp_intf_video_clock = {
-	.compatible = "mediatek,mt6899-apmixedsys",
-	.resolution_cfg = mt6899_resolution_cfg,
-	.con0_reg = 0x248,
-	.con1_reg = 0x24C
-};
-
 struct mtk_dp_intf_driver_data {
 	const u32 reg_cmdq_ofs;
 	const u8 np_sel;
@@ -712,7 +197,10 @@ struct mtk_dp_intf_driver_data {
 		struct cmdq_pkt *handle);
 	irqreturn_t (*irq_handler)(int irq, void *dev_id);
 	void (*get_pll_clk)(struct mtk_dp_intf *dp_intf);
-	const struct mtk_dp_intf_video_clock *video_clock_cfg;
+	void (*mmclk_by_datarate)(struct mtk_drm_crtc *mtk_crtc, struct mtk_dp_intf *dp_intf, unsigned int en);
+	const unsigned int bubble_rate;
+	const unsigned int ovlsys_pixel_per_tick;
+	const unsigned int pipe_num;
 };
 
 #define mt_reg_sync_writel(v, a) \
@@ -753,7 +241,6 @@ struct mtk_dp_intf_driver_data {
 
 #endif
 
-static void __iomem	*clk_apmixed_base;
 static int irq_intsa;
 static int irq_vdesa;
 static int irq_underflowsa;
@@ -794,7 +281,7 @@ void dp_intf_dump_reg(void)
 		val[1] = readl(g_dp_intf->regs + reg + 4);
 		val[2] = readl(g_dp_intf->regs + reg + 8);
 		val[3] = readl(g_dp_intf->regs + reg + 12);
-		DPTXMSG("dp_intf reg[0x%x] = 0x%x 0x%x 0x%x 0x%x\n",
+		DPTXDBG("dp_intf reg[0x%x] = 0x%x 0x%x 0x%x 0x%x\n",
 			reg, val[0], val[1], val[2], val[3]);
 	}
 }
@@ -865,39 +352,26 @@ static void mtk_dp_intf_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	DPTXMSG("%s, stop\n", mtk_dump_comp_str(comp));
 }
 
+void mtk_dp_inf_video_clock(struct mtk_dp_intf *dp_intf);
 static void mtk_dp_intf_prepare(struct mtk_ddp_comp *comp)
 {
 	struct mtk_dp_intf *dp_intf = NULL;
-	int ret;
-
-	DPTXFUNC();
-	mtk_dp_poweron();
+	DDPFUNC();
+	mtk_dp_poweron_sub();
 
 	dp_intf = comp_to_dp_intf(comp);
-
-	/* Enable dp intf clk */
-	if (dp_intf != NULL) {
-		ret = clk_prepare_enable(dp_intf->hf_fmm_ck);
-		if (ret < 0)
-			DPTXERR("%s Failed to enable hf_fmm_ck clock: %d\n",
-				__func__, ret);
-		ret = clk_prepare_enable(dp_intf->hf_fdp_ck);
-		if (ret < 0)
-			DPTXERR("%s Failed to enable hf_fdp_ck clock: %d\n",
-				__func__, ret);
-		//ret = clk_prepare_enable(dp_intf->pclk);
-		//if (ret < 0)
-		//	DPTXERR("%s Failed to enable pclk clock: %d\n",
-		//		__func__, ret);
-		DPTXMSG("%s:succesed enable dp_intf clock\n", __func__);
-	} else
-		DPTXERR("Failed to enable dp_intf clock\n");
+	mtk_dp_inf_video_clock(dp_intf);
 }
 
 void mtk_dp_intf_unprepare_clk(void)
 {
-	/* disable dp intf clk */
+	int ret = 0;
+
 	if (g_dp_intf != NULL) {
+		ret = clk_set_parent(g_dp_intf->pclk, g_dp_intf->pclk_src[TCK_26M]);
+		if (ret < 0)
+			DPTXMSG("%s Failed to clk_set_parent: %d\n",
+				__func__, ret);
 		clk_disable_unprepare(g_dp_intf->pclk);
 		DPTXMSG("%s:succesed disable dp_intf and DP sel clock\n", __func__);
 	} else
@@ -909,10 +383,10 @@ static void mtk_dp_intf_unprepare(struct mtk_ddp_comp *comp)
 {
 	struct mtk_dp_intf *dp_intf = NULL;
 	struct mtk_drm_crtc *mtk_crtc;
-	struct mtk_drm_private *priv;
+	struct mtk_drm_private *priv = NULL;
 
 	DPTXFUNC();
-	mtk_dp_poweroff();
+	mtk_dp_poweroff_sub();
 	udelay(1000);
 	mtk_ddp_write_mask(comp, 0x0, DP_EN, DP_CONTROLLER_EN, NULL);
 	dp_intf = comp_to_dp_intf(comp);
@@ -927,88 +401,70 @@ static void mtk_dp_intf_unprepare(struct mtk_ddp_comp *comp)
 		}
 		clk_disable_unprepare(dp_intf->hf_fmm_ck);
 		clk_disable_unprepare(dp_intf->hf_fdp_ck);
-		mtk_crtc = dp_intf->ddp_comp.mtk_crtc;
-		priv = mtk_crtc->base.dev->dev_private;
-		if (priv->data->mmsys_id != MMSYS_MT6991){
-			clk_disable_unprepare(dp_intf->pclk);
-			clk_disable_unprepare(dp_intf->vcore_pclk);
+		clk_disable_unprepare(dp_intf->pclk);
+		if(priv != NULL) {
+			if (priv->data->mmsys_id == MMSYS_MT6991){
+				clk_disable_unprepare(dp_intf->pclk_src[MT6991_TVDPLL_PLL]);
+			} else {
+				clk_disable_unprepare(dp_intf->vcore_pclk);
+			}
+			DPTXMSG("%s:succesed disable dp_intf clock\n", __func__);
+		} else {
+			DPTXERR("Failed to disable dp_intf clock\n");
 		}
-		DPTXMSG("%s:succesed disable dp_intf clock\n", __func__);
-	} else
-		DPTXERR("Failed to disable dp_intf clock\n");
+	}
 }
 
 void mtk_dp_inf_video_clock(struct mtk_dp_intf *dp_intf)
 {
-	unsigned int clksrc = TVDPLL_D2;
-	unsigned int con1 = 0;
-	unsigned int con0_reg;
-	unsigned int con1_reg;
 	int ret = 0;
-	struct device_node *node;
+	struct videomode vm = {0};
+	unsigned int clksrc = TVDPLL_D2;
+	unsigned int pll_rate;
 	struct mtk_drm_crtc *mtk_crtc;
 	struct mtk_drm_private *priv;
 
-	if (dp_intf == NULL) {
-		DPTXERR("%s:input error\n", __func__);
-		return;
+	DDPFUNC();
+
+	vm.pixelclock = dp_intf->mode.clock * 1000;
+
+	//bit shift TVDPLL_D2: 1, TVDPLL_D4:2, TVDPLL_D8:3, TVDPLL_D16:4
+	if (vm.pixelclock < 70000000)
+		clksrc = TVDPLL_D16;
+	else if (vm.pixelclock < 200000000)
+		clksrc = TVDPLL_D8;
+	else
+		clksrc = TVDPLL_D4;
+
+	pll_rate = vm.pixelclock * (1 << clksrc);
+
+	DPTXMSG("%s pixel %lu clksrc %d pll_rate %d\n",
+		__func__, vm.pixelclock, clksrc, pll_rate);
+
+	ret = clk_set_rate(dp_intf->pclk_src[TVDPLL_PLL], pll_rate / 4);
+	if (ret) {
+		DDPMSG("%s cannot set pclk_src[TVDPLL_PLL]: err=%d\n",
+			__func__, ret);
 	}
 
-	if (dp_intf->res >= SINK_MAX || dp_intf->res < 0) {
-		DPTXERR("%s:input res error: %d\n", __func__, dp_intf->res);
-		dp_intf->res = SINK_1920_1080;
+	ret = clk_prepare_enable(dp_intf->pclk_src[TVDPLL_PLL]);
+	if (ret) {
+		DDPMSG("%s clk_prepare_enable pclk_src[TVDPLL_PLL]: err=%d\n",
+			__func__, ret);
 	}
 
-	if (mtk_de_get_clk_debug()) {
-		clksrc = mtk_de_get_clksrc();
-		con1 = mtk_de_get_con1();
-		DPTXMSG("%s:clksrc change: %x, con1 change: %x", __func__,
-			dp_intf->driver_data->video_clock_cfg->resolution_cfg[dp_intf->res].clksrc,
-			dp_intf->driver_data->video_clock_cfg->resolution_cfg[dp_intf->res].con1);
-	} else {
-		clksrc = dp_intf->driver_data->video_clock_cfg->resolution_cfg[dp_intf->res].clksrc;
-		con1 = dp_intf->driver_data->video_clock_cfg->resolution_cfg[dp_intf->res].con1;
-	}
-	con0_reg = dp_intf->driver_data->video_clock_cfg->con0_reg;
-	con1_reg = dp_intf->driver_data->video_clock_cfg->con1_reg;
-
-	mtk_crtc = dp_intf->ddp_comp.mtk_crtc;
-	priv = mtk_crtc->base.dev->dev_private;
-
-	if (priv->data->mmsys_id != MMSYS_MT6991) {
-		DPTXMSG("%s:clksrc %x,con1 %x,con0_reg %x,con1_reg %x,compatible %s",
-		__func__, clksrc, con1, con0_reg, con1_reg,
-		dp_intf->driver_data->video_clock_cfg->compatible);
-		if (clk_apmixed_base == NULL) {
-			node = of_find_compatible_node(NULL, NULL,
-				dp_intf->driver_data->video_clock_cfg->compatible);
-			if (!node) {
-				DPTXERR("dp_intf [CLK_APMIXED] find node failed\n");
-				return;
-			}
-			clk_apmixed_base = of_iomap(node, 0);
-			if (clk_apmixed_base == NULL) {
-				DPTXERR("dp_intf [CLK_APMIXED] io map failed\n");
-				return;
-			}
-		}
-		DPTXMSG("clk_apmixed_base clk_apmixed_base 0x%lx!!!,res %d\n",
-			(unsigned long)clk_apmixed_base, dp_intf->res);
-		DISP_REG_SET(NULL, clk_apmixed_base + con1_reg, con1);
-
-		/*enable TVDPLL */
-		DISP_REG_SET_FIELD(NULL, REG_FLD_MSB_LSB(0, 0),
-				clk_apmixed_base + con0_reg, 1);
-		ret = clk_prepare_enable(dp_intf->pclk);
-		if (ret)
-			DPTXMSG("%s clk_prepare_enable dp_intf->pclk: err=%d\n",
-				__func__, ret);
-	}
+	ret = clk_prepare_enable(dp_intf->pclk);
+	if (ret)
+		DPTXMSG("%s clk_prepare_enable dp_intf->pclk: err=%d\n",
+			__func__, ret);
 
 	ret = clk_set_parent(dp_intf->pclk, dp_intf->pclk_src[clksrc]);
 	if (ret)
 		DPTXMSG("%s clk_set_parent dp_intf->pclk: err=%d\n",
 			__func__, ret);
+
+	mtk_crtc = dp_intf->ddp_comp.mtk_crtc;
+	priv = mtk_crtc->base.dev->dev_private;
 
 	/* dptx vcore clk control */
 	if (priv->data->mmsys_id != MMSYS_MT6991) {
@@ -1016,7 +472,23 @@ void mtk_dp_inf_video_clock(struct mtk_dp_intf *dp_intf)
 		ret = clk_set_parent(dp_intf->vcore_pclk, dp_intf->pclk_src[clksrc]);
 	}
 
-	DPTXMSG("%s set pclk2 and src %d\n", __func__, clksrc);
+	ret = clk_prepare_enable(dp_intf->hf_fmm_ck);
+	if (ret < 0)
+		DDPMSG("%s Failed to enable hf_fmm_ck clock: %d\n",
+			__func__, ret);
+	ret = clk_prepare_enable(dp_intf->hf_fdp_ck);
+	if (ret < 0)
+		DDPMSG("%s Failed to enable hf_fdp_ck clock: %d\n",
+			__func__, ret);
+
+	DDPMSG("%s dpintf->pclk_src[TVDPLL_PLL] =  %ld\n",
+		__func__, clk_get_rate(dp_intf->pclk_src[TVDPLL_PLL]));
+	DDPMSG("%s dpintf->pclk =  %ld\n",
+		__func__, clk_get_rate(dp_intf->pclk));
+	DDPMSG("%s dpintf->hf_fmm_ck =	%ld\n",
+		__func__, clk_get_rate(dp_intf->hf_fmm_ck));
+	DDPMSG("%s dpintf->hf_fdp_ck =	%ld\n",
+		__func__, clk_get_rate(dp_intf->hf_fdp_ck));
 }
 
 void mtk_dp_intf_prepare_clk(void)
@@ -1028,7 +500,7 @@ void mtk_dp_intf_prepare_clk(void)
 		DPTXMSG("%s Failed to enable pclk: %d\n",
 			__func__, ret);
 
-	ret = clk_set_parent(g_dp_intf->pclk, g_dp_intf->pclk_src[TCK_26M]);
+	ret = clk_set_parent(g_dp_intf->pclk, g_dp_intf->pclk_src[TVDPLL_PLL]);
 	if (ret < 0)
 		DPTXMSG("%s Failed to clk_set_parent: %d\n",
 			__func__, ret);
@@ -1056,8 +528,17 @@ static void mtk_dp_intf_golden_setting(struct mtk_ddp_comp *comp,
 		dp_intf->res = SINK_1920_1080;
 	}
 
-	dp_clk = dp_intf->driver_data->video_clock_cfg->resolution_cfg[dp_intf->res].clk;
-	dp_clk = dp_clk > 0 ? dp_clk : 74250;
+	if (dp_intf->mode.clock >= 297000*3)
+		dp_clk = 297000;
+	else if (dp_intf->mode.clock >= 148500*3)
+		dp_clk = 148500;
+	else if (dp_intf->mode.clock >= 74250*3)
+		dp_clk = 74250;
+	else if (dp_intf->mode.clock >= 37125*3)
+		dp_clk = 37125;
+	else
+		dp_clk = 26000;
+
 	mmsys_clk = mtk_drm_get_mmclk(&mtk_crtc->base, __func__) / 1000;
 	mmsys_clk = mmsys_clk > 0 ? mmsys_clk : 273000;
 
@@ -1131,13 +612,37 @@ static void mtk_dp_intf_golden_setting_mt6899(struct mtk_ddp_comp *comp,
 	mtk_ddp_write_relaxed(comp, dp_buf_urgent_low, DP_BUF_URGENT_LOW, handle);
 }
 
-void mhal_DPTx_VideoClock(bool enable, int resolution)
+void mhal_DPTx_ModeCopy(struct drm_display_mode *mode)
 {
-	if (enable) {
-		g_dp_intf->res = resolution;
-		mtk_dp_inf_video_clock(g_dp_intf);
-	} else
-		clk_disable_unprepare(g_dp_intf->pclk);
+	drm_mode_copy(&g_dp_intf->mode, mode);
+	DDPMSG("[DPTX] %s Htt=%d Vtt=%d Ha=%d Va=%d\n", __func__, g_dp_intf->mode.htotal,
+		g_dp_intf->mode.vtotal, g_dp_intf->mode.hdisplay, g_dp_intf->mode.vdisplay);
+}
+
+static void mtk_dpi_set_depth(struct mtk_dp_intf *dpi, unsigned int num)
+{
+	u32 val;
+
+	switch (num) {
+	case 1:
+		val = OUT_BIT_8;
+		break;
+	case 2:
+		val = OUT_BIT_10;
+		break;
+	case 3:
+		val = OUT_BIT_12;
+		break;
+	case 4:
+		val = OUT_BIT_16;
+		break;
+	default:
+		val = OUT_BIT_8;
+		break;
+	}
+
+	mtk_dp_intf_mask(dpi, DP_OUTPUT_SETTING, val << OUT_BIT,
+		     OUT_BIT_MASK);
 }
 
 static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
@@ -1157,120 +662,38 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 	unsigned int bg_left = 0, bg_right = 0;
 	unsigned int bg_top = 0, bg_bot = 0;
 	unsigned int rw_times = 0;
-	u32 val = 0, line_time;
+	struct videomode vm = {0};
+	unsigned int vblank_time = 0, prefetch_time = 0, config_time = 0;
+	u32 val = 0, line_time = 0;
 	u32 dp_vfp_mutex = 0;
+	unsigned int colordepth = 0;
+
 	mtk_crtc = dp_intf->ddp_comp.mtk_crtc;
 	priv = mtk_crtc->base.dev->dev_private;
 
-	DPTXMSG("%s w %d, h, %d, clock %d, fps %d!\n",
-			__func__, cfg->w, cfg->h, cfg->clock, cfg->vrefresh);
+	DDPFUNC();
 
-	hsize = cfg->w;
-	vsize = cfg->h;
-	if ((cfg->w == 640) && (cfg->h == 480)) {
-		dp_intf->res = SINK_640_480;
-		hpw = 24;
-		hfp = 4;
-		hbp = 12;
-		vpw = 2;
-		vfp = 10;
-		vbp = 33;
-	} else if ((cfg->w == 1280) && (cfg->h == 720)
-	    && (cfg->vrefresh == 60)) {
-		dp_intf->res = SINK_1280_720;
-		hpw = 10;
-		hfp = 28;
-		hbp = 55;
-		vpw = 5;
-		vfp = 5;
-		vbp = 20;
-	} else if ((cfg->w == 1920) && (cfg->h == 1080)
-		   && (cfg->vrefresh == 60)) {
-		dp_intf->res = SINK_1920_1080;
-		hpw = 11;
-		hfp = 22;
-		hbp = 37;
-		vpw = 5;
-		vfp = 4;
-		vbp = 36;
-	} else if ((cfg->w == 1920) && (cfg->h == 1080)
-		   && (cfg->vrefresh == 120)) {
-		if (cfg->clock == 285500) {
-			dp_intf->res = SINK_1920_1080_120_RB;
-			hpw = 8;
-			hfp = 12;
-			hbp = 20;
-			vpw = 5;
-			vfp = 3;
-			vbp = 56;
-		} else {
-			dp_intf->res = SINK_1920_1080_120;
-			hpw = 11;
-			hfp = 22;
-			hbp = 37;
-			vpw = 5;
-			vfp = 4;
-			vbp = 36;
-		}
-	} else if ((cfg->w == 1080) && (cfg->h == 2460)
-			  && (cfg->vrefresh == 60)) {
-		dp_intf->res = SINK_1080_2460;
-		hpw = 8;
-		hfp = 8; //30/4
-		hbp = 7; //30/4
-		vpw = 2;
-		vfp = 9;
-		vbp = 5;
-	} else if ((cfg->w == 1920) && (cfg->h == 1200)
-			  && (cfg->vrefresh == 60)) {
-		dp_intf->res = SINK_1920_1200;
-		hpw = 8;
-		hfp = 12;
-		hbp = 20;
-		vpw = 6;
-		vfp = 3;
-		vbp = 26;
-	} else if ((cfg->w == 2560) && (cfg->h == 1440)
-		   && (cfg->vrefresh == 60)) {
-		dp_intf->res = SINK_2560_1440;
-		hpw = 8;
-		hfp = 12;
-		hbp = 20;
-		vpw = 5;
-		vfp = 3;
-		vbp = 33;
-	} else if ((cfg->w == 2560) && (cfg->h == 1600)
-		   && (cfg->vrefresh == 60)) {
-		dp_intf->res = SINK_2560_1600;
-		hpw = 8;
-		hfp = 12;
-		hbp = 20;
-		vpw = 6;
-		vfp = 3;
-		vbp = 37;
-	} else if ((cfg->w == 3840) && (cfg->h == 2160)
-		   && (cfg->vrefresh == 30)) {
-		dp_intf->res = SINK_3840_2160_30;
-		hpw = 22;
-		hfp = 44;
-		hbp = 74;
-		vpw = 10;
-		vfp = 8;
-		vbp = 72;
-	} else if ((cfg->w == 3840) && (cfg->h == 2160)
-		   && (cfg->vrefresh == 60)) {
-		dp_intf->res = SINK_3840_2160;
-		hpw = 22;
-		hfp = 44;
-		hbp = 74;
-		vpw = 10;
-		vfp = 8;
-		vbp = 72;
-	} else
-		DPTXERR("%s error, w %d, h, %d, fps %d!\n",
-			__func__, cfg->w, cfg->h, cfg->vrefresh);
+	vm.hactive = dp_intf->mode.hdisplay;
+	vm.hfront_porch = dp_intf->mode.hsync_start - dp_intf->mode.hdisplay;
+	vm.hsync_len = dp_intf->mode.hsync_end - dp_intf->mode.hsync_start;
+	vm.hback_porch = dp_intf->mode.htotal - dp_intf->mode.hsync_end;
+	vm.vactive = dp_intf->mode.vdisplay;
+	vm.vfront_porch = dp_intf->mode.vsync_start - dp_intf->mode.vdisplay;
+	vm.vsync_len = dp_intf->mode.vsync_end - dp_intf->mode.vsync_start;
+	vm.vback_porch = dp_intf->mode.vtotal - dp_intf->mode.vsync_end;
+	vm.pixelclock = dp_intf->mode.clock * 1000;
 
-	mtk_dp_inf_video_clock(dp_intf);
+	DDPMSG("%s Htt=%d Vtt=%d Ha=%d Va=%d\n", __func__, dp_intf->mode.htotal,
+		dp_intf->mode.vtotal, dp_intf->mode.hdisplay, dp_intf->mode.vdisplay);
+
+	hsize = vm.hactive;
+	vsize = vm.vactive;
+	hpw = vm.hsync_len / 4;
+	hfp = vm.hfront_porch / 4;
+	hbp = vm.hback_porch / 4;
+	vpw = vm.vsync_len;
+	vfp = vm.vfront_porch;
+	vbp = vm.vback_porch;
 
 	mtk_ddp_write_relaxed(comp, vsize << 16 | hsize,
 			DP_SIZE, handle);
@@ -1323,11 +746,27 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 	val = BUF_VDE_BLOCK_URGENT | BUF_NON_VDE_FORCE_PREULTRA | BUF_VDE_BLOCK_ULTRA;
 	mtk_ddp_write_relaxed(comp, val, DP_BUF_VDE, handle);
 
+	/* fix prefetch time at 133us as DE suggests, *100 for integer calculation,
+	 * and also use ceiling function for value (unit: line) written into register
+	 */
 	vtotal = vfp + vpw + vbp + cfg->h;
-	line_time = 1000000 / (vtotal * cfg->vrefresh);
-	val = (200 + line_time - 1) / line_time;
+	line_time = (vtotal * cfg->vrefresh) > 0 ? 1000000 * 100 / (vtotal * cfg->vrefresh) : 1400;
+	vblank_time = line_time * (vfp + vpw + vbp);
+	prefetch_time = 13300;
+	config_time = (vblank_time > prefetch_time) ? (vblank_time - prefetch_time) : 0;
+	val = line_time > 0 ? (config_time + line_time - 100) / line_time : vfp;
+
+	DPTXMSG("line time: %dus, vblank time: %dus, prefetch time: %dus, config time: %dus\n",
+		line_time/100, vblank_time/100, prefetch_time/100, config_time/100);
+	DPTXMSG("vblank line: %d, mutex_vfp= %d line, prefetch= %d line\n",
+		(vfp + vpw + vbp), val, (vfp + vpw + vbp - val));
+
+
 	val = val | MUTEX_VSYNC_SEL;
 	mtk_ddp_write_relaxed(comp, val, DP_MUTEX_VSYNC_SETTING, handle);
+
+	colordepth = mtk_dp_get_colordepth();
+	mtk_dpi_set_depth(dp_intf, colordepth);
 
 	DPTXMSG("%s config done\n",
 			mtk_dump_comp_str(comp));
@@ -1456,6 +895,48 @@ int mtk_dp_intf_analysis(struct mtk_ddp_comp *comp)
 	return 0;
 }
 
+void mtk_dp_intf_set_mmclk_by_datarate(struct mtk_drm_crtc *mtk_crtc,
+	struct mtk_dp_intf *dp_intf, unsigned int en)
+{
+	unsigned int last_mmclk = 0;
+	unsigned int req_mmclk = 0;
+	unsigned int ovlsys_pixel_per_tick = 0;
+	unsigned int pipe_num = 0;
+	unsigned int bubble_rate = 0;
+	unsigned int hact = 0;
+	unsigned int vtotal = 0;
+	unsigned int vrefresh = 0;
+	unsigned int total_pixel_per_tick = 0;
+
+	if (!mtk_crtc || !dp_intf)
+		return;
+
+	if (!en) {
+		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, en, __func__);
+		DPTXMSG("%s after set mmclk = %u\n", __func__, mtk_drm_get_mmclk(&mtk_crtc->base, __func__) / 1000000);
+		return;
+	}
+
+	hact = dp_intf->mode.hdisplay;
+	vtotal = dp_intf->mode.vtotal;
+	vrefresh = drm_mode_vrefresh(&dp_intf->mode);
+	bubble_rate = dp_intf->driver_data->bubble_rate ? (dp_intf->driver_data->bubble_rate) : 115;
+	ovlsys_pixel_per_tick = dp_intf->driver_data->ovlsys_pixel_per_tick ?
+		(dp_intf->driver_data->ovlsys_pixel_per_tick) : 2;
+	pipe_num = dp_intf->driver_data->pipe_num ? (dp_intf->driver_data->pipe_num) : 1;
+	total_pixel_per_tick = ovlsys_pixel_per_tick * pipe_num;
+	last_mmclk = mtk_drm_get_mmclk(&mtk_crtc->base, __func__) / 1000000;
+	req_mmclk = ((hact * vtotal * vrefresh + total_pixel_per_tick - 1) / total_pixel_per_tick)/1000000;
+	req_mmclk = req_mmclk * bubble_rate / 100;
+	DPTXMSG("%s last_mmclk = %u, req_mmclk = %u\n", __func__, last_mmclk, req_mmclk);
+
+	if (last_mmclk != req_mmclk) {
+		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, req_mmclk, __func__);
+		DPTXMSG("%s after set mmclk = %u\n", __func__, mtk_drm_get_mmclk(&mtk_crtc->base, __func__) / 1000000);
+	}
+}
+
+
 unsigned long long mtk_dpintf_get_frame_hrt_bw_base(
 		struct mtk_drm_crtc *mtk_crtc, struct mtk_dp_intf *dp_intf)
 {
@@ -1514,6 +995,24 @@ static int mtk_dpintf_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	struct mtk_dp_intf *dp_intf = comp_to_dp_intf(comp);
 
 	switch (cmd) {
+	case SET_MMCLK_BY_DATARATE:
+	{
+		struct mtk_drm_crtc *mtk_crtc = NULL;
+		unsigned int *en = NULL;
+		struct mtk_drm_private *priv = NULL;
+
+		mtk_crtc = comp->mtk_crtc;
+		en = (unsigned int *)params;
+		priv = (mtk_crtc->base).dev->dev_private;
+		if (!mtk_crtc || !en || !priv)
+			break;
+
+		if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MMDVFS_SUPPORT)) {
+			if (dp_intf && dp_intf->driver_data && dp_intf->driver_data->mmclk_by_datarate)
+				dp_intf->driver_data->mmclk_by_datarate(mtk_crtc, dp_intf, *en);
+		}
+	}
+	break;
 	case GET_FRAME_HRT_BW_BY_DATARATE:
 	{
 		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
@@ -1590,7 +1089,6 @@ static int mtk_dp_intf_probe(struct platform_device *pdev)
 	const struct of_device_id *of_id;
 	struct resource *mem;
 	int ret;
-	struct device_node *node;
 
 	DPTXMSG("%s+\n", __func__);
 	dp_intf = devm_kzalloc(dev, sizeof(*dp_intf), GFP_KERNEL);
@@ -1630,34 +1128,22 @@ static int mtk_dp_intf_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	if (clk_apmixed_base == NULL) {
-		node = of_find_compatible_node(NULL, NULL,
-			dp_intf->driver_data->video_clock_cfg->compatible);
-		if (!node)
-			DPTXERR("[CLK_APMIXED] find node failed\n");
-		clk_apmixed_base = of_iomap(node, 0);
-		if (clk_apmixed_base == NULL)
-			DPTXERR("[CLK_APMIXED] io map failed\n");
-
-		DPTXERR("clk_apmixed_base clk_apmixed_base 0x%lx!!!\n",
-			(unsigned long)clk_apmixed_base);
-	}
-
 	if (dp_intf->driver_data->get_pll_clk)
 		dp_intf->driver_data->get_pll_clk(dp_intf);
 	else {
-		dp_intf->pclk = devm_clk_get(dev, "MUX_DP");
-		dp_intf->pclk_src[1] = devm_clk_get(dev, "TVDPLL_D2");
-		dp_intf->pclk_src[2] = devm_clk_get(dev, "TVDPLL_D4");
-		dp_intf->pclk_src[3] = devm_clk_get(dev, "TVDPLL_D8");
-		dp_intf->pclk_src[4] = devm_clk_get(dev, "TVDPLL_D16");
+		dp_intf->vcore_pclk = devm_clk_get(dp_intf->dev, "MUX_VCORE_DP");
+		dp_intf->pclk = devm_clk_get(dp_intf->dev, "MUX_DP");
+		dp_intf->pclk_src[0] = devm_clk_get(dp_intf->dev, "DPI_CK");
+		dp_intf->pclk_src[1] = devm_clk_get(dp_intf->dev, "TVDPLL_D2");
+		dp_intf->pclk_src[2] = devm_clk_get(dp_intf->dev, "TVDPLL_D4");
+		dp_intf->pclk_src[3] = devm_clk_get(dp_intf->dev, "TVDPLL_D8");
+		dp_intf->pclk_src[4] = devm_clk_get(dp_intf->dev, "TVDPLL_D16");
 		if (IS_ERR(dp_intf->pclk)
-			|| IS_ERR(dp_intf->pclk_src[0])
+			|| IS_ERR(dp_intf->vcore_pclk)
 			|| IS_ERR(dp_intf->pclk_src[1])
 			|| IS_ERR(dp_intf->pclk_src[2])
-			|| IS_ERR(dp_intf->pclk_src[3])
-			|| IS_ERR(dp_intf->pclk_src[4]))
-			dev_err(dev, "Failed to get pclk andr src clock !!!\n");
+			|| IS_ERR(dp_intf->pclk_src[3]))
+			DPTXMSG("Failed to get pclk andr src clock !!!\n");
 	}
 
 	comp_id = mtk_ddp_comp_get_id(dev->of_node, MTK_DP_INTF);
@@ -1775,17 +1261,17 @@ static void mtk_dp_intf_mt6991_get_pll_clk(struct mtk_dp_intf *dp_intf)
 	dp_intf->pclk_src[MT6991_TVDPLL_PLL] = devm_clk_get(dp_intf->dev, "DPI_CK");
 
 	if (IS_ERR(dp_intf->pclk)
-		|| IS_ERR(dp_intf->pclk_src[TCK_26M])
-		|| IS_ERR(dp_intf->pclk_src[TVDPLL_D4])
-		|| IS_ERR(dp_intf->pclk_src[TVDPLL_D8])
-		|| IS_ERR(dp_intf->pclk_src[TVDPLL_D16])
+		|| IS_ERR(dp_intf->pclk_src[MT6991_TCK_26M])
+		|| IS_ERR(dp_intf->pclk_src[MT6991_TVDPLL_D4])
+		|| IS_ERR(dp_intf->pclk_src[MT6991_TVDPLL_D8])
+		|| IS_ERR(dp_intf->pclk_src[MT6991_TVDPLL_D16])
 		|| IS_ERR(dp_intf->pclk_src[MT6991_TVDPLL_PLL]))
 		DPTXERR("Failed to get pclk andr src clock, -%d-%d-%d-%d-%d-%d-\n",
 			IS_ERR(dp_intf->pclk),
-			IS_ERR(dp_intf->pclk_src[TCK_26M]),
-			IS_ERR(dp_intf->pclk_src[TVDPLL_D4]),
-			IS_ERR(dp_intf->pclk_src[TVDPLL_D8]),
-			IS_ERR(dp_intf->pclk_src[TVDPLL_D16]),
+			IS_ERR(dp_intf->pclk_src[MT6991_TCK_26M]),
+			IS_ERR(dp_intf->pclk_src[MT6991_TVDPLL_D4]),
+			IS_ERR(dp_intf->pclk_src[MT6991_TVDPLL_D8]),
+			IS_ERR(dp_intf->pclk_src[MT6991_TVDPLL_D16]),
 			IS_ERR(dp_intf->pclk_src[MT6991_TVDPLL_PLL]));
 }
 
@@ -1871,7 +1357,6 @@ static const struct mtk_dp_intf_driver_data mt6885_dp_intf_driver_data = {
 	.np_sel = 0,
 	.poll_for_idle = mtk_dp_intf_poll_for_idle,
 	.irq_handler = mtk_dp_intf_irq_status,
-	.video_clock_cfg = &mt6983_dp_intf_video_clock,
 	.get_pll_clk = mtk_dp_intf_get_pll_clk,
 };
 
@@ -1880,7 +1365,6 @@ static const struct mtk_dp_intf_driver_data mt6895_dp_intf_driver_data = {
 	.np_sel = 0,
 	.poll_for_idle = mtk_dp_intf_poll_for_idle,
 	.irq_handler = mtk_dp_intf_irq_status,
-	.video_clock_cfg = &mt6895_dp_intf_video_clock,
 	.get_pll_clk = mtk_dp_intf_get_pll_clk,
 };
 
@@ -1889,7 +1373,6 @@ static const struct mtk_dp_intf_driver_data mt6985_dp_intf_driver_data = {
 	.np_sel = 0,
 	.poll_for_idle = mtk_dp_intf_poll_for_idle,
 	.irq_handler = mtk_dp_intf_irq_status,
-	.video_clock_cfg = &mt6985_dp_intf_video_clock,
 	.get_pll_clk = mtk_dp_intf_get_pll_clk,
 };
 
@@ -1898,7 +1381,6 @@ static const struct mtk_dp_intf_driver_data mt6897_dp_intf_driver_data = {
 	.np_sel = 0,
 	.poll_for_idle = mtk_dp_intf_poll_for_idle,
 	.irq_handler = mtk_dp_intf_irq_status,
-	.video_clock_cfg = &mt6897_dp_intf_video_clock,
 	.get_pll_clk = mtk_dp_intf_mt6897_get_pll_clk,
 };
 
@@ -1907,7 +1389,6 @@ static const struct mtk_dp_intf_driver_data mt6989_dp_intf_driver_data = {
 	.np_sel = 2,
 	.poll_for_idle = mtk_dp_intf_poll_for_idle,
 	.irq_handler = mtk_dp_intf_irq_status,
-	.video_clock_cfg = &mt6989_dp_intf_video_clock,
 	.get_pll_clk = mtk_dp_intf_mt6989_get_pll_clk,
 };
 
@@ -1916,8 +1397,11 @@ static const struct mtk_dp_intf_driver_data mt6991_dp_intf_driver_data = {
 	.np_sel = 2,
 	.poll_for_idle = mtk_dp_intf_poll_for_idle,
 	.irq_handler = mtk_dp_intf_irq_status,
-	.video_clock_cfg = &mt6991_dp_intf_video_clock,
 	.get_pll_clk = mtk_dp_intf_mt6991_get_pll_clk,
+	.mmclk_by_datarate = mtk_dp_intf_set_mmclk_by_datarate,
+	.bubble_rate = 115,
+	.ovlsys_pixel_per_tick = 2,
+	.pipe_num = 1,
 };
 
 static const struct mtk_dp_intf_driver_data mt6899_dp_intf_driver_data = {
@@ -1925,7 +1409,6 @@ static const struct mtk_dp_intf_driver_data mt6899_dp_intf_driver_data = {
 	.np_sel = 2,
 	.poll_for_idle = mtk_dp_intf_poll_for_idle,
 	.irq_handler = mtk_dp_intf_irq_status,
-	.video_clock_cfg = &mt6899_dp_intf_video_clock,
 	.get_pll_clk = mtk_dp_intf_mt6899_get_pll_clk,
 };
 

@@ -86,6 +86,15 @@ const struct connv3_platform_pinctrl_ops g_connv3_platform_pinctrl_ops_mt6991 = 
 	.pinctrl_dfd_trigger = connv3_plt_pinctrl_dfd_trigger_mt6991,
 };
 
+const struct connv3_platform_pinctrl_ops g_connv3_platform_pinctrl_ops_mt6991_mt6639 = {
+	.pinctrl_init = connv3_plt_pinctrl_init_mt6991,
+	.pinctrl_deinit = connv3_plt_pinctrl_deinit_mt6991,
+	.pinctrl_setup_pre = connv3_plt_pinctrl_setup_pre_mt6991,
+	.pinctrl_setup_done = connv3_plt_pinctrl_setup_done_mt6991,
+	.pinctrl_remove = connv3_plt_pinctrl_remove_mt6991,
+	.pinctrl_dfd_trigger = NULL,
+};
+
 int connv3_plt_pinctrl_dfd_trigger_mt6991(bool enable)
 {
 	int ret;
@@ -140,7 +149,6 @@ static int connv3_plt_pinctrl_initial_state(void)
 
 int connv3_plt_pinctrl_init_mt6991(struct platform_device *pdev)
 {
-	int ret;
 
 	g_pinctrl_ptr = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR_OR_NULL(g_pinctrl_ptr))
@@ -161,7 +169,6 @@ int connv3_plt_pinctrl_init_mt6991(struct platform_device *pdev)
 				g_combo_uart_pin_init, g_combo_uart_pin_pre_on, g_combo_uart_pin_on);
 		else {
 			g_uart_init_done = true;
-			connv3_plt_pinctrl_initial_state();
 		}
 
 		g_dfd_init = pinctrl_lookup_state(
@@ -177,10 +184,9 @@ int connv3_plt_pinctrl_init_mt6991(struct platform_device *pdev)
 				__func__, g_dfd_init, g_dfd_trigger, g_dfd_done);
 		else {
 			g_dfd_init_done = true;
-			ret = pinctrl_select_state(g_pinctrl_ptr, g_dfd_init);
-			if (ret)
-				pr_notice("[%s] g_dfd_init fail, ret = %d\n", __func__, ret);
 		}
+
+		connv3_plt_pinctrl_initial_state();
 	}
 
 	return 0;

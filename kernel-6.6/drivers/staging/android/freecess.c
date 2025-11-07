@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
 /*
  * Copyright (c) Samsung Technologies Co., Ltd. 2001-2017. All rights reserved.
  *
@@ -18,7 +20,6 @@
 #include <linux/hrtimer.h>
 #include <linux/proc_fs.h>
 
-
 #define RET_OK   0
 #define RET_ERR  1
 static struct sock *kfreecess_mod_sock = NULL;
@@ -27,9 +28,11 @@ static atomic_t kfreecess_init_suc;
 static int last_kill_pid = -1;
 
 int freecess_fw_version = 0;    // record freecess framework version
+/* freecess uses cgroup2 or cgroup1 mode, default is cgroup2 */
+static DEFINE_STATIC_KEY_TRUE(freecess_use_cgroup2);
+static int FREECESS_KERNEL_VERSION = 2;
 
-struct priv_data
-{
+struct priv_data {
 	int target_uid;
 	int flag;		    //MOD_SIG,MOD_BINDER
 	int code; //RPC code
@@ -49,11 +52,26 @@ static int check_mod_type(int mod)
 	return (mod < MOD_END) && (mod > 0);
 }
 
-int thread_group_is_frozen(struct task_struct* task)
+int thread_group_is_frozen(struct task_struct *task)
 {
 	struct task_struct *leader = task->group_leader;
 
-	return (freezing(leader) || frozen(leader));
+	if (static_branch_likely(&freecess_use_cgroup2))
+		return !!(leader->jobctl & JOBCTL_TRAP_FREEZE);
+	else
+		return (freezing(leader) || frozen(leader));
+}
+
+/*
+ * This is used to identify threads frozen by cgroup2
+ * in freecess cgroup1 mode. In cgroup2 mode, it always
+ * returns false.
+ */
+bool cgroup2_frozen(struct task_struct* task)
+{
+	if (static_branch_likely(&freecess_use_cgroup2))
+		return false;
+	return !!(task->jobctl & JOBCTL_TRAP_FREEZE);
 }
 
 static void dump_kfreecess_msg(struct kfreecess_msg_data *msg)
@@ -74,7 +92,7 @@ static void dump_kfreecess_msg(struct kfreecess_msg_data *msg)
 }
 
 
-int mod_sendmsg(int type, int mod, struct priv_data* data)
+int mod_sendmsg(int type, int mod, struct priv_data *data)
 {
 	int ret, msg_len = 0;
 	struct sk_buff *skb = NULL;
@@ -126,7 +144,8 @@ int mod_sendmsg(int type, int mod, struct priv_data* data)
 		else
 			payload->flag = data->flag;
 	}
-	if ((ret = nlmsg_unicast(kfreecess_mod_sock, skb, payload->dst_portid)) < 0) {
+	ret = nlmsg_unicast(kfreecess_mod_sock, skb, payload->dst_portid);
+	if (ret < 0) {
 		pr_err("nlmsg_unicast failed! %s errno %d\n", __func__ , ret);
 		return RET_ERR;
 	}
@@ -156,6 +175,7 @@ int binder_report(struct task_struct *p, int code, const char *str, int flag)
 {
 	int ret = RET_OK;
 	struct priv_data data;
+
 	memset(&data, 0, sizeof(struct priv_data));
 	data.target_uid = -1;
 	data.flag = flag;
@@ -200,7 +220,7 @@ static void recv_handler(struct sk_buff *skb)
 	unsigned int msglen  = 0;
 	uid_t uid = 0;
 
-	if (!skb) {
+	if (unlikely(!skb)) {
 		pr_err("recv_handler %s: skb is	NULL!\n", __func__);
 		return;
 	}
@@ -213,19 +233,20 @@ static void recv_handler(struct sk_buff *skb)
 	}
 
 	if (skb->len < NLMSG_SPACE(0) + sizeof(struct kfreecess_msg_data)) {
-		pr_err("freecess recv_handler msglen invalid %u %lu\n", skb->len, (unsigned long)(NLMSG_SPACE(0) + sizeof(struct kfreecess_msg_data)));
+		pr_err("freecess recv_handler msglen invalid %u %lu\n", skb->len,
+					(unsigned long)(NLMSG_SPACE(0) + sizeof(struct kfreecess_msg_data)));
 		return;
 	}
 
 	nlh = nlmsg_hdr(skb);
 	msglen = NLMSG_PAYLOAD(nlh, 0);
 	if (msglen < sizeof(struct kfreecess_msg_data)) {
-		pr_err("USER_HOOK_CALLBACK: payload msglen invalid %u %lu\n", msglen, (unsigned long)sizeof(struct kfreecess_msg_data));
+		pr_err("USER_HOOK_CALLBACK: payload msglen invalid %u %lu\n",
+					msglen, (unsigned long)sizeof(struct kfreecess_msg_data));
 		return;
 	}
 
-	payload = (struct kfreecess_msg_data*)NLMSG_DATA(nlh);
-
+	payload = (struct kfreecess_msg_data *)NLMSG_DATA(nlh);
 	if (payload->src_portid < 0) {
 		pr_err("USER_HOOK_CALLBACK %s: src_portid %d is not valid!\n", __func__, payload->src_portid);
 		return;
@@ -242,18 +263,25 @@ static void recv_handler(struct sk_buff *skb)
 	}
 
 	switch (payload->type) {
-		case LOOPBACK_MSG:
-			atomic_set(&bind_port[payload->mod], payload->src_portid);
-			freecess_fw_version = FREECESS_PEER_VERSION(payload->version);
-			dump_kfreecess_msg(payload);
-			mod_sendmsg(LOOPBACK_MSG, payload->mod, NULL);
-			break;
-		case MSG_TO_KERN:
-			if (mod_recv_handler[payload->mod])
-				mod_recv_handler[payload->mod](payload, sizeof(struct kfreecess_msg_data));
-			break;
-		default:
-			pr_err("msg type is valid %d\n", payload->type);
+	case LOOPBACK_MSG:
+		atomic_set(&bind_port[payload->mod], payload->src_portid);
+		freecess_fw_version = FREECESS_PEER_VERSION(payload->version);
+		if (!(payload->version & 1)) {
+			if (FREECESS_KERNEL_VERSION != 1) {
+				static_branch_disable(&freecess_use_cgroup2);
+				FREECESS_KERNEL_VERSION = 1;
+				pr_warn("freecess fw is old, switch to version 1");
+			}
+		}
+		dump_kfreecess_msg(payload);
+		mod_sendmsg(LOOPBACK_MSG, payload->mod, NULL);
+		break;
+	case MSG_TO_KERN:
+		if (mod_recv_handler[payload->mod])
+			mod_recv_handler[payload->mod](payload, sizeof(struct kfreecess_msg_data));
+		break;
+	default:
+		pr_err("msg type is valid %d\n", payload->type);
 	}
 }
 

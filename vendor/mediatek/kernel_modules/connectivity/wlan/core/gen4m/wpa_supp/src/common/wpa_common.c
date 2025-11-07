@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -178,14 +178,11 @@ wpa_pmk_to_ptk(const u8 *pmk, size_t pmk_len, const char *label,
 
 	ptk->kck_len = wpa_kck_len(akmp);
 	ptk->kek_len = wpa_kek_len(akmp);
-#if (CFG_SUPPORT_NAN == 1)
+	/*ptk->tk_len = wpa_cipher_key_len(cipher);*/
 	ptk->tk_len = (cipher == NAN_CIPHER_SUITE_ID_NCS_SK_CCM_128) ? 16 : 32;
-#else /* CFG_SUPPORT_NAN */
-	ptk->tk_len = wpa_cipher_key_len(cipher);
-#endif /* CFG_SUPPORT_NAN */
 	ptk_len = ptk->kck_len + ptk->kek_len + ptk->tk_len;
 
-#if (CFG_SUPPORT_NAN == 1)
+#ifdef CFG_SUPPORT_NAN
 	/*NAN => (IAddr1 || RAddr2 || INounce1 || RNounce2)*/
 
 	os_memcpy(data, addr1, ETH_ALEN);
@@ -193,11 +190,13 @@ wpa_pmk_to_ptk(const u8 *pmk, size_t pmk_len, const char *label,
 	os_memcpy(data + 2 * ETH_ALEN, nonce1, WPA_NONCE_LEN);
 	os_memcpy(data + 2 * ETH_ALEN + WPA_NONCE_LEN, nonce2, WPA_NONCE_LEN);
 
-	wpa_printf(MSG_INFO, "[%s] Input data:\n", __func__);
-	dumpMemory8(data, 2 * ETH_ALEN + 2 * WPA_NONCE_LEN);
+	if (au2DebugModule[DBG_NAN_IDX] & DBG_CLASS_INFO) {
+		wpa_printf(MSG_INFO, "[%s] Input data:\n", __func__);
+		dumpMemory8(data, 2 * ETH_ALEN + 2 * WPA_NONCE_LEN);
 
-	wpa_printf(MSG_INFO, "[%s] PMK:\n", __func__);
-	dumpMemory8((uint8_t *)pmk, pmk_len);
+		wpa_printf(MSG_INFO, "[%s] PMK:\n", __func__);
+		dumpMemory8((uint8_t *)pmk, pmk_len);
+	}
 
 	wpa_printf(MSG_INFO, "[%s] label: %s\n", __func__, label);
 
@@ -213,9 +212,10 @@ wpa_pmk_to_ptk(const u8 *pmk, size_t pmk_len, const char *label,
 			   ptk_len);
 	}
 
-	wpa_printf(MSG_INFO, "[%s] Output data:\n", __func__);
-	dumpMemory8(tmp, ptk_len);
-
+	if (au2DebugModule[DBG_NAN_IDX] & DBG_CLASS_INFO) {
+		wpa_printf(MSG_INFO, "[%s] Output data:\n", __func__);
+		dumpMemory8(tmp, ptk_len);
+	}
 #else
 #ifdef CONFIG_SUITEB192
 	if (wpa_key_mgmt_sha384(akmp))
@@ -246,17 +246,20 @@ wpa_pmk_to_ptk(const u8 *pmk, size_t pmk_len, const char *label,
 	os_memcpy(ptk->kck, tmp, ptk->kck_len);
 	wpa_hexdump_key(MSG_DEBUG, "WPA: KCK", ptk->kck, ptk->kck_len);
 	wpa_printf(MSG_INFO, "[%s] KCK:\n", __func__);
-	dumpMemory8(ptk->kck, ptk->kck_len);
+	if (au2DebugModule[DBG_NAN_IDX] & DBG_CLASS_INFO)
+		dumpMemory8(ptk->kck, ptk->kck_len);
 
 	os_memcpy(ptk->kek, tmp + ptk->kck_len, ptk->kek_len);
 	wpa_hexdump_key(MSG_DEBUG, "WPA: KEK", ptk->kek, ptk->kek_len);
 	wpa_printf(MSG_INFO, "[%s] KEK:\n", __func__);
-	dumpMemory8(ptk->kek, ptk->kek_len);
+	if (au2DebugModule[DBG_NAN_IDX] & DBG_CLASS_INFO)
+		dumpMemory8(ptk->kek, ptk->kek_len);
 
 	os_memcpy(ptk->tk, tmp + ptk->kck_len + ptk->kek_len, ptk->tk_len);
 	wpa_hexdump_key(MSG_DEBUG, "WPA: TK", ptk->tk, ptk->tk_len);
 	wpa_printf(MSG_INFO, "[%s] TK:\n", __func__);
-	dumpMemory8(ptk->tk, ptk->tk_len);
+	if (au2DebugModule[DBG_NAN_IDX] & DBG_CLASS_INFO)
+		dumpMemory8(ptk->tk, ptk->tk_len);
 
 	os_memset(tmp, 0, sizeof(tmp));
 	return 0;

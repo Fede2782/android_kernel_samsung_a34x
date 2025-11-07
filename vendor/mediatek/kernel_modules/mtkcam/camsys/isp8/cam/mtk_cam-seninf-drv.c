@@ -43,6 +43,10 @@
 #include "mtk_cam-seninf_control-8.h"
 #include "mtk_cam-seninf-sentest-ioctrl.h"
 #include "mtk_cam-seninf-sentest-ctrl.h"
+#if IS_ENABLED(CONFIG_IMGSENSOR_SYSFS_V2)
+#include "kd_imgsensor_sysfs_adapter_v2.h"
+#endif
+
 #if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
 #define CSI_POWER_STATE
 #ifdef CSI_POWER_STATE
@@ -2433,6 +2437,11 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 
 	dev_info(ctx->dev, "[%s] enable(%d)\n", __func__, enable);
 
+#if IS_ENABLED(CONFIG_IMGSENSOR_SYSFS_V2)
+	if (enable)
+		IMGSENSOR_SYSFS_WRITE_CDR_RESULT(true, 0);
+#endif
+
 	if (ctx->is_aov_real_sensor && !enable) {
 		if (!core->pwr_refcnt_for_aov)
 			dev_info(ctx->dev,
@@ -2450,14 +2459,21 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 		if (!(core->err_detect_init_flag))
 			debug_err_detect_initialize(ctx);
 		get_mbus_config(ctx, ctx->sensor_sd);
-
+#ifdef CONFIG_CAMERA_ADAPTIVE_MIPI_V2
+		get_pixel_rate(ctx, ctx->sensor_sd, &ctx->mipi_pixel_rate);
+		get_customized_pixel_rate(ctx, ctx->sensor_sd, &ctx->mipi_pixel_rate);
+		ctx->buffered_pixel_rate = ctx->mipi_pixel_rate;
+		get_buffered_pixel_rate(ctx, ctx->sensor_sd,
+					ctx->sensor_pad_idx, &ctx->buffered_pixel_rate);
+#else
 		get_pixel_rate(ctx, ctx->sensor_sd, &ctx->mipi_pixel_rate);
 
 		ctx->buffered_pixel_rate = ctx->mipi_pixel_rate;
 		get_buffered_pixel_rate(ctx, ctx->sensor_sd,
 					ctx->sensor_pad_idx, &ctx->buffered_pixel_rate);
-
 		get_customized_pixel_rate(ctx, ctx->sensor_sd, &ctx->customized_pixel_rate);
+#endif
+
 		ret = pm_runtime_get_sync(ctx->dev);
 		if (ret < 0) {
 			dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
@@ -2545,7 +2561,7 @@ static int stream_sensor(struct seninf_ctx *ctx, bool enable)
 	return ret;
 }
 
-static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
+int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 	struct seninf_core *core = ctx->core;
@@ -3172,7 +3188,13 @@ static int seninf_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 	unsigned int i;
+	int sensor_id = g_aov_param.sensor_idx;
 
+	if (ctx->is_aov_enable) {
+		dev_info(ctx->dev, "[%s]Warning: sensor_id(%d) aov_runtime_resume by seninf\n",
+			__func__, sensor_id);
+		mtk_cam_seninf_aov_runtime_resume(sensor_id, DEINIT_NORMAL);
+	}
 	mutex_lock(&ctx->mutex);
 	ctx->open_refcnt--;
 	ctx->is_aov_real_sensor = 0;
@@ -3505,6 +3527,7 @@ static int seninf_probe(struct platform_device *pdev)
 	ctx->dbg_chmux_param = NULL;
 
 	ctx->open_refcnt = 0;
+	ctx->is_aov_enable = 0;
 	mutex_init(&ctx->mutex);
 
 	ret = get_csi_port(dev, &port);
@@ -4320,8 +4343,16 @@ int mtk_cam_seninf_get_pixelrate(struct v4l2_subdev *sd, s64 *p_pixel_rate)
 	ret = get_buffered_pixel_rate(ctx,
 				      ctx->sensor_sd, ctx->sensor_pad_idx,
 				      &pixel_rate);
+
+#ifdef CONFIG_CAMERA_ADAPTIVE_MIPI_V2
+	if (ret) {
+		get_pixel_rate(ctx, ctx->sensor_sd, &pixel_rate);
+		get_customized_pixel_rate(ctx, ctx->sensor_sd, &pixel_rate);
+	}
+#else
 	if (ret)
 		get_pixel_rate(ctx, ctx->sensor_sd, &pixel_rate);
+#endif
 
 	if (pixel_rate <= 0) {
 		dev_info(ctx->dev, "failed to get pixel_rate\n");
@@ -4631,6 +4662,7 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 	core = ctx->core;
 	mutex_lock(&core->mutex);
 
+	ctx->is_aov_enable = 1;
 	core->pwr_refcnt_for_aov++;
 	if (core->pwr_refcnt_for_aov < 0) {
 		dev_info(ctx->dev,
@@ -4791,6 +4823,13 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 	core = ctx->core;
 	mutex_lock(&core->mutex);
 
+	if (!ctx->is_aov_enable) {
+		mutex_unlock(&core->mutex);
+		pr_info("[%s] sensor_id(%d) already do aov_runtime_resume\n",
+			__func__, sensor_id);
+		return 0;
+	}
+	ctx->is_aov_enable = 0;
 	core->pwr_refcnt_for_aov--;
 	if (core->pwr_refcnt_for_aov < 0) {
 		dev_info(ctx->dev,
@@ -5111,7 +5150,6 @@ EXPORT_SYMBOL(mtk_cam_seninf_en_cdr_delay);
 int mtk_cam_seninf_s_cdr_delay(int cdr_delay)
 {
 	struct seninf_ctx *ctx = NULL;
-	char *eye_scan_log = NULL;
 
 	if (!cdr_core) {
 		pr_info("%s: seninf core is NULL\n", __func__);
@@ -5124,16 +5162,11 @@ int mtk_cam_seninf_s_cdr_delay(int cdr_delay)
 			dev_info(ctx->dev, "%s: sensor_idx %d port %d cdr_delay 0x%x\n",
 						__func__, get_sensor_idx(ctx), ctx->port, cdr_delay);
 
-			eye_scan_log = kzalloc(DEBUG_OPS_SHOW_LOG_SIZE + 1, GFP_KERNEL);
-			if (eye_scan_log != NULL)
-				g_seninf_ops->_eye_scan(ctx, EYE_SCAN_KEYS_CDR_DELAY, cdr_delay,
-							eye_scan_log, (int)DEBUG_OPS_SHOW_LOG_SIZE );
-			kfree(eye_scan_log);
+			cdr_core->cdr_delay_new = cdr_delay;
 		}
 	}
 	mutex_unlock(&cdr_core->mutex);
 
-	cdr_core->cdr_delay = cdr_delay;
 	return 0;
 }
 EXPORT_SYMBOL(mtk_cam_seninf_s_cdr_delay);

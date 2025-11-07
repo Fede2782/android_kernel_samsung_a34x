@@ -9,7 +9,7 @@
 #include <linux/types.h>
 
 
-#define SRAM_HEADER_SIG (0xabcd1234)
+#define SRAM_HEADER_SIG (0x24013186)
 #define DRAM_HEADER_SIG (0x5678ef90)
 #define LOG_STORE_SIG (0xcdab3412)
 #define LOG_EMMC_SIG (0x785690ef)
@@ -27,6 +27,7 @@
 #define MAX_DRAM_COUNT	2
 
 #define LOG_STORE_SIZE 0x40000	/*  DRAM buff 256KB*/
+#define PMIC_ERROR 0xFFFFFFFFU	/*  return value of the error of pmic*/
 
 #define CONFIG_LONG_POWERKEY_LOG_STORE
 

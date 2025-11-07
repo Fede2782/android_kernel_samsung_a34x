@@ -1024,7 +1024,10 @@ static void adjust_vsync_diff(unsigned int solveIdxs[], unsigned int len)
 
 
 		/* detect pf ctrl timing error */
-		pred_vdiff = target_vts - fs_inst[idx].vdiff;
+		if (target_vts >= fs_inst[idx].vdiff)
+			pred_vdiff = target_vts - fs_inst[idx].vdiff;
+		else
+			pred_vdiff = 0;
 		if (pred_vdiff > target_min_fl_us) {
 			/* pred_vdiff > FPS sync result */
 			/* => Do not adjust vdiff, only use fps sync result */

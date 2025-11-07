@@ -617,7 +617,6 @@ void cnmInit(struct ADAPTER *prAdapter)
 		prWmmQuotaCtrl->rRunning.fgIsRunning = false;
 		cnmTimerInitTimer(prAdapter,
 			&(prWmmQuotaCtrl->rTimer),
-			(PFN_MGMT_TIMEOUT_FUNC)
 			cnmWmmQuotaCallback,
 			(unsigned long)
 			ucWmmIndex);
@@ -2284,7 +2283,7 @@ struct BSS_INFO *cnmGetBssInfoAndInit(struct ADAPTER *prAdapter,
 	if (prBssInfo) {
 		cnmTimerInitTimer(prAdapter,
 			&prBssInfo->rCsaTimer,
-			(PFN_MGMT_TIMEOUT_FUNC) rlmCsaTimeout,
+			rlmCsaTimeout,
 			(unsigned long)ucBssIndex);
 		rlmResetCSAParams(prBssInfo, TRUE);
 		prBssInfo->fgHasStopTx = FALSE;
@@ -2357,7 +2356,7 @@ void cnmInitDbdcSetting(IN struct ADAPTER *prAdapter)
 
 		cnmTimerInitTimer(prAdapter,
 			&g_rDbdcInfo.rDbdcGuardTimer,
-			(PFN_MGMT_TIMEOUT_FUNC)cnmDbdcGuardTimerCallback,
+			cnmDbdcGuardTimerCallback,
 			(unsigned long) NULL);
 
 		g_rDbdcInfo.eDdbcGuardTimerType =

@@ -53,7 +53,7 @@ static void set_usb_selfpower(struct mtu3 *mtu, bool selfpower)
 				dev_info(mtu->dev, "set selfpower\n");
 			} else {
 				c->bmAttributes &= ~USB_CONFIG_ATT_SELFPOWER;
-				c->MaxPower = 500;
+				c->MaxPower = 900;
 			}
 		}
 	}

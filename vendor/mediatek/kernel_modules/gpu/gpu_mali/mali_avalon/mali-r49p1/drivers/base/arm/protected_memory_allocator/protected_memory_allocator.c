@@ -277,7 +277,11 @@ static void simple_pma_free_dma_page(
 		(unsigned long long)pma->pa);
 
 	if (sgt) {
+#if (KERNEL_VERSION(6, 1, 55) <= LINUX_VERSION_CODE)
+		dma_buf_unmap_attachment_unlocked(buf_attachment, sgt, DMA_BIDIRECTIONAL);
+#else
 		dma_buf_unmap_attachment(buf_attachment, sgt, DMA_BIDIRECTIONAL);
+#endif /* KERNEL_VERSION */
 	}
 	if (buf_attachment) {
 		dma_buf_detach(buf, buf_attachment);

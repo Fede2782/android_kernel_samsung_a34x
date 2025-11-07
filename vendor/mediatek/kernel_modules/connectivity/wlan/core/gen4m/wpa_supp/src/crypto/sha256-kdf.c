@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * HMAC-SHA256 KDF (RFC 5295) and HKDF-Expand(SHA256) (RFC 5869)
  * Copyright (c) 2014-2017, Jouni Malinen <j@w1.fi>

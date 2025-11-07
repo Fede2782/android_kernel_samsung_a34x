@@ -197,6 +197,7 @@ struct ROAMING_INFO {
 #if CFG_SUPPORT_DRIVER_ROAMING
 	OS_SYSTIME rRoamingLastDecisionTime;
 #endif
+	OS_SYSTIME rRoamingStartTime;
 
 	u_int8_t fgDrvRoamingAllow;
 	enum ENUM_ROAMING_REASON eReason;

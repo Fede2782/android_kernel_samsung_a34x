@@ -419,7 +419,7 @@ static void calc_binning_rot(struct mml_frame_config *cfg)
 	if (dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270)
 		swap(outw, outh);
 
-	if (binning && (w >> 1) >= outw) {
+	if (binning && (w >> 1) >= outw && !(src->width & 0x3)) {
 		cfg->frame_in.width = (src->width + 1) >> 1;
 		cfg->bin_x = 1;
 		for (i = 0; i < cfg->info.dest_cnt; i++) {
@@ -428,7 +428,7 @@ static void calc_binning_rot(struct mml_frame_config *cfg)
 			calc_binning_crop(&crop->r.left, &crop->x_sub_px);
 		}
 	}
-	if (binning && (h >> 1) >= outh) {
+	if (binning && (h >> 1) >= outh && !(src->height & 0x3)) {
 		cfg->frame_in.height = (src->height + 1) >> 1;
 		cfg->bin_y = 1;
 		for (i = 0; i < cfg->info.dest_cnt; i++) {
@@ -2614,8 +2614,42 @@ static void rrot_debug_dump(struct mml_comp *comp)
 	mml_err("RROT greq:%u => suggest to ask SMI help:%u", greq, greq);
 }
 
+static void rrot_debug_dump_fast(struct mml_comp *comp)
+{
+	void __iomem *base = comp->base;
+	u32 shadow_ctrl, value[7];
+
+	/* Enable shadow read working */
+	shadow_ctrl = readl(base + RROT_SHADOW_CTRL);
+	shadow_ctrl |= 0x4;
+	writel(shadow_ctrl, base + RROT_SHADOW_CTRL);
+	shadow_ctrl = readl(base + RROT_SHADOW_CTRL);
+
+	mml_err("rrot component %u %s dump:", comp->id, comp->name ? comp->name : "");
+	value[0] = readl(base + RROT_MF_BKGD_SIZE_IN_PXL);
+	value[1] = readl(base + RROT_MF_BKGD_H_SIZE_IN_PXL);
+	value[2] = readl(base + RROT_SRC_OFFSET_WP);
+	value[3] = readl(base + RROT_SRC_OFFSET_HP);
+	value[4] = readl(base + RROT_MF_SRC_SIZE);
+	value[5] = readl(base + RROT_MF_OFFSET_1);
+	value[6] = readl(base + RROT_MF_CLIP_SIZE);
+
+	/* following log dump by order out to in: bkgd(frame), src(tile), clip(crop) */
+	mml_err("RROT_MF_BKGD_SIZE_IN_PXL %#010x RROT_MF_BKGD_H_SIZE_IN_PXL %#010x",
+		value[0], value[1]);
+	mml_err("RROT_SRC_OFFSET_WP %#010x RROT_SRC_OFFSET_HP %#010x RROT_MF_SRC_SIZE %#010x",
+		value[2], value[3], value[4]);
+	mml_err("RROT_MF_OFFSET_1 %#010x RROT_MF_CLIP_SIZE %#010x",
+		value[5], value[6]);
+
+	value[0] = readl(base + RROT_MON_STA_0);
+	value[1] = readl(base + RROT_MON_STA_0 + 28 * 8);
+	mml_err("RROT_MON_STA_0 %#010x RROT_MON_STA_28 %#010x", value[0], value[1]);
+}
+
 static const struct mml_comp_debug_ops rrot_debug_ops = {
 	.dump = &rrot_debug_dump,
+	.dump_fast = &rrot_debug_dump_fast,
 };
 
 static int mml_bind(struct device *dev, struct device *master, void *data)

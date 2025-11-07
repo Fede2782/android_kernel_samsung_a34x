@@ -66,8 +66,6 @@ struct BCN_RM_PARAMS {
 	enum BEACON_REPORT_DETAIL reportDetail;
 	uint8_t *reportIeIds;
 	uint8_t reportIeIdsLen;
-	uint8_t *reportExtIeIds;
-	uint8_t reportExtIeIdsLen;
 	uint8_t apChannels[256];
 	uint8_t apChannelsLen;
 };

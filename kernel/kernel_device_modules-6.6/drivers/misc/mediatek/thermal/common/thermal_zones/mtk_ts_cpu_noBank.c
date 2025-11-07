@@ -2655,7 +2655,6 @@ static int tscpu_thermal_probe(struct platform_device *dev)
 
 static int get_gpu_power_info(void)
 {
-#if IS_ENABLED(CONFIG_MTK_GPU_MT6768_SUPPORT)
 	int num, i = 0;
 	struct mt_gpufreq_power_table_info *freqs;
 
@@ -2690,7 +2689,6 @@ static int get_gpu_power_info(void)
 		gpu_max_opp = 0;
 		Num_of_GPU_OPP = num;
 	}
-#endif
 	return 0;
 }
 

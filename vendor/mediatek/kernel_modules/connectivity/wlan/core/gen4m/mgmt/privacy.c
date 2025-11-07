@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -232,7 +232,7 @@ u_int8_t secCheckClassError(struct ADAPTER *prAdapter,
 
 	if (ucClassErr || ucAisDisconnect) {
 		if (EAPOL_KEY_NOT_KEY !=
-		    secGetEapolKeyType((uint8_t *) prSwRfb->pvHeader) ||
+			secGetEapolKeyType((uint8_t *) prSwRfb->pvHeader) ||
 		    secIsEapPacket((uint8_t *) prSwRfb->pvHeader)) {
 			DBGLOG(RSN, WARN,
 			       "EAPOL key found, return TRUE back");
@@ -370,7 +370,7 @@ secTxPortControlCheck(struct ADAPTER *prAdapter,
 		if (prAdapter->rWifiVar.rConnSettings.fgWapiMode)
 			return TRUE;
 #endif
-		if (IS_STA_IN_AIS(prAdapter, prStaRec)) {
+		if (IS_STA_IN_AIS(prStaRec)) {
 			if (!prAdapter->rWifiVar.
 			    rAisSpecificBssInfo.fgTransmitKeyExist
 			    && (prAdapter->rWifiVar.rConnSettings.eEncStatus ==
@@ -569,26 +569,28 @@ u_int8_t secIsProtectedFrame(struct ADAPTER *prAdapter,
 			     struct MSDU_INFO *prMsdu,
 			     struct STA_RECORD *prStaRec)
 {
-#if CFG_SUPPORT_NAN
 	struct BSS_INFO *prBssInfo;
-#endif
+
+	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
+		prMsdu->ucBssIndex);
+	if (prBssInfo == NULL) {
+		DBGLOG(BSS, ERROR, "prBssInfo[%d] is null\n",
+			prMsdu->ucBssIndex);
+		return FALSE;
+	}
 
 #if CFG_SUPPORT_802_11W
 	if (rsnCheckBipKeyInstalled(prAdapter, prStaRec) &&
-	    (secIsRobustActionFrame(prAdapter, prMsdu->prPacket)
-	    || (IS_BSS_INDEX_AIS(prAdapter, prMsdu->ucBssIndex) &&
+	    (secIsRobustActionFrame(prAdapter, prMsdu->prPacket) ||
+	    ((IS_BSS_INDEX_AIS(prAdapter, prMsdu->ucBssIndex) ||
+	    (IS_BSS_P2P(prBssInfo) && !p2pFuncIsAPMode(prAdapter
+	    ->rWifiVar.prP2PConnSettings[prBssInfo->u4PrivateData]))) &&
 	    secIsRobustMgmtFrame(prAdapter, prMsdu->prPacket))))
 		return TRUE;
 #endif
 	if (prMsdu->ucPacketType == TX_PACKET_TYPE_MGMT)
 		return FALSE;
 #if CFG_SUPPORT_NAN
-	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
-		prMsdu->ucBssIndex);
-	if (prBssInfo == NULL) {
-		DBGLOG(NAN, ERROR, "prBssInfo is null\n");
-		return FALSE;
-	}
 	if (prBssInfo->eNetworkType == NETWORK_TYPE_NAN) {
 		if (prStaRec && (prStaRec->fgTransmitKeyExist == TRUE))
 			return TRUE;
@@ -726,7 +728,6 @@ u_int8_t secPrivacySeekForEntry(
 				struct ADAPTER *prAdapter,
 				struct STA_RECORD *prSta)
 {
-	struct mt66xx_chip_info *prChipInfo = prAdapter->chip_info;
 	struct BSS_INFO *prP2pBssInfo;
 	uint8_t ucEntry = WTBL_RESERVED_ENTRY;
 	uint8_t i;
@@ -754,9 +755,6 @@ u_int8_t secPrivacySeekForEntry(
 #else
 	ucStartIDX = 0;
 #endif
-	if (prChipInfo->is_support_dmashdl_lite)
-		ucStartIDX = 16;
-
 	ucMaxIDX = prAdapter->ucTxDefaultWlanIndex - 1;
 
 	for (i = ucStartIDX; i <= ucMaxIDX; i++) {
@@ -785,7 +783,7 @@ u_int8_t secPrivacySeekForEntry(
 		prSta->ucWlanIndex = ucEntry;
 
 #if CFG_SUPPORT_NAN
-		if (!nanLinkNeedMlo(prAdapter) &&
+		if (!nanIsMultiLink(prAdapter) &&
 			(prSta->eStaType & STA_TYPE_NAN)) {
 			struct _NAN_PEER_SCH_DESC_T
 				*prPeerSchDesc = NULL;
@@ -802,7 +800,7 @@ u_int8_t secPrivacySeekForEntry(
 					if (prWtbl[i].ucUsed == FALSE) {
 						prWtbl[i].ucUsed = TRUE;
 						prSta->ucOtherWlanIndex = i;
-						DBGLOG(RSN, INFO,
+						DBGLOG(RSN, INFO2,
 						"NAN other WlanIndex#%d\n",
 						i);
 						break;
@@ -838,7 +836,7 @@ u_int8_t secPrivacySeekForEntry(
 			}
 		}
 #endif
-		DBGLOG(RSN, INFO,
+		DBGLOG(RSN, INFO2,
 		       "[Wlan index] BSS#%d keyid#%d P=%d use WlanIndex#%d STAIdx=%d "
 		       MACSTR
 		       " staType=%x\n", prSta->ucBssIndex, 0,
@@ -875,14 +873,14 @@ void secPrivacyFreeForEntry(struct ADAPTER *prAdapter, uint8_t ucEntry)
 	if (ucEntry >= WTBL_SIZE)
 		return;
 
-	DBGLOG(RSN, TRACE, "free entry %d\n", ucEntry);
+	DBGLOG(RSN, TRACE, "secPrivacyFreeForEntry %d\n", ucEntry);
 
 	prWtbl = prAdapter->rWifiVar.arWtbl;
 
 	if (prWtbl[ucEntry].ucUsed) {
 		prWtbl[ucEntry].ucUsed = FALSE;
 		prWtbl[ucEntry].ucKeyId = 0xff;
-		prWtbl[ucEntry].ucBssIndex = prAdapter->ucSwBssIdNum + 1;
+		prWtbl[ucEntry].ucBssIndex = prAdapter->ucHwBssIdNum + 1;
 		prWtbl[ucEntry].ucPairwise = 0;
 		kalMemZero(prWtbl[ucEntry].aucMacAddr, MAC_ADDR_LEN);
 		prWtbl[ucEntry].ucStaIndex = STA_REC_INDEX_NOT_FOUND;
@@ -911,7 +909,7 @@ void secPrivacyFreeSta(struct ADAPTER *prAdapter,
 	secPrivacyFreeForEntry(prAdapter, prStaRec->ucWlanIndex);
 
 #if CFG_SUPPORT_NAN
-	if (!nanLinkNeedMlo(prAdapter) &&
+	if (!nanIsMultiLink(prAdapter) &&
 		(prStaRec->eStaType & STA_TYPE_NAN)) {
 		struct _NAN_PEER_SCH_DESC_T
 				*prPeerSchDesc = NULL;
@@ -1228,7 +1226,7 @@ uint8_t secGetBssIdxByRfb(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 {
 
 	if (!prAdapter)
-		return 0;
+		return AIS_DEFAULT_BSS_INDEX;
 
 	if (prSwRfb) {
 		uint8_t	ucBssIndex =
@@ -1336,7 +1334,7 @@ void secPrivacyDumpWTBL(struct ADAPTER *prAdapter)
 				MAC2STR(prWtbl[i].aucMacAddr));
 		}
 	}
-	DBGLOG(RSN, INFO, "%s", prLogBuf);
+	DBGLOG(RSN, INFO, "%s\n", prLogBuf);
 	kalMemFree(prLogBuf, DUMP_WTBL_BUF_SIZE, VIR_MEM_TYPE);
 }
 
@@ -1519,7 +1517,7 @@ void secHandleNoWtbl(struct ADAPTER *prAdapter,
 
 	if (prSwRfb->prStaRec) {
 		prSwRfb->ucWlanIdx = prSwRfb->prStaRec->ucWlanIndex;
-		DBGLOG(RX, DEBUG,
+		DBGLOG(RX, INFO,
 			"[%d] current wlan index is %d\n",
 			prSwRfb->ucStaRecIdx,
 			prSwRfb->ucWlanIdx);

@@ -441,9 +441,22 @@ static ssize_t mtk_aol_flp_read(struct file *file, char __user *buf, size_t coun
 			return sizeof(u32)*3;
 		}
 
+		if (g_flp_report_ctx.read_sz > g_flp_report_ctx.loc_size) {
+			g_flp_report_ctx.state = FLP_REPORT_NONE;
+			pr_notice("[%s] invalid read_sz", __func__);
+			up(&rd_mtx);
+			return -EFAULT;
+		}
 
 		if (g_flp_report_ctx.read_sz + count > g_flp_report_ctx.loc_size)
 			write_sz = g_flp_report_ctx.loc_size - g_flp_report_ctx.read_sz;
+
+		if (write_sz == 0 || write_sz > count) {
+			g_flp_report_ctx.state = FLP_REPORT_NONE;
+			pr_notice("[%s] invalid write_sz", __func__);
+			up(&rd_mtx);
+			return -EFAULT;
+		}
 
 		if (copy_to_user(buf, &(g_flp_report_ctx.addr[g_flp_report_ctx.read_sz]),
 							write_sz)) {

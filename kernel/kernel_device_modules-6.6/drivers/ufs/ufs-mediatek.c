@@ -422,7 +422,7 @@ static int ufs_mtk_setup_ref_clk(struct ufs_hba *hba, bool on)
 	mb();
 
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG_BUILD)
-	ufshcd_vops_check_bus_status(hba);
+	// ufshcd_vops_check_bus_status(hba);
 #endif
 
 	/* Wait for ack */
@@ -2522,10 +2522,10 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
 	}
 
 #if IS_ENABLED(CONFIG_SEC_UFS_FEATURE)
-	if (hba->shutting_down)
-		ufs_sec_print_err_info(hba);
-	else
-		ufs_sec_print_err();
+	if (pm_op == UFS_SYSTEM_PM)
+		ufs_sec_print_err(false);
+	else if (pm_op == UFS_SHUTDOWN_PM)
+		ufs_sec_print_err(true);
 #endif
 
 	if (ufshcd_is_link_hibern8(hba)) {
@@ -3291,7 +3291,7 @@ static const struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	.config_esi          = ufs_mtk_config_esi,
 	.config_scsi_dev     = ufs_mtk_config_scsi_dev,
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG_BUILD)
-	.check_bus_status    = ufs_mtk_check_bus_status,
+	// .check_bus_status    = ufs_mtk_check_bus_status,
 	//.dbg_dump            = _ufs_mtk_dbg_dump,
 #endif
 };

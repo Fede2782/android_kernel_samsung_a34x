@@ -68,6 +68,7 @@ struct mtk_mmsys_driver_data {
 	const struct mtk_crtc_path_data *main_bypass_pc_dual_path_data;
 	const struct mtk_crtc_path_data *main_dual_path_data;
 	const struct mtk_crtc_path_data *ext_path_data;
+	const struct mtk_crtc_path_data *ext_triple_path_data;
 	const struct mtk_crtc_path_data *ext_alter_path_data;
 	const struct mtk_crtc_path_data *third_path_data;
 	const struct mtk_crtc_path_data *third_path_data_wo_tdshp;
@@ -127,6 +128,7 @@ struct mtk_drm_lyeblob_ids {
 	int fbt_gles_tail;
 	int fbt_layer_id;
 	bool hrt_valid;
+	bool blank_lyr_valid;
 	struct list_head list;
 };
 
@@ -160,10 +162,12 @@ enum drm_kernel_pm_status {
 struct mtk_drm_kernel_pm {
 	bool shutdown;
 	struct notifier_block nb;	/* Kernel suspend and resume event */
+	struct notifier_block vcp_nb;	/* VCP suspend and resume event */
 	struct mutex lock;		/* To block any request after kernel suspend */
 	atomic_t status;
 	atomic_t wakelock_cnt;
 	wait_queue_head_t wq;
+	bool skip_mminfra_ctrl;
 };
 
 struct lateinit_task {
@@ -554,7 +558,7 @@ void mtk_drm_suspend_release_present_fence(struct device *dev,
 void mtk_drm_suspend_release_sf_present_fence(struct device *dev,
 					      unsigned int index);
 void mtk_drm_top_clk_prepare_enable(struct drm_crtc *crtc);
-void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm);
+void mtk_drm_top_clk_disable_unprepare(struct drm_crtc *crtc);
 struct mtk_panel_params *mtk_drm_get_lcm_ext_params(struct drm_crtc *crtc);
 struct mtk_panel_funcs *mtk_drm_get_lcm_ext_funcs(struct drm_crtc *crtc);
 bool mtk_drm_session_mode_is_decouple_mode(struct drm_device *dev);

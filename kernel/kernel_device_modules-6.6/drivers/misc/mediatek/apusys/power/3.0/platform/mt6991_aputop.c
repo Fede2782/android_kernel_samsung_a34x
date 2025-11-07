@@ -20,9 +20,22 @@
 #include "apu_hw_sema.h"
 #include "mt6991_apupwr.h"
 #include "mt6991_apupwr_prot.h"
+// for thermal node & apu_sw_power throttle
+#include <linux/kernel.h>
+#include <linux/kobject.h>
+#include <linux/sysfs.h>
+#include <linux/mutex.h>
+#include <linux/uaccess.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+#include <linux/timer.h>
+// end
 #define LOCAL_DBG	(1)
+#define SW_THROTTLE_DBG (0)
 #define RPC_ALIVE_DBG	(0)
-
+#define CLIENT_NUM	(2)
+#define SW_THROTTLE_SYSFS	(1)
+#define SW_THROTTLE_LIMIT_HAL	(2)
 static uint32_t mbox_data;
 
 /* Below reg_name has to 1-1 mapping DTS's name */
@@ -37,6 +50,22 @@ static struct apu_power apupw = {
 	.env = MP,
 	.rcx = CE_FW,
 };
+
+static int global_upper_limit = USER_MAX_OPP_VAL - 1;
+static int global_lower_limit = USER_MIN_OPP_VAL + 1;
+static struct mutex lock;
+static int sys_request_id; // for sysfs input
+static int limit_debug_request_id = 1; // for Limit_HAL cmd input
+static int first_dump;
+
+struct client_work {
+	int lower_limit;
+	int upper_limit;
+	int request_id;
+	struct list_head list;
+};
+
+static LIST_HEAD(client_list);
 
 #if APUPW_DUMP_FROM_APMCU
 static void aputop_dump_reg(enum apupw_reg idx, uint32_t offset, uint32_t size)
@@ -496,6 +525,408 @@ static void release_smmu_hw_sema(void)
 	iounmap(mbox0);
 }
 
+static int mt6991_update_bounds(void)
+{
+	int new_upper_limit = USER_MAX_OPP_VAL - 1;
+	int new_lower_limit = USER_MIN_OPP_VAL + 1;
+	int irregular_limits[CLIENT_NUM];
+	int irregular_count = 0;
+	int skip = 0;
+	struct client_work *cw;
+
+	list_for_each_entry(cw, &client_list, list) {
+		if (cw->upper_limit > new_upper_limit)
+			new_upper_limit = cw->upper_limit;
+		if (cw->lower_limit < new_lower_limit)
+			new_lower_limit = cw->lower_limit;
+	}
+
+	/* Skip irregular lower_limit and reset new lower_limits */
+	if (new_lower_limit < new_upper_limit) {
+		pr_info("%s: lower_limit %d cannot be greater than upper_limit %d, Error.\n",
+				__func__, new_lower_limit, new_upper_limit);
+		list_for_each_entry(cw, &client_list, list) {
+			if (cw->lower_limit == new_lower_limit) {
+				irregular_limits[irregular_count++] = new_lower_limit;
+				pr_info("%s: skip modify lower_limit here.\n", __func__);
+			}
+		}
+
+		new_upper_limit = USER_MAX_OPP_VAL - 1;
+		new_lower_limit = USER_MIN_OPP_VAL + 1;
+		list_for_each_entry(cw, &client_list, list) {
+			skip = 0;
+			for (int i = 0; i < irregular_count; i++) {
+				if (cw->lower_limit == irregular_limits[i]) {
+					skip = 1;
+					break;
+				}
+			}
+			if (skip)
+				continue;
+			if (cw->upper_limit > new_upper_limit)
+				new_upper_limit = cw->upper_limit;
+			if (cw->lower_limit < new_lower_limit)
+				new_lower_limit = cw->lower_limit;
+		}
+#if SW_THROTTLE_DBG
+		pr_info("%s: Now new_upper_limit = %d, new_lower_limit = %d\n",
+				__func__, new_upper_limit, new_lower_limit);
+#endif
+	}
+
+	if (new_upper_limit == global_upper_limit && new_lower_limit == global_lower_limit) {
+#if SW_THROTTLE_DBG
+		pr_info("%s: bounds not changed.\n", __func__);
+#endif
+		return -EAGAIN;
+	}
+
+	global_upper_limit = new_upper_limit;
+	global_lower_limit = new_lower_limit;
+
+	return 0;
+}
+
+/* maintain nodes & judge final upper_limit & lower_limit to APU */
+int mt6991_set_freq_limit(int upper_limit, int lower_limit, int *request_id, int calltype)
+{
+	struct client_work *cw;
+	bool found = false;
+	int ret;
+	int type = calltype;
+
+	// real opp range is from 0 to 10
+	if ((lower_limit > USER_MIN_OPP_VAL || lower_limit < USER_MAX_OPP_VAL) ||
+		(upper_limit > USER_MIN_OPP_VAL || upper_limit < USER_MAX_OPP_VAL)) {
+#if SW_THROTTLE_DBG
+		pr_info("%s: Error, limits out of range: lower_limit (%d), upper_limit (%d)\n",
+				__func__, lower_limit, upper_limit);
+#endif
+		// setting lower_limit to USER_MIN_OPP_VAL if out of range.
+		if (lower_limit > USER_MIN_OPP_VAL)
+			lower_limit = USER_MIN_OPP_VAL;
+		else
+			return -ERANGE;
+	}
+	// opp_max(upper_limit) must be smaller opp_min(lower_limit)
+	if (lower_limit < upper_limit)
+		return -EINVAL;
+	// use mutex to avoid racing
+	mutex_lock(&lock);
+	list_for_each_entry(cw, &client_list, list) {
+		if (cw->request_id == *request_id) {
+			found = true;
+			break;
+		}
+	}
+
+	if (found) {
+		/* update existing nodes values */
+		cw->lower_limit = lower_limit;
+		cw->upper_limit = upper_limit;
+#if SW_THROTTLE_DBG
+		pr_info("%s: updated existing node, and request_id is %d\n",
+				__func__, *request_id);
+#endif
+		} else {
+			cw = kmalloc(sizeof(*cw), GFP_KERNEL);
+		if (!cw) {
+			mutex_unlock(&lock);
+			return -ENOMEM;
+		}
+		cw->lower_limit = lower_limit;
+		cw->upper_limit = upper_limit;
+		/* record id number */
+		cw->request_id = *request_id;
+		list_add(&cw->list, &client_list);
+#if SW_THROTTLE_DBG
+		pr_info("%s: added new node, and request_id is %d\n", __func__, cw->request_id);
+#endif
+	}
+
+	ret = mt6991_update_bounds();
+	if (ret == 0 && type == SW_THROTTLE_SYSFS) {
+#if SW_THROTTLE_DBG
+		pr_info("%s: input from sysfs, detected bounds changed, sending to apu\n", __func__);
+#endif
+		mt6991_aputop_opp_limit(global_upper_limit, global_lower_limit, OPP_LIMIT_HAL);
+	} else if (ret == 0 && type == SW_THROTTLE_LIMIT_HAL) {
+#if SW_THROTTLE_DBG
+		pr_info("%s: input from limit hal cmd, detected bounds changed, sending to apu\n", __func__);
+#endif
+		mt6991_aputop_opp_limit(global_upper_limit, global_lower_limit, OPP_LIMIT_HAL);
+	} else {
+#if SW_THROTTLE_DBG
+		pr_info("%s: detected bounds not changed, skip sending to apu\n", __func__);
+#endif
+		mutex_unlock(&lock);
+		return -EINVAL;
+	}
+
+	mutex_unlock(&lock);
+	return ret;
+}
+
+/* process user freq input to opp format */
+static void mt6991_prepare_freq_input(int upper_limit, int lower_limit, int *opp_max, int *opp_min)
+{
+	int tmp_opp_min = -1;
+	int tmp_opp_max = -1;
+
+	/* if opp table is not dump, request opp tbl first */
+	if (!first_dump) {
+		mt6991_request_opp_table();
+		first_dump = 1;
+	}
+
+	for (int i = OPP_TABLE_SIZE-1; i >= 0; i--) {
+		int freq = mt6991_mdla_pll_freq[i];
+
+		if (freq >= lower_limit) {
+			tmp_opp_min = i;
+			break;
+		}
+	}
+
+	for (int i = 0; i < OPP_TABLE_SIZE; i++) {
+		int freq = mt6991_mdla_pll_freq[i];
+
+		if (freq <= upper_limit) {
+			tmp_opp_max = i;
+			break;
+		}
+	}
+
+	if (upper_limit == lower_limit)
+		tmp_opp_min = tmp_opp_max;
+
+	if (lower_limit < mt6991_mdla_pll_freq[OPP_TABLE_SIZE-1])
+		tmp_opp_min = USER_MIN_OPP_VAL; // set to opp10
+
+	if (upper_limit > mt6991_mdla_pll_freq[0])
+		tmp_opp_max = USER_MAX_OPP_VAL; // set to opp0
+
+	if (tmp_opp_min < tmp_opp_max) {
+		pr_info("%s: opp_max=%d, opp_min=%d\n , lower limit cannot be greater than upper limit!\n",
+				__func__, tmp_opp_max, tmp_opp_min);
+	} else {
+#if SW_THROTTLE_DBG
+		pr_info("%s: opp_max=%d, opp_min=%d\n", __func__, tmp_opp_max, tmp_opp_min);
+#endif
+		*opp_max = tmp_opp_max;
+		*opp_min = tmp_opp_min;
+	}
+
+}
+
+/* handle user proc input */
+static ssize_t mt6991_handle_client_input(struct file *file,
+	const char __user *buf, size_t count, loff_t *ppos)
+{
+	int upper_limit = 0;
+	int lower_limit = 0;
+	int ret;
+	int opp_max, opp_min;
+	char *input;
+
+	if (count == 0 || count > 64)
+		return -EINVAL;
+
+	input = kzalloc(count + 1, GFP_KERNEL);
+	if (!input)
+		return -ENOMEM;
+
+	if (copy_from_user(input, buf, count)) {
+		kfree(input);
+		return -EFAULT;
+	}
+
+	input[strcspn(input, "\n")] = '\0';
+
+	ret = kstrtoint(input, 0, &upper_limit);
+	if (ret) {
+		pr_info("%s: invalid upper_limit\n", __func__);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	mt6991_prepare_freq_input(upper_limit, lower_limit, &opp_max, &opp_min);
+	ret = mt6991_set_freq_limit(opp_max, opp_min, &sys_request_id, SW_THROTTLE_SYSFS);
+	if (ret)
+		goto out;
+
+	if (sys_request_id != -1)
+		pr_info("Generated request_id: %d\n", sys_request_id);
+
+	ret = count;
+out:
+	kfree(input);
+	return ret;
+}
+
+static int mt6991_client_input_show(struct seq_file *m, void *v)
+{
+	struct client_work *cw;
+
+	if (!first_dump) {
+		mt6991_request_opp_table();
+		first_dump = 1;
+	}
+
+	mutex_lock(&lock);
+
+	if (list_empty(&client_list)) {
+		seq_puts(m, "npu_max_limit is empty.\n");
+	} else {
+		list_for_each_entry(cw, &client_list, list) {
+			if(cw->request_id == sys_request_id)
+				seq_printf(m, "%d,%d\n",
+					mt6991_mdla_pll_freq[cw->upper_limit], mt6991_mvpu_pll_freq[cw->upper_limit]);
+		}
+	}
+
+	mutex_unlock(&lock);
+
+	return 0;
+}
+
+static int mt6991_client_input_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mt6991_client_input_show, NULL);
+}
+
+static const struct proc_ops client_input_ops = {
+	.proc_write   = mt6991_handle_client_input,
+	.proc_open    = NULL,
+	.proc_lseek   = seq_lseek,
+	.proc_release = NULL,
+};
+
+static const struct proc_ops client_show_ops = {
+	.proc_open    = mt6991_client_input_open,
+	.proc_read    = seq_read,
+	.proc_lseek   = seq_lseek,
+	.proc_release = single_release,
+};
+
+static int mt6991_opp_proc_show(struct seq_file *m, void *v)
+{
+	int i;
+
+	mt6991_request_opp_table();
+	seq_puts(m, "APU Support Frequency points Unit is KHZ,(MDLA, MVPU)\n");
+	for (i = 0; i < ARRAY_SIZE(mt6991_mdla_pll_freq); i++) {
+		if (mt6991_mdla_pll_freq[i] == 0)
+			continue;
+		else if (mt6991_mdla_pll_freq[i] > 1000000) {
+			seq_printf(m, "%d, ", mt6991_mdla_pll_freq[i]);
+			if (mt6991_mvpu_pll_freq[i] < 1000000)
+				seq_printf(m, " %d\n", mt6991_mvpu_pll_freq[i]);
+			else
+				seq_printf(m, "%d\n", mt6991_mvpu_pll_freq[i]);
+		} else {
+			seq_printf(m, " %d, ", mt6991_mdla_pll_freq[i]);
+			seq_printf(m, " %d\n", mt6991_mvpu_pll_freq[i]);
+		}
+	}
+
+	return 0;
+}
+
+static int mt6991_opp_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mt6991_opp_proc_show, NULL);
+}
+
+static const struct proc_ops opp_proc_ops = {
+	.proc_open    = mt6991_opp_proc_open,
+	.proc_read    = seq_read,
+	.proc_lseek   = seq_lseek,
+	.proc_release = single_release,
+};
+
+/* show engine current frequency in procfs */
+static int mt6991_engine_freq_proc_show(struct seq_file *m, void *v)
+{
+	uint32_t opp = 0, mbox_status = 0;
+	int nearest_freq, mdla_ret = 0, mvpu_ret = 0;
+	const char *type = (const char *)m->private;
+
+	mbox_status = apu_readl(
+			(apupw.regs[apu_md32_mbox] + ENGINE_PWR_ON_REC));
+	opp = apu_readl(
+			(apupw.regs[apu_md32_mbox] + HWVOTER_OPP_REG));
+
+	if (!mbox_status) {
+		seq_puts(m, "0\n");
+		goto out;
+	}
+
+	if (!first_dump) {
+		mt6991_request_opp_table();
+		first_dump = 1;
+	}
+
+	if (opp > 2)
+		opp = opp - 1;// since opp 2 is only for thermal throttle usage
+
+	if (((mbox_status >> 0) & 0x1) != 0x1)
+		mdla_ret += 1;
+
+	if (((mbox_status >> 1) & 0x1) != 0x1)
+		mdla_ret += 1;
+
+	if (((mbox_status >> 2) & 0x1) != 0x1)
+		mdla_ret += 1;
+
+	if (((mbox_status >> 3) & 0x1) != 0x1)
+		mdla_ret += 1;
+
+	if (((mbox_status >> 4) & 0x1) != 0x1)
+		mvpu_ret += 1;
+
+	if (((mbox_status >> 5) & 0x1) != 0x1)
+		mvpu_ret += 1;
+
+	if (strcmp(type, "mdla") == 0) {
+		if (mdla_ret == 4) {
+			nearest_freq = 0;
+			seq_printf(m, "%d\n", nearest_freq);
+			goto out;
+		}
+
+		nearest_freq = mt6991_mdla_pll_freq[opp];
+	} else if (strcmp(type, "mvpu") == 0) {
+		if (mvpu_ret == 2) {
+			nearest_freq = 0;
+			seq_printf(m, "%d\n", nearest_freq);
+			goto out;
+		}
+
+		nearest_freq = mt6991_mvpu_pll_freq[opp];
+	} else
+		nearest_freq = 0;
+
+	seq_printf(m, "%d\n", nearest_freq);
+out:
+	return 0;
+}
+
+static int mt6991_engine_freq_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mt6991_engine_freq_proc_show, pde_data(inode));
+}
+
+static const struct proc_ops engine_freq_proc_ops = {
+	.proc_open    = mt6991_engine_freq_proc_open,
+	.proc_read    = seq_read,
+	.proc_lseek   = seq_lseek,
+	.proc_release = single_release,
+};
+
+static struct proc_dir_entry *apudvfs_dir;
+
 static int mt6991_apu_top_pb(struct platform_device *pdev)
 {
 	int ret = 0, val = 0;
@@ -518,12 +949,44 @@ static int mt6991_apu_top_pb(struct platform_device *pdev)
 
 	mt6991_init_remote_data_sync(apupw.regs[apu_md32_mbox]);
 
+	mutex_init(&lock);
+	// init npudvfs proc and related node of npu power infos.
+	apudvfs_dir = proc_mkdir("npudvfs", NULL);
+	if (!apudvfs_dir)
+		return -ENOMEM;
+
+	if (!proc_create("npu_opp_table", 0, apudvfs_dir, &opp_proc_ops)) {
+		pr_info("%s: create apu_opp_table failed\n", __func__);
+		return -ENOMEM;
+	}
+
+	if (!proc_create_data("npu_cur_mdla_freq", 0, apudvfs_dir, &engine_freq_proc_ops, "mdla")) {
+		pr_info("%s: create npu_cur_mdla_freq failed\n", __func__);
+		return -ENOMEM;
+	}
+
+	if (!proc_create_data("npu_cur_mvpu_freq", 0, apudvfs_dir, &engine_freq_proc_ops, "mvpu")) {
+		pr_info("%s: create npu_cur_mvpu_freq failed\n", __func__);
+		return -ENOMEM;
+	}
+
+	if (!proc_create("npu_max_freq", 0644, apudvfs_dir, &client_input_ops)) {
+		pr_info("%s: create npu_max_freq failed\n", __func__);
+		return -ENOMEM;
+	}
+
+	if (!proc_create("npu_limit_freq", 0, apudvfs_dir, &client_show_ops)) {
+		pr_info("%s: create npu_limit_freq failed\n", __func__);
+		return -ENOMEM;
+	}
+
 	return ret;
 }
 
 static int mt6991_apu_top_rm(struct platform_device *pdev)
 {
 	int idx;
+	struct client_work *cw, *tmp;
 
 	pr_info("%s +\n", __func__);
 	if (apupw.env < MP)
@@ -531,6 +994,21 @@ static int mt6991_apu_top_rm(struct platform_device *pdev)
 	for (idx = 0; idx < APUPW_MAX_REGS; idx++)
 		iounmap(apupw.regs[idx]);
 	pr_info("%s -\n", __func__);
+
+	mutex_lock(&lock);
+	list_for_each_entry_safe(cw, tmp, &client_list, list) {
+		list_del(&cw->list);
+		kfree(cw);
+	}
+	mutex_unlock(&lock);
+	mutex_destroy(&lock);
+	// rm client input and apudvfs opp table
+	remove_proc_entry("npu_limit_freq", apudvfs_dir);
+	remove_proc_entry("npu_max_freq", apudvfs_dir);
+	remove_proc_entry("npu_cur_mvpu_freq", apudvfs_dir);
+	remove_proc_entry("npu_cur_mdla_freq", apudvfs_dir);
+	remove_proc_entry("npu_opp_table", apudvfs_dir);
+	remove_proc_entry("npudvfs", NULL);
 
 	return 0;
 }
@@ -609,6 +1087,8 @@ static int mt6991_apu_top_func_return_val(int func_id, char *buf)
 static int mt6991_apu_top_func(struct platform_device *pdev,
 		enum aputop_func_id func_id, struct aputop_func_param *aputop)
 {
+	int dla_max, dla_min;
+
 	pr_info("%s func_id : %d\n", __func__, aputop->func_id);
 
 	switch (aputop->func_id) {
@@ -617,10 +1097,14 @@ static int mt6991_apu_top_func(struct platform_device *pdev,
 	case APUTOP_FUNC_PWR_ON:
 		break;
 	case APUTOP_FUNC_OPP_LIMIT_HAL:
-		mt6991_aputop_opp_limit(aputop, OPP_LIMIT_HAL);
+		dla_max = aputop->param3;
+		dla_min = aputop->param4;
+		mt6991_set_freq_limit(dla_max, dla_min, &limit_debug_request_id, SW_THROTTLE_LIMIT_HAL);
 		break;
 	case APUTOP_FUNC_OPP_LIMIT_DBG:
-		mt6991_aputop_opp_limit(aputop, OPP_LIMIT_DEBUG);
+		dla_max = aputop->param3;
+		dla_min = aputop->param4;
+		mt6991_set_freq_limit(dla_max, dla_min, &limit_debug_request_id, SW_THROTTLE_LIMIT_HAL);
 		break;
 	case APUTOP_FUNC_DUMP_REG:
 		aputop_dump_pwr_reg(&pdev->dev);

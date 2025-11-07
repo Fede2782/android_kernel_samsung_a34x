@@ -24,9 +24,7 @@
 
 #include "precomp.h"
 #include "gl_os.h"
-#include "gl_kal.h"
 #include "gl_wext_priv.h"
-#include "wlan_def.h"
 #if CFG_ENABLE_WIFI_DIRECT
 #include "gl_p2p_os.h"
 #endif
@@ -35,7 +33,9 @@
  *                              C O N S T A N T S
  *******************************************************************************
  */
-#define FW_CFG_KEY_ROAM_RCPI			"RoamingRCPIValue"
+#define FW_CFG_KEY_ROAM_RCPI		"RoamingRCPIValue"
+#define BTM_MIN_RSSI			-75
+#define INACTIVE_MONITOR_INTERVAL        1000   /* msec */
 
 /*******************************************************************************
  *                             D A T A   T Y P E S
@@ -99,6 +99,15 @@ struct PARAM_MANAGE_CHANNEL_LIST {
  *******************************************************************************
  */
 #if (CFG_EXT_ROAMING == 1)
+static uint8_t *apucBandStr[BAND_NUM] = {
+	(uint8_t *) DISP_STRING("NULL"),
+	(uint8_t *) DISP_STRING("2.4G"),
+	(uint8_t *) DISP_STRING("5G"),
+#if (CFG_SUPPORT_WIFI_6G == 1)
+	(uint8_t *) DISP_STRING("6G")
+#endif
+};
+
 #if (CFG_SUPPORT_APS == 1)
 extern uint8_t apsGetCuInfo(struct ADAPTER *ad,
 	struct BSS_DESC *bss,
@@ -138,38 +147,70 @@ static uint32_t apsCalculateRssiFactor(
 		else if (cRssi < prWifiVar->cB1RssiFactorVal1 &&
 				cRssi >= prWifiVar->cB1RssiFactorVal2)
 			u4RssiFactor = prWifiVar->ucB1RssiFactorScore2 +
-				(2 * (60 + cRssi));
+				((prWifiVar->ucB1RssiFactorScore1 -
+				  prWifiVar->ucB1RssiFactorScore2) /
+				 (prWifiVar->cB1RssiFactorVal1 -
+				  prWifiVar->cB1RssiFactorVal2) *
+				 (cRssi - prWifiVar->cB1RssiFactorVal2));
 		else if (cRssi < prWifiVar->cB1RssiFactorVal2 &&
 				cRssi >= prWifiVar->cB1RssiFactorVal3)
 			u4RssiFactor = prWifiVar->ucB1RssiFactorScore3 +
-				(3 * (70 + cRssi));
+				((prWifiVar->ucB1RssiFactorScore2 -
+				  prWifiVar->ucB1RssiFactorScore3) /
+				 (prWifiVar->cB1RssiFactorVal2 -
+				  prWifiVar->cB1RssiFactorVal3) *
+				 (cRssi - prWifiVar->cB1RssiFactorVal3));
 		else if (cRssi < prWifiVar->cB1RssiFactorVal3 &&
 				cRssi >= prWifiVar->cB1RssiFactorVal4)
 			u4RssiFactor = prWifiVar->ucB1RssiFactorScore4 +
-				(4 * (80 + cRssi));
+				((prWifiVar->ucB1RssiFactorScore3 -
+				  prWifiVar->ucB1RssiFactorScore4) /
+				 (prWifiVar->cB1RssiFactorVal3 -
+				  prWifiVar->cB1RssiFactorVal4) *
+				 (cRssi - prWifiVar->cB1RssiFactorVal4));
 		else if (cRssi < prWifiVar->cB1RssiFactorVal4 &&
 				cRssi >= prWifiVar->cB1RssiFactorVal5)
 			u4RssiFactor = prWifiVar->ucB1RssiFactorScore5 +
-				(2 * (90 + cRssi));
+				((prWifiVar->ucB1RssiFactorScore4 -
+				  prWifiVar->ucB1RssiFactorScore5) /
+				 (prWifiVar->cB1RssiFactorVal4 -
+				  prWifiVar->cB1RssiFactorVal5) *
+				 (cRssi - prWifiVar->cB1RssiFactorVal5));
 	} else if (bss->eBand == BAND_5G) {
 		if (cRssi >= prWifiVar->cB2RssiFactorVal1)
 			u4RssiFactor = prWifiVar->ucB2RssiFactorScore1;
 		else if (cRssi < prWifiVar->cB2RssiFactorVal1 &&
 				cRssi >= prWifiVar->cB2RssiFactorVal2)
 			u4RssiFactor = prWifiVar->ucB2RssiFactorScore2 +
-				(2 * (60 + cRssi));
+				((prWifiVar->ucB2RssiFactorScore1 -
+				  prWifiVar->ucB2RssiFactorScore2) /
+				 (prWifiVar->cB2RssiFactorVal1 -
+				  prWifiVar->cB2RssiFactorVal2) *
+				 (cRssi - prWifiVar->cB2RssiFactorVal2));
 		else if (cRssi < prWifiVar->cB2RssiFactorVal2 &&
 				cRssi >= prWifiVar->cB2RssiFactorVal3)
 			u4RssiFactor = prWifiVar->ucB2RssiFactorScore3 +
-				(3 * (70 + cRssi));
+				((prWifiVar->ucB2RssiFactorScore2 -
+				  prWifiVar->ucB2RssiFactorScore3) /
+				 (prWifiVar->cB2RssiFactorVal2 -
+				  prWifiVar->cB2RssiFactorVal3) *
+				 (cRssi - prWifiVar->cB2RssiFactorVal3));
 		else if (cRssi < prWifiVar->cB2RssiFactorVal3 &&
 				cRssi >= prWifiVar->cB2RssiFactorVal4)
 			u4RssiFactor = prWifiVar->ucB2RssiFactorScore4 +
-				(4 * (80 + cRssi));
+				((prWifiVar->ucB2RssiFactorScore3 -
+				  prWifiVar->ucB2RssiFactorScore4) /
+				 (prWifiVar->cB2RssiFactorVal3 -
+				  prWifiVar->cB2RssiFactorVal4) *
+				 (cRssi - prWifiVar->cB2RssiFactorVal4));
 		else if (cRssi < prWifiVar->cB2RssiFactorVal4 &&
 				cRssi >= prWifiVar->cB2RssiFactorVal5)
 			u4RssiFactor = prWifiVar->ucB2RssiFactorScore5 +
-				(2 * (90 + cRssi));
+				((prWifiVar->ucB2RssiFactorScore4 -
+				  prWifiVar->ucB2RssiFactorScore5) /
+				 (prWifiVar->cB2RssiFactorVal4 -
+				  prWifiVar->cB2RssiFactorVal5) *
+				 (cRssi - prWifiVar->cB2RssiFactorVal5));
 	}
 #if (CFG_SUPPORT_WIFI_6G == 1)
 	else if (bss->eBand == BAND_6G) {
@@ -178,15 +219,27 @@ static uint32_t apsCalculateRssiFactor(
 		else if (cRssi < prWifiVar->cB3RssiFactorVal1 &&
 				cRssi >= prWifiVar->cB3RssiFactorVal2)
 			u4RssiFactor = prWifiVar->ucB3RssiFactorScore2 +
-				(14 * (65 + cRssi));
+				((prWifiVar->ucB3RssiFactorScore1 -
+				  prWifiVar->ucB3RssiFactorScore2) /
+				 (prWifiVar->cB3RssiFactorVal1 -
+				  prWifiVar->cB3RssiFactorVal2) *
+				 (cRssi - prWifiVar->cB3RssiFactorVal2));
 		else if (cRssi < prWifiVar->cB3RssiFactorVal2 &&
 				cRssi >= prWifiVar->cB3RssiFactorVal3)
 			u4RssiFactor = prWifiVar->ucB3RssiFactorScore3 +
-				(2 * (80 + cRssi));
+				((prWifiVar->ucB3RssiFactorScore2 -
+				  prWifiVar->ucB3RssiFactorScore3) /
+				 (prWifiVar->cB3RssiFactorVal2 -
+				  prWifiVar->cB3RssiFactorVal3) *
+				 (cRssi - prWifiVar->cB3RssiFactorVal3));
 		else if (cRssi < prWifiVar->cB3RssiFactorVal3 &&
 				cRssi >= prWifiVar->cB3RssiFactorVal4)
 			u4RssiFactor = prWifiVar->ucB3RssiFactorScore4 +
-				2 * (90 + cRssi);
+				((prWifiVar->ucB3RssiFactorScore3 -
+				  prWifiVar->ucB3RssiFactorScore4) /
+				 (prWifiVar->cB3RssiFactorVal3 -
+				  prWifiVar->cB3RssiFactorVal4) *
+				 (cRssi - prWifiVar->cB3RssiFactorVal4));
 	}
 #endif
 
@@ -205,23 +258,29 @@ static uint32_t apsCalculateCUFactor(
 
 	if (bss->fgExistBssLoadIE) {
 		ucChannelCuInfo = bss->ucChnlUtilization;
-	} else {
-		ucChannelCuInfo = apsGetCuInfoEx(ad, bss, bidx);
-
-		/* Cannot find any CU info in the same channel */
-		if (ucChannelCuInfo == 0) {
-			/* Apply default CU(50%) */
-			ucChannelCuInfo = 128;
-		}
+		u4CuRatio = PERCENTAGE(ucChannelCuInfo, 255);
+	} else if (bss->eBand == BAND_2G4) {
+		u4CuRatio = prWifiVar->ucRCU24DefaultCU;
+	} else if (bss->eBand == BAND_5G) {
+		u4CuRatio = prWifiVar->ucRCU5DefaultCU;
+#if (CFG_SUPPORT_WIFI_6G == 1)
+	} else if (bss->eBand == BAND_6G) {
+		u4CuRatio = prWifiVar->ucRCU6DefaultCU;
+#endif
 	}
 
-	u4CuRatio = PERCENTAGE(ucChannelCuInfo, 255);
 	if (bss->eBand == BAND_2G4) {
 		if (u4CuRatio < prWifiVar->ucB1CUFactorVal1)
 			u4CUFactor = prWifiVar->ucB1CUFactorScore1;
 		else if (u4CuRatio < prWifiVar->ucB1CUFactorVal2 &&
 				u4CuRatio >= prWifiVar->ucB1CUFactorVal1)
-			u4CUFactor = 111 - (13 * u4CuRatio / 10);
+			u4CUFactor = prWifiVar->ucB1CUFactorScore1 -
+				((prWifiVar->ucB1CUFactorScore1 -
+				  prWifiVar->ucB1CUFactorScore2) * 100 /
+				 (prWifiVar->ucB1CUFactorVal2 -
+				  prWifiVar->ucB1CUFactorVal1) *
+				 (u4CuRatio -
+				  prWifiVar->ucB1CUFactorVal1) / 100);
 		else
 			u4CUFactor = prWifiVar->ucB1CUFactorScore2;
 	} else if (bss->eBand == BAND_5G) {
@@ -229,7 +288,13 @@ static uint32_t apsCalculateCUFactor(
 			u4CUFactor = prWifiVar->ucB2CUFactorScore1;
 		else if (u4CuRatio < prWifiVar->ucB2CUFactorVal2 &&
 				u4CuRatio >= prWifiVar->ucB2CUFactorVal1)
-			u4CUFactor = 148 - (16 * u4CuRatio / 10);
+			u4CUFactor = prWifiVar->ucB2CUFactorScore1 -
+				((prWifiVar->ucB2CUFactorScore1 -
+				  prWifiVar->ucB2CUFactorScore2) * 100 /
+				 (prWifiVar->ucB2CUFactorVal2 -
+				  prWifiVar->ucB2CUFactorVal1) *
+				 (u4CuRatio -
+				  prWifiVar->ucB2CUFactorVal1) / 100);
 		else
 			u4CUFactor = prWifiVar->ucB2CUFactorScore2;
 #if (CFG_SUPPORT_WIFI_6G == 1)
@@ -238,7 +303,13 @@ static uint32_t apsCalculateCUFactor(
 			u4CUFactor = prWifiVar->ucB3CUFactorScore1;
 		else if (u4CuRatio < prWifiVar->ucB3CUFactorVal2 &&
 				u4CuRatio >= prWifiVar->ucB3CUFactorVal1)
-			u4CUFactor = 180 - (20 * u4CuRatio / 10);
+			u4CUFactor = prWifiVar->ucB3CUFactorScore1 -
+				((prWifiVar->ucB3CUFactorScore1 -
+				  prWifiVar->ucB3CUFactorScore2) * 100 /
+				 (prWifiVar->ucB3CUFactorVal2 -
+				  prWifiVar->ucB3CUFactorVal1) *
+				 (u4CuRatio -
+				  prWifiVar->ucB3CUFactorVal1) / 100);
 		else
 			u4CUFactor = prWifiVar->ucB3CUFactorScore2;
 #endif
@@ -255,6 +326,7 @@ uint32_t apsCalculateApScore(
 {
 	uint32_t u4Score = 0;
 	uint8_t fgIsGBandCoex = FALSE;
+	struct WIFI_VAR *prWifiVar = &ad->rWifiVar;
 
 	uint32_t u4RssiFactor;
 	uint32_t u4CUFactor;
@@ -275,7 +347,7 @@ uint32_t apsCalculateApScore(
 
 	DBGLOG(APS, INFO,
 		"BSS[" MACSTR
-		"] Score:%d RSSIFactor[%d] CUFactor[%d] Band[%s] GBandCoex[%d] RSSI[%d] CU[%d]\n",
+		"] Score:%d RSSIFactor[%d] CUFactor[%d] Band[%s] GBandCoex[%d] RSSI[%d] CU[%d] DefaultCU[%d/%d/%d]\n",
 		MAC2STR(bss->aucBSSID),
 		u4Score,
 		u4RssiFactor,
@@ -283,7 +355,10 @@ uint32_t apsCalculateApScore(
 		apucBandStr[bss->eBand],
 		fgIsGBandCoex,
 		RCPI_TO_dBm(bss->ucRCPI),
-		PERCENTAGE(bss->ucChnlUtilization, 255));
+		PERCENTAGE(bss->ucChnlUtilization, 255),
+		prWifiVar->ucRCU24DefaultCU,
+		prWifiVar->ucRCU5DefaultCU,
+		prWifiVar->ucRCU6DefaultCU);
 
 	return u4Score;
 }
@@ -294,8 +369,10 @@ uint8_t apsIsGoodRCPI(struct ADAPTER *ad,
 	uint8_t bidx)
 {
 	struct BSS_INFO *prAisBssInfo;
+	struct BSS_TRANSITION_MGT_PARAM *prBtmParam;
 
 	prAisBssInfo = aisGetAisBssInfo(ad, bidx);
+	prBtmParam = aisGetBTMParam(ad, bidx);
 
 	/* check min RCPI */
 	if ((prAisBssInfo->eConnectionState == MEDIA_STATE_CONNECTED ||
@@ -325,6 +402,19 @@ uint8_t apsIsGoodRCPI(struct ADAPTER *ad,
 					MACSTR " BTCoex low rssi %d < %d\n",
 					MAC2STR(bss->aucBSSID),
 					r2, ad->rWifiVar.ucRBTCDelta);
+				return FALSE;
+			}
+			break;
+		}
+		case ROAMING_REASON_BTM:
+		{
+			if ((prBtmParam->ucRequestMode &
+				WNM_BSS_TM_REQ_DISASSOC_IMMINENT) &&
+			    (r2 < BTM_MIN_RSSI)) {
+				DBGLOG(APS, WARN,
+					MACSTR " BTM low rssi %d < %d\n",
+					MAC2STR(bss->aucBSSID),
+					r2, BTM_MIN_RSSI);
 				return FALSE;
 			}
 			break;
@@ -367,10 +457,15 @@ uint8_t apsIsBssQualify(struct ADAPTER *ad, struct BSS_DESC *bss,
 	uint32_t u4CandidateApScore, uint8_t bidx)
 {
 	struct WIFI_VAR *prWifiVar = &ad->rWifiVar;
-	uint32_t u4Delta;
+	uint32_t u4MinRoamDelta = 0;
+	uint8_t ucDelta = 0;
+	struct ROAMING_INFO *prRoamingFsmInfo = aisGetRoamingInfo(ad, bidx);
 
 	if (!apsIsGoodRCPI(ad, bss, eRoamReason, bidx))
 		return FALSE;
+
+	if (ad->rNchoInfo.fgNCHOEnabled)
+		return TRUE;
 
 	/* check min score */
 	switch (eRoamReason) {
@@ -383,28 +478,35 @@ uint8_t apsIsBssQualify(struct ADAPTER *ad, struct BSS_DESC *bss,
 		/* Minimum Roam Delta
 		 * Absolute score value comparing to current AP
 		 */
-		u4Delta = prWifiVar->ucRCMinRoamDelta * 100;
+		if (prRoamingFsmInfo->fgIsAggressive)
+			u4MinRoamDelta = prWifiVar->ucAggRCMinRoamDelta * 100;
+		else
+			u4MinRoamDelta = prWifiVar->ucRCMinRoamDelta * 100;
 		if (u4CandidateApScore <
-			(u4ConnectedApScore + u4Delta)) {
+			(u4ConnectedApScore + u4MinRoamDelta)) {
 			DBGLOG(APS, WARN, "BSS[" MACSTR
 				"] (%d < %d+%d) reason=%d\n",
 				MAC2STR(bss->aucBSSID),
 				u4CandidateApScore, u4ConnectedApScore,
-				u4Delta, eRoamReason);
+				u4MinRoamDelta, eRoamReason);
 			return FALSE;
 		}
 
 		/* Roam Delta
 		 * Score percent comparing to current AP
 		 */
+		 if (prRoamingFsmInfo->fgIsAggressive)
+			ucDelta = prWifiVar->ucAggRCDelta;
+		else
+			ucDelta = prWifiVar->ucRCDelta;
 		if ((((u4CandidateApScore - u4ConnectedApScore) * 100) /
 			((u4CandidateApScore + u4ConnectedApScore) / 2)) <
-			prWifiVar->ucRCDelta) {
+			ucDelta) {
 			DBGLOG(APS, WARN, "BSS[" MACSTR
 				"] (Cand=%d,Curr=%d,delta=%d) reason=%d\n",
 				MAC2STR(bss->aucBSSID),
 				u4CandidateApScore, u4ConnectedApScore,
-				prWifiVar->ucRCDelta, eRoamReason);
+				ucDelta, eRoamReason);
 			return FALSE;
 		}
 		break;
@@ -622,7 +724,7 @@ uint32_t assocCalculateRoamReasonLen(
 
 	ucBssIndex = prStaRec->ucBssIndex;
 	prAisSpecificBssInfo = aisGetAisSpecBssInfo(prAdapter, ucBssIndex);
-	if (IS_STA_IN_AIS(prAdapter, prStaRec) && prStaRec->fgIsReAssoc &&
+	if (IS_STA_IN_AIS(prStaRec) && prStaRec->fgIsReAssoc &&
 	    prAisSpecificBssInfo->fgRoamingReasonEnable)
 		return sizeof(struct IE_ASSURANCE_ROAMING_REASON);
 
@@ -653,7 +755,7 @@ void assocGenerateRoamReason(
 	prRoamingFsmInfo = aisGetRoamingInfo(prAdapter, ucBssIndex);
 	prAisBssInfo = aisGetAisBssInfo(prAdapter, ucBssIndex);
 
-	if (IS_STA_IN_AIS(prAdapter, prStaRec) && prStaRec->fgIsReAssoc &&
+	if (IS_STA_IN_AIS(prStaRec) && prStaRec->fgIsReAssoc &&
 	    prAisSpecificBssInfo->fgRoamingReasonEnable) {
 		struct IE_ASSURANCE_ROAMING_REASON *ie =
 			(struct IE_ASSURANCE_ROAMING_REASON *) pucBuffer;
@@ -719,7 +821,7 @@ wlanoidSetDisconnectIes(struct ADAPTER *prAdapter,
 		prAdapter->u4DeauthIeFromUpperLength = u4SetBufferLen;
 		kalMemCopy(prAdapter->aucDeauthIeFromUpper,
 			pvSetBuffer, u4SetBufferLen);
-		DBGLOG_MEM8(REQ, DEBUG, (uint8_t *)
+		DBGLOG_MEM8(REQ, INFO, (uint8_t *)
 			prAdapter->aucDeauthIeFromUpper, u4SetBufferLen);
 		rStatus = WLAN_STATUS_SUCCESS;
 	}
@@ -1809,7 +1911,7 @@ wlanoidSetNchoBand(struct ADAPTER *prAdapter,
 	}
 	prAdapter->rNchoInfo.eCongfigBand = *pParam;
 
-	DBGLOG(INIT, DEBUG, "NCHO enabled:%d ,band:%d,status:%d\n"
+	DBGLOG(INIT, INFO, "NCHO enabled:%d ,band:%d,status:%d\n"
 	       , prAdapter->rNchoInfo.fgNCHOEnabled, *pParam, rStatus);
 
 	/* Execute disconnect process if current band is not equal to config */
@@ -1964,7 +2066,7 @@ wlanoidSetNchoEnable(struct ADAPTER *prAdapter,
 	if (rStatus == WLAN_STATUS_SUCCESS) {
 		wlanNchoInit(prAdapter, FALSE);
 		prAdapter->rNchoInfo.fgNCHOEnabled = *pParam;
-		DBGLOG(INIT, DEBUG, "NCHO enable is %d\n", *pParam);
+		DBGLOG(INIT, INFO, "NCHO enable is %d\n", *pParam);
 
 #if (CFG_SUPPORT_CONN_LOG == 1)
 		kalSprintf(aucLog, "[NCHO] MODE enable=%d", *pParam);
@@ -2183,7 +2285,7 @@ wlanoidSetRoamTrigger(
 	rStatus = wlanSetFWRssiTrigger(prAdapter,
 		FW_CFG_KEY_ROAM_RCPI, *pi4Param);
 	if (rStatus == WLAN_STATUS_SUCCESS)
-		DBGLOG(INIT, DEBUG, "roam trigger is %d\n", *pi4Param);
+		DBGLOG(INIT, INFO, "roam trigger is %d\n", *pi4Param);
 
 	return rStatus;
 }
@@ -2290,7 +2392,7 @@ void aisFsmNotifyManageChannelList(
 	ais = aisGetAisSpecBssInfo(prAdapter, ucBssIndex);
 	conn = aisGetConnSettings(prAdapter, ucBssIndex);
 
-	essChnlNum = kal_min_t(uint8_t, ais->ucCurEssChnlInfoNum, 30);
+	essChnlNum = KAL_MIN((int)ais->ucCurEssChnlInfoNum, 30);
 	size = sizeof(struct PARAM_MANAGE_CHANNEL_LIST) +
 		essChnlNum * sizeof(uint32_t);
 	list = kalMemAlloc(size, VIR_MEM_TYPE);
@@ -2485,7 +2587,7 @@ void wnmWtcCheckDiconnect(
 		return;
 	}
 
-	/* Check if we nned to disconnect under WTC mode*/
+	/* Check if we need to disconnect under WTC mode*/
 	if (prBtmParam->ucIsCisco && prBtmParam->ucVsieReasonCode == 0x00) {
 		DBGLOG(WNM, WARN, "BTM: WTC disconnect directly\n");
 		/* TODO: the disassociation frame reason code must be set to 0X0C */
@@ -2580,7 +2682,7 @@ uint32_t wlanSetEssBandBitmap(
 	if (status != WLAN_STATUS_SUCCESS)
 		DBGLOG(INIT, WARN, "set Ess band bitmap fail %d\n", status);
 	else
-		DBGLOG(INIT, DEBUG, "set Ess band bitmap success [%d]\n",
+		DBGLOG(INIT, INFO, "set Ess band bitmap success [%d]\n",
 				   ucEssBandBitMap);
 
 	return status;
@@ -2591,6 +2693,7 @@ void roamingFsmSetSingleScanCadence(struct ADAPTER *prAdapter,
 {
 	struct ROAMING_INFO *prRoamingInfo = NULL;
 	struct ROAMING_SCAN_CADENCE *prScanCadence = NULL;
+	struct WIFI_VAR *prWifiVar = &prAdapter->rWifiVar;
 
 	prRoamingInfo = aisGetRoamingInfo(prAdapter, ucBssIndex);
 	if (!prRoamingInfo)
@@ -2605,7 +2708,8 @@ void roamingFsmSetSingleScanCadence(struct ADAPTER *prAdapter,
 		/* <1> Adjust RSSI/CU condition by FW, driver do nothing */
 		/* <2> Configure a scan timer #1 */
 		prScanCadence->ucScanSource = ROAMING_SCAN_SINGLE_TIMER;
-		prScanCadence->u4ScanScheduleSec = SEC_TO_MSEC(10);
+		prScanCadence->u4ScanScheduleSec =
+			SEC_TO_MSEC(prWifiVar->ucRSFirstTimer);
 		break;
 	}
 	case ROAMING_REASON_SCAN_SINGLE_TIMER:
@@ -2614,7 +2718,11 @@ void roamingFsmSetSingleScanCadence(struct ADAPTER *prAdapter,
 			/* <2> Configure a inactive timer */
 			prScanCadence->ucScanSource =
 					ROAMING_SCAN_INACTIVE_TIMER;
-			prScanCadence->u4ScanScheduleSec = SEC_TO_MSEC(10);
+			prScanCadence->u4ScanScheduleSec =
+				SEC_TO_MSEC(prWifiVar->ucRSInactiveTimer);
+			prScanCadence->ulLastTxPackets = 0;
+			prScanCadence->ulLastRxPackets = 0;
+			GET_BOOT_SYSTIME(&prScanCadence->rLastCheckTime);
 			break;
 		}
 		return;
@@ -2638,6 +2746,70 @@ void roamingFsmSetSingleScanCadence(struct ADAPTER *prAdapter,
 	cnmTimerStartTimer(prAdapter,
 			   &prScanCadence->rScanTimer,
 			   prScanCadence->u4ScanScheduleSec);
+}
+
+void roamingFsmInactiveMonitor(struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex)
+{
+	struct net_device *ndev = NULL;
+	struct GLUE_INFO *glue = prAdapter->prGlueInfo;
+	struct ROAMING_INFO *prRoamingInfo = NULL;
+	struct ROAMING_SCAN_CADENCE *prScanCadence = NULL;
+	unsigned long currentTxPkts, currentRxPkts, totalDiffPkts;
+	OS_SYSTIME rCurrentTime, rPeriod;
+
+	if (!IS_BSS_INDEX_AIS(prAdapter, ucBssIndex))
+		return;
+
+	GET_BOOT_SYSTIME(&rCurrentTime);
+	GLUE_SPIN_LOCK_DECLARATION();
+
+	ndev = wlanGetNetInterfaceByBssIdx(prAdapter->prGlueInfo, ucBssIndex);
+	prRoamingInfo = aisGetRoamingInfo(prAdapter, ucBssIndex);
+	prScanCadence = &prRoamingInfo->rScanCadence;
+
+	if (prScanCadence->ucScanSource != ROAMING_SCAN_INACTIVE_TIMER ||
+	    !timerPendingTimer(&prScanCadence->rScanTimer) ||
+	    !CHECK_FOR_TIMEOUT(rCurrentTime, prScanCadence->rLastCheckTime,
+			MSEC_TO_SYSTIME(INACTIVE_MONITOR_INTERVAL)))
+		return;
+
+	rPeriod = rCurrentTime - prScanCadence->rLastCheckTime;
+	prScanCadence->rLastCheckTime = rCurrentTime;
+
+	GLUE_ACQUIRE_SPIN_LOCK(glue, SPIN_LOCK_NET_DEV);
+
+	if (ndev) {
+		currentTxPkts = ndev->stats.tx_packets;
+		currentRxPkts = ndev->stats.rx_packets;
+	} else {
+		currentTxPkts = prScanCadence->ulLastTxPackets;
+		currentRxPkts = prScanCadence->ulLastRxPackets;
+	}
+
+	GLUE_RELEASE_SPIN_LOCK(glue, SPIN_LOCK_NET_DEV);
+
+	totalDiffPkts = (currentTxPkts - prScanCadence->ulLastTxPackets) +
+			(currentRxPkts - prScanCadence->ulLastRxPackets);
+
+	prScanCadence->ulLastTxPackets = currentTxPkts;
+	prScanCadence->ulLastRxPackets = currentRxPkts;
+
+	DBGLOG(ROAMING, INFO,
+		"Check inactive scan timer, bssIndex[%d] total diff packet[%lu] period[%u]\n",
+		ucBssIndex, totalDiffPkts, rPeriod);
+
+	if (totalDiffPkts >= prAdapter->rWifiVar.ucRSInactiveCount *
+		 				MSEC_TO_SEC(rPeriod)) {
+
+		/* <3> Re-start scan timer */
+		cnmTimerStopTimer(prAdapter,
+				  &prScanCadence->rScanTimer);
+
+		cnmTimerStartTimer(prAdapter,
+				   &prScanCadence->rScanTimer,
+				   prScanCadence->u4ScanScheduleSec);
+	}
 }
 
 void roamingFsmRunScanTimerTimeout(struct ADAPTER *prAdapter,
@@ -2666,7 +2838,6 @@ void roamingFsmRunScanTimerTimeout(struct ADAPTER *prAdapter,
 	rRoamingData.eReason =
 	    prScanCadence->ucScanSource == ROAMING_SCAN_SINGLE_TIMER ?
 	    ROAMING_REASON_SCAN_SINGLE_TIMER : ROAMING_REASON_INACTIVE_TIMER;
-
 	rRoamingData.u2Data = prBssDesc->ucRCPI;
 	rRoamingData.u2RcpiLowThreshold = prRoamingFsmInfo->ucThreshold;
 	rRoamingData.ucBssidx = ucBssIndex;
@@ -2789,5 +2960,223 @@ void roamingDumpConfig(struct ADAPTER *prAdapter,
 		   prWifiVar->ucB3CUFactorScore1,
 		   prWifiVar->ucB3CUFactorScore2);
 #undef TEMP_LOG_TEMPLATE
+}
+
+struct AIS_EXT_INFO *aisGetAisExtInfo(struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex)
+{
+	return &aisGetAisFsmInfo(prAdapter, ucBssIndex)->rAisExtInfo;
+}
+
+void aisInitAisExtInfo(struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex)
+{
+	struct AIS_EXT_INFO *prAisExtInfo =
+		aisGetAisExtInfo(prAdapter, ucBssIndex);
+
+	prAisExtInfo->u2ConnectedCount = 0;
+
+	kalMemZero(&prAisExtInfo->rBssInfoBackup,
+		   sizeof(prAisExtInfo->rBssInfoBackup));
+}
+
+void aisExtInfoDisconnectedAction(struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex)
+{
+	struct AIS_EXT_INFO *prAisExtInfo =
+		aisGetAisExtInfo(prAdapter, ucBssIndex);
+	struct AIS_FSM_INFO *prAisFsmInfo =
+		aisGetAisFsmInfo(prAdapter, ucBssIndex);
+	char aucCmd[30] = {0};
+	char *pucBuf = aucCmd;
+	int32_t i4WrittenByte = 0;
+	uint32_t status = WLAN_STATUS_FAILURE;
+
+#if CFG_SUPPORT_NCHO
+	wlanNchoInit(prAdapter, TRUE);
+	aisFsmNotifyManageChannelList(prAdapter, ucBssIndex);
+#endif
+
+#if CFG_SUPPORT_LLW_SCAN
+	prAisFsmInfo->ucLatencyCrtDataMode = 0;
+	prAisFsmInfo->ucDfsChDwellTimeMs = 0;
+	prAisFsmInfo->ucNonDfsChDwellTimeMs = 0;
+	prAisFsmInfo->u2OpChStayTimeMs = 0;
+	prAisFsmInfo->ucPerScanChannelCnt = 0;
+#endif
+
+#if (CFG_EXT_ROAMING_WTC == 1)
+	wlanWtcModeInit(prAdapter);
+#endif
+
+	prAisExtInfo->u2ConnectedCount = 0;
+	/* Reset AgingPeriod */
+	LOGBUF(pucBuf, sizeof(aucCmd), i4WrittenByte,
+		"%s %d", "AgingPeriod", AIS_DEFAULT_AGING_PERIOD);
+	status = wlanFwCfgParse(prAdapter, pucBuf);
+	if (status != WLAN_STATUS_SUCCESS)
+		DBGLOG(AIS, WARN, "Reset AgingPeriod fail %d\n", status);
+}
+
+void aisFsmBackupBssInfo(struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex)
+{
+	struct GLUE_INFO *prGlueInfo = prAdapter->prGlueInfo;
+	struct AIS_FSM_INFO *prAisFsmInfo =
+		aisGetAisFsmInfo(prAdapter, ucBssIndex);
+	struct AIS_EXT_INFO *prAisExtInfo =
+		aisGetAisExtInfo(prAdapter, ucBssIndex);
+	struct BSS_INFO *prBssInfo = aisGetAisBssInfo(prAdapter, ucBssIndex);
+	struct BSS_DESC *prBssDesc = aisGetTargetBssDesc(prAdapter, ucBssIndex);
+	struct STA_RECORD *prStaRec = aisGetStaRecOfAP(prAdapter, ucBssIndex);
+
+	if (!prAisFsmInfo || !prBssInfo || !prBssDesc || !prStaRec) {
+		DBGLOG(AIS, WARN, "Status error: %p, %p, %p, %p",
+			prAisFsmInfo, prBssInfo, prBssDesc, prStaRec);
+		return;
+	}
+
+#ifndef AUTH_ALGORITHM_NUM_FAST_BSS_TRANSITION
+#define AUTH_ALGORITHM_NUM_FAST_BSS_TRANSITION	2
+#endif
+#ifndef AUTH_TYPE_FAST_BSS_TRANSITION
+#define AUTH_TYPE_FAST_BSS_TRANSITION \
+		BIT(AUTH_ALGORITHM_NUM_FAST_BSS_TRANSITION)
+#endif
+
+	/* OUI */
+	prAisExtInfo->rBssInfoBackup.OUI[0] = prBssInfo->aucBSSID[0];
+	prAisExtInfo->rBssInfoBackup.OUI[1] = prBssInfo->aucBSSID[1];
+	prAisExtInfo->rBssInfoBackup.OUI[2] = prBssInfo->aucBSSID[2];
+
+	/* Channel ex 2412 */
+	prAisExtInfo->rBssInfoBackup.channel_freq =
+		nicChannelNum2Freq(prBssInfo->ucPrimaryChannel,
+				   prBssInfo->eBand) / 1000;
+
+	/* BW */
+	if (IS_BSS_AIS(prBssInfo)) {
+		if (prBssInfo->eBssSCO == CHNL_EXT_SCN) {
+			prAisExtInfo->rBssInfoBackup.channel_bw = 20;
+		} else if (prBssInfo->eBssSCO != CHNL_EXT_SCN) {
+			switch (prBssInfo->ucVhtChannelWidth) {
+			case CW_20_40MHZ:
+				prAisExtInfo->rBssInfoBackup.channel_bw = 40;
+				break;
+			case CW_80MHZ:
+				prAisExtInfo->rBssInfoBackup.channel_bw = 80;
+				break;
+			case CW_160MHZ:
+				prAisExtInfo->rBssInfoBackup.channel_bw = 160;
+				break;
+			case CW_80P80MHZ:
+				prAisExtInfo->rBssInfoBackup.channel_bw = 160;
+				break;
+			case CW_320_1MHZ:
+				prAisExtInfo->rBssInfoBackup.channel_bw = 320;
+				break;
+			case CW_320_2MHZ:
+				prAisExtInfo->rBssInfoBackup.channel_bw = 320;
+				break;
+			}
+		}
+	}
+
+	/* RSSI */
+	prAisExtInfo->rBssInfoBackup.rssi = prGlueInfo->i4RssiCache[ucBssIndex];
+
+	/* Data rate */
+	if (prAisFsmInfo->ucReasonOfDisconnect !=
+				DISCONNECT_REASON_CODE_LOCALLY) {
+		prAisExtInfo->rBssInfoBackup.datarate =
+			prGlueInfo->u4TxLinkSpeedCache[ucBssIndex];
+	}
+
+	/* 802.11 mode */
+	if (prBssInfo->ucPhyTypeSet & PHY_TYPE_SET_802_11BE)
+		prAisExtInfo->rBssInfoBackup.phy_mode = 6;
+	else if (prBssInfo->ucPhyTypeSet & PHY_TYPE_SET_802_11AX)
+		prAisExtInfo->rBssInfoBackup.phy_mode = 5;
+	else if (prBssInfo->ucPhyTypeSet & PHY_TYPE_SET_802_11AC)
+		prAisExtInfo->rBssInfoBackup.phy_mode = 4;
+	else if (prBssInfo->ucPhyTypeSet & PHY_TYPE_SET_802_11A)
+		prAisExtInfo->rBssInfoBackup.phy_mode = 3;
+	else if (prBssInfo->ucPhyTypeSet & PHY_TYPE_SET_802_11N)
+		prAisExtInfo->rBssInfoBackup.phy_mode = 2;
+	else if (prBssInfo->ucPhyTypeSet & PHY_TYPE_SET_802_11G)
+		prAisExtInfo->rBssInfoBackup.phy_mode = 1;
+	else if (prBssInfo->ucPhyTypeSet & PHY_TYPE_SET_802_11B)
+		prAisExtInfo->rBssInfoBackup.phy_mode = 0;
+
+	/* Antenna mode */
+	prAisExtInfo->rBssInfoBackup.ant_mode = prBssInfo->ucOpTxNss - 1;
+
+	/* AKM */
+	if (prBssInfo->u4RsnSelectedAKMSuite == RSN_AKM_SUITE_FT_OVER_SAE)
+		prAisExtInfo->rBssInfoBackup.AKM = 5;
+	else if (prBssDesc->ucIsAdaptive11r)
+		prAisExtInfo->rBssInfoBackup.AKM = 4;
+	else if (prAisFsmInfo->ucAvailableAuthTypes ==
+			AUTH_TYPE_FAST_BSS_TRANSITION)
+		prAisExtInfo->rBssInfoBackup.AKM = 2;
+	else if (rsnSearchPmkidEntry(prAdapter,
+			prBssDesc->aucBSSID, ucBssIndex))
+		prAisExtInfo->rBssInfoBackup.AKM = 1;
+	else
+		prAisExtInfo->rBssInfoBackup.AKM = 0;
+
+	/* Roaming */
+	prAisExtInfo->rBssInfoBackup.Roaming_count =
+		prAisExtInfo->u2ConnectedCount;
+
+	/* 11K */
+	if (prBssDesc->aucRrmCap[0] & BIT(RRM_CAP_INFO_NEIGHBOR_REPORT_BIT))
+		prAisExtInfo->rBssInfoBackup.KV |= BIT(0);
+	/* 11V */
+#if (CFG_EXT_VERSION == 1)
+	if (prStaRec->fgSupportBTM)
+#else
+	if (prBssDesc->fgSupportBTM)
+#endif
+		prAisExtInfo->rBssInfoBackup.KV |= BIT(1);
+
+	/* KEIE supported */
+	if (*(uint32_t *)prBssDesc->aucRrmCap &
+		    BIT(RRM_CAP_INFO_CHANNEL_LOAD_MEASURE_BIT))
+		prAisExtInfo->rBssInfoBackup.KVIE |= BIT(0);
+	if (prStaRec->fgSupportProxyARP)
+		prAisExtInfo->rBssInfoBackup.KVIE |= BIT(1);
+	if (prStaRec->fgSupportTFS)
+		prAisExtInfo->rBssInfoBackup.KVIE |= BIT(2);
+	if (prStaRec->fgSupportWNMSleep)
+		prAisExtInfo->rBssInfoBackup.KVIE |= BIT(3);
+	if (prStaRec->fgSupportTIMBcast)
+		prAisExtInfo->rBssInfoBackup.KVIE |= BIT(4);
+#if (CFG_EXT_VERSION == 1)
+	if (prStaRec->fgSupportBTM)
+#else
+	if (prBssDesc->fgSupportBTM)
+#endif
+		prAisExtInfo->rBssInfoBackup.KVIE |= BIT(5);
+	if (prStaRec->fgSupportDMS)
+		prAisExtInfo->rBssInfoBackup.KVIE |= BIT(6);
+	if (*(uint32_t *)prBssDesc->aucRrmCap &
+		    BIT(RRM_CAP_INFO_LINK_MEASURE_BIT))
+		prAisExtInfo->rBssInfoBackup.KVIE |= BIT(7);
+	if (*(uint32_t *)prBssDesc->aucRrmCap &
+		    BIT(RRM_CAP_INFO_NEIGHBOR_REPORT_BIT))
+		prAisExtInfo->rBssInfoBackup.KVIE |= BIT(8);
+	if (*(uint32_t *)prBssDesc->aucRrmCap &
+		    BIT(RRM_CAP_INFO_BEACON_PASSIVE_MEASURE_BIT))
+		prAisExtInfo->rBssInfoBackup.KVIE |= BIT(9);
+	if (*(uint32_t *)prBssDesc->aucRrmCap &
+		    BIT(RRM_CAP_INFO_BEACON_ACTIVE_MEASURE_BIT))
+		prAisExtInfo->rBssInfoBackup.KVIE |= BIT(10);
+	if (*(uint32_t *)prBssDesc->aucRrmCap &
+		    BIT(RRM_CAP_INFO_BEACON_TABLE_BIT))
+		prAisExtInfo->rBssInfoBackup.KVIE |= BIT(11);
+	if (*(uint32_t *)prBssDesc->aucRrmCap &
+		    BIT(RRM_CAP_INFO_BSS_AVG_DELAY_BIT))
+		prAisExtInfo->rBssInfoBackup.KVIE |= BIT(12);
 }
 

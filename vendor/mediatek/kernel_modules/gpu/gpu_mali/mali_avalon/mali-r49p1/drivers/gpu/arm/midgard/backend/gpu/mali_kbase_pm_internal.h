@@ -1008,8 +1008,24 @@ static inline bool kbase_pm_gpu_sleep_allowed(struct kbase_device *kbdev)
  */
 static inline bool kbase_pm_fw_sleep_on_idle_allowed(struct kbase_device *kbdev)
 {
+#if IS_ENABLED(CONFIG_MALI_MTK_ADAPTIVE_POWER_POLICY)
+	unsigned long long api_boost_interval_ns = 0;
+#endif
 	if (unlikely(kbdev->dev->power.autosuspend_delay <= 0))
 		return false;
+
+#if IS_ENABLED(CONFIG_MALI_MTK_ADAPTIVE_POWER_POLICY)
+	if (unlikely((int) ged_get_apo_autosuspend_delay_ms() == 0))
+		return false;
+
+	if (unlikely(get_api_sync_flag() == 1))
+		return false;
+
+	api_boost_interval_ns = ged_get_api_boost_interval();
+	if (unlikely(api_boost_interval_ns > 0 &&
+				api_boost_interval_ns < ged_get_apo_thr_ns()))
+		return false;
+#endif
 
 	return kbdev->pm.backend.gpu_sleep_allowed == KBASE_GPU_FW_SLEEP_ON_IDLE_ALLOWED;
 }

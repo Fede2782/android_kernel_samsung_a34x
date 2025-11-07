@@ -12,6 +12,7 @@
 #include <linux/pinctrl/consumer.h>
 
 #include "kd_imgsensor_define_v4l2.h"
+#include "kd_imgsensor.h"
 #include "adaptor.h"
 #include "adaptor-hw.h"
 #include "adaptor-profile.h"
@@ -31,6 +32,10 @@ static DEFINE_MUTEX(PmicMutex);
 		__ctx->hw_ops[__hw_id].data = (void *)__idx; \
 	} \
 } while (0)
+
+static const char * const hw_id_names[] = {
+	HW_ID_NAMES
+};
 
 static const char * const clk_names[] = {
 	ADAPTOR_CLK_NAMES
@@ -220,17 +225,21 @@ static int set_reg(struct adaptor_ctx *ctx, void *data, const struct subdrv_pw_v
 		max_v = min_v;
 	}
 
-	adaptor_logm(ctx, "+ idx(%llu),val_min-max(%d-%d)\n", idx, min_v, max_v);
-	ret = regulator_set_voltage(reg, min_v, max_v);
-	if (ret) {
-		adaptor_loge(ctx,
-			"regulator_set_voltage(%s),val_min-max(%d-%d),ret(%d)(fail)\n",
-			reg_names[idx], min_v, max_v, ret);
-	} else {
-		adaptor_logm(ctx,
-			"regulator_set_voltage(%s),val_min-max(%d-%d),ret(%d)(correct)\n",
-			reg_names[idx], min_v, max_v, ret);
+	/* if min and max are 0, skip */
+	if (min_v || max_v) {
+		adaptor_logm(ctx, "+ idx(%llu),val_min-max(%d-%d)\n", idx, min_v, max_v);
+		ret = regulator_set_voltage(reg, min_v, max_v);
+		if (ret) {
+			adaptor_loge(ctx,
+				"regulator_set_voltage(%s),val_min-max(%d-%d),ret(%d)(fail)\n",
+				reg_names[idx], min_v, max_v, ret);
+		} else {
+			adaptor_logm(ctx,
+				"regulator_set_voltage(%s),val_min-max(%d-%d),ret(%d)(correct)\n",
+				reg_names[idx], min_v, max_v, ret);
+		}
 	}
+
 	ret = regulator_enable(reg);
 	if (ret) {
 		adaptor_loge(ctx,
@@ -605,10 +614,6 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 		ADAPTOR_PROFILE_END(&tv);
 
 		{
-			static const char * const hw_id_names[] = {
-				HW_ID_NAMES
-			};
-
 			if (ent->id >= 0 && ent->id < ARRAY_SIZE(hw_id_names)) {
 				adaptor_log_buf_gather(ctx, __func__, &buf, "[%s:%lldus]",
 						hw_id_names[ent->id],
@@ -623,14 +628,23 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 		adaptor_logm(ctx, "set comp %d para (%d,%d)\n",
 			ent->id, ent->val.para1, ent->val.para2);
 
-		if (ent->delay)
-			udelay(ent->delay);
+		/* delay before operation */
+		if (ent->delay) {
+			if (ent->id == HW_ID_MCLK_DRIVING_CURRENT)
+				adaptor_logd(ctx, "power on[%s](%d mA), delay:%d ms\n", hw_id_names[ent->id], ent->val.para1, ent->delay / 1000);
+			else if (ent->id == HW_ID_MCLK)
+				adaptor_logd(ctx, "power on[%s](%d MHz), delay:%d ms\n", hw_id_names[ent->id], ent->val.para1, ent->delay / 1000);
+			else
+				adaptor_logd(ctx, "power on[%s], val:%d, delay:%d ms\n", hw_id_names[ent->id], ent->val.para1, ent->delay / 1000);
+
+			uDELAY(ent->delay);
+		}
+
 	}
 
-	if ((subctx->power_on_profile_en != NULL) &&
-		(*subctx->power_on_profile_en)) {
-		subctx->sensor_pw_on_profile.hw_power_on_period =
-			ktime_get_boottime_ns() - time_boot_begin;
+	if ((subctx->power_on_profile_en != NULL) && (*subctx->power_on_profile_en)) {
+		subctx->sensor_pw_on_profile.hw_power_on_period = ktime_get_boottime_ns() - time_boot_begin;
+		adaptor_logi(ctx, "[profile] sensor power on:%llu ms\n", (subctx->sensor_pw_on_profile.hw_power_on_period / 1000 / 1000));
 	}
 
 	if (ctx->subdrv->ops->power_on)
@@ -679,6 +693,10 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 	if (ctx->subctx.is_streaming)
 		subdrv_call(ctx, close);
 
+	/* spec >1ms, mipi finish ~ power off */
+	mDELAY(1);
+	adaptor_logd(ctx, "delay before reset: 1 ms\n");
+
 	if (ctx->subctx.s_ctx.mode &&
 		ctx->subctx.s_ctx.mode[ctx->subctx.current_scenario_id].rosc_mode) {
 		for (i = 0; i < ctx->mclk_refcnt; i++) {
@@ -710,6 +728,19 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 		op = &ctx->hw_ops[ent->id];
 		if (!op->unset)
 			continue;
+
+		/* delay before operation */
+		if (ent->delay) {
+			if (ent->id == HW_ID_MCLK_DRIVING_CURRENT)
+				adaptor_logd(ctx, "power off[%s](%d mA), delay:%d ms\n", hw_id_names[ent->id], ent->val.para1, ent->delay / 1000);
+			else if (ent->id == HW_ID_MCLK)
+				adaptor_logd(ctx, "power off[%s](%d MHz), delay:%d ms\n", hw_id_names[ent->id], ent->val.para1, ent->delay / 1000);
+			else
+				adaptor_logd(ctx, "power off[%s], val:%d, delay:%d ms\n", hw_id_names[ent->id], ent->val.para1, ent->delay / 1000);
+
+			uDELAY(ent->delay);
+		}
+
 		op->unset(ctx, op->data, &ent->val);
 		//msleep(ent->delay);
 	}

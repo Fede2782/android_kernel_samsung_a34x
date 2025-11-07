@@ -89,6 +89,8 @@ void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc, unsigned int pixclk,
 			const char *caller);
 unsigned long mtk_drm_get_freq(struct drm_crtc *crtc, const char *caller);
 unsigned long mtk_drm_get_mmclk(struct drm_crtc *crtc, const char *caller);
+void mtk_drm_check_mmclk(void);
+
 unsigned int mtk_disp_get_larb_hrt_bw(struct mtk_drm_crtc *mtk_crtc);
 void mtk_disp_update_channel_hrt_MT6991(struct mtk_drm_crtc *mtk_crtc,
 						unsigned int bw_base, unsigned int channel_bw[]);

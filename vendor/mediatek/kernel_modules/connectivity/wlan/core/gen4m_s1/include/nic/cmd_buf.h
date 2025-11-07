@@ -115,6 +115,8 @@ struct CMD_INFO {
 	void *prPacket;	/* only valid when it's a security frame */
 
 	PFN_CMD_DONE_HANDLER pfCmdDoneHandler;
+	const char *pCmdDoneHandlerStr;
+
 	PFN_CMD_TIMEOUT_HANDLER pfCmdTimeoutHandler;
 	PFN_HIF_TX_CMD_DONE_CB pfHifTxCmdDoneCb;
 
@@ -181,27 +183,93 @@ void cmdBufFreeCmdInfo(IN struct ADAPTER *prAdapter,
 /*----------------------------------------------------------------------------*/
 /* Routines for CMDs                                                          */
 /*----------------------------------------------------------------------------*/
+#define wlanSendSetQueryCmd(_prAdapter, \
+		    _ucCID, \
+		    _fgSetQuery, \
+		    _fgNeedResp, \
+		    _fgIsOid, \
+		    _pfCmdDoneHandler, \
+		    _pfCmdTimeoutHandler, \
+		    _u4SetQueryInfoLen, \
+		    _pucInfoBuffer, \
+		    _pvSetQueryBuffer, \
+		    _u4SetQueryBufferLen) \
+({ \
+	uint32_t u4Status; \
+	WLAN_STATIC_CMD_DONE_HANDLER_CHECK(_pfCmdDoneHandler); \
+	u4Status = __wlanSendSetQueryCmd(_prAdapter, \
+			    _ucCID, \
+			    _fgSetQuery, \
+			    _fgNeedResp, \
+			    _fgIsOid, \
+			    _pfCmdDoneHandler, \
+			    #_pfCmdDoneHandler, \
+			    _pfCmdTimeoutHandler, \
+			    _u4SetQueryInfoLen, \
+			    _pucInfoBuffer, \
+			    _pvSetQueryBuffer, \
+			    _u4SetQueryBufferLen); \
+	u4Status; \
+})
+
+
+
+
 uint32_t
-wlanSendSetQueryCmd(IN struct ADAPTER *prAdapter,
+__wlanSendSetQueryCmd(IN struct ADAPTER *prAdapter,
 		    uint8_t ucCID,
 		    u_int8_t fgSetQuery,
 		    u_int8_t fgNeedResp,
 		    u_int8_t fgIsOid,
 		    PFN_CMD_DONE_HANDLER pfCmdDoneHandler,
+		    const char *pCmdDoneHandlerStr,
 		    PFN_CMD_TIMEOUT_HANDLER pfCmdTimeoutHandler,
 		    uint32_t u4SetQueryInfoLen,
 		    uint8_t *pucInfoBuffer, OUT void *pvSetQueryBuffer,
 		    IN uint32_t u4SetQueryBufferLen);
 
 #if CFG_SUPPORT_TX_BF
+#define wlanSendSetQueryExtCmd(_prAdapter, \
+			       _ucCID, \
+			       _ucExtCID, \
+			       _fgSetQuery, \
+			       _fgNeedResp, \
+			       _fgIsOid, \
+			       _pfCmdDoneHandler, \
+			       _pfCmdTimeoutHandler, \
+			       _u4SetQueryInfoLen, \
+			       _pucInfoBuffer, \
+			       _pvSetQueryBuffer, \
+			       _u4SetQueryBufferLen) \
+({ \
+	uint32_t u4Status; \
+	WLAN_STATIC_CMD_DONE_HANDLER_CHECK(_pfCmdDoneHandler); \
+	u4Status = __wlanSendSetQueryExtCmd(_prAdapter, \
+		       _ucCID, \
+		       _ucExtCID, \
+		       _fgSetQuery, \
+		       _fgNeedResp, \
+		       _fgIsOid, \
+		       _pfCmdDoneHandler, \
+		       #_pfCmdDoneHandler, \
+		       _pfCmdTimeoutHandler, \
+		       _u4SetQueryInfoLen, \
+		       _pucInfoBuffer, \
+		       _pvSetQueryBuffer, \
+		       _u4SetQueryBufferLen); \
+	u4Status; \
+})
+
+
 uint32_t
-wlanSendSetQueryExtCmd(IN struct ADAPTER *prAdapter,
+__wlanSendSetQueryExtCmd(IN struct ADAPTER *prAdapter,
 		       uint8_t ucCID,
 		       uint8_t ucExtCID,
 		       u_int8_t fgSetQuery,
 		       u_int8_t fgNeedResp,
 		       u_int8_t fgIsOid,
 		       PFN_CMD_DONE_HANDLER pfCmdDoneHandler,
+		       const char *pCmdDoneHandlerStr,
 		       PFN_CMD_TIMEOUT_HANDLER pfCmdTimeoutHandler,
 		       uint32_t u4SetQueryInfoLen,
 		       uint8_t *pucInfoBuffer, OUT void *pvSetQueryBuffer,

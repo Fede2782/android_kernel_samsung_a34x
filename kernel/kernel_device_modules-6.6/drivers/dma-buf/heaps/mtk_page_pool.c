@@ -236,7 +236,11 @@ static int mtk_dmabuf_page_pool_shrink(gfp_t gfp_mask, int nr_to_scan)
 	if (!nr_to_scan)
 		only_scan = 1;
 
-	mutex_lock(&pool_list_lock);
+	if (mutex_trylock(&pool_list_lock) == 0) {
+		pr_info("%s: mutex_trylock busy\n", __func__);
+		return 0;
+	}
+
 	list_for_each_entry(pool, &pool_list, list) {
 		if (only_scan) {
 			nr_total += mtk_dmabuf_page_pool_do_shrink(pool,

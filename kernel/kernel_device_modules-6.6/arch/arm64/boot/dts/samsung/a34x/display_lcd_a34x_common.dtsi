@@ -12,27 +12,6 @@
 #include <dt-bindings/gpio/gpio.h>
 
 / {
-	fragment@disp_leds {
-		target-path = "/disp_leds/";
-		__overlay__ {
-			compatible;
-		};
-	};
-
-	fragment@pwmleds {
-		target-path = "/pwmleds/";
-		__overlay__ {
-			compatible;
-		};
-	};
-
-	fragment@i2c_leds {
-		target-path = "/i2c_leds/";
-		__overlay__ {
-			compatible;
-		};
-	};
-
 	fragment@lcd {
 		target-path = "/";
 		__overlay__ {
@@ -181,8 +160,8 @@
 		<1>, /*MTK_DRM_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ*/
 		<0>, /*MTK_DRM_OPT_MET_LOG*/
 		<1>, /*MTK_DRM_OPT_USE_PQ*/
-		<1>, /*MTK_DRM_OPT_ESD_CHECK_RECOVERY*/
-		<1>, /*MTK_DRM_OPT_ESD_CHECK_SWITCH*/
+		<0>, /*MTK_DRM_OPT_ESD_CHECK_RECOVERY*/
+		<0>, /*MTK_DRM_OPT_ESD_CHECK_SWITCH*/
 		<1>, /*MTK_DRM_OPT_PRESENT_FENCE*/
 		<1>, /*MTK_DRM_OPT_RDMA_UNDERFLOW_AEE*/
 		<1>, /*MTK_DRM_OPT_DSI_UNDERRUN_AEE*/

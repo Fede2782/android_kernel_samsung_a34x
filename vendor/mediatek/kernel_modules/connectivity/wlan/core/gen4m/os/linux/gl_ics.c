@@ -1,124 +1,64 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
 
-#include "gl_ics.h"
+#include "gl_os.h"
+#include "debug.h"
+#include "precomp.h"
 
 #if ((CFG_SUPPORT_ICS == 1) || (CFG_SUPPORT_PHY_ICS == 1))
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/types.h>
+#include <linux/kernel.h>
+#include <linux/fs.h>
+#include <linux/cdev.h>
+#include <linux/sched.h>
+#include <asm/current.h>
+#include <linux/uaccess.h>
+#include <linux/fcntl.h>
+#include <linux/poll.h>
+#include <linux/time.h>
+#include <linux/delay.h>
+#include <linux/netdevice.h>
+#include <linux/inetdevice.h>
+#include <linux/string.h>
+#include "gl_ics.h"
+#include "wlan_ring.h"
+
+#define ICS_LOG_SIZE (128*1024)
+#define ICS_WAIT_READY_MAX_CNT 2000
+#define ICS_WAIT_READY_SLEEP_TIME 100
+#define FW_LOG_ICS_DRIVER_NAME "fw_log_ics"
+
+#define ICS_FW_LOG_IOC_MAGIC        (0xfc)
+#define ICS_FW_LOG_IOCTL_ON_OFF     _IOW(ICS_FW_LOG_IOC_MAGIC, 0, int)
+#define ICS_FW_LOG_IOCTL_SET_LEVEL  _IOW(ICS_FW_LOG_IOC_MAGIC, 1, int)
+
+struct ics_ring {
+	/* ring related variable */
+	struct wlan_ring ring_cache;
+	size_t ring_size;
+	void *ring_base;
+};
+
+struct ics_dev {
+	/* device related variable */
+	struct cdev cdev;
+	dev_t devno;
+	struct class *driver_class;
+	struct device *class_dev;
+	int major;
+	/* functional variable */
+	struct ics_ring iRing;
+	struct semaphore ioctl_mtx;
+	ics_fwlog_event_func_cb pfFwEventFuncCB;
+	wait_queue_head_t wq;
+};
 
 /* global variable of ics log */
-static struct ics_dev *gIcsDev[CFG_MAX_WLAN_DEVICES];
-#if CFG_SUPPORT_MULTI_CARD
-/* global variable of ics log name */
-static uint8_t aucIcsDevName[CFG_MAX_WLAN_DEVICES][20];
-#endif
-
-u_int8_t ics_get_onoff(struct GLUE_INFO *prGlueInfo)
-{
-	struct ICS_LOG_CACHE *prLogCache;
-
-	if (!prGlueInfo || prGlueInfo->u4DevNum >= CFG_MAX_WLAN_DEVICES ||
-		!gIcsDev[prGlueInfo->u4DevNum]) {
-		DBGLOG(ICS, ERROR, "ICS_DEV is NULL\n");
-		return FALSE;
-	}
-
-	prLogCache = &gIcsDev[prGlueInfo->u4DevNum]->rIcsLogCache;
-	return prLogCache->fgOnOff;
-}
-
-static u_int8_t ics_set_onoff(struct GLUE_INFO *prGlueInfo, int cmd, int value)
-{
-	struct ICS_LOG_CACHE *prLogCache;
-
-	if (!prGlueInfo || prGlueInfo->u4DevNum >= CFG_MAX_WLAN_DEVICES ||
-		!gIcsDev[prGlueInfo->u4DevNum]) {
-		DBGLOG(ICS, ERROR, "ICS_DEV is NULL\n");
-		return FALSE;
-	}
-
-	if (cmd != ICS_LOG_CMD_ON_OFF && cmd != ICS_LOG_CMD_SET_LEVEL) {
-		DBGLOG(ICS, DEBUG, "Unknown cmd [Cmd:Value]=[%d:%d]\n",
-					cmd, value);
-		return FALSE;
-	}
-
-	prLogCache = &gIcsDev[prGlueInfo->u4DevNum]->rIcsLogCache;
-	/*
-	 * Special code that matches App behavior:
-	 * 1. set ics log level
-	 * 2. set on/off (if fwlog on, then icslog also get on)
-	 */
-	if (cmd == ICS_LOG_CMD_ON_OFF) {
-		prLogCache->fgOnOff = (value == 1) ? TRUE : FALSE;
-		if (prLogCache->ucLevel == ENUM_ICS_LOG_LEVEL_DISABLE) {
-			if (prLogCache->fgOnOff == TRUE)
-				DBGLOG(ICS, TRACE, "IcsLv is disable!!!\n");
-			prLogCache->fgOnOff = FALSE;
-		}
-	} else if (cmd == ICS_LOG_CMD_SET_LEVEL) {
-		prLogCache->ucLevel = value;
-		if (prLogCache->ucLevel == ENUM_ICS_LOG_LEVEL_DISABLE) {
-			DBGLOG(ICS, TRACE, "IcsLv set to disable.\n");
-			prLogCache->fgOnOff = FALSE;
-		} else {
-			DBGLOG(ICS, TRACE, "IcsLv set to MAC ICS.\n");
-			prLogCache->fgOnOff = TRUE;
-		}
-	}
-
-	DBGLOG(ICS, DEBUG, "[Cmd:Value]=[%d:%d] IcsLog[Lv:OnOff]=[%u:%u]\n",
-		cmd, value, prLogCache->ucLevel, prLogCache->fgOnOff);
-
-	return TRUE;
-}
-
-void ics_log_event_notification(struct GLUE_INFO *prGlueInfo,
-	int cmd, int value, u_int8_t isOid)
-{
-	struct ADAPTER *prAdapter = NULL;
-	struct PARAM_CUSTOM_ICS_SNIFFER_INFO_STRUCT rSniffer = {0};
-	uint32_t u4BufLen = 0;
-	uint32_t rStatus;
-	uint8_t ucBand;
-
-	if (!prGlueInfo || !ics_set_onoff(prGlueInfo, cmd, value))
-		return;
-
-	if (kalIsHalted()) {
-		DBGLOG(ICS, DEBUG, "device not ready return");
-		return;
-	}
-
-	prAdapter = prGlueInfo->prAdapter;
-	if (!prAdapter) {
-		DBGLOG(INIT, INFO, "prAdapter is NULL return");
-		return;
-	}
-
-	kalMemZero(&rSniffer,
-		sizeof(struct PARAM_CUSTOM_ICS_SNIFFER_INFO_STRUCT));
-	rSniffer.ucModule = 2;
-	rSniffer.ucAction = ics_get_onoff(prGlueInfo);
-	rSniffer.ucCondition[0] = 2;
-
-	/* Enable/Disable ICS for all band */
-	for (ucBand = ENUM_BAND_0; ucBand < ENUM_BAND_NUM; ucBand++) {
-		rSniffer.ucCondition[1] = ucBand;
-		if (isOid == TRUE) {
-			rStatus = kalIoctl(prGlueInfo, wlanoidSetIcsSniffer,
-				&rSniffer, sizeof(rSniffer), &u4BufLen);
-			if (rStatus != WLAN_STATUS_SUCCESS)
-				DBGLOG(ICS, ERROR,
-					"wlanoidSetIcsSniffer Band[%u] failed\n",
-					ucBand);
-		} else {
-			wlanSetIcsSniffer(prAdapter, &rSniffer,
-				sizeof(rSniffer), &u4BufLen, FALSE);
-		}
-	}
-}
+static struct ics_dev *gIcsDev;
 
 /* ring related function */
 static int ics_ring_init(struct ics_ring *iRing, size_t size)
@@ -244,26 +184,8 @@ static void ics_ring_deinit(struct ics_ring *iRing)
 
 static int fw_log_ics_open(struct inode *inode, struct file *file)
 {
-	struct ics_dev *prIcsDev = NULL;
-
-	if (!inode || !inode->i_cdev) {
-		DBGLOG(ICS, ERROR, "inode is NULL\n");
-		return 0;
-	}
-
 	DBGLOG(ICS, TEMP, "major %d minor %d (pid %d)\n",
 		imajor(inode), iminor(inode), current->pid);
-
-	prIcsDev = CONTAINER_OF(inode->i_cdev, struct ics_dev, cdev);
-
-	if (!prIcsDev) {
-		DBGLOG(ICS, ERROR, "ICS_DEV is NULL\n");
-		return 0;
-	}
-
-	/* set-up private data */
-	file->private_data = (void *) prIcsDev;
-
 	return 0;
 }
 
@@ -277,34 +199,17 @@ static int fw_log_ics_release(struct inode *inode, struct file *file)
 static ssize_t fw_log_ics_read(struct file *filp, char __user *buf,
 	size_t len, loff_t *off)
 {
-	struct ics_dev *prIcsDev = NULL;
 	size_t ret = 0;
 
-	prIcsDev = (struct ics_dev *) (filp->private_data);
-
-	if (!prIcsDev) {
-		DBGLOG(ICS, ERROR, "ICS_DEV is NULL\n");
-		return FALSE;
-	}
-
-	ret = ics_ring_read(&prIcsDev->iRing, buf, len);
+	ret = ics_ring_read(&gIcsDev->iRing, buf, len);
 	return ret;
 }
 
 static unsigned int fw_log_ics_poll(struct file *filp, poll_table *wait)
 {
-	struct ics_dev *prIcsDev = NULL;
+	poll_wait(filp, &gIcsDev->wq, wait);
 
-	prIcsDev = (struct ics_dev *) (filp->private_data);
-
-	if (!prIcsDev) {
-		DBGLOG(ICS, ERROR, "ICS_DEV is NULL\n");
-		return 0;
-	}
-
-	poll_wait(filp, &prIcsDev->wq, wait);
-
-	if (ics_ring_get_buf_size(&prIcsDev->iRing) > 0)
+	if (ics_ring_get_buf_size(&gIcsDev->iRing) > 0)
 		return POLLIN|POLLRDNORM;
 	return 0;
 }
@@ -312,80 +217,53 @@ static unsigned int fw_log_ics_poll(struct file *filp, poll_table *wait)
 static long fw_log_ics_unlocked_ioctl(struct file *filp, unsigned int cmd,
 	unsigned long arg)
 {
-	struct GLUE_INFO *prGlueInfo = NULL;
-	struct ics_dev *prIcsDev = NULL;
 	int ret = 0;
-	int i = 0;
 
-	prIcsDev = (struct ics_dev *) (filp->private_data);
-
-	if (!prIcsDev) {
-		DBGLOG(ICS, ERROR, "ICS_DEV is NULL\n");
-		return -EPERM;
-	}
-
-#if (CFG_SUPPORT_MULTI_CARD == 0)
-	prGlueInfo = wlanGetGlueInfoByNum(i);
-#else
-	for (i = 0; i < CFG_MAX_WLAN_DEVICES; i++) {
-		if (prIcsDev == gIcsDev[i]) {
-			prGlueInfo = wlanGetGlueInfoByNum(i);
-			break;
-		}
-	}
-#endif
-
-	if (!prGlueInfo) {
-		DBGLOG(ICS, ERROR, "prGlueInfo is NULL\n");
-		return -EPERM;
-	}
-
-	down(&prIcsDev->ioctl_mtx);
+	down(&gIcsDev->ioctl_mtx);
 	switch (cmd) {
 	case ICS_FW_LOG_IOCTL_SET_LEVEL:{
 		unsigned int level = (unsigned int) arg;
 
-		DBGLOG(ICS, DEBUG, "ICS_FW_LOG_IOCTL_SET_LEVEL start\n");
+		DBGLOG(ICS, INFO, "ICS_FW_LOG_IOCTL_SET_LEVEL start\n");
 
-		if (prIcsDev->pfFwEventFuncCB) {
-			DBGLOG(ICS, DEBUG,
+		if (gIcsDev->pfFwEventFuncCB) {
+			DBGLOG(ICS, INFO,
 				"ICS_FW_LOG_IOCTL_SET_LEVEL invoke:%d\n",
 				(int)level);
-			prIcsDev->pfFwEventFuncCB(prGlueInfo,
-				ICS_LOG_CMD_SET_LEVEL,
-				level, TRUE);
+			gIcsDev->pfFwEventFuncCB(ICS_LOG_CMD_SET_LEVEL,
+				level, TRUE, ICS_FLAG_DEBUGLOGGER);
 		} else {
 			DBGLOG(ICS, ERROR,
 				"ICS_FW_LOG_IOCTL_SET_LEVEL invoke failed\n");
 		}
 
-		DBGLOG(ICS, DEBUG, "ICS_FW_LOG_IOCTL_SET_LEVEL end\n");
+		DBGLOG(ICS, INFO, "ICS_FW_LOG_IOCTL_SET_LEVEL end\n");
 		break;
 	}
 	case ICS_FW_LOG_IOCTL_ON_OFF:{
 		unsigned int log_on_off = (unsigned int) arg;
 
-		DBGLOG(ICS, DEBUG, "ICS_FW_LOG_IOCTL_ON_OFF start\n");
+		DBGLOG(ICS, INFO, "ICS_FW_LOG_IOCTL_ON_OFF start\n");
 
-		if (prIcsDev->pfFwEventFuncCB) {
-			DBGLOG(ICS, DEBUG,
+		if (gIcsDev->pfFwEventFuncCB) {
+			DBGLOG(ICS, INFO,
 				"ICS_FW_LOG_IOCTL_ON_OFF invoke:%d\n",
 				(int)log_on_off);
-			prIcsDev->pfFwEventFuncCB(prGlueInfo,
-				ICS_LOG_CMD_ON_OFF, log_on_off, TRUE);
+			gIcsDev->pfFwEventFuncCB(ICS_LOG_CMD_ON_OFF,
+				log_on_off, TRUE, ICS_FLAG_DEBUGLOGGER);
 		} else {
 			DBGLOG(ICS, ERROR,
 				"ICS_FW_LOG_IOCTL_ON_OFF invoke failed\n");
 		}
 
-		DBGLOG(ICS, DEBUG, "ICS_FW_LOG_IOCTL_ON_OFF end\n");
+		DBGLOG(ICS, INFO, "ICS_FW_LOG_IOCTL_ON_OFF end\n");
 		break;
 	}
 	default:
 		ret = -EPERM;
 	}
-	DBGLOG(ICS, DEBUG, "cmd --> %d, ret=%d\n", cmd, ret);
-	up(&prIcsDev->ioctl_mtx);
+	DBGLOG(ICS, INFO, "cmd --> %d, ret=%d\n", cmd, ret);
+	up(&gIcsDev->ioctl_mtx);
 	return ret;
 }
 
@@ -393,24 +271,16 @@ static long fw_log_ics_unlocked_ioctl(struct file *filp, unsigned int cmd,
 static long fw_log_ics_compat_ioctl(struct file *filp, unsigned int cmd,
 	unsigned long arg)
 {
-	struct ics_dev *prIcsDev = NULL;
 	long ret = 0;
 	int32_t wait_cnt = 0;
 
-	prIcsDev = (struct ics_dev *) (filp->private_data);
-
-	if (!prIcsDev) {
-		DBGLOG(ICS, ERROR, "ICS_DEV is NULL\n");
-		return -EPERM;
-	}
-
-	DBGLOG(ICS, DEBUG, "COMPAT cmd --> %d\n", cmd);
+	DBGLOG(ICS, INFO, "COMPAT cmd --> %d\n", cmd);
 
 	if (!filp->f_op || !filp->f_op->unlocked_ioctl)
 		return -ENOTTY;
 
 	while (wait_cnt < ICS_WAIT_READY_MAX_CNT) {
-		if (prIcsDev->pfFwEventFuncCB)
+		if (gIcsDev->pfFwEventFuncCB)
 			break;
 		DBGLOG_LIMITED(ICS, ERROR,
 			"Wi-Fi driver is not ready for 2s\n");
@@ -436,172 +306,113 @@ const struct file_operations fw_log_ics_fops = {
 
 void wifi_ics_event_func_register(ics_fwlog_event_func_cb func)
 {
-	uint8_t i = 0;
-
-	for (i = 0; i < CFG_MAX_WLAN_DEVICES; i++) {
-		if (!gIcsDev[i]) {
-			DBGLOG(ICS, ERROR, "ICS_DEV is NULL\n");
-			continue;
-		}
-
-		DBGLOG(ICS, DEBUG, "wifi_ics_event_func_register %p\n", func);
-		gIcsDev[i]->pfFwEventFuncCB = func;
-	}
+	DBGLOG(ICS, INFO, "wifi_ics_event_func_register %p\n", func);
+	gIcsDev->pfFwEventFuncCB = func;
 }
 
-ssize_t wifi_ics_fwlog_write(struct GLUE_INFO *prGlueInfo,
-	char *buf, size_t count)
+ssize_t wifi_ics_fwlog_write(char *buf, size_t count)
 {
-	struct ics_dev *prIcsDev = NULL;
 	ssize_t ret = 0;
 
-	if (!prGlueInfo || prGlueInfo->u4DevNum >= CFG_MAX_WLAN_DEVICES ||
-		!gIcsDev[prGlueInfo->u4DevNum]) {
-		DBGLOG(ICS, ERROR, "ICS_DEV is NULL\n");
-		return -EPERM;
-	}
-	prIcsDev = gIcsDev[prGlueInfo->u4DevNum];
-
-	ret = ics_ring_write(&prIcsDev->iRing, buf, count);
+	ret = ics_ring_write(&gIcsDev->iRing, buf, count);
 	if (ret > 0)
-		wake_up_interruptible(&prIcsDev->wq);
+		wake_up_interruptible(&gIcsDev->wq);
 
 	return ret;
 }
 
 int IcsInit(void)
 {
-	struct ics_dev *prIcsDev = NULL;
-	uint8_t *prDrvName = NULL;
 	int result = 0;
 	int err = 0;
-	int i = 0;
 
-#if CFG_SUPPORT_MULTI_CARD
-	for (i = 0; i < CFG_MAX_WLAN_DEVICES; i++) {
-		kalSnprintf(aucIcsDevName[i], sizeof(aucIcsDevName[i]),
-			FW_LOG_ICS_DRIVER_NAME "%d", i);
-		prDrvName = aucIcsDevName[i];
-#else
-		prDrvName = FW_LOG_ICS_DRIVER_NAME;
-#endif
-		gIcsDev[i] = kzalloc(sizeof(struct ics_dev), GFP_KERNEL);
-
-		if (!gIcsDev[i]) {
-			result = -ENOMEM;
-			goto return_fn;
-		}
-		prIcsDev = gIcsDev[i];
-
-		prIcsDev->devno = MKDEV(prIcsDev->major, 0);
-		result = alloc_chrdev_region(&prIcsDev->devno, 0, 1,
-				prDrvName);
-		prIcsDev->major = MAJOR(prIcsDev->devno);
-		DBGLOG(ICS, DEBUG,
-			"alloc_chrdev_region result %d, major %d\n",
-			result, prIcsDev->major);
-
-		if (result < 0)
-			goto free_dev;
-
-		prIcsDev->driver_class = KAL_CLASS_CREATE(prDrvName);
-
-		if (KAL_IS_ERR(prIcsDev->driver_class)) {
-			result = -ENOMEM;
-			DBGLOG(ICS, ERROR, "class_create failed %d.\n",
-				result);
-			goto unregister_chrdev_region;
-		}
-
-		prIcsDev->class_dev = device_create(prIcsDev->driver_class,
-			NULL, prIcsDev->devno, NULL, prDrvName);
-
-		if (!prIcsDev->class_dev) {
-			result = -ENOMEM;
-			DBGLOG(ICS, ERROR, "class_device_create failed %d.\n",
-				result);
-			goto class_destroy;
-		}
-
-		err = ics_ring_init(&prIcsDev->iRing, ICS_LOG_SIZE);
-		if (err) {
-			result = -ENOMEM;
-			DBGLOG(ICS, ERROR,
-				"Error %d ics_ring_init.\n", err);
-			goto device_destroy;
-		}
-
-		init_waitqueue_head(&prIcsDev->wq);
-		sema_init(&prIcsDev->ioctl_mtx, 1);
-		prIcsDev->pfFwEventFuncCB = NULL;
-
-		cdev_init(&prIcsDev->cdev, &fw_log_ics_fops);
-
-		prIcsDev->cdev.owner = THIS_MODULE;
-		prIcsDev->cdev.ops = &fw_log_ics_fops;
-
-		err = cdev_add(&prIcsDev->cdev, prIcsDev->devno, 1);
-		if (err) {
-			result = -ENOMEM;
-			DBGLOG(ICS, ERROR,
-				"Error %d adding fw_log_ics dev.\n", err);
-			goto ics_ring_deinit;
-		}
-#if CFG_SUPPORT_MULTI_CARD
+	gIcsDev = kzalloc(sizeof(struct ics_dev), GFP_KERNEL);
+	if (gIcsDev == NULL) {
+		result = -ENOMEM;
+		goto return_fn;
 	}
-#endif
+
+	gIcsDev->devno = MKDEV(gIcsDev->major, 0);
+	result = alloc_chrdev_region(&gIcsDev->devno, 0, 1,
+			FW_LOG_ICS_DRIVER_NAME);
+	gIcsDev->major = MAJOR(gIcsDev->devno);
+	DBGLOG(ICS, INFO,
+		"alloc_chrdev_region result %d, major %d\n",
+		result, gIcsDev->major);
+
+	if (result < 0)
+		goto free_dev;
+
+	gIcsDev->driver_class = KAL_CLASS_CREATE(FW_LOG_ICS_DRIVER_NAME);
+
+	if (KAL_IS_ERR(gIcsDev->driver_class)) {
+		result = -ENOMEM;
+		DBGLOG(ICS, ERROR, "class_create failed %d.\n",
+			result);
+		goto unregister_chrdev_region;
+	}
+
+	gIcsDev->class_dev = device_create(gIcsDev->driver_class,
+		NULL, gIcsDev->devno, NULL, FW_LOG_ICS_DRIVER_NAME);
+
+	if (!gIcsDev->class_dev) {
+		result = -ENOMEM;
+		DBGLOG(ICS, ERROR, "class_device_create failed %d.\n",
+			result);
+		goto class_destroy;
+	}
+
+	err = ics_ring_init(&gIcsDev->iRing, ICS_LOG_SIZE);
+	if (err) {
+		result = -ENOMEM;
+		DBGLOG(ICS, ERROR,
+			"Error %d ics_ring_init.\n", err);
+		goto device_destroy;
+	}
+
+	init_waitqueue_head(&gIcsDev->wq);
+	sema_init(&gIcsDev->ioctl_mtx, 1);
+	gIcsDev->pfFwEventFuncCB = NULL;
+
+	cdev_init(&gIcsDev->cdev, &fw_log_ics_fops);
+
+	gIcsDev->cdev.owner = THIS_MODULE;
+	gIcsDev->cdev.ops = &fw_log_ics_fops;
+
+	err = cdev_add(&gIcsDev->cdev, gIcsDev->devno, 1);
+	if (err) {
+		result = -ENOMEM;
+		DBGLOG(ICS, ERROR,
+			"Error %d adding fw_log_ics dev.\n", err);
+		goto ics_ring_deinit;
+	}
+
 	goto return_fn;
 
 ics_ring_deinit:
-	ics_ring_deinit(&prIcsDev->iRing);
+	ics_ring_deinit(&gIcsDev->iRing);
 device_destroy:
-	device_destroy(prIcsDev->driver_class, prIcsDev->devno);
+	device_destroy(gIcsDev->driver_class, gIcsDev->devno);
 class_destroy:
-	class_destroy(prIcsDev->driver_class);
+	class_destroy(gIcsDev->driver_class);
 unregister_chrdev_region:
-	unregister_chrdev_region(prIcsDev->devno, 1);
+	unregister_chrdev_region(gIcsDev->devno, 1);
 free_dev:
-	kfree(prIcsDev);
+	kfree(gIcsDev);
 return_fn:
 	return result;
 }
 
-static void IcsDestory(struct ics_dev *prIcsDev)
+int IcsDeInit(void)
 {
-	if (!prIcsDev) {
-		DBGLOG(ICS, ERROR, "ICS_DEV is NULL\n");
-		return;
-	}
-
-	ics_ring_deinit(&prIcsDev->iRing);
-	device_destroy(prIcsDev->driver_class, prIcsDev->devno);
-	class_destroy(prIcsDev->driver_class);
-	cdev_del(&prIcsDev->cdev);
-	unregister_chrdev_region(MKDEV(prIcsDev->major, 0), 1);
-	DBGLOG(ICS, DEBUG, "unregister_chrdev_region major %d\n",
-		prIcsDev->major);
-	kfree(prIcsDev);
-}
-
-int IcsDeInit(struct GLUE_INFO *prGlueInfo)
-{
-	uint8_t i = 0;
-
-#if (CFG_SUPPORT_MULTI_CARD == 0)
-	IcsDestory(gIcsDev[i]);
-#else
-	if (prGlueInfo && prGlueInfo->u4DevNum < CFG_MAX_WLAN_DEVICES) {
-		IcsDestory(gIcsDev[prGlueInfo->u4DevNum]);
-		gIcsDev[prGlueInfo->u4DevNum] = NULL;
-		return 0;
-	}
-
-	for (i = 0; i < CFG_MAX_WLAN_DEVICES; i++) {
-		IcsDestory(gIcsDev[i]);
-		gIcsDev[i] = NULL;
-	}
-#endif /* CFG_SUPPORT_MULTI_CARD */
-
+	ics_ring_deinit(&gIcsDev->iRing);
+	device_destroy(gIcsDev->driver_class, gIcsDev->devno);
+	class_destroy(gIcsDev->driver_class);
+	cdev_del(&gIcsDev->cdev);
+	unregister_chrdev_region(MKDEV(gIcsDev->major, 0), 1);
+	DBGLOG(ICS, INFO, "unregister_chrdev_region major %d\n",
+		gIcsDev->major);
+	kfree(gIcsDev);
 	return 0;
 }
 
@@ -617,9 +428,10 @@ void IcsTimerInit(struct ADAPTER *prAdapter)
 void IcsLogStartWithTimer(struct ADAPTER *prAdapter)
 {
 	struct WIFI_VAR *prWifiVar;
-	static uint32_t u4NextUpdateTime;
+	static uint32_t u4NextUpdateTime, u4FirstTime;
+	static uint8_t ucTriggerCnt;
 
-	if (!prAdapter || !prAdapter->prGlueInfo)
+	if (!prAdapter)
 		return;
 
 	prWifiVar = &prAdapter->rWifiVar;
@@ -633,30 +445,32 @@ void IcsLogStartWithTimer(struct ADAPTER *prAdapter)
 	u4NextUpdateTime = kalGetTimeTick() +
 		prWifiVar->u4TxTimeoutIcsLogInterval;
 
-	ics_log_event_notification(prAdapter->prGlueInfo,
-		(int)ICS_LOG_CMD_SET_LEVEL,
-		ENUM_ICS_LOG_LEVEL_MAC,
-		FALSE);
+	if (ucTriggerCnt > prWifiVar->u4TxTimeoutTriggerMaxCnt) {
+		if (!CHECK_FOR_TIMEOUT(kalGetTimeTick(), u4FirstTime,
+		     MSEC_TO_SYSTIME(prWifiVar->u4TxTimeoutIcsLogPSInterval)))
+			return;
+		ucTriggerCnt = 0;
+	}
+
+	if (ucTriggerCnt == 0)
+		u4FirstTime = kalGetTimeTick();
+
+	ics_log_event_notification((int)ICS_LOG_CMD_SET_LEVEL,
+		ENUM_ICS_LOG_LEVEL_MAC, FALSE, ICS_FLAG_TXTIMEOUT);
 	cnmTimerStartTimer(prAdapter, &prAdapter->rIcsTimer,
 		prWifiVar->u4TxTimeoutIcsLogDuration);
-	DBGLOG(ICS, INFO, "Enable Txtimeout ICS log for %u ms\n",
+	DBGLOG(ICS, TRACE, "Enable ICS log for %u ms\n",
 		prWifiVar->u4TxTimeoutIcsLogDuration);
+	ucTriggerCnt++;
 }
 
 void IcsLogTimeout(struct ADAPTER *prAdapter, uintptr_t ulParamPtr)
 {
-	if (!prAdapter || !prAdapter->prGlueInfo)
-		return;
-
-	ics_log_event_notification(prAdapter->prGlueInfo,
-		(int)ICS_LOG_CMD_SET_LEVEL,
-		ENUM_ICS_LOG_LEVEL_DISABLE,
-		FALSE);
-	ics_log_event_notification(prAdapter->prGlueInfo,
-		(int)ICS_LOG_CMD_ON_OFF,
-		ENUM_ICS_LOG_LEVEL_DISABLE,
-		FALSE);
-	DBGLOG(ICS, INFO, "Timeout to disable Txtimeout ICS log\n");
+	ics_log_event_notification((int)ICS_LOG_CMD_SET_LEVEL,
+		ENUM_ICS_LOG_LEVEL_DISABLE, FALSE, ICS_FLAG_TXTIMEOUT);
+	ics_log_event_notification((int)ICS_LOG_CMD_ON_OFF,
+		ENUM_ICS_LOG_LEVEL_DISABLE, FALSE, ICS_FLAG_TXTIMEOUT);
+	DBGLOG(ICS, TRACE, "Timeout to disable ICS log\n");
 }
 #endif /* CFG_SUPPORT_ICS_TIMER */
 #endif /* CFG_SUPPORT_ICS */

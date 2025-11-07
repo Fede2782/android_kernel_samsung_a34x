@@ -188,7 +188,7 @@ struct FAST_PATH_INFO {
  *******************************************************************************
  */
 
-u_int8_t mscsIsFpSupport(struct ADAPTER *prAdapter);
+uint8_t mscsIsFpSupport(struct ADAPTER *prAdapter);
 uint8_t mscsIsNeedRequest(struct ADAPTER *prAdapter, void *prPacket);
 uint32_t mscsRequest(struct ADAPTER *prAdapter, void *prPacket,
 	enum ENUM_MSCS_REQUEST_ACTION eAction,

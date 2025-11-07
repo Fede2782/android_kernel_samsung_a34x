@@ -115,7 +115,7 @@ struct wpa_state_machine {
 
 	int pending_1_of_4_timeout;
 
-#if (CFG_SUPPORT_NAN == 1)
+#ifdef CFG_SUPPORT_NAN
 	u8 au1RmtAddr[6];
 	u8 u1PtkKeyId;
 	u8 fgPtkKeyIdSet;

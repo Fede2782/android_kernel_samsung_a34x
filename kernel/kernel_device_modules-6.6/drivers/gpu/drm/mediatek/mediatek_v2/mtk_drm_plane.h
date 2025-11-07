@@ -213,6 +213,8 @@ struct mtk_plane_comp_state {
 	uint32_t blender_comp_id;
 	uint32_t dual_comp_id;
 	uint32_t dual_blender_comp_id;
+	uint32_t triple_comp_id;
+	uint32_t triple_blender_comp_id;
 	uint32_t lye_id;
 	int32_t ext_lye_id;
 	uint32_t layer_caps;

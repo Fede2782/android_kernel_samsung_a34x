@@ -160,7 +160,7 @@ static int battery_get_bat_voltage(void)
 	struct power_supply *psy;
 	int ret;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 	psy = power_supply_get_by_name("battery");
@@ -238,8 +238,6 @@ static void sys_msg_handler(struct port_t *port, struct sk_buff *skb)
 		/* Fall through */
 	case MD_SW_MD1_TX_POWER_REQ:
 		/* Fall through */
-	case MD_DISPLAY_DYNAMIC_MIPI:
-		/* Fall through */
 	case MD_NR_BAND_ACTIVATE_INFO:
 		fallthrough;
 	case LWA_CONTROL_MSG:
@@ -249,6 +247,11 @@ static void sys_msg_handler(struct port_t *port, struct sk_buff *skb)
 		break;
 	case MD_GET_BATTERY_INFO:
 		sys_msg_send_battery(port);
+		break;
+	case MD_DISPLAY_DYNAMIC_MIPI:
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_DRM_MEDIATEK)
+		mtk_disp_mipi_clk_change(0, ccci_h->reserved);
+#endif
 		break;
 	case MD_RF_HOPPING_NOTIFY:
 		sys_msg_MD_RF_Notify(ccci_h->reserved, ccci_h->data[0]);

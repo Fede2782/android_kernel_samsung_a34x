@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -19,7 +19,6 @@
 #include "coda/mt6655/wf_wfdma_ext_wrap_csr.h"
 #include "coda/mt6655/wf_wfdma_host_dma0.h"
 #include "coda/mt6655/wf_wfdma_mcu_dma0.h"
-#include "coda/mt6655/wf_hif_dmashdl_top.h"
 #include "coda/mt6655/wf_pse_top.h"
 #include "coda/mt6655/pcie_mac_ireg.h"
 #include "coda/mt6655/conn_mcu_bus_cr.h"
@@ -32,7 +31,7 @@
 #include "coda/mt6639/wf_top_cfg_on.h"
 #include "coda/mt6639/wf_wtblon_top.h"
 #include "coda/mt6639/wf_uwtbl_top.h"
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 #include "connv3.h"
 #endif
 
@@ -444,11 +443,9 @@ struct BUS_INFO mt6655_bus_info = {
 	.wfmda_wm_rx_group = mt6655_wfmda_wm_rx_group,
 	.wfmda_wm_rx_group_len = ARRAY_SIZE(mt6655_wfmda_wm_rx_group),
 	.prDmashdlCfg = &rMt6655DmashdlCfg,
-#if (DBG_DISABLE_ALL_INFO == 0)
 	.prPleTopCr = &rMt6655PleTopCr,
 	.prPseTopCr = &rMt6655PseTopCr,
 	.prPpTopCr = &rMt6655PpTopCr,
-#endif
 	.prPseGroup = mt6655_pse_group,
 	.u4PseGroupLen = ARRAY_SIZE(mt6655_pse_group),
 	.pdmaSetup = mt6655WpdmaConfig,
@@ -531,7 +528,6 @@ struct TX_DESC_OPS_T mt6655_TxDescOps = {
 
 struct RX_DESC_OPS_T mt6655_RxDescOps = {};
 
-#if (DBG_DISABLE_ALL_INFO == 0)
 struct CHIP_DBG_OPS mt6655_DebugOps = {
 #if defined(_HIF_PCIE) || defined(_HIF_AXI)
 	.showPdmaInfo = connac3x_show_wfdma_info,
@@ -561,7 +557,6 @@ struct CHIP_DBG_OPS mt6655_DebugOps = {
 	.show_wfdma_wrapper_info = mt6655_show_wfdma_wrapper_info,
 #endif
 };
-#endif /* DBG_DISABLE_ALL_INFO */
 
 #if CFG_SUPPORT_QA_TOOL
 struct ATE_OPS_T mt6655_AteOps = {
@@ -599,19 +594,16 @@ struct mt66xx_chip_info mt66xx_chip_info_mt6655 = {
 #endif /* CFG_SUPPORT_QA_TOOL */
 	.prTxDescOps = &mt6655_TxDescOps,
 	.prRxDescOps = &mt6655_RxDescOps,
-#if (DBG_DISABLE_ALL_INFO == 0)
 	.prDebugOps = &mt6655_DebugOps,
-#endif
 	.chip_id = MT6655_CHIP_ID,
 	.should_verify_chip_id = FALSE,
-	.sw_sync0 = CONNAC3X_CONN_CFG_ON_CONN_ON_MISC_ADDR,
+	.sw_sync0 = Connac3x_CONN_CFG_ON_CONN_ON_MISC_ADDR,
 	.sw_ready_bits = WIFI_FUNC_NO_CR4_READY_BITS,
 	.sw_ready_bit_offset =
 		Connac3x_CONN_CFG_ON_CONN_ON_MISC_DRV_FM_STAT_SYNC_SHFT,
 	.patch_addr = MT6655_PATCH_START_ADDR,
 	.is_support_cr4 = FALSE,
 	.is_support_wacpu = FALSE,
-	.sw_sync_emi_info = NULL,
 #if (CFG_SUPPORT_HOST_OFFLOAD == 1)
 	.is_support_mawd = TRUE,
 	.is_support_sdo = TRUE,
@@ -649,10 +641,6 @@ struct mt66xx_chip_info mt66xx_chip_info_mt6655 = {
 	.u4LmacWtblDUAddr = CONNAC3X_WIFI_LWTBL_BASE,
 	.u4UmacWtblDUAddr = CONNAC3X_WIFI_UWTBL_BASE,
 	.isSupportMddpAOR = false,
-	.u4HostWfdmaBaseAddr = WF_WFDMA_HOST_DMA0_BASE,
-	.u4HostWfdmaWrapBaseAddr = WF_WFDMA_EXT_WRAP_CSR_BASE,
-	.u4McuWfdmaBaseAddr = WF_WFDMA_MCU_DMA0_BASE,
-	.u4DmaShdlBaseAddr = WF_HIF_DMASHDL_TOP_BASE,
 	.cmd_max_pkt_size = CFG_TX_MAX_PKT_SIZE, /* size 1600 */
 #if IS_ENABLED(CFG_MTK_WIFI_PMIC_QUERY)
 	.queryPmicInfo = asicConnac3xQueryPmicInfo,
@@ -1367,9 +1355,9 @@ static void mt6655WpdmaConfig(struct GLUE_INFO *prGlueInfo,
 #endif /* CFG_SUPPORT_HOST_OFFLOAD == 1 */
 
 	/* packet based TX flow control */
-	HAL_MCR_RD(prAdapter,
-		   WF_WFDMA_HOST_DMA0_WPDMA_GLO_CFG_EXT1_ADDR,
-		   &u4Val);
+	kalDevRegRead(prGlueInfo,
+		      WF_WFDMA_HOST_DMA0_WPDMA_GLO_CFG_EXT1_ADDR,
+		      &u4Val);
 	u4Val |= WF_WFDMA_HOST_DMA0_WPDMA_GLO_CFG_EXT1_CSR_TX_FCTRL_MODE_MASK;
 	kalDevRegWrite(prGlueInfo,
 		       WF_WFDMA_HOST_DMA0_WPDMA_GLO_CFG_EXT1_ADDR,
@@ -1455,7 +1443,7 @@ static void mt6655SetupMcuEmiAddr(struct ADAPTER *prAdapter)
 	if (!base)
 		return;
 
-	DBGLOG(HAL, DEBUG, "base: 0x%llx\n", base);
+	DBGLOG(HAL, INFO, "base: 0x%llx\n", base);
 
 	HAL_MCR_WR(prAdapter,
 		   CONNAC3X_CONN_CFG_ON_CONN_ON_EMI_ADDR,

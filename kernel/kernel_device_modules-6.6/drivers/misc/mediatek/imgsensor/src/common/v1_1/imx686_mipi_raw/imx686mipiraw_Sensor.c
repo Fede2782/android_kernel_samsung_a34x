@@ -7447,7 +7447,7 @@ static kal_uint32 set_test_pattern_mode(kal_bool enable)
 	return ERROR_NONE;
 }
 
-static kal_uint32 get_sensor_temperature(void)
+static int get_sensor_temperature(void)
 {
 	UINT8 temperature;
 	INT32 temperature_convert;

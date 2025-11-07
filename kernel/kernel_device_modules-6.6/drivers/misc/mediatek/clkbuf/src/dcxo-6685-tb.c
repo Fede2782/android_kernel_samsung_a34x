@@ -422,8 +422,8 @@
 #define RG_XO_CDAC_FPM_MASK		(0xff)
 #define RG_XO_CDAC_FPM_SHIFT		(0)
 #define RG_XO_AAC_FPM_SWEN_ADDR		(DCXO_AAC_CW1)
-#define RG_XO_AAC_FPM_SWEN_MASK		(0x1)
-#define RG_XO_AAC_FPM_SWEN_SHIFT	(6)
+#define RG_XO_AAC_FPM_SWEN_MASK		(0x7f)
+#define RG_XO_AAC_FPM_SWEN_SHIFT	(0)
 #define RG_XO_HEATER_SEL_ADDR		(PCHR_VREF_ANA_CON3)
 #define RG_XO_HEATER_SEL_MASK		(0x3)
 #define RG_XO_HEATER_SEL_SHIFT		(0)
@@ -489,6 +489,7 @@ static struct common_regs com_regs = {
 	.mode_num = 3,
 	.spmi_mask = 0x0000ffff,
 	SET_REG_BY_NAME(static_aux_sel, XO_STATIC_AUXOUT_SEL)
+	SET_REG(xo_en_auxout, XO_STATIC_AUXOUT_L_ADDR, 0x1f, 0)
 	SET_REG(bblpm_auxout, XO_STATIC_AUXOUT_H_ADDR, 0x1, 7)
 	SET_REG_BY_NAME(swbblpm_en, XO_BB_LPM_EN_M)
 	SET_REG_BY_NAME(hwbblpm_sel, XO_BB_LPM_EN_SEL)

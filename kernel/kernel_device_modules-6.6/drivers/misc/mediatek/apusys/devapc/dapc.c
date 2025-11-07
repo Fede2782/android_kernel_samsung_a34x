@@ -331,7 +331,7 @@ static uint32_t check_vio_status(unsigned int slv)
 	if (slv > cfg->slv_cnt) {
 		pr_info("%s: slv: %d is out of index, max: %d\n",
 			__func__, slv, cfg->slv_cnt);
-		return -EINVAL;
+		return 0;
 	}
 
 	reg = cfg->vio_sta(slv / cfg->slv_per_dapc);

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -336,7 +336,7 @@ struct mt66xx_chip_info mt66xx_chip_info_connac = {
 	.eco_info = connac_eco_table,
 	.isNicCapV1 = FALSE,
 	.is_support_efuse = FALSE,
-	.sw_sync_emi_info = NULL,
+
 	/* IP info, should be overwrite by getNicCapabalityV2 */
 	.u4ChipIpVersion = CONNAC_CHIP_IP_VERSION,
 	.u4ChipIpConfig = CONNAC_CHIP_IP_CONFIG,

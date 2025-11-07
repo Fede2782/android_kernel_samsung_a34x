@@ -41,12 +41,6 @@ static void zcomp_strm_free(struct zcomp_strm *zstrm)
 	vfree(zstrm->buffer);
 	zstrm->tfm = NULL;
 	zstrm->buffer = NULL;
-#ifdef CONFIG_ZRAM_EXT
-	if (zstrm->tmpbuf) {
-		free_pages((unsigned long)zstrm->tmpbuf, 1);
-		zstrm->tmpbuf = NULL;
-	}
-#endif
 }
 
 /*
@@ -65,13 +59,6 @@ static int zcomp_strm_init(struct zcomp_strm *zstrm, struct zcomp *comp)
 		zcomp_strm_free(zstrm);
 		return -ENOMEM;
 	}
-#ifdef CONFIG_ZRAM_EXT
-	zstrm->tmpbuf = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO, 1);
-	if (!zstrm->tmpbuf) {
-		zcomp_strm_free(zstrm);
-		return -ENOMEM;
-	}
-#endif
 	return 0;
 }
 

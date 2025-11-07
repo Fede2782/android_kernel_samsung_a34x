@@ -37,9 +37,14 @@
 #include "mbraink_sys_res_mbrain_plat.h"
 #include "mbraink_sys_res_plat.h"
 
+static DEFINE_SPINLOCK(spm_raw_lock);
+static DEFINE_SPINLOCK(spm_l2_info_lock);
+
+
 unsigned char *g_spm_raw;
 unsigned int g_data_size;
-int g_spm_l2_sig_tbl_size;
+
+int g_spm_l2_sig_tbl_max_size;
 unsigned int g_spm_l2_sig_num;
 unsigned char *g_spm_l2_ls_ptr = NULL, *g_spm_l2_sig_tbl_ptr = NULL;
 
@@ -281,13 +286,22 @@ static int mbraink_v6991_power_get_spm_l2_info(struct mbraink_power_spm_l2_info 
 	uint32_t thr[4];
 	unsigned int wpos = 0, wsize = 0;
 	unsigned int get_sig = 0;
+	unsigned long flags;
+	unsigned int spm_l2_sig_num;
+	int spm_l2_sig_tbl_size;
 	bool bfree = false;
 	int res_size = (int)sizeof(struct mbraink_sys_res_sig_info);
 
 	if (spm_l2_info == NULL)
 		return 0;
 
-	pr_notice("mbraink spm get_sig(%d)\n", get_sig);
+	spin_lock_irqsave(&spm_l2_info_lock, flags);
+
+	if (g_spm_l2_ls_ptr == NULL || g_spm_l2_sig_tbl_ptr == NULL ||
+		g_spm_l2_sig_tbl_max_size == 0) {
+		bfree = true;
+		goto End;
+	}
 
 	sys_res_mbrain_ops = get_mbraink_dbg_ops();
 	if (sys_res_mbrain_ops &&
@@ -300,48 +314,42 @@ static int mbraink_v6991_power_get_spm_l2_info(struct mbraink_power_spm_l2_info 
 		thr[3] = spm_l2_info->value[3];
 
 		memcpy(&get_sig, spm_l2_info->spm_data + 28, sizeof(get_sig));
-		if (get_sig == 0) {
-			if (g_spm_l2_ls_ptr != NULL) {
-				kfree(g_spm_l2_ls_ptr);
-				g_spm_l2_ls_ptr = NULL;
-			}
+		if (get_sig == 0 && g_spm_l2_sig_num == 0) {
 
-			if (g_spm_l2_sig_tbl_ptr != NULL) {
-				kfree(g_spm_l2_sig_tbl_ptr);
-				g_spm_l2_sig_tbl_ptr = NULL;
-			}
-
-			g_spm_l2_ls_ptr = kmalloc(SPM_L2_LS_SZ, GFP_KERNEL);
-			if (g_spm_l2_ls_ptr == NULL) {
-				bfree = true;
-				goto End;
-			}
+			memset(g_spm_l2_ls_ptr, 0, SPM_L2_LS_SZ);
+			memset(g_spm_l2_sig_tbl_ptr, 0, g_spm_l2_sig_tbl_max_size);
 
 			if (sys_res_mbrain_ops->get_over_threshold_num(g_spm_l2_ls_ptr,
 				SPM_L2_LS_SZ, thr, 4) == 0) {
-				memcpy(&g_spm_l2_sig_num, g_spm_l2_ls_ptr + 24, sizeof(g_spm_l2_sig_num));
+				memcpy(&spm_l2_sig_num, g_spm_l2_ls_ptr + 24,
+					sizeof(spm_l2_sig_num));
 
-				if (g_spm_l2_sig_num > SPM_TOTAL_MAX_SIG_NUM) {
+				if (spm_l2_sig_num == 0 || spm_l2_sig_num > SPM_TOTAL_MAX_SIG_NUM) {
 					bfree = true;
 					goto End;
 				}
 
-				g_spm_l2_sig_tbl_size = g_spm_l2_sig_num*res_size;
-				g_spm_l2_sig_tbl_ptr = kmalloc(g_spm_l2_sig_tbl_size, GFP_KERNEL);
-				if (g_spm_l2_sig_tbl_ptr == NULL) {
+				g_spm_l2_sig_num = spm_l2_sig_num;
+				spm_l2_sig_tbl_size = g_spm_l2_sig_num*res_size;
+
+				if (spm_l2_sig_tbl_size > g_spm_l2_sig_tbl_max_size) {
 					bfree = true;
 					goto End;
 				}
 
-				if (sys_res_mbrain_ops->get_over_threshold_data(g_spm_l2_sig_tbl_ptr,
-					g_spm_l2_sig_tbl_size) != 0) {
+				if (sys_res_mbrain_ops->get_over_threshold_data(
+					g_spm_l2_sig_tbl_ptr, spm_l2_sig_tbl_size) != 0) {
 					bfree = true;
 					goto End;
 				}
 			}
+		} else {
+			bfree = true;
+			goto End;
 		}
 
-		if (g_spm_l2_ls_ptr != NULL && g_spm_l2_sig_tbl_ptr != NULL) {
+		if (g_spm_l2_ls_ptr != NULL && g_spm_l2_sig_tbl_ptr != NULL &&
+			g_spm_l2_sig_num != 0) {
 			memcpy(spm_l2_info->spm_data, g_spm_l2_ls_ptr, SPM_L2_LS_SZ);
 			wpos += SPM_L2_LS_SZ;
 
@@ -359,106 +367,83 @@ static int mbraink_v6991_power_get_spm_l2_info(struct mbraink_power_spm_l2_info 
 			memcpy(spm_l2_info->spm_data + 28, &get_sig, sizeof(get_sig));
 		}
 	}
+
 End:
+	if (get_sig == g_spm_l2_sig_num || bfree == true)
+		g_spm_l2_sig_num = 0;
 
-	if (get_sig == g_spm_l2_sig_num || bfree) {
-		if (g_spm_l2_ls_ptr != NULL) {
-			kfree(g_spm_l2_ls_ptr);
-			g_spm_l2_ls_ptr = NULL;
-		}
-
-		if (g_spm_l2_sig_tbl_ptr != NULL) {
-			kfree(g_spm_l2_sig_tbl_ptr);
-			g_spm_l2_sig_tbl_ptr = NULL;
-		}
-	}
+	spin_unlock_irqrestore(&spm_l2_info_lock, flags);
 
 	return 0;
 }
 
 static int mbraink_v6991_power_get_spm_info(struct mbraink_power_spm_raw *spm_buffer)
 {
-	bool bfree = false;
 	struct mbraink_sys_res_mbrain_dbg_ops *sys_res_mbrain_ops = NULL;
 	int bufIdx = 0;
 	int size = 0;
+	unsigned long flags;
+	unsigned int data_size = 0;
 
-	if (spm_buffer == NULL) {
-		bfree = true;
+	if (spm_buffer == NULL)
+		return 0;
+
+	spin_lock_irqsave(&spm_raw_lock, flags);
+
+	if (g_data_size == 0 || g_spm_raw == NULL)
 		goto End;
-	}
 
 	if (spm_buffer->type == 1) {
 		sys_res_mbrain_ops = get_mbraink_dbg_ops();
 
 		if (sys_res_mbrain_ops && sys_res_mbrain_ops->get_length) {
-			g_data_size = sys_res_mbrain_ops->get_length();
-			g_data_size += MAX_POWER_HD_SZ;
-			pr_notice("g_data_size(%d)\n", g_data_size);
+			data_size = sys_res_mbrain_ops->get_length();
+			data_size += MAX_POWER_HD_SZ;
 		}
 
-		if (g_data_size == 0) {
-			bfree = true;
+		pr_notice("[Mbraink][SPM] g_data_size (%d, %d)\n", g_data_size, data_size);
+
+		if (data_size != g_data_size)
 			goto End;
-		}
-
-		if (g_spm_raw != NULL) {
-			vfree(g_spm_raw);
-			g_spm_raw = NULL;
-		}
 
 		if (g_data_size <= SPM_TOTAL_MAX_SIG_NUM*sizeof(struct mbraink_sys_res_sig_info)
 			*MBRAINK_SCENE_RELEASE_NUM) {
-			g_spm_raw = vmalloc(g_data_size);
-			if (g_spm_raw != NULL) {
-				memset(g_spm_raw, 0, g_data_size);
+			memset(g_spm_raw, 0, g_data_size);
 
-				if (sys_res_mbrain_ops && sys_res_mbrain_ops->get_data &&
-					sys_res_mbrain_ops->get_data(g_spm_raw, g_data_size) != 0) {
-					bfree = true;
-					goto End;
-				}
+			if (sys_res_mbrain_ops && sys_res_mbrain_ops->get_data &&
+				sys_res_mbrain_ops->get_data(g_spm_raw, g_data_size) != 0) {
+				goto End;
 			}
 		}
 	}
 
-	if (g_spm_raw != NULL) {
-		if (spm_buffer->type == 1) {
-			size = sizeof(struct mbraink_sys_res_mbrain_header);
-			bufIdx = 0;
-			if ((bufIdx + size) <= g_data_size) {
-				memcpy(spm_buffer->spm_data + bufIdx, g_spm_raw, size);
-				bufIdx += size;
-			}
+	if (spm_buffer->type == 1) {
+		size = sizeof(struct mbraink_sys_res_mbrain_header);
+		bufIdx = 0;
 
-			size = sizeof(struct mbraink_sys_res_scene_info)*MBRAINK_SCENE_RELEASE_NUM;
-			if ((bufIdx + size) <= g_data_size) {
-				memcpy(spm_buffer->spm_data + bufIdx, g_spm_raw + bufIdx, size);
-				bufIdx += size;
-			}
-		} else {
-			if (((spm_buffer->pos + spm_buffer->size) > (g_data_size)) ||
-			spm_buffer->size > sizeof(spm_buffer->spm_data)) {
-				bfree = true;
-				goto End;
-			}
-			memcpy(spm_buffer->spm_data, g_spm_raw + spm_buffer->pos, spm_buffer->size);
-
-			if (spm_buffer->type == 0) {
-				bfree = true;
-				goto End;
-			}
+		if (((bufIdx + size) <= g_data_size) &&
+			(size <= sizeof(spm_buffer->spm_data))) {
+			memcpy(spm_buffer->spm_data + bufIdx, g_spm_raw, size);
+			bufIdx += size;
 		}
+
+		size = sizeof(struct mbraink_sys_res_scene_info)*MBRAINK_SCENE_RELEASE_NUM;
+		if (((bufIdx + size) <= g_data_size) &&
+			(size <= sizeof(spm_buffer->spm_data))) {
+			memcpy(spm_buffer->spm_data + bufIdx, g_spm_raw + bufIdx, size);
+			bufIdx += size;
+		}
+	} else {
+		if (((spm_buffer->pos + spm_buffer->size) > (g_data_size)) ||
+		spm_buffer->size > sizeof(spm_buffer->spm_data)) {
+			goto End;
+		}
+		memcpy(spm_buffer->spm_data, g_spm_raw + spm_buffer->pos, spm_buffer->size);
 	}
 
 End:
-	if (bfree == true) {
-		if (g_spm_raw != NULL) {
-			vfree(g_spm_raw);
-			g_spm_raw = NULL;
-		}
-		g_data_size = 0;
-	}
+	spin_unlock_irqrestore(&spm_raw_lock, flags);
+
 
 	return 0;
 }
@@ -985,8 +970,10 @@ static struct mbraink_power_ops mbraink_v6991_power_ops = {
 int mbraink_v6991_power_init(void)
 {
 	int ret = 0;
+	struct mbraink_sys_res_mbrain_dbg_ops *sys_res_mbrain_ops = NULL;
 
 	ret = register_mbraink_power_ops(&mbraink_v6991_power_ops);
+
 	mbraink_v6991_power_sys_res_init();
 	ret = register_low_battery_mbrain_cb(pt2mbrain_hint_low_battery_volt_throttle);
 	if (ret != 0) {
@@ -1004,6 +991,30 @@ int mbraink_v6991_power_init(void)
 		return ret;
 	}
 
+	sys_res_mbrain_ops = get_mbraink_dbg_ops();
+	if (sys_res_mbrain_ops && sys_res_mbrain_ops->get_length) {
+		g_data_size = sys_res_mbrain_ops->get_length();
+		g_data_size += MAX_POWER_HD_SZ;
+
+		if (g_data_size != 0 && (g_data_size <= SPM_TOTAL_MAX_SIG_NUM*sizeof(
+			struct mbraink_sys_res_sig_info))
+			*MBRAINK_SCENE_RELEASE_NUM) {
+			pr_notice("[Mbraink][SPM] g_data_size(%d)\n", g_data_size);
+			g_spm_raw = vmalloc(g_data_size);
+			if (g_spm_raw != NULL)
+				memset(g_spm_raw, 0, g_data_size);
+
+			g_spm_l2_sig_tbl_max_size = g_data_size;
+			g_spm_l2_sig_tbl_ptr = vmalloc(g_spm_l2_sig_tbl_max_size);
+			if (g_spm_l2_sig_tbl_ptr != NULL)
+				memset(g_spm_l2_sig_tbl_ptr, 0, g_spm_l2_sig_tbl_max_size);
+
+			g_spm_l2_ls_ptr = vmalloc(SPM_L2_LS_SZ);
+			if (g_spm_l2_ls_ptr != NULL)
+				memset(g_spm_l2_ls_ptr, 0, SPM_L2_LS_SZ);
+		}
+	}
+
 	return ret;
 }
 
@@ -1013,6 +1024,23 @@ int mbraink_v6991_power_deinit(void)
 
 	ret = unregister_mbraink_power_ops();
 	mbraink_v6991_power_sys_res_deinit();
+
+	if (g_spm_raw != NULL) {
+		vfree(g_spm_raw);
+		g_spm_raw = NULL;
+	}
+	g_data_size = 0;
+
+	if (g_spm_l2_sig_tbl_ptr != NULL) {
+		vfree(g_spm_l2_sig_tbl_ptr);
+		g_spm_l2_sig_tbl_ptr = NULL;
+	}
+
+	if (g_spm_l2_ls_ptr != NULL) {
+		vfree(g_spm_l2_ls_ptr);
+		g_spm_l2_ls_ptr = NULL;
+	}
+
 	ret = unregister_ppb_mbrian_cb();
 	if (ret != 0) {
 		pr_info("ppb unregister callback failed by: %d", ret);

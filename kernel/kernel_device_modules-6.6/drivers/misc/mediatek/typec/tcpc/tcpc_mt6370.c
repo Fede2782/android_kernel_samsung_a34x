@@ -708,6 +708,7 @@ static int mt6370_tcpc_deinit(struct tcpc_device *tcpc)
 	if (cc1 != TYPEC_CC_DRP_TOGGLING &&
 	    (cc1 != TYPEC_CC_VOLT_OPEN || cc2 != TYPEC_CC_VOLT_OPEN)) {
 	mt6370_set_cc(tcpc, TYPEC_CC_OPEN);
+
 		usleep_range(20000, 30000);
 	}
 	return 0;

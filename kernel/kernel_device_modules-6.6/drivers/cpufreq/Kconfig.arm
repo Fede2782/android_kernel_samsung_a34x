@@ -24,3 +24,8 @@ config CPU_FREQ_LTL_LIMIT
 	bool "CPU frequency little limit API"
 	help
 	  This driver supports API to limit CPU frequency.
+
+config CPU_FREQ_MID_LIMIT
+	bool "CPU frequency little limit API"
+	help
+	  This driver supports API to limit CPU frequency.

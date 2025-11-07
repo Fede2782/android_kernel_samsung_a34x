@@ -4,6 +4,9 @@ package(
     ],
 )
 
+exports_files([
+    "profile/kernel.afdo",
+])
 
 load("//build/bazel_mgk_rules:mgk.bzl", "define_mgk")
 

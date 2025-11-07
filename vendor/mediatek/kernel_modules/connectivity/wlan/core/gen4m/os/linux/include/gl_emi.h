@@ -7,15 +7,14 @@
 #define _GL_EMI_H
 
 #if CFG_MTK_ANDROID_WMT
-#if CFG_SUPPORT_CONNAC1X
+#if IS_ENABLED(CFG_SUPPORT_CONNAC1X)
 extern phys_addr_t gConEmiPhyBase;
 extern unsigned long long gConEmiSize;
 #endif
 #endif
 
 #define EMI_NAME		"WIFI-EMI"
-/* connsys hw maximum capability: 64MB */
-#define WIFI_EMI_ADDR_MASK	0x3FFFFFF
+#define WIFI_EMI_ADDR_MASK	0xFFFFFF
 
 enum EMI_ALLOC_TYPE {
 	EMI_ALLOC_TYPE_NONE,
@@ -30,12 +29,10 @@ enum EMI_ALLOC_TYPE {
 struct EMI_MEM_INFO {
 	const enum EMI_ALLOC_TYPE type;
 	const uint32_t coredump_size;
-	const uint32_t coredump2_size;
 	phys_addr_t pa;
 	void *va;
 	uint32_t size;
-	uint8_t initialized;
-	uint8_t isReqMemRegSuccess;
+	u_int8_t initialized;
 };
 
 struct mt66xx_chip_info;

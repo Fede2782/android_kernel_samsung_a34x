@@ -330,6 +330,8 @@ static struct page *alloc_zeroed_hugepage(gfp_t gfp,
 	struct page *page = NULL;
 	int zidx;
 
+	if (gfp != GFP_TRANSHUGE_LIGHT)
+		return NULL;
 	if (hpp_state != HPP_ACTIVATED)
 		return NULL;
 	if (current == khppd_task)
@@ -550,6 +552,11 @@ static void hpp_show_mem(void *data, unsigned int filter, nodemask_t *nodemask)
 	pr_info("%s: %lu kB\n", "HugepagePool", K(total_hugepage_pool_pages()));
 }
 
+static void hpp_available_adjust(void *data, unsigned long *available)
+{
+	*available += total_hugepage_pool_pages();
+}
+
 static void hpp_meminfo_adjust(void *data, unsigned long *totalram, unsigned long *freeram)
 {
 	*freeram += total_hugepage_pool_pages();
@@ -676,6 +683,8 @@ static int __init hpp_init(void)
 	}
 	register_trace_android_vh_meminfo_proc_show(hpp_meminfo, NULL);
 	register_trace_android_vh_show_mem(hpp_show_mem, NULL);
+	register_trace_android_vh_si_mem_available_adjust(
+			hpp_available_adjust, NULL);
 	register_trace_android_vh_si_meminfo_adjust(hpp_meminfo_adjust, NULL);
 	register_trace_android_vh_free_pages_prepare_bypass(
 			hpp_free_pages_prepare_bypass, NULL);
@@ -702,6 +711,8 @@ static void __exit hpp_exit(void)
 	unregister_shrinker(&hugepage_pool_shrinker_info);
 	unregister_trace_android_vh_meminfo_proc_show(hpp_meminfo, NULL);
 	unregister_trace_android_vh_show_mem(hpp_show_mem, NULL);
+	unregister_trace_android_vh_si_mem_available_adjust(
+			hpp_available_adjust, NULL);
 	unregister_trace_android_vh_si_meminfo_adjust(hpp_meminfo_adjust, NULL);
 	unregister_trace_android_vh_free_pages_prepare_bypass(
 			hpp_free_pages_prepare_bypass, NULL);

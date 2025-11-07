@@ -105,6 +105,7 @@ CONFIG_USB_POWER_DELIVERY=m
 CONFIG_TCPC_MT6360=m
 CONFIG_MTK_TYPEC_WATER_DETECT=m
 CONFIG_EXTCON_MTK_USB=m
+CONFIG_SEC_USB_LINKLAYER_TEST=m
 CONFIG_DEVICE_MODULES_STMMAC_ETH=m
 CONFIG_DEVICE_MODULES_DWMAC_MEDIATEK=m
 CONFIG_DEVICE_MODULES_SGMII_PWR=m
@@ -277,6 +278,7 @@ CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_VDO_120HZ_THRESHOLD=m
 CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_VDO_144HZ=m
 CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_VDO_60HZ=m
 CONFIG_DRM_PANEL_ANA38407_WQXGA_PLUS_DPHY_CMD=m
+CONFIG_DRM_PANEL_ANA38407_WQXGA_DPHY_CMD=m
 CONFIG_DRM_PANEL_SAMSUNG_S68FC01_VDO_AOD=m
 CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_VDO_120HZ_HFP=m
 CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_VDO_144HZ_HFP=m
@@ -350,8 +352,8 @@ CONFIG_MTK_TINYSYS_GPUEB_SUPPORT=m
 CONFIG_MTK_GHPM_SUPPORT=m
 CONFIG_MTK_GPUFREQ_V2=y
 CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT=y
-CONFIG_MTK_IMGSENSOR=m
-CONFIG_MTK_CAM_CAL=m
+# CONFIG_MTK_IMGSENSOR is not set
+# CONFIG_MTK_CAM_CAL is not set
 CONFIG_MTK_SECURITY_SW_SUPPORT=m
 CONFIG_SND_SOC_MT6338_ACCDET=m
 CONFIG_SND_SOC_MT6368_ACCDET=m
@@ -378,6 +380,7 @@ CONFIG_DEVICE_MODULES_SND_SOC_MT6991_MT6681=m
 CONFIG_DEVICE_MODULES_SND_SOC_MT6899=m
 CONFIG_DEVICE_MODULES_SND_SOC_MT6899_MT6368=m
 CONFIG_DEVICE_MODULES_SND_SOC_MTK_BTCVSD=m
+CONFIG_SND_SOC_MEDIATEK_CS35L45=m
 CONFIG_SND_SOC_AA006=m
 CONFIG_DEVICE_MODULES_USB_MTU3=m
 CONFIG_DEVICE_MODULES_USB_SS_FUNCTIONS=y
@@ -415,7 +418,7 @@ CONFIG_MTK_FLASHLIGHT_PPB=y
 CONFIG_MTK_FLASHLIGHT_THERMAL=y
 CONFIG_MTK_V4L2_FLASHLIGHT=m
 CONFIG_V4L2_FLASH_LED_CLASS=m
-CONFIG_MTK_LENS=m
+# CONFIG_MTK_LENS is not set
 CONFIG_MTK_V4L2_LENS=m
 CONFIG_DEVICE_MODULES_RTC_DRV_MT6397=m
 CONFIG_RTC_DRV_MT6685=m
@@ -656,6 +659,7 @@ CONFIG_MEDIATEK_MT635X_AUXADC=m
 CONFIG_MEDIATEK_MT6360_AUXADC=m
 CONFIG_DEVICE_MODULES_MEDIATEK_MT6577_AUXADC=m
 CONFIG_MEDIATEK_SPMI_PMIC_ADC=m
+CONFIG_MEDIATEK_SPMI_TIA_ADC=m
 CONFIG_DEVICE_MODULES_PWM_MTK_DISP=m
 CONFIG_DEVICE_MODULES_RESET_TI_SYSCON=m
 CONFIG_DEVICE_MODULES_PHY_MTK_TPHY=m
@@ -753,7 +757,6 @@ CONFIG_ZRAM=m
 CONFIG_MTK_USB_TYPEC_MUX=m
 CONFIG_TYPEC_MUX_FUSB304=m
 CONFIG_TYPEC_MUX_PTN36241G=m
-CONFIG_TYPEC_MUX_PS5169=m
 CONFIG_TYPEC_MUX_PS5170=m
 CONFIG_TYPEC_MUX_DP_SELECTOR=m
 CONFIG_TYPEC_MUX_ALPHA_FSA4480=m
@@ -877,7 +880,7 @@ CONFIG_MTK_AEE_HANGDET=m
 CONFIG_MTK_AEE_IPANIC=m
 CONFIG_MTK_HANG_DETECT=m
 CONFIG_MTK_HANG_DETECT_DB=y
-CONFIG_EXT_MODULES="../vendor/mediatek/kernel_modules/connectivity/common ../vendor/mediatek/kernel_modules/connectivity/conninfra ../vendor/mediatek/kernel_modules/connectivity/connfem ../vendor/mediatek/kernel_modules/connectivity/gps/gps_stp ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v051 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v060 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v061 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v062 ../vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr ../vendor/mediatek/kernel_modules/connectivity/gps/gps_scp ../vendor/mediatek/kernel_modules/gpu ../vendor/mediatek/kernel_modules/connectivity/fmradio ../vendor/mediatek/kernel_modules/connectivity/wlan/adaptor ../vendor/mediatek/kernel_modules/connectivity/wlan/adaptor/wlan_page_pool ../vendor/mediatek/kernel_modules/connectivity/bt/linux_v2 ../vendor/mediatek/kernel_modules/connectivity/bt/mt66xx ../vendor/mediatek/kernel_modules/hbt_driver_cus ../vendor/mediatek/kernel_modules/hbt_driver ../vendor/mediatek/kernel_modules/mtk_input/fingerprint/goodix/5.10 ../vendor/mediatek/kernel_modules/mtk_input/fingerprint/goodix/4.14 ../vendor/mediatek/tests/ktf/kernel ../vendor/mediatek/tests/kernel/ktf_testcase ../vendor/mediatek/kernel_modules/mtk_input/FT3518U ../vendor/mediatek/kernel_modules/mtk_input/GT9886 ../vendor/mediatek/kernel_modules/mtk_input/GT9916 ../vendor/mediatek/kernel_modules/mtk_input/NT36672C ../vendor/mediatek/kernel_modules/mtk_input/ST61Y ../vendor/mediatek/kernel_modules/mtk_input/synaptics_tcm ../vendor/mediatek/kernel_modules/connectivity/bt/mt66xx/wmt ../vendor/mediatek/kernel_modules/connectivity/bt/mt66xx ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_s1/build/connac1x/6768 ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_s1/build/connac1x/6833 ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_s1/build/connac2x/6877 ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m/build/connac3x/6991_6653 ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m/build/connac3x/6991_6653_dx5_2g2a_tc10sp ../vendor/mediatek/kernel_modules/mtkcam ../vendor/mediatek/kernel_modules/cpufreq_cus ../vendor/mediatek/kernel_modules/cpufreq_int ../vendor/mediatek/kernel_modules/afs_common_utils  ../vendor/mediatek/kernel_modules/afs_core_cus  ../vendor/mediatek/kernel_modules/afs_core_int"
+CONFIG_EXT_MODULES="../vendor/mediatek/kernel_modules/connectivity/common ../vendor/mediatek/kernel_modules/connectivity/conninfra ../vendor/mediatek/kernel_modules/connectivity/connfem ../vendor/mediatek/kernel_modules/connectivity/gps/gps_stp ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v051 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v060 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v061 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v062 ../vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr ../vendor/mediatek/kernel_modules/connectivity/gps/gps_scp ../vendor/mediatek/kernel_modules/connectivity/gps/capid_util ../vendor/mediatek/kernel_modules/gpu ../vendor/mediatek/kernel_modules/connectivity/fmradio ../vendor/mediatek/kernel_modules/connectivity/wlan/adaptor ../vendor/mediatek/kernel_modules/connectivity/wlan/adaptor/wlan_page_pool ../vendor/mediatek/kernel_modules/connectivity/bt/linux_v2 ../vendor/mediatek/kernel_modules/connectivity/bt/linux_v2_mt6653 ../vendor/mediatek/kernel_modules/connectivity/bt/mt66xx ../vendor/mediatek/kernel_modules/hbt_driver_cus ../vendor/mediatek/kernel_modules/hbt_driver ../vendor/mediatek/kernel_modules/mtk_input/fingerprint/goodix/5.10 ../vendor/mediatek/kernel_modules/mtk_input/fingerprint/goodix/4.14 ../vendor/mediatek/tests/ktf/kernel ../vendor/mediatek/tests/kernel/ktf_testcase ../vendor/mediatek/kernel_modules/mtk_input/FT3518U ../vendor/mediatek/kernel_modules/mtk_input/GT9886 ../vendor/mediatek/kernel_modules/mtk_input/GT9916 ../vendor/mediatek/kernel_modules/mtk_input/NT36672C ../vendor/mediatek/kernel_modules/mtk_input/ST61Y ../vendor/mediatek/kernel_modules/mtk_input/synaptics_tcm ../vendor/mediatek/kernel_modules/connectivity/bt/mt66xx/wmt ../vendor/mediatek/kernel_modules/connectivity/bt/mt66xx ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_s1/build/connac1x/6768 ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_s1/build/connac1x/6833 ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_s1/build/connac2x/6877 ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m/build/connac3x/6991_6639_tc10sp ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_mt6653/build/connac3x/6991_6653 ../vendor/mediatek/kernel_modules/mtkcam ../vendor/mediatek/kernel_modules/cpufreq_cus ../vendor/mediatek/kernel_modules/cpufreq_int ../vendor/mediatek/kernel_modules/afs_common_utils  ../vendor/mediatek/kernel_modules/afs_core_cus  ../vendor/mediatek/kernel_modules/afs_core_int"
 CONFIG_MTK_BTM_V1=m
 CONFIG_MTK_SECURITY_SW_SUPPORT=m
 CONFIG_MTK_BTM_SUPPORT=m
@@ -942,8 +945,10 @@ CONFIG_MTK_PKVM_MTK_SMC_HANDLER=m
 CONFIG_MTK_PKVM_MKP=m
 CONFIG_MTK_PKVM_SMMU=m
 # CONFIG_ARM64_HW_AFDBM is not set
+# CONFIG_TEEGRIS_TUI is not set
 CONFIG_SEC_PM=y
 CONFIG_CPU_FREQ_LIMIT=m
+CONFIG_SEC_DEVINFO=m
 # IO
 CONFIG_BLK_SEC_STATS=m
 CONFIG_BLK_SEC_WB=m
@@ -951,6 +956,7 @@ CONFIG_MQ_IOSCHED_SSG_CGROUP=m
 CONFIG_MQ_IOSCHED_SSG=m
 CONFIG_MQ_IOSCHED_SSG_WB=m
 CONFIG_SEC_PM_DEBUG=m
+CONFIG_PM_DEBUG=y
 
 #VOLD ASEC
 CONFIG_CRYPTO_TWOFISH=m
@@ -1078,6 +1084,7 @@ CONFIG_STEP_CHARGING=y
 CONFIG_SUPPORT_HV_CTRL=y
 CONFIG_USB_FACTORY_MODE=y
 ####[LEGO-END] DO NOT SUBMIT
+
 CONFIG_CUSTOM_KERNEL_IMGSENSOR="imx582_mipi_raw imx258_mipi_raw s5k4hayx_mipi_raw gc5035_mipi_raw sr846d_mipi_raw hi1339_mipi_raw"
 CONFIG_IMGSENSOR_CUSTOM_CAMERA=y
 CONFIG_CAMERA_AAW_V34X=y
@@ -1108,6 +1115,7 @@ CONFIG_SHUB_AOIS=y
 CONFIG_SHUB_DUMP_NOTI=y
 CONFIG_SAMSUNG_TUI=m
 CONFIG_SAMSUNG_TUI_LOWLEVEL=y
+CONFIG_BATTERY_SAMSUNG_MTK=y
 CONFIG_MTK_NO_BAT_BOOT_SUPPORT=y
 # CONFIG_MTK_CHGLOG_SUPPORT is not set
 CONFIG_CPU_FREQ_LTL_LIMIT=y
@@ -1118,80 +1126,3 @@ CONFIG_SEC_WAKEUP_CPU_ALLOCATOR=m
 # CONFIG_RODATA_FULL_DEFAULT_ENABLED is not set
 # CONFIG_ARM64_E0PD is not set
 CONFIG_SAMSUNG_PRODUCT_SHIP=y
-
-
-CONFIG_FIVE=y
-
-
-CONFIG_PROCA=y
-
-
-CONFIG_PROCA_S_OS=y
-
-
-CONFIG_PROCA_CERTIFICATES_DB=y
-
-
-CONFIG_FIVE_GKI_10=y
-
-
-# CONFIG_FIVE_TEE_DRIVER is not set
-
-
-# CONFIG_FIVE_PA_FEATURE is not set
-
-
-CONFIG_GAF=y
-
-
-CONFIG_GAF_V6=y
-
-
-CONFIG_SECURITY_DEFEX=y
-
-
-CONFIG_SECURITY_DEFEX_USER=y
-
-
-CONFIG_SECURITY_DSMS=y
-
-
-CONFIG_SMB_SERVER=y
-
-
-CONFIG_SMB_SERVER_CHECK_CAP_NET_ADMIN=y
-
-
-CONFIG_SECURITY_KUMIHO=y
-
-
-CONFIG_NTFS3_FS=y
-
-
-CONFIG_NTFS3_LZX_XPRESS=y
-
-
-CONFIG_NLS=y
-
-
-CONFIG_F2FS_FS=y
-
-
-CONFIG_F2FS_FS_SECURITY=y
-
-
-CONFIG_F2FS_FS_COMPRESSION=y
-
-
-CONFIG_EXT4_FS_POSIX_ACL=y
-
-
-CONFIG_NTFS_FS=y
-
-
-CONFIG_NTFS_DEBUG=y
-
-
-
-
-CONFIG_EROFS_FS=y

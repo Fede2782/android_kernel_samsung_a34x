@@ -12,8 +12,25 @@
 #include <linux/compat.h>
 #endif
 
+enum CAM_CAL_COMMAND {
+	CAM_CAL_COMMAND_NONE,
+	CAM_CAL_COMMAND_EEPROM_LIMIT_SIZE,
+	CAM_CAL_COMMAND_CAL_SIZE,
+	CAM_CAL_COMMAND_CONVERTED_CAL_SIZE,
+	CAM_CAL_COMMAND_AWB_ADDR,
+	CAM_CAL_COMMAND_CONVERTED_AWB_ADDR,
+	CAM_CAL_COMMAND_LSC_ADDR,
+	CAM_CAL_COMMAND_CONVERTED_LSC_ADDR,
+	CAM_CAL_COMMAND_MEMTYPE,
+	CAM_CAL_COMMAND_BAYERFORMAT,
+	CAM_CAL_COMMAND_MODULE_INFO_ADDR,
+};
+
 struct CAM_CAL_SENSOR_INFO {
+	enum CAM_CAL_COMMAND command;
 	u32 sensor_id;
+	u32 device_id;
+	u32 *info;
 };
 
 struct stCAM_CAL_INFO_STRUCT {
@@ -29,9 +46,17 @@ struct stCAM_CAL_INFO_STRUCT {
 	 */
 	u32 deviceID;
 	u8 *pu1Params;
+	enum CAM_CAL_COMMAND command;
 };
 
 #ifdef CONFIG_COMPAT
+
+struct COMPAT_CAM_CAL_SENSOR_INFO {
+	enum CAM_CAL_COMMAND command;
+	unsigned int sensor_id;
+	unsigned int device_id;
+	compat_uptr_t info;
+};
 
 struct COMPAT_stCAM_CAL_INFO_STRUCT {
 	u32 u4Offset;
@@ -39,6 +64,7 @@ struct COMPAT_stCAM_CAL_INFO_STRUCT {
 	u32 sensorID;
 	u32 deviceID;
 	compat_uptr_t pu1Params;
+	enum CAM_CAL_COMMAND command;
 };
 #endif
 

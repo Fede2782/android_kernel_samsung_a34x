@@ -2877,7 +2877,8 @@ void vfree(const void *addr)
 #endif
 
 		BUG_ON(!page);
-		mod_memcg_page_state(page, MEMCG_VMALLOC, -1);
+		if (!(vm->flags & VM_MAP_PUT_PAGES))
+			mod_memcg_page_state(page, MEMCG_VMALLOC, -1);
 #ifdef CONFIG_RKP
 		va = (u64)phys_to_virt(page_to_phys(page));
 		if (is_rkp_ro_buffer(va))
@@ -2893,7 +2894,8 @@ void vfree(const void *addr)
 #endif
 		cond_resched();
 	}
-	atomic_long_sub(vm->nr_pages, &nr_vmalloc_pages);
+	if (!(vm->flags & VM_MAP_PUT_PAGES))
+		atomic_long_sub(vm->nr_pages, &nr_vmalloc_pages);
 	kvfree(vm->pages);
 	kfree(vm);
 }

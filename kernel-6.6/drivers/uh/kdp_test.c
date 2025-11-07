@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 #include <linux/module.h>
 #include <linux/proc_fs.h>
 #include <linux/mm.h>
@@ -73,14 +74,14 @@ static int test_case_kdp_ro(int cmd_id)
 
 	for_each_process(p) {
 		switch (cmd_id) {
-			case CMD_ID_CRED:
-				/* Here dst points to struct cred */
-				dst = (u64)__task_cred(p);
-				break;
-			case CMD_ID_SEC_CONTEXT:
-				/* Here dst points to process security context */
-				dst = (u64)__task_cred(p)->security;
-				break;
+		case CMD_ID_CRED:
+			/* Here dst points to struct cred */
+			dst = (u64)__task_cred(p);
+			break;
+		case CMD_ID_SEC_CONTEXT:
+			/* Here dst points to process security context */
+			dst = (u64)__task_cred(p)->security;
+			break;
 		}
 
 		if (!dst)

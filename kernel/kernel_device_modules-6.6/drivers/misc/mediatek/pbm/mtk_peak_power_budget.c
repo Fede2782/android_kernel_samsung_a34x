@@ -43,6 +43,9 @@
 #define PPB_LOG_DURATION msecs_to_jiffies(20000)
 #define HPT_INIT_SETTING    7
 #define DEFAULT_COMBO0_UISOC MAX_VALUE
+#define CPUB_SF_DEFAULT 3
+#define CPUM_SF_DEFAULT 4
+#define GPU_SF_DEFAULT  7
 
 static bool mt_ppb_debug;
 static spinlock_t ppb_lock;
@@ -306,12 +309,35 @@ static void __used ppb_print_dbg_log(struct timer_list *timer)
 	l_ktime = ktime;
 
 	get_xpu_debug_info(&dbg_data);
-	cpub_cnt = dbg_data.cpub_cnt - last_klog_xpu_dbg.cpub_cnt;
-	cpub_th_t = dbg_data.cpub_th_t - last_klog_xpu_dbg.cpub_th_t;
-	cpum_cnt = dbg_data.cpum_cnt - last_klog_xpu_dbg.cpum_cnt;
-	cpum_th_t = dbg_data.cpum_th_t - last_klog_xpu_dbg.cpum_th_t;
-	gpu_cnt = dbg_data.gpu_cnt - last_klog_xpu_dbg.gpu_cnt;
-	gpu_th_t = dbg_data.gpu_th_t - last_klog_xpu_dbg.gpu_th_t;
+	if (dbg_data.cpub_cnt > last_klog_xpu_dbg.cpub_cnt)
+		cpub_cnt = dbg_data.cpub_cnt - last_klog_xpu_dbg.cpub_cnt;
+	else
+		cpub_cnt = 0;
+
+	if (dbg_data.cpub_th_t > last_klog_xpu_dbg.cpub_th_t)
+		cpub_th_t = dbg_data.cpub_th_t - last_klog_xpu_dbg.cpub_th_t;
+	else
+		cpub_th_t = 0;
+
+	if (dbg_data.cpum_cnt > last_klog_xpu_dbg.cpum_cnt)
+		cpum_cnt = dbg_data.cpum_cnt - last_klog_xpu_dbg.cpum_cnt;
+	else
+		cpum_cnt = 0;
+
+	if (dbg_data.cpum_th_t > last_klog_xpu_dbg.cpum_th_t)
+		cpum_th_t = dbg_data.cpum_th_t - last_klog_xpu_dbg.cpum_th_t;
+	else
+		cpum_th_t = 0;
+
+	if (dbg_data.gpu_cnt > last_klog_xpu_dbg.gpu_cnt)
+		gpu_cnt = dbg_data.gpu_cnt - last_klog_xpu_dbg.gpu_cnt;
+	else
+		gpu_cnt = 0;
+
+	if (dbg_data.gpu_th_t > last_klog_xpu_dbg.gpu_th_t)
+		gpu_th_t = dbg_data.gpu_th_t - last_klog_xpu_dbg.gpu_th_t;
+	else
+		gpu_th_t = 0;
 
 	if (cgppt_dbg_ops && cgppt_dbg_ops->get_cpub_sf)
 		cpub_sf = cgppt_dbg_ops->get_cpub_sf();
@@ -844,7 +870,7 @@ static void bat_handler(struct work_struct *work)
 	else
 		qmax = val.intval;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	if (strcmp(psy->desc->name, "mtk-fg-battery") != 0)
 #else
 	if (strcmp(psy->desc->name, "battery") != 0)
@@ -1243,14 +1269,36 @@ static int __used read_power_budget_dts(struct platform_device *pdev)
 		if (read_dts_val(np, "battery-circult-rdc", &pb.circuit_rdc, 1))
 			pb.circuit_rdc = BAT_CIRCUIT_DEFAULT_RDC;
 
-		if (read_dts_val(np, "soc-max-level", &pb.hpt_max_lv, 1))
-			pb.hpt_max_lv = 0;
+		if (read_dts_val(np, "soc-max-level", &pb.soc_max_lv, 1))
+			pb.soc_max_lv = 0;
 
-		if (pb.hpt_max_lv >= BATTERY_PERCENT_LEVEL_NUM)
-			pb.hpt_max_lv = BATTERY_PERCENT_LEVEL_NUM - 1;
+		if (pb.soc_max_lv >= BATTERY_PERCENT_LEVEL_NUM)
+			pb.soc_max_lv = BATTERY_PERCENT_LEVEL_NUM - 1;
+
+		ret = read_dts_val(np, "cpub-sf-default", &pb.cpub_sf_default, 1);
+		if (pb.cpub_sf_default < 1 || pb.cpub_sf_default > 8) {
+			pr_info("invalid cpub_sf_default, set cpub_sf_default=%d\n", CPUB_SF_DEFAULT);
+			pb.cpub_sf_default = CPUB_SF_DEFAULT;
+		}
+
+		ret = read_dts_val(np, "cpum-sf-default", &pb.cpum_sf_default, 1);
+		if (pb.cpum_sf_default < 1 || pb.cpum_sf_default > 8) {
+			pr_info("invalid cpum_sf_default, set cpum_sf_default=%d\n", CPUM_SF_DEFAULT);
+			pb.cpum_sf_default = CPUM_SF_DEFAULT;
+		}
+
+		ret = read_dts_val(np, "gpu-sf-default", &pb.gpu_sf_default, 1);
+		if (pb.gpu_sf_default < 1 || pb.gpu_sf_default > 8) {
+			pr_info("invalid gpu_sf_default, set gpu_sf_default=%d\n", GPU_SF_DEFAULT);
+			pb.gpu_sf_default = GPU_SF_DEFAULT;
+		}
 
 		pb.hpt_lv_t[0] = HPT_INIT_SETTING;
-		for (i = 1; i <= pb.hpt_max_lv; i++) {
+		pb.sf_cpub_lv_t[0] = pb.cpub_sf_default;
+		pb.sf_cpum_lv_t[0] = pb.cpum_sf_default;
+		pb.sf_gpu_lv_t[0] = pb.gpu_sf_default;
+
+		for (i = 1; i <= pb.soc_max_lv; i++) {
 			ret = snprintf(str, STR_SIZE, "%s%d", "soc-hpt-ctrl-lv", i);
 			if (ret < 0) {
 				pr_info("%s:%d: snprintf error %d\n", __func__, __LINE__, ret);
@@ -1258,6 +1306,30 @@ static int __used read_power_budget_dts(struct platform_device *pdev)
 			}
 			if (read_dts_val(np, str, &pb.hpt_lv_t[i], 1))
 				pb.hpt_lv_t[i] = HPT_INIT_SETTING;
+
+			ret = snprintf(str, STR_SIZE, "%s%d", "soc-sf-cpub-lv", i);
+			if (ret < 0) {
+				pr_info("%s:%d: snprintf error %d\n", __func__, __LINE__, ret);
+				break;
+			}
+			if (read_dts_val(np, str, &pb.sf_cpub_lv_t[i], 1))
+				pb.sf_cpub_lv_t[i] = pb.sf_cpub_lv_t[i - 1];
+
+			ret = snprintf(str, STR_SIZE, "%s%d", "soc-sf-cpum-lv", i);
+			if (ret < 0) {
+				pr_info("%s:%d: snprintf error %d\n", __func__, __LINE__, ret);
+				break;
+			}
+			if (read_dts_val(np, str, &pb.sf_cpum_lv_t[i], 1))
+				pb.sf_cpum_lv_t[i] = pb.sf_cpum_lv_t[i - 1];
+
+			ret = snprintf(str, STR_SIZE, "%s%d", "soc-sf-gpu-lv", i);
+			if (ret < 0) {
+				pr_info("%s:%d: snprintf error %d\n", __func__, __LINE__, ret);
+				break;
+			}
+			if (read_dts_val(np, str, &pb.sf_gpu_lv_t[i], 1))
+				pb.sf_gpu_lv_t[i] = pb.sf_gpu_lv_t[i - 1];
 		}
 	} else {
 		for (i = 0; i <= pb.temp_max_stage; i++) {
@@ -1951,6 +2023,57 @@ static ssize_t mt_hpt_sf_setting_proc_write
 	return count;
 }
 
+static int mt_hpt_sf_force_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int cpub_f, cpum_f, gpu_f;
+
+	cpub_f = ppb_read_sram(HPT_CPU_B_SF_FORCE);
+	cpum_f = ppb_read_sram(HPT_CPU_M_SF_FORCE);
+	gpu_f = ppb_read_sram(HPT_GPU_SF_FORCE);
+
+	seq_printf(m, "%u, %u, %u\n", cpub_f, cpum_f, gpu_f);
+	return 0;
+}
+
+static ssize_t mt_hpt_sf_force_proc_write
+(struct file *file, const char __user *buffer, size_t count, loff_t *data)
+{
+	char desc[64], cmd[21];
+	unsigned int len = 0, val = 0;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+	desc[len] = '\0';
+
+	if (sscanf(desc, "%20s %u", cmd, &val) != 2) {
+		pr_notice("parameter number not correct\n");
+		return -EPERM;
+	}
+
+	if (!strncmp(cmd, "CPUB_FORCE", 8)) {
+		if (val < 1 || val > 8) {
+			pr_notice("invalid input %s %d\n", cmd, val);
+			return -EINVAL;
+		}
+		ppb_write_sram(val, HPT_CPU_B_SF_FORCE);
+	} else if (!strncmp(cmd, "CPUM_FORCE", 8)) {
+		if (val < 1 || val > 8) {
+			pr_notice("invalid input %s %d\n", cmd, val);
+			return -EINVAL;
+		}
+		ppb_write_sram(val, HPT_CPU_M_SF_FORCE);
+	} else if (!strncmp(cmd, "GPU_FORCE", 8)) {
+		if (val < 1 || val > 8) {
+			pr_notice("invalid input %s %d\n", cmd, val);
+			return -EINVAL;
+		}
+		ppb_write_sram(val, HPT_GPU_SF_FORCE);
+	}
+
+	return count;
+}
+
 static int mt_xpu_dbg_dump_proc_show(struct seq_file *m, void *v)
 {
 	struct xpu_dbg_t dbg_data;
@@ -2036,6 +2159,7 @@ PROC_FOPS_RO(hpt_debug);
 PROC_FOPS_RO(hpt_dump);
 PROC_FOPS_RW(hpt_ctrl);
 PROC_FOPS_RW(hpt_sf_setting);
+PROC_FOPS_RW(hpt_sf_force);
 PROC_FOPS_RO(xpu_dbg_dump);
 PROC_FOPS_RW(combo0_uisoc);
 
@@ -2064,6 +2188,7 @@ static int mt_ppb_create_procfs(void)
 		PROC_ENTRY(hpt_dump),
 		PROC_ENTRY(hpt_ctrl),
 		PROC_ENTRY(hpt_sf_setting),
+		PROC_ENTRY(hpt_sf_force),
 		PROC_ENTRY(xpu_dbg_dump),
 		PROC_ENTRY(combo0_uisoc),
 	};
@@ -2127,7 +2252,19 @@ static void hpt_bp_cb(enum BATTERY_PERCENT_LEVEL_TAG level)
 			lbat_set_hpt_mode(hpt_enable);
 
 		pb.hpt_cur_lv = level;
+		pr_info("%s: hpt_reg=%d pb.hpt_cur_lv=%d\n", __func__, pb.hpt_lv_t[level], pb.hpt_cur_lv);
 	}
+
+	if (level != pb.sf_cur_lv && level < BATTERY_PERCENT_LEVEL_NUM) {
+		ppb_write_sram(pb.sf_cpub_lv_t[level], HPT_CPU_B_SF_FORCE);
+		ppb_write_sram(pb.sf_cpum_lv_t[level], HPT_CPU_M_SF_FORCE);
+		ppb_write_sram(pb.sf_gpu_lv_t[level], HPT_GPU_SF_FORCE);
+		pb.sf_cur_lv = level;
+		pr_info("%s: sf_cur_lv=%d cb=%d cm=%d g=%d\n", __func__, pb.sf_cur_lv, pb.sf_cpub_lv_t[level],
+			pb.sf_cpum_lv_t[level], pb.sf_gpu_lv_t[level]);
+	}
+
+
 }
 
 static int peak_power_budget_probe(struct platform_device *pdev)
@@ -2183,6 +2320,15 @@ static int peak_power_budget_probe(struct platform_device *pdev)
 	INIT_WORK(&pb.bat_work, bat_handler);
 	read_power_budget_dts(pdev);
 
+	if (pb.cpub_sf_default)
+		ppb_write_sram(pb.cpub_sf_default, HPT_CPU_B_SF_FORCE);
+
+	if (pb.cpum_sf_default)
+		ppb_write_sram(pb.cpum_sf_default, HPT_CPU_M_SF_FORCE);
+
+	if (pb.gpu_sf_default)
+		ppb_write_sram(pb.gpu_sf_default, HPT_GPU_SF_FORCE);
+
 	if (hpt_ctrl_read(HPT_CTRL) && pb.hpt_exclude_lbat_cg_thl)
 		lbat_set_hpt_mode(1);
 
@@ -2208,8 +2354,11 @@ static int peak_power_budget_probe(struct platform_device *pdev)
 	get_md_dbm_info();
 	ppb_set_wifi_pwr_addr_by_dts();
 
-	if (pb.hpt_max_lv)
+	if (pb.soc_max_lv) {
+		pb.hpt_cur_lv = -1;
+		pb.sf_cur_lv = -1;
 		register_bp_thl_notify(&hpt_bp_cb, BATTERY_PERCENT_PRIO_HPT);
+	}
 
 	timer_setup(&ppb_dbg_timer, ppb_print_dbg_log, TIMER_DEFERRABLE);
 	mod_timer(&ppb_dbg_timer, jiffies + PPB_LOG_DURATION);

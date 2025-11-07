@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -54,32 +54,6 @@
  *                              F U N C T I O N S
  *******************************************************************************
  */
-
-/*----------------------------------------------------------------------------*/
-/*!
- * \brief
- *
- * \param[in]
- *
- * \return none
- */
-/*----------------------------------------------------------------------------*/
-void rlmObssInit(struct ADAPTER *prAdapter)
-{
-	struct BSS_INFO *prBssInfo;
-	uint8_t i;
-
-	ASSERT(prAdapter);
-
-	for (i = 0; i < prAdapter->ucSwBssIdNum; i++) {
-		prBssInfo = prAdapter->aprBssInfo[i];
-
-		cnmTimerInitTimer(prAdapter, &prBssInfo->rObssScanTimer,
-				  (PFN_MGMT_TIMEOUT_FUNC) rlmObssScanTimeout,
-				  (uintptr_t) prBssInfo);
-	}
-}
-
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief

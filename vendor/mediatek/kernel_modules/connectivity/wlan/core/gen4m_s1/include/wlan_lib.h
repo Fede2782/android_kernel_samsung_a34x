@@ -1395,15 +1395,52 @@ void wlanReturnPacketDelaySetupTimeout(IN struct ADAPTER *prAdapter,
 
 void wlanReturnPacket(IN struct ADAPTER *prAdapter, IN void *pvPacket);
 
+
+#define wlanQueryInformation(_prAdapter, \
+		     _pfOidQryHandler, \
+		     _pvInfoBuf, \
+		     _u4InfoBufLen, \
+		     _pu4QryInfoLen) \
+({ \
+	uint32_t u4Status; \
+	WLAN_STATIC_OID_HANDLER_CHECK(_pfOidQryHandler); \
+	u4Status = __wlanQueryInformation(_prAdapter, \
+		     _pfOidQryHandler, \
+		     #_pfOidQryHandler, \
+		     _pvInfoBuf, \
+		     _u4InfoBufLen, \
+		     _pu4QryInfoLen); \
+	u4Status; \
+})
+
 uint32_t
-wlanQueryInformation(IN struct ADAPTER *prAdapter,
+__wlanQueryInformation(IN struct ADAPTER *prAdapter,
 		     IN PFN_OID_HANDLER_FUNC pfOidQryHandler,
+		     IN const char *pOidQryHandlerStr,
 		     IN void *pvInfoBuf, IN uint32_t u4InfoBufLen,
 		     OUT uint32_t *pu4QryInfoLen);
 
+#define wlanSetInformation(_prAdapter, \
+		     _pfOidSetHandler, \
+		     _pvInfoBuf, \
+		     _u4InfoBufLen, \
+		     _pu4SetInfoLen) \
+({ \
+	uint32_t u4Status; \
+	WLAN_STATIC_OID_HANDLER_CHECK(_pfOidSetHandler); \
+	u4Status = __wlanSetInformation(_prAdapter, \
+		     _pfOidSetHandler, \
+		     #_pfOidSetHandler, \
+		     _pvInfoBuf, \
+		     _u4InfoBufLen, \
+		     _pu4SetInfoLen); \
+	u4Status; \
+})
+
 uint32_t
-wlanSetInformation(IN struct ADAPTER *prAdapter,
+__wlanSetInformation(IN struct ADAPTER *prAdapter,
 		   IN PFN_OID_HANDLER_FUNC pfOidSetHandler,
+		   IN const char *pOidSetHandlerStr,
 		   IN void *pvInfoBuf, IN uint32_t u4InfoBufLen,
 		   OUT uint32_t *pu4SetInfoLen);
 
@@ -1956,9 +1993,30 @@ int wlanTpeProcess(struct GLUE_INFO *prGlueInfo,
 #endif /* CFG_SUPPORT_TPENHANCE_MODE */
 
 void wlanSetConnsysFwLog(IN struct ADAPTER *prAdapter);
-uint32_t wlanSendFwLogControlCmd(IN struct ADAPTER *prAdapter,
+#define wlanSendFwLogControlCmd(_prAdapter, \
+				_ucCID, \
+				_pfCmdDoneHandler, \
+				_pfCmdTimeoutHandler, \
+				_u4SetQueryInfoLen, \
+				_pucInfoBuffer) \
+({ \
+	uint32_t u4Status; \
+	WLAN_STATIC_CMD_DONE_HANDLER_CHECK(_pfCmdDoneHandler); \
+	u4Status = __wlanSendFwLogControlCmd(_prAdapter, \
+					_ucCID, \
+					_pfCmdDoneHandler, \
+					#_pfCmdDoneHandler, \
+					_pfCmdTimeoutHandler, \
+					_u4SetQueryInfoLen, \
+					_pucInfoBuffer); \
+	u4Status; \
+})
+
+
+uint32_t __wlanSendFwLogControlCmd(IN struct ADAPTER *prAdapter,
 				uint8_t ucCID,
 				PFN_CMD_DONE_HANDLER pfCmdDoneHandler,
+				const char *pCmdDoneHandlerStr,
 				PFN_CMD_TIMEOUT_HANDLER pfCmdTimeoutHandler,
 				uint32_t u4SetQueryInfoLen,
 				int8_t *pucInfoBuffer);

@@ -33,7 +33,6 @@
 #include <linux/debugfs.h>
 #include <linux/cpuhotplug.h>
 #include <linux/part_stat.h>
-#include <trace/hooks/mm.h>
 
 #include "zram_drv.h"
 
@@ -1060,9 +1059,6 @@ static ssize_t mm_stat_show(struct device *dev,
 			atomic_long_read(&pool_stats.pages_compacted),
 			(u64)atomic64_read(&zram->stats.huge_pages),
 			(u64)atomic64_read(&zram->stats.huge_pages_since));
-#ifdef CONFIG_ZRAM_EXT
-	ret += zram_error_count_show(zram, buf + ret, PAGE_SIZE - ret);
-#endif
 	up_read(&zram->init_lock);
 
 	return ret;
@@ -2138,6 +2134,9 @@ static struct attribute *zram_disk_attrs[] = {
 #ifdef CONFIG_ZRAM_PERF_STAT
 	&dev_attr_perf_stat.attr,
 #endif
+#ifdef CONFIG_ZRAM_EXT
+	&dev_attr_error_count.attr,
+#endif
 	NULL,
 };
 
@@ -2223,6 +2222,9 @@ static int zram_add(void)
 	comp_algorithm_set(zram, ZRAM_PRIMARY_COMP, default_compressor);
 
 	zram_debugfs_register(zram);
+#ifdef CONFIG_ZRAM_EXT
+	zram_register_vendor_hooks(zram);
+#endif
 	pr_info("Added device: %s\n", zram->disk->disk_name);
 	return device_id;
 
@@ -2251,6 +2253,9 @@ static int zram_remove(struct zram *zram)
 	mutex_unlock(&zram->disk->open_mutex);
 
 	zram_debugfs_unregister(zram);
+#ifdef CONFIG_ZRAM_EXT
+	zram_unregister_vendor_hooks(zram);
+#endif
 
 	if (claimed) {
 		/*

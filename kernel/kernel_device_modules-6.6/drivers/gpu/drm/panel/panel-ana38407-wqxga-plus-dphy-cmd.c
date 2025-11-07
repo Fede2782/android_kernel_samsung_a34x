@@ -106,6 +106,7 @@ struct lcm {
 	struct drm_panel panel;
 	struct backlight_device *backlight;
 	struct gpio_desc *reset_gpio;
+	struct gpio_desc *octa_gpio;
 	struct gpio_desc *bias_pos, *bias_neg;
 
 	bool prepared;
@@ -118,6 +119,21 @@ struct lcm {
 	const u8 d[] = { seq };\
 	BUILD_BUG_ON_MSG(ARRAY_SIZE(d) > 64, "DCS sequence too big for stack");\
 	lcm_dcs_write(ctx, d, ARRAY_SIZE(d));\
+})
+
+#define lcm_dcs_write_set_lcm(handle, seq...) \
+({\
+	unsigned char d[] = { seq };\
+	struct mtk_ddic_dsi_msg *cmd_msg = vmalloc(sizeof(struct mtk_ddic_dsi_msg));\
+	if (cmd_msg) {\
+		cmd_msg->channel = 0;\
+		cmd_msg->flags = 0;\
+		cmd_msg->tx_cmd_num = 1;\
+		cmd_msg->tx_buf[0] = d;\
+		cmd_msg->tx_len[0] = (sizeof(d) / sizeof(u8));\
+		set_lcm(handle, cmd_msg);\
+		vfree(cmd_msg);\
+	}\
 })
 
 #define lcm_dcs_write_seq_static(ctx, seq...) \
@@ -400,6 +416,16 @@ static int lcm_unprepare(struct drm_panel *panel)
 		devm_gpiod_put(ctx->dev, ctx->bias_pos);
 	}
 
+	ctx->octa_gpio =
+		devm_gpiod_get(ctx->dev, "octa", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->octa_gpio)) {
+		dev_err(ctx->dev, "%s: cannot get octa_gpio %ld\n",
+			__func__, PTR_ERR(ctx->octa_gpio));
+	} else {
+		gpiod_set_value(ctx->octa_gpio, 0);
+		devm_gpiod_put(ctx->dev, ctx->octa_gpio);
+	}
+
 	return 0;
 }
 
@@ -410,6 +436,16 @@ static int lcm_prepare(struct drm_panel *panel)
 
 	if (ctx->prepared)
 		return 0;
+
+	ctx->octa_gpio =
+		devm_gpiod_get(ctx->dev, "octa", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->octa_gpio)) {
+		dev_err(ctx->dev, "%s: cannot get octa_gpio %ld\n",
+			__func__, PTR_ERR(ctx->octa_gpio));
+	} else {
+		gpiod_set_value(ctx->octa_gpio, 1);
+		devm_gpiod_put(ctx->dev, ctx->octa_gpio);
+	}
 
 	ctx->bias_pos = devm_gpiod_get_index(ctx->dev,
 		"bias", 0, GPIOD_OUT_HIGH);
@@ -1066,18 +1102,18 @@ static int lcm_update_roi_cmdq(void *dsi, dcs_write_gce cb, void *handle,
 	unsigned char y1_lsb = (y1 & 0xFF);
 
 	//set TE scan line: display total line - slice height + 8 = 2368
-	char te_sl[] = { 0x44, 0x09, 0x40};
-	char roi_x[] = { 0x2A, x0_msb, x0_lsb, x1_msb, x1_lsb};
-	char roi_y[] = { 0x2B, y0_msb, y0_lsb, y1_msb, y1_lsb};
+	//char te_sl[] = { 0x44, 0x09, 0x40};
+	//unsigned char roi_x[] = { 0x2A, x0_msb, x0_lsb, x1_msb, x1_lsb};
+	//unsigned char roi_y[] = { 0x2B, y0_msb, y0_lsb, y1_msb, y1_lsb};
 
 	pr_info("%s (x,y,w,h): (%d,%d,%d,%d)\n", __func__, x, y, w, h);
 
 	if (!cb)
 		return -1;
 
-	cb(dsi, handle, te_sl, ARRAY_SIZE(te_sl));
-	cb(dsi, handle, roi_x, ARRAY_SIZE(roi_x));
-	cb(dsi, handle, roi_y, ARRAY_SIZE(roi_y));
+	//lcm_dcs_write_set_lcm(handle, te_sl);
+	lcm_dcs_write_set_lcm(handle, 0x2A, x0_msb, x0_lsb, x1_msb, x1_lsb);
+	lcm_dcs_write_set_lcm(handle, 0x2B, y0_msb, y0_lsb, y1_msb, y1_lsb);
 
 	return ret;
 }
@@ -1270,6 +1306,14 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 			__func__, PTR_ERR(ctx->bias_pos));
 	} else {
 		devm_gpiod_put(dev, ctx->bias_pos);
+	}
+
+	ctx->octa_gpio = devm_gpiod_get(dev, "octa", GPIOD_OUT_HIGH);
+	if (IS_ERR(ctx->octa_gpio)) {
+		dev_err(dev, "%s: cannot get octa-gpios %ld\n",
+			__func__, PTR_ERR(ctx->octa_gpio));
+	} else {
+		devm_gpiod_put(dev, ctx->octa_gpio);
 	}
 
 	ctx->prepared = true;

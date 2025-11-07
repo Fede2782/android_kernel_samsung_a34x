@@ -1130,8 +1130,8 @@ void nicEventStatsLinkStats(IN struct ADAPTER *prAdapter,
 				prCmdInfo->u4InformationBufferLength);
 		prCmdInfo->u4InformationBufferLength =
 			prEvent->u2PacketLength - sizeof(struct WIFI_EVENT);
-		DBGLOG(RX, TRACE, "Calling prCmdInfo->pfCmdDoneHandler=%ps",
-				prCmdInfo->pfCmdDoneHandler);
+		DBGLOG(RX, TRACE, "Calling prCmdInfo->pfCmdDoneHandler=%s",
+				prCmdInfo->pCmdDoneHandlerStr);
 		prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo,
 					    prEvent->aucBuffer);
 	} else if (prCmdInfo->fgIsOid)
@@ -3284,8 +3284,8 @@ void nicEventLinkQuality(IN struct ADAPTER *prAdapter,
 
 	DBGLOG(RX, TRACE, "prCmdInfo=%p", prCmdInfo);
 	if (prCmdInfo != NULL) {
-		DBGLOG(RX, TRACE, "Calling prCmdInfo->pfCmdDoneHandler=%ps",
-				prCmdInfo->pfCmdDoneHandler);
+		DBGLOG(RX, TRACE, "Calling prCmdInfo->pfCmdDoneHandler=%s",
+				prCmdInfo->pCmdDoneHandlerStr);
 		if (prCmdInfo->pfCmdDoneHandler)
 			prCmdInfo->pfCmdDoneHandler(prAdapter, prCmdInfo,
 						    prEvent->aucBuffer);

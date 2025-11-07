@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * AES SIV (RFC 5297)
  * Copyright (c) 2013 Cozybit, Inc.

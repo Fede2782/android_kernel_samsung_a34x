@@ -10,11 +10,22 @@
 #include <drm/display/drm_dp_helper.h>
 #include <uapi/drm/mediatek_drm.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/display/drm_hdcp_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include "mtk_dp_hdcp.h"
 #include "mtk_dp_debug.h"
 #include "mtk_drm_drv.h"
 
+#include "mtk_drm_graphics_base.h"
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+#include "../sec_dp/sec_dp_mtk.h"
+enum dp_hwc_state {
+	DP_HWC_STATE_OFF = 0,
+	DP_HWC_STATE_ON,
+	DP_HWC_STATE_INIT,
+};
+#endif
 
 #ifndef BYTE
 #define BYTE    unsigned char
@@ -234,6 +245,7 @@ struct DPTX_TRAINING_INFO {
 	bool bDWN_STRM_PORT_PRESENT : 1;
 	bool cr_done : 1;
 	bool eq_done : 1;
+	bool bEnhancedFrameCAP : 1;
 	bool set_max_linkrate;
 
 	BYTE ubDPSysVersion;
@@ -304,8 +316,14 @@ struct mtk_dp {
 	struct task_struct *control_task;
 
 	struct workqueue_struct *dptx_wq;
+	struct workqueue_struct *hdcp_wq;
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	struct delayed_work hdcp_work;
+#else
 	struct work_struct hdcp_work;
+#endif
 	struct work_struct dptx_work;
+	struct delayed_work check_work;
 
 	u32 min_clock;
 	u32 max_clock;
@@ -327,15 +345,28 @@ struct mtk_dp {
 	bool has_fec;
 	bool dsc_enable;
 	bool fake_comeplete_irq;
+	bool hdcp_enable;
 	struct mtk_drm_private *priv;
 	//phy_params[10] = {L0P0,L0P1,L0P2,L0P3,L1P0,L1P1,L1P2,L2P0,L2P1,L3P0};
 	struct DPTX_PHY_PARAMETER phy_params[DPTX_PHY_LEVEL_COUNT];
-
+	struct mutex hdcp_mutex;
 	/* pmic vs voter */
 	struct regmap *vsv;
 	u32 vsv_reg;
 	u32 vsv_mask;
 	u32 vsv_vers;
+	spinlock_t property_lock;
+	struct drm_property *dp_cap_blob;
+	uint32_t connector_caps_blob_id;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	struct sec_dp_dev *sec_dp;
+	struct mutex uevent_mutex;
+	struct mutex main_handle_mutex;
+	wait_queue_head_t hwc_wq;
+	enum dp_hwc_state hwc_state;
+	int uevent_state;
+#endif
 };
 
 #endif /*__DRTX_TYPE_H__*/

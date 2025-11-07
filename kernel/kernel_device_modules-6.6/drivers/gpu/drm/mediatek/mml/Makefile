@@ -131,13 +131,9 @@ ifeq ($(strip $(CONFIG_FPGA_EARLY_PORTING)),y)
 ccflags-y += -DMML_FPGA
 endif
 
-ifeq ($(strip $(MGK_INTERNAL)),true)
 ccflags-y += -DMML_DL_SUPPORT
-endif
 
-ifeq ($(strip $(MGK_INTERNAL)),true)
 ccflags-y += -DMML_STASH_SUPPORT
-endif
 
 ifeq ($(strip $(MGK_INTERNAL)),true)
 ccflags-y += -DMML_IR_SUPPORT

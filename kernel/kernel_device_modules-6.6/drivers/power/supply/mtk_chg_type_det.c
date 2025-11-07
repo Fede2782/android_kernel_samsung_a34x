@@ -20,7 +20,7 @@
 #include "charger_class.h"
 #endif /* CONFIG_MTK_CHARGER */
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #if IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 #include <linux/usb/typec/common/pdic_notifier.h>
 #endif
@@ -202,7 +202,7 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		break;
 	case TCP_NOTIFY_PR_SWAP:
 		if (noti->swap_state.new_role == PD_ROLE_SOURCE) {
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_PDIC_NOTIFIER) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK) && IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 			PD_NOTI_TYPEDEF pdic_noti;
 
 			pr_info("%s Sink_to_Source\n", __func__);

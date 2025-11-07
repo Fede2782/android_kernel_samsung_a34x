@@ -24,6 +24,23 @@ static void __dma_tx_complete(void *param)
 
 	spin_lock_irqsave(&p->port.lock, flags);
 
+#ifdef CONFIG_SEC_DEBUG_PRINT_UART_TXRX
+	if (!strncmp(p->port.name, "ttyS0", 5)) {
+		int i,j;
+		int count;
+
+		//After dma tx complete and before update xmit->tail
+		pr_info(" %s: tx complete ++\n",__func__);
+		count = (dma->tx_size > 64) ? 64:dma->tx_size;
+		pr_info(" %s: tx_size:%ld\n xmit->tail[%d] count[%d]\n", __func__, dma->tx_size, xmit->tail, count);
+		for(j=0, i=xmit->tail; j < count; i++,j++) {
+			i &= UART_XMIT_SIZE - 1;
+			pr_cont("0x%02X ", *(xmit->buf+i));
+		}
+		pr_info("%s: tx complete --\n",__func__);
+	}
+#endif
+
 	dma->tx_running = 0;
 
 	uart_xmit_advance(&p->port, dma->tx_size);
@@ -137,6 +154,22 @@ int serial8250_tx_dma(struct uart_8250_port *p)
 err:
 	dma->tx_err = 1;
 	return ret;
+}
+
+void serial8250_tx_dma_flush(struct uart_8250_port *p)
+{
+	struct uart_8250_dma *dma = p->dma;
+
+	if (!dma->tx_running)
+		return;
+
+	/*
+	 * kfifo_reset() has been called by the serial core, avoid
+	 * advancing and underflowing in __dma_tx_complete().
+	 */
+	dma->tx_size = 0;
+
+	dmaengine_terminate_async(dma->rxchan);
 }
 
 int serial8250_rx_dma(struct uart_8250_port *p)

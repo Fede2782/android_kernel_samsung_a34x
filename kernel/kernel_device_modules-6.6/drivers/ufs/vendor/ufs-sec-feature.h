@@ -45,6 +45,7 @@ struct ufs_vendor_dev_info {
 	char s_info[UFS_S_INFO_SIZE];
 	char shi[UFS_SHI_SIZE];
 	bool device_stuck;
+	bool hist_on;
 };
 
 struct ufs_sec_cmd_info {
@@ -68,6 +69,73 @@ struct ufs_sec_wb_info {
 	u64 enable_cnt;
 	u64 disable_cnt;
 	u64 err_cnt;
+};
+
+/* HCGC : vendor specific flag_idn */
+enum {
+	QUERY_FLAG_IDN_SEC_HCGC_ANALYSYS = 0x13,
+	QUERY_FLAG_IDN_SEC_HCGC_EXECUTE = 0x14,
+};
+
+/* HCGC : vendor specific attr_idn */
+enum {
+	QUERY_ATTR_IDN_SEC_HCGC_STATE = 0xF0,	// bHCGCState, bHCGCProgressStatus
+	QUERY_ATTR_IDN_SEC_HCGC_SIZE = 0xFA,	// wHCGCSize
+	QUERY_ATTR_IDN_SEC_HCGC_AVAIL_SIZE = 0xFC,	// wHCGCAvailSize, bHCGCFreeBlockMaxSize
+	QUERY_ATTR_IDN_SEC_HCGC_RATIO = 0xFE,	// bHCGCRatio, bHCGCFreeBlockLevel
+	QUERY_ATTR_IDN_SEC_HCGC_OPERATION = 0xFF,	// wHCGCOperation
+};
+
+/* HCGC : vendor specific desc_idn */
+enum {
+	QUERY_DESC_IDN_VENDOR_DEVICE = 0xF0
+};
+
+/* HCGC : vendor specific device_desc_param */
+enum {
+	DEVICE_DESC_PARAM_VENDOR_FEA_SUP = 0xFB
+};
+
+/* HCGC : Possible values for dExtendedUFSFeaturesSupport */
+enum {
+	UFS_SEC_EXT_HCGC_SUPPORT = BIT(10),
+};
+
+/* HCGC : Possible values for dVendorSpecificFeaturesSupport */
+enum {
+	UFS_VENDOR_DEV_HCGC = BIT(0),
+};
+
+enum ufs_sec_hcgc_op {
+	HCGC_OP_nop = 0,
+	HCGC_OP_stop,
+	HCGC_OP_analyze,
+	HCGC_OP_execute,
+	HCGC_OP_max,
+};
+
+enum ufs_sec_hcgc_status {
+	HCGC_STATE_need_to_analyze = 0,
+	HCGC_STATE_analyzing,
+	HCGC_STATE_need_to_execute,
+	HCGC_STATE_executing,
+	HCGC_STATE_done,
+	HCGC_STATE_max,
+};
+
+struct ufs_sec_hcgc_info {
+	bool support;	/* UFS : feature support */
+	bool allow;	/* Host : feature allow */
+	int disable_threshold_lt;	/* LT threshold that HCGC is not allowed */
+
+	u32 bHCGCState;
+	u32 wHCGCAvailSize;
+	u32 wHCGCSize;
+	u32 bHCGCRatio;
+	u32 bHCGCOperation;
+
+	atomic_t hcgc_op_cnt[HCGC_OP_max];	/* HCGC op count */
+	atomic_t hcgc_op_err_cnt[HCGC_OP_max];	/* HCGC op error count */
 };
 
 enum ufs_sec_log_str_t {
@@ -121,15 +189,20 @@ struct ufs_sec_feature_info {
 	struct ufs_vendor_dev_info *vdi;
 	struct ufs_sec_wb_info *ufs_wb;
 	struct ufs_sec_wb_info *ufs_wb_backup;
+
+	struct ufs_sec_hcgc_info *ufs_hcgc;
+
 	struct ufs_sec_err_info *ufs_err;
 	struct ufs_sec_err_info *ufs_err_backup;
 	struct ufs_sec_err_info *ufs_err_hist;
+
 	struct ufs_sec_cmd_log_info *ufs_cmd_log;
 
 	struct notifier_block reboot_notify;
 	struct delayed_work noti_work;
 
 	u32 ext_ufs_feature_sup;
+	u32 vendor_spec_feature_sup;
 
 	u32 last_ucmd;
 	bool ucmd_complete;
@@ -153,11 +226,14 @@ bool ufs_sec_is_wb_supported(void);
 int ufs_sec_wb_ctrl(bool enable);
 void ufs_sec_wb_register_reset_notify(void *func);
 
+bool ufs_sec_is_hcgc_allowed(void);
+int ufs_sec_hcgc_query_attr(struct ufs_hba *hba,
+		enum query_opcode opcode, enum attr_idn idn, u32 *val);
+
 inline bool ufs_sec_is_err_cnt_allowed(void);
 void ufs_sec_inc_hwrst_cnt(void);
 void ufs_sec_inc_op_err(struct ufs_hba *hba, enum ufs_event_type evt, void *data);
-void ufs_sec_print_err(void);
-void ufs_sec_print_err_info(struct ufs_hba *hba);
+void ufs_sec_print_err(bool forced_print);
 void ufs_sec_init_logging(struct device *dev);
 void ufs_sec_check_device_stuck(void);
 #endif

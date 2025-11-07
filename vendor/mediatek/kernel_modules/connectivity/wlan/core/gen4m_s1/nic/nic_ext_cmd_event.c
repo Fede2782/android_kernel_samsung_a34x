@@ -90,8 +90,39 @@
  *                            F U N C T I O N   D A T A
  *******************************************************************************
  */
+#define wlanSendSetQueryExtCmd2WA(_prAdapter, \
+				  _ucCID, \
+				  _ucExtCID, \
+				  _fgSetQuery, \
+				  _fgNeedResp, \
+				  _fgIsOid, \
+				  _pfCmdDoneHandler, \
+				  _pfCmdTimeoutHandler, \
+				  _u4SetQueryInfoLen, \
+				  _pucInfoBuffer, \
+				  _pvSetQueryBuffer, \
+				  _u4SetQueryBufferLen) \
+({ \
+	uint32_t u4Status; \
+	WLAN_STATIC_CMD_DONE_HANDLER_CHECK(_pfCmdDoneHandler); \
+	u4Status = __wlanSendSetQueryExtCmd2WA(_prAdapter, \
+			  _ucCID, \
+			  _ucExtCID, \
+			  _fgSetQuery, \
+			  _fgNeedResp, \
+			  _fgIsOid, \
+			  _pfCmdDoneHandler, \
+			  #_pfCmdDoneHandler, \
+			  _pfCmdTimeoutHandler, \
+			  _u4SetQueryInfoLen, \
+			  _pucInfoBuffer, \
+			  _pvSetQueryBuffer, \
+			  _u4SetQueryBufferLen); \
+	u4Status; \
+})
+
 static uint32_t
-wlanSendSetQueryExtCmd2WA(
+__wlanSendSetQueryExtCmd2WA(
 	struct ADAPTER *prAdapter,
 	uint8_t ucCID,
 	uint8_t ucExtCID,
@@ -99,6 +130,7 @@ wlanSendSetQueryExtCmd2WA(
 	u_int8_t fgNeedResp,
 	u_int8_t fgIsOid,
 	PFN_CMD_DONE_HANDLER pfCmdDoneHandler,
+	const char *pCmdDoneHandlerStr,
 	PFN_CMD_TIMEOUT_HANDLER pfCmdTimeoutHandler,
 	uint32_t u4SetQueryInfoLen,
 	uint8_t *pucInfoBuffer,
@@ -127,6 +159,7 @@ wlanSendSetQueryExtCmd2WA(
 	prCmdInfo->u2InfoBufLen =
 		(uint16_t)(prChipInfo->u2CmdTxHdrSize + u4SetQueryInfoLen);
 	prCmdInfo->pfCmdDoneHandler = pfCmdDoneHandler;
+	prCmdInfo->pCmdDoneHandlerStr = pCmdDoneHandlerStr;
 	prCmdInfo->pfCmdTimeoutHandler = pfCmdTimeoutHandler;
 	prCmdInfo->fgIsOid = fgIsOid;
 	prCmdInfo->ucCID = ucCID;

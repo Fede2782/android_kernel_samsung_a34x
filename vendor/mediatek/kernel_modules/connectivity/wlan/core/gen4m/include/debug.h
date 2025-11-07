@@ -17,25 +17,13 @@
  *                         C O M P I L E R   F L A G S
  *******************************************************************************
  */
-#ifndef DBG_DISABLE_ALL_LOG
 #define DBG_DISABLE_ALL_LOG             0
-#endif
-
-/*------------------------------------------------------------------------------
- * Disable chip debug info
- * Default 0, if need, define 1 in makefile
- *------------------------------------------------------------------------------
- */
-#ifndef DBG_DISABLE_ALL_INFO
-#define DBG_DISABLE_ALL_INFO	0
-#endif
 
 /*******************************************************************************
  *                    E X T E R N A L   R E F E R E N C E S
  *******************************************************************************
  */
 #include "gl_typedef.h"
-#include "gl_vendor.h"
 
 extern u_int8_t wlan_fb_power_down;
 extern uint16_t au2DebugModule[];
@@ -51,7 +39,6 @@ extern uint32_t get_wifi_standalone_log_mode(void);
  */
 /* Define debug category (class):
  * (1) ERROR (2) WARN (3) STATE (4) EVENT (5) TRACE (6) INFO (7) LOUD (8) TEMP
- * (9) DEBUG
  */
 #define DBG_CLASS_ERROR         BIT(0)
 #define DBG_CLASS_WARN          BIT(1)
@@ -61,28 +48,44 @@ extern uint32_t get_wifi_standalone_log_mode(void);
 #define DBG_CLASS_INFO          BIT(5)
 #define DBG_CLASS_LOUD          BIT(6)
 #define DBG_CLASS_TEMP          BIT(7)
-#define DBG_CLASS_DEBUG         BIT(8)
-#define DBG_CLASS_MASK          BITS(0, 8)
+#define DBG_CLASS_VOC           BIT(8)
+#define DBG_CLASS_INFO2         BIT(9)
+#define DBG_CLASS_MASK          BITS(0, 9)
 
 #define DBG_LOG_LEVEL_DEFAULT \
 	(DBG_CLASS_ERROR | \
 	DBG_CLASS_WARN | \
 	DBG_CLASS_STATE | \
 	DBG_CLASS_EVENT | \
-	DBG_CLASS_INFO | \
-	DBG_CLASS_DEBUG)
+	DBG_CLASS_INFO)
 #define DBG_LOG_LEVEL_MORE \
 	(DBG_LOG_LEVEL_DEFAULT | \
 	DBG_CLASS_TRACE)
 #define DBG_LOG_LEVEL_EXTREME \
 	(DBG_LOG_LEVEL_MORE | \
 	DBG_CLASS_LOUD)
-#define DBG_LOG_LEVEL_UV \
+
+#define DBG_LOG_LEVEL_VOC \
 	(DBG_CLASS_ERROR | \
 	DBG_CLASS_WARN | \
 	DBG_CLASS_STATE | \
 	DBG_CLASS_EVENT | \
-	DBG_CLASS_INFO)
+	DBG_CLASS_VOC)
+
+#define DBG_LOG_LEVEL_DEFAULT_VOC \
+	(DBG_LOG_LEVEL_DEFAULT | \
+	DBG_CLASS_INFO2 | \
+	DBG_CLASS_VOC)
+
+#define DBG_LOG_LEVEL_MORE_VOC \
+	(DBG_LOG_LEVEL_MORE | \
+	DBG_CLASS_INFO2 | \
+	DBG_CLASS_VOC)
+
+#define DBG_LOG_LEVEL_EXTREME_VOC \
+	(DBG_LOG_LEVEL_EXTREME | \
+	DBG_CLASS_INFO2 | \
+	DBG_CLASS_VOC)
 
 #if defined(LINUX)
 #define DBG_PRINTF_64BIT_DEC    "lld"
@@ -98,17 +101,15 @@ extern uint32_t get_wifi_standalone_log_mode(void);
 #define DEG_HIF_PSE             BIT(4)
 #define DEG_HIF_PLE             BIT(5)
 #define DEG_HIF_MAC             BIT(6)
-#define DEG_HIF_PLATFORM_DBG    BIT(7)
 
 #define DEG_HIF_DEFAULT_DUMP					\
 	(DEG_HIF_HOST_CSR | DEG_HIF_PDMA | DEG_HIF_DMASCH |	\
-	 DEG_HIF_PSE | DEG_HIF_PLE | DEG_HIF_PLATFORM_DBG)
+	 DEG_HIF_PSE | DEG_HIF_PLE)
 
-#define HIF_CHK_TX_TIMEOUT      BIT(1)
+#define HIF_CHK_TX_HANG         BIT(1)
 #define HIF_DRV_SER             BIT(2)
 #define HIF_TRIGGER_FW_DUMP     BIT(3)
-#define HIF_CHK_MD_TX_TIMEOUT   BIT(4)
-#define HIF_CHK_MD_RX_STALL     BIT(5)
+#define HIF_CHK_MD_TX_HANG      BIT(4)
 
 #define DUMP_MEM_SIZE 64
 
@@ -171,7 +172,7 @@ extern uint32_t get_wifi_standalone_log_mode(void);
  *                             D A T A   T Y P E S
  *******************************************************************************
  */
-/* Define debug module index, sync with apcDbModuleName */
+/* Define debug module index */
 enum ENUM_DBG_MODULE {
 	DBG_INIT_IDX = 0,	/* 0x00 *//* For driver initial */
 	DBG_HAL_IDX,		/* 0x01 *//* For HAL(HW) Layer */
@@ -222,9 +223,6 @@ enum ENUM_DBG_MODULE {
 	DBG_SA_IDX,		/* 0x2E *//* standalone log */
 	DBG_MET_IDX,		/* 0x2F *//* Connsys MET log */
 	DBG_FILS_IDX,		/* 0x30 *//* FILS */
-	DBG_AM_IDX,		/* 0x31 *//* ARP Monitor */
-	DBG_CCM_IDX,		/* 0x32 *//* CCM */
-	DBG_PASN_IDX,		/* 0x33 *//* PASN */
 	DBG_MODULE_NUM		/* Notice the XLOG check */
 };
 enum ENUM_DBG_ASSERT_CTRL_LEVEL {
@@ -269,8 +267,6 @@ struct CODA_CR_INFO {
 	uint32_t u4Shift;
 };
 
-#define DMASHDL_LITE_LMAC_QUEUE_MAX_NUM 100
-
 enum ENUM_DMASHDL_GROUP_IDX {
 	ENUM_DMASHDL_GROUP_0 = 0,
 	ENUM_DMASHDL_GROUP_1,
@@ -288,20 +284,19 @@ enum ENUM_DMASHDL_GROUP_IDX {
 	ENUM_DMASHDL_GROUP_13,
 	ENUM_DMASHDL_GROUP_14,
 	ENUM_DMASHDL_GROUP_15,
-	ENUM_DMASHDL_GROUP_NUM,
-	ENUM_DMASHDL_LITE_GROUP_NUM = 64
+	ENUM_DMASHDL_GROUP_NUM
 };
 
 struct DMASHDL_CFG {
 	u_int8_t fgSlotArbiterEn;
 	uint16_t u2PktPleMaxPage;
 	uint16_t u2PktPseMaxPage;
-	u_int8_t afgRefillEn[ENUM_DMASHDL_LITE_GROUP_NUM];
+	u_int8_t afgRefillEn[ENUM_DMASHDL_GROUP_NUM];
 	uint32_t u4RefillCtrl;
-	uint16_t au2MaxQuota[ENUM_DMASHDL_LITE_GROUP_NUM];
-	uint16_t au2MinQuota[ENUM_DMASHDL_LITE_GROUP_NUM];
-	uint8_t aucQueue2Group[DMASHDL_LITE_LMAC_QUEUE_MAX_NUM];
-	uint32_t u4Queue2Group[DMASHDL_LITE_LMAC_QUEUE_MAX_NUM >> 2];
+	uint16_t au2MaxQuota[ENUM_DMASHDL_GROUP_NUM];
+	uint16_t au2MinQuota[ENUM_DMASHDL_GROUP_NUM];
+	uint8_t aucQueue2Group[ENUM_DMASHDL_GROUP_NUM * 2];
+	uint32_t u4Queue2Group[4];
 	uint8_t aucPriority2Group[ENUM_DMASHDL_GROUP_NUM];
 	uint32_t u4Priority2Group[2];
 	uint16_t u2HifAckCntTh;
@@ -329,16 +324,6 @@ struct DMASHDL_CFG {
 	struct CODA_CR_INFO rStatusRdFreePageCnt;
 	struct CODA_CR_INFO rHifPgInfoHifRsvCnt;
 	struct CODA_CR_INFO rHifPgInfoHifSrcCnt;
-
-	/* lite */
-	uint16_t u2PleTotalPageSize;
-	uint16_t u2PseTotalPageSize;
-	struct CODA_CR_INFO rMainControl;
-	struct CODA_CR_INFO rPleTotalPageSize;
-	struct CODA_CR_INFO rPseTotalPageSize;
-	struct CODA_CR_INFO rGroupSnChk;
-	struct CODA_CR_INFO rGroupUdfChk;
-	struct CODA_CR_INFO rStatusRdGp0AckCnt;
 };
 
 struct PLE_TOP_CR {
@@ -514,11 +499,13 @@ struct CHIP_DBG_OPS {
 		uint32_t u4Index,
 		char *pcCommand,
 		int32_t i4TotalLen);
+#if (CFG_SUPPORT_CONNAC2X == 1 || CFG_SUPPORT_CONNAC3X == 1)
 	int32_t (*showUmacWtblInfo)(
 		struct ADAPTER *prAdapter,
 		uint32_t u4Index,
 		char *pcCommand,
 		int32_t i4TotalLen);
+#endif
 	void (*showHifInfo)(struct ADAPTER *prAdapter);
 	void (*printHifDbgInfo)(struct ADAPTER *prAdapter);
 	int32_t (*show_rx_rate_info)(
@@ -583,22 +570,22 @@ struct CHIP_DBG_OPS {
 		struct ADAPTER *prAdapter,
 		uint8_t ucCase);
 #endif
-#if CFG_MTK_WIFI_WFDMA_WB
-	void (*show_wfdma_wb_info)(struct ADAPTER *prAdapter);
-#endif
 	void (*dumpwfsyscpupcr)(struct ADAPTER *prAdapter);
-	void (*dumpBusStatus)(struct ADAPTER *prAdapter);
+	void (*dumpBusHangCr)(struct ADAPTER *prAdapter);
 	u_int8_t (*dumpPcieStatus)(struct GLUE_INFO *prGlueInfo);
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
-	void (*dumpPcieCr)(void);
-	bool (*checkDumpViaBt)(struct ADAPTER *prAdapter);
-#endif
-#if CFG_MTK_WIFI_MBU
-	uint8_t (*getMbuTimeoutStatus)(void);
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
+	uint8_t (*dumpPcieCr)(void);
+	bool (*checkDumpViaBt)(void);
 #endif
 #if CFG_MTK_WIFI_DEVAPC
 	void (*showDevapcDebugInfo)(void);
 #endif
+};
+
+enum PKT_PHASE {
+	PHASE_XMIT_RCV,
+	PHASE_ENQ_QM,
+	PHASE_HIF_TX,
 };
 
 struct WLAN_DEBUG_INFO {
@@ -629,39 +616,6 @@ enum WAIT_TO_PERIOD {
 	WLAN_WAIT_TIME_ONE_HALF = 1,
 	WLAN_WAIT_TIME_THREE_QUARTER
 };
-
-#if (CFG_SUPPORT_STATISTICS == 1)
-
-#define WAKE_MAX_CMD_EVENT_NUM		20
-#define WAKE_STR_BUFFER_LEN	(60 + 20 * WAKE_MAX_CMD_EVENT_NUM)
-
-struct WAKE_CMD_T {
-	uint8_t ucCmdId;
-	uint8_t ucFlagIsUesd;
-	uint16_t u2Cnt;
-};
-
-struct WAKE_EVENT_T {
-	uint8_t ucEventId;
-	uint8_t ucFlagIsUesd;
-	uint16_t u2Cnt;
-};
-
-struct WAKE_INFO_T {
-	struct WAKE_CMD_T arCmd[WAKE_MAX_CMD_EVENT_NUM];
-	uint8_t ucCmdCnt;
-	uint32_t u4TotalCmd;
-
-	struct WAKE_EVENT_T arEvent[WAKE_MAX_CMD_EVENT_NUM];
-	uint8_t ucEventCnt;
-	uint32_t u4TotalEvent;
-
-	uint32_t au4TxDataCnt[WLAN_WAKE_MAX_NUM];
-	uint32_t u4TxCnt;
-	uint32_t au4RxDataCnt[WLAN_WAKE_MAX_NUM];
-	uint32_t u4RxCnt;
-};
-#endif
 
 /*******************************************************************************
  *                            P U B L I C   D A T A
@@ -734,7 +688,6 @@ struct WAKE_INFO_T {
 #if DBG_DISABLE_ALL_LOG
 #define DBGLOG(_Module, _Class, _Fmt, ...)
 #define DBGLOG_LIMITED(_Module, _Class, _Fmt, ...)
-#define DBGLOG_BY_OPTION(_Module, _Class, _isUnlimited, _Fmt, ...)
 #define DBGLOG_HEX(_Module, _Class, _StartAddr, _Length)
 #define DBGLOG_MEM8(_Module, _Class, _StartAddr, _Length)
 #define DBGLOG_MEM32(_Module, _Class, _StartAddr, _Length)
@@ -795,13 +748,6 @@ struct WAKE_INFO_T {
 			__func__, ##__VA_ARGS__); \
 	} while (0)
 #endif
-#define DBGLOG_BY_OPTION(_Mod, _Clz, _isUnlimited, _Fmt, ...) \
-	do { \
-		if (_isUnlimited) \
-			DBGLOG(_Mod, _Clz, _Fmt, __VA_ARGS__); \
-		else \
-			DBGLOG_LIMITED(_Mod, _Clz, _Fmt, __VA_ARGS__); \
-	} while (0)
 #define TOOL_PRINTLOG(_Mod, _Clz, _Fmt, ...) \
 	do { \
 		if ((au2DebugModule[DBG_##_Mod##_IDX] & \
@@ -813,7 +759,7 @@ struct WAKE_INFO_T {
 	{ \
 		if (au2DebugModule[DBG_##_Mod##_IDX] & DBG_CLASS_##_Clz) { \
 			LOG_FUNC("%s:(" #_Mod " " #_Clz ")\n", __func__); \
-			dumpHex((uint8_t *)(_Adr), (uint32_t)(_Len)); \
+			dumpHex((_Adr), (uint32_t)(_Len)); \
 		} \
 	}
 #define DBGLOG_MEM8(_Mod, _Clz, _Adr, _Len) \
@@ -854,7 +800,7 @@ struct WAKE_INFO_T {
 			LOG_FUNC("[%u]%s:(" #_Mod " " #_Clz ") %s", \
 				 KAL_GET_CURRENT_THREAD_ID(), \
 				 __func__, _Title); \
-			dumpHex((uint8_t *)(_Adr), (uint32_t)(_Len)); \
+			dumpHex((_Adr), (uint32_t)(_Len)); \
 		} \
 	}
 #define DBGDUMP_MEM8(_Mod, _Clz, _Title, _Adr, _Len) \
@@ -886,6 +832,7 @@ struct WAKE_INFO_T {
 	}
 #endif /* DBG_DISABLE_ALL_LOG */
 
+#define DISP_STRING(_str)       _str
 #undef ASSERT
 #undef ASSERT_REPORT
 #if (BUILD_QA_DBG || DBG)
@@ -894,18 +841,6 @@ struct WAKE_INFO_T {
 	LOG_FUNC("alloate memory failed at %s:%d\n", __FILE__, __LINE__); \
 	kalSendAeeWarning("Wlan_Gen4 No Mem", "Memory Alloate Failed %s:%d",\
 		__FILE__, __LINE__); \
-}
-#define ASSERT_QUEUE_DEBUG() \
-{ \
-	LOG_FUNC("queue debug failed at %s:%d\n", __FILE__, __LINE__); \
-	kalSendAeeWarning("Wlan_Gen4 Queue Debug",\
-		"Queue Debug Failed %s:%d", __FILE__, __LINE__); \
-}
-#define ASSERT_HIF_TX_OVERFLOW() \
-{ \
-	LOG_FUNC("hif tx overflow failed at %s:%d\n", __FILE__, __LINE__); \
-	kalSendAeeWarning("Wlan_Gen4 HIF Tx Overflow",\
-		"HIF Tx Overflow Failed %s:%d", __FILE__, __LINE__); \
 }
 #ifdef _lint
 #define ASSERT(_exp) \
@@ -955,20 +890,6 @@ struct WAKE_INFO_T {
 		__FILE__, __LINE__); \
 }
 
-#define ASSERT_QUEUE_DEBUG() \
-{ \
-	LOG_FUNC("queue debug failed at %s:%d\n", __FILE__, __LINE__); \
-	kalSendAeeWarning("Wlan_Gen4 Queue Debug",\
-		"Queue Debug Failed %s:%d", __FILE__, __LINE__); \
-}
-
-#define ASSERT_HIF_TX_OVERFLOW() \
-{ \
-	LOG_FUNC("hif tx overflow failed at %s:%d\n", __FILE__, __LINE__); \
-	kalSendAeeWarning("Wlan_Gen4 HIF Tx Overflow",\
-		"HIF Tx Overflow Failed %s:%d", __FILE__, __LINE__); \
-}
-
 #define ASSERT(_exp) \
 	{ \
 		if (!(_exp)) { \
@@ -989,8 +910,6 @@ struct WAKE_INFO_T {
 #endif /* WINDOWS_CE */
 #else
 #define ASSERT_NOMEM() {}
-#define ASSERT_QUEUE_DEBUG() {}
-#define ASSERT_HIF_TX_OVERFLOW() {}
 #define ASSERT(_exp) {}
 #define ASSERT_REPORT(_exp, _fmt) {}
 #endif /* BUILD_QA_DBG */
@@ -1016,7 +935,7 @@ struct WAKE_INFO_T {
 			(_curLen) += kalScnprintf((_pucBuf) + (_curLen), \
 			(_maxLen) - (_curLen), _Fmt, ##__VA_ARGS__); \
 		else \
-			DBGLOG(SW4, DEBUG, _Fmt, ##__VA_ARGS__); \
+			DBGLOG(SW4, INFO, _Fmt, ##__VA_ARGS__); \
 	}
 /* The following macro is used for debugging packed structures. */
 #ifndef DATA_STRUCT_INSPECTING_ASSERT
@@ -1034,11 +953,18 @@ struct WAKE_INFO_T {
 #define log_mem32_dbg		DBGLOG_MEM32
 #define log_tool_dbg		TOOL_PRINTLOG
 
+#define DBG_IS_LEVEL_SET(_Mod, _Cls) \
+({								\
+	uint32_t u4DebugLevel = 0;				\
+	wlanGetDriverDbgLevel(DBG_##_Mod##_IDX, &u4DebugLevel);	\
+	(u4DebugLevel & DBG_CLASS_##_Cls);			\
+})
+
 /*******************************************************************************
  *                  F U N C T I O N   D E C L A R A T I O N S
  *******************************************************************************
  */
-void dumpHex(uint8_t *pucStartAddr, uint16_t u2Length);
+void dumpHex(const void *pBuffer, uint16_t u2Length);
 void dumpMemory8(uint8_t *pucStartAddr,
 		 uint32_t u4Length);
 void dumpMemory32(uint32_t *pu4StartAddr,
@@ -1061,12 +987,12 @@ void wlanDbgSetLogLevel(struct ADAPTER *prAdapter,
 		uint32_t u4Version, uint32_t u4Module,
 		uint32_t u4level, u_int8_t fgEarlySet);
 void wlanDriverDbgLevelSync(void);
+u_int8_t wlanDbgIsVocLogTestMode(void);
 u_int8_t wlanDbgGetGlobalLogLevel(uint32_t u4Module, uint32_t *pu4Level);
 u_int8_t wlanDbgSetGlobalLogLevel(uint32_t u4Module, uint32_t u4Level);
 
-#if (CFG_SUPPORT_WF_DUMP_BT_COREDUMP == 1)
-u_int8_t wlanBtCoreDumpInfo(u_int8_t fgIsSet, u_int8_t fgval);
-#endif
+void wlanFillTimestamp(struct ADAPTER *prAdapter, void *pvPacket,
+		       uint8_t ucPhase);
 
 void halShowPseInfo(struct ADAPTER *prAdapter);
 uint32_t halGetPleInt(struct ADAPTER *prAdapter);
@@ -1153,8 +1079,6 @@ void connac2x_show_wfdma_dbg_flag_log(
 	uint32_t u4DmaNum);
 void connac2x_show_wfdma_desc(struct ADAPTER *prAdapter);
 
-void connac2xDumpPPDebugCr(struct ADAPTER *prAdapter);
-
 void connac2x_show_wfdma_info_by_type(
 	struct ADAPTER *prAdapter,
 	enum _ENUM_WFDMA_TYPE_T enum_wfdma_type,
@@ -1185,7 +1109,6 @@ int connac2x_get_rx_rate_info(
 #endif /* CFG_SUPPORT_CONNAC2X == 1 */
 
 #if (CFG_SUPPORT_CONNAC3X == 1)
-#if (DBG_DISABLE_ALL_INFO == 0)
 void connac3x_show_txd_Info(
 	struct ADAPTER *prAdapter,
 	u_int32_t fid);
@@ -1266,7 +1189,6 @@ void connac3x_show_wfdma_info_by_type(
 
 void connac3x_show_wfdma_info(struct ADAPTER *prAdapter);
 void connac3x_show_dmashdl_info(struct ADAPTER *prAdapter);
-void connac3x_show_dmashdl_lite_info(struct ADAPTER *prAdapter);
 uint32_t connac3x_get_ple_int(struct ADAPTER *prAdapter);
 void connac3x_set_ple_int(struct ADAPTER *prAdapter, bool fgTrigger,
 			  uint32_t u4ClrMask, uint32_t u4SetMask);
@@ -1278,147 +1200,35 @@ void connac3x_show_pse_info(struct ADAPTER *prAdapter);
 void connac3x_show_mawd_info(struct ADAPTER *prAdapter);
 void connac3x_show_rro_info(struct ADAPTER *prAdapter);
 #endif
-#if CFG_MTK_WIFI_WFDMA_WB
-void connac3x_show_wfdma_wb_info(struct ADAPTER *prAdapter);
-#endif
+void connac3x_DumpWfsyscpupcr(struct ADAPTER *prAdapter);
+void connac3x_DbgCrRead(
+	struct ADAPTER *prAdapter, uint32_t addr, unsigned int *val);
+void connac3x_DbgCrWrite(
+	struct ADAPTER *prAdapter, uint32_t addr, unsigned int val);
 void connac3x_dump_format_memory32(
 	uint32_t *pu4StartAddr, uint32_t u4Count, char *aucInfo);
+void connac3x_DumpCrRange(
+	struct ADAPTER *prAdapter,
+	uint32_t cr_start, uint32_t word_count, char *str);
 #if CFG_SUPPORT_LINK_QUALITY_MONITOR
 int connac3x_get_rx_rate_info(
 	const uint32_t *prRxV,
 	struct RxRateInfo *prRxRateInfo);
 #endif
-#if CFG_SUPPORT_LLS
-#define INVALID_RX_RATE_TIMEOUT 1000 /* ms */
-void connac3x_dbg_invalid_rx_rate(struct ADAPTER *ad,
-	struct SW_RFB *prSwRfb, struct STATS_LLS_WIFI_RATE *rate);
-#endif /* CFG_SUPPORT_LLS */
 int32_t connac3x_get_tx_info_from_txv(
 	char *pcCommand, int i4TotalLen,
 	struct TX_VECTOR_BBP_LATCH *prTxV);
-#endif /* DBG_DISABLE_ALL_INFO == 0 */
+
 #endif /* CFG_SUPPORT_CONNAC3X == 1 */
 
-#if (CFG_SUPPORT_CONNAC5X == 1)
-#if (DBG_DISABLE_ALL_INFO == 0)
-void connac5x_show_txd_Info(
-	struct ADAPTER *prAdapter,
-	u_int32_t fid);
-void connac5x_dump_tmac_info(
-	struct ADAPTER *prAdapter,
-	uint8_t *tmac_info);
-void connac5x_get_lwtbl(
-	struct ADAPTER *prAdapter,
-	uint32_t u4Index,
-	uint8_t *wtbl_raw_dw
-);
-int32_t connac5x_show_wtbl_info(
-	struct ADAPTER *prAdapter,
-	uint32_t u4Index,
-	char *pcCommand,
-	int i4TotalLen);
-int32_t connac5x_show_umac_wtbl_info(
-	struct ADAPTER *prAdapter,
-	uint32_t u4Index,
-	char *pcCommand,
-	int i4TotalLen);
-int32_t connac5x_show_rx_rate_info(
-	struct ADAPTER *prAdapter,
-	char *pcCommand,
-	int32_t i4TotalLen,
-	uint8_t ucStaIdx);
-void connac5x_get_rssi_from_wtbl(
-	struct ADAPTER *prAdapter, uint32_t u4Index,
-	int32_t *pi4Rssi0, int32_t *pi4Rssi1,
-	int32_t *pi4Rssi2, int32_t *pi4Rssi3);
-
-int32_t connac5x_show_rx_rssi_info(
-	struct ADAPTER *prAdapter,
-	char *pcCommand,
-	int32_t i4TotalLen,
-	uint8_t ucStaIdx);
-
-int32_t connac5x_show_stat_info(
-	struct ADAPTER *prAdapter,
-	char *pcCommand,
-	int32_t i4TotalLen,
-	struct PARAM_HW_WLAN_INFO *prHwWlanInfo,
-	struct PARAM_GET_STA_STATISTICS *prQueryStaStatistics,
-	uint8_t fgResetCnt,
-	uint32_t u4StatGroup);
-
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-int32_t connac5x_show_mld_info(
-		struct ADAPTER *prAdapter,
-		char *pcCommand,
-		int32_t i4TotalLen,
-		struct PARAM_MLD_REC *mld);
-#endif
-
-void connac5x_show_wfdma_interrupt_info(
-	struct ADAPTER *prAdapter,
-	enum _ENUM_WFDMA_TYPE_T enum_wfdma_type,
-	uint32_t u4DmaNum);
-
-void connac5x_show_wfdma_glo_info(
-	struct ADAPTER *prAdapter,
-	enum _ENUM_WFDMA_TYPE_T enum_wfdma_type,
-	uint32_t u4DmaNum);
-
-void connac5x_show_wfdma_ring_info(
-	struct ADAPTER *prAdapter,
-	enum _ENUM_WFDMA_TYPE_T enum_wfdma_type);
-
-void connac5x_show_wfdma_dbg_flag_log(
-	struct ADAPTER *prAdapter,
-	enum _ENUM_WFDMA_TYPE_T enum_wfdma_type,
-	uint32_t u4DmaNum);
-
-void connac5x_show_wfdma_info_by_type(
-	struct ADAPTER *prAdapter,
-	enum _ENUM_WFDMA_TYPE_T enum_wfdma_type,
-	uint32_t u4DmaNum);
-
-void connac5x_show_wfdma_info(struct ADAPTER *prAdapter);
-void connac5x_show_dmashdl_info(struct ADAPTER *prAdapter);
-void connac5x_show_dmashdl_lite_info(struct ADAPTER *prAdapter);
-uint32_t connac5x_get_ple_int(struct ADAPTER *prAdapter);
-void connac5x_set_ple_int(struct ADAPTER *prAdapter, bool fgTrigger,
-			  uint32_t u4ClrMask, uint32_t u4SetMask);
-void connac5x_set_ple_int_no_read(struct ADAPTER *prAdapter, bool fgTrigger,
-			  uint32_t u4ClrMask, uint32_t u4SetMask);
-void connac5x_show_ple_info(struct ADAPTER *prAdapter, u_int8_t fgDumpTxd);
-void connac5x_show_pse_info(struct ADAPTER *prAdapter);
-#if (CFG_SUPPORT_HOST_OFFLOAD == 1)
-void connac5x_show_mawd_info(struct ADAPTER *prAdapter);
-void connac5x_show_rro_info(struct ADAPTER *prAdapter);
-#endif
-void connac5x_dump_format_memory32(
-	uint32_t *pu4StartAddr, uint32_t u4Count, char *aucInfo);
-#if CFG_SUPPORT_LINK_QUALITY_MONITOR
-int connac5x_get_rx_rate_info(
-	const uint32_t *prRxV,
-	struct RxRateInfo *prRxRateInfo);
-#endif
-#if CFG_SUPPORT_LLS
-#define INVALID_RX_RATE_TIMEOUT 1000 /* ms */
-void connac5x_dbg_invalid_rx_rate(struct ADAPTER *ad,
-	struct SW_RFB *prSwRfb, struct STATS_LLS_WIFI_RATE *rate);
-#endif /* CFG_SUPPORT_LLS */
-int32_t connac5x_get_tx_info_from_txv(
-	char *pcCommand, int i4TotalLen,
-	struct TX_VECTOR_BBP_LATCH *prTxV);
-#endif /* DBG_DISABLE_ALL_INFO == 0 */
-#endif /* CFG_SUPPORT_CONNAC5X == 1 */
-
 #if (CFG_SUPPORT_STATISTICS == 1)
-void wlanWakeStaticsInit(struct GLUE_INFO *prGlueInfo);
-void wlanWakeStaticsUninit(struct GLUE_INFO *prGlueInfo);
-uint32_t wlanWakeLogCmd(struct GLUE_INFO *prGlueInfo, uint8_t ucCmdId);
-uint32_t wlanWakeLogEvent(struct GLUE_INFO *prGlueInfo, uint8_t ucEventId);
-void wlanLogTxData(struct GLUE_INFO *prGlueInfo, enum WAKE_DATA_TYPE dataType);
-void wlanLogRxData(struct GLUE_INFO *prGlueInfo, enum WAKE_DATA_TYPE dataType);
-uint32_t wlanWakeDumpRes(struct GLUE_INFO *prGlueInfo);
+void wlanWakeStaticsInit(void);
+void wlanWakeStaticsUninit(void);
+uint32_t wlanWakeLogCmd(uint8_t ucCmdId);
+uint32_t wlanWakeLogEvent(uint8_t ucEventId);
+void wlanLogTxData(enum WAKE_DATA_TYPE dataType);
+void wlanLogRxData(enum WAKE_DATA_TYPE dataType);
+uint32_t wlanWakeDumpRes(void);
 #endif
 
 #if (CFG_SUPPORT_RA_GEN == 1)
@@ -1443,10 +1253,6 @@ int32_t mt6632_show_stat_info(struct ADAPTER *prAdapter,
 			uint8_t fgResetCnt, uint32_t u4StatGroup);
 #endif
 
-#ifndef UINT64_MAX
-#define UINT64_MAX	(~0ULL)
-#endif
-
 #ifndef UINT32_MAX
 #define UINT32_MAX	(~0U)
 #endif
@@ -1460,17 +1266,21 @@ int32_t mt6632_show_stat_info(struct ADAPTER *prAdapter,
 #endif
 
 #define checkAddOverflow(a, b) ({			\
-	(sizeof(a) == sizeof(uint8_t) && a > UINT8_MAX - b) || \
-	(sizeof(a) == sizeof(uint16_t) && a > UINT16_MAX - b) || \
-	(sizeof(a) == sizeof(uint32_t) && a > UINT32_MAX - b) ? \
-	TRUE : FALSE;	\
+	typeof(a) _a = (a);				\
+	typeof(b) _b = (b);				\
+	(sizeof(_a) == sizeof(uint8_t) && _a > UINT8_MAX - _b) || \
+	(sizeof(_a) == sizeof(uint16_t) && _a > UINT16_MAX - _b) || \
+	(sizeof(_a) == sizeof(uint32_t) && _a > UINT32_MAX - _b) ? \
+		TRUE : FALSE;	\
 })
 
 #define checkMulOverflow(a, b) ({			\
-	b != 0 &&					\
-	((sizeof(a) == sizeof(uint8_t) && a > UINT8_MAX / b) || \
-	(sizeof(a) == sizeof(uint16_t) && a > UINT16_MAX / b) || \
-	(sizeof(a) == sizeof(uint32_t) && a > UINT32_MAX / b)) ? \
+	typeof(a) _a = (a);				\
+	typeof(b) _b = (b);				\
+	 _b != 0 &&					\
+	((sizeof(_a) == sizeof(uint8_t) && _a > UINT8_MAX / _b) || \
+	(sizeof(_a) == sizeof(uint16_t) && _a > UINT16_MAX / _b) || \
+	(sizeof(_a) == sizeof(uint32_t) && _a > UINT32_MAX / _b)) ? \
 	TRUE : FALSE;		\
 })
 

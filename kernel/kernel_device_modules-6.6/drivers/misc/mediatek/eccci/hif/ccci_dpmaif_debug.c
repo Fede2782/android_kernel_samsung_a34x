@@ -242,9 +242,8 @@ static ssize_t dpmaif_debug_read(struct file *file, char __user *buf,
 
 static void dpmaif_sysfs_parse(char *buf, int size)
 {
-	char *psub = NULL, *pname = NULL, *pvalue = NULL, *pdata = NULL;
-	unsigned int debug_buf_len = 0, wake_up_flag = 0;
-	unsigned long flags = 0;
+	char *psub = NULL, *pname = NULL, *pvalue = NULL;
+	unsigned int wake_up_flag = 0;
 
 	if (!buf || size <= 0)
 		return;
@@ -268,10 +267,6 @@ static void dpmaif_sysfs_parse(char *buf, int size)
 			if (pvalue && *pvalue)
 				if (kstrtouint(pvalue, 16, &g_debug_flags))
 					return;
-		} else if (strstr(pname, "debug_buf_len")) {
-			if (pvalue && *pvalue)
-				if (kstrtouint(pvalue, 10, &debug_buf_len))
-					return;
 		} else if (strstr(pname, "run_wq")) {
 			if (pvalue && *pvalue)
 				if (kstrtouint(pvalue, 10, &wake_up_flag))
@@ -284,27 +279,6 @@ static void dpmaif_sysfs_parse(char *buf, int size)
 			break;
 
 		pname = psub;
-	}
-
-	if ((debug_buf_len > 0) && (g_debug_buf_len != debug_buf_len)) {
-		spin_lock_irqsave(&g_debug_buf.dbg_lock, flags);
-
-		pdata = g_debug_buf.data;
-		g_debug_buf.data = NULL;
-		g_debug_buf.rd  = 0;
-		g_debug_buf.wr  = 0;
-		g_debug_buf.pre_call_wq = 0;
-		g_debug_buf_len = debug_buf_len;
-
-		spin_unlock_irqrestore(&g_debug_buf.dbg_lock, flags);
-
-		if (pdata)
-			vfree(pdata);
-
-		g_debug_buf.data = vmalloc(g_debug_buf_len);
-		CCCI_NORMAL_LOG(-1, TAG, "[%s] vmalloc(%u): %p\n",
-			__func__, g_debug_buf_len, g_debug_buf.data);
-
 	}
 }
 
@@ -344,31 +318,46 @@ static unsigned int dpmaif_debug_poll(struct file *fp, struct poll_table_struct 
 
 static int dpmaif_debug_open(struct inode *inode, struct file *file)
 {
-	if (!g_debug_buf.data) {
-		if (!g_debug_buf_len)
-			g_debug_buf_len = 1024 * 1024; //1MB buffer size
-		g_debug_buf.data = vmalloc(g_debug_buf_len);
-		CCCI_NORMAL_LOG(-1, TAG, "[%s] vmalloc(%u): %p\n",
-			__func__, g_debug_buf_len, g_debug_buf.data);
-	}
-	if (atomic_inc_return(&g_debug_buf.dbg_user_cnt) > 1) {
-		atomic_set(&g_debug_buf.dbg_user_cnt, 1);
+	unsigned long flags = 0;
+	bool need_alloc = false;
+	char *pdata = NULL;
+
+	spin_lock_irqsave(&g_debug_buf.dbg_lock, flags);
+	if (atomic_read(&g_debug_buf.dbg_user_cnt)) {
+		spin_unlock_irqrestore(&g_debug_buf.dbg_lock, flags);
 		return -EBUSY;
 	}
+	atomic_inc(&g_debug_buf.dbg_user_cnt);
+	if (!g_debug_buf.data) {
+		need_alloc = true;
+		g_debug_buf_len = 1024 * 1024; //1MB buffer size
+	}
+	spin_unlock_irqrestore(&g_debug_buf.dbg_lock, flags);
+	if (need_alloc) {
+		pdata = vmalloc(g_debug_buf_len);
+		if (!pdata)
+			return -ENOMEM;
+		CCCI_NORMAL_LOG(-1, TAG, "[%s] name: %s\n", __func__, current->comm);
+	}
 
+	spin_lock_irqsave(&g_debug_buf.dbg_lock, flags);
 	g_debug_flags = 0xFFFFFFFF;
-	CCCI_NORMAL_LOG(-1, TAG, "[%s] name: %s\n", __func__, current->comm);
+	if (need_alloc)
+		g_debug_buf.data = pdata;
+	spin_unlock_irqrestore(&g_debug_buf.dbg_lock, flags);
+
 
 	return 0;
 }
 
 static int dpmaif_debug_close(struct inode *inode, struct file *file)
 {
-	if (atomic_dec_return(&g_debug_buf.dbg_user_cnt) < 0)
-		atomic_set(&g_debug_buf.dbg_user_cnt, 0);
+	unsigned long flags = 0;
 
+	spin_lock_irqsave(&g_debug_buf.dbg_lock, flags);
+	atomic_dec(&g_debug_buf.dbg_user_cnt);
 	g_debug_flags = 0;
-	CCCI_NORMAL_LOG(-1, TAG, "[%s] name: %s\n", __func__, current->comm);
+	spin_unlock_irqrestore(&g_debug_buf.dbg_lock, flags);
 
 	return 0;
 }

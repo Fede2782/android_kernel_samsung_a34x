@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -141,9 +141,10 @@ static uint8_t getUnicastWlanIndex(struct ADAPTER *prAdapter,
 	u2FrameCtrl = nicRxGetFrameControl(prAdapter, prSwRfb);
 
 	if (RXM_IS_MGMT_FRAME(u2FrameCtrl))
-		return getWlanIdxByBandAndBssid(prAdapter, prSwRfb->ucHwBandIdx,
-		(uint8_t)HAL_MAC_CONNAC3X_RX_STATUS_GET_BSSID(prRxStatus),
-		(uint8_t)HAL_MAC_CONNAC3X_RX_STATUS_GET_MLD_ID(prRxStatus));
+		return getWlanIdxByBand(prAdapter, prSwRfb->ucHwBandIdx,
+			(uint8_t)
+			HAL_MAC_CONNAC3X_RX_STATUS_GET_MLD_ID(prRxStatus));
+
 	else
 		return getPrimaryWlanIdx(prAdapter, prSwRfb->ucTid, (uint8_t)
 			HAL_MAC_CONNAC3X_RX_STATUS_GET_MLD_ID(prRxStatus));
@@ -264,9 +265,6 @@ void nic_rxd_v3_fill_rfb(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 
 	prSwRfb->ucHwBandIdx =
 		HAL_MAC_CONNAC3X_RX_STATUS_GET_BAND_IDX(prRxStatus);
-	prSwRfb->ucHwBssIdx =
-		HAL_MAC_CONNAC3X_RX_STATUS_GET_BSSID(prRxStatus);
-
 	prSwRfb->fgIsBC = HAL_MAC_CONNAC3X_RX_STATUS_IS_BC(prRxStatus);
 	prSwRfb->fgIsMC = HAL_MAC_CONNAC3X_RX_STATUS_IS_MC(prRxStatus);
 	/* For MLO, MLD_ID need to be corrected according to TID */
@@ -311,8 +309,8 @@ void nic_rxd_v3_fill_rfb(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 	prSwRfb->fgDriverGen = FALSE;
 
 	if (prChipInfo->fgCheckRxDropThreshold &&
-	    prChipInfo->prRxDescOps->getRxModeMcs)
-		prChipInfo->prRxDescOps->getRxModeMcs(prSwRfb);
+	    prChipInfo->prRxDescOps->getRxModeRcs)
+		prChipInfo->prRxDescOps->getRxModeRcs(prSwRfb);
 
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
 	mldStarecLogRxData(prAdapter, prSwRfb->prStaRec, prSwRfb->ucHwBandIdx);
@@ -323,8 +321,6 @@ void nic_rxd_v3_fill_rfb(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 	if (IS_FEATURE_ENABLED(prWifiVar->fgEnableRro)) {
 		prSwRfb->u4TcpUdpIpCksStatus =
 			HAL_MAC_CONNAC3X_RX_STATUS_GET_CHECKSUM(prRxStatus);
-		DBGLOG(RX, LOUD, "u4TcpUdpIpCksStatus[0x%x]\n",
-		       prSwRfb->u4TcpUdpIpCksStatus);
 	}
 #endif /* CFG_TCP_IP_CHKSUM_OFFLOAD */
 #endif /* CFG_SUPPORT_HOST_OFFLOAD == 1 */
@@ -359,15 +355,12 @@ u_int8_t nic_rxd_v3_sanity_check(
 	    && !HAL_MAC_CONNAC3X_RX_STATUS_IS_TKIP_MIC_ERROR(prRxStatus)
 #endif /* CFG_SUPPORT_FRAG_AGG_VALIDATION */
 	) {
-		/* The condition for FRAGMENT must be higher than NAMP to
-		 * enter the nicRxDeFragMPDU flow
-		 */
-		if (HAL_MAC_CONNAC3X_RX_STATUS_IS_FRAG(prRxStatus))
-			prSwRfb->fgFragFrame = TRUE;
-		else if (!HAL_MAC_CONNAC3X_RX_STATUS_IS_NAMP(prRxStatus))
+		if (!HAL_MAC_CONNAC3X_RX_STATUS_IS_NAMP(prRxStatus))
 			prSwRfb->fgReorderBuffer = TRUE;
 		else if (HAL_MAC_CONNAC3X_RX_STATUS_IS_NDATA(prRxStatus))
 			prSwRfb->fgDataFrame = FALSE;
+		else if (HAL_MAC_CONNAC3X_RX_STATUS_IS_FRAG(prRxStatus))
+			prSwRfb->fgFragFrame = TRUE;
 	} else {
 		fgDrop = TRUE;
 		if (!HAL_MAC_CONNAC3X_RX_STATUS_IS_ICV_ERROR(prRxStatus)
@@ -386,16 +379,16 @@ u_int8_t nic_rxd_v3_sanity_check(
 				struct mt66xx_chip_info *prChipInfo;
 
 				rsnTkipHandleMICFailure(prAdapter, prStaRec, 0);
-				nicRxParseDropPkt(prAdapter, prSwRfb);
+				nicRxParseDropPkt(prSwRfb);
 				DBGLOG(RSN, EVENT,
 					"MIC_ERR_PKT, dump RXD and RXP\n");
 				/* dump RXD */
 				prChipInfo = prAdapter->chip_info;
-				DBGLOG_MEM8(NIC, DEBUG, prRxStatus,
+				DBGLOG_MEM8(NIC, INFO, prRxStatus,
 					prChipInfo->rxd_size);
 				if (prSwRfb->u2PacketLen > 0) {
 					/* dump RXP */
-					DBGLOG_MEM8(NIC, DEBUG,
+					DBGLOG_MEM8(NIC, INFO,
 						prSwRfb->pvHeader,
 						prSwRfb->u2PacketLen);
 				}
@@ -449,7 +442,7 @@ u_int8_t nic_rxd_v3_sanity_check(
 #endif
 		)) {
 			fgDrop = FALSE;
-			DBGLOG(RSN, INFO,
+			DBGLOG(RSN, INFO2,
 				"Don't drop eapol or wpi packet\n");
 #if CFG_SUPPORT_NAN
 		} else if ((ucBssIndex < MAX_BSSID_NUM)
@@ -457,11 +450,11 @@ u_int8_t nic_rxd_v3_sanity_check(
 			ucBssIndex)->eNetworkType == NETWORK_TYPE_NAN)
 			&& (prSwRfb->fgIsBC | prSwRfb->fgIsMC)) {
 			fgDrop = FALSE;
-			DBGLOG(RSN, INFO,
+			DBGLOG(RSN, INFO2,
 				"Don't drop NAN MC pkt for sec\n");
 #endif
 		} else {
-			nicRxParseDropPkt(prAdapter, prSwRfb);
+			nicRxParseDropPkt(prSwRfb);
 			RX_INC_CNT(prRxCtrl, RX_CIPHER_MISMATCH_DROP_COUNT);
 			fgDrop = TRUE;
 			DBGLOG(RSN, TEMP,
@@ -509,9 +502,8 @@ end:
 			if (IS_FEATURE_ENABLED(
 				prAdapter->rWifiVar.fgRxIcvErrDbg)
 				&& prSwRfb->ucGroupVLD & BIT(RX_GROUP_VLD_4)) {
-				DBGLOG(RX, DEBUG,
-				       "****** RXD GROUP 4 ******\n");
-				DBGLOG_MEM8(RX, DEBUG,
+				DBGLOG(RX, INFO, "****** RXD GROUP 4 ******\n");
+				DBGLOG_MEM8(RX, INFO,
 					(uint32_t *) prSwRfb->prRxStatusGroup4,
 					sizeof(struct HW_MAC_RX_STS_GROUP_4));
 			}
@@ -544,11 +536,17 @@ void nic_rxd_v3_check_wakeup_reason(
 	struct HW_MAC_CONNAC3X_RX_DESC *prRxStatus;
 	uint16_t u2PktLen = 0;
 	uint32_t u4HeaderOffset;
+#if CFG_TC10_FEATURE
+	struct sk_buff *skb = (struct sk_buff *)prSwRfb->pvPacket;
+#endif
 
 	prChipInfo = prAdapter->chip_info;
 
 	prRxStatus = (struct HW_MAC_CONNAC3X_RX_DESC *) prSwRfb->prRxStatus;
 	if (!prRxStatus)
+		return;
+
+	if (!(prAdapter->prGlueInfo->fgIsInSuspend))
 		return;
 
 	prSwRfb->ucGroupVLD =
@@ -561,7 +559,7 @@ void nic_rxd_v3_check_wakeup_reason(
 	prSwRfb->ucOFLD = nic_rxd_v3_get_ofld(prRxStatus);
 
 	if (prSwRfb->ucOFLD || prSwRfb->fgHdrTran) {
-		DBGLOG(RX, INFO, "Need to treat as data frame.\n");
+		DBGLOG(RX, VOC, "Need to treat as data frame.\n");
 		/*
 		 * In order to jump to case RX_PKT_TYPE_RX_DATA,
 		 * DO NOT ADD break here!!!
@@ -578,7 +576,7 @@ void nic_rxd_v3_check_wakeup_reason(
 			nicUpdateWakeupStatistics(prAdapter, RX_EVENT_INT);
 			prAdapter->wake_event_count[prEvent->ucEID]++;
 #endif
-			DBGLOG(RX, INFO, "Event 0x%02x wakeup host\n",
+			DBGLOG(RX, VOC, "Event 0x%02x wakeup host\n",
 				prEvent->ucEID);
 			break;
 		} else if ((NIC_RX_GET_U2_SW_PKT_TYPE(prSwRfb->prRxStatus) &
@@ -622,13 +620,13 @@ void nic_rxd_v3_check_wakeup_reason(
 			(struct WLAN_MAC_MGMT_HEADER *)pvHeader;
 			ucSubtype = (prWlanMgmtHeader->u2FrameCtrl &
 				MASK_FC_SUBTYPE) >> OFFSET_OF_FC_SUBTYPE;
-			DBGLOG(RX, INFO,
+			DBGLOG(RX, VOC,
 				"frame subtype: %d",
 				ucSubtype);
-				DBGLOG(RX, INFO,
+				DBGLOG(RX, VOC,
 				" SeqCtrl %d wakeup host\n",
 				prWlanMgmtHeader->u2SeqCtrl);
-			DBGLOG_MEM8(RX, INFO,
+			DBGLOG_MEM8(RX, VOC,
 					pvHeader, u2PktLen > 50 ? 50:u2PktLen);
 		} else {
 			DBGLOG(RX, ERROR,
@@ -647,6 +645,9 @@ void nic_rxd_v3_check_wakeup_reason(
 #if CFG_SUPPORT_WAKEUP_STATISTICS
 		nicUpdateWakeupStatistics(prAdapter, RX_DATA_INT);
 #endif /* fos_change end */
+#if CFG_TC10_FEATURE
+		skb->mark |= 0x80000000;
+#endif
 
 		u2PktLen =
 			HAL_MAC_CONNAC3X_RX_STATUS_GET_RX_BYTE_CNT(prRxStatus);
@@ -675,7 +676,7 @@ void nic_rxd_v3_check_wakeup_reason(
 
 			if ((prWlanMacHeader->u2FrameCtrl & MASK_FRAME_TYPE) ==
 				MAC_FRAME_BLOCK_ACK_REQ) {
-				DBGLOG(RX, INFO,
+				DBGLOG(RX, VOC,
 					"BAR frame[SSN:%d,TID:%d] wakeup host\n"
 					, prSwRfb->u2SSN, prSwRfb->ucTid);
 				break;
@@ -687,13 +688,13 @@ void nic_rxd_v3_check_wakeup_reason(
 		switch (u2Temp) {
 		case ETH_P_IPV4:
 			u2Temp = *(uint16_t *) &pvHeader[ETH_HLEN + 4];
-			DBGLOG(RX, INFO,
+			DBGLOG(RX, VOC,
 				"IP Packet from:%d.%d.%d.%d,\n",
 				pvHeader[ETH_HLEN + 12],
 				pvHeader[ETH_HLEN + 13],
 				pvHeader[ETH_HLEN + 14],
 				pvHeader[ETH_HLEN + 15]);
-			DBGLOG(RX, INFO,
+			DBGLOG(RX, VOC,
 				" IP ID 0x%04x wakeup host\n",
 				u2Temp);
 			break;
@@ -708,7 +709,7 @@ void nic_rxd_v3_check_wakeup_reason(
 		case ETH_P_IPX:
 		case ETH_P_VLAN:
 		case ETH_PRO_TDLS:
-			DBGLOG(RX, INFO,
+			DBGLOG(RX, VOC,
 				"Data Packet, EthType 0x%04x wakeup host\n",
 				u2Temp);
 			break;
@@ -719,7 +720,7 @@ void nic_rxd_v3_check_wakeup_reason(
 						prRxStatus)) {
 				if (HAL_MAC_CONNAC3X_RX_STATUS_IS_LLC_MIS(
 						prRxStatus)) {
-					DBGLOG(RX, INFO,
+					DBGLOG(RX, VOC,
 						"Header translate fail\n");
 				} else {
 					uint8_t ucPfSts = 0;
@@ -727,7 +728,7 @@ void nic_rxd_v3_check_wakeup_reason(
 					ucPfSts =
 					HAL_MAC_CONNAC3X_RX_STATUS_GET_PF_STS(
 						prRxStatus);
-					DBGLOG(RX, INFO,
+					DBGLOG(RX, VOC,
 						"Wakeup by Eth[0x%x] pf[%d]\n",
 						u2Temp, ucPfSts);
 				}
@@ -737,19 +738,19 @@ void nic_rxd_v3_check_wakeup_reason(
 				prHeader = (struct WLAN_MAC_HEADER *)pvHeader;
 				if (RXM_IS_FROM_DS_TO_DS(
 						prHeader->u2FrameCtrl)) {
-					DBGLOG(RX, INFO,
+					DBGLOG(RX, VOC,
 						"Wakeup by TDLS packet\n");
 				} else {
-					DBGLOG(RX, INFO,
+					DBGLOG(RX, VOC,
 						"Wakeup by frame type[0x%lx]\n",
 						prHeader->u2FrameCtrl &
 							MASK_FRAME_TYPE);
 				}
 			}
-			DBGLOG_MEM8(RX, INFO,
+			DBGLOG_MEM8(RX, VOC,
 				(uint8_t *)prSwRfb->prRxStatus,
 				prChipInfo->rxd_size);
-			DBGLOG_MEM8(RX, INFO,
+			DBGLOG_MEM8(RX, VOC,
 				pvHeader, u2PktLen > 50 ? 50:u2PktLen);
 			}
 			break;
@@ -829,8 +830,6 @@ uint8_t nic_rxd_v3_fill_radiotap(
 
 	prSwRfb->ucHwBandIdx =
 		HAL_MAC_CONNAC3X_RX_STATUS_GET_BAND_IDX(prRxStatus);
-	prSwRfb->ucHwBssIdx =
-		HAL_MAC_CONNAC3X_RX_STATUS_GET_BSSID(prRxStatus);
 
 	if (HAL_MAC_CONNAC3X_RX_STATUS_GET_RXV_SEQ_NO(prRxStatus) != 0)
 		prGlueInfo->u4AmpduRefNum[prSwRfb->ucHwBandIdx] += 1;
@@ -945,11 +944,11 @@ uint8_t nic_rxd_v3_fill_radiotap(
 }
 #endif
 
-static void handle_host_rpt_v5_v6(struct ADAPTER *prAdapter,
+static void handle_host_rpt_v5(struct ADAPTER *prAdapter,
 	struct tx_free_done_rpt *rpt,
 	struct QUE *prFreeQueue)
 {
-#if (defined(_HIF_PCIE) || defined(_HIF_AXI)) && (CFG_SUPPORT_WED_PROXY == 0)
+#if defined(_HIF_PCIE) || defined(_HIF_AXI)
 	struct MSDU_TOKEN_INFO *prTokenInfo =
 		&prAdapter->prGlueInfo->rHifInfo.rTokenInfo;
 #endif
@@ -959,10 +958,9 @@ static void handle_host_rpt_v5_v6(struct ADAPTER *prAdapter,
 	uint16_t serial = HAL_TX_FREE_DONE_GET_SERIAL_ID(rpt->dw1);
 	uint8_t msdu_cnt_handled = 0, txd_cnt_handled = 0;
 	uint16_t wlan_idx = 0, qid = 0;
-	uint16_t rts_tx_cnt = 0, tid = 0, rls_period = 0, tx_bn = 0;
 	uint16_t tx_delay = 0, air_delay = 0, tx_cnt = 0;
 	uint8_t stat = 0;
-	uint8_t pair = 0, header = 0, pair_handled_cnt = 0;
+	uint8_t pair = 0, header = 0;
 	uint32_t msdu0 = WF_TX_FREE_DONE_EVENT_MSDU_ID0_MASK;
 	uint32_t msdu1 = WF_TX_FREE_DONE_EVENT_MSDU_ID0_MASK;
 	uint32_t *pos = (uint32_t *)rpt;
@@ -984,18 +982,8 @@ static void handle_host_rpt_v5_v6(struct ADAPTER *prAdapter,
 		header = HAL_TX_FREE_DONE_GET_H3(*pos);
 
 		if (pair == 1) {
-			if (pair_handled_cnt == 0) {
-				wlan_idx = HAL_TX_FREE_DONE_GET_WLAN_ID(*pos);
-				qid = HAL_TX_FREE_DONE_GET_QID(*pos);
-			} else if (pair_handled_cnt == 1) {
-				rts_tx_cnt =
-					HAL_TX_FREE_DONE_GET_RTS_TX_CNT(*pos);
-				tid = HAL_TX_FREE_DONE_GET_TID(*pos);
-				rls_period =
-					HAL_TX_FREE_DONE_GET_RLS_PERIOD(*pos);
-				tx_bn = HAL_TX_FREE_DONE_GET_TX_BN(*pos);
-			}
-			pair_handled_cnt++;
+			wlan_idx = HAL_TX_FREE_DONE_GET_WLAN_ID(*pos);
+			qid = HAL_TX_FREE_DONE_GET_QID(*pos);
 		} else if (header == 1) {
 			tx_delay = HAL_TX_FREE_DONE_GET_TRANSMIT_DELAY(*pos);
 			air_delay = HAL_TX_FREE_DONE_GET_AIR_DELAY(*pos);
@@ -1008,7 +996,6 @@ static void handle_host_rpt_v5_v6(struct ADAPTER *prAdapter,
 
 			if (msdu0 != WF_TX_FREE_DONE_EVENT_MSDU_ID0_MASK) {
 #if defined(_HIF_PCIE) || defined(_HIF_AXI)
-#if (CFG_SUPPORT_WED_PROXY == 0)
 				if (msdu0 >= prTokenInfo->u4TokenNum) {
 					DBGLOG(HAL, ERROR,
 						"Invalid MSDU0 [%u]\n",
@@ -1020,12 +1007,10 @@ static void handle_host_rpt_v5_v6(struct ADAPTER *prAdapter,
 						tx_delay, air_delay, stat);
 				halProcessToken(prAdapter, msdu0, prFreeQueue);
 				msdu_cnt_handled++;
-#endif
 			}
 
 			if (msdu1 != WF_TX_FREE_DONE_EVENT_MSDU_ID0_MASK) {
 #if defined(_HIF_PCIE) || defined(_HIF_AXI)
-#if (CFG_SUPPORT_WED_PROXY == 0)
 				if (msdu1 >= prTokenInfo->u4TokenNum) {
 					DBGLOG(HAL, ERROR,
 						"Invalid MSDU1 [%u]\n",
@@ -1037,19 +1022,21 @@ static void handle_host_rpt_v5_v6(struct ADAPTER *prAdapter,
 						tx_delay, air_delay, stat);
 				halProcessToken(prAdapter, msdu1, prFreeQueue);
 				msdu_cnt_handled++;
-#endif
 			}
 		}
 
 #define TEMP_LOG_TEMPLATE "wlan_idx: %d, qid: %d, tx_delay: %d, " \
-		"rts_tx_cnt: %u, tid: %u, rls_period: %u, tx_bn: %u, "\
-		"air_delay: %d, tx_cnt: %d, stat: %d, "	\
-		"msdu0: %d, msdu1: %d\n"
-		DBGLOG(HAL, TEMP, TEMP_LOG_TEMPLATE,
-		       wlan_idx, qid, tx_delay,
-		       rts_tx_cnt, tid, rls_period, tx_bn,
-		       air_delay, tx_cnt, stat,
-		       msdu0, msdu1);
+				"air_delay: %d, tx_cnt: %d, stat: %d, " \
+				"msdu0: %d, msdu1: %d\n"
+			DBGLOG(HAL, TEMP, TEMP_LOG_TEMPLATE,
+				wlan_idx,
+				qid,
+				tx_delay,
+				air_delay,
+				tx_cnt,
+				stat,
+				msdu0,
+				msdu1);
 #undef TEMP_LOG_TEMPLATE
 		pos += 1;
 	} while (pos < end);
@@ -1071,8 +1058,7 @@ void nic_rxd_v3_handle_host_rpt(struct ADAPTER *prAdapter,
 
 	switch (ver) {
 	case TFD_EVT_VER_5:
-	case TFD_EVT_VER_6:
-		handle_host_rpt_v5_v6(prAdapter, rpt, prFreeQueue);
+		handle_host_rpt_v5(prAdapter, rpt, prFreeQueue);
 		break;
 	default:
 		DBGLOG(RX, ERROR, "Unsupported ver: %d\n",

@@ -12,6 +12,14 @@
 #define AP_GO_DELAY_CARRIER_ON_TIMEOUT_MS	50
 #endif /* CFG_AP_GO_DELAY_CARRIER_ON */
 
+enum ENUM_BUFFER_TYPE {
+	ENUM_FRAME_TYPE_EXTRA_IE_BEACON,
+	ENUM_FRAME_TYPE_EXTRA_IE_ASSOC_RSP,
+	ENUM_FRAME_TYPE_EXTRA_IE_PROBE_RSP,
+	ENUM_FRAME_TYPE_PROBE_RSP_TEMPLATE,
+	ENUM_FRAME_TYPE_BEACON_TEMPLATE,
+	ENUM_FRAME_IE_NUM
+};
 
 enum ENUM_HIDDEN_SSID_TYPE {
 	ENUM_HIDDEN_SSID_NONE,
@@ -69,6 +77,13 @@ struct MSG_P2P_BEACON_UPDATE {
 	uint8_t aucBuffer[];	/* Header & Body & Extra IEs are put here. */
 };
 
+struct MSG_P2P_MGMT_FRAME_UPDATE {
+	struct MSG_HDR rMsgHdr;
+	enum ENUM_BUFFER_TYPE eBufferType;
+	uint32_t u4BufferLen;
+	uint8_t aucBuffer[];
+};
+
 struct MSG_P2P_SWITCH_OP_MODE {
 	struct MSG_HDR rMsgHdr;	/* Must be the first member */
 	enum ENUM_OP_MODE eOpMode;
@@ -107,7 +122,6 @@ struct MSG_P2P_CONNECTION_ABORT {
 	uint8_t aucTargetID[MAC_ADDR_LEN];
 	uint16_t u2ReasonCode;
 	u_int8_t fgSendDeauth;
-	uint8_t ucSubType;
 };
 
 struct MSG_P2P_FILS_DISCOVERY_UPDATE {
@@ -212,20 +226,6 @@ struct P2P_STATION_INFO {
 	/* TODO: Add more for requirement. */
 };
 
-struct MSG_P2P_ADD_MLD_LINK {
-	struct MSG_HDR rMsgHdr;	/* Must be the first member */
-	uint8_t ucRoleIdx;
-	uint8_t ucLinkIdx;
-	uint8_t aucMldAddr[MAC_ADDR_LEN];
-	uint8_t aucLinkAddr[MAC_ADDR_LEN];
-};
-
-struct MSG_P2P_DEL_MLD_LINK {
-	struct MSG_HDR rMsgHdr;	/* Must be the first member */
-	uint8_t ucRoleIdx;
-	uint8_t ucLinkIdx;
-};
-
 /* 3  --------------- WFA P2P Attributes Handler prototype --------------- */
 typedef uint32_t(*PFN_APPEND_ATTRI_FUNC) (struct ADAPTER *,
 		uint8_t, u_int8_t, uint16_t *, uint8_t *, uint16_t);
@@ -253,6 +253,7 @@ enum ENUM_P2P_ROLE_STATE {
 	P2P_ROLE_STATE_DFS_CAC,
 #endif
 	P2P_ROLE_STATE_SWITCH_CHANNEL,
+	P2P_ROLE_STATE_WAIT_FOR_NEXT_REQ_CHNL,
 	P2P_ROLE_STATE_NUM
 };
 
@@ -270,8 +271,6 @@ struct P2P_JOIN_INFO {
 	uint32_t u4ConnFlags;
 	struct STA_RECORD *prTargetStaRec;
 	struct BSS_DESC *prTargetBssDesc;
-	struct BSS_DESC_SET rBssDescSet;
-	u_int8_t fgNeedMlScan;
 	uint8_t fgIsJoinSuccess;
 	/* For ASSOC Rsp. */
 	uint32_t u4BufLength;
@@ -299,11 +298,6 @@ struct P2P_CONNECTION_REQ_INFO {
 
 	/* To record Channel Center Frequency Segment 1 (MHz) from CFG80211 */
 	uint32_t u4CenterFreq2;
-
-#if (CFG_SUPPORT_SAP_PUNCTURE == 1)
-	/* To record channel puncturing bitmap from CFG80211 */
-	uint16_t u2PunctBitmap;
-#endif /* CFG_SUPPORT_SAP_PUNCTURE */
 
 	/* For ASSOC Req. */
 	uint32_t u4BufLength;
@@ -340,23 +334,22 @@ struct P2P_ROLE_FSM_INFO {
 	/* Auto channel selection related. */
 	struct P2P_ACS_REQ_INFO rAcsReqInfo;
 
-	/* Channel switch related. */
-	struct P2P_CSA_REQ_INFO rCsaReqInfo;
-
 	/* FSM Timer */
 	struct TIMER rP2pRoleFsmTimeoutTimer;
 
+	struct TIMER rP2pCsaDoneTimer;
+#if CFG_SAP_RPS_SUPPORT
+	struct TIMER rP2pRpsEnterTimer;
+#endif
 #if	CFG_ENABLE_PER_STA_STATISTICS_LOG
 	/* Get statistics Timer */
 	struct TIMER rP2pRoleFsmGetStatisticsTimer;
 #endif
 
 #if (CFG_SUPPORT_DFS_MASTER == 1)
-	enum ENUM_MAX_BANDWIDTH_SETTING eDfsChnlBw;
+	struct TIMER rDfsShutDownTimer;
 #endif
-#if (CFG_SAP_RPS_SUPPORT == 1)
-	struct TIMER rP2pRpsEnterTimer;
-#endif
+
 	struct TIMER rWaitNextReqChnlTimer;
 
 	/* Packet filter for P2P module. */
@@ -380,25 +373,14 @@ struct P2P_ROLE_FSM_INFO {
 
 /*========================= Initial ============================*/
 
-uint8_t p2pRoleFsmInit(struct ADAPTER *prAdapter,
-	uint8_t ucRoleIdx, uint8_t ucGroupMldId,
-	uint8_t aucIntfMac[]);
+uint8_t p2pRoleFsmInit(struct ADAPTER *prAdapter, uint8_t ucRoleIdx,
+	uint8_t fgUseInterfaceAddr);
 
 u_int8_t p2pRoleFsmNeedMlo(
 	struct ADAPTER *prAdapter,
 	uint8_t ucRoleIdx);
 
 void p2pRoleFsmUninit(struct ADAPTER *prAdapter, uint8_t ucRoleIdx);
-
-struct BSS_INFO *p2pRoleFsmInitLink(struct ADAPTER *prAdapter,
-	struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo,
-	uint8_t aucMacAddr[],
-	uint8_t ucGroupMldId,
-	uint8_t ucLinkIdx);
-
-void p2pRoleFsmUninitLink(struct ADAPTER *prAdapter,
-	struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo,
-	struct BSS_INFO *prP2pBssInfo);
 
 void p2pRoleFsmDelIface(
 	struct ADAPTER *prAdapter,
@@ -429,18 +411,11 @@ void p2pRoleFsmRunEventStopAP(struct ADAPTER *prAdapter,
 void p2pRoleFsmRunEventDfsCac(struct ADAPTER *prAdapter,
 		struct MSG_HDR *prMsgHdr);
 
-void p2pRoleFsmRunEventStartCac(struct ADAPTER *prAdapter,
-		struct MSG_HDR *prMsgHdr);
-
-void p2pRoleFsmRunEventStopCac(struct ADAPTER *prAdapter,
-		struct MSG_HDR *prMsgHdr);
-
 void p2pRoleFsmRunEventRadarDet(struct ADAPTER *prAdapter,
 		struct MSG_HDR *prMsgHdr);
 
-void p2pRoleFsmRunEventDfsShutDown(struct ADAPTER *prAdapter,
-		struct P2P_ROLE_FSM_INFO *ulParamPtr);
-
+void p2pRoleFsmRunEventDfsShutDownTimeout(struct ADAPTER *prAdapter,
+		uintptr_t ulParamPtr);
 #endif
 
 void p2pRoleFsmRunEventSetNewChannel(struct ADAPTER *prAdapter,
@@ -508,8 +483,7 @@ p2pRoleFsmRunEventAAAComplete(struct ADAPTER *prAdapter,
 uint32_t
 p2pRoleFsmRunEventAAASuccess(struct ADAPTER *prAdapter,
 		struct STA_RECORD *prStaRec,
-		struct BSS_INFO *prP2pBssInfo,
-		struct MSDU_INFO *prMsduInfo);
+		struct BSS_INFO *prP2pBssInfo);
 
 void p2pRoleFsmRunEventAAATxFail(struct ADAPTER *prAdapter,
 		struct STA_RECORD *prStaRec,
@@ -547,6 +521,9 @@ void p2pRoleFsmReInitBeaconAll(struct ADAPTER *prAdapter,
 void p2pRoleFsmRunEventBeaconUpdate(struct ADAPTER *prAdapter,
 		struct MSG_HDR *prMsgHdr);
 
+void p2pRoleFsmRunEventDissolve(struct ADAPTER *prAdapter,
+		struct MSG_HDR *prMsgHdr);
+
 void
 p2pProcessEvent_UpdateNOAParam(struct ADAPTER *prAdapter,
 		uint8_t ucBssIdx,
@@ -569,11 +546,6 @@ void p2pRoleFsmStateTransition(struct ADAPTER *prAdapter,
 		struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo,
 		enum ENUM_P2P_ROLE_STATE eNextState);
 
-void p2pRoleFsmStateTransitionImpl(struct ADAPTER *prAdapter,
-		struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo,
-		uint8_t ucBssIdx,
-		enum ENUM_P2P_ROLE_STATE eNextState);
-
 void p2pRoleFsmRunEventMgmtTx(struct ADAPTER *prAdapter,
 		struct MSG_HDR *prMsgHdr);
 
@@ -590,13 +562,6 @@ void p2pRoleFsmRunEventScanAbort(struct ADAPTER *prAdapter,
 void p2pRoleProcessPreSuspendFlow(struct ADAPTER *prAdapter);
 #endif
 
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-void p2pRoleFsmRunEventAddMldLink(struct ADAPTER *prAdapter,
-		struct MSG_HDR *prMsgHdr);
-void p2pRoleFsmRunEventDelMldLink(struct ADAPTER *prAdapter,
-		struct MSG_HDR *prMsgHdr);
-#endif
-
 #ifdef CFG_AP_GO_DELAY_CARRIER_ON
 void p2pRoleFsmCarrierOnTimeoutHandler(struct ADAPTER *prAdapter,
 				       uintptr_t ulParamPtr);
@@ -605,13 +570,4 @@ void p2pRoleFsmRunEventApGoStarted(struct ADAPTER *prAdapter,
 				   struct MSG_HDR *prMsgHdr);
 #endif /* CFG_AP_GO_DELAY_CARRIER_ON */
 
-#if CFG_ENABLE_WIFI_DIRECT
-void p2pRoleFsmRunEventUpdateWmmParams(struct ADAPTER *prAdapter,
-				       struct MSG_HDR *prMsgHdr);
-
-#if (CFG_SUPPORT_SAP_BCN_CRI_UPD == 1)
-void p2pRoleFsmRunEventBcnCriUpd(struct ADAPTER *prAdapter,
-				 struct MSG_HDR *prMsgHdr);
-#endif /* CFG_SUPPORT_SAP_BCN_CRI_UPD */
-#endif /* CFG_ENABLE_WIFI_DIRECT */
 #endif

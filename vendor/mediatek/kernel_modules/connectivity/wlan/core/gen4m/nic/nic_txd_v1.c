@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -589,7 +589,7 @@ void nic_txd_v1_set_hw_amsdu_template(
 {
 	struct HW_MAC_TX_DESC *prTxDesc;
 
-	DBGLOG(QM, DEBUG,
+	DBGLOG(QM, INFO,
 	       "Update HW Amsdu field of TXD template for STA[%u] Tid[%u]\n",
 	       prStaRec->ucIndex, ucTid);
 
@@ -613,7 +613,7 @@ void nic_txd_v1_change_data_port_by_ac(
 
 	if (!prStaRec)
 		return;
-	DBGLOG(TX, DEBUG, "Data Packets in Aci %d will route to %s\n", ucAci,
+	DBGLOG(TX, INFO, "Data Packets in Aci %d will route to %s\n", ucAci,
 	       fgToMcu ? "MCU" : "LMAC");
 	pprTxDTemplate = &prStaRec->aprTxDescTemplate[0];
 	for (ucTid = 0; ucTid < TX_DESC_TID_NUM; ucTid++) {

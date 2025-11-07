@@ -2,5 +2,15 @@ config CAMERA_ADAPTIVE_MIPI
 	bool "Camera adaptive mipi"
 	default n
 	help
-	  for using Adaptive MIPI.
-	  use CONFIG_CAMERA_ADAPTIVE_MIPI
+	  If CAMERA_ADAPTIVE_MIPI is y, then "imgsensor/src/common/adaptive-mipi/" is built.
+	  This is for camera bringup without Adaptive MIPI.
+	  Set this config to n, while bringup the camera.config CONFIG_CAMERA_ADAPTIVE_MIPI.
+
+config CAMERA_ADAPTIVE_MIPI_V2
+	bool "Camera adaptive mipi_v2"
+	default n
+	help
+	  If CAMERA_ADAPTIVE_MIPI_V2 is y,
+	  then "vendor/mediatek/kernel_modules/mtkcam/imgsensor/common/adaptive-mipi/" is built.
+	  This is for camera bringup without adaptive-mipi implementation.
+	  Set this config to n, while bringup the camera.

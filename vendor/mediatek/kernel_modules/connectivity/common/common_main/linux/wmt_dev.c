@@ -541,7 +541,7 @@ extern INT32 wmt_dev_tra_uart_update(VOID)
 	return 0;
 }
 
-static UINT32 wmt_dev_tra_poll(VOID)
+static INT32 wmt_dev_tra_poll(VOID)
 {
 #define TIME_THRESHOLD_TO_TEMP_QUERY 3000
 #define COUNT_THRESHOLD_TO_TEMP_QUERY 200

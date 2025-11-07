@@ -185,6 +185,7 @@ struct wpa_eapol_key_192 {
 #define WPA_EAPOL_KEY_MIC_MAX_LEN 24
 #define WPA_KCK_MAX_LEN 128
 #define WPA_KEK_MAX_LEN 32
+#define WPA_KDK_MAX_LEN 32
 #define WPA_TK_MAX_LEN 32
 
 /**
@@ -194,9 +195,11 @@ struct wpa_eapol_key_192 {
 struct wpa_ptk {
 	u8 kck[WPA_KCK_MAX_LEN]; /* EAPOL-Key Key Confirmation Key (KCK) */
 	u8 kek[WPA_KEK_MAX_LEN]; /* EAPOL-Key Key Encryption Key (KEK) */
+	u8 kdk[WPA_KDK_MAX_LEN];
 	u8 tk[WPA_TK_MAX_LEN];   /* Temporal Key (TK) */
 	size_t kck_len;
 	size_t kek_len;
+	size_t kdk_len;
 	size_t tk_len;
 	int installed;
 };

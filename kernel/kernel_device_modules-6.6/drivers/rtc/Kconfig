@@ -25,4 +25,12 @@ config RTC_DRV_MT6685
 
 	  If you want to use Mediatek(R) RTC interface, select Y or M here.
 
+config RTC_AUTO_PWRON
+	tristate "RTC Auto Power on PMICs"
+	default n
+	depends on SEC_PM
+	help
+	  If you say yes here you will get support for the
+	  Support for the auto power on alarm on the PMIC.
+
 endif # RTC_CLASS

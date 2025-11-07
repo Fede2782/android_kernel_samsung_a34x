@@ -63,6 +63,199 @@ static DEVICE_ATTR(SEC_UFS_TW_info, 0444, ufs_sec_wb_info_show, NULL);
 
 /* SEC next WB : end */
 
+/* UFS SEC HCGC : begin */
+static ssize_t ufs_sec_hcgc_support_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	bool hcgc_support = false;
+	struct ufs_sec_hcgc_info *ufs_hcgc = ufs_sec_features.ufs_hcgc;
+
+	if (!ufs_hcgc) {
+		dev_err(dev, "Device does not support hcgc.\n");
+		goto out;
+	}
+
+	dev_info(dev, "HCGC : Device %s, Host %s.\n",
+			ufs_hcgc->support ? "Support" : "Not support",
+			ufs_hcgc->allow ? "Allow" : "Not allow");
+
+	hcgc_support = ufs_hcgc->support && ufs_hcgc->allow;
+
+out:
+	return sprintf(buf, "%d\n", hcgc_support ? 1 : 0);
+}
+static DEVICE_ATTR(hcgc_support, 0444, ufs_sec_hcgc_support_show, NULL);
+
+static ssize_t ufs_sec_hcgc_operation_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_sec_hcgc_info *ufs_hcgc = ufs_sec_features.ufs_hcgc;
+	u32 value = 0;
+	int err = 0;
+
+	if (kstrtou32(buf, 0, &value))
+		return -EINVAL;
+
+	/* if value has invalid value */
+	if (value >= HCGC_OP_max) {
+		dev_err(dev, "invalid value (%u)\n", value);
+		return -EINVAL;
+	}
+
+	err = ufs_sec_hcgc_query_attr(hba, UPIU_QUERY_OPCODE_WRITE_ATTR,
+			QUERY_ATTR_IDN_SEC_HCGC_OPERATION, &value);
+	if (err) {
+		dev_err(dev, "SEC HCGC set %u error. (err = %d)\n", value, err);
+		atomic_inc(&ufs_hcgc->hcgc_op_err_cnt[value]);
+		return err;
+	}
+
+	atomic_inc(&ufs_hcgc->hcgc_op_cnt[value]);
+	ufs_hcgc->bHCGCOperation = value;
+
+	return count;
+}
+static DEVICE_ATTR(hcgc_operation, 0220, NULL, ufs_sec_hcgc_operation_store);
+
+static ssize_t ufs_sec_hcgc_state_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_sec_hcgc_info *ufs_hcgc = ufs_sec_features.ufs_hcgc;
+	int err = 0;
+	u32 bHCGCState = HCGC_STATE_max;
+
+	err = ufs_sec_hcgc_query_attr(hba, UPIU_QUERY_OPCODE_READ_ATTR,
+			QUERY_ATTR_IDN_SEC_HCGC_STATE, &bHCGCState);
+	if (err) {
+		dev_err(dev, "%s: get hcgc_status failure. (err = %d)\n",
+				__func__, err);
+		return err;
+	}
+
+	/* if state value is invalid, return error */
+	if (bHCGCState >= HCGC_STATE_max) {
+		dev_err(dev, "%s: invalid status (%u)\n", __func__, bHCGCState);
+		return -EINVAL;
+	}
+
+	ufs_hcgc->bHCGCState = bHCGCState;
+
+	return sprintf(buf, "%u\n", bHCGCState);
+}
+static DEVICE_ATTR(hcgc_state, 0444, ufs_sec_hcgc_state_show, NULL);
+
+static ssize_t ufs_sec_hcgc_availsize_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_sec_hcgc_info *ufs_hcgc = ufs_sec_features.ufs_hcgc;
+	int err = 0;
+	u32 wHCGCAvailSize = 0;
+
+	err = ufs_sec_hcgc_query_attr(hba, UPIU_QUERY_OPCODE_READ_ATTR,
+			QUERY_ATTR_IDN_SEC_HCGC_AVAIL_SIZE, &wHCGCAvailSize);
+	if (err) {
+		dev_err(dev, "%s: get hcgc_availsize failure. (err = %d)\n", __func__, err);
+		return err;
+	}
+
+	ufs_hcgc->wHCGCAvailSize = wHCGCAvailSize;
+
+	return sprintf(buf, "%u\n", wHCGCAvailSize);
+}
+static DEVICE_ATTR(hcgc_availsize, 0444, ufs_sec_hcgc_availsize_show, NULL);
+
+static ssize_t ufs_sec_hcgc_size_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_sec_hcgc_info *ufs_hcgc = ufs_sec_features.ufs_hcgc;
+	int err = 0;
+	u32 wHCGCSize = 0;
+
+	err = ufs_sec_hcgc_query_attr(hba, UPIU_QUERY_OPCODE_READ_ATTR,
+			QUERY_ATTR_IDN_SEC_HCGC_SIZE, &wHCGCSize);
+	if (err) {
+		dev_err(dev, "%s: get hcgc_size failure. (err = %d)\n", __func__, err);
+		return err;
+	}
+
+	ufs_hcgc->wHCGCSize = wHCGCSize;
+
+	return sprintf(buf, "%u\n", wHCGCSize);
+}
+
+static ssize_t ufs_sec_hcgc_size_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_sec_hcgc_info *ufs_hcgc = ufs_sec_features.ufs_hcgc;
+	u32 value = 0;
+	int err = 0;
+
+	if (kstrtou32(buf, 0, &value))
+		return -EINVAL;
+
+	/* TBD : check value range */
+	if (value > 0xFFFF)
+		return -EINVAL;
+
+	/* if same as before, return */
+	if (ufs_hcgc->wHCGCSize == value)
+		return count;
+
+	err = ufs_sec_hcgc_query_attr(hba, UPIU_QUERY_OPCODE_WRITE_ATTR,
+			QUERY_ATTR_IDN_SEC_HCGC_SIZE, &value);
+	if (err) {
+		dev_err(dev, "%s: set hcgc_size to %u failure. (err = %d)\n",
+				__func__, value, err);
+		return err;
+	}
+
+	ufs_hcgc->wHCGCSize = value;
+
+	return count;
+}
+static DEVICE_ATTR(hcgc_size, 0664, ufs_sec_hcgc_size_show, ufs_sec_hcgc_size_store);
+
+static ssize_t ufs_sec_hcgc_ratio_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_sec_hcgc_info *ufs_hcgc = ufs_sec_features.ufs_hcgc;
+	int err = 0;
+	u32 bHCGCRatio = 0;
+
+	err = ufs_sec_hcgc_query_attr(hba, UPIU_QUERY_OPCODE_READ_ATTR,
+			QUERY_ATTR_IDN_SEC_HCGC_RATIO, &bHCGCRatio);
+	if (err) {
+		dev_err(dev, "%s: get hcgc_ratio failure. (err = %d)\n", __func__, err);
+		return err;
+	}
+
+	ufs_hcgc->bHCGCRatio = bHCGCRatio;
+
+	return sprintf(buf, "%u\n", bHCGCRatio);
+}
+static DEVICE_ATTR(hcgc_ratio, 0444, ufs_sec_hcgc_ratio_show, NULL);
+
+static struct attribute *sec_ufs_hcgc_attributes[] = {
+	&dev_attr_hcgc_support.attr,
+	&dev_attr_hcgc_operation.attr,
+	&dev_attr_hcgc_state.attr,
+	&dev_attr_hcgc_availsize.attr,
+	&dev_attr_hcgc_size.attr,
+	&dev_attr_hcgc_ratio.attr,
+	NULL
+};
+
+static struct attribute_group sec_ufs_hcgc_attribute_group = {
+	.attrs	= sec_ufs_hcgc_attributes,
+};
+/* UFS SEC HCGC : end */
+
 /* UFS info nodes : begin */
 static ssize_t ufs_sec_unique_number_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -78,7 +271,7 @@ static ssize_t ufs_sec_lt_show(struct device *dev,
 
 	if (!hba) {
 		dev_err(dev, "skipping ufs lt read\n");
-		get_vdi_member(lt) = 0;
+		set_vdi_member(lt, 0);
 	} else if (hba->ufshcd_state == UFSHCD_STATE_OPERATIONAL) {
 		ufshcd_rpm_get_sync(hba);
 		ufs_sec_get_health_desc(hba);
@@ -100,7 +293,7 @@ static ssize_t ufs_sec_flt_show(struct device *dev,
 
 	if (!hba) {
 		dev_err(dev, "skipping ufs flt read\n");
-		get_vdi_member(flt) = 0;
+		set_vdi_member(flt, 0);
 	} else if (hba->ufshcd_state == UFSHCD_STATE_OPERATIONAL) {
 		ufshcd_rpm_get_sync(hba);
 		ufs_sec_get_health_desc(hba);
@@ -124,7 +317,7 @@ static ssize_t ufs_sec_eli_show(struct device *dev,
 
 	if (!hba) {
 		dev_err(dev, "skipping ufs eli read\n");
-		get_vdi_member(eli) = 0;
+		set_vdi_member(eli, 0);
 	} else if (hba->ufshcd_state == UFSHCD_STATE_OPERATIONAL) {
 		ufshcd_rpm_get_sync(hba);
 		ufs_sec_get_health_desc(hba);
@@ -153,7 +346,7 @@ static ssize_t ufs_sec_ic_store(struct device *dev,
 	if (kstrtou32(buf, 0, &value))
 		return -EINVAL;
 
-	get_vdi_member(ic) = value;
+	set_vdi_member(ic, value);
 
 	return count;
 }
@@ -374,27 +567,30 @@ static ssize_t ufs_sec_hist_info_show(struct device *dev,
 	return SEC_UFS_ERR_HIST_SUM(buf);
 }
 
-static bool is_valid_hist_info(const char *buf, size_t count)
+static bool is_valid_hist_info(const char *buf,
+		struct ufs_sec_err_hist_cnt *errinfo)
 {
-	int i;
+	int ret;
 
-	if (count != ERR_SUM_SIZE)
+	ret = sscanf(buf, UFS_ERR_FORMAT,
+			&errinfo->utp_err,
+			&errinfo->uic_err,
+			&errinfo->hw_reset_err,
+			&errinfo->link_startup_err,
+			&errinfo->link_lost_err,
+			&errinfo->utmr_query_err,
+			&errinfo->read_err,
+			&errinfo->write_err,
+			&errinfo->device_fatal_err,
+			&errinfo->medium_err,
+			&errinfo->hardware_err,
+			&errinfo->illegal_req,
+			&errinfo->data_prot,
+			&errinfo->others,
+			&errinfo->hibern_err);
+
+	if (ret != UFS_ERR_NUM)
 		return false;
-
-	if (buf[0] != 'U' || buf[2] != 'I' || buf[4] != 'H' ||
-	    buf[6] != 'L' || buf[8] != 'X' || buf[10] != 'Q' ||
-	    buf[12] != 'R' || buf[14] != 'W' || buf[16] != 'F' ||
-	    buf[18] != 'S' || buf[19] != 'M' || buf[21] != 'S' ||
-	    buf[22] != 'H' || buf[24] != 'H' || buf[25] != 'B')
-		return false;
-
-	for (i = 1; i < ERR_SUM_SIZE; i += 2) {
-		if (buf[i] - '0' < 0 || buf[i] - '0' >= 10)
-			return false;
-		/* increase index for "SM", "SH", "HB" */
-		if (i == 17 || i == 20 || i == 23)
-			i++;
-	}
 
 	return true;
 }
@@ -402,23 +598,31 @@ static bool is_valid_hist_info(const char *buf, size_t count)
 static ssize_t ufs_sec_hist_info_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
-	if (!is_valid_hist_info(buf, count)) {
-		pr_err("%s: %s, len(%lu)\n", __func__, buf, count);
+	struct ufs_sec_err_hist_cnt errinfo = {};
+
+	if (!is_valid_hist_info(buf, &errinfo)) {
+		dev_err(dev, "%s: invalid error value(%s)\n", __func__, buf);
 		return -EINVAL;
 	}
 
-	SEC_UFS_ERR_INFO_HIST_SET_VALUE(UTP_cnt, UTP_err, buf[1]);
-	SEC_UFS_ERR_INFO_HIST_SET_VALUE(UIC_err_cnt, UIC_err, buf[3]);
-	SEC_UFS_ERR_INFO_HIST_SET_VALUE(op_cnt, HW_RESET_cnt, buf[5]);
-	SEC_UFS_ERR_INFO_HIST_SET_VALUE(op_cnt, link_startup_cnt, buf[7]);
-	SEC_UFS_ERR_INFO_HIST_SET_VALUE(Fatal_err_cnt, LLE, buf[9]);
-	SEC_UFS_ERR_INFO_HIST_SET_VALUE(UTP_cnt, UTMR_query_task_cnt, buf[11]);
-	SEC_UFS_ERR_INFO_HIST_SET_VALUE(UTP_cnt, UTR_read_err, buf[13]);
-	SEC_UFS_ERR_INFO_HIST_SET_VALUE(UTP_cnt, UTR_write_err, buf[15]);
-	SEC_UFS_ERR_INFO_HIST_SET_VALUE(Fatal_err_cnt, DFE, buf[17]);
-	SEC_UFS_ERR_INFO_HIST_SET_VALUE(sense_cnt, scsi_medium_err, buf[20]);
-	SEC_UFS_ERR_INFO_HIST_SET_VALUE(sense_cnt, scsi_hw_err, buf[23]);
-	SEC_UFS_ERR_INFO_HIST_SET_VALUE(op_cnt, HB_hist_cnt, buf[26]);
+	if (!get_vdi_member(hist_on))
+		set_vdi_member(hist_on, true);
+
+	SEC_UFS_ERR_INFO_HIST_SET_VALUE(UTP_cnt, UTP_err, errinfo.utp_err);
+	SEC_UFS_ERR_INFO_HIST_SET_VALUE(UIC_err_cnt, UIC_err, errinfo.uic_err);
+	SEC_UFS_ERR_INFO_HIST_SET_VALUE(op_cnt, HW_RESET_cnt, errinfo.hw_reset_err);
+	SEC_UFS_ERR_INFO_HIST_SET_VALUE(op_cnt, link_startup_cnt, errinfo.link_startup_err);
+	SEC_UFS_ERR_INFO_HIST_SET_VALUE(Fatal_err_cnt, LLE, errinfo.link_lost_err);
+	SEC_UFS_ERR_INFO_HIST_SET_VALUE(UTP_cnt, UTMR_query_task_cnt, errinfo.utmr_query_err);
+	SEC_UFS_ERR_INFO_HIST_SET_VALUE(UTP_cnt, UTR_read_err, errinfo.read_err);
+	SEC_UFS_ERR_INFO_HIST_SET_VALUE(UTP_cnt, UTR_write_err, errinfo.write_err);
+	SEC_UFS_ERR_INFO_HIST_SET_VALUE(Fatal_err_cnt, DFE, errinfo.device_fatal_err);
+	SEC_UFS_ERR_INFO_HIST_SET_VALUE(sense_cnt, scsi_medium_err, errinfo.medium_err);
+	SEC_UFS_ERR_INFO_HIST_SET_VALUE(sense_cnt, scsi_hw_err, errinfo.hardware_err);
+	SEC_UFS_ERR_INFO_HIST_SET_VALUE(sense_cnt, scsi_illegal_req, errinfo.illegal_req);
+	SEC_UFS_ERR_INFO_HIST_SET_VALUE(sense_cnt, scsi_data_prot, errinfo.data_prot);
+	SEC_UFS_ERR_INFO_HIST_SET_VALUE(sense_cnt, scsi_others, errinfo.others);
+	SEC_UFS_ERR_INFO_HIST_SET_VALUE(op_cnt, HB_hist_cnt, errinfo.hibern_err);
 
 	return count;
 }
@@ -697,7 +901,8 @@ SEC_UFS_DATA_ATTR_RW(sense_err_count, "\"MEDIUM\":\"%u\",\"HWERR\":\"%u\"\n",
 SEC_UFS_DATA_ATTR_RO(SEC_UFS_err_summary,
 		"OPERR : %u, UICCMD : %u, UICERR : %u, FATALERR : %u"
 		", UTPERR : %u, QUERYERR : %u\n"
-		"MEDIUM : %u, HWERR : %u\n",
+		"MEDIUM : %u, HWERR : %u\n"
+		"ILLEGAL_REQ : %u, DATA_PROT : %u, OTHERS : %u\n",
 		SEC_UFS_ERR_INFO_GET_VALUE(op_cnt, op_err),
 		SEC_UFS_ERR_INFO_GET_VALUE(UIC_cmd_cnt, UIC_cmd_err),
 		SEC_UFS_ERR_INFO_GET_VALUE(UIC_err_cnt, UIC_err),
@@ -705,7 +910,10 @@ SEC_UFS_DATA_ATTR_RO(SEC_UFS_err_summary,
 		SEC_UFS_ERR_INFO_GET_VALUE(UTP_cnt, UTP_err),
 		SEC_UFS_ERR_INFO_GET_VALUE(Query_cnt, Query_err),
 		SEC_UFS_ERR_INFO_GET_VALUE(sense_cnt, scsi_medium_err),
-		SEC_UFS_ERR_INFO_GET_VALUE(sense_cnt, scsi_hw_err));
+		SEC_UFS_ERR_INFO_GET_VALUE(sense_cnt, scsi_hw_err),
+		SEC_UFS_ERR_INFO_GET_VALUE(sense_cnt, scsi_illegal_req),
+		SEC_UFS_ERR_INFO_GET_VALUE(sense_cnt, scsi_data_prot),
+		SEC_UFS_ERR_INFO_GET_VALUE(sense_cnt, scsi_others));
 
 static struct attribute *sec_ufs_error_attributes[] = {
 	&dev_attr_SEC_UFS_op_cnt.attr,
@@ -776,7 +984,7 @@ static int ufs_sec_create_sysfs_dev(struct ufs_hba *hba)
 		sec_ufs_node_dev = sec_device_create(hba, "ufs");
 
 	if (IS_ERR(sec_ufs_node_dev)) {
-		pr_err("Fail to create sysfs dev\n");
+		dev_err(hba->dev, "Fail to create sysfs dev\n");
 		return -ENODEV;
 	}
 
@@ -801,10 +1009,17 @@ void ufs_sec_add_sysfs_nodes(struct ufs_hba *hba)
 	if (!ufs_sec_create_sysfs_dev(hba)) {
 		ufs_sec_create_sysfs_group(hba, &sec_ufs_node_dev,
 				&sec_ufs_info_attribute_group, "sec_ufs_info");
+
 		if (ufs_sec_features.ufs_cmd_log)
 			ufs_sec_create_sysfs_group(hba, &sec_ufs_node_dev,
 					&sec_ufs_cmd_log_attribute_group,
 					"sec_ufs_cmd_log");
+
+		if (ufs_sec_features.ufs_hcgc &&
+			ufs_sec_features.ufs_hcgc->allow)
+			ufs_sec_create_sysfs_group(hba, &sec_ufs_node_dev,
+					&sec_ufs_hcgc_attribute_group,
+					"sec_ufs_hcgc");
 	}
 
 	if (ufs_sec_is_err_cnt_allowed())
@@ -821,6 +1036,8 @@ void ufs_sec_remove_sysfs_nodes(struct ufs_hba *hba)
 				&sec_ufs_info_attribute_group);
 		sysfs_remove_group(&sec_ufs_node_dev->kobj,
 				&sec_ufs_cmd_log_attribute_group);
+		sysfs_remove_group(&sec_ufs_node_dev->kobj,
+				&sec_ufs_hcgc_attribute_group);
 	}
 
 	if (shost_dev)

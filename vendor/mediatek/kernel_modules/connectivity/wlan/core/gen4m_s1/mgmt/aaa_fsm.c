@@ -537,7 +537,6 @@ bow_proc:
 			 */
 			cnmTimerInitTimer(prAdapter,
 				&prStaRec->rTxReqDoneOrRxRespTimer,
-				(PFN_MGMT_TIMEOUT_FUNC)
 				aaaFsmRunEventTxReqTimeOut,
 				(unsigned long) prStaRec);
 

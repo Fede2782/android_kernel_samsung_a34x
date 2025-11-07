@@ -25,9 +25,6 @@
 #include <linux/dcache.h>
 #include <linux/version.h>
 
-struct linux_binprm;
-struct task_integrity;
-
 struct integrity_label {
 	uint16_t len;
 	uint8_t data[];
@@ -112,11 +109,15 @@ struct task_integrity {
 	struct file *reset_file;
 };
 
-#ifdef CONFIG_FIVE
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
-#define TASK_INTEGRITY(task) \
-	((struct task_integrity *)((task)->android_oem_data1[2]))
+struct task_integrity *task_integrity_alloc(void);
+static inline struct task_integrity *TASK_INTEGRITY(struct task_struct *task)
+{
+	u64 *vdata = &task->android_oem_data1[2];
+
+	return (struct task_integrity *)(*vdata);
+}
 
 static inline void task_integrity_assign(struct task_struct *task,
 					 struct task_integrity *tint)
@@ -134,23 +135,22 @@ static inline void task_integrity_assign(struct task_struct *task,
 }
 #endif
 
-extern void task_integrity_set_reset_reason(struct task_integrity *tint,
+void task_integrity_set_reset_reason(struct task_integrity *tint,
 	enum task_integrity_reset_cause cause, struct file *file);
 
-struct task_integrity *task_integrity_alloc(void);
 void task_integrity_free(struct task_integrity *tint);
 void task_integrity_clear(struct task_integrity *tint);
 
 static inline void task_integrity_get(struct task_integrity *tint)
 {
-	if (unlikely(!atomic_read(&tint->usage_count)))
+	if (!tint || unlikely(!atomic_read(&tint->usage_count)))
 		return;
 	atomic_inc(&tint->usage_count);
 }
 
 static inline void task_integrity_put(struct task_integrity *tint)
 {
-	if (unlikely(!atomic_read(&tint->usage_count)))
+	if (!tint || unlikely(!atomic_read(&tint->usage_count)))
 		return;
 	if (atomic_dec_and_test(&tint->usage_count))
 		task_integrity_free(tint);
@@ -159,12 +159,16 @@ static inline void task_integrity_put(struct task_integrity *tint)
 static inline void __task_integrity_set(struct task_integrity *tint,
 					enum task_integrity_value value)
 {
-	tint->value = value;
+	if (tint)
+		tint->value = value;
 }
 
 static inline void task_integrity_set(struct task_integrity *tint,
 					enum task_integrity_value value)
 {
+	if (!tint)
+		return;
+
 	spin_lock(&tint->value_lock);
 	tint->value = value;
 	spin_unlock(&tint->value_lock);
@@ -183,7 +187,10 @@ extern void task_integrity_delayed_reset(struct task_struct *task,
 static inline enum task_integrity_value task_integrity_read(
 						struct task_integrity *tint)
 {
-	enum task_integrity_value value;
+	enum task_integrity_value value = INTEGRITY_NONE;
+
+	if (!tint)
+		return value;
 
 	spin_lock(&tint->value_lock);
 	value = tint->value;
@@ -220,222 +227,45 @@ static inline bool task_integrity_allow_sign(struct task_integrity *tint)
 static inline enum task_integrity_value task_integrity_user_read(
 						struct task_integrity *tint)
 {
-	return tint->user_value;
+	return tint ? tint->user_value : INTEGRITY_NONE;
 }
 
 static inline void task_integrity_user_set(struct task_integrity *tint,
 					   enum task_integrity_value value)
 {
-	tint->user_value = value;
+	if (tint)
+		tint->user_value = value;
 }
 
 static inline void task_integrity_reset_both(struct task_integrity *tint)
 {
-	task_integrity_reset(tint);
-	tint->user_value = INTEGRITY_NONE;
+	if (tint) {
+		task_integrity_reset(tint);
+		tint->user_value = INTEGRITY_NONE;
+	}
 }
 
-extern int task_integrity_copy(struct task_integrity *from,
+int five_file_verify(struct task_struct *task, struct file *file);
+int task_integrity_copy(struct task_integrity *from,
 				struct task_integrity *to);
-extern int five_bprm_check(struct linux_binprm *bprm);
-extern void five_file_free(struct file *file);
-extern int five_file_mmap(struct file *file, unsigned long prot);
-extern int five_file_open(struct file *file);
-extern int five_file_verify(struct task_struct *task, struct file *file);
-extern void five_task_free(struct task_struct *task);
-
-extern void five_inode_post_setattr(struct task_struct *tsk,
-					struct dentry *dentry);
-extern int five_inode_setxattr(struct dentry *dentry, const char *xattr_name,
-			const void *xattr_value, size_t xattr_value_len);
-extern int five_inode_removexattr(struct dentry *dentry,
-					const char *xattr_name);
-extern int five_fcntl_sign(struct file *file,
+int five_fcntl_verify_async(struct file *file);
+int five_fcntl_verify_sync(struct file *file);
+int five_fcntl_sign(struct file *file,
 				struct integrity_label __user *label);
-extern int five_fcntl_verify_async(struct file *file);
-extern int five_fcntl_verify_sync(struct file *file);
-extern int five_fcntl_edit(struct file *file);
-extern int five_fcntl_close(struct file *file);
-extern int five_fcntl_debug(struct file *file, void __user *arg);
-extern int five_fork(struct task_struct *task, struct task_struct *child_task);
-extern int five_ptrace(struct task_struct *task, long request);
-extern int five_process_vm_rw(struct task_struct *task, int write);
-extern char const * const tint_reset_cause_to_string(
+int five_fcntl_edit(struct file *file);
+int five_fcntl_close(struct file *file);
+
+int five_inode_setxattr(struct dentry *dentry, const char *xattr_name,
+			const void *xattr_value, size_t xattr_value_len);
+int five_inode_removexattr(struct dentry *dentry,
+					const char *xattr_name);
+
+void five_inode_post_setattr(struct task_struct *task, struct dentry *dentry);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-qualifiers"
+char const * const tint_reset_cause_to_string(
 	enum task_integrity_reset_cause cause);
-#else
-#define TASK_INTEGRITY(task) (NULL)
-
-static inline void task_integrity_assign(struct task_struct *task,
-					 struct task_integrity *tint)
-{
-}
-
-static inline struct task_integrity *task_integrity_alloc(void)
-{
-	return NULL;
-}
-
-static inline void task_integrity_free(struct task_integrity *tint)
-{
-}
-
-static inline void task_integrity_clear(struct task_integrity *tint)
-{
-}
-
-static inline void task_integrity_set(struct task_integrity *tint,
-						enum task_integrity_value value)
-{
-}
-
-static inline void task_integrity_reset(struct task_integrity *tint)
-{
-}
-
-static inline enum task_integrity_value task_integrity_read(
-						struct task_integrity *tint)
-{
-	return INTEGRITY_NONE;
-}
-
-static inline void task_integrity_user_set(struct task_integrity *tint,
-						enum task_integrity_value value)
-{
-}
-
-static inline enum task_integrity_value task_integrity_user_read(
-						struct task_integrity *tint)
-{
-	return INTEGRITY_NONE;
-}
-
-static inline void task_integrity_delayed_reset(struct task_struct *task,
-		enum task_integrity_reset_cause cause, struct file *file)
-{
-}
-
-static inline void task_integrity_reset_both(struct task_integrity *tint)
-{
-}
-
-static inline void task_integrity_add_file(struct task_integrity *tint)
-{
-}
-
-static inline void task_integrity_report_file(struct task_integrity *tint)
-{
-}
-
-static inline int five_bprm_check(struct linux_binprm *bprm)
-{
-	return 0;
-}
-
-static inline void five_file_free(struct file *file)
-{
-}
-
-static inline int five_file_mmap(struct file *file, unsigned long prot)
-{
-	return 0;
-}
-
-static inline int five_file_open(struct file *file)
-{
-	return 0;
-}
-
-static inline int five_file_verify(struct task_struct *task, struct file *file)
-{
-	return 0;
-}
-
-static inline void five_task_free(struct task_struct *task)
-{
-}
-
-static inline void five_inode_post_setattr(struct task_struct *tsk,
-							struct dentry *dentry)
-{
-}
-
-static inline int five_inode_setxattr(struct dentry *dentry,
-					const char *xattr_name,
-					const void *xattr_value,
-					size_t xattr_value_len)
-{
-	return 0;
-}
-
-static inline int five_inode_removexattr(struct dentry *dentry,
-					const char *xattr_name)
-{
-	return 0;
-}
-
-static inline int five_fcntl_sign(struct file *file,
-					struct integrity_label __user *label)
-{
-	return 0;
-}
-
-static inline int five_fcntl_verify_async(struct file *file)
-{
-	return 0;
-}
-
-static inline int five_fcntl_verify_sync(struct file *file)
-{
-	return 0;
-}
-
-static inline int five_fcntl_edit(struct file *file)
-{
-	return 0;
-}
-
-static inline int five_fcntl_close(struct file *file)
-{
-	return 0;
-}
-
-static inline int five_fcntl_debug(struct file *file, void __user *arg)
-{
-	return 0;
-}
-
-static inline int five_fork(struct task_struct *task,
-				struct task_struct *child_task)
-{
-	return 0;
-}
-
-static inline int five_ptrace(struct task_struct *task, long request)
-{
-	return 0;
-}
-
-static inline int five_process_vm_rw(struct task_struct *task, int write)
-{
-	return 0;
-}
-
-static inline int task_integrity_copy(struct task_integrity *from,
-				struct task_integrity *to)
-{
-	return 0;
-}
-
-static inline char const * const tint_reset_cause_to_string(
-	enum task_integrity_reset_cause cause)
-{
-	return NULL;
-}
-
-static inline void task_integrity_set_reset_reason(struct task_integrity *tint,
-	enum task_integrity_reset_cause cause, struct file *file)
-{
-}
-#endif
+#pragma GCC diagnostic pop
 
 #endif /* _LINUX_TASK_INTEGRITY_H */

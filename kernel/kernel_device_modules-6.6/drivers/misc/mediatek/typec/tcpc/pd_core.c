@@ -1303,8 +1303,8 @@ void pd_reset_pe_timer(struct pd_port *pd_port)
 
 #if CONFIG_USB_PD_REV30_PPS_SINK
 	if (pd_port->request_apdo) {
-	pd_port->request_apdo = false;
-	pd_dpm_start_pps_request(pd_port, false);
+		pd_port->request_apdo = false;
+		pd_dpm_start_pps_request(pd_port, false);
 	}
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 }

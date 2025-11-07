@@ -28,6 +28,8 @@
 #include "gpueb_common.h"
 #endif
 #include <linux/math64.h>
+#include <trace/hooks/thermal.h>
+
 /*==================================================
  * LVTS debug patch
  *==================================================
@@ -1697,6 +1699,12 @@ static int lvts_get_chipid(void)
 	return chip_id->sw_ver;
 }
 
+void hook_tz_pm_notify_suspend(void *data, struct thermal_zone_device *tz , int *irq_wakeable)
+{
+	if(irq_wakeable)
+		*irq_wakeable = true;
+}
+
 static int lvts_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1744,6 +1752,10 @@ static int lvts_probe(struct platform_device *pdev)
 
 	mutex_init(&lvts_data->sen_data_lock);
 
+	ret = register_trace_android_vh_thermal_pm_notify_suspend(hook_tz_pm_notify_suspend,  NULL);
+	if (ret)
+		dev_info(dev, "%s: register_trace_android_vh_thermal_pm_notify_suspend failed, %d\n", __func__, ret);
+
 	ret = lvts_register_thermal_zones(lvts_data);
 	if (ret)
 		return ret;
@@ -1754,6 +1766,8 @@ static int lvts_probe(struct platform_device *pdev)
 
 static int lvts_remove(struct platform_device *pdev)
 {
+	unregister_trace_android_vh_thermal_pm_notify_suspend(hook_tz_pm_notify_suspend,  NULL);
+
 	return 0;
 }
 

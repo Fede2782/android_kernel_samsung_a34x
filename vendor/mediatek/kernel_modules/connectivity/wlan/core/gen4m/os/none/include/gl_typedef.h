@@ -144,11 +144,11 @@ typedef void(*remove_card) (void);
  * _type - structure name,
  * _field - field name of the structure
  */
-#ifndef CONTAINER_OF
-#define CONTAINER_OF(_addrOfField, _type, _field) \
+#ifndef ENTRY_OF
+#define ENTRY_OF(_addrOfField, _type, _field) \
 	((_type *)((int8_t *)(_addrOfField) - \
 	(int8_t *)OFFSET_OF(_type, _field)))
-#endif /* CONTAINER_OF */
+#endif /* ENTRY_OF */
 
 /* This macro align the input value to the DW boundary.
  * _value - value need to check

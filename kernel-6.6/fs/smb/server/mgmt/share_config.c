@@ -188,6 +188,7 @@ static struct ksmbd_share_config *share_config_request(struct ksmbd_work *work,
 				share = NULL;
 				goto out;
 			}
+
 			ret = kern_path(share->path, 0, &share->vfs_path);
 			ksmbd_revert_fsids(work);
 			if (ret) {

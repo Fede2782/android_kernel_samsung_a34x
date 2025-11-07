@@ -19,6 +19,26 @@ __attribute__((unused)) extern int mtk_debug_trylock(struct mutex *lock);
 /* REFERENCE FROM kbasep_csf_cpu_queue_dump_print() in midgard/scf/mali_kbase_csf_cpu_queue.c */
 void mtk_debug_csf_dump_cpu_queues(struct kbase_device *kbdev, struct kbase_context *kctx)
 {
+    struct task_struct *task;
+    struct pid *pid_struct;
+
+    /* Prevent dump when process in the zombie or dead state */
+    pid_struct = find_get_pid(kctx->tgid);
+    if (pid_struct) {
+        rcu_read_lock();
+        task = pid_task(pid_struct, PIDTYPE_PID);
+         if (task && ((task->exit_state == EXIT_ZOMBIE) || (task->exit_state == EXIT_DEAD) || (task->__state & TASK_FROZEN))) {
+            mtk_log_critical_exception(kbdev, true,
+                "[%d_%d] Bypass CPU queue dump, event thread already in state:0x%llx, exit_state:0x%llx",
+                kctx->tgid, kctx->id, (unsigned long long) task->__state, (unsigned long long) task->exit_state);
+            rcu_read_unlock();
+            put_pid(pid_struct);
+            return;
+        }
+        rcu_read_unlock();
+        put_pid(pid_struct);
+    }
+
     mutex_lock(&kctx->csf.lock);
 #if IS_ENABLED(CONFIG_MALI_MTK_CPUQ_DUMP_ENHANCEMENT)
     mutex_lock(&kctx->csf.cpu_queue.lock);
@@ -49,7 +69,7 @@ void mtk_debug_csf_dump_cpu_queues(struct kbase_device *kbdev, struct kbase_cont
             "[cpu_queue] ##### Ctx %d_%d #####",
             kctx->tgid, kctx->id);
 
-        if (!wait_for_completion_timeout(&kctx->csf.cpu_queue.dump_cmp, msecs_to_jiffies(3000))) {
+        if (!wait_for_completion_timeout(&kctx->csf.cpu_queue.dump_cmp, msecs_to_jiffies(500))) {
             dev_info(kbdev->dev, "ctx %d_%d mali-event-handler request pending", kctx->tgid, kctx->id);
             dev_info(kbdev->dev, "ctx %d_%d polling start: %llu, fd signal: %llu, data read: %llu",
                 kctx->tgid, kctx->id, kctx->notification_polling_start_time, kctx->notification_fd_signal_time,

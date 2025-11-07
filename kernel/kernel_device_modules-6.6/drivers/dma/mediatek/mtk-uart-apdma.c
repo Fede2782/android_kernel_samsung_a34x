@@ -579,6 +579,8 @@ int mtk_uart_apdma_polling_tx_finish(void)
 		ret = readx_poll_timeout(readl, hub_dma_tx_chan->base + VFF_VALID_SIZE,
 			vff_valid_size, vff_valid_size == 0, VFF_POLL_INTERVAL, VFF_POLL_TIMEOUT);
 		pr_info("%s: polling vff done: valid_size: %d, ret: %d\n", __func__, vff_valid_size, ret);
+		if(ret)
+			return ret;
 	}
 
 	// Check apdma internal buf size
@@ -587,6 +589,8 @@ int mtk_uart_apdma_polling_tx_finish(void)
 		ret = readx_poll_timeout(readl, hub_dma_tx_chan->base + VFF_INT_BUF_SIZE,
 			tx_data_cnt, tx_data_cnt == 0, IBUF_POLL_INTERVAL, IBUF_POLL_TIMEOUT);
 		pr_info("%s: polling int buf done: data_cnt: %d, ret: %d\n", __func__, tx_data_cnt, ret);
+		if(ret)
+			return ret;
 	}
 
 	irq_get_irqchip_state(hub_dma_tx_chan->irq, IRQCHIP_STATE_PENDING, &is_irq_pending);

@@ -287,7 +287,6 @@
 /* HE Operation element - BSS Color Information */
 #define HE_OP_BSSCOLOR_BSS_COLOR_MASK                   BITS(0, 5)
 #define HE_OP_BSSCOLOR_BSS_COLOR_SHFT                   0
-#define HE_OP_BSSCOLOR_PARTIAL_BSS_COLOR                BIT(6)
 #define HE_OP_BSSCOLOR_PARTIAL_BSS_COLOR_SHFT           6
 #define HE_OP_BSSCOLOR_BSS_COLOR_DISABLE                BIT(7)
 #define HE_OP_BSSCOLOR_BSS_COLOR_DISABLE_SHFT           7
@@ -391,6 +390,7 @@ enum ENUM_HTC_HE_OM_CH_WIDTH  {
 	CH_BW_160 = 3,
 };
 
+
 enum ENUM_HE_REG_INFO_TYPE {
 	HE_REG_INFO_LOW_POWER_INDOOR = 0,
 	HE_REG_INFO_STANDARD_POWER = 1,
@@ -448,9 +448,6 @@ enum ENUM_HEBA_TYPE {
 #define HE_IS_MAC_CAP_FLEXIBLE_TWT_SHDL(_aucHeMacCapInfo) \
 	(_aucHeMacCapInfo[3] & HE_MAC_CAP3_FLEXIBLE_TWT_SHDL)
 
-#define HE_IS_MAC_CAP_OM_CTRL(_aucHeMacCapInfo) \
-	(_aucHeMacCapInfo[3] & HE_MAC_CAP3_OM_CTRL)
-
 #define HE_SET_MAC_CAP_OM_CTRL(_aucHeMacCapInfo) \
 	(_aucHeMacCapInfo[3] |=  HE_MAC_CAP3_OM_CTRL)
 
@@ -480,6 +477,9 @@ enum ENUM_HEBA_TYPE {
 
 #define HE_SET_PHY_CAP_CHAN_WIDTH_SET_BW40_BW80_5G(_aucHePhyCapInfo) \
 	(_aucHePhyCapInfo[0] |=  HE_PHY_CAP0_CHAN_WIDTH_SET_BW40_BW80_5G)
+
+#define HE_UNSET_PHY_CAP_CHAN_WIDTH_SET_BW40_BW80_5G(_aucHePhyCapInfo) \
+	(_aucHePhyCapInfo[0] &= ~HE_PHY_CAP0_CHAN_WIDTH_SET_BW40_BW80_5G)
 
 #define HE_IS_PHY_CAP_CHAN_WIDTH_SET_BW160_5G(_aucHePhyCapInfo) \
 	(_aucHePhyCapInfo[0] & HE_PHY_CAP0_CHAN_WIDTH_SET_BW160_5G)
@@ -515,12 +515,6 @@ enum ENUM_HEBA_TYPE {
 
 #define HE_SET_PHY_CAP_STBC_RX_LT_OR_EQ_80M(_aucHePhyCapInfo) \
 	(_aucHePhyCapInfo[2] |= HE_PHY_CAP2_STBC_RX_LT_OR_EQ_80M)
-
-#define HE_UNSET_PHY_CAP_FULL_BW_UL_MU_MIMO(_aucHePhyCapInfo) \
-	(_aucHePhyCapInfo[2] &= ~HE_PHY_CAP2_FULL_BW_UL_MU_MIMO)
-
-#define HE_UNSET_PHY_CAP_PARTIAL_BW_UL_MU_MIMO(_aucHePhyCapInfo) \
-	(_aucHePhyCapInfo[2] &= ~HE_PHY_CAP2_PARTIAL_BW_UL_MU_MIMO)
 
 #define HE_UNSET_PHY_CAP_SU_BFMER(_aucHePhyCapInfo) \
 	(_aucHePhyCapInfo[3] &= ~HE_PHY_CAP3_SU_BFMER)
@@ -859,16 +853,6 @@ struct _IE_HE_OP_T {
 	u_int16_t u2HeBasicMcsSet;
 	u_int8_t  aucVarInfo[];
 } __KAL_ATTRIB_PACKED__;
-
-#if (CFG_SUPPORT_UPDATE_HE_BSS_COLOR_FROM_BEACON == 1)
-struct _IE_COLOR_CHANGE_ANNOUNCEMENT_T {
-	u_int8_t  ucId;
-	u_int8_t  ucLength;
-	u_int8_t  ucExtId;
-	u_int8_t  ucColorSwitchCntdn;
-	u_int8_t  ucNewBssColorInfo;
-} __KAL_ATTRIB_PACKED__;
-#endif /* CFG_SUPPORT_UPDATE_HE_BSS_COLOR_FROM_BEACON */
 
 #if (CFG_SUPPORT_WIFI_6G == 1)
 /* 9.4.2.261 HE 6 GHz Band Capabilities element */

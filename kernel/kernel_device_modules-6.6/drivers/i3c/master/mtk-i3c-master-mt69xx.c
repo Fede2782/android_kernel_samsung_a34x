@@ -1439,7 +1439,8 @@ static int mtk_i3c_calculate_force_h_time(struct mtk_i3c_master *i3c,
 
 	best_h_mul = (cal_para->src_clk / 10000 * cal_para->force_h_time
 		/ 10000 + 5) / 10;
-	best_l_mul = cal_para->best_mul - best_h_mul;
+	if (cal_para->best_mul > best_h_mul)
+		best_l_mul = cal_para->best_mul - best_h_mul;
 	if ((best_h_mul < 2) || (best_l_mul < 2))
 		return -EINVAL;
 

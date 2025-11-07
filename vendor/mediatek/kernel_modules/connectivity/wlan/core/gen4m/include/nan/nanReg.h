@@ -10,6 +10,8 @@
 
 #define REG_INVALID_INFO 0xFF
 
+extern u_int8_t g_fgNanUseR4AvailAttr;
+
 uint16_t nanRegGetBw(uint8_t ucOperatingClass);
 uint32_t nanRegGetChannelBitmap(uint8_t ucOperatingClass,
 		uint8_t ucChannel, uint16_t *pu2ChnlBitmap);
@@ -55,7 +57,13 @@ nanRegConvert6gChannelBitmap(uint8_t ucOperatingClass,
 	uint16_t *pu2ChnlBitmap,
 	uint8_t *pucNewChnlBitmap);
 
-void nanRegForce_R3_6GChMap(uint8_t ucEnable);
+void nanChannelBitmapR4ToR3(void *pBuf);
+
+void nanSetNanUseR4AvailAttr(uint8_t ucEnable);
 
 #endif
+
+u_int8_t nanIsNanActionFrame(struct WLAN_MAC_HEADER *pHeader,
+			     uint16_t u2FrameLength);
+
 #endif /* _NAN_REG_H_ */

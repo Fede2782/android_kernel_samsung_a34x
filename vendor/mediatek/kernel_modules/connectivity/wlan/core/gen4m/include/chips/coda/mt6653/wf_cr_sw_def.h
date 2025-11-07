@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: BSD-2-Clause */
 /*
 ** $Id: @(#) wf_cr_sw_def.h $
 */

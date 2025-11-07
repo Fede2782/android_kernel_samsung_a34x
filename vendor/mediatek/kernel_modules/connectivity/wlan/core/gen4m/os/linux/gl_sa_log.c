@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: GPL-2.0 */
 
 /*
  * Copyright (c) 2021 MediaTek Inc.
@@ -263,10 +263,10 @@ static long sa_unlocked_ioctl(struct file *filp, unsigned int cmd,
 	case SA_IOCTL_SET_LEVEL:{
 		unsigned int level = (unsigned int) arg;
 
-		SA_DBGLOG(SA, DEBUG, "SA_IOCTL_SET_LEVEL start\n");
+		SA_DBGLOG(SA, INFO, "SA_IOCTL_SET_LEVEL start\n");
 
 		if (gSaDev->pfEventFuncCB) {
-			SA_DBGLOG(SA, DEBUG,
+			SA_DBGLOG(SA, INFO,
 				"SA_IOCTL_SET_LEVEL invoke:%d\n",
 				(int)level);
 			gSaDev->pfEventFuncCB(SA_LOG_CMD_SET_LEVEL,
@@ -276,16 +276,16 @@ static long sa_unlocked_ioctl(struct file *filp, unsigned int cmd,
 				"SA_IOCTL_SET_LEVEL invoke failed\n");
 		}
 
-		SA_DBGLOG(SA, DEBUG, "SA_IOCTL_SET_LEVEL end\n");
+		SA_DBGLOG(SA, INFO, "SA_IOCTL_SET_LEVEL end\n");
 		break;
 	}
 	case SA_IOCTL_ON_OFF:{
 		unsigned int log_on_off = (unsigned int) arg;
 
-		SA_DBGLOG(SA, DEBUG, "SA_IOCTL_ON_OFF start\n");
+		SA_DBGLOG(SA, INFO, "SA_IOCTL_ON_OFF start\n");
 
 		if (gSaDev->pfEventFuncCB) {
-			SA_DBGLOG(SA, DEBUG,
+			SA_DBGLOG(SA, INFO,
 				"SA_IOCTL_ON_OFF invoke:%d\n",
 				(int)log_on_off);
 			gSaDev->pfEventFuncCB(SA_LOG_CMD_ON_OFF, log_on_off);
@@ -294,13 +294,13 @@ static long sa_unlocked_ioctl(struct file *filp, unsigned int cmd,
 				"SA_IOCTL_ON_OFF invoke failed\n");
 		}
 
-		SA_DBGLOG(SA, DEBUG, "SA_IOCTL_ON_OFF end\n");
+		SA_DBGLOG(SA, INFO, "SA_IOCTL_ON_OFF end\n");
 		break;
 	}
 	default:
 		ret = -EPERM;
 	}
-	SA_DBGLOG(SA, DEBUG, "cmd --> %d, ret=%d\n", cmd, ret);
+	SA_DBGLOG(SA, INFO, "cmd --> %d, ret=%d\n", cmd, ret);
 	up(&gSaDev->ioctl_mtx);
 	return ret;
 }
@@ -312,7 +312,7 @@ static long sa_compat_ioctl(struct file *filp, unsigned int cmd,
 	long ret = 0;
 	int32_t wait_cnt = 0;
 
-	SA_DBGLOG(SA, DEBUG, "COMPAT cmd --> %d\n", cmd);
+	SA_DBGLOG(SA, INFO, "COMPAT cmd --> %d\n", cmd);
 
 	if (!filp->f_op || !filp->f_op->unlocked_ioctl)
 		return -ENOTTY;
@@ -344,7 +344,7 @@ const struct file_operations sa_fops = {
 
 void wifi_salog_event_func_register(salog_event_func_cb func)
 {
-	SA_DBGLOG(SA, DEBUG,
+	SA_DBGLOG(SA, INFO,
 		"wifi_salog_event_func_register %p\n", func);
 	gSaDev->pfEventFuncCB = func;
 }
@@ -375,7 +375,7 @@ int SalogInit(void)
 	result = alloc_chrdev_region(&gSaDev->devno, 0, 1,
 			SA_DRIVER_NAME);
 	gSaDev->major = MAJOR(gSaDev->devno);
-	SA_DBGLOG(SA, DEBUG,
+	SA_DBGLOG(SA, INFO,
 		"alloc_chrdev_region result %d, major %d\n",
 		result, gSaDev->major);
 
@@ -449,7 +449,7 @@ int SalogDeInit(void)
 	class_destroy(gSaDev->driver_class);
 	cdev_del(&gSaDev->cdev);
 	unregister_chrdev_region(MKDEV(gSaDev->major, 0), 1);
-	SA_DBGLOG(SA, DEBUG, "unregister_chrdev_region major %d\n",
+	SA_DBGLOG(SA, INFO, "unregister_chrdev_region major %d\n",
 		gSaDev->major);
 	kfree(gSaDev);
 	return 0;

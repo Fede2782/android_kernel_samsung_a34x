@@ -740,8 +740,8 @@ static const struct v4l2_file_operations mtk_cam_v4l2_fops = {
 
 /* ref. v4l2_fill_pixfmt_mp */
 static int mtk_cam_fill_v4l2_pixfmt_mp(const struct v4l2_format_info *info,
-				       struct v4l2_pix_format_mplane *pixfmt,
-				       u32 pixelformat, u32 width, u32 height)
+			struct v4l2_pix_format_mplane *pixfmt,
+			u32 pixelformat, u32 width, u32 height, u32 bus_align)
 {
 	struct v4l2_plane_pix_format *plane;
 	unsigned int stride;
@@ -762,14 +762,15 @@ static int mtk_cam_fill_v4l2_pixfmt_mp(const struct v4l2_format_info *info,
 
 	plane = &pixfmt->plane_fmt[0];
 	stride = v4l2_format_calc_stride(info, 0, width,
-					 plane->bytesperline);
+					 plane->bytesperline, bus_align);
 
 	plane->bytesperline = stride;
 	plane->sizeimage = 0;
 	for (i = 0; i < info->comp_planes; i++) {
 		unsigned int stride_p;
 
-		stride_p = v4l2_format_calc_stride(info, i, width, stride);
+		stride_p =
+			v4l2_format_calc_stride(info, i, width, stride, bus_align);
 
 		plane->sizeimage +=
 			v4l2_format_calc_planesize(info, i, height, stride_p);
@@ -854,7 +855,7 @@ static int mtk_cam_fill_mtk_pixfmt_mp(const struct mtk_format_info *info,
 }
 
 static int _fill_image_pix_mp(struct v4l2_pix_format_mplane *mp,
-			      u32 pixelformat, u32 width, u32 height)
+			u32 pixelformat, u32 width, u32 height, u32 bus_align)
 {
 	const struct mtk_format_info *mtk_info;
 	const struct v4l2_format_info *v4l2_info;
@@ -868,7 +869,7 @@ static int _fill_image_pix_mp(struct v4l2_pix_format_mplane *mp,
 						 pixelformat, width, height);
 	else if (v4l2_info)
 		ret = mtk_cam_fill_v4l2_pixfmt_mp(v4l2_info, mp,
-						  pixelformat, width, height);
+						  pixelformat, width, height, bus_align);
 	else {
 		pr_info("%s: not found pixelformat " FMT_FOURCC "\n",
 			__func__, MEMBER_FOURCC(mp->pixelformat));
@@ -907,7 +908,8 @@ static u32 try_fmt_mp_pixelformat(struct mtk_cam_dev_node_desc *desc,
 static int fill_fmt_mp_constrainted_by_hw(struct v4l2_pix_format_mplane *fmt,
 					  struct mtk_cam_dev_node_desc *desc,
 					  u32 pixelformat, u32 width, u32 height,
-					  u32 pix_align_w, u32 pix_align_h)
+					  u32 pix_align_w, u32 pix_align_h,
+					  u32 bus_align)
 {
 	int ret;
 
@@ -915,7 +917,7 @@ static int fill_fmt_mp_constrainted_by_hw(struct v4l2_pix_format_mplane *fmt,
 			  IMG_MIN_WIDTH, desc->frmsizes->stepwise.max_width);
 	height = ALIGN(height, pix_align_h);
 
-	ret = _fill_image_pix_mp(fmt, pixelformat, width, height);
+	ret = _fill_image_pix_mp(fmt, pixelformat, width, height, bus_align);
 
 	return 0;
 }
@@ -946,7 +948,8 @@ static int mtk_video_init_format(struct mtk_cam_video_device *video)
 				       default_fmt->fmt.pix_mp.width,
 				       default_fmt->fmt.pix_mp.height,
 				       2,
-				       is_raw_subdev(video->uid.pipe_id) ? 2 : 1);
+				       is_raw_subdev(video->uid.pipe_id) ? 2 : 1,
+				       is_camsv_subdev(video->uid.pipe_id) ? 16 : 1);
 
 	/**
 	 * TODO: to support multi-plane: for example, yuv or do it as
@@ -1232,7 +1235,8 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node,
 				       f->fmt.pix_mp.width,
 				       f->fmt.pix_mp.height,
 				       2,
-				       is_raw_subdev(node->uid.pipe_id) ? 2 : 1);
+				       is_raw_subdev(node->uid.pipe_id) ? 2 : 1,
+				       is_camsv_subdev(node->uid.pipe_id) ? 16 : 1);
 
 	/* Constant format fields */
 	try_fmt.fmt.pix_mp.field = V4L2_FIELD_NONE;

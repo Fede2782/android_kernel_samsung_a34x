@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2025 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -632,6 +632,144 @@ static inline bool kbase_csf_scheduler_queue_has_trace(struct kbase_queue *queue
 	 */
 	return (queue->trace_buffer_size && queue->trace_buffer_base);
 }
+
+/**
+ * kbase_csf_scheduler_append_protm_flag() - append the given flag(s) to the control
+ *                                         data internally managed protm_event_id.
+ *
+ * @kbdev: Pointer to the device.
+ * @flag:  Flag(s) to append, restricted in accordance to CSF_SCHED_PROTM_EVENT_FLAGS_MASK.
+ */
+static inline void kbase_csf_scheduler_append_protm_flag(struct kbase_device *kbdev, u8 flag)
+{
+	struct kbase_csf_protm_mem_pages_defer_ctrl *pages_defer_ctrl =
+		&kbdev->csf.scheduler.pages_defer_ctrl;
+	int event_id = atomic_read(&pages_defer_ctrl->protm_event_id) |
+		       (flag & CSF_SCHED_PROTM_EVENT_FLAGS_MASK);
+
+	lockdep_assert_held(&kbdev->csf.scheduler.interrupt_lock);
+	atomic_set(&pages_defer_ctrl->protm_event_id, event_id);
+}
+
+/**
+ * kbase_csf_scheduler_complete_protm_event() - notify to the control data that the
+ *                                         current active p.mode session has completed.
+ *
+ * @kbdev: Pointer to the device.
+ *
+ * The function increase the protm_event's sequence number by one, and manages its wrap-over.
+ * The p.mode active flags are cleared, marking the completion of the present p.mode window.
+ * Additionally, kthread(s) waiting for the completion is waked-up and a bottom-half worker
+ * thread is enqueued for processing any deferred release of pages in pools.
+ */
+static inline void kbase_csf_scheduler_complete_protm_event(struct kbase_device *kbdev)
+{
+	struct kbase_csf_protm_mem_pages_defer_ctrl *pages_defer_ctrl =
+		&kbdev->csf.scheduler.pages_defer_ctrl;
+	int cur_seq_nr;
+
+	lockdep_assert_held(&kbdev->csf.scheduler.interrupt_lock);
+
+	cur_seq_nr = GET_PROTM_EVENT_ID_SEQ(atomic_read(&pages_defer_ctrl->protm_event_id));
+	cur_seq_nr = (cur_seq_nr == MAX_PROTM_EVENT_SEQ_NR) ? 0 : (cur_seq_nr + 1);
+
+	atomic_set(&pages_defer_ctrl->protm_event_id, cur_seq_nr << CSF_SCHED_PROTM_EVENT_NR_FLAGS);
+	if (pages_defer_ctrl->do_defer) {
+		wake_up_all(&pages_defer_ctrl->pools_term_wq);
+		queue_work(pages_defer_ctrl->mem_pools_op_workq,
+			   &pages_defer_ctrl->mem_pools_op_work);
+	}
+}
+
+/**
+ * is_csf_scheduler_protm_seq_completed() - helper to check a given protm session reflected by
+ *                                          the input sequence number is completed or not
+ *
+ * @kbdev: Pointer to the device.
+ * @seq_nr: P.mode session sequence number to check for its completion.
+ *
+ * Return: true on the given session is completed, otherwise false.
+ */
+static inline bool is_csf_scheduler_protm_seq_completed(struct kbase_device *kbdev, int seq_nr)
+{
+	struct kbase_csf_protm_mem_pages_defer_ctrl *pages_defer_ctrl =
+		&kbdev->csf.scheduler.pages_defer_ctrl;
+	int cur_seq_nr;
+
+	/* By design, seq_nr >= 0, and is always <= MAX_PROTM_EVENT_SEQ_NR */
+	WARN_ONCE(seq_nr > MAX_PROTM_EVENT_SEQ_NR || seq_nr < 0,
+		  "Unexpected 'event_seq_number > MAX_PROTM_EVENT_SEQ_NR || event_seq_number < 0'");
+
+	cur_seq_nr = GET_PROTM_EVENT_ID_SEQ(atomic_read(&pages_defer_ctrl->protm_event_id));
+	/* protm event sequence number is ever increasing, but could wrap back to 0 */
+	if (cur_seq_nr < seq_nr)
+		cur_seq_nr += MAX_PROTM_EVENT_SEQ_NR + 1;
+
+	return cur_seq_nr > seq_nr;
+}
+
+/**
+ * kbase_csf_scheduler_get_protm_seq_num() - get protected mode sqeuence number
+ *
+ * @kbdev: Pointer to the device.
+ *
+ * Return: Protected mode sequence number
+ */
+static inline int kbase_csf_scheduler_get_protm_seq_num(struct kbase_device *kbdev)
+{
+	struct kbase_csf_protm_mem_pages_defer_ctrl *pages_defer_ctrl =
+		&kbdev->csf.scheduler.pages_defer_ctrl;
+	int event_id = atomic_read(&pages_defer_ctrl->protm_event_id);
+
+	return GET_PROTM_EVENT_ID_SEQ(event_id);
+}
+
+/**
+ * kbase_csf_scheduler_delegate_imported_buf_alloc_free() - delegate an imported buf
+ *                                                 alloc object to scheduler's pages
+ *                                                 deferral control for managing its
+ *                                                 final clean-up and free, after a
+ *                                                 pmode session completes.
+ *
+ * @alloc: Pointer to an alloc object of imported buffer, to be freed later.
+ *
+ * This function delegates the alloc object to scheduler's pages_defer_ctrl for its
+ * last stage deferred free operation. The caller is restricted to kbase's kref
+ * free handler: kbase_mem_kref_free().
+ *
+ * Return: true when delegation is required and done. Otherwise, the caller should
+ *         proceed to handle its clean-up and free the alloc object directly.
+ */
+bool kbase_csf_scheduler_delegate_imported_buf_alloc_free(struct kbase_mem_phy_alloc *alloc);
+
+/**
+ * kbase_csf_scheduler_pages_defer_ctrl_add_pool() - add a pool to scheduler's pages
+ *                                                   deferral list for managing their
+ *                                                   release from pages_defer_ctrl
+ *
+ * @pool: Pointer to the memory pool.
+ *
+ * This function adds the given pool to scheduler's pages_defer_ctrl list for handling
+ * the deferred pages. If pool already linked (i.e. added before), do nothing.
+ *
+ * Note, the caller must own the pool by locking on its mutex lock.
+ */
+void kbase_csf_scheduler_pages_defer_ctrl_add_pool(struct kbase_mem_pool *pool);
+
+/**
+ * kbase_csf_scheduler_pages_defer_ctrl_drop_pool() - Remove pool from pages_defer_ctrl
+ *                                                    lists
+ *
+ * @pool: Pointer to the memory pool.
+ * @from_defer_ctrl: Indicating the caller is defer_controller.
+ *
+ * During operation a pool with deferred pages can be on one of the scheduler-owned
+ * pages_defer_ctrl lists. This function removes the given pool from the managed lists.
+ *
+ * Note, the caller must own the pool by locking on its lock.
+ */
+void kbase_csf_scheduler_pages_defer_ctrl_drop_pool(struct kbase_mem_pool *pool,
+						    bool from_defer_ctrl);
 
 #ifdef KBASE_PM_RUNTIME
 /**

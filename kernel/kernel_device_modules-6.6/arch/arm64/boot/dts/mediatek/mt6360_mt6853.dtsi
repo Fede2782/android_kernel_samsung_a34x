@@ -309,10 +309,6 @@
 		mt-tcpc,vconn-supply = <1>;
 		mt6360pd,intr-gpio = <&pio 9 0x0>;
 		mt6360pd,intr-gpio-num = <9>;
-		mt6360pd,pcb-gpio = <&pio 57 0x0>;
-		mt6360pd,pcb-gpio-num = <57>;
-		/* 0: gpio low as phone, 1: gpio high as phone */
-		mt6360pd,pcb-gpio-polarity = <0>;
 		interrupt-parent = <&subpmic_mtk>;
 		interrupts = <64 0>;
 		interrupt-names = "usbid_evt";
@@ -348,7 +344,7 @@
 			pd,sink-pdo-data = <0x000190c8>;
 
 			/*
-			 * No DP, host + device
+			 * No DP Sink capability
 			 *	pd,id-vdo-size = <6>;
 			 *	pd,id-vdo-data = <0xd14029cf 0x0 0x63600000
 						  0x61000000 0x0 0x41000000>;
@@ -363,7 +359,6 @@
 					  0x61000000 0x0 0x41000000>;
 
 			bat,nr = <1>;
-
 			bat-info0 {
 				bat,vid = <0x29cf>;
 				bat,pid = <0x6360>;

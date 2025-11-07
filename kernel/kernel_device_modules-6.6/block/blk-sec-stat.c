@@ -23,7 +23,11 @@ struct accumulated_stat {
 	unsigned long sectors[3];       /* READ, WRITE, DISCARD */
 	unsigned long ios[3];
 	unsigned long iot;
+	unsigned long hcgc_count;
+	unsigned long hcgc_amount;
+	unsigned long hcgc_working_time;
 };
+
 static struct accumulated_stat old, new;
 
 extern int blk_sec_stat_pio_init(struct kobject *kobj);
@@ -109,6 +113,38 @@ static ssize_t diskios_show(struct kobject *kobj, struct kobj_attribute *attr, c
 	return ret;
 }
 
+static ssize_t hcgchist_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	int ret;
+
+	ret = sprintf(buf, "\"HCGC_CNT\":\"%lu\",\"HCGC_100MB\":\"%lu\",\"HCGC_SEC\":\"%lu\"\n",
+			UNSIGNED_DIFF(new.hcgc_count, old.hcgc_count),
+			UNSIGNED_DIFF(new.hcgc_amount, old.hcgc_amount),
+			UNSIGNED_DIFF(new.hcgc_working_time, old.hcgc_working_time));
+
+	old.hcgc_count = new.hcgc_count;
+	old.hcgc_amount = new.hcgc_amount;
+	old.hcgc_working_time = new.hcgc_working_time;
+
+	return ret;
+}
+
+static ssize_t hcgchist_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	unsigned long cnt;
+	unsigned long amount;
+	unsigned long time;
+
+	if (sscanf(buf, "%lu %lu %lu", &cnt, &amount, &time) != 3)
+		return count;
+
+	new.hcgc_count = cnt;
+	new.hcgc_amount = amount;
+	new.hcgc_working_time = time;
+
+	return count;
+}
+
 static inline bool may_account_rq(struct request *rq)
 {
 	struct gendisk *gd = blk_sec_internal_disk();
@@ -154,9 +190,11 @@ void blk_sec_stat_account_io_finish(struct request *rq, void *ptr_pio)
 EXPORT_SYMBOL(blk_sec_stat_account_io_finish);
 
 static struct kobj_attribute diskios_attr = __ATTR(diskios, 0444, diskios_show,  NULL);
+static struct kobj_attribute hcgchist_attr = __ATTR(hcgchist, 0644, hcgchist_show, hcgchist_store);
 
 static const struct attribute *blk_sec_stat_attrs[] = {
 	&diskios_attr.attr,
+	&hcgchist_attr.attr,
 	NULL,
 };
 

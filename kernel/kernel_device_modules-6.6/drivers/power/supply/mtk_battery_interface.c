@@ -31,7 +31,7 @@
 #include <linux/suspend.h>
 #include "mtk_battery.h"
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #include <../drivers/battery/common/sec_charging_common.h>
 #endif
 
@@ -149,7 +149,7 @@ int gauge_get_property_control(struct mtk_battery *gm, enum gauge_property gp,
 int get_charger_vbat(struct mtk_battery_manager *bm)
 {
 	struct power_supply *psy;
-	union power_supply_propval val;
+	union power_supply_propval val = {0};
 	int ret;
 
 	psy = power_supply_get_by_name("mtk-master-charger");
@@ -159,14 +159,14 @@ int get_charger_vbat(struct mtk_battery_manager *bm)
 			ret = val.intval / 1000;
 		else {
 			ret = gauge_get_int_property(bm->gm1,
-				GAUGE_PROP_BATTERY_VOLTAGE) / 10;
+				GAUGE_PROP_BATTERY_VOLTAGE);
 			pr_err("[%s] get POWER_SUPPLY_PROP_CHARGE_NOW fail\n", __func__);
 		}
 
 		power_supply_put(psy);
 	} else {
 		ret = gauge_get_int_property(bm->gm1,
-			GAUGE_PROP_BATTERY_VOLTAGE) / 10;
+			GAUGE_PROP_BATTERY_VOLTAGE);
 		pr_err("[%s] get charger power supply fail\n", __func__);
 	}
 
@@ -175,20 +175,27 @@ int get_charger_vbat(struct mtk_battery_manager *bm)
 
 int bm_get_vsys(struct mtk_battery_manager *bm)
 {
-	int ret, val = 0;
+	struct power_supply *psy;
+	int ret = 0;
+	union power_supply_propval val = {0};
 
-	if (!IS_ERR(bm->chan_vsys)) {
-		ret = iio_read_channel_processed(bm->chan_vsys, &val);
-		if (ret < 0) {
-			pr_err("[%s]read fail,ret=%d use chg_vbat\n", __func__, ret);
-			val = get_charger_vbat(bm);
+	psy = power_supply_get_by_name("mtk-master-charger");
+	if (psy) {
+		ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_POWER_NOW, &val);
+		if (ret >= 0)
+			ret = val.intval / 1000;
+		else {
+			ret = get_charger_vbat(bm);
+			pr_debug("[%s] get POWER_SUPPLY_PROP_POWER_NOW fail\n", __func__);
 		}
+
+		power_supply_put(psy);
 	} else {
-		pr_err("[%s]chan error use chg_vbat\n", __func__);
-		val = get_charger_vbat(bm);
+		pr_debug("[%s]chan error use chg_vbat\n", __func__);
+		ret = get_charger_vbat(bm);
 	}
 
-	return val;
+	return ret;
 }
 
 int bat_get_debug_level(struct mtk_battery *gm)
@@ -765,7 +772,7 @@ void battery_update(struct mtk_battery_manager *bm)
 	static int first;
 	struct battery_shutdown_unit *sdu;
 	int vbat1 = 0, vbat2 = 0, real_uisoc = 0, real_quse = 0;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	union power_supply_propval value;
 	struct power_supply *psy;
 	int ret = 0;
@@ -883,7 +890,8 @@ void battery_update(struct mtk_battery_manager *bm)
 			bm->uisoc = 50;
 		} else {
 			gauge_get_property_control(bm->gm1, GAUGE_PROP_BATTERY_VOLTAGE,
-				&bat_data->bat_batt_vol, 0);
+				&vbat1, 0);
+			bat_data->bat_batt_vol = vbat1;
 			bm->uisoc = bm->gm1->ui_soc;
 		}
 
@@ -910,7 +918,7 @@ void battery_update(struct mtk_battery_manager *bm)
 #endif
 #endif
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	psy = power_supply_get_by_name("battery"); /*sec_battery.c */
 	if (!psy) {
 		pr_err("%s: Fail to get psy (battery)\n", __func__);
@@ -925,7 +933,7 @@ void battery_update(struct mtk_battery_manager *bm)
 					pr_err("%s: psy capacity fail(%d)\n",
 						__func__, ret);
 
-#if IS_ENABLED(CONFIG_DIRECT_CHARGING) &&  IS_ENABLED(CONFIG_MTK_CHARGER)
+#if IS_ENABLED(CONFIG_DIRECT_CHARGING)
 				/* let DC know foc init complete */
 				value.intval = 1;
 				ret = power_supply_set_property(psy, (enum power_supply_property)
@@ -947,7 +955,7 @@ void battery_update(struct mtk_battery_manager *bm)
 	}
 #endif
 
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	power_supply_changed(bat_psy);
 #endif
 }

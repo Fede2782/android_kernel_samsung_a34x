@@ -62,6 +62,7 @@
 struct adaptor_ctx;
 static unsigned int sensor_debug;
 static unsigned int set_ctrl_unlock;
+static unsigned int sensor_power_on_profile;
 
 extern unsigned int gSensor_num;
 extern unsigned int is_multicam;
@@ -229,6 +230,7 @@ struct adaptor_ctx {
 	unsigned long long sys_ts_update_sof_cnt;
 	unsigned int *sensor_debug_flag;
 	unsigned int *p_set_ctrl_unlock_flag;
+	unsigned int *sensor_power_on_profile_flag;
 	unsigned int sof_cnt;
 	int req_id; /* from mtk hdr ae ctrl */
 	u64 shutter_for_timeout;

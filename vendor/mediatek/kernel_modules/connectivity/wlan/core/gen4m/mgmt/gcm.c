@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -216,7 +216,7 @@ void AES_KeyExpansion(
 	NumberOfWordOfKeyExpansion =
 		((uint32_t) AES_KEY_ROWS) * ((KeyLength >> 2) + 6 + 1);
 
-	while (KeyIndex < NumberOfWordOfKeyExpansion && KeyIndex > 0) {
+	while (KeyIndex < NumberOfWordOfKeyExpansion) {
 		TempWord[0] = paes_ctx->KeyWordExpansion[0][KeyIndex - 1];
 		TempWord[1] = paes_ctx->KeyWordExpansion[1][KeyIndex - 1];
 		TempWord[2] = paes_ctx->KeyWordExpansion[2][KeyIndex - 1];

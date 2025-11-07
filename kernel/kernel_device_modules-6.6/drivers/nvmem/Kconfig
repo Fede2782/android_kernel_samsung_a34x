@@ -11,6 +11,13 @@ config MTK_DEVINFO
 	  This driver can also be built as a module. If so, the module
 	  will be called devinfo-mtk.
 
+config SEC_DEVINFO
+	tristate "Mediatek DOU/CPU/GPU class information support"
+	depends on MTK_DEVINFO
+	help
+	  This is a driver to access SOC related non-volatile data like
+	  FAB information etc.
+
 config MT635X_EFUSE
 	tristate "Mediatek MT635x PMIC EFUSE Support"
 	depends on DEVICE_MODULES_MFD_MT6397 || COMPILE_TEST

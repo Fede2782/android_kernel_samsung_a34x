@@ -82,8 +82,7 @@ enum LEAKY_AP_ACTION_TYPE {
 	LEAKY_AP_DETECT_ACTIVE = 0,
 	LEAKY_AP_DETECT_PASSIVE_START,
 	LEAKY_AP_DETECT_PASSIVE_END,
-	LEAKY_AP_DETECT_GRACE_PERIOD,
-	LEAKY_AP_DETECT_CLEAR
+	LEAKY_AP_DETECT_GRACE_PERIOD
 };
 
 enum SCHED_TEARDOWN_REASON {
@@ -187,7 +186,7 @@ struct PARAM_DELAYED_WAKEUP {
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
 void twtmldCheckTeardown(
 	struct ADAPTER *prAdapter,
-	unsigned long long u8ActiveStaBitmap);
+	uint32_t u4ActiveStaBitmap);
 
 struct STA_RECORD *twtmldGetActiveStaRec(
 	struct ADAPTER *prAdapter,
@@ -236,6 +235,13 @@ void scheduledpmEventNotify(
 	uint8_t ucBssIndex,
 	enum SCHED_EVENT_TYPE eEventType,
 	uint8_t ucReason);
+
+int scheduledpm_action(
+	struct ADAPTER *prAdapter,
+	enum SCHED_PM_ACTION_TYPE eType,
+	char *rsp,
+	bool fgDoubleSetup,
+	enum SCHED_TEARDOWN_REASON eReason);
 
 int leaky_AP_detect_action(
 	struct ADAPTER *prAdapter,

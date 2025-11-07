@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -33,6 +33,9 @@
  *                              C O N S T A N T S
  *****************************************************************************
  */
+
+struct wireless_dev *gprWdev[KAL_AIS_NUM];
+struct wireless_dev *gprP2pRoleWdev[KAL_P2P_NUM];
 
 enum ENUM_NVRAM_STATE g_NvramFsm = NVRAM_STATE_INIT;
 uint8_t g_aucNvram[MAX_CFG_FILE_WIFI_REC_SIZE];
@@ -74,15 +77,6 @@ uint32_t wlanDownloadBufferBin(struct ADAPTER *prAdapter)
 	return KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
 }
 
-uint32_t wlanConnac2XDownloadBufferBin(struct ADAPTER *prAdapter)
-{
-	return KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
-}
-
-uint32_t wlanConnac3XDownloadBufferBin(struct ADAPTER *prAdapter)
-{
-	return KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
-}
 
 uint32_t wlanConnacDownloadBufferBin(struct ADAPTER *prAdapter)
 {

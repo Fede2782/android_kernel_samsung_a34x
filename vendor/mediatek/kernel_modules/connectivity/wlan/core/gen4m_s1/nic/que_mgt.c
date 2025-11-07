@@ -317,7 +317,7 @@ void qmInit(IN struct ADAPTER *prAdapter,
 #endif
 		cnmTimerInitTimer(prAdapter,
 			&(prQM->arRxBaTable[u4Idx].rReorderBubbleTimer),
-			(PFN_MGMT_TIMEOUT_FUNC) qmHandleReorderBubbleTimeout,
+			qmHandleReorderBubbleTimeout,
 			(unsigned long) (&prQM->arRxBaTable[u4Idx]));
 
 	}
@@ -7711,7 +7711,7 @@ mqmRxModifyBaEntryStatus(IN struct ADAPTER *prAdapter,
 			MQM_FLAG_IDLE_RX_BA_TIMER_STARTED)) {
 			cnmTimerInitTimer(prAdapter,
 				&prAdapter->rMqmIdleRxBaDetectionTimer,
-				(PFN_MGMT_TIMEOUT_FUNC) mqmTimeoutCheckIdleRxBa,
+				mqmTimeoutCheckIdleRxBa,
 				(unsigned long) NULL);
 			/* No parameter */
 

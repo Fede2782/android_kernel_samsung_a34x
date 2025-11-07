@@ -2330,6 +2330,7 @@
 #define MT6991_DISP_REG_OVLSYS_DLI_RELAY0_SIZE 0x260
 #define MT6991_DISP_REG_OVLSYS_DLI_RELAY0_CNT 0x304
 #define MT6991_DISP_REG_OVLSYS_DLI_RELAY1_SIZE 0x264
+#define MT6991_DISP_REG_OVLSYS_DLI_ASYNC1_STATUS0 0x308
 #define MT6991_DISP_REG_OVLSYS_DLI_RELAY1_CNT 0x30C
 #define MT6991_DISP_REG_OVLSYS_DLI_RELAY2_SIZE 0x268
 #define MT6991_DISP_REG_OVLSYS_DLI_RELAY2_CNT 0x314
@@ -23045,7 +23046,7 @@ static int mtk_ddp_ovl_blender_out_cb_MT6991(enum mtk_ddp_comp_id cur, enum mtk_
 			mtk_dump_comp_str_id(cur), mtk_dump_comp_str_id(next));
 		return value;
 	}
-	DDPINFO("%s, cur=%s->next=%s, addr:0x%x, value:0x%x\n", __func__,
+	DDPCUSTINFO("%s, cur=%s->next=%s, addr:0x%x, value:0x%x\n", __func__,
 		mtk_dump_comp_str_id(cur), mtk_dump_comp_str_id(next),
 		*addr, value);
 
@@ -24128,6 +24129,13 @@ static int mtk_ddp_mout_en_MT6991(const struct mtk_mmsys_reg_data *data,
 		(next == DDP_COMPONENT_MML_MUTEX0)) {
 		*addr = MT6991_OVL_MML_IN0_MOUT_EN;
 		value = MT6991_OVL_DLI_RELAY1_TO_OVL_EXDMA0;
+		return value;
+	}
+
+	if ((cur == DDP_COMPONENT_OVL0_BLENDER_OUT_CB10) &&
+		(next == DDP_COMPONENT_OVL0_OUTPROC1)) {
+		*addr = MT6991_OVL_BLENDER_OUT_CROSSBAR10_MOUT_EN;
+		value = MT6991_DISP_OUT_BLENDER_CB_TO_OVL_OUTPROC1;
 		return value;
 	}
 
@@ -30079,7 +30087,7 @@ struct mtk_ddp_comp *mtk_ddp_get_path_addon_dsc_comp(struct mtk_drm_crtc *mtk_cr
 }
 
 /* the difference between ovl_resource_list is ovlsys_path describe DLI/DLO for crossing ovlsys */
-unsigned int mtk_ddp_ovlsys_path(struct mtk_drm_private *priv, unsigned int **ovl_list)
+int mtk_ddp_ovlsys_path(struct mtk_drm_private *priv, unsigned int **ovl_list)
 {
 	static unsigned int *_ovlsys_path;
 
@@ -30179,16 +30187,16 @@ unsigned int mtk_ddp_ovlsys_path(struct mtk_drm_private *priv, unsigned int **ov
 	return 0;
 }
 
-unsigned int mtk_ddp_ovl_usage_trans(struct mtk_drm_private *priv, unsigned int usage)
+int mtk_ddp_ovl_usage_trans(struct mtk_drm_private *priv, unsigned int usage)
 {
 	unsigned int *_ovlpath = NULL;
-	unsigned int ovlpath_size;
+	int ovlpath_size = 0;
 	unsigned int i, j;
-	unsigned int result = 0;
+	int result = 0;
 
 	ovlpath_size = mtk_ddp_ovlsys_path(priv, &_ovlpath);
 
-	if (ovlpath_size == 0)
+	if (ovlpath_size <= 0)
 		return result;
 
 	if (IS_ERR_OR_NULL(_ovlpath)) {
@@ -30209,12 +30217,12 @@ unsigned int mtk_ddp_ovl_usage_trans(struct mtk_drm_private *priv, unsigned int 
 	return result;
 }
 
-unsigned int mtk_ddp_ovl_resource_list(struct mtk_drm_private *priv, unsigned int **ovl_list)
+int mtk_ddp_ovl_resource_list(struct mtk_drm_private *priv, unsigned int **ovl_list)
 {
 	static unsigned int *_ovl_list;
 	static unsigned int ovl_list_size;
 	unsigned int *_ovlpath = NULL;
-	unsigned int _ovlpath_size;
+	int _ovlpath_size = 0;
 	unsigned int i, j, k;
 
 	switch (priv->data->mmsys_id) {
@@ -30230,6 +30238,10 @@ unsigned int mtk_ddp_ovl_resource_list(struct mtk_drm_private *priv, unsigned in
 
 		/* skip virtual comp, count ovl_path comp number */
 		_ovlpath_size = mtk_ddp_ovlsys_path(priv, &_ovlpath);
+
+		if (_ovlpath_size < 0)
+			return 0;
+
 		for (i = 0, j = 0; i < _ovlpath_size ; ++i) {
 			if (mtk_ddp_comp_get_type(_ovlpath[i]) != MTK_DISP_VIRTUAL)
 				j++;
@@ -31693,7 +31705,7 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 						       DISP_REG_MUTEX_MOD(0, ddp->data, mutex->id),
 						       ddp->data->mutex_mod[id] << 1,
 						       ddp->data->mutex_mod[id] << 1);
-					DDPINFO("mutex_add_comp /w cmdq mutex%d add DSC core1\n", mutex->id);
+					DDPCUSTINFO("mutex_add_comp /w cmdq mutex%d add DSC core1\n", mutex->id);
 				}
 			} else {
 				cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
@@ -31721,7 +31733,7 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 			}
 		}
 
-		DDPINFO("mutex_add_comp /w cmdq mutex%d add %s\n", mutex->id,
+		DDPCUSTINFO("mutex_add_comp /w cmdq mutex%d add %s\n", mutex->id,
 			mtk_dump_comp_str_id(id));
 
 		return;
@@ -31921,7 +31933,7 @@ void mtk_disp_mutex_remove_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		}
 		break;
 	}
-	DDPINFO("mutex_remove_comp /w cmdq mutex%d remove %s\n", mutex->id,
+	DDPCUSTINFO("mutex_remove_comp /w cmdq mutex%d remove %s\n", mutex->id,
 			mtk_dump_comp_str_id(id));
 }
 
@@ -32328,10 +32340,11 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 		}
 		if (val & (0x1 << m_id)) {
 			DDPIRQ("[IRQ] mutex%d sof!\n", m_id);
-			DRM_MMP_EVENT_START(drm, 0, 0);
 			DRM_MMP_MARK(mutex[m_id], val, 0);
-			if (m_id == 0)
+			if (m_id == 0) {
 				drm_trace_tag_mark("mutex0_sof");
+				DRM_MMP_EVENT_START(drm, 0, 0);
+			}
 
 			if (priv && (priv->data->mmsys_id == MMSYS_MT6991
 				|| priv->data->mmsys_id == MMSYS_MT6989
@@ -36595,7 +36608,7 @@ void mmsys_config_dump_analysis_mt6991(void __iomem *config_regs, int sys_id)
 #endif
 }
 
-void ovlsys_config_dump_analysis_mt6991(void __iomem *config_regs)
+void ovlsys_config_dump_analysis_mt6991(void __iomem *config_regs, bool rg_dump)
 {
 	unsigned int idx = 0, bit = 0;
 	int len = 0;
@@ -36635,6 +36648,16 @@ void ovlsys_config_dump_analysis_mt6991(void __iomem *config_regs)
 	ready[5] =
 		readl_relaxed(config_regs + MT6991_DISP_REG_OVLSYS_DL_READY_5);
 
+	if (rg_dump) {
+		DDPMSG("OVLSYS_DLI_A1:0x%08x,0x%08x\n",
+			readl_relaxed(config_regs + MT6991_DISP_REG_OVLSYS_DLI_ASYNC1_STATUS0),
+			readl_relaxed(config_regs + MT6991_DISP_REG_OVLSYS_DLI_RELAY1_CNT));
+		DDPMSG("OVLSYS_V:0x%08x,0x%08x,0x%08x,0x%08x,0x%08x,0x%08x\n",
+			valid[0],valid[1],valid[2],valid[3],valid[4],valid[5]);
+		DDPMSG("OVLSYS_R:0x%08x,0x%08x,0x%08x,0x%08x,0x%08x,0x%08x\n",
+			ready[0],ready[1],ready[2],ready[3],ready[4],ready[5]);
+		return;
+	}
 	greq0 = readl_relaxed(config_regs +
 				MT6991_DISP_REG_OVLSYS_SMI_LARB0_GREQ);
 	greq1 = readl_relaxed(config_regs +
@@ -38232,7 +38255,7 @@ int mtk_ddp_exdma_mout_MT6991(enum mtk_ddp_comp_id cur, enum mtk_ddp_comp_id nex
 			   unsigned int *addr)
 {
 	int value = -1;
-	DDPINFO("%s, cur=%s->next=%s\n", __func__,
+	DDPCUSTINFO("%s, cur=%s->next=%s\n", __func__,
 		mtk_dump_comp_str_id(cur), mtk_dump_comp_str_id(next));
 
 	if (cur == DDP_COMPONENT_MML_MML0 ||

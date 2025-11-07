@@ -41,12 +41,15 @@
 #define NAN_ATTR_ID(fp)		(((struct _NAN_ATTR_HDR_T *)fp)->ucAttrId)
 #define NAN_ATTR_LEN(fp)	(((struct _NAN_ATTR_HDR_T *)fp)->u2Length)
 #define NAN_ATTR_SIZE(fp)	(NAN_ATTR_HDR_LEN + NAN_ATTR_LEN(fp))
+#define NAN_ATTR_END(fp)	((void *)((uint8_t *)(fp) + NAN_ATTR_SIZE(fp)))
 
 #define NAN_AVAIL_ENTRY_HDR_LEN 2
 #define NAN_AVAIL_ENTRY_LEN(fp)		\
 	(((struct _NAN_AVAILABILITY_ENTRY_T *)fp)->u2Length)
 #define NAN_AVAIL_ENTRY_SIZE(fp)	\
 	(NAN_AVAIL_ENTRY_HDR_LEN + NAN_AVAIL_ENTRY_LEN(fp))
+#define NAN_AVAIL_ENTRY_END(fp)	\
+		((void *)((uint8_t *)(fp) + NAN_AVAIL_ENTRY_SIZE(fp)))
 
 /* NAN 4.0 Table 58. Service Protocol Types */
 enum NAN_SERVICE_PROTOCOL_TYPES {
@@ -59,6 +62,13 @@ enum NAN_SERVICE_PROTOCOL_TYPES {
 
 /* NAN Service Name Hash Length */
 #define NAN_SERVICE_HASH_LENGTH 6
+
+/* NAN Sercice Instance Num */
+#define NAN_SERVICE_INSTANCE_NUM 4
+
+/* NAN Service Type */
+#define NAN_SERVICE_TYPE_PUBLISH 0
+#define NAN_SERVICE_TYPE_SUBSCRIBE 1
 
 /* NAN Attribute ID Definitions */
 /* NAN 4.0 Table 42. NAN attributes in NAN Beacon frame and NAN SDF */
@@ -126,7 +136,7 @@ enum NAN_SERVICE_PROTOCOL_TYPES {
 #define NAN_REASON_CODE_NDP_REJECTED 10
 #define NAN_REASON_CODE_NDL_UNACCEPTABLE 11
 #define NAN_REASON_CODE_RANGING_SCHEDULE_UNACCEPTABLE 12
-#define NAN_REASON_CODE_RANGING_BOOTSTRAPPING_REJECTED 13
+#define NAN_REASON_CODE_PAIRING_BOOTSTRAPPING_REJECTED 13
 
 /* NAN NDP Attribute - Type and Status */
 #define NAN_ATTR_NDP_TYPE_MASK BITS(0, 3)
@@ -252,20 +262,20 @@ enum NAN_ATTR_NDPE_TLV_TYPES {
 	(!!((_ctrl) & NAN_AVAIL_ENTRY_CTRL_AVAIL_TYPE_COND))
 
 #define NAN_AVAIL_ENTRY_CTRL_TYPE(_ctrl) \
-	(((_ctrl) & NAN_AVAIL_ENTRY_CTRL_AVAIL_TYPE) >> \
-		NAN_AVAIL_ENTRY_CTRL_AVAIL_TYPE_OFFSET)
+	((uint8_t)(((_ctrl) & NAN_AVAIL_ENTRY_CTRL_AVAIL_TYPE) >> \
+		NAN_AVAIL_ENTRY_CTRL_AVAIL_TYPE_OFFSET))
 #define NAN_AVAIL_ENTRY_CTRL_P(_ctrl) \
-	(((_ctrl) & NAN_AVAIL_ENTRY_CTRL_USAGE_PREF) >> \
-		NAN_AVAIL_ENTRY_CTRL_USAGE_PREF_OFFSET)
+	((uint8_t)(((_ctrl) & NAN_AVAIL_ENTRY_CTRL_USAGE_PREF) >> \
+		NAN_AVAIL_ENTRY_CTRL_USAGE_PREF_OFFSET))
 #define NAN_AVAIL_ENTRY_CTRL_U(_ctrl) \
-	(((_ctrl) & NAN_AVAIL_ENTRY_CTRL_UTIL) >> \
-		NAN_AVAIL_ENTRY_CTRL_UTIL_OFFSET)
+	((uint8_t)(((_ctrl) & NAN_AVAIL_ENTRY_CTRL_UTIL) >> \
+		NAN_AVAIL_ENTRY_CTRL_UTIL_OFFSET))
 #define NAN_AVAIL_ENTRY_CTRL_NSS(_ctrl) \
-	(((_ctrl) & NAN_AVAIL_ENTRY_CTRL_RX_NSS) >> \
-		NAN_AVAIL_ENTRY_CTRL_RX_NSS_OFFSET)
+	((uint8_t)(((_ctrl) & NAN_AVAIL_ENTRY_CTRL_RX_NSS) >> \
+		NAN_AVAIL_ENTRY_CTRL_RX_NSS_OFFSET))
 #define NAN_AVAIL_ENTRY_CTRL_TBITMAP_P(_ctrl) \
-	(((_ctrl) & NAN_AVAIL_ENTRY_CTRL_TBITMAP_PRESENT) >> \
-		NAN_AVAIL_ENTRY_CTRL_TBITMAP_PRESENT_OFFSET)
+	((uint8_t)(((_ctrl) & NAN_AVAIL_ENTRY_CTRL_TBITMAP_PRESENT) >> \
+		NAN_AVAIL_ENTRY_CTRL_TBITMAP_PRESENT_OFFSET))
 
 #define NAN_AVAIL_ENTRY_CTRL_SET_TYPE(_ctrl, _val)			       \
 	do {								       \
@@ -299,20 +309,20 @@ enum NAN_ATTR_NDPE_TLV_TYPES {
 
 /* NAN 4.0 Table 79. Device Capability attribute format, Supported Bands */
 enum NAN_SUPPORTED_BANDS {
-	/* RESERVED for TV whitespace = 0 */
-	/* Sub-1 GHz (excluding TV whitespace) = 1 */
+	/* RESERVED for TV white spaces = 0 */
+	/* Sub-1 GHz (excluding TV white spaces) = 1 */
 	NAN_SUPPORTED_BAND_ID_2P4G = 2,
 	/* Reserved (for 3.6 GHz) = 3 */
 	NAN_SUPPORTED_BAND_ID_5G = 4,
 	/* Reserved (for 60 GHz) = 5 */
 	/* Reserved (for 45 GHz) = 6 */
-	NAN_PROPRIETY_BAND_ID_6G = 6, /* from IOT devices */
+	NAN_PROPRIETARY_BAND_ID_6G = 6, /* from IOT devices */
 	NAN_SUPPORTED_BAND_ID_6G = 7,
 };
 
 #define NAN_SUPPORTED_2G_BIT    BIT(NAN_SUPPORTED_BAND_ID_2P4G)
 #define NAN_SUPPORTED_5G_BIT    BIT(NAN_SUPPORTED_BAND_ID_5G)
-#define NAN_PROPRIETARY_6G_BIT  BIT(NAN_PROPRIETY_BAND_ID_6G)
+#define NAN_PROPRIETARY_6G_BIT  BIT(NAN_PROPRIETARY_BAND_ID_6G)
 #define NAN_SUPPORTED_6G_BIT    BIT(NAN_SUPPORTED_BAND_ID_6G)
 
 /* NAN 4.0 Table 81. Operation Mode field format
@@ -387,6 +397,8 @@ enum NAN_SUPPORTED_BANDS {
 #define NAN_CIPHER_SUITE_ID_NONE 0
 #define NAN_CIPHER_SUITE_ID_NCS_SK_CCM_128 1
 #define NAN_CIPHER_SUITE_ID_NCS_SK_GCM_256 2
+#define NAN_CIPHER_SUITE_ID_NCS_PK_PASN_128 7
+#define NAN_CIPHER_SUITE_ID_NCS_PK_PASN_256 8
 
 /* NAN Security Context */
 #define NAN_SCID_DEFAULT_LEN 16
@@ -421,6 +433,10 @@ enum NAN_SUPPORTED_BANDS {
 #define NAN_ATTR_DEVICE_CAPABILITY_CAP_SIMULTANEOUS_NDP BIT(2)
 #define NAN_ATTR_DEVICE_CAPABILITY_CAP_SUPPORT_NDPE BIT(3)
 
+/* Device Capbility Extension Attribute field */
+#define NAN_ATTR_DCEA_PAIRING_SETUP_ENABLE			BIT(8)
+#define NAN_ATTR_DCEA_NPK_NIK_CACHING_ENABLE			BIT(9)
+
 #define NAN_ACTION_TO_MSG(_ACT) (_ACT - 4)
 
 /* The macro to check if it is WFA Specific OUI */
@@ -431,6 +447,7 @@ enum NAN_SUPPORTED_BANDS {
 
 /* NAN Action frame subtypes */
 enum _NAN_ACTION_T {
+	NAN_ACTION_NULL = 0,
 	NAN_ACTION_RANGING_REQUEST = 1,
 	NAN_ACTION_RANGING_RESPONSE = 2,
 	NAN_ACTION_RANGING_TERMINATION = 3,
@@ -444,7 +461,6 @@ enum _NAN_ACTION_T {
 	NAN_ACTION_SCHEDULE_RESPONSE = 11,
 	NAN_ACTION_SCHEDULE_CONFIRM = 12,
 	NAN_ACTION_SCHEDULE_UPDATE_NOTIFICATION = 13,
-	NAN_ACTION_FOLLOW_UP = 14,
 	NAN_ACTION_NUM
 };
 
@@ -527,6 +543,15 @@ struct _NAN_SDF_FRAME_T {
 	uint8_t aucOUI[VENDOR_OUI_LEN];
 	uint8_t ucOUItype;
 	uint8_t aucInfoContent[];
+} __KAL_ATTRIB_PACKED__;
+
+/* NAN IE Header */
+struct _NAN_IE_HDR_T {
+	/* action frame body */
+	uint8_t ucElementId;
+	uint8_t ucTagLen;
+	uint8_t aucOUI[VENDOR_OUI_LEN];
+	uint8_t ucOUItype;
 } __KAL_ATTRIB_PACKED__;
 
 /* NAN attribute general format */
@@ -712,7 +737,13 @@ struct _NAN_ATTR_MASTER_INDICATION_T {
 __KAL_ATTRIB_PACKED_FRONT__
 struct _NAN_SIMPLE_CHNL_ENTRY_T {
 	uint8_t ucOperatingClass;
-	uint16_t u2ChannelBitmap;
+	union {
+		uint16_t u2ChannelBitmap;
+		struct {
+			uint8_t ucChannelStart;
+			uint8_t ucChannelNum;
+		};
+	};
 	uint8_t ucPrimaryChnlBitmap;
 } __KAL_ATTRIB_PACKED__;
 
@@ -807,7 +838,7 @@ struct _NAN_AVAILABILITY_TIMEBITMAP_ENTRY_T {
 		struct _NAN_ATTR_TIME_BITMAP_CONTROL_T rTimeBitmapCtrl;
 	};
 	uint8_t ucTimeBitmapLength;
-	uint8_t aucTimeBitmapAndBandChnlEntry[];
+	uint8_t aucTimeBitmapAndBandChnl[];
 } __KAL_ATTRIB_PACKED__;
 
 /**
@@ -997,10 +1028,34 @@ struct _NAN_ATTR_SHARED_KEY_DESCRIPTOR_T {
 __KAL_ATTRIB_PACKED_FRONT__
 struct _NAN_CHNL_ENTRY_T {
 	uint8_t ucOperatingClass;
-	uint16_t u2ChannelBitmap;
+	union {
+		uint16_t u2ChannelBitmap;
+		struct {
+			uint8_t ucChannelStart;
+			uint8_t ucChannelNum;
+		};
+	};
 	uint8_t ucPrimaryChnlBitmap;
 	uint16_t u2AuxChannelBitmap; /* optional, present if ucNonContiguous */
 } __KAL_ATTRIB_PACKED__;
+
+/* NAN 4.0 Table 100. Channel Entry format for the NAN Availability attribute
+ * without Non-contiguous bandwidth bit set in Table 98.
+ */
+__KAL_ATTRIB_PACKED_FRONT__
+struct _NAN_CHNL_ENTRY_NO_AUX_T {
+	uint8_t ucOperatingClass;
+	union {
+		uint16_t u2ChannelBitmap;
+		struct {
+			uint8_t ucChannelStart;
+			uint8_t ucChannelNum;
+		};
+	};
+	uint8_t ucPrimaryChnlBitmap;
+	/* uint16_t u2AuxChannelBitmap; optional, present if ucNonContiguous */
+} __KAL_ATTRIB_PACKED__;
+
 
 __KAL_ATTRIB_PACKED_FRONT__
 struct _NAN_ATTR_FTM_PARAMETERS_T {
@@ -1069,6 +1124,35 @@ struct _NAN_ATTR_SDEA_T {
 	uint8_t ucSDEAdetail[];
 } __KAL_ATTRIB_PACKED__;
 
+/* Nan Identity Resolution Attribute */
+struct _NAN_ATTR_NIRA_T {
+	uint8_t ucAttribID;
+	uint16_t u2Len;
+	uint8_t ucCipherVer;
+	uint64_t u8Nonce;
+	uint64_t u8Tag;
+
+} __KAL_ATTRIB_PACKED__;
+
+/* Nan Pairing Bootstrapping Attribute */
+struct _NAN_ATTR_NPBA_T {
+	uint8_t ucAttribID;
+	uint16_t u2Len;
+	uint8_t ucDialogTok;
+	uint8_t ucTypeStatus;
+	uint8_t ucReasonCode;
+	/* TOOD: should have Comeback field in some situation */
+	uint16_t u2BootstapMethod;
+} __KAL_ATTRIB_PACKED__;
+
+/* Nan Shared Key Descriptor Attribute */
+struct _NAN_ATTR_SKDA_T {
+	uint8_t ucAttribID;
+	uint16_t u2Len;
+	uint8_t ucPublishID;
+	uint8_t aucKeyDescriptor[1];
+} __KAL_ATTRIB_PACKED__;
+
 /*******************************************************************************
  *                            P U B L I C   D A T A
  *******************************************************************************
@@ -1097,6 +1181,8 @@ struct _NAN_ATTR_SDEA_T {
 	for ((_u2Offset) = 0; ((_u2Offset) < (_u2BufLen));               \
 	     (_u2Offset) += NAN_ATTR_SIZE(_pucBuf),                      \
 	    ((_pucBuf) += NAN_ATTR_SIZE(_pucBuf)))
+
+#define MACSTR_A "%02x:%02x:%02x:%02x:%02x:%02x"
 
 /*******************************************************************************
  *                   F U N C T I O N   D E C L A R A T I O N S

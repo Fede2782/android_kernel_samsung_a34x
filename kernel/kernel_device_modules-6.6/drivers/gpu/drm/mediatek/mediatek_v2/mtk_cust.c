@@ -10,11 +10,13 @@ int set_lcm(struct cmdq_pkt *handle, struct mtk_ddic_dsi_msg *cmd_msg)
 {
 	return set_lcm_wrapper(handle, cmd_msg, 1);
 }
+EXPORT_SYMBOL(set_lcm);
 
 int read_lcm(struct cmdq_pkt *handle, struct mtk_ddic_dsi_msg *cmd_msg)
 {
 	return read_lcm_wrapper(handle, cmd_msg);
 }
+EXPORT_SYMBOL(read_lcm);
 
 int set_lcm_default_parameter(struct cmdq_pkt *handle, struct mtk_ddic_dsi_msg *cmd_msg, f_args in)
 {

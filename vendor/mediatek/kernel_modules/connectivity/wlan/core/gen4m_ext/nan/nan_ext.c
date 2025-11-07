@@ -149,8 +149,8 @@ uint32_t nanExtParseCmd(struct ADAPTER *prAdapter,
 	uint8_t ucCmdByte[NAN_MAX_EXT_DATA_SIZE] = {}; /* working buffer */
 	uint32_t rStatus;
 
-	DBGLOG(NAN, DEBUG, "Cmd Hex:\n");
-	DBGLOG_HEX(NAN, DEBUG, buf, *u2Size);
+	DBGLOG(NAN, INFO, "Cmd Hex:\n");
+	DBGLOG_HEX(NAN, INFO, buf, *u2Size)
 
 	/* Both source and destination are in byte array format */
 	kalMemCopy(ucCmdByte, buf, kal_min_t(uint16_t, *u2Size,
@@ -171,8 +171,8 @@ uint32_t nanExtParseCmd(struct ADAPTER *prAdapter,
 	*u2Size = kal_min_t(uint16_t,
 			    EXT_MSG_SIZE(ucCmdByte), NAN_MAX_EXT_DATA_SIZE);
 	kalMemCopy(buf, ucCmdByte, *u2Size);
-	DBGLOG(NAN, DEBUG, "Response Hex:\n");
-	DBGLOG_HEX(NAN, DEBUG, buf, *u2Size);
+	DBGLOG(NAN, INFO, "Response Hex:\n");
+	DBGLOG_HEX(NAN, INFO, buf, *u2Size);
 
 	return rStatus;
 }
@@ -201,7 +201,7 @@ void nanExtBackToNormal(struct ADAPTER *prAdapter)
 	if (!prAdapter) {
 		DBGLOG(NAN, ERROR, "prAdapter is NULL\n");
 		return;
-        }
+	}
 
 	nanAdsdcBackToNormal(prAdapter);
 }
@@ -224,8 +224,8 @@ u32 wlanoidNANExtCmd(struct ADAPTER *prAdapter, void *pvSetBuffer,
 {
 	struct NanExtCmdMsg *pExtCmd = (struct NanExtCmdMsg *)pvSetBuffer;
 
-	DBGLOG(NAN, DEBUG, "NAN Ext Cmd:\n");
-	DBGLOG_HEX(NAN, DEBUG, pExtCmd->data, pExtCmd->fwHeader.msgLen);
+	DBGLOG(NAN, INFO, "NAN Ext Cmd:\n");
+	DBGLOG_HEX(NAN, INFO, pExtCmd->data, pExtCmd->fwHeader.msgLen);
 
 	/**
 	 * 1. Pass to NAN EXT CMD handler in binary array
@@ -249,14 +249,14 @@ u32 wlanoidNANExtCmdRsp(struct ADAPTER *prAdapter, void *pvSetBuffer,
 	wiphy = wlanGetWiphy();
 	if (!wiphy) {
 		DBGLOG(NAN, ERROR, "wiphy error!\n");
-		return -EFAULT;
+		return WLAN_STATUS_FAILURE;
 	}
 
 	wdev = (wlanGetNetDev(prAdapter->prGlueInfo, NAN_DEFAULT_INDEX))
 		->ieee80211_ptr;
 	if (!wiphy) {
 		DBGLOG(NAN, ERROR, "wiphy error!\n");
-		return -EFAULT;
+		return WLAN_STATUS_FAILURE;
 	}
 
 	nanExtRsp.fwHeader = pNanExtRsp->fwHeader;
@@ -266,7 +266,7 @@ u32 wlanoidNANExtCmdRsp(struct ADAPTER *prAdapter, void *pvSetBuffer,
 		WIFI_EVENT_SUBCMD_NAN_EXT, GFP_KERNEL);
 	if (!skb) {
 		DBGLOG(NAN, ERROR, "Allocate skb failed\n");
-		return -ENOMEM;
+		return WLAN_STATUS_FAILURE;
 	}
 
 	/* TODO: append response string */
@@ -279,7 +279,7 @@ u32 wlanoidNANExtCmdRsp(struct ADAPTER *prAdapter, void *pvSetBuffer,
 			     &nanExtRsp) < 0)) {
 		DBGLOG(NAN, ERROR, "nla_put_nohdr failed\n");
 		kfree_skb(skb);
-		return -EFAULT;
+		return WLAN_STATUS_FAILURE;
 	}
 
 	cfg80211_vendor_event(skb, GFP_KERNEL);
@@ -333,8 +333,8 @@ uint32_t nanSchedGetVendorAttr(struct ADAPTER *prAdapter,
 	if (pu4VendorAttrLength)
 		*pu4VendorAttrLength = (pucPos - pucNanIEBuffer);
 
-	DBGDUMP_HEX(NAN, DEBUG, "SS VSIE",
-		    pucNanIEBuffer, pucPos - pucNanIEBuffer);
+	DBGDUMP_HEX(NAN, INFO, "SS VSIE",
+		    pucNanIEBuffer, (pucPos - pucNanIEBuffer));
 
 	return WLAN_STATUS_SUCCESS;
 }
@@ -370,13 +370,8 @@ uint32_t nanSchedGetVendorEhtAttr(struct ADAPTER *prAdapter,
 	uint8_t *pucPos;
 	uint8_t *pucNanIEBuffer = nanGetNanIEBuffer();
 
-#if (CFG_SUPPORT_NAN_DBDC == 1)
 	prNanSpecificBssInfo =
 		nanGetSpecificBssInfo(prAdapter, NAN_BSS_INDEX_BAND1);
-#else
-	prNanSpecificBssInfo =
-		nanGetSpecificBssInfo(prAdapter, NAN_BSS_INDEX_BAND0);
-#endif
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 					  prNanSpecificBssInfo->ucBssIndex);
 
@@ -420,136 +415,13 @@ uint32_t nanSchedGetVendorEhtAttr(struct ADAPTER *prAdapter,
 	if (pu4VendorAttrLength)
 		*pu4VendorAttrLength = (pucPos - pucNanIEBuffer);
 
-	DBGDUMP_HEX(NAN, DEBUG, "SS EHT VSIE",
-		    pucNanIEBuffer, pucPos - pucNanIEBuffer);
+	DBGDUMP_HEX(NAN, INFO, "SS EHT VSIE",
+		    pucNanIEBuffer, (pucPos - pucNanIEBuffer));
 #endif
 
 	return WLAN_STATUS_SUCCESS;
 }
 #endif
 
-/*----------------------------------------------------------------------------*/
-/*!
- * \brief            NAN Attribute Length Estimation - Vendor
- *
- * \param[in]
- *
- * \return Status
- */
-/*----------------------------------------------------------------------------*/
-uint16_t
-nanDataEngineVendorAttrLength(struct ADAPTER *prAdapter,
-			      struct _NAN_NDL_INSTANCE_T *prNDL,
-			      struct _NAN_NDP_INSTANCE_T *prNDP)
-{
-	uint8_t *pucVendorAttr = NULL;
-	uint32_t u4VendorAttrLength = 0;
-
-	if ((prNDL == NULL) && (prNDP == NULL))
-		return 0;
-
-	if (nanGetFeatureIsSigma(prAdapter))
-		return 0;
-
-	nanSchedGetVendorAttr(prAdapter, &pucVendorAttr,
-				     &u4VendorAttrLength);
-
-	return u4VendorAttrLength;
-}
-
-/*----------------------------------------------------------------------------*/
-/*!
- * \brief            NAN Attribute Length Generation - Vendor
- *
- * \param[in]
- *
- * \return Status
- */
-/*----------------------------------------------------------------------------*/
-void
-nanDataEngineVendorAttrAppend(struct ADAPTER *prAdapter,
-			      struct MSDU_INFO *prMsduInfo,
-			      struct _NAN_NDL_INSTANCE_T *prNDL,
-			      struct _NAN_NDP_INSTANCE_T *prNDP)
-{
-	uint8_t *pucVendorAttr = NULL;
-	uint32_t u4VendorAttrLength = 0;
-
-	if ((prNDL == NULL) && (prNDP == NULL))
-		return;
-
-	nanSchedGetVendorAttr(prAdapter, &pucVendorAttr,
-				     &u4VendorAttrLength);
-
-	if ((pucVendorAttr != NULL) && (u4VendorAttrLength != 0)) {
-		kalMemCopy(((uint8_t *)prMsduInfo->prPacket) +
-				   prMsduInfo->u2FrameLength,
-			   pucVendorAttr, u4VendorAttrLength);
-		prMsduInfo->u2FrameLength += u4VendorAttrLength;
-	}
-}
-
-#if (CFG_SUPPORT_NAN_11BE == 1)
-/*----------------------------------------------------------------------------*/
-/*!
- * \brief            NAN Attribute Length Estimation - Vendor EHT
- *
- * \param[in]
- *
- * \return Status
- */
-/*----------------------------------------------------------------------------*/
-uint16_t
-nanDataEngineVendorEhtAttrLength(struct ADAPTER *prAdapter,
-			      struct _NAN_NDL_INSTANCE_T *prNDL,
-			      struct _NAN_NDP_INSTANCE_T *prNDP)
-{
-	uint8_t *pucVendorAttr = NULL;
-	uint32_t u4VendorAttrLength = 0;
-
-	if ((prNDL == NULL) && (prNDP == NULL))
-		return 0;
-
-	if (nanGetFeatureIsSigma(prAdapter))
-		return 0;
-
-	nanSchedGetVendorEhtAttr(prAdapter, &pucVendorAttr,
-				     &u4VendorAttrLength);
-
-	return u4VendorAttrLength;
-}
-
-/*----------------------------------------------------------------------------*/
-/*!
- * \brief            NAN Attribute Length Generation - Vendor EHT
- *
- * \param[in]
- *
- * \return Status
- */
-/*----------------------------------------------------------------------------*/
-void
-nanDataEngineVendorEhtAttrAppend(struct ADAPTER *prAdapter,
-			      struct MSDU_INFO *prMsduInfo,
-			      struct _NAN_NDL_INSTANCE_T *prNDL,
-			      struct _NAN_NDP_INSTANCE_T *prNDP)
-{
-	uint8_t *pucVendorAttr = NULL;
-	uint32_t u4VendorAttrLength = 0;
-
-	if ((prNDL == NULL) && (prNDP == NULL))
-		return;
-
-	nanSchedGetVendorEhtAttr(prAdapter, &pucVendorAttr,
-				     &u4VendorAttrLength);
-
-	if ((pucVendorAttr != NULL) && (u4VendorAttrLength != 0)) {
-		kalMemCopy(((uint8_t *)prMsduInfo->prPacket) +
-				   prMsduInfo->u2FrameLength,
-			   pucVendorAttr, u4VendorAttrLength);
-		prMsduInfo->u2FrameLength += u4VendorAttrLength;
-	}
-}
-#endif
 #endif
 

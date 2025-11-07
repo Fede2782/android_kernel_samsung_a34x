@@ -197,7 +197,7 @@ inline int integrity_label_cmp(struct integrity_label *l1,
 
 __visible_for_testing
 int verify_or_update_label(struct task_integrity *intg,
-		struct integrity_iint_cache *iint)
+		struct five_iint_cache *iint)
 {
 	struct integrity_label *l;
 	struct integrity_label *file_label = iint->five_label;
@@ -239,7 +239,7 @@ out:
 }
 
 __visible_for_testing
-bool set_first_state(struct integrity_iint_cache *iint,
+bool set_first_state(struct five_iint_cache *iint,
 				struct task_integrity *integrity,
 				struct task_verification_result *result)
 {
@@ -299,7 +299,7 @@ bool set_first_state(struct integrity_iint_cache *iint,
 }
 
 __visible_for_testing
-bool set_next_state(struct integrity_iint_cache *iint,
+bool set_next_state(struct five_iint_cache *iint,
 			   struct task_integrity *integrity,
 			   struct task_verification_result *result)
 {
@@ -418,7 +418,7 @@ out:
 void five_state_proceed(struct task_integrity *integrity,
 			struct file_verification_result *file_result)
 {
-	struct integrity_iint_cache *iint = file_result->iint;
+	struct five_iint_cache *iint = file_result->iint;
 	enum five_hooks fn = file_result->fn;
 	struct task_struct *task = file_result->task;
 	struct file *file = file_result->file;

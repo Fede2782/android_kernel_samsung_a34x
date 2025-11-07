@@ -112,7 +112,7 @@ enum mt6360_id_rupsel {
 #define MT6360_REG_DEBOUNCE_CTRL4			(0xE5)
 #define MT6360_REG_CTD_CTRL2				(0xEC)
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #define MT6360_REG_CC_CTRL5             (0xED)
 #endif
 /*
@@ -335,7 +335,7 @@ enum mt6360_id_rupsel {
 #define MT6360_REG_WD_DET_CTRL5_SET(time) \
 	(time & MT6360_WD_SLEEP_TIME)
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #define MT6360_DRP_AUTO_EN			BIT(7)
 #endif
 
@@ -376,7 +376,7 @@ enum mt6360_id_rupsel {
 #define MT6360_DIS_RPDET			BIT(7)
 #define MT6360_RPDET_ONESHOT			BIT(6)
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #define MT6360_MASK_LPWR_RPRD_CC2_CC1		(0xF0)
 #endif
 

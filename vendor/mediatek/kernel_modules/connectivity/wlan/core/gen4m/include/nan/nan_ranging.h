@@ -124,7 +124,13 @@ struct _NAN_RANGING_CTRL_T {
 
 	/* Ranging Setup attribute */
 	uint8_t dialog_token;
-	uint8_t TypeStatus;
+	union {
+		uint8_t TypeStatus;
+		struct {
+			uint8_t b4Type :4,
+				b4Status :4;
+		};
+	};
 	uint8_t ReasonCode;
 	uint8_t RangingControl;
 

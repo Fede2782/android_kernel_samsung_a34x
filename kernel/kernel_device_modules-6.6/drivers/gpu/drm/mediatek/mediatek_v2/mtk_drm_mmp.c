@@ -260,6 +260,8 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "pu_ddic_cmd");
 		g_CRTC_MMP_Events[i].pu_final_roi = mmprofile_register_event(
 			crtc_mmp_root, "pu_final_roi");
+		g_CRTC_MMP_Events[i].pu_status_err = mmprofile_register_event(
+			crtc_mmp_root, "pu_status_err");
 		g_CRTC_MMP_Events[i].user_cmd_cb =
 			mmprofile_register_event(crtc_mmp_root, "user_cmd_cb");
 		g_CRTC_MMP_Events[i].bl_cb =

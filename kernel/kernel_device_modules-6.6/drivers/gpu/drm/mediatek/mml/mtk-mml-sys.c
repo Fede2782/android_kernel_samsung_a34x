@@ -27,10 +27,21 @@
 
 #define SYS_SHADOW_CTRL		0x010
 #define SYS_MISC_REG		0x0f0
+#define SYS_CG_CON0		0x100
+#define SYS_CG_CON1		0x110
+#define SYS_CG_CON2		0x120
+#define SYS_CG_CON3		0x130
 #define SYS_SW0_RST_B_REG	0x700
 #define SYS_SW1_RST_B_REG	0x704
 #define SYS_BYPASS_MUX_SHADOW	0xf00
 #define SYS_AID_SEL		0xfa8	/* only for mt6983/mt6895 */
+
+#define SYS_DL_IN_RELAY2_SIZE	0x250
+#define SYS_DL_OUT_RELAY2_SIZE	0x258
+#define SYS_DLO_ASYNC2_STATUS1	0x264
+#define SYS_DLI_ASYNC2_STATUS1	0x274
+#define SYS_DLO_ASYNC5_STATUS1	0x420
+#define SYS_DL_OUT_RELAY5_SIZE	0x428
 
 #define MML_MAX_SYS_COMPONENTS	16
 #define MML_MAX_SYS_MUX_PINS	88
@@ -52,10 +63,10 @@ module_param(mml_ir_loop, int, 0644);
 int mml_racing_sleep = 16000;
 module_param(mml_racing_sleep, int, 0644);
 
-#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 int mml_ddp_dump = 1;
 module_param(mml_ddp_dump, int, 0644);
 
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 int mml_dle_delay;
 module_param(mml_dle_delay, int, 0644);
 #endif
@@ -335,6 +346,8 @@ static s32 sys_init(struct mml_comp *comp, struct mml_task *task,
 	struct mml_sys *sys = comp_to_sys(comp);
 	struct mml_frame_config *cfg = task->config;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	const struct mml_topology_path *path = cfg->path[ccfg->pipe];
+	u32 i;
 
 	if (cfg->dpc) {
 		if (mml_dl_dpc & MML_DPC_PKT_VOTE && cfg->info.mode != MML_MODE_DDP_ADDON)
@@ -344,12 +357,33 @@ static s32 sys_init(struct mml_comp *comp, struct mml_task *task,
 
 	if (mml_isdc(cfg->info.mode) && !mml_dev_get_couple_cnt(cfg->mml)) {
 		/* disable ultra in srt mode to avoid occupy bw */
-		cmdq_pkt_write(pkt, NULL,
-			comp->larb_base + SMI_LARB_DISABLE_ULTRA, 0xffffffff, U32_MAX);
-	} else if (cfg->info.mode == MML_MODE_DIRECT_LINK || cfg->info.mode == MML_MODE_RACING) {
+		for (i = 0; i < ARRAY_SIZE(path->larbs); i++) {
+			if (path->larbs[i].larb_base)
+				cmdq_pkt_write(pkt, NULL,
+					path->larbs[i].larb_base + SMI_LARB_DISABLE_ULTRA,
+					U32_MAX, path->larbs[i].ultra_mask);
+		}
+	} else if (cfg->info.mode == MML_MODE_DIRECT_LINK) {
 		/* enable ultra */
-		cmdq_pkt_write(pkt, NULL,
-			comp->larb_base + SMI_LARB_DISABLE_ULTRA, 0x0, U32_MAX);
+		for (i = 0; i < ARRAY_SIZE(path->larbs); i++) {
+			if (path->larbs[i].larb_base)
+				cmdq_pkt_write(pkt, NULL,
+					path->larbs[i].larb_base + SMI_LARB_DISABLE_ULTRA,
+					0, path->larbs[i].ultra_mask);
+		}
+
+		/* assign ddp path if underrun addon dump */
+		sys->ddp_path[ccfg->pipe] = cfg->path[ccfg->pipe];
+
+	} else if (cfg->info.mode == MML_MODE_RACING) {
+		/* enable ultra */
+		for (i = 0; i < ARRAY_SIZE(path->larbs); i++) {
+			if (path->larbs[i].larb_base)
+				cmdq_pkt_write(pkt, NULL,
+					path->larbs[i].larb_base + SMI_LARB_DISABLE_ULTRA,
+					0, path->larbs[i].ultra_mask);
+		}
+
 	}
 #endif
 
@@ -1060,6 +1094,72 @@ static void sys_debug_dump(struct mml_comp *comp)
 	}
 }
 
+static void sys_debug_dump_fast_mml1(struct mml_comp *comp)
+{
+	void __iomem *base = comp->base;
+	u32 shadow_ctrl;
+	u32 value[4];
+
+	/* Enable shadow read working */
+	shadow_ctrl = readl(base + SYS_SHADOW_CTRL);
+	shadow_ctrl |= 0x4;
+	writel(shadow_ctrl, base + SYS_SHADOW_CTRL);
+	shadow_ctrl = readl(base + SYS_SHADOW_CTRL);
+
+	if (mml_ddp_dump & BIT(1)) {
+		mml_err("mmlsys comp %u base %#010x shadow %#x dump:",
+			comp->id, (u32)comp->base_pa, shadow_ctrl);
+
+		value[0] = readl(base + SYS_CG_CON0);
+		value[1] = readl(base + SYS_CG_CON1);
+		value[2] = readl(base + SYS_CG_CON2);
+		value[3] = readl(base + SYS_CG_CON3);
+		mml_err("CG_CON: %#010x %#010x %#010x %#010x",
+			value[0], value[1], value[2], value[3]);
+
+		value[0] = readl(base + SYS_DL_IN_RELAY2_SIZE);
+		value[1] = readl(base + SYS_DLI_ASYNC2_STATUS1);
+		mml_err("DLI2:   %#010x %#010x", value[0], value[1]);
+
+		value[0] = readl(base + SYS_DL_OUT_RELAY5_SIZE);
+		value[1] = readl(base + SYS_DLO_ASYNC5_STATUS1);
+		mml_err("DLO5:   %#010x %#010x", value[0], value[1]);
+	} else {
+		value[0] = readl(base + SYS_DL_OUT_RELAY5_SIZE);
+		value[1] = readl(base + SYS_DLO_ASYNC5_STATUS1);
+		mml_err("mmlsys comp %u DLO5 %#010x %#010x", comp->id, value[0], value[1]);
+	}
+}
+
+static void sys_debug_dump_fast_mml0(struct mml_comp *comp)
+{
+	void __iomem *base = comp->base;
+	u32 shadow_ctrl;
+	u32 value[8];
+
+	if (!(mml_ddp_dump & BIT(1)))
+		return;
+
+	/* Enable shadow read working */
+	shadow_ctrl = readl(base + SYS_SHADOW_CTRL);
+	shadow_ctrl |= 0x4;
+	writel(shadow_ctrl, base + SYS_SHADOW_CTRL);
+	shadow_ctrl = readl(base + SYS_SHADOW_CTRL);
+
+	mml_err("mmlsys comp %u base %#010x shadow %#x dump:",
+		comp->id, (u32)comp->base_pa, shadow_ctrl);
+
+	value[0] = readl(base + SYS_CG_CON0);
+	value[1] = readl(base + SYS_CG_CON1);
+	value[2] = readl(base + SYS_CG_CON2);
+	value[3] = readl(base + SYS_CG_CON3);
+	mml_err("CG_CON: %#010x %#010x %#010x %#010x", value[0], value[1], value[2], value[3]);
+
+	value[0] = readl(base + SYS_DL_OUT_RELAY2_SIZE);
+	value[1] = readl(base + SYS_DLO_ASYNC2_STATUS1);
+	mml_err("DLO2:   %#010x %#010x", value[0], value[1]);
+}
+
 static void sys_reset(struct mml_comp *comp, struct mml_frame_config *cfg, u32 pipe)
 {
 	const struct mml_topology_path *path = cfg->path[pipe];
@@ -1125,6 +1225,13 @@ static const struct mml_comp_debug_ops sys_debug_ops = {
 
 static const struct mml_comp_debug_ops sys_debug_ops_mt6991 = {
 	.dump = &sys_debug_dump,
+	.dump_fast = &sys_debug_dump_fast_mml1,
+	.reset = &sys_reset_current,
+};
+
+static const struct mml_comp_debug_ops sys_debug_ops_mt6991_mml0 = {
+	.dump = &sys_debug_dump,
+	.dump_fast = &sys_debug_dump_fast_mml0,
 	.reset = &sys_reset_current,
 };
 
@@ -1920,7 +2027,6 @@ static void sys_unprepare(struct mtk_ddp_comp *ddp_comp)
 		sys_ddp_disable(sys, task, 1);
 }
 
-#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 #define call_dbg_op(_comp, op, ...) \
 	((_comp->debug_ops && _comp->debug_ops->op) ? \
 		_comp->debug_ops->op(_comp, ##__VA_ARGS__) : 0)
@@ -1932,16 +2038,21 @@ static void ddp_comp_dump(const struct mml_topology_path *path)
 
 	if (!path)
 		return;
+
+	if (!(mml_ddp_dump & BIT(1))) {
+		/* simple mode, dump mmlsys only */
+		call_dbg_op(path->mmlsys, dump_fast);
+		return;
+	}
+
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = path->nodes[i].comp;
-		call_dbg_op(comp, dump);
+		call_dbg_op(comp, dump_fast);
 	}
 }
-#endif
 
 static void sys_ddp_dump(struct mtk_ddp_comp *ddp_comp)
 {
-#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 	struct mml_sys *sys;
 
 	if (!mml_ddp_dump) {
@@ -1953,7 +2064,6 @@ static void sys_ddp_dump(struct mtk_ddp_comp *ddp_comp)
 
 	ddp_comp_dump(sys->ddp_path[0]);
 	ddp_comp_dump(sys->ddp_path[1]);
-#endif
 }
 
 static const struct mtk_ddp_comp_funcs sys_ddp_funcs = {
@@ -2745,7 +2855,7 @@ static const struct mml_data mt6991_mmlt_data = {
 	},
 	.aid_sel = sys_config_aid_sel_bits_sys,
 	.hw_ops = &sys_hw_ops_mminfra,
-	.debug_ops = &sys_debug_ops_mt6991,
+	.debug_ops = &sys_debug_ops_mt6991_mml0,
 	.gpr = {CMDQ_GPR_R12, CMDQ_GPR_R14},
 	.px_per_tick = 2,
 	.aidsel_mode = MML_AIDSEL_ENGINEBITS,

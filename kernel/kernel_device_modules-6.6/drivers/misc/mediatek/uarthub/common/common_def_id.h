@@ -103,6 +103,93 @@ enum uarthub_pkt_fmt_type {
 	pkt_fmt_undef,
 };
 
+enum BOU_MOD_ID {
+	mod_undefined = 0,
+	mod_bt_drv,
+	mod_tty,
+	mod_ap_dma,
+	mod_ap_uart,
+	mod_adsp_host,
+	mod_adsp_uart,
+	mod_uarthub,
+	mod_bt_uart,
+	mod_bt_mcu,
+	mod_bt_fw,
+	mod_md,
+	mod_max,
+};
+
+enum BOU_LOG_ID {
+	log_undefined = 0,
+	log_uart0_det_xoff,
+	log_uart1_det_xoff,
+	log_uart2_det_xoff,
+	log_uartcmm_det_xoff,
+	log_apuart_det_xoff,
+	log_uart0_send_xoff,
+	log_uart1_send_xoff,
+	log_uart2_send_xoff,
+	log_uartcmm_send_xoff,
+	log_apuart_send_xoff,
+	log_uart0_keep_sending_xoff,
+	log_uart1_keep_sending_xoff,
+	log_uart2_keep_sending_xoff,
+	log_uartcmm_keep_sending_xoff,
+	log_apuart_keep_sending_xoff,
+	log_uart0_keep_sending_xon,
+	log_uart1_keep_sending_xon,
+	log_uart2_keep_sending_xon,
+	log_uartcmm_keep_sending_xon,
+	log_apuart_keep_sending_xon,
+	log_uart0_frame_error,
+	log_uart1_frame_error,
+	log_uart2_frame_error,
+	log_uartcmm_frame_error,
+	log_apuart_frame_error,
+	log_ap_tx_tmo_tx_pkt_cnt_err,
+	log_ap_tx_tmo_rx_pkt_cnt_err,
+	log_ap_tx_tmo_apuart_tx_byte_cnt_err,
+	log_ap_tx_tmo_uartcmm_tx_byte_cnt_err,
+	log_ap_tx_tmo_uartcmm_rx_byte_cnt_err,
+	log_ap_tx_tmo_apuart_rx_byte_cnt_err,
+	log_ap_tx_tmo_btuart_tx_byte_cnt_err,
+	log_ap_tx_tmo_apdma_err,
+	log_ap_tx_tmo_bypass_err,
+	log_uart0_rx_woffset_not_empty,
+	log_uart1_rx_woffset_not_empty,
+	log_uart2_rx_woffset_not_empty,
+	log_uartcmm_rx_woffset_not_empty,
+	log_apuart_rx_woffset_not_empty,
+	log_uart0_tx_woffset_not_empty,
+	log_uart1_tx_woffset_not_empty,
+	log_uart2_tx_woffset_not_empty,
+	log_uartcmm_tx_woffset_not_empty,
+	log_apuart_tx_woffset_not_empty,
+	log_gpio_rx_mode_err,
+	log_gpio_tx_mode_err,
+	log_gpio_bt_rst_mode_err,
+	log_gpio_bt_rst_dir_err,
+	log_gpio_bt_rst_out_err,
+	log_dev0_crc_err,
+	log_dev1_crc_err,
+	log_dev2_crc_err,
+	log_dev0_tx_timeout_err,
+	log_dev1_tx_timeout_err,
+	log_dev2_tx_timeout_err,
+	log_dev0_tx_pkt_type_err,
+	log_dev1_tx_pkt_type_err,
+	log_dev2_tx_pkt_type_err,
+	log_dev0_rx_timeout_err,
+	log_dev1_rx_timeout_err,
+	log_dev2_rx_timeout_err,
+	log_rx_pkt_type_err,
+	log_dev_rx_err,
+	log_dev0_tx_err,
+	log_dev1_tx_err,
+	log_dev2_tx_err,
+	log_max,
+};
+
 /* UART_IP CODA definition */
 #define DEBUG_1(_baseaddr) (_baseaddr+0x64)
 #define DEBUG_2(_baseaddr) (_baseaddr+0x68)
@@ -122,6 +209,7 @@ enum uarthub_pkt_fmt_type {
 #define UARTHUB_ERR_MUTEX_LOCK_FAIL        (-105)
 #define UARTHUB_ERR_PARA_WRONG             (-106)
 #define UARTHUB_ERR_PORT_NO_NOT_SUPPORT    (-107)
+#define UARTHUB_ERR_BT_NOT_AWAKE           (-108)
 
 /* UARTHUB UT CASE ERROR ID */
 #define UARTHUB_UT_ERR_HUB_READY_STA       (-1000)

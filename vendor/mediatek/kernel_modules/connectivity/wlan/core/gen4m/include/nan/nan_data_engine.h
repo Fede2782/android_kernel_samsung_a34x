@@ -22,6 +22,14 @@
  *                              C O N S T A N T S
  *******************************************************************************
  */
+enum LINK_INDEX {
+	NAN_MAIN_LINK_INDEX,
+#if (CFG_SUPPORT_NAN_DBDC == 1)
+	NAN_HIGH_LINK_INDEX,
+#endif
+	NAN_LINK_NUM,
+};
+
 
 /****************************************************
  *                    Common part
@@ -46,6 +54,7 @@
 #define NAN_MAX_SUPPORT_NDL_NUM (NAN_MAX_NDP_SESSIONS)
 #endif
 
+#define NAN_MAX_SUPPORT_NDL_CONFIG_NUM NAN_MAX_SUPPORT_NDL_NUM
 #define NAN_PROTOCOL_TIMEOUT 3000 /*2000*/
 #define NAN_SECURITY_TIMEOUT 1000
 #define NAN_DATA_RETRY_TIMEOUT 1600 /*300*/
@@ -184,6 +193,12 @@ enum _ENUM_DP_PROTOCOL_REASON_CODE_T {
 	DP_REASON_NUM
 };
 
+enum ENUM_NDC_PARSE_STATE {
+	NDC_PARSE_NORMAL,
+	NDC_NEED_PARSE_WITH_AVAIL, /* set to hint Availability parser to peek */
+	NDC_PARSED_WITH_AVAIL, /* Availability parser parsed NDC */
+};
+
 #if (CFG_SUPPORT_NAN_RESCHEDULE == 1)
 enum _ENUM_NDL_RESCHEDULE_STATE_T {
 	NDL_RESCHEDULE_STATE_NONE,
@@ -191,6 +206,15 @@ enum _ENUM_NDL_RESCHEDULE_STATE_T {
 	NDL_RESCHEDULE_STATE_NEGO_ONGOING,
 	NDL_RESCHEDULE_STATE_ESTABLISHED,
 	NDL_RESCHEDULE_STATE_NUM
+};
+#endif
+
+#if (CFG_SUPPORT_NAN_MGMT_TX == 1)
+struct NAN_MGMT_TX_REQ_INFO {
+	struct LINK rTxReqLink;
+	u_int8_t fgIsMgmtTxRequested;
+	struct MSDU_INFO *prMgmtTxMsdu;
+	uint64_t u8Cookie;
 };
 #endif
 
@@ -322,6 +346,9 @@ struct _NAN_DATA_ENGINE_SCHEDULE_TOKEN_T {
 	struct ADAPTER *prAdapter;
 };
 
+/**
+ * NOTE: members shall be initialized in nanDataAllocateNdl().
+ */
 struct _NAN_NDL_INSTANCE_T {
 	unsigned char fgNDLValid;
 	uint8_t ucIndex;
@@ -392,6 +419,8 @@ struct _NAN_NDL_INSTANCE_T {
 	uint8_t fgTriggerReschedNewNDL;
 	uint8_t fgIs3rd6GNewNDL;
 #endif
+
+	enum ENUM_NDC_PARSE_STATE eNdcParseAction;
 };
 
 struct _NAN_DATA_PATH_INFO_T {
@@ -619,15 +648,15 @@ void nanSetNdpPmkid(
 );
 
 /* Command Handlers */
-int32_t nanCmdDataRequest(struct ADAPTER *prAdapter,
+uint32_t nanCmdDataRequest(struct ADAPTER *prAdapter,
 			   struct _NAN_CMD_DATA_REQUEST *prNanCmdDataRequest,
 			   uint8_t *pu1NdpId,
 			   uint8_t *au1InitiatorDataAddr);
 
-int32_t nanCmdDataResponse(struct ADAPTER *prAdapter,
+uint32_t nanCmdDataResponse(struct ADAPTER *prAdapter,
 		   struct _NAN_CMD_DATA_RESPONSE *prNanCmdDataResponse);
 
-int32_t nanCmdDataEnd(struct ADAPTER *prAdapter,
+uint32_t nanCmdDataEnd(struct ADAPTER *prAdapter,
 		       struct _NAN_CMD_DATA_END *prNanCmdDataEnd);
 
 uint32_t nanUpdateNdlSchedule(struct ADAPTER *prAdapter,
@@ -812,8 +841,8 @@ uint32_t nanDeviceCapabilityAttrHandler(
 	struct _NAN_ATTR_DEVICE_CAPABILITY_T *prDeviceCapabilityAttr,
 	struct _NAN_NDL_INSTANCE_T *prNDL);
 
-uint32_t nanAvailabilityAttrHandler(
-	struct ADAPTER *prAdapter, enum _NAN_ACTION_T eNanAction,
+uint32_t nanAvailabilityAttrHandler(struct ADAPTER *prAdapter,
+	enum _NAN_ACTION_T eNanAction,
 	struct _NAN_ATTR_NAN_AVAILABILITY_T *prAvailabilityAttr,
 	struct _NAN_NDL_INSTANCE_T *prNDL,
 	struct _NAN_NDP_INSTANCE_T *prNDP);
@@ -1018,6 +1047,30 @@ void nanDataEngineSharedKeyAttrAppend(struct ADAPTER *prAdapter,
 				      struct _NAN_NDL_INSTANCE_T *prNDL,
 				      struct _NAN_NDP_INSTANCE_T *prNDP);
 
+#if CFG_SUPPORT_NAN_EXT
+uint16_t
+nanDataEngineVendorAttrLength(struct ADAPTER *prAdapter,
+				 struct _NAN_NDL_INSTANCE_T *prNDL,
+				 struct _NAN_NDP_INSTANCE_T *prNDP);
+
+void nanDataEngineVendorAttrAppend(struct ADAPTER *prAdapter,
+				      struct MSDU_INFO *prMsduInfo,
+				      struct _NAN_NDL_INSTANCE_T *prNDL,
+				      struct _NAN_NDP_INSTANCE_T *prNDP);
+
+#if (CFG_SUPPORT_NAN_11BE == 1)
+uint16_t
+nanDataEngineVendorEhtAttrLength(struct ADAPTER *prAdapter,
+				 struct _NAN_NDL_INSTANCE_T *prNDL,
+				 struct _NAN_NDP_INSTANCE_T *prNDP);
+
+void nanDataEngineVendorEhtAttrAppend(struct ADAPTER *prAdapter,
+				      struct MSDU_INFO *prMsduInfo,
+				      struct _NAN_NDL_INSTANCE_T *prNDL,
+				      struct _NAN_NDP_INSTANCE_T *prNDP);
+#endif
+#endif
+
 uint16_t
 nanDataEngineNDPEAttrLength(struct ADAPTER *prAdapter,
 			    struct _NAN_NDL_INSTANCE_T *prNDL,
@@ -1164,6 +1217,20 @@ nanDataEngineSetupStaRec(struct ADAPTER *prAdapter,
 			 struct STA_RECORD *prStaRec);
 
 const char *nanActionFrameOuiString(uint8_t subtype);
+
+#if (CFG_SUPPORT_NAN_MGMT_TX == 1)
+uint32_t
+nanTxMgmtFrame(struct ADAPTER *prAdapter,
+		   struct NAN_MGMT_TX_REQ_INFO *prMgmtTxReqInfo,
+		   struct MSDU_INFO *prMgmtTxMsdu, uint64_t u8Cookie,
+		   uint8_t ucBssIndex);
+
+void nanRunEventMgmtFrameTx(struct ADAPTER *prAdapter,
+				struct MSG_HDR *prMsgHdr);
+
+void nanFsmRunEventCancelTxWait(struct ADAPTER *prAdapter,
+		struct MSG_HDR *prMsgHdr);
+#endif /* CFG_SUPPORT_NAN_MGMT_TX */
 
 #endif
 #endif

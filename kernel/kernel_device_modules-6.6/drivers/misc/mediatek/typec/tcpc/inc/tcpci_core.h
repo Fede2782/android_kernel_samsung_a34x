@@ -186,7 +186,8 @@ struct tcpc_ops {
 	int (*alert_vendor_defined_handler)(struct tcpc_device *tcpc);
 	int (*set_auto_dischg_discnt)(struct tcpc_device *tcpc, bool en);
 	int (*get_vbus_voltage)(struct tcpc_device *tcpc, u32 *vbus);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+	void (*set_vbus_dischg_gpio)(struct tcpc_device *tcpc, int value);
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	int (*ss_factory)(struct tcpc_device *tcpc);
 #endif
 
@@ -399,8 +400,6 @@ struct tcpc_device {
 	uint8_t sink_vbus_type;
 
 	int bootmode;
-
-	/* TypeC Shield Protection */
 #ifdef CONFIG_WATER_DETECTION
 	int usbid_calib;
 	struct delayed_work wd_status_work;
@@ -438,7 +437,7 @@ struct tcpc_device {
 
 	struct ratelimit_state alert_rs;
 	bool alert_ratelimited;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	bool ss_factory;
 #endif
 };

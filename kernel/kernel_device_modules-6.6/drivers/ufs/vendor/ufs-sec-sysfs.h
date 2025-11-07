@@ -109,6 +109,9 @@ struct SEC_UFS_QUERY_cnt {
 struct SEC_SCSI_SENSE_cnt {
 	unsigned int scsi_medium_err;
 	unsigned int scsi_hw_err;
+	unsigned int scsi_illegal_req;
+	unsigned int scsi_data_prot;
+	unsigned int scsi_others;
 };
 
 struct ufs_sec_err_info {
@@ -121,10 +124,33 @@ struct ufs_sec_err_info {
 	struct SEC_SCSI_SENSE_cnt sense_cnt;
 };
 
+struct ufs_sec_err_hist_cnt {
+	u32 utp_err;
+	u32 uic_err;
+	u32 hw_reset_err;
+	u32 link_startup_err;
+	u8 link_lost_err;
+	u8 utmr_query_err;
+	u8 read_err;
+	u8 write_err;
+	u8 device_fatal_err;
+	u32 medium_err;
+	u32 hardware_err;
+	u32 illegal_req;
+	u32 data_prot;
+	u32 others;
+	u32 hibern_err;
+};
+
+/* number of member in err hist */
+#define UFS_ERR_NUM 15
+
 #define get_err_member(member) ufs_sec_features.ufs_err->member
 #define get_err_backup_member(member) ufs_sec_features.ufs_err_backup->member
 #define get_err_hist_member(member) ufs_sec_features.ufs_err_hist->member
 #define get_vdi_member(member) ufs_sec_features.vdi->member
+#define set_vdi_member(member, value)	\
+	(ufs_sec_features.vdi->member = (value))
 
 #define SEC_UFS_ERR_INFO_BACKUP(err_cnt, member) ({                                      \
 		get_err_backup_member(err_cnt).member += get_err_member(err_cnt).member; \
@@ -139,7 +165,7 @@ struct ufs_sec_err_info {
 	(SEC_UFS_ERR_INFO_GET_VALUE(err_cnt, member) + get_err_hist_member(err_cnt).member)
 
 #define SEC_UFS_ERR_INFO_HIST_SET_VALUE(err_cnt, member, value)                                \
-	(get_err_hist_member(err_cnt).member = (value - '0'))
+	(get_err_hist_member(err_cnt).member = (value))
 
 #define SEC_UFS_DATA_ATTR_RO(name, fmt, args...)                                         \
 static ssize_t name##_show(struct device *dev, struct device_attribute *attr, char *buf) \
@@ -185,8 +211,6 @@ static DEVICE_ATTR(name, 0664, name##_show, name##_store)
 		SEC_UFS_ERR_INFO_HIST_SUM_GET_VALUE(op_cnt, AH8_err_cnt) + \
 		SEC_UFS_ERR_INFO_HIST_SUM_GET_VALUE(op_cnt, HB_hist_cnt))
 
-#define ERR_SUM_SIZE 28
-#define ERR_HIST_SUM_SIZE 29
 /**
  * UFS Error Information
  *
@@ -202,10 +226,17 @@ static DEVICE_ATTR(name, 0664, name##_show, name##_store)
  * F : Device Fatal Error count
  * SM : Sense Medium error count
  * SH : Sense Hardware error count
+ * SI : Sense Illegal request count
+ * SP : Sense Data protect count
+ * SO : Sense Other errors count
  * HB : Hibern8 enter/exit error count + Auto-H8 error count
  **/
+#define UFS_ERR_FORMAT "U%uI%uH%uL%uX%hhuQ%hhuR%hhuW%hhuF%hhuSM%uSH%uSI%uSP%uSO%uHB%u"
+#define UFS_ERR_DEFAULT_VALUE "U0I0H0L0X0Q0R0W0F0SM0SH0SI0SP0SO0HB0"
+
+#define ERR_SUM_SIZE (sizeof(UFS_ERR_DEFAULT_VALUE))
 #define SEC_UFS_ERR_SUM(buf) \
-	sprintf(buf, "U%uI%uH%uL%uX%uQ%uR%uW%uF%uSM%uSH%uHB%u", \
+	sprintf(buf, UFS_ERR_FORMAT, \
 			get_min_errinfo(u32, 9, UTP_cnt, UTP_err), \
 			get_min_errinfo(u32, 9, UIC_err_cnt, UIC_err), \
 			get_min_errinfo(u32, 9, op_cnt, HW_RESET_cnt), \
@@ -217,13 +248,17 @@ static DEVICE_ATTR(name, 0664, name##_show, name##_store)
 			get_min_errinfo(u8, 9, Fatal_err_cnt, DFE), \
 			get_min_errinfo(u32, 9, sense_cnt, scsi_medium_err), \
 			get_min_errinfo(u32, 9, sense_cnt, scsi_hw_err), \
+			get_min_errinfo(u32, 9, sense_cnt, scsi_illegal_req), \
+			get_min_errinfo(u32, 9, sense_cnt, scsi_data_prot), \
+			get_min_errinfo(u32, 9, sense_cnt, scsi_others), \
 			get_min_HB_errinfo(u32, 9))
 /**
  * UFS Error Information
  * previous boot's error count + current boot's error count
  **/
+#define ERR_HIST_SUM_SIZE (ERR_SUM_SIZE + 1)
 #define SEC_UFS_ERR_HIST_SUM(buf) \
-	sprintf(buf, "U%uI%uH%uL%uX%uQ%uR%uW%uF%uSM%uSH%uHB%u\n", \
+	sprintf(buf, UFS_ERR_FORMAT"\n", \
 			get_min_errinfo_hist(u32, 9, UTP_cnt, UTP_err), \
 			get_min_errinfo_hist(u32, 9, UIC_err_cnt, UIC_err), \
 			get_min_errinfo_hist(u32, 9, op_cnt, HW_RESET_cnt), \
@@ -235,6 +270,9 @@ static DEVICE_ATTR(name, 0664, name##_show, name##_store)
 			get_min_errinfo_hist(u8, 9, Fatal_err_cnt, DFE), \
 			get_min_errinfo_hist(u32, 9, sense_cnt, scsi_medium_err), \
 			get_min_errinfo_hist(u32, 9, sense_cnt, scsi_hw_err), \
+			get_min_errinfo_hist(u32, 9, sense_cnt, scsi_illegal_req), \
+			get_min_errinfo_hist(u32, 9, sense_cnt, scsi_data_prot), \
+			get_min_errinfo_hist(u32, 9, sense_cnt, scsi_others), \
 			get_min_HB_errinfo_hist(u32, 9))
 
 /* SEC error info : end */

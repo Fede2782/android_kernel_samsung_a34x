@@ -315,7 +315,7 @@ void wpa_hexdump_dbg(int level, const char *title, const void *buf, size_t len);
 #define NAN_SEC_DETAIL_LOG CFG_SUPPORT_NAN
 #define wpa_MSG_ERROR_printf(...) DBGLOG(NAN, ERROR, __VA_ARGS__)
 #define wpa_MSG_WARNING_printf(...) DBGLOG(NAN, WARN, __VA_ARGS__)
-#define wpa_MSG_INFO_printf(...) DBGLOG(NAN, DEBUG, __VA_ARGS__)
+#define wpa_MSG_INFO_printf(...) DBGLOG(NAN, INFO, __VA_ARGS__)
 #if NAN_SEC_DETAIL_LOG
 #define wpa_MSG_DEBUG_printf(...) DBGLOG(NAN, WARN, __VA_ARGS__)
 #define wpa_MSG_MSGDUMP_printf(...) DBGLOG(NAN, WARN, __VA_ARGS__)
@@ -331,7 +331,10 @@ void wpa_hexdump_dbg(int level, const char *title, const void *buf, size_t len);
 #define wpa_printf_time(...)
 #if NAN_SEC_DETAIL_LOG
 #define wpa_hexdump(LEVEL, TITLE, BUF, LEN)                                    \
-	nanUtilDump(NULL, TITLE, (uint8_t *)BUF, LEN)
+	do { \
+		(void)LEVEL; \
+		DBGDUMP_HEX(NAN, INFO, TITLE, BUF, LEN); \
+	} while (0)
 #else
 #define wpa_hexdump(...)
 #endif
@@ -342,16 +345,16 @@ void wpa_hexdump_dbg(int level, const char *title, const void *buf, size_t len);
 #define wpa_hexdump_ascii(...)
 #define wpa_hexdump_long(...)
 /*#define wpa_dbg(...)*/
-#define wpa_dbg(ctx, level, ...) DBGLOG(NAN, DEBUG, __VA_ARGS__)
+#define wpa_dbg(ctx, level, ...) DBGLOG(NAN, INFO, __VA_ARGS__)
 /*#define wpa_msg(...)*/
-#define wpa_msg(ctx, level, ...) DBGLOG(NAN, DEBUG, __VA_ARGS__)
+#define wpa_msg(ctx, level, ...) DBGLOG(NAN, INFO, __VA_ARGS__)
 #define hostapd_logger(...)
 /*#define wpa_auth_vlogger(...)*/
 #define wpa_auth_vlogger(wpa_auth, addr, level, ...)                           \
-	DBGLOG(NAN, DEBUG, __VA_ARGS__)
+	DBGLOG(NAN, INFO, __VA_ARGS__)
 /*#define wpa_auth_logger(...)*/
 #define wpa_auth_logger(wpa_auth, addr, level, ...)                            \
-	DBGLOG(NAN, DEBUG, __VA_ARGS__)
+	DBGLOG(NAN, INFO, __VA_ARGS__)
 
 #define eapol_auth_vlogger(...)
 #define eapol_auth_logger(...)

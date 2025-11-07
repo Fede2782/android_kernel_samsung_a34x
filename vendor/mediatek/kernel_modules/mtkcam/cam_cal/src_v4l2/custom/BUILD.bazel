@@ -15,6 +15,10 @@ define_mgk_ko(
         "//vendor/mediatek/kernel_modules/mtkcam:public_headers",
         "//vendor/mediatek/kernel_modules/mtkcam/cam_cal:public_headers",
         "//vendor/mediatek/kernel_modules/mtkcam/cam_cal/src_v4l2:public_headers",
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsensor:public_headers",
+    ],
+    deps = [
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsensor:mtk_imgsensor",
     ],
     outs = [
         "camera_eeprom_v4l2.ko",

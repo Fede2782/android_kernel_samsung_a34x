@@ -614,7 +614,7 @@ static long handle_cpufreq_notify(unsigned long arg, void *mbraink_data)
 	return ret;
 }
 
-unsigned long handle_battery_info(unsigned long arg, void *mbraink_data)
+static long handle_battery_info(unsigned long arg, void *mbraink_data)
 {
 	struct mbraink_battery_data *battery_buffer =
 		(struct mbraink_battery_data *)(mbraink_data);

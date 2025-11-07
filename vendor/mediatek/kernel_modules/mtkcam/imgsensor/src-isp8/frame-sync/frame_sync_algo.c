@@ -413,6 +413,8 @@ static unsigned int get_anti_flicker_fl(const unsigned int flk_en_type,
 		return fl_us;
 
 	flk_en = chk_get_flk_en_type(flk_en_type, __func__);
+	if (flk_en == 0)
+		return fl_us;
 	table_idx = flk_en - 1;
 
 	for (i = 0; i < FLK_TABLE_SIZE; ++i) {
@@ -440,7 +442,10 @@ static void g_flk_fl_and_flk_diff(const unsigned int idx,
 	/* check flk EN on itself */
 	if (fs_inst[idx].flicker_en) {
 		fl_us = get_anti_flicker_fl(fs_inst[idx].flicker_en, fl_us_orig);
-		flk_diff = fl_us - fl_us_orig;
+		if (fl_us >= fl_us_orig)
+			flk_diff = fl_us - fl_us_orig;
+		else
+			flk_diff = 0;
 	}
 
 	/* check flk EN on other sensors */
@@ -3927,7 +3932,10 @@ static void adjust_vsync_diff(unsigned int solveIdxs[], unsigned int len)
 
 
 		/* detect pf ctrl timing error */
-		pred_vdiff = target_vts - fs_inst[idx].vdiff;
+		if (target_vts >= fs_inst[idx].vdiff)
+			pred_vdiff = target_vts - fs_inst[idx].vdiff;
+		else
+			pred_vdiff = 0;
 		if (check_timing_critical_section(
 				pred_vdiff, target_min_fl_us)) {
 

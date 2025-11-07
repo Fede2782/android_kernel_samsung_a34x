@@ -159,11 +159,11 @@ static bool mddp_f_add_router_tuple_tcpudp(struct router_tuple *t)
 			__func__, t, t->in.all, t->proto);
 
 	if (atomic_read(&mddp_f_router_cnt) >= mddp_f_max_router) {
-		kmem_cache_free(mddp_f_router_tuple_cache, t);
 
 		MDDP_F_LOG(MDDP_LL_NOTICE,
 				"%s: TCPUDP router is full, tuple[%p], next[%p], prev[%p].\n",
 				__func__, t, t->list.next, t->list.prev);
+		kmem_cache_free(mddp_f_router_tuple_cache, t);
 		return false;
 	}
 	hash = HASH_ROUTER_TUPLE_TCPUDP(t);

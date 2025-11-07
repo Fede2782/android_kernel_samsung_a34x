@@ -47,6 +47,8 @@
 #define LBAT_SERVICE_DBG	0
 #define LBAT_SERVICE_SYSFS	1
 
+#define THD_VOLT_ARRAY_SIZE	20
+
 struct lbat_thd_t {
 	bool is_dirty;
 	unsigned int thd_volt;
@@ -419,13 +421,14 @@ static ssize_t lbat_user_modify_thd_ext_store(struct device *dev,
 					  const char *buf, size_t size)
 {
 	char *sepstr, *substr;
-	unsigned int thd_volt[20] = {0};
+	unsigned int thd_volt[THD_VOLT_ARRAY_SIZE] = {0};
 	int i, thd_volt_size, ret = -1;
 
 	sepstr = (char *)buf;
 	while (*sepstr) {
 		if (*sepstr <= '9' && *sepstr >= '0') {
-			*(sepstr-1) = '\0';
+			if (sepstr != buf)
+				*(sepstr-1) = '\0';
 			break;
 		}
 		++sepstr;
@@ -434,6 +437,10 @@ static ssize_t lbat_user_modify_thd_ext_store(struct device *dev,
 	i = 0;
 	substr = strsep(&sepstr, " ");
 	while (substr != NULL) {
+		if (i >= THD_VOLT_ARRAY_SIZE) {
+			dev_notice(dev, "THD_VOLT_ARRAY_SIZE exceeded\n");
+			break;
+		}
 		ret = kstrtouint(substr, 10, &thd_volt[i++]);
 		if (ret < 0)
 			dev_notice(dev, "failed to use kstrtouint\n");
@@ -442,8 +449,11 @@ static ssize_t lbat_user_modify_thd_ext_store(struct device *dev,
 
 	dev_info(dev, "input thd_volt array: ");
 	thd_volt_size = 0;
-	while (thd_volt[thd_volt_size] != 0)
+	while (thd_volt[thd_volt_size] != 0) {
 		dev_info(dev, "%d ", thd_volt[thd_volt_size++]);
+		if (thd_volt_size >= THD_VOLT_ARRAY_SIZE)
+			break;
+	}
 
 	for (i = 0; i < user_count; i++) {
 		if (!strcmp(lbat_user_table[i]->name, buf))
@@ -1133,6 +1143,7 @@ static int pmic_lbat_service_probe(struct platform_device *pdev)
 		switch (chip->chip_id) {
 		case MT6357_CHIP_ID:
 		case MT6358_CHIP_ID:
+		case MT6366_CHIP_ID:
 			mt6357_lbat_init_setting();
 			break;
 		default:

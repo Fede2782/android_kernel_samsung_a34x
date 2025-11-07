@@ -42,6 +42,10 @@
 				channel = <AUXADC_VIN1>;
 				pures = <ADC_PURES_30K>;
 			};
+			vin1-100k {
+				channel = <AUXADC_VIN1>;
+				pures = <ADC_PURES_100K>;
+			};
 			vin2-open {
 				channel = <AUXADC_VIN2>;
 				pures = <ADC_PURES_OPEN>;
@@ -49,6 +53,10 @@
 			vin3-open {
 				channel = <AUXADC_VIN3>;
 				pures = <ADC_PURES_OPEN>;
+			};
+			vin3-100k {
+				channel = <AUXADC_VIN3>;
+				pures = <ADC_PURES_100K>;
 			};
 			vin4-open {
 				channel = <AUXADC_VIN4>;
@@ -78,6 +86,10 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			gpio-ranges = <&mt6373_pio 0 0 14>;
+		};
+
+		mt6373_gpio: mt6373-gpio {
+			compatible = "mediatek,mt6373-gpio";
 		};
 
 		regulators {

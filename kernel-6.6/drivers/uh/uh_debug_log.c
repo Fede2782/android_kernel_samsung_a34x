@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -22,8 +23,7 @@ static ssize_t uh_log_read(struct file *filep, char __user *buf, size_t size, lo
 		return -EINVAL;
 
 	/* To print s2 table status */
-	/* It doesn't work in MTK model, and not confirmed what is the root cause yet */
-	//uh_call(UH_PLATFORM, 13, 0, 0, 0, 0);
+	uh_call(UH_APP_INIT, 13, 0, 0, 0, 0);
 
 	if (!mutex_trylock(&uh_mutex)) {
 		pr_err("uh_log: Busy.\n");
@@ -72,8 +72,6 @@ static int __init uh_log_init(void)
 
 	pr_info("uh_log : create /proc/uh_log\n");
 	uh_call(UH_APP_INIT, UH_EVENT_LOG_REGION_INFO, (u64)&uh_log_paddr, (u64)&uh_log_size, 0, 0);
-	/* In MTK model, 0x8_0000_0000 is added to prefix for physical address on BL but it can not be used on Kernel */
-	uh_log_paddr &= 0xffffffff;
 
 	return 0;
 }

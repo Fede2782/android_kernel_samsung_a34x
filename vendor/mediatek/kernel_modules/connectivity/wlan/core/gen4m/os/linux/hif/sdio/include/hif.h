@@ -136,27 +136,6 @@
 #define SER_SDIO_HOST_N9_RESET_DONE_ACK            BIT(20)
 /* Host interrupt N9 System Error Recovery done */
 #define SER_SDIO_HOST_N9_RECOVERY_DONE_ACK         BIT(21)
-
-/* Host interrupt for clear mailbox ack */
-#define SDIO_HOST_CLEAR_MAILBOX_ACK         BIT(22)
-
-/* Definition for select value using in MCR_WF_MIXED_DEBUG_SEL(0x48) */
-#define SDIO_CON_DBG_RDATA		0x0	/* wfsys */
-#define SDIO_CON1_DBG_RDATA		0x1	/* wf_mcu */
-#define SDIO_PMUX_DBG_RDATA		0x2	/* cbtop_aon */
-#define SDIO_COM_DBG_RDATA		0x3	/* con_infra */
-#define SDIO_INFRA_CSR_RDATA	0x4	/* con_infra */
-
-#define SDIO_HIF_TXD_LEN		sizeof(struct SDIO_HIF_TX_HEADER)
-#define SDIO_HIF_TXD_PKG_TYPE_SHIFT		(0)
-#define SDIO_HIF_TXD_PKG_TYPE_MASK		(0x3)
-
-struct SDIO_HIF_TX_HEADER {
-	uint16_t     InfoBufLen;
-	uint8_t      Type;
-	uint8_t      Reserved;
-};
-
 enum HIF_TX_COUNT_IDX_T {
 	HIF_TXC_IDX_0,
 	HIF_TXC_IDX_1,
@@ -195,16 +174,6 @@ enum HIF_TX_COUNT_IDX_T {
 	HIF_TXC_IDX_NUM
 };
 
-#if (CFG_SDIO_MAILBOX_EXTENSION == 1)
-enum ENUM_SDIO_MAILBOX_IDX_T {
-	ENUM_SDIO_MAILBOX_RW_REG_0 = 0,
-	ENUM_SDIO_MAILBOX_RW_REG_1 = 1,
-	ENUM_SDIO_MAILBOX_STATUS   = 4,
-	ENUM_SDIO_MAILBOX_ASSERT_0 = 4,
-	ENUM_SDIO_MAILBOX_ASSERT_1 = 5,
-	ENUM_SDIO_MAILBOX_CMD_DBG  = 5,
-};
-#endif
 
 /*******************************************************************************
 *                             D A T A   T Y P E S
@@ -281,10 +250,6 @@ enum sdio_state {
 	SDIO_STATE_READY
 };
 
-#if (CFG_SUPPORT_WF_DUMP_BT_COREDUMP == 1)
-#define SDIO_STATE_MASK        0x0000000F
-#endif
-
 /* host interface's private data structure, which is attached to os glue
 ** layer info structure.
  */
@@ -340,10 +305,6 @@ struct BUS_INFO {
 	void (*halUpdateTxDonePendingCount)(struct ADAPTER *prAdapter,
 			u_int8_t isIncr, uint8_t ucTc, uint16_t u2Cnt);
 	void (*processAbnormalInterrupt)(struct ADAPTER *prAdapter);
-	struct wfdma_group_info *wfmda_host_tx_group;
-	const uint32_t wfmda_host_tx_group_len;
-	struct wfdma_group_info *wfmda_host_rx_group;
-	const uint32_t wfmda_host_rx_group_len;
 };
 
 enum HIF_SDIO_INT_STS {
@@ -371,12 +332,11 @@ extern u_int8_t fgSerStopTxRxDB;
 */
 
 #if CFG_SDIO_TIMING_PROFILING
-#define SDIO_TIME_INTERVAL_DEC()	KAL_BOOTTIME_INTERVAL_DECLARATION()
-#define SDIO_REC_TIME_START()		KAL_BOOT_TIME_START()
-#define SDIO_REC_TIME_END()			KAL_BOOT_TIME_END()
-#define SDIO_GET_TIME_INTERVAL()	KAL_GET_BOOTTIME_INTERVAL()
-#define SDIO_ADD_TIME_INTERVAL(_Interval) \
-	KAL_ADD_BOOTTIME_INTERVAL(_Interval)
+#define SDIO_TIME_INTERVAL_DEC()			KAL_TIME_INTERVAL_DECLARATION()
+#define SDIO_REC_TIME_START()				KAL_REC_TIME_START()
+#define SDIO_REC_TIME_END()					KAL_REC_TIME_END()
+#define SDIO_GET_TIME_INTERVAL()			KAL_GET_TIME_INTERVAL()
+#define SDIO_ADD_TIME_INTERVAL(_Interval)	KAL_ADD_TIME_INTERVAL(_Interval)
 #else
 #define SDIO_TIME_INTERVAL_DEC()
 #define SDIO_REC_TIME_START()
@@ -439,10 +399,6 @@ void halProcessEnhanceInterruptStatus(struct ADAPTER *prAdapter);
 void halRxSDIOAggReceiveRFBs(struct ADAPTER *prAdapter);
 #endif
 
-#if (CFG_SUPPORT_WF_DUMP_BT_COREDUMP == 1)
-void halSetMailboxHifStatus(struct ADAPTER *prAdapter,
-	uint32_t u4IntrBits);
-#endif
 void halPutMailbox(struct ADAPTER *prAdapter, uint32_t u4MailboxNum,
 		uint32_t u4Data);
 void halGetMailbox(struct ADAPTER *prAdapter, uint32_t u4MailboxNum,

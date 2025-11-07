@@ -53,6 +53,7 @@
 
 #define call_hw_op(_comp, op, ...) \
 	(_comp->hw_ops->op ? _comp->hw_ops->op(_comp, ##__VA_ARGS__) : 0)
+#define OFFSET(m, n) ((m > n) ? (m - n) : 0)
 
 enum mml_aal_reg_index {
 	AAL_EN,
@@ -1207,11 +1208,24 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 		aal_crop_x_offset, aal_crop_y_offset,
 		aal_hist_left_start);
 
-	act_win_x_start = aal_hist_left_start - tile->in.xs;
-	if (task->config->dual && !ccfg->pipe && (idx + 1 >= tile_cnt))
-		act_win_x_end = aal_frm->cut_pos_x - tile->in.xs - 1;
+	if (aal_hist_left_start >= tile->in.xs)
+		act_win_x_start =  OFFSET(aal_hist_left_start, tile->in.xs);
 	else
-		act_win_x_end = tile->out.xe - tile->in.xs;
+		mml_pq_err("compute to negative value error! (%x - %x)",
+			aal_hist_left_start, tile->in.xs);
+	if (task->config->dual && !ccfg->pipe && (idx + 1 >= tile_cnt)) {
+		if (aal_frm->cut_pos_x >= (tile->in.xs - 1))
+			act_win_x_end = OFFSET(aal_frm->cut_pos_x, tile->in.xs - 1);
+		else
+			mml_pq_err("compute to negative value error! (%x - %x)",
+				aal_frm->cut_pos_x, tile->in.xs - 1);
+	} else {
+		if (tile->out.xe >= tile->in.xs)
+			act_win_x_end = (u32)(tile->out.xe - tile->in.xs);
+		else
+			mml_pq_err("compute to negative value error! (%x - %x)",
+				tile->out.xe, tile->in.xs);
+	}
 	tile_pxl_x_start = tile->in.xs;
 	tile_pxl_x_end = tile->in.xe;
 
@@ -1233,12 +1247,28 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 
 	blk_num_x_start = (tile_pxl_x_start / dre_blk_width);
 	blk_num_x_end = (tile_pxl_x_end / dre_blk_width);
-	blk_cnt_x_start = tile_pxl_x_start - (blk_num_x_start * dre_blk_width);
-	blk_cnt_x_end = tile_pxl_x_end - (blk_num_x_end * dre_blk_width);
+	if (tile_pxl_x_start >= (blk_num_x_start * dre_blk_width))
+		blk_cnt_x_start = OFFSET(tile_pxl_x_start, blk_num_x_start * dre_blk_width);
+	else
+		mml_pq_err("compute to negative value error! (%x - %x)",
+			tile_pxl_x_start, (blk_num_x_start * dre_blk_width));
+	if (tile_pxl_x_end >= (blk_num_x_end * dre_blk_width))
+		blk_cnt_x_end = OFFSET(tile_pxl_x_end, blk_num_x_end * dre_blk_width);
+	else
+		mml_pq_err("compute to negative value error! (%x - %x)",
+			tile_pxl_x_end, (blk_num_x_end * dre_blk_width));
 	blk_num_y_start = (tile_pxl_y_start / dre_blk_height);
 	blk_num_y_end = (tile_pxl_y_end / dre_blk_height);
-	blk_cnt_y_start = tile_pxl_y_start - (blk_num_y_start * dre_blk_height);
-	blk_cnt_y_end = tile_pxl_y_end - (blk_num_y_end * dre_blk_height);
+	if (tile_pxl_y_start >= (blk_num_y_start * dre_blk_height))
+		blk_cnt_y_start = OFFSET(tile_pxl_y_start, blk_num_y_start * dre_blk_height);
+	else
+		mml_pq_err("compute to negative value error! (%x - %x)",
+			tile_pxl_y_start, (blk_num_y_start * dre_blk_height));
+	if (tile_pxl_y_end >= (blk_num_y_end * dre_blk_height))
+		blk_cnt_y_end = OFFSET(tile_pxl_y_end, blk_num_y_end * dre_blk_height);
+	else
+		mml_pq_err("compute to negative value error! (%x - %x)",
+			tile_pxl_y_end, (blk_num_y_end * dre_blk_height));
 
 	/* for n+1 tile*/
 	if (!idx) {
@@ -1687,6 +1717,14 @@ static s32 aal_config_repost(struct mml_comp *comp, struct mml_task *task,
 	} else {
 		mml_pq_get_readback_buffer(task, pipe, &(task->pq_task->aal_hist[pipe]));
 
+
+		begin_pa = cmdq_pkt_get_pa_by_offset(pkt, aal_frm->begin_offset);
+		condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, aal_frm->condi_offset);
+		if (unlikely(!condi_inst))
+			mml_pq_err("%s wrong offset %u\n", __func__, aal_frm->condi_offset);
+
+		*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(begin_pa);
+
 		if (unlikely(!task->pq_task->aal_hist[pipe])) {
 			mml_pq_err("%s job_id[%d] aal_hist is null", __func__,
 				task->job.jobid);
@@ -1697,13 +1735,6 @@ static s32 aal_config_repost(struct mml_comp *comp, struct mml_task *task,
 			(u32)task->pq_task->aal_hist[pipe]->pa);
 		mml_update(comp->id, reuse, aal_frm->labels[AAL_POLLGPR_1],
 			(u32)DO_SHIFT_RIGHT(task->pq_task->aal_hist[pipe]->pa, 32));
-
-		begin_pa = cmdq_pkt_get_pa_by_offset(pkt, aal_frm->begin_offset);
-		condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, aal_frm->condi_offset);
-		if (unlikely(!condi_inst))
-			mml_pq_err("%s wrong offset %u\n", __func__, aal_frm->condi_offset);
-
-		*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(begin_pa);
 
 		mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%pad] pkt[%p]",
 			__func__, task->job.jobid, comp->id, task->pq_task->aal_hist[pipe]->va,
@@ -1863,13 +1894,22 @@ static bool aal_ir_hist_check(struct mml_comp_aal *aal)
 	if (dual) {
 		if (pipe == 1) {
 			blk_x_start = is_cut_on_line ? blk_x_cut : blk_x_cut + 1;
-			blk_x_comp = blk_x_num - 1;
+			if (blk_x_num >= 1)
+				blk_x_comp = (u32)(blk_x_num - 1);
+			else
+				mml_pq_err("blk_x_num is not over 1!!");
 		} else {
 			blk_x_start = 0;
-			blk_x_comp = blk_x_cut - 1;
+			if (blk_x_cut >= 1)
+				blk_x_comp = (u32)(blk_x_cut - 1);
+			else
+				mml_pq_err("blk_x_cut is not over 1!!");
 		}
 	} else {
-		blk_x_comp = blk_x_num - 1;
+		if (blk_x_num >= 1)
+			blk_x_comp = (u32)(blk_x_num - 1);
+		else
+			mml_pq_err("blk_x_num is not over 1!!");
 	}
 
 	mml_pq_rb_msg("%s dual[%d] pipe[%d] cut_pos_x[%u] blk_width[%u]",

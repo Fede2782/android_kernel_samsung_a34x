@@ -97,12 +97,12 @@ static void _nanExtCcmCb(struct ADAPTER *prAdapter,
 {
 
 	if (prAdapter == NULL) {
-		DBGLOG(NAN, ERROR, "[%s] prAdapter is NULL\n", __func__);
+		DBGLOG(NAN, ERROR, "prAdapter is NULL\n");
 		return;
 	}
 
 	if (prCmdInfo == NULL) {
-		DBGLOG(NAN, ERROR, "[%s] prCmdInfo is NULL\n", __func__);
+		DBGLOG(NAN, ERROR, "prCmdInfo is NULL\n");
 		return;
 	}
 }
@@ -187,23 +187,22 @@ uint32_t nanProcessCCM(struct ADAPTER *prAdapter, const uint8_t *buf,
 	struct IE_NAN_CCM_CMD *c = (struct IE_NAN_CCM_CMD *)buf;
 	uint32_t offset = 0;
 
-	DBGLOG(NAN, DEBUG, "Enter %s, consuming %zu bytes\n",
-	       __func__, sizeof(struct IE_NAN_CCM_CMD));
+	DBGLOG(NAN, INFO, "Consuming %zu bytes\n",
+	       sizeof(struct IE_NAN_CCM_CMD));
 
-	DBGLOG(NAN, DEBUG, "OUI: %d(%02X) (%s)\n",
+	DBGLOG(NAN, INFO, "OUI: %d(%02X) (%s)\n",
 		c->ucNanOui, c->ucNanOui, oui_str(c->ucNanOui));
-	DBGLOG(NAN, DEBUG, "Length: %d\n", c->u2Length);
-	DBGLOG(NAN, DEBUG, "v%d.%d\n", c->ucMajorVersion, c->ucMinorVersion);
-	DBGLOG(NAN, DEBUG, "ReqId: %d\n", c->ucRequestId);
+	DBGLOG(NAN, INFO, "Length: %d\n", c->u2Length);
+	DBGLOG(NAN, INFO, "v%d.%d\n", c->ucMajorVersion, c->ucMinorVersion);
+	DBGLOG(NAN, INFO, "ReqId: %d\n", c->ucRequestId);
 
-	DBGLOG(NAN, DEBUG, "CCM Enable: %d\n", c->ccm_enable);
-	DBGLOG(NAN, DEBUG, "Type: %d\n", c->cmd_type);
-	DBGLOG(NAN, DEBUG, "Status: %d\n", c->status);
-	DBGLOG(NAN, DEBUG, "CCM Interval: %d\n", c->ucCcmInterval);
-	DBGLOG(NAN, DEBUG,
-	       "Passive Scan Duration: %d\n", c->passive_scan_duration);
-	DBGLOG(NAN, DEBUG, "CCM Size: %d\n", c->ccm_size);
-	DBGLOG(NAN, DEBUG, "CCM Participant Number: %d\n", c->ccm_pn);
+	DBGLOG(NAN, INFO, "CCM Enable: %d\n", c->ccm_enable);
+	DBGLOG(NAN, INFO, "Type: %d\n", c->cmd_type);
+	DBGLOG(NAN, INFO, "Status: %d\n", c->status);
+	DBGLOG(NAN, INFO, "CCM Interval: %d\n", c->ucCcmInterval);
+	DBGLOG(NAN, INFO, "Passive Scan Duration: %d\n", c->passive_scan_duration);
+	DBGLOG(NAN, INFO, "CCM Size: %d\n", c->ccm_size);
+	DBGLOG(NAN, INFO, "CCM Participant Number: %d\n", c->ccm_pn);
 
 	g_rNanExtCmdCcm.ucCcmEnable = c->ccm_enable;
 	g_rNanExtCmdCcm.ucType = c->cmd_type;

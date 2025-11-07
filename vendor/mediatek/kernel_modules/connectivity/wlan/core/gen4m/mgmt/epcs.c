@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -89,7 +89,7 @@ uint32_t epcsReqTxDoneCb(struct ADAPTER *prAdapter,
 	if (!prMldStaRec)
 		return WLAN_STATUS_FAILURE;
 
-	DBGLOG(TX, DEBUG,
+	DBGLOG(TX, INFO,
 		"EPCS TX DONE, WIDX:PID:SN[%u:%u:%u] Status[%u], SeqNo: %d\n",
 		prMsduInfo->ucWlanIndex, prMsduInfo->ucPID,
 		prTxDone->u2SequenceNumber, rTxDoneStatus,
@@ -125,7 +125,7 @@ uint32_t epcsRspTxDoneCb(struct ADAPTER *prAdapter,
 	if (!prMldStaRec || !prMldBssInfo)
 		return WLAN_STATUS_FAILURE;
 
-	DBGLOG(TX, DEBUG,
+	DBGLOG(TX, INFO,
 		"EPCS TX DONE, WIDX:PID:SN[%u:%u:%u] Status[%u], SeqNo: %d\n",
 		prMsduInfo->ucWlanIndex, prMsduInfo->ucPID,
 		prTxDone->u2SequenceNumber, rTxDoneStatus,
@@ -168,7 +168,7 @@ uint32_t epcsTeardownTxDoneCb(struct ADAPTER *prAdapter,
 	if (!prMldStaRec)
 		return WLAN_STATUS_FAILURE;
 
-	DBGLOG(TX, DEBUG,
+	DBGLOG(TX, INFO,
 		"EPCS TX DONE, WIDX:PID:SN[%u:%u:%u] Status[%u], SeqNo: %d\n",
 		prMsduInfo->ucWlanIndex, prMsduInfo->ucPID,
 		prTxDone->u2SequenceNumber, rTxDoneStatus,
@@ -357,7 +357,7 @@ void epcsProcessRsp(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb,
 	ml = mldFindMlIE(pucIE, u2IELength,
 			ML_CTRL_TYPE_PRIORITY_ACCESS);
 	if (!ml) {
-		DBGLOG(RX, DEBUG, "No ML Priority Access IE\n");
+		DBGLOG(RX, INFO, "No ML Priority Access IE\n");
 		return;
 	}
 
@@ -398,7 +398,7 @@ uint32_t epcsProcessReq(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb,
 	ml = mldFindMlIE(pucIE, u2IELength,
 			ML_CTRL_TYPE_PRIORITY_ACCESS);
 	if (!ml) {
-		DBGLOG(RX, DEBUG, "No ML Priority Access IE\n");
+		DBGLOG(RX, INFO, "No ML Priority Access IE\n");
 		return WLAN_STATUS_FAILURE;
 	}
 
@@ -446,7 +446,8 @@ void epcsMldStaRecUpdate(struct ADAPTER *prAdapter,
 		if (!bss) {
 			DBGLOG(QM, ERROR, "bss is NULL\n");
 			break;
-		} else if (!IS_BSS_AIS(bss)) {
+                }
+		else if (!IS_BSS_AIS(bss)) {
 			DBGLOG(QM, ERROR,
 				"[%u] bss is not AIS\n", bss->ucBssIndex);
 			break;
@@ -466,7 +467,7 @@ void epcsMUnEdcaBackupRestore(struct BSS_INFO *prBssInfo, u_int8_t fgBackup)
 
 	for (eAci = 0; eAci < WMM_AC_INDEX_NUM; eAci++) {
 		prAcQueParams = &prBssInfo->arACQueParms[eAci];
-		DBGLOG(QM, DEBUG,
+		DBGLOG(QM, INFO,
 			"BSS[%u]: eAci[%d] ACM[%d] Aifsn[%d] CWmin/max[%d/%d] TxopLimit[%d]\n",
 			prBssInfo->ucBssIndex, eAci,
 			prAcQueParams->ucIsACMSet,
@@ -474,7 +475,7 @@ void epcsMUnEdcaBackupRestore(struct BSS_INFO *prBssInfo, u_int8_t fgBackup)
 			prAcQueParams->u2CWmax,
 			prAcQueParams->u2TxopLimit);
 		prAcQueParams = &prBssInfo->arBackupACQueParms[eAci];
-		DBGLOG(QM, DEBUG,
+		DBGLOG(QM, INFO,
 			"BSS[%u]: backup eAci[%d] ACM[%d] Aifsn[%d] CWmin/max[%d/%d] TxopLimit[%d]\n",
 			prBssInfo->ucBssIndex, eAci,
 			prAcQueParams->ucIsACMSet,
@@ -507,11 +508,11 @@ void epcsMUnEdcaBackupRestore(struct BSS_INFO *prBssInfo, u_int8_t fgBackup)
 				sizeof(prBssInfo->arMUEdcaParams));
 	}
 
-	DBGLOG(QM, DEBUG, "SWAPPED, fgBackup [%d]\n", fgBackup);
+	DBGLOG(QM, INFO, "SWAPPED, fgBackup [%d]\n", fgBackup);
 
 	for (eAci = 0; eAci < WMM_AC_INDEX_NUM; eAci++) {
 		prAcQueParams = &prBssInfo->arACQueParms[eAci];
-		DBGLOG(QM, DEBUG,
+		DBGLOG(QM, INFO,
 			"BSS[%u]: eAci[%d] ACM[%d] Aifsn[%d] CWmin/max[%d/%d] TxopLimit[%d]\n",
 			prBssInfo->ucBssIndex, eAci,
 			prAcQueParams->ucIsACMSet,
@@ -519,7 +520,7 @@ void epcsMUnEdcaBackupRestore(struct BSS_INFO *prBssInfo, u_int8_t fgBackup)
 			prAcQueParams->u2CWmax,
 			prAcQueParams->u2TxopLimit);
 		prAcQueParams = &prBssInfo->arBackupACQueParms[eAci];
-		DBGLOG(QM, DEBUG,
+		DBGLOG(QM, INFO,
 			"BSS[%u]: backup eAci[%d] ACM[%d] Aifsn[%d] CWmin/max[%d/%d] TxopLimit[%d]\n",
 			prBssInfo->ucBssIndex, eAci,
 			prAcQueParams->ucIsACMSet,
@@ -576,7 +577,7 @@ void epcsProcessAction(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 
 	prRxFrame = (struct WLAN_ACTION_FRAME *)prSwRfb->pvHeader;
 
-	DBGLOG(RX, DEBUG, "Received EPCS action:%u\n", prRxFrame->ucAction);
+	DBGLOG(RX, INFO, "Received EPCS action:%u\n", prRxFrame->ucAction);
 
 	switch (prRxFrame->ucAction) {
 	case EPCS_ENABLE_REQUEST:

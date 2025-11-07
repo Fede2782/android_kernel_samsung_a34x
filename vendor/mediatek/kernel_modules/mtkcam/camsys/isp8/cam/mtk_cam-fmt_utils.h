@@ -20,7 +20,7 @@ struct v4l2_format;
 struct v4l2_fmtdesc;
 void fill_ext_mtkcam_fmtdesc(struct v4l2_fmtdesc *f);
 
-unsigned int mtk_cam_get_pixel_bits(unsigned int ipi_fmt);
+int mtk_cam_get_pixel_bits(unsigned int ipi_fmt);
 
 /* TODO: rename */
 unsigned int mtk_cam_get_img_fmt(unsigned int fourcc);
@@ -60,7 +60,8 @@ struct v4l2_format_info;
 unsigned int v4l2_format_calc_stride(const struct v4l2_format_info *info,
 				     unsigned int i,
 				     unsigned int w,
-				     unsigned int stride0 /* may be 0 */);
+				     unsigned int stride0 /* may be 0 */,
+				     unsigned int bus_align);
 unsigned int v4l2_format_calc_planesize(const struct v4l2_format_info *info,
 					unsigned int i,
 					unsigned int h,

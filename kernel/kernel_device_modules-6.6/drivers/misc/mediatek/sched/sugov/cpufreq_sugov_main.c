@@ -45,6 +45,9 @@
 #define DEFAULT_RUNNABLE_BOOST	true
 #define DEFAULT_DSU_IDLE		true
 
+unsigned int num_clusters;
+unsigned int **adaptive_freq_array;
+
 struct sugov_cpu {
 	struct update_util_data	update_util;
 	struct sugov_policy	*sg_policy;
@@ -82,13 +85,56 @@ EXPORT_SYMBOL(fpsgo_notify_fbt_is_boost_fp);
 /************************* scheduler common ************************/
 
 /* runnable_boost_enable ctrl */
+#define DEFAULT_RUNNABLE_BOOST_CPUS 0XFF
 static bool runnable_boost_enable = DEFAULT_RUNNABLE_BOOST;
+static bool runnable_boost_all_cpus = DEFAULT_RUNNABLE_BOOST;
+cpumask_t runnable_boost_cpumask;
+static DEFINE_MUTEX(runnable_boost_mutex);
 
 void set_runnable_boost_enable(bool boost_ctrl)
 {
 	runnable_boost_enable = boost_ctrl;
 }
 EXPORT_SYMBOL(set_runnable_boost_enable);
+module_param_named(runnable_boost_enable, runnable_boost_enable, bool, 0600);
+
+inline struct cpumask *get_runnable_boost_cpumask(void)
+{
+	return &runnable_boost_cpumask;
+}
+EXPORT_SYMBOL(get_runnable_boost_cpumask);
+
+inline bool is_runnable_boost_all(void)
+{
+	return runnable_boost_all_cpus;
+}
+EXPORT_SYMBOL(is_runnable_boost_all);
+
+void reset_runnable_boost_with_cpumask(void)
+{
+	runnable_boost_cpumask.bits[0] = DEFAULT_RUNNABLE_BOOST_CPUS;
+	runnable_boost_all_cpus = DEFAULT_RUNNABLE_BOOST;
+}
+
+void set_runnable_boost_with_cpumask(bool boost_ctrl, int runnable_boost_cpus)
+{
+	mutex_lock(&runnable_boost_mutex);
+	if (runnable_boost_cpus == -1){
+		reset_runnable_boost_with_cpumask();
+		goto out;
+	}
+
+	if (runnable_boost_cpus < 0 || runnable_boost_cpus > 255)
+		goto out;
+
+	runnable_boost_all_cpus = false;
+	runnable_boost_cpumask.bits[0] = runnable_boost_cpus;
+out:
+	runnable_boost_enable = boost_ctrl;
+	mutex_unlock(&runnable_boost_mutex);
+
+}
+EXPORT_SYMBOL(set_runnable_boost_with_cpumask);
 
 void unset_runnable_boost_enable(void)
 {
@@ -847,6 +893,114 @@ static void sugov_irq_work(struct irq_work *irq_work)
 	kthread_queue_work(&sg_policy->worker, &sg_policy->work);
 }
 
+static unsigned int get_gear_id(struct cpufreq_policy *policy)
+{
+	struct cpumask *cpumask;
+	unsigned int cpu=0;
+	unsigned int gearid=0;
+
+	cpumask = policy->related_cpus;
+	cpu = cpumask_first(cpumask);
+	gearid = topology_cluster_id(cpu);
+	return gearid;
+}
+
+static int build_adaptive_freq_array(struct cpufreq_policy *policy)
+{
+	unsigned int min_freq,max_freq;
+	unsigned int gear_id;
+	int ret = 0;
+
+	min_freq = policy->cpuinfo.min_freq;
+	max_freq = policy->cpuinfo.max_freq;
+	gear_id = get_gear_id(policy);
+	if (!adaptive_freq_array)
+		return -ENOMEM;
+
+	adaptive_freq_array[gear_id][ADAPTIVE_LOW] = 0;
+	adaptive_freq_array[gear_id][ADAPTIVE_HIGH] = 0;
+	adaptive_freq_array[gear_id][MAX_FREQ] = max_freq;
+	adaptive_freq_array[gear_id][MIN_FREQ] = min_freq;
+	return ret;
+}
+
+static void free_adaptive_freq_array(void)
+{
+	int i;
+
+	if (!adaptive_freq_array)
+		return;
+
+	for (i = 0; i < num_clusters; i++)
+		kfree(adaptive_freq_array[i]);
+
+	kfree(adaptive_freq_array);
+	adaptive_freq_array = NULL;
+
+}
+
+static int init_adaptive_freq_array(void)
+{
+	int i,ret = 0;
+
+	adaptive_freq_array = kcalloc(num_clusters, sizeof(unsigned int *),
+				GFP_ATOMIC | __GFP_NOFAIL);
+
+	if (!adaptive_freq_array)
+		return -ENOMEM;
+
+	for (i = 0; i < num_clusters; i++) {
+		adaptive_freq_array[i] = kcalloc(4, sizeof(unsigned int),
+				GFP_ATOMIC | __GFP_NOFAIL);
+		if (!adaptive_freq_array[i]){
+			free_adaptive_freq_array();
+			return -ENOMEM;
+		}
+	}
+	return ret;
+}
+
+static DEFINE_MUTEX(adaptive_freq_lock);
+unsigned int get_adaptive_freq(unsigned int gear,enum adaptive_type type)
+{
+	unsigned int freq;
+
+	if (gear < 0 ||gear > num_clusters)
+		return -EINVAL;
+
+	freq = adaptive_freq_array[gear][type];
+	return freq;
+}
+EXPORT_SYMBOL(get_adaptive_freq);
+
+void set_adaptive_freq(unsigned int gear,unsigned int freq,enum adaptive_type type)
+{
+	unsigned int min_freq,max_freq;
+
+	if (gear < 0 ||gear > num_clusters)
+		return;
+	if (freq == 0){
+		adaptive_freq_array[gear][type] = freq;
+		return;
+	}
+
+	min_freq = get_adaptive_freq(gear,MIN_FREQ);
+	max_freq = get_adaptive_freq(gear,MAX_FREQ);
+	if (freq < min_freq || freq > max_freq)
+		return;
+	mutex_lock(&adaptive_freq_lock);
+	switch(type){
+	case ADAPTIVE_LOW:
+	case ADAPTIVE_HIGH:
+		adaptive_freq_array[gear][type] = freq;
+		break;
+	default:
+		break;
+	}
+	mutex_unlock(&adaptive_freq_lock);
+}
+EXPORT_SYMBOL(set_adaptive_freq);
+
 /************************** sysfs interface ************************/
 
 static struct sugov_tunables *global_tunables;
@@ -921,8 +1075,52 @@ down_rate_limit_us_store(struct gov_attr_set *attr_set, const char *buf, size_t 
 	return count;
 }
 
+static ssize_t show_adaptive_low_freq(struct cpufreq_policy *policy, char *buf)
+{
+	unsigned int gearid;
+
+	gearid = get_gear_id(policy);
+	return sprintf(buf, "%u\n", adaptive_freq_array[gearid][ADAPTIVE_LOW]);
+}
+
+
+static ssize_t store_adaptive_low_freq(struct cpufreq_policy *policy, const char *buf, size_t count)
+{
+	unsigned int low_freq;
+	unsigned int gearid;
+
+	gearid = get_gear_id(policy);
+	if (kstrtouint(buf, 10, &low_freq))
+		return -EINVAL;
+	set_adaptive_freq(gearid,low_freq,ADAPTIVE_LOW);
+	return count;
+}
+
+static ssize_t show_adaptive_high_freq(struct cpufreq_policy *policy, char *buf)
+{
+	unsigned int gearid;
+
+	gearid = get_gear_id(policy);
+	return sprintf(buf, "%u\n", adaptive_freq_array[gearid][ADAPTIVE_HIGH]);
+}
+
+
+static ssize_t store_adaptive_high_freq(struct cpufreq_policy *policy, const char *buf, size_t count)
+{
+	unsigned int high_freq;
+	unsigned int gearid;
+
+	gearid = get_gear_id(policy);
+	if (kstrtouint(buf, 10, &high_freq))
+		return -EINVAL;
+	set_adaptive_freq(gearid,high_freq,ADAPTIVE_HIGH);
+	return count;
+}
+
 static struct governor_attr up_rate_limit_us = __ATTR_RW(up_rate_limit_us);
 static struct governor_attr down_rate_limit_us = __ATTR_RW(down_rate_limit_us);
+cpufreq_freq_attr_rw(adaptive_low_freq);
+cpufreq_freq_attr_rw(adaptive_high_freq);
 
 static struct attribute *sugov_attrs[] = {
 	&up_rate_limit_us.attr,
@@ -930,6 +1128,16 @@ static struct attribute *sugov_attrs[] = {
 	NULL
 };
 ATTRIBUTE_GROUPS(sugov);
+
+static struct attribute *adaptive_attrs[] = {
+	&adaptive_low_freq.attr,
+	&adaptive_high_freq.attr,
+	NULL
+};
+
+static struct attribute_group adaptive_attr_group = {
+	.attrs = adaptive_attrs,
+};
 
 static void sugov_tunables_free(struct kobject *kobj)
 {
@@ -1101,6 +1309,13 @@ static int sugov_init(struct cpufreq_policy *policy)
 	if (ret)
 		goto fail;
 
+	ret = build_adaptive_freq_array(policy);
+	if (ret)
+		goto fail;
+	ret = sysfs_create_group(get_governor_parent_kobj(policy), &adaptive_attr_group);
+	if (ret)
+		goto fail;
+
 	policy->dvfs_possible_from_any_cpu = 1;
 
 out:
@@ -1132,6 +1347,7 @@ static void sugov_exit(struct cpufreq_policy *policy)
 	struct sugov_tunables *tunables = sg_policy->tunables;
 	unsigned int count;
 
+	sysfs_remove_group(get_governor_parent_kobj(policy), &adaptive_attr_group);
 	mutex_lock(&global_tunables_lock);
 
 	count = gov_attr_set_put(&tunables->attr_set, &sg_policy->tunables_hook);
@@ -1440,6 +1656,10 @@ static int __init cpufreq_mtk_init(void)
 	if (ret)
 		pr_info("init_opp_cap_info failed\n");
 
+	num_clusters = get_nr_gears();
+	ret = init_adaptive_freq_array();
+	if (ret)
+		pr_info("adaptive_freq_array failed\n");
 	ret = register_trace_android_rvh_update_cpu_capacity(
 			hook_update_cpu_capacity, NULL);
 	if (ret)
@@ -1467,6 +1687,7 @@ static int __init cpufreq_mtk_init(void)
 
 static void __exit cpufreq_mtk_exit(void)
 {
+	free_adaptive_freq_array();
 	cpufreq_unregister_governor(&mtk_gov);
 }
 

@@ -46,8 +46,10 @@ int kbase_backend_gpuprops_get(struct kbase_device *kbdev, struct kbasep_gpuprop
 	if (shader_present &&
 		((regdump->shader_present | shader_present) == regdump->shader_present)) {
 		regdump->shader_present &= shader_present;
+		dev_info(kbdev->dev, "%s, shader present , HW: 0x%llx, SW: 0x%x\n",
+			__func__, regdump->shader_present, shader_present);
 	} else {
-		pr_info("%s,illegal shader present , HW: 0x%llx, SW: 0x%x\n",
+		dev_info(kbdev->dev, "%s,illegal shader present , HW: 0x%llx, SW: 0x%x\n",
 			__func__, regdump->shader_present, shader_present);
 		BUG_ON(1);
 	}
@@ -133,7 +135,7 @@ int kbase_backend_gpuprops_get_curr_config(struct kbase_device *kbdev,
 		((curr_config_regdump->shader_present | shader_present) == curr_config_regdump->shader_present)) {
 		curr_config_regdump->shader_present &= shader_present;
 	} else {
-		pr_info("%s,illegal shader present , HW: 0x%llx, SW: 0x%x\n",
+		dev_info(kbdev->dev, "%s,illegal shader present , HW: 0x%llx, SW: 0x%x\n",
 			__func__, curr_config_regdump->shader_present, shader_present);
 		BUG_ON(1);
 	}

@@ -72,6 +72,13 @@
 #include <linux/android_kabi.h>
 #include <linux/android_vendor.h>
 
+// SEC_PRODUCT_FEATURE_KNOX_SUPPORT_NPA {
+#ifdef CONFIG_KNOX_NCM
+#define NAP_PROCESS_NAME_LEN	128
+#define NAP_DOMAIN_NAME_LEN		255
+#endif
+// SEC_PRODUCT_FEATURE_KNOX_SUPPORT_NPA }
+
 /*
  * This structure really needs to be cleaned up.
  * Most of it is for TCP, and not used by any of
@@ -248,6 +255,26 @@ struct sock_common {
 
 struct bpf_local_storage;
 struct sk_filter;
+
+// SEC_PRODUCT_FEATURE_KNOX_SUPPORT_NPA {
+#ifdef CONFIG_KNOX_NCM
+struct sock_npa_vendor_data {
+	uid_t	knox_uid;
+	pid_t	knox_pid;
+	uid_t	knox_dns_uid;
+	char	domain_name[NAP_DOMAIN_NAME_LEN];
+	char	process_name[NAP_PROCESS_NAME_LEN];
+	uid_t	knox_puid;
+	pid_t	knox_ppid;
+	char	parent_process_name[NAP_PROCESS_NAME_LEN];
+	pid_t	knox_dns_pid;
+	char	dns_process_name[NAP_PROCESS_NAME_LEN];
+};
+
+#define SOCK_NPA_VENDOR_DATA_GET(sock) \
+			((struct sock_npa_vendor_data *)((sock)->android_oem_data1))
+#endif
+// SEC_PRODUCT_FEATURE_KNOX_SUPPORT_NPA }
 
 /**
   *	struct sock - network layer representation of sockets
@@ -914,6 +941,8 @@ static inline void sk_add_bind2_node(struct sock *sk, struct hlist_head *list)
 	hlist_for_each_entry(__sk, list, sk_bind_node)
 #define sk_for_each_bound_bhash2(__sk, list) \
 	hlist_for_each_entry(__sk, list, sk_bind2_node)
+#define sk_for_each_bound_safe(__sk, tmp, list) \
+	hlist_for_each_entry_safe(__sk, tmp, list, sk_bind_node)
 
 /**
  * sk_for_each_entry_offset_rcu - iterate over a list at a given struct offset
@@ -1645,7 +1674,7 @@ static inline bool sk_wmem_schedule(struct sock *sk, int size)
 }
 
 static inline bool
-sk_rmem_schedule(struct sock *sk, struct sk_buff *skb, int size)
+__sk_rmem_schedule(struct sock *sk, int size, bool pfmemalloc)
 {
 	int delta;
 
@@ -1653,7 +1682,13 @@ sk_rmem_schedule(struct sock *sk, struct sk_buff *skb, int size)
 		return true;
 	delta = size - sk->sk_forward_alloc;
 	return delta <= 0 || __sk_mem_schedule(sk, delta, SK_MEM_RECV) ||
-		skb_pfmemalloc(skb);
+	       pfmemalloc;
+}
+
+static inline bool
+sk_rmem_schedule(struct sock *sk, struct sk_buff *skb, int size)
+{
+	return __sk_rmem_schedule(sk, size, skb_pfmemalloc(skb));
 }
 
 static inline int sk_unused_reserved_mem(const struct sock *sk)
@@ -1887,11 +1922,13 @@ int sk_setsockopt(struct sock *sk, int level, int optname,
 		  sockptr_t optval, unsigned int optlen);
 int sock_setsockopt(struct socket *sock, int level, int op,
 		    sockptr_t optval, unsigned int optlen);
+int do_sock_setsockopt(struct socket *sock, bool compat, int level,
+		       int optname, sockptr_t optval, int optlen);
+int do_sock_getsockopt(struct socket *sock, bool compat, int level,
+		       int optname, sockptr_t optval, sockptr_t optlen);
 
 int sk_getsockopt(struct sock *sk, int level, int optname,
 		  sockptr_t optval, sockptr_t optlen);
-int sock_getsockopt(struct socket *sock, int level, int op,
-		    char __user *optval, int __user *optlen);
 int sock_gettstamp(struct socket *sock, void __user *userstamp,
 		   bool timeval, bool time32);
 struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
@@ -2842,6 +2879,11 @@ static inline bool sk_is_udp(const struct sock *sk)
 static inline bool sk_is_stream_unix(const struct sock *sk)
 {
 	return sk->sk_family == AF_UNIX && sk->sk_type == SOCK_STREAM;
+}
+
+static inline bool sk_is_vsock(const struct sock *sk)
+{
+	return sk->sk_family == AF_VSOCK;
 }
 
 /**

@@ -221,6 +221,7 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
 	phys_addr_t selected_size = 0;
 	phys_addr_t selected_base = 0;
 	phys_addr_t selected_limit = limit;
+	phys_addr_t virtzone_limit = cma_get_first_virtzone_base(0);
 	bool fixed = false;
 
 	dma_numa_cma_reserve();
@@ -230,6 +231,11 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
 	if (size_cmdline != -1) {
 		selected_size = size_cmdline;
 		selected_base = base_cmdline;
+		if (virtzone_limit && selected_base &&
+			selected_base + selected_size >= virtzone_limit) {
+			pr_err("default cma init fail, overlap with virtzone\n");
+			return;
+		}
 		selected_limit = min_not_zero(limit_cmdline, limit);
 		if (base_cmdline + size_cmdline == limit_cmdline)
 			fixed = true;
@@ -244,7 +250,7 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
 		selected_size = max(size_bytes, cma_early_percent_memory());
 #endif
 	}
-
+	selected_limit = min_not_zero(selected_limit, virtzone_limit);
 	if (selected_size && !dma_contiguous_default_area) {
 		pr_debug("%s: reserving %ld MiB for global area\n", __func__,
 			 (unsigned long)selected_size / SZ_1M);
@@ -470,8 +476,10 @@ static int __init rmem_cma_setup(struct reserved_mem *rmem)
 {
 	unsigned long node = rmem->fdt_node;
 	bool default_cma = of_get_flat_dt_prop(node, "linux,cma-default", NULL);
+	bool late_activate = of_get_flat_dt_prop(node, "late_activate", NULL);
 	struct cma *cma;
 	int err;
+	phys_addr_t virtzone_limit = 0;
 
 	if (size_cmdline != -1 && default_cma) {
 		pr_info("Reserved memory: bypass %s node, using cmdline CMA params instead\n",
@@ -488,7 +496,14 @@ static int __init rmem_cma_setup(struct reserved_mem *rmem)
 		return -EINVAL;
 	}
 
-	err = cma_init_reserved_mem(rmem->base, rmem->size, 0, rmem->name, &cma);
+	virtzone_limit = cma_get_first_virtzone_base(0);
+	if (virtzone_limit && rmem->base + rmem->size > virtzone_limit) {
+		pr_err("%s cma init fail, overlap with virtzone\n", rmem->name);
+		return -EINVAL;
+	}
+
+	err = cma_init_reserved_mem(rmem->base, rmem->size, 0, rmem->name, &cma,
+				    late_activate);
 	if (err) {
 		pr_err("Reserved memory: unable to setup CMA region\n");
 		return err;

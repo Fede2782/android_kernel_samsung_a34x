@@ -156,6 +156,7 @@ void roamingFsmInit(IN struct ADAPTER *prAdapter, IN uint8_t ucBssIndex)
 		prConnSettings->fgIsEnableRoaming;
 	prRoamingFsmInfo->eCurrentState = ROAMING_STATE_IDLE;
 	prRoamingFsmInfo->rRoamingDiscoveryUpdateTime = 0;
+	prRoamingFsmInfo->rRoamingStartTime = 0;
 	prRoamingFsmInfo->fgDrvRoamingAllow = TRUE;
 #if (CFG_TC10_FEATURE == 1)
 	LINK_INITIALIZE(&prRoamingFsmInfo->rCandidateApList);
@@ -470,6 +471,7 @@ void roamingFsmSteps(IN struct ADAPTER *prAdapter,
 		 *   to speed up state search.
 		 */
 		case ROAMING_STATE_IDLE:
+			prRoamingFsmInfo->rRoamingStartTime = 0;
 			break;
 		case ROAMING_STATE_DECISION:
 #if CFG_SUPPORT_DRIVER_ROAMING
@@ -480,6 +482,7 @@ void roamingFsmSteps(IN struct ADAPTER *prAdapter,
 				CONNECT_BY_SSID_BEST_RSSI;
 			prAisFsmInfo->rJoinReqTime = 0;
 			prRoamingFsmInfo->eReason = ROAMING_REASON_POOR_RCPI;
+			prRoamingFsmInfo->rRoamingStartTime = 0;
 			break;
 
 		case ROAMING_STATE_DISCOVERY: {

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -289,25 +289,10 @@ struct DMASHDL_CFG rMt6653DmashdlCfg = {
 
 void mt6653DmashdlInit(struct ADAPTER *prAdapter)
 {
-#if (CFG_DYNAMIC_DMASHDL_MAX_QUOTA == 1)
-	struct GL_HIF_INFO *prHifInfo = &prAdapter->prGlueInfo->rHifInfo;
-#endif
 	uint32_t idx, u4DefVal;
-	uint32_t u4MinQuota = 0, u4MaxQuota = 0;
-	u_int8_t fgSetQuota = TRUE;
-	uint32_t u4Val = 0, u4Addr = 0;
 #if (CFG_SUPPORT_HOST_OFFLOAD == 1)
 	struct WIFI_VAR *prWifiVar = &prAdapter->rWifiVar;
-#endif
-
-#if (CFG_DYNAMIC_DMASHDL_MAX_QUOTA == 1 && CFG_SUPPORT_WIFI_6G == 1)
-	/* assign 5G quota = 6G quota if band2 not support  */
-	if (!prAdapter->chip_info->isSupportBand2) {
-		prAdapter->chip_info->au4DmaMaxQuotaRfBand[BAND_5G - 1] =
-			prAdapter->chip_info->au4DmaMaxQuotaRfBand[BAND_6G - 1];
-		DBGLOG(INIT, DEBUG, "Update 5G Band Quota[0x%x]\n",
-		       prAdapter->chip_info->au4DmaMaxQuotaRfBand[BAND_5G - 1]);
-	}
+	uint32_t u4Val = 0, u4Addr = 0;
 #endif
 
 	asicConnac3xDmashdlSetPlePsePktMaxPage(
@@ -320,22 +305,10 @@ void mt6653DmashdlInit(struct ADAPTER *prAdapter)
 			prAdapter, idx,
 			rMt6653DmashdlCfg.afgRefillEn[idx]);
 
-#if (CFG_DYNAMIC_DMASHDL_MAX_QUOTA == 1)
-		u4MinQuota = prAdapter->chip_info->u4DefaultMinQuota;
-		u4MaxQuota = asicConnac3xDynamicDmashdlGetInUsedMaxQuota(
-			prAdapter, idx, rMt6653DmashdlCfg.au2MaxQuota[idx]);
-		/* don't set quota on SER */
-		if (prHifInfo->rErrRecoveryCtl.eErrRecovState !=
-		    ERR_RECOV_STOP_IDLE)
-			fgSetQuota = FALSE;
-#else
-		u4MinQuota = rMt6653DmashdlCfg.au2MinQuota[idx];
-		u4MaxQuota = rMt6653DmashdlCfg.au2MaxQuota[idx];
-#endif
-		if (fgSetQuota) {
-			asicConnac3xDmashdlSetMinMaxQuota(
-				prAdapter, idx, u4MinQuota, u4MaxQuota);
-		}
+		asicConnac3xDmashdlSetMinMaxQuota(
+			prAdapter, idx,
+			rMt6653DmashdlCfg.au2MinQuota[idx],
+			rMt6653DmashdlCfg.au2MaxQuota[idx]);
 	}
 
 	for (idx = 0; idx < 32; idx++)
@@ -352,7 +325,8 @@ void mt6653DmashdlInit(struct ADAPTER *prAdapter)
 		WF_HIF_DMASHDL_TOP_PAGE_SETTING_SRC_CNT_PRI_EN_MASK |
 		WF_HIF_DMASHDL_TOP_PAGE_SETTING_DUMMY_01_MASK |
 		WF_HIF_DMASHDL_TOP_PAGE_SETTING_DUMMY_00_MASK |
-		WF_HIF_DMASHDL_TOP_PAGE_SETTING_SLOT_TYPE_ARBITER_CONTROL_MASK;
+		WF_HIF_DMASHDL_TOP_PAGE_SETTING_SLOT_TYPE_ARBITER_CONTROL_MASK |
+		WF_HIF_DMASHDL_TOP_PAGE_SETTING_PP_OFFSET_ADD_ENA_MASK;
 	asicConnac3xDmashdlSetSlotArbiter(
 		prAdapter,
 		rMt6653DmashdlCfg.fgSlotArbiterEn,
@@ -366,10 +340,6 @@ WF_HIF_DMASHDL_TOP_OPTIONAL_CONTROL_CR_PSEBF_BL_TH2_NOBMIN_RASIGN_ENA_MASK |
 		rMt6653DmashdlCfg.u2HifAckCntTh,
 		rMt6653DmashdlCfg.u2HifGupActMap,
 		u4DefVal);
-
-	u4Addr = WF_HIF_DMASHDL_TOP_ERROR_FLAG_CTRL_ADDR;
-	u4Val = 0xEFF;
-	HAL_MCR_WR(prAdapter, u4Addr, u4Val);
 
 #if (CFG_SUPPORT_HOST_OFFLOAD == 1)
 	if (IS_FEATURE_ENABLED(prWifiVar->fgEnableSdo)) {

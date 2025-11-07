@@ -10,6 +10,7 @@
  */
 
 #include <linux/vmalloc.h>
+#include <linux/swap.h>
 #include "rbinregion.h"
 
 static struct rbin_region region;
@@ -149,7 +150,8 @@ static struct rr_handle *region_get_freemem(void)
 	unsigned long flags;
 
 	spin_lock_irqsave(&region.lru_lock, flags);
-	if (list_empty(&region.freelist)) {
+	/* allow eviction only for kswapd context */
+	if (current_is_kswapd() && list_empty(&region.freelist)) {
 		spin_unlock_irqrestore(&region.lru_lock, flags);
 		region_mem_evict();
 		spin_lock_irqsave(&region.lru_lock, flags);

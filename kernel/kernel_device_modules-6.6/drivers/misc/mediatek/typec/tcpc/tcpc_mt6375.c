@@ -620,6 +620,7 @@ static inline int mt6375_init_alert_mask(struct mt6375_tcpc_data *ddata)
 				masks, sizeof(masks));
 }
 
+
 static int mt6375_enable_vsafe0v_detect(struct mt6375_tcpc_data *ddata, bool en)
 {
 	MT6375_DBGINFO("en = %d\n", en);
@@ -1221,7 +1222,7 @@ static void mt6375_wd_polling_dwork_handler(struct work_struct *work)
 		if (ret) {
 			if (i != 0)
 				schedule_delayed_work(dwork,
-						   msecs_to_jiffies(10000));
+						      msecs_to_jiffies(10000));
 			return;
 		}
 	}
@@ -1981,7 +1982,7 @@ static int mt6375_wd12_strise_irq_handler(struct mt6375_tcpc_data *ddata)
 	/* mask */
 	mt6375_clr_bits(ddata, MT6375_REG_MTMASK7, MT6375_MSK_WD12_STRISE);
 	schedule_delayed_work(&ddata->wd12_strise_irq_dwork,
-			   msecs_to_jiffies(900));
+			      msecs_to_jiffies(900));
 	return 0;
 }
 
@@ -2111,7 +2112,7 @@ static int mt6375_alert_vendor_defined_handler(struct tcpc_device *tcpc)
 					continue;
 			}
 			mt6375_vend_irq_mapping_tbl[i].hdlr(ddata);
-	}
+		}
 	}
 	return 0;
 }
@@ -2130,7 +2131,7 @@ static int mt6375_set_auto_dischg_discnt(struct tcpc_device *tcpc, bool en)
 		data &= ~TCPC_V10_REG_VBUS_MONITOR;
 		ret = mt6375_write8(ddata, TCPC_V10_REG_POWER_CTRL, data);
 		if (ret < 0)
-		return ret;
+			return ret;
 		data |= TCPC_V10_REG_AUTO_DISCHG_DISCNT;
 		return mt6375_write8(ddata, TCPC_V10_REG_POWER_CTRL, data);
 	}
@@ -2211,8 +2212,8 @@ static irqreturn_t mt6375_pd_evt_handler(int irq, void *data)
 	tcpci_lock_typec(ddata->tcpc);
 	do {
 		ret = tcpci_alert(ddata->tcpc, false);
+		tcpci_unlock_typec(ddata->tcpc);
 	} while (ret != -ENODATA);
-	tcpci_unlock_typec(ddata->tcpc);
 	pm_relax(ddata->dev);
 	MT6375_DBGINFO("--\n");
 

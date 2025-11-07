@@ -9,6 +9,7 @@
 
 #include <asm/unaligned.h>
 #include <linux/delay.h>
+#include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/ktime.h>
 #include <linux/mod_devicetable.h>
@@ -224,6 +225,26 @@ static int mt6379_probe(struct spmi_device *sdev)
 	return mt6379_device_init(data);
 }
 
+static int mt6379_spmi_suspend(struct device *dev)
+{
+	struct mt6379_data *data = dev_get_drvdata(dev);
+
+	disable_irq(data->irq);
+	return 0;
+}
+
+static int mt6379_spmi_resume(struct device *dev)
+{
+	struct mt6379_data *data = dev_get_drvdata(dev);
+
+	enable_irq(data->irq);
+	return 0;
+}
+
+static const struct dev_pm_ops mt6379_spmi_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(mt6379_spmi_suspend, mt6379_spmi_resume)
+};
+
 static const struct of_device_id mt6379_spmi_dt_match[] = {
 	{ .compatible = "mediatek,mt6379" },
 	{ /*sentinel */ }
@@ -234,6 +255,7 @@ static struct spmi_driver mt6379_spmi_driver = {
 	.driver = {
 		.name = "mt6379",
 		.of_match_table = mt6379_spmi_dt_match,
+		.pm = &mt6379_spmi_pm_ops,
 	},
 	.probe = mt6379_probe
 };

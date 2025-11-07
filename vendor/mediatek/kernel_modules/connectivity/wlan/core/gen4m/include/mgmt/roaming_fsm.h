@@ -34,15 +34,12 @@
 #define ROAMING_DISCOVER_TIMEOUT_SEC		10	/* Seconds. */
 #endif
 #define ROAMING_INACTIVE_TIMEOUT_SEC		10	/* Seconds. */
-#if CFG_SUPPORT_ROAMING_SKIP_ONE_AP
-#define ROAMING_ONE_AP_SKIP_TIMES		3
-#endif
 #define ROAMING_BTM_DELTA			0	/* % */
 
 #define ROAMING_RECOVER_RLM_SYNC		0
 #define ROAMING_RECOVER_BSS_UPDATE		1
 
-#define ROAMING_SCAN_NON_DFS_CH_DWELL_TIME	(20)	/* Ms */
+#define RCPI_FOR_DONT_ROAM                      54 /*-83dbm*/
 
 /*******************************************************************************
  *                             D A T A   T Y P E S
@@ -74,7 +71,7 @@ struct CMD_ROAMING_TRANSIT {
 	uint16_t u2Event;
 	uint16_t u2Data;
 	uint16_t u2RcpiLowThreshold;
-	uint8_t ucIsSupport11B;
+	u_int8_t fgIsAggressive;
 	uint8_t ucBssidx;
 	enum ENUM_ROAMING_REASON eReason;
 	uint32_t u4RoamingTriggerTime; /*sec in mcu*/
@@ -90,14 +87,6 @@ struct CMD_ROAMING_CTRL {
 	uint8_t ucRoamingStableTimeout;
 	uint8_t aucReserved[2];
 };
-
-#if CFG_SUPPORT_ROAMING_SKIP_ONE_AP
-struct CMD_ROAMING_SKIP_ONE_AP {
-	uint8_t	  fgIsRoamingSkipOneAP;
-	uint8_t	  aucReserved[3];
-	uint8_t	  aucReserved2[8];
-};
-#endif
 
 enum ENUM_ROAMING_STATE {
 	ROAMING_STATE_IDLE = 0,
@@ -122,45 +111,6 @@ struct ROAMING_REPORT_INFO {
 	enum ENUM_ROAMING_FAIL_REASON eFailReason;
 };
 
-#if (CFG_EXT_ROAMING == 1)
-enum ENUM_ROAMING_SCAN_SORUCE {
-	ROAMING_SCAN_INVALID = 0,
-	ROAMING_SCAN_SINGLE_TIMER,     /* Scan Timer1 */
-	ROAMING_SCAN_INACTIVE_TIMER,   /* Inactive Timer */
-	ROAMING_SCAN_NUM
-};
-
-struct ROAMING_SCAN_CADENCE {
-	struct TIMER rScanTimer;
-	uint8_t fgIsInitialConn;
-	uint8_t ucScanSource;
-	uint8_t ucFullScanCount;
-	uint32_t u4ScanScheduleSec;
-};
-#endif
-
-enum ENUM_ROAMING_SCAN_TYPE {
-	ROAMING_SCAN_TYPE_NORMAL = 0,
-	ROAMING_SCAN_TYPE_PARTIAL_ONLY,     /* Only perform partial scan */
-	ROAMING_SCAN_TYPE_FULL_ONLY,        /* Only perform full scan */
-	ROAMING_SCAN_TYPE_NUM
-};
-
-enum ENUM_ROAMING_SCAN_MODE {
-	ROAMING_SCAN_MODE_NORMAL = 0,
-	ROAMING_SCAN_MODE_LOW_LATENCY,
-	ROAMING_SCAN_MODE_NUM
-};
-
-struct ROAMING_SCAN_PARAMETER {
-	uint8_t ucScanType;
-	uint8_t ucScanCount;
-	uint8_t ucScanMode;
-
-	u_int8_t fgSpecifyBssid;
-	uint8_t aucBssid[MAC_ADDR_LEN];
-};
-
 struct ROAMING_INFO {
 	enum ENUM_ROAMING_STATE eCurrentState;
 
@@ -169,6 +119,7 @@ struct ROAMING_INFO {
 	uint32_t u4BssIdxBmap;
 	uint32_t u4RoamingFwTime;
 
+	OS_SYSTIME rRoamingDiscoveryUpdateTime;
 #if CFG_SUPPORT_DRIVER_ROAMING
 	OS_SYSTIME rRoamingLastDecisionTime;
 #endif
@@ -177,7 +128,7 @@ struct ROAMING_INFO {
 	uint8_t ucPER;
 	uint8_t ucRcpi;
 	uint8_t ucThreshold;
-	uint8_t ucRspBssIndex;
+	u_int8_t fgIsAggressive;
 	struct ROAMING_REPORT_INFO rReportInfo;
 #if (CFG_EXT_ROAMING == 1)
 	struct ROAMING_SCAN_CADENCE rScanCadence;
@@ -186,24 +137,6 @@ struct ROAMING_INFO {
 	struct TIMER rTxReqDoneRxRespTimer;
 	struct BSS_DESC_SET *prRoamTarget;
 	uint8_t ucTxActionRetryCount;
-
-	struct ROAMING_SCAN_PARAMETER rRoamScanParam;
-};
-
-static const char * const apucRoamingReasonStr[ROAMING_REASON_NUM] = {
-	"POOR_RCPI",
-	"TX_ERR",
-	"RETRY",
-	"IDLE",
-	"HIGH_CU",
-	"BT_COEX",
-	"BTO",
-	"INACTIVE",
-	"SAA",
-	"USER_TRIGGER",
-	"BTM",
-	"SCAN_SINGLE_TIMER",
-	"INACTIVE_TIMER",
 };
 
 /*******************************************************************************
@@ -215,6 +148,29 @@ static const char * const apucRoamingReasonStr[ROAMING_REASON_NUM] = {
  *                           P R I V A T E   D A T A
  *******************************************************************************
  */
+
+static uint8_t *apucRoamReasonStr[ROAMING_REASON_NUM] = {
+	(uint8_t *) DISP_STRING("POOR_RCPI"),
+	(uint8_t *) DISP_STRING("TX_ERR"),
+	(uint8_t *) DISP_STRING("RETRY"),
+	(uint8_t *) DISP_STRING("IDLE"),
+	(uint8_t *) DISP_STRING("BEACON_TIMEOUT"),
+	(uint8_t *) DISP_STRING("INACTIVE"),
+	(uint8_t *) DISP_STRING("SAA_FAIL"),
+	(uint8_t *) DISP_STRING("UPPER_LAYER_TRIGGER"),
+	(uint8_t *) DISP_STRING("BTM"),
+	(uint8_t *) DISP_STRING("REASSOC"),
+	(uint8_t *) DISP_STRING("TEMP_REJECT"),
+};
+
+static uint8_t *apucFailReasonStr[ROAMING_FAIL_REASON_NUM] = {
+	(uint8_t *) DISP_STRING("CONNLIMIT"),
+	(uint8_t *) DISP_STRING("NOCANDIDATE"),
+	(uint8_t *) DISP_STRING("AUTH_FAIL"),
+	(uint8_t *) DISP_STRING("ASSOC_FAIL"),
+	(uint8_t *) DISP_STRING("WFD_ONGOING"),
+	(uint8_t *) DISP_STRING("CONSECUTIVE_PER"),
+};
 
 /*******************************************************************************
  *                                 M A C R O S
@@ -284,9 +240,6 @@ void roamingFsmTxReqDoneOrRxRespTimeout(
 
 u_int8_t roamingFsmCheckIfRoaming(struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex);
-
-void roamingFsmBTMTimeout(struct ADAPTER *prAdapter,
-	uintptr_t ulParamPtr);
 
 void roamingRecordCurrentStatus(struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex);

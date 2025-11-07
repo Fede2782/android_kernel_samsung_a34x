@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -62,6 +62,12 @@ uint8_t rsnKeyMgmtSae(uint32_t akm)
 	return akm == RSN_AKM_SUITE_SAE ||
 	       akm == RSN_AKM_SUITE_SAE_EXT_KEY ||
 	       akm == RSN_AKM_SUITE_FT_OVER_SAE ||
+	       akm == RSN_AKM_SUITE_FT_SAE_EXT_KEY;
+}
+
+uint8_t rsnKeyMgmtEhtSae(uint32_t akm)
+{
+	return akm == RSN_AKM_SUITE_SAE_EXT_KEY ||
 	       akm == RSN_AKM_SUITE_FT_SAE_EXT_KEY;
 }
 
@@ -175,14 +181,14 @@ uint32_t rsnKeyMgmtToAuthMode(enum ENUM_PARAM_AUTH_MODE eOriAuthMode,
 uint32_t rsnCipherToBit(uint32_t cipher)
 {
 #define WPACIPHER2BIT(x) \
-do { \
+	do { \
 	case (WPA_CIPHER_SUITE_##x): return (WPA_CIPHER_SUITE_##x##_BIT); \
-} while (FALSE)
+	} while (FALSE)
 
 #define RSNCIPHER2BIT(x) \
-do { \
+	do { \
 	case (RSN_CIPHER_SUITE_##x): return (RSN_CIPHER_SUITE_##x##_BIT); \
-} while (FALSE)
+	} while (FALSE)
 
 	/* sync with dot11RSNAConfigPairwiseCiphersTable */
 	switch (cipher) {
@@ -206,13 +212,13 @@ do { \
 uint32_t rsnKeyMgmtToBit(uint32_t akm)
 {
 #define WPAAKM2BIT(x) \
-do { \
+	do { \
 	case (WPA_AKM_SUITE_##x): return (WPA_AKM_SUITE_##x##_BIT); \
-} while (FALSE)
+	} while (FALSE)
 #define RSNAKM2BIT(x) \
-do { \
+	do { \
 	case (RSN_AKM_SUITE_##x): return (RSN_AKM_SUITE_##x##_BIT); \
-} while (FALSE)
+	} while (FALSE)
 
 	/* sync with dot11RSNAConfigAuthenticationSuitesTable */
 	switch (akm) {
@@ -259,7 +265,7 @@ uint8_t rsnApOverload(uint16_t status, uint16_t reason)
 	return FALSE;
 }
 
-uint8_t rsnApInvalidPMK(uint16_t status, uint16_t reason,
+uint8_t rsnApInvalidPMK(uint16_t status,
 	enum ENUM_PARAM_AUTH_MODE AuthMode)
 {
 	switch (status) {
@@ -275,12 +281,6 @@ uint8_t rsnApInvalidPMK(uint16_t status, uint16_t reason,
 		    AuthMode == AUTH_MODE_WPA3_SAE)
 			return TRUE;
 		break;
-	}
-
-	switch (reason) {
-	case REASON_CODE_PREV_AUTH_INVALID:
-	case REASON_CODE_INVALID_PMKID:
-		return TRUE;
 	}
 	return FALSE;
 }
@@ -329,6 +329,12 @@ uint8_t rsnIsKeyMgmtIeee8021x(uint32_t akm)
 	       akm == RSN_AKM_SUITE_FT_FILS_SHA384;
 }
 
+uint8_t rsnIsKeyMgmtEhtIeee8021x(uint32_t akm)
+{
+	return akm == RSN_AKM_SUITE_FT_802_1X ||
+	       akm == RSN_AKM_SUITE_802_1X_SHA256;
+}
+
 uint8_t rsnKekLen(uint32_t akmp, uint16_t pmk_len)
 {
 	switch (akmp) {
@@ -373,30 +379,26 @@ uint8_t rsnCipherKeyLen(uint32_t cipher)
 }
 
 u_int8_t rsnParseRsnxIE(struct ADAPTER *prAdapter,
-		uint8_t *pucInfoElem, struct RSNX_INFO *prRsnxeInfo)
+				   struct RSNX_INFO_ELEM *prInfoElem,
+				   struct RSNX_INFO *prRsnxeInfo)
 {
 	uint8_t *cp;
-	uint16_t u2Cap = 0, u2Left;
+	uint16_t u2Cap = 0;
 
-	if (IE_ID(pucInfoElem) == ELEM_ID_VENDOR &&
-	    IE_LEN(pucInfoElem) >= 4 + 1) {
-		cp = pucInfoElem + 2 + 4;
-		u2Left = IE_LEN(pucInfoElem) - 4;
-	} else if (IE_ID(pucInfoElem) == ELEM_ID_RSNX &&
-		   IE_LEN(pucInfoElem) >= 1) {
-		cp = pucInfoElem + 2;
-		u2Left = IE_LEN(pucInfoElem);
-	} else {
-		DBGLOG(RSN, WARN, "IEID=%d IELEN=%d too short\n",
-		       IE_ID(pucInfoElem), IE_LEN(pucInfoElem));
+	if (prInfoElem->ucLength < 1) {
+		DBGLOG(RSN, TRACE, "RSNXE IE length too short (length=%d)\n",
+		       prInfoElem->ucLength);
 		return FALSE;
 	}
 
-	if (u2Left >= 1)
-		u2Cap = *cp;
-	if (u2Left >= 2)
-		u2Cap = WLAN_GET_LE16(cp);
+	cp = (uint8_t *) prInfoElem->aucCap;
+	if (prInfoElem->ucLength == 1) {
+		uint8_t ucCap = *cp;
 
+		u2Cap = (uint16_t) ucCap & 0x00ff;
+	} else if (prInfoElem->ucLength >= 2) {
+		WLAN_GET_FIELD_16(cp, &u2Cap);
+	}
 	prRsnxeInfo->u2Cap = u2Cap;
 
 	DBGLOG(RSN, LOUD, "parse RSNXE cap: 0x%x\n",
@@ -418,13 +420,15 @@ u_int8_t rsnParseRsnxIE(struct ADAPTER *prAdapter,
  */
 /*----------------------------------------------------------------------------*/
 u_int8_t rsnParseRsnIE(struct ADAPTER *prAdapter,
-		       uint8_t *pucInfoElem,
+		       struct RSN_INFO_ELEM *prInfoElem,
 		       struct RSN_INFO *prRsnInfo)
 {
-	uint8_t i, j;
-	uint16_t u2RemainRsnIeLen;
-	uint16_t u2Version = VERSION_RSN;
-	uint16_t ucOuiType = 0;
+	/*FC-5.2.3.3 has max suites number of 55 by testBed AP*/
+#define MAX_SUITE_COUNT 55
+
+	uint32_t i;
+	int32_t i4RemainRsnIeLen;
+	uint16_t u2Version;
 	uint16_t u2Cap = 0;
 	uint32_t u4GroupSuite = RSN_CIPHER_SUITE_CCMP;
 	uint16_t u2PairSuiteCount = 0;
@@ -433,131 +437,125 @@ u_int8_t rsnParseRsnIE(struct ADAPTER *prAdapter,
 	uint8_t *pucAuthSuite = NULL;
 	uint16_t u2PmkidCount = 0;
 	uint32_t u4GroupMgmtSuite = RSN_CIPHER_SUITE_BIP_CMAC_128;
-	uint32_t u4PairwiseCipher = RSN_CIPHER_SUITE_CCMP;
-	uint32_t u4AuthSuite = RSN_AKM_SUITE_802_1X;
 	uint8_t *cp;
+	uint32_t u4AuthKeyMgtSuite = 0;
+	uint32_t u4PairwiseKeyCipherSuite = 0;
 
-	/* Verify the length/version of the RSN IE. */
-	if (IE_ID(pucInfoElem) == ELEM_ID_VENDOR &&
-	    IE_LEN(pucInfoElem) >= 4 + 2 &&
-	    (WLAN_GET_BE32(&pucInfoElem[2]) == VENDOR_IE_TYPE_RSNO ||
-	     WLAN_GET_BE32(&pucInfoElem[2]) == VENDOR_IE_TYPE_RSNO2) &&
-	     WLAN_GET_LE16(&pucInfoElem[2 + 4]) == u2Version) {
-		cp = pucInfoElem + 2 + 4 + 2;
-		u2RemainRsnIeLen = IE_LEN(pucInfoElem) - 4 - 2;
-
-		if (WLAN_GET_BE32(&pucInfoElem[2]) == VENDOR_IE_TYPE_RSNO)
-			ucOuiType = VENDOR_OUI_TYPE_RSNO;
-		else
-			ucOuiType = VENDOR_OUI_TYPE_RSNO2;
-	} else if (IE_ID(pucInfoElem) == WLAN_EID_RSN &&
-		   IE_LEN(pucInfoElem) >= 2 &&
-		   WLAN_GET_LE16(&pucInfoElem[2]) == u2Version) {
-		cp = pucInfoElem + 2 + 2;
-		u2RemainRsnIeLen = IE_LEN(pucInfoElem) - 2;
-	} else {
-		DBGDUMP_MEM8(RSN, WARN, "Unsupported RSN IE\n",
-			pucInfoElem, IE_SIZE(pucInfoElem));
+	/* Verify the length of the RSN IE. */
+	if (prInfoElem->ucLength < 2) {
+		DBGLOG(RSN, TRACE, "RSN IE length too short (length=%d)\n",
+		       prInfoElem->ucLength);
 		return FALSE;
 	}
 
+	/* Check RSN version: currently, we only support version 1. */
+	WLAN_GET_FIELD_16(&prInfoElem->u2Version, &u2Version);
+	if (u2Version != 1) {
+		DBGLOG(RSN, TRACE, "Unsupported RSN IE version: %d\n",
+		       u2Version);
+		return FALSE;
+	}
+
+	cp = (uint8_t *) &prInfoElem->u4GroupKeyCipherSuite;
+	i4RemainRsnIeLen = (int32_t) prInfoElem->ucLength - 2;
+
 	do {
-		if (u2RemainRsnIeLen == 0)
+		if (i4RemainRsnIeLen == 0)
 			break;
 
 		/* Parse the Group Key Cipher Suite field. */
-		if (u2RemainRsnIeLen < 4) {
+		if (i4RemainRsnIeLen < 4) {
 			DBGLOG(RSN, TRACE,
 			       "Fail to parse RSN IE in group cipher suite (IE len: %d)\n",
-			       IE_LEN(pucInfoElem));
+			       prInfoElem->ucLength);
 			return FALSE;
 		}
 
 		WLAN_GET_FIELD_32(cp, &u4GroupSuite);
 		cp += 4;
-		u2RemainRsnIeLen -= 4;
+		i4RemainRsnIeLen -= 4;
 
-		if (u2RemainRsnIeLen == 0)
+		if (i4RemainRsnIeLen == 0)
 			break;
 
 		/* Parse the Pairwise Key Cipher Suite Count field. */
-		if (u2RemainRsnIeLen < 2) {
+		if (i4RemainRsnIeLen < 2) {
 			DBGLOG(RSN, TRACE,
 			       "Fail to parse RSN IE in pairwise cipher suite count (IE len: %d)\n",
-			       IE_LEN(pucInfoElem));
+			       prInfoElem->ucLength);
 			return FALSE;
 		}
 
 		WLAN_GET_FIELD_16(cp, &u2PairSuiteCount);
 		cp += 2;
-		u2RemainRsnIeLen -= 2;
+		i4RemainRsnIeLen -= 2;
 
 		/* Parse the Pairwise Key Cipher Suite List field. */
-		if (u2PairSuiteCount == 0 || u2PairSuiteCount * 4 > 255 ||
-		    u2RemainRsnIeLen < u2PairSuiteCount * 4) {
+		i = (uint32_t) u2PairSuiteCount * 4;
+		if (i4RemainRsnIeLen < (int32_t) i) {
 			DBGLOG(RSN, TRACE,
-			       "Fail to parse RSN IE in pairwise cipher suite list (IE len: %d, count=%d)\n",
-			       IE_LEN(pucInfoElem), u2PairSuiteCount);
+			       "Fail to parse RSN IE in pairwise cipher suite list (IE len: %d)\n",
+			       prInfoElem->ucLength);
 			return FALSE;
 		}
 
 		pucPairSuite = cp;
 
-		cp += u2PairSuiteCount * 4;
-		u2RemainRsnIeLen -= u2PairSuiteCount * 4;
+		cp += i;
+		i4RemainRsnIeLen -= (int32_t) i;
 
-		if (u2RemainRsnIeLen == 0)
+		if (i4RemainRsnIeLen == 0)
 			break;
 
 		/* Parse the Authentication and Key Management Cipher
 		 * Suite Count field.
 		 */
-		if (u2RemainRsnIeLen < 2) {
+		if (i4RemainRsnIeLen < 2) {
 			DBGLOG(RSN, TRACE,
 			       "Fail to parse RSN IE in auth & key mgt suite count (IE len: %d)\n",
-			       IE_LEN(pucInfoElem));
+			       prInfoElem->ucLength);
 			return FALSE;
 		}
 
 		WLAN_GET_FIELD_16(cp, &u2AuthSuiteCount);
 		cp += 2;
-		u2RemainRsnIeLen -= 2;
+		i4RemainRsnIeLen -= 2;
 
 		/* Parse the Authentication and Key Management Cipher
 		 * Suite List field.
 		 */
-		if (u2AuthSuiteCount == 0 || u2AuthSuiteCount * 4 > 255 ||
-		    u2RemainRsnIeLen < u2AuthSuiteCount * 4) {
+		i = (uint32_t) u2AuthSuiteCount * 4;
+		if (i4RemainRsnIeLen < (int32_t) i) {
 			DBGLOG(RSN, TRACE,
-			       "Fail to parse RSN IE in auth & key mgt suite list (IE len: %d, count=%d)\n",
-			       IE_LEN(pucInfoElem), u2AuthSuiteCount);
+			       "Fail to parse RSN IE in auth & key mgt suite list (IE len: %d)\n",
+			       prInfoElem->ucLength);
 			return FALSE;
 		}
 
 		pucAuthSuite = cp;
 
-		cp += u2AuthSuiteCount * 4;
-		u2RemainRsnIeLen -= u2AuthSuiteCount * 4;
+		cp += i;
+		i4RemainRsnIeLen -= (int32_t) i;
 
-		if (u2RemainRsnIeLen == 0)
+		if (i4RemainRsnIeLen == 0)
 			break;
 
 		/* Parse the RSN u2Capabilities field. */
-		if (u2RemainRsnIeLen < 2) {
+		if (i4RemainRsnIeLen < 2) {
 			DBGLOG(RSN, TRACE,
 			       "Fail to parse RSN IE in RSN capabilities (IE len: %d)\n",
-			       IE_LEN(pucInfoElem));
+			       prInfoElem->ucLength);
 			return FALSE;
 		}
 
 		WLAN_GET_FIELD_16(cp, &u2Cap);
 		cp += 2;
-		u2RemainRsnIeLen -= 2;
+		i4RemainRsnIeLen -= 2;
 
-		if (u2RemainRsnIeLen == 0)
+		if (i4RemainRsnIeLen == 0)
 			break;
 
-		if (u2RemainRsnIeLen < 2) {
+		if (i4RemainRsnIeLen < 2) {
 			DBGLOG(RSN, TRACE,
 				"Fail to parse PMKID count in RSN iE\n");
 			return FALSE;
@@ -565,7 +563,7 @@ u_int8_t rsnParseRsnIE(struct ADAPTER *prAdapter,
 
 		WLAN_GET_FIELD_16(cp, &u2PmkidCount);
 		cp += 2;
-		u2RemainRsnIeLen -= 2;
+		i4RemainRsnIeLen -= 2;
 
 		if (u2PmkidCount > 4) {
 			DBGLOG(RSN, TRACE,
@@ -574,7 +572,7 @@ u_int8_t rsnParseRsnIE(struct ADAPTER *prAdapter,
 			return FALSE;
 		}
 
-		if (u2PmkidCount > 0 && u2RemainRsnIeLen < 16 * u2PmkidCount) {
+		if (u2PmkidCount > 0 && i4RemainRsnIeLen < 16 * u2PmkidCount) {
 			DBGLOG(RSN, TRACE,
 				"Fail to parse PMKID in RSN iE, count: %d\n",
 				u2PmkidCount);
@@ -584,14 +582,14 @@ u_int8_t rsnParseRsnIE(struct ADAPTER *prAdapter,
 		if (u2PmkidCount > 0) {
 			kalMemCopy(prRsnInfo->aucPmkid, cp, IW_PMKID_LEN);
 			cp += IW_PMKID_LEN;
-			u2RemainRsnIeLen -= IW_PMKID_LEN;
+			i4RemainRsnIeLen -= IW_PMKID_LEN;
 		}
 
-		if (u2RemainRsnIeLen == 0)
+		if (i4RemainRsnIeLen == 0)
 			break;
 
 		/* Parse the Group Management Cipher Suite field */
-		if (u2RemainRsnIeLen < 4) {
+		if (i4RemainRsnIeLen < 4) {
 			DBGLOG(RSN, TRACE,
 				"Fail to parse group mgmt cipher suite in RSN IE\n");
 			break;
@@ -599,19 +597,17 @@ u_int8_t rsnParseRsnIE(struct ADAPTER *prAdapter,
 
 		WLAN_GET_FIELD_32(cp, &u4GroupMgmtSuite);
 		cp += 4;
-		u2RemainRsnIeLen -= 4;
+		i4RemainRsnIeLen -= 4;
 
-		if (u2RemainRsnIeLen == 0)
+		if (i4RemainRsnIeLen == 0)
 			break;
 
 	} while (FALSE);
 
 	/* Save the RSN information for the BSS. */
-	prRsnInfo->ucElemId = IE_ID(pucInfoElem);
+	prRsnInfo->ucElemId = ELEM_ID_RSN;
 
 	prRsnInfo->u2Version = u2Version;
-
-	prRsnInfo->ucOuiType = ucOuiType;
 
 	prRsnInfo->u4GroupKeyCipherSuite = u4GroupSuite;
 
@@ -623,25 +619,35 @@ u_int8_t rsnParseRsnIE(struct ADAPTER *prAdapter,
 		/* The information about the pairwise key cipher suites
 		 * is present.
 		 */
-		for (i = 0, j = 0; i < u2PairSuiteCount &&
-			j < MAX_NUM_SUPPORTED_CIPHER_SUITES; i++) {
-
-			WLAN_GET_FIELD_32(pucPairSuite,
-					  &u4PairwiseCipher);
-			pucPairSuite += 4;
-
-			if (rsnCipherToBit(u4PairwiseCipher) == 0)
-				continue;
-
-			prRsnInfo->au4PairwiseKeyCipherSuite[j++] =
-				u4PairwiseCipher;
-
-			DBGLOG(RSN, LOUD,
-			   "RSN: pairwise key cipher suite [%d]: 0x%x\n",
-			   j - 1, SWAP32(u4PairwiseCipher));
+		prRsnInfo->u4PairwiseKeyCipherSuiteCount = 0;
+		if (u2PairSuiteCount > MAX_SUITE_COUNT) {
+			u2PairSuiteCount = MAX_SUITE_COUNT;
+			DBGLOG(RSN, WARN,
+				"only parse %d pairwise suite\n",
+				MAX_SUITE_COUNT);
 		}
 
-		prRsnInfo->u4PairwiseKeyCipherSuiteCount = j;
+		for (i = 0; i < (uint32_t) u2PairSuiteCount; i++) {
+			if (prRsnInfo->u4PairwiseKeyCipherSuiteCount >=
+				MAX_NUM_SUPPORTED_CIPHER_SUITES)
+				break;
+			WLAN_GET_FIELD_32(pucPairSuite,
+					  &u4PairwiseKeyCipherSuite);
+			pucPairSuite += 4;
+
+			if (rsnCipherToBit(u4PairwiseKeyCipherSuite)) {
+				DBGLOG(RSN, LOUD,
+					"RSN: pairwise [%d]: 0x%x\n",
+					i, SWAP32(u4PairwiseKeyCipherSuite));
+				prRsnInfo->au4PairwiseKeyCipherSuite[prRsnInfo
+					->u4PairwiseKeyCipherSuiteCount] =
+					u4PairwiseKeyCipherSuite;
+				prRsnInfo->u4PairwiseKeyCipherSuiteCount++;
+			} else
+				DBGLOG(RSN, INFO,
+					"RSN: Invalid pairwise [%d]: 0x%x\n",
+					i, SWAP32(u4PairwiseKeyCipherSuite));
+		}
 	} else {
 		/* The information about the pairwise key cipher suites
 		 * is not present. Use the default chipher suite for RSN: CCMP.
@@ -658,25 +664,35 @@ u_int8_t rsnParseRsnIE(struct ADAPTER *prAdapter,
 		/* The information about the authentication and
 		 * key management suites is present.
 		 */
-		for (i = 0, j = 0; i < u2AuthSuiteCount &&
-			j < MAX_NUM_SUPPORTED_AKM_SUITES; i++) {
-
-			WLAN_GET_FIELD_32(pucAuthSuite,
-					  &u4AuthSuite);
-			pucAuthSuite += 4;
-
-			if (rsnKeyMgmtToBit(u4AuthSuite) == 0)
-				continue;
-
-			prRsnInfo->au4AuthKeyMgtSuite[j++] =
-				u4AuthSuite;
-
-			DBGLOG(RSN, LOUD,
-			   "RSN: AKM suite [%d]:: 0x%x\n",
-			   j - 1, SWAP32(u4AuthSuite));
+		prRsnInfo->u4AuthKeyMgtSuiteCount = 0;
+		if (u2AuthSuiteCount > MAX_SUITE_COUNT) {
+			u2AuthSuiteCount = MAX_SUITE_COUNT;
+			DBGLOG(RSN, WARN,
+				"only parse %d AKM suite\n",
+				MAX_SUITE_COUNT);
 		}
 
-		prRsnInfo->u4AuthKeyMgtSuiteCount = j;
+		for (i = 0; i < (uint32_t) u2AuthSuiteCount; i++) {
+			if (prRsnInfo->u4AuthKeyMgtSuiteCount >=
+				MAX_NUM_SUPPORTED_AKM_SUITES)
+				break;
+
+			WLAN_GET_FIELD_32(pucAuthSuite,
+					  &u4AuthKeyMgtSuite);
+			pucAuthSuite += 4;
+
+			if (rsnKeyMgmtToBit(u4AuthKeyMgtSuite)) {
+				DBGLOG(RSN, LOUD, "RSN: AKM [%d]: 0x%x\n",
+					i, SWAP32(u4AuthKeyMgtSuite));
+				prRsnInfo->au4AuthKeyMgtSuite[
+					prRsnInfo->u4AuthKeyMgtSuiteCount] =
+					u4AuthKeyMgtSuite;
+				prRsnInfo->u4AuthKeyMgtSuiteCount++;
+			} else
+				DBGLOG(RSN, INFO,
+					"RSN: Invalid AKM [%d]: 0x%x\n",
+					i, SWAP32(u4AuthKeyMgtSuite));
+		}
 	} else {
 		/* The information about the authentication and
 		 * key management suites is not present.
@@ -687,6 +703,16 @@ u_int8_t rsnParseRsnIE(struct ADAPTER *prAdapter,
 
 		DBGLOG(RSN, LOUD, "RSN: AKM suite: 0x%x (default)\n",
 			SWAP32(prRsnInfo->au4AuthKeyMgtSuite[0]));
+	}
+
+	if (prRsnInfo->u4AuthKeyMgtSuiteCount == 0) {
+		DBGLOG(RSN, WARN,
+			"Fail to parse AKM in RSN IE\n");
+	}
+
+	if (prRsnInfo->u4PairwiseKeyCipherSuiteCount == 0) {
+		DBGLOG(RSN, WARN,
+			"Fail to parse cipher in RSN IE\n");
 	}
 
 	prRsnInfo->u2RsnCap = u2Cap;
@@ -740,7 +766,7 @@ u_int8_t rsnParseWpaIE(struct ADAPTER *prAdapter,
 
 	/* Check WPA version: currently, we only support version 1. */
 	WLAN_GET_FIELD_16(&prInfoElem->u2Version, &u2Version);
-	if (u2Version != VERSION_WPA) {
+	if (u2Version != 1) {
 		DBGLOG(RSN, TRACE, "Unsupported WPA IE version: %d\n",
 		       u2Version);
 		return FALSE;
@@ -858,8 +884,6 @@ u_int8_t rsnParseWpaIE(struct ADAPTER *prAdapter,
 	prWpaInfo->ucElemId = ELEM_ID_WPA;
 
 	prWpaInfo->u2Version = u2Version;
-
-	prWpaInfo->ucOuiType = VENDOR_OUI_TYPE_WPA;
 
 	prWpaInfo->u4GroupKeyCipherSuite = u4GroupSuite;
 
@@ -1019,6 +1043,11 @@ u_int8_t rsnIsSuitableBSS(struct ADAPTER *prAdapter,
 
 	/* check pairwise */
 	c = prBssRsnInfo->u4PairwiseKeyCipherSuiteCount;
+	if (c == 0) {
+		DBGLOG(RSN, WARN, "No PTK found\n");
+		return FALSE;
+	}
+
 	for (i = 0; i < c; i++) {
 		k = prBssRsnInfo->au4PairwiseKeyCipherSuite[i];
 		if (rsnSearchSupportedCipher(prAdapter, k, ucBssIndex)) {
@@ -1037,6 +1066,11 @@ u_int8_t rsnIsSuitableBSS(struct ADAPTER *prAdapter,
 
 	/* check akm */
 	c = prBssRsnInfo->u4AuthKeyMgtSuiteCount;
+	if (c == 0) {
+		DBGLOG(RSN, WARN, "No AuthKey found\n");
+		return FALSE;
+	}
+
 	for (i = 0; i < c; i++) {
 		k = prBssRsnInfo->au4AuthKeyMgtSuite[i];
 		if (rsnSearchAKMSuite(prAdapter, k, ucBssIndex)) {
@@ -1147,14 +1181,8 @@ uint8_t rsnIsKeyMgmtForWpa3(struct ADAPTER *ad,
 
 	fgIsSAEH2E = fgIsSAE &&
 		(prWpaInfo->u2RSNXCap & BIT(WLAN_RSNX_CAPAB_SAE_H2E)) &&
-		((prBss->fgIERSNX &&
-			prBss->u2RsnxCap & BIT(WLAN_RSNX_CAPAB_SAE_H2E))
-#if (CFG_SUPPORT_RSNO == 1)
-		 || (prBss->fgIERSNXO &&
-			prBss->u2RsnxoCap & BIT(WLAN_RSNX_CAPAB_SAE_H2E))
-#endif /* CFG_SUPPORT_RSNO */
-		);
-
+		(prBss->fgIERSNX &&
+			prBss->u2RsnxCap & BIT(WLAN_RSNX_CAPAB_SAE_H2E));
 	if (fgCheckH2E)
 		return (fgIsOWE || fgIsSAEH2E);
 	else
@@ -1198,16 +1226,46 @@ uint8_t rsnIsKeyMgmtFor6g(struct ADAPTER *ad,
 uint8_t rsnIsKeyMgmtForEht(struct ADAPTER *ad,
 	struct BSS_DESC *prBss, uint8_t bssidx)
 {
-	if (rsnIsKeyMgmtIeee8021x(prBss->u4RsnSelectedAKMSuite))
-		return TRUE;
+	struct WIFI_VAR *prWifiVar = &ad->rWifiVar;
 
-	if (rsnIsKeyMgmtForWpa3(ad, prBss->u4RsnSelectedAKMSuite,
+#if WLAN_INCLUDE_SYS
+	if (ad->fgEnRfTestMode) {
+		DBGLOG(RSN, INFO,
+			"RF test mode for EHT: all security type is allowed\n");
+		return TRUE;
+	}
+#endif
+
+	/* FC cert: only AKM3/5 is allowed for EHT WPA3 enterprise;
+	 * only AKM24/25 is allowed for EHT WPA3 personal
+	 */
+	if (prWifiVar->fgEhtAkmCheck) {
+		DBGLOG(RSN, TRACE,
+			"EHT AKM check: limited akm are allowed, akm=0x%04x\n",
+			prBss->u4RsnSelectedAKMSuite);
+		if (rsnIsKeyMgmtEhtIeee8021x(prBss->u4RsnSelectedAKMSuite))
+			return TRUE;
+
+		if (rsnKeyMgmtEhtSae(prBss->u4RsnSelectedAKMSuite) &&
+			rsnIsKeyMgmtForWpa3(ad, prBss->u4RsnSelectedAKMSuite,
 #if (CFG_WIFI_EHT_H2E_CHK == 1)
 				bssidx, prBss, TRUE))
 #else
 				bssidx, prBss, FALSE))
 #endif
-		return TRUE;
+			return TRUE;
+	} else {
+	/* No strict EHT AKM check for IoT */
+		if (rsnIsKeyMgmtIeee8021x(prBss->u4RsnSelectedAKMSuite))
+			return TRUE;
+		if (rsnIsKeyMgmtForWpa3(ad, prBss->u4RsnSelectedAKMSuite,
+#if (CFG_WIFI_EHT_H2E_CHK == 1)
+				bssidx, prBss, TRUE))
+#else
+				bssidx, prBss, FALSE))
+#endif
+			return TRUE;
+	}
 
 	return FALSE;
 }
@@ -1231,12 +1289,24 @@ void rsnMatchCipherSuite(struct RSN_INFO *prBssRsnInfo,
 			/* TODO: WTBL cipher filed cannot
 			* 1-1 mapping to spec cipher suite number
 			*/
-			if (u4Cipher == RSN_CIPHER_SUITE_GCMP_256 ||
-			    u4Cipher == RSN_CIPHER_SUITE_GCMP)
+			if (u4Cipher == RSN_CIPHER_SUITE_GCMP_256)
 				u4PairwiseCipher = u4Cipher;
 		}
 		if (u4PairwiseCipher != 0)
 			break;
+
+		for (i = 0; i < prBssRsnInfo->u4PairwiseKeyCipherSuiteCount;
+			i++) {
+			u4Cipher = prBssRsnInfo->au4PairwiseKeyCipherSuite[i];
+			/* TODO: WTBL cipher filed cannot
+			 * 1-1 mapping to spec cipher suite number
+			 */
+			if (u4Cipher == RSN_CIPHER_SUITE_GCMP)
+				u4PairwiseCipher = u4Cipher;
+		}
+		if (u4PairwiseCipher != 0)
+			break;
+
 		for (i = 0; i < prBssRsnInfo->u4PairwiseKeyCipherSuiteCount;
 			i++) {
 			u4Cipher = prBssRsnInfo->au4PairwiseKeyCipherSuite[i];
@@ -1322,8 +1392,7 @@ void rsnAllowCrossAkm(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 	prMib = aisGetMib(prAdapter, ucBssIndex);
 	prWpaInfo = aisGetWpaInfo(prAdapter, ucBssIndex);
 
-	if (IS_FEATURE_DISABLED(prAdapter->rWifiVar.fgDisCrossPmf) &&
-	    kalGetRsnIeMfpCap(prAdapter->prGlueInfo, ucBssIndex)
+	if (kalGetRsnIeMfpCap(prAdapter->prGlueInfo, ucBssIndex)
 		== RSN_AUTH_MFP_REQUIRED) {
 		prWpaInfo->ucRSNMfpCap = RSN_AUTH_MFP_OPTIONAL;
 		DBGLOG(RSN, INFO,
@@ -1354,6 +1423,7 @@ void rsnAllowCrossAkm(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 	}
 #endif
 
+#if KERNEL_VERSION(6, 10, 0) > CFG80211_VERSION_CODE
 	if (eAuthMode == AUTH_MODE_WPA2_PSK ||
 	    eAuthMode == AUTH_MODE_WPA3_SAE) {
 		/* support cross wpa2/sae/sae-ext */
@@ -1377,21 +1447,8 @@ void rsnAllowCrossAkm(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 				prEntry->dot11RSNAConfigAuthenticationSuite);
 		}
 	}
+#endif
 }
-
-#if (CFG_SUPPORT_RSNO == 1)
-u_int8_t rsnSupportRSNOverride(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
-{
-	struct BSS_INFO *prBssInfo;
-
-	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
-
-	if (IS_BSS_AIS(prBssInfo) && prAdapter->rWifiVar.fgEnStaRSNO)
-		return TRUE;
-
-	return FALSE;
-}
-#endif /* CFG_SUPPORT_RSNO */
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -1420,10 +1477,7 @@ u_int8_t rsnPerformPolicySelection(
 	uint32_t u4GroupMgmtCipher = RSN_CIPHER_SUITE_BIP_CMAC_128;
 	uint32_t u4AkmSuite = 0;
 	uint8_t u4MgmtProtection = 0;
-	struct RSN_INFO *prBssRsnInfo = NULL;
-	uint8_t fgTryRsn = TRUE, fgTryWpa = TRUE;
-	uint8_t fgTryRsno2 = FALSE, fgTryRsno = FALSE;
-	uint8_t fgIsMLO = FALSE, fgIsApRsnOveride = FALSE;
+	struct RSN_INFO *prBssRsnInfo;
 #if CFG_SUPPORT_WPS
 	u_int8_t fgIsWpsActive = (u_int8_t) FALSE;
 #endif
@@ -1441,54 +1495,17 @@ u_int8_t rsnPerformPolicySelection(
 	prBss->u4RsnSelectedGroupCipher = 0;
 	prBss->u4RsnSelectedAKMSuite = 0;
 	prBss->eRsnSelectedAuthMode = 0;
-#if (CFG_SUPPORT_RSNO == 1)
-	prBss->eRsnSelectedRSNOverride = RSN_OVERRIDE_NOT_USED;
-#endif /* CFG_SUPPORT_RSNO */
 
 	eAuthMode = aisGetAuthMode(prAdapter, ucBssIndex);
 	eOPMode = aisGetOPMode(prAdapter, ucBssIndex);
 	eEncStatus = aisGetEncStatus(prAdapter, ucBssIndex);
 	prMib = aisGetMib(prAdapter, ucBssIndex);
+
+	DBGLOG(RSN, TRACE, "BSS["MACSTR"] AuthMode [%d], EncStatus [%d]",
+		MAC2STR(prBss->aucBSSID), eAuthMode, eEncStatus);
+
 	u4PairwiseCipher = prMib->dot11RSNAConfigPairwiseCipher;
 	u4GroupCipher = prMib->dot11RSNAConfigGroupCipher;
-
-#if (CFG_SUPPORT_RSNO == 1)
-	if (rsnSupportRSNOverride(prAdapter, ucBssIndex)) {
-		if (prBss->fgIERSNO) {
-			fgIsApRsnOveride = TRUE;
-			fgTryRsno = TRUE;
-		}
-		if (prBss->fgIERSNO2) {
-			fgIsApRsnOveride = TRUE;
-			fgTryRsno2 = TRUE;
-		}
-
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-		if (prBss->rMlInfo.fgValid) {
-			fgIsMLO = TRUE;
-			fgTryRsno = FALSE;
-		}
-
-		/* MLO cases for RSN overriding are required to use RSNE
-		 * Override 2 element and RSNXE Override element together.
-		 */
-		if (fgTryRsno2) {
-			if (fgIsMLO && prBss->fgIERSNO2 && !prBss->fgIERSNXO) {
-				DBGLOG(RSN, INFO, "BSS " MACSTR
-				   " advertises RSNO2 without RSNXO - ignore RSNO2 for MLO",
-				   MAC2STR(prBss->aucBSSID));
-				fgTryRsno2 = FALSE;
-			}
-		}
-#endif /* CFG_SUPPORT_802_11BE_MLO */
-	}
-#endif /* CFG_SUPPORT_RSNO */
-
-	DBGLOG(RSN, TRACE, "BSS["MACSTR
-		"] AuthMode [%d], EncStatus [%d], Flag[wpa=%d rsn=%d rsno=%d rsno2=%d aprsno=%d mlo=%d]",
-		MAC2STR(prBss->aucBSSID), eAuthMode, eEncStatus,
-		fgTryWpa, fgTryRsn, fgTryRsno, fgTryRsno2,
-		fgIsApRsnOveride, fgIsMLO);
 
 #if CFG_SUPPORT_WPS
 	fgIsWpsActive = aisGetConnSettings(prAdapter, ucBssIndex)->fgWpsActive;
@@ -1521,68 +1538,43 @@ u_int8_t rsnPerformPolicySelection(
 #if CFG_SUPPORT_WAPI
 	if (aisGetWapiMode(prAdapter, ucBssIndex)) {
 		if (!wapiPerformPolicySelection(prAdapter, prBss, ucBssIndex)) {
-			DBGLOG(RSN, WARN, MACSTR " wapi policy select fail.\n",
+			DBGLOG(APS, WARN, MACSTR " wapi policy select fail.\n",
 				MAC2STR(prBss->aucBSSID));
 			return FALSE;
 		}
 	}
 #endif
 
-try_again:
 	if (eAuthMode == AUTH_MODE_WPA ||
 	    eAuthMode == AUTH_MODE_WPA_PSK ||
 	    eAuthMode == AUTH_MODE_WPA_NONE) {
-		if (fgTryWpa && prBss->fgIEWPA) {
+		if (prBss->fgIEWPA) {
 			prBssRsnInfo = &prBss->rWPAInfo;
-			fgTryWpa = FALSE;
 		} else if (eAuthMode == AUTH_MODE_WPA_PSK &&
-			   fgTryRsn && prBss->fgIERSN) {
+			   prBss->fgIERSN) {
 			prBssRsnInfo = &prBss->rRSNInfo;
-			fgTryRsn = FALSE;
 		} else {
 			DBGLOG(RSN, INFO,
-			       "WPA does not exist. try wpa=%d rsn=%d rsno=%d rsno2=%d\n",
-			       fgTryWpa, fgTryRsn, fgTryRsno, fgTryRsno2);
+			       "WPA Information Element does not exist.\n");
 			return FALSE;
 		}
 	} else if (rsnAuthModeRsn(eAuthMode)) {
-		if (0) {
-#if (CFG_SUPPORT_RSNO == 1)
-		} else if (fgTryRsno2 && prBss->fgIERSNO2) {
-			prBssRsnInfo = &prBss->rRSNO2Info;
-			fgTryRsno2 = FALSE;
-		} else if (fgTryRsno && prBss->fgIERSNO) {
-			prBssRsnInfo = &prBss->rRSNOInfo;
-			fgTryRsno = FALSE;
-#endif /* CFG_SUPPORT_RSNO */
-		} else if (fgTryRsn && prBss->fgIERSN) {
+		if (prBss->fgIERSN) {
 			prBssRsnInfo = &prBss->rRSNInfo;
-			fgTryRsn = FALSE;
 		} else if (eAuthMode == AUTH_MODE_WPA2_PSK &&
-			   fgTryWpa && prBss->fgIEWPA) {
+			   prBss->fgIEWPA) {
 			prBssRsnInfo = &prBss->rWPAInfo;
-			fgTryWpa = FALSE;
 		} else {
 			DBGLOG(RSN, INFO,
-			       "RSNE does not exist. try wpa=%d rsn=%d rsno=%d rsno2=%d\n",
-			       fgTryWpa, fgTryRsn, fgTryRsno, fgTryRsno2);
+			       "RSN Information Element does not exist.\n");
 			return FALSE;
 		}
 #if CFG_SUPPORT_PASSPOINT
 	} else if (eAuthMode == AUTH_MODE_WPA_OSEN) {
-		if (prBss->fgIERSN) {
-			if (fgTryRsn) {
-				prBssRsnInfo = &prBss->rRSNInfo;
-				fgTryRsn = FALSE;
-			} else {
-				DBGLOG(RSN, INFO,
-				     "OSEN RSNE does not exist. try wpa=%d rsn=%d rsno=%d rsno2=%d\n",
-				     fgTryWpa, fgTryRsn, fgTryRsno, fgTryRsno2);
-				return FALSE;
-			}
-		} else {
+		if (prBss->fgIERSN)
+			prBssRsnInfo = &prBss->rRSNInfo;
+		else
 			goto selected;
-		}
 #endif
 	} else if (eEncStatus == ENUM_ENCRYPTION1_ENABLED ||
 		   eEncStatus == ENUM_ENCRYPTION2_ENABLED) {
@@ -1594,7 +1586,7 @@ try_again:
 	}
 
 	if (!rsnIsSuitableBSS(prAdapter, prBss, prBssRsnInfo, ucBssIndex))
-		goto try_again;
+		return FALSE;
 
 	if (prBssRsnInfo->u4PairwiseKeyCipherSuiteCount == 1 &&
 	    GET_SELECTOR_TYPE(prBssRsnInfo->au4PairwiseKeyCipherSuite[0]) ==
@@ -1744,24 +1736,24 @@ try_again:
 	}
 
 	DBGLOG(RSN, TRACE,
-		"Selected pairwise/group cipher: 0x%x/0x%x, AKM suite: 0x%x\n",
-		SWAP32(u4PairwiseCipher), SWAP32(u4GroupCipher),
-		SWAP32(u4AkmSuite));
+	       "Selected pairwise/group cipher: 0x%x/0x%x\n",
+	       SWAP32(u4PairwiseCipher), SWAP32(u4GroupCipher));
+
+	DBGLOG(RSN, TRACE,
+	       "Selected AKM suite: 0x%x\n", SWAP32(u4AkmSuite));
 
 #if CFG_SUPPORT_802_11W
 	/* check pmf only when rsn ie is selected */
-	if (prBssRsnInfo->ucElemId == ELEM_ID_RSN ||
-	    prBssRsnInfo->ucOuiType == VENDOR_OUI_TYPE_RSNO ||
-	    prBssRsnInfo->ucOuiType == VENDOR_OUI_TYPE_RSNO2) {
+	if (prBssRsnInfo->ucElemId == ELEM_ID_RSN) {
 		if (kalGetRsnIeMfpCap(prAdapter->prGlueInfo,
 			ucBssIndex) == RSN_AUTH_MFP_REQUIRED) {
 			if (!prBssRsnInfo->fgRsnCapPresent) {
-				DBGLOG(RSN, INFO,
+				DBGLOG(RSN, TRACE,
 				       "[MFP] Skip RSN IE, No MFP Required Capability.\n");
 				return FALSE;
 			} else if (!(prBssRsnInfo->u2RsnCap &
 					ELEM_WPA_CAP_MFPC)) {
-				DBGLOG(RSN, INFO,
+				DBGLOG(RSN, WARN,
 				       "[MFP] Skip RSN IE, No MFP Required\n");
 				return FALSE;
 			}
@@ -1770,8 +1762,8 @@ try_again:
 		} else if (kalGetRsnIeMfpCap(prAdapter->prGlueInfo,
 			ucBssIndex) == RSN_AUTH_MFP_OPTIONAL) {
 			if (prAdapter->rWifiVar.u4SwTestMode ==
-				/* PMF Cert. should disallow MFPR if OPTIONAL */
 				ENUM_SW_TEST_MODE_SIGMA_PMF)
+				/* PMF Cert. should disallow MFPR if OPTIONAL */
 				u4MgmtProtection = prBssRsnInfo->u2RsnCap &
 					ELEM_WPA_CAP_MFPC;
 			else
@@ -1820,6 +1812,7 @@ selected:
 		eAuthMode = eNewAuthMode;
 	}
 
+
 #if (CFG_SUPPORT_WIFI_6G == 1)
 	if (prBss->eBand == BAND_6G) {
 		if (!rsnIsKeyMgmtFor6g(prAdapter,
@@ -1856,20 +1849,6 @@ selected:
 	if (prBss->u4RsnSelectedProto != IW_AUTH_WPA_VERSION_DISABLED)
 		prBss->u4RsnSelectedProto = rsnAuthModeRsn(eAuthMode) ?
 			IW_AUTH_WPA_VERSION_WPA2 : IW_AUTH_WPA_VERSION_WPA;
-
-#if (CFG_SUPPORT_RSNO == 1)
-	if (fgIsApRsnOveride && prBssRsnInfo) {
-		if (prBssRsnInfo->ucElemId == ELEM_ID_RSN)
-			prBss->eRsnSelectedRSNOverride =
-				RSN_OVERRIDE_RSNE;
-		else if (prBssRsnInfo->ucOuiType == VENDOR_OUI_TYPE_RSNO)
-			prBss->eRsnSelectedRSNOverride =
-				RSN_OVERRIDE_RSNE_OVERRIDE;
-		else if (prBssRsnInfo->ucOuiType == VENDOR_OUI_TYPE_RSNO2)
-			prBss->eRsnSelectedRSNOverride =
-				RSN_OVERRIDE_RSNE_OVERRIDE_2;
-	}
-#endif /* CFG_SUPPORT_RSNO */
 
 	return TRUE;
 }				/* rsnPerformPolicySelection */
@@ -2015,8 +1994,14 @@ uint32_t _addWPAIE_impl(struct ADAPTER *prAdapter,
 	if (!prBssInfo)
 		return FALSE;
 
+	/* AP + GO */
+	if (!IS_BSS_APGO(prBssInfo))
+		return FALSE;
+
 	/* AP only */
-	if (!IS_BSS_AP(prAdapter, prBssInfo))
+	if (!p2pFuncIsAPMode(
+		prAdapter->rWifiVar.
+		prP2PConnSettings[prBssInfo->u4PrivateData]))
 		return FALSE;
 
 	prP2pSpecBssInfo =
@@ -2061,8 +2046,14 @@ uint32_t _addRSNIE_impl(struct ADAPTER *prAdapter,
 	if (!prBssInfo)
 		return FALSE;
 
+	/* AP + GO */
+	if (!IS_BSS_APGO(prBssInfo))
+		return FALSE;
+
 	/* AP only */
-	if (!IS_BSS_AP(prAdapter, prBssInfo))
+	if (!p2pFuncIsAPMode(
+		prAdapter->rWifiVar.
+		prP2PConnSettings[prBssInfo->u4PrivateData]))
 		return FALSE;
 
 	prP2pSpecBssInfo =
@@ -2282,6 +2273,8 @@ void rsnGenerateRSNIEImpl(struct ADAPTER *prAdapter,
 		cp += 2;
 		/* AKM suite */
 		WLAN_SET_FIELD_32(cp, prBssInfo->u4RsnSelectedAKMSuite);
+		DBGLOG(RSN, LOUD, "RSN KeyMgtSuite 0x%04x\n",
+				prBssInfo->u4RsnSelectedAKMSuite);
 		cp += 4;
 	}
 
@@ -2324,7 +2317,10 @@ void rsnGenerateRSNIEImpl(struct ADAPTER *prAdapter,
 
 		prStaRec = cnmGetStaRecByIndex(prAdapter,
 					prMsduInfo->ucStaRecIndex);
-
+		if (prStaRec == NULL) {
+			DBGLOG(RSN, ERROR, "prStaRec is null\n");
+			return;
+		}
 		prWpaInfo = aisGetWpaInfo(prAdapter, ucBssIndex);
 
 		entry = aisSearchPmkidEntry(prAdapter, prStaRec, ucBssIndex);
@@ -2435,53 +2431,6 @@ add_rsne:
 	rsnGenerateRSNIEImpl(prAdapter, prMsduInfo);
 }				/* rsnGenerateRSNIE */
 
-#if (CFG_SUPPORT_RSNO == 1)
-void rsnGenerateRsnSelectionIE(struct ADAPTER *prAdapter,
-	struct MSDU_INFO *prMsduInfo)
-{
-	uint8_t *pucBuffer, *cp;
-	uint8_t ucBssIndex = prMsduInfo->ucBssIndex;
-	struct AIS_SPECIFIC_BSS_INFO *prAisSpecificBssInfo;
-
-	if (!rsnSupportRSNOverride(prAdapter, ucBssIndex))
-		return;
-
-	prAisSpecificBssInfo = aisGetAisSpecBssInfo(prAdapter, ucBssIndex);
-	cp = pucBuffer =
-		(uint8_t *)prMsduInfo->prPacket + prMsduInfo->u2FrameLength;
-
-	if (prAisSpecificBssInfo->eRsnSelectedRSNOverride !=
-	    RSN_OVERRIDE_NOT_USED) {
-		*cp++ = ELEM_ID_VENDOR;
-		*cp++ = 4 + 1;
-		WLAN_PUT_BE32(cp, VENDOR_IE_TYPE_RSN_SEL);
-		cp += 4;
-
-		switch (prAisSpecificBssInfo->eRsnSelectedRSNOverride) {
-		case RSN_OVERRIDE_RSNE:
-			*cp++ = RSN_SELECTION_RSNE;
-			break;
-		case RSN_OVERRIDE_RSNE_OVERRIDE:
-			*cp++ = RSN_SELECTION_RSNE_OVERRIDE;
-			break;
-		case RSN_OVERRIDE_RSNE_OVERRIDE_2:
-			*cp++ = RSN_SELECTION_RSNE_OVERRIDE_2;
-			break;
-		default:
-			DBGLOG(RSN, WARN, "wrong rsn override=%d\n",
-				prAisSpecificBssInfo->eRsnSelectedRSNOverride);
-			*cp++ = 0xfe;
-			break;
-		}
-
-		prMsduInfo->u2FrameLength += cp - pucBuffer;
-
-		DBGDUMP_MEM8(RSN, INFO,  "RSN Selection",
-			pucBuffer, IE_SIZE(pucBuffer));
-	}
-}
-#endif /* CFG_SUPPORT_RSNO */
-
 #if CFG_SUPPORT_AAA
 void rsnGenerateRSNXIE(struct ADAPTER *prAdapter,
 	struct MSDU_INFO *prMsduInfo)
@@ -2517,7 +2466,7 @@ void rsnGenerateRSNXIE(struct ADAPTER *prAdapter,
 		prMsduInfo->u2FrameLength +=
 			prP2pSpecBssInfo->u2RsnxIeLen;
 
-		DBGLOG(RSN, INFO,
+		DBGLOG(RSN, INFO2,
 			"Keep supplicant RSNXIE content w/o update\n");
 	}
 }
@@ -2560,124 +2509,7 @@ void rsnGenerateOWEIE(struct ADAPTER *prAdapter,
 			"[OWE] Keep supplicant OWEIE content w/o update\n");
 	}
 }
-
-#if (CFG_SUPPORT_RSNO == 1)
-void rsnGenerateRSNOIE(struct ADAPTER *prAdapter,
-			struct MSDU_INFO *prMsduInfo)
-{
-	struct P2P_SPECIFIC_BSS_INFO *prP2pSpecBssInfo;
-	struct BSS_INFO *prBssInfo;
-	uint8_t ucBssIndex;
-
-	ucBssIndex = prMsduInfo->ucBssIndex;
-	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
-
-	if (!prBssInfo)
-		return;
-
-	/* AP + GO */
-	if (!IS_BSS_APGO(prBssInfo))
-		return;
-
-	prP2pSpecBssInfo =
-		prAdapter->rWifiVar.prP2pSpecificBssInfo[
-			prBssInfo->u4PrivateData];
-
-	if (prP2pSpecBssInfo && prP2pSpecBssInfo->u2RsnoIeLen != 0) {
-		uint8_t *pucBuffer =
-			(uint8_t *) ((uintptr_t)
-			prMsduInfo->prPacket + (uintptr_t)
-			prMsduInfo->u2FrameLength);
-
-		kalMemCopy(pucBuffer,
-			prP2pSpecBssInfo->aucRsnoIeBuffer,
-			prP2pSpecBssInfo->u2RsnoIeLen);
-		prMsduInfo->u2FrameLength +=
-			prP2pSpecBssInfo->u2RsnoIeLen;
-
-		DBGLOG(RSN, INFO,
-			"Keep supplicant RSNOIE content w/o update\n");
-	}
-}
-
-void rsnGenerateRSNO2IE(struct ADAPTER *prAdapter,
-			struct MSDU_INFO *prMsduInfo)
-{
-	struct P2P_SPECIFIC_BSS_INFO *prP2pSpecBssInfo;
-	struct BSS_INFO *prBssInfo;
-	uint8_t ucBssIndex;
-
-	ucBssIndex = prMsduInfo->ucBssIndex;
-	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
-
-	if (!prBssInfo)
-		return;
-
-	/* AP + GO */
-	if (!IS_BSS_APGO(prBssInfo))
-		return;
-
-	prP2pSpecBssInfo =
-		prAdapter->rWifiVar.prP2pSpecificBssInfo[
-			prBssInfo->u4PrivateData];
-
-	if (prP2pSpecBssInfo && prP2pSpecBssInfo->u2Rsno2IeLen != 0) {
-		uint8_t *pucBuffer =
-			(uint8_t *) ((uintptr_t)
-			prMsduInfo->prPacket + (uintptr_t)
-			prMsduInfo->u2FrameLength);
-
-		kalMemCopy(pucBuffer,
-			prP2pSpecBssInfo->aucRsno2IeBuffer,
-			prP2pSpecBssInfo->u2Rsno2IeLen);
-		prMsduInfo->u2FrameLength +=
-			prP2pSpecBssInfo->u2Rsno2IeLen;
-
-		DBGLOG(RSN, INFO,
-			"Keep supplicant RSNO2IE content w/o update\n");
-	}
-}
-
-void rsnGenerateRSNXOIE(struct ADAPTER *prAdapter,
-	struct MSDU_INFO *prMsduInfo)
-{
-	struct P2P_SPECIFIC_BSS_INFO *prP2pSpecBssInfo;
-	struct BSS_INFO *prBssInfo;
-	uint8_t ucBssIndex;
-
-	ucBssIndex = prMsduInfo->ucBssIndex;
-	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
-
-	if (!prBssInfo)
-		return;
-
-	/* AP + GO */
-	if (!IS_BSS_APGO(prBssInfo))
-		return;
-
-	prP2pSpecBssInfo =
-		prAdapter->rWifiVar.prP2pSpecificBssInfo[
-			prBssInfo->u4PrivateData];
-
-	if (prP2pSpecBssInfo &&	prP2pSpecBssInfo->u2RsnxoIeLen != 0) {
-		uint8_t *pucBuffer =
-			(uint8_t *) ((uintptr_t)
-			prMsduInfo->prPacket + (uintptr_t)
-			prMsduInfo->u2FrameLength);
-
-		kalMemCopy(pucBuffer,
-			prP2pSpecBssInfo->aucRsnxoIeBuffer,
-			prP2pSpecBssInfo->u2RsnxoIeLen);
-		prMsduInfo->u2FrameLength +=
-			prP2pSpecBssInfo->u2RsnxoIeLen;
-
-		DBGLOG(RSN, INFO,
-			"Keep supplicant RSNXOIE content w/o update\n");
-	}
-}
-#endif /* CFG_SUPPORT_RSNO */
-#endif /* CFG_SUPPORT_AAA*/
-
+#endif
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief Parse the given IE buffer and check if it is WFA IE and return Type
@@ -2720,102 +2552,7 @@ rsnParseCheckForWFAInfoElem(struct ADAPTER *prAdapter,
 
 }				/* end of rsnParseCheckForWFAInfoElem() */
 
-/*----------------------------------------------------------------------------*/
-/*!
- * \brief Parse the given IE buffer and check if it is WFA IE and return Type
- *	and SubType for further process.
- *
- * \param[in] pucBuf             Pointer to buffer of WFA Information Element.
- * \param[out] pucOuiType        Pointer to the storage of OUI Type.
- *					and Version.
- * \retval TRUE  Parse IE ok
- * \retval FALSE Parse IE fail
- */
-/*----------------------------------------------------------------------------*/
-u_int8_t
-rsnParseCheckForWFASpecificElem(struct ADAPTER *prAdapter,
-			    uint8_t *pucBuf, uint8_t *pucOuiType)
-{
-	struct IE_WFA_SPECIFIC *prWfaIE = (struct IE_WFA_SPECIFIC *)pucBuf;
-
-	if (IE_LEN(pucBuf) < 4 ||
-	    WLAN_GET_BE24(prWfaIE->aucOui) != VENDOR_IE_WFA_SPECIFIC_OUI)
-		return FALSE;
-
-	*pucOuiType = prWfaIE->ucOuiType;
-
-	return TRUE;
-} /* end of rsnParseCheckForWFASpecificElem() */
-
 #if CFG_SUPPORT_AAA
-static u_int8_t rsnParserCheckForPmkid(struct ADAPTER *prAdapter,
-	struct BSS_INFO *prBssInfo,
-	struct STA_RECORD *prStaRec,
-	struct RSN_INFO *prRsnInfo)
-{
-	struct PMKID_ENTRY *entry;
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-	struct MLD_BSS_INFO *prMldBss = mldBssGetByBss(prAdapter, prBssInfo);
-#endif
-
-	if (IS_FEATURE_DISABLED(prAdapter->rWifiVar.fgSapCheckPmkidInDriver) ||
-	    !rsnKeyMgmtSae(prBssInfo->u4RsnSelectedAKMSuite) ||
-	    prRsnInfo->u2PmkidCount <= 0)
-		return TRUE;
-
-	entry = rsnSearchPmkidEntry(prAdapter,
-		cnmStaRecAuthAddr(prAdapter, prStaRec),
-		prStaRec->ucBssIndex);
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-	if (!entry && IS_MLD_BSSINFO_MULTI(prMldBss)) {
-		struct LINK *prBssList;
-		struct BSS_INFO *prTempBss;
-
-		prBssList = &prMldBss->rBssList;
-		LINK_FOR_EACH_ENTRY(prTempBss, prBssList, rLinkEntryMld,
-				    struct BSS_INFO) {
-			entry = rsnSearchPmkidEntry(prAdapter,
-				cnmStaRecAuthAddr(prAdapter, prStaRec),
-				prTempBss->ucBssIndex);
-			if (entry)
-				break;
-		}
-	}
-#endif
-
-	DBGLOG(RSN, LOUD,
-		"Parse PMKID " PMKSTR " from " MACSTR "\n",
-		prRsnInfo->aucPmkid[0], prRsnInfo->aucPmkid[1],
-		prRsnInfo->aucPmkid[2], prRsnInfo->aucPmkid[3],
-		prRsnInfo->aucPmkid[4], prRsnInfo->aucPmkid[5],
-		prRsnInfo->aucPmkid[6], prRsnInfo->aucPmkid[7],
-		prRsnInfo->aucPmkid[8], prRsnInfo->aucPmkid[9],
-		prRsnInfo->aucPmkid[10], prRsnInfo->aucPmkid[11],
-		prRsnInfo->aucPmkid[12] + prRsnInfo->aucPmkid[13],
-		prRsnInfo->aucPmkid[14], prRsnInfo->aucPmkid[15],
-		MAC2STR(prStaRec->aucMacAddr));
-
-	if (!entry) {
-		DBGLOG(RSN, WARN,
-			"RSN with no PMKID, bss=%d, sta addr="MACSTR"\n",
-			prStaRec->ucBssIndex,
-			MAC2STR(prStaRec->aucMacAddr));
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-		DBGLOG(RSN, WARN,
-			"mlo=%d, sta mld addr=" MACSTR "\n",
-			mldIsMultiLinkFormed(prAdapter, prStaRec),
-			MAC2STR(prStaRec->aucMldAddr));
-#endif
-		return FALSE;
-	} else if (kalMemCmp(prRsnInfo->aucPmkid, entry->rBssidInfo.arPMKID,
-			     IW_PMKID_LEN) != 0) {
-		DBGLOG(RSN, WARN, "RSN with invalid PMKID\n");
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief Parse the given IE buffer and check if it is RSN IE with CCMP PSK
@@ -2848,7 +2585,7 @@ void rsnParserCheckForRSNCCMPPSK(struct ADAPTER *prAdapter,
 	*pu2StatusCode = STATUS_CODE_INVALID_INFO_ELEMENT;
 	kalMemZero(&rRsnIe, sizeof(struct RSN_INFO));
 
-	if (rsnParseRsnIE(prAdapter, (uint8_t *)prIe, &rRsnIe)) {
+	if (rsnParseRsnIE(prAdapter, prIe, &rRsnIe)) {
 		/* When softap's conf support both TKIP&CCMP,
 		 * the Group Cipher Suite would be TKIP
 		 * If we check the Group Cipher Suite == CCMP
@@ -2884,10 +2621,42 @@ void rsnParserCheckForRSNCCMPPSK(struct ADAPTER *prAdapter,
 			return;
 		}
 
-		if (rsnParserCheckForPmkid(prAdapter, prBssInfo, prStaRec,
-					   &rRsnIe) == FALSE) {
-			*pu2StatusCode = STATUS_INVALID_PMKID;
-			return;
+		if (p2pFuncIsAPMode(prAdapter->rWifiVar.prP2PConnSettings
+		    [prBssInfo->u4PrivateData])
+		    && prAdapter->rWifiVar.fgSapCheckPmkidInDriver
+		    && rsnKeyMgmtSae(prBssInfo->u4RsnSelectedAKMSuite)
+		    && rRsnIe.u2PmkidCount > 0) {
+			struct PMKID_ENTRY *entry;
+
+			entry = rsnSearchPmkidEntry(prAdapter,
+				cnmStaRecAuthAddr(prAdapter, prStaRec),
+				prStaRec->ucBssIndex);
+
+			DBGLOG(RSN, LOUD,
+				"Parse PMKID " PMKSTR " from " MACSTR "\n",
+				rRsnIe.aucPmkid[0], rRsnIe.aucPmkid[1],
+				rRsnIe.aucPmkid[2], rRsnIe.aucPmkid[3],
+				rRsnIe.aucPmkid[4], rRsnIe.aucPmkid[5],
+				rRsnIe.aucPmkid[6], rRsnIe.aucPmkid[7],
+				rRsnIe.aucPmkid[8], rRsnIe.aucPmkid[9],
+				rRsnIe.aucPmkid[10], rRsnIe.aucPmkid[11],
+				rRsnIe.aucPmkid[12] + rRsnIe.aucPmkid[13],
+				rRsnIe.aucPmkid[14], rRsnIe.aucPmkid[15],
+				MAC2STR(prStaRec->aucMacAddr));
+
+			if (!entry) {
+				DBGLOG(RSN, WARN, "RSN with no PMKID\n");
+				*pu2StatusCode = STATUS_INVALID_PMKID;
+				return;
+			} else if (kalMemCmp(
+				rRsnIe.aucPmkid,
+				entry->rBssidInfo.arPMKID,
+				IW_PMKID_LEN) != 0) {
+				DBGLOG(RSN, WARN, "RSN with invalid PMKID\n");
+				*pu2StatusCode = STATUS_INVALID_PMKID;
+				return;
+			}
+
 		}
 
 		DBGLOG(RSN, TRACE, "RSN with CCMP-PSK\n");
@@ -3208,7 +2977,6 @@ uint32_t rsnSetPmkid(struct ADAPTER *prAdapter,
 	}
 	cache = &prBssInfo->rPmkidCache;
 
-	GLUE_ACQUIRE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
 	if (prPmkid->fgFilsCacheIdSet)
 		entry = rsnSearchPmkidEntryEx(prAdapter, NULL,
 			&prPmkid->rSsid, prPmkid->arFilsCacheId,
@@ -3217,14 +2985,13 @@ uint32_t rsnSetPmkid(struct ADAPTER *prAdapter,
 		entry = rsnSearchPmkidEntryEx(prAdapter, prPmkid->arBSSID,
 			NULL, NULL,
 			prPmkid->ucBssIdx);
-	if (entry)
-		LINK_REMOVE_KNOWN_ENTRY(cache, entry);
-	GLUE_RELEASE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
-
 	if (!entry) {
 		entry = kalMemAlloc(sizeof(struct PMKID_ENTRY), VIR_MEM_TYPE);
 		if (!entry)
-			return -ENOMEM;
+			return WLAN_STATUS_FAILURE;
+		GLUE_ACQUIRE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
+		LINK_INSERT_TAIL(cache,	&entry->rLinkEntry);
+		GLUE_RELEASE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
 	}
 
 	DBGLOG(RSN, INFO,
@@ -3244,10 +3011,6 @@ uint32_t rsnSetPmkid(struct ADAPTER *prAdapter,
 
 	kalMemCopy(&entry->rBssidInfo, prPmkid, sizeof(struct PARAM_PMKID));
 	entry->u2StatusCode = STATUS_CODE_SUCCESSFUL;
-	entry->u2ReasonCode = REASON_CODE_RESERVED;
-	GLUE_ACQUIRE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
-	LINK_INSERT_TAIL(cache, &entry->rLinkEntry);
-	GLUE_RELEASE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
 	return WLAN_STATUS_SUCCESS;
 } /* rsnSetPmkid */
 
@@ -3279,7 +3042,6 @@ uint32_t rsnDelPmkid(struct ADAPTER *prAdapter,
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 		prPmkid->ucBssIdx);
 	cache = &prBssInfo->rPmkidCache;
-	GLUE_ACQUIRE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
 	if (prPmkid->fgFilsCacheIdSet)
 		entry = rsnSearchPmkidEntryEx(prAdapter, NULL,
 			&prPmkid->rSsid, prPmkid->arFilsCacheId,
@@ -3288,17 +3050,15 @@ uint32_t rsnDelPmkid(struct ADAPTER *prAdapter,
 		entry = rsnSearchPmkidEntryEx(prAdapter, prPmkid->arBSSID,
 			NULL, NULL,
 			prPmkid->ucBssIdx);
-	if (entry)
-		LINK_REMOVE_KNOWN_ENTRY(cache, entry);
-	GLUE_RELEASE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
-
 	if (entry) {
 		if (kalMemCmp(prPmkid->arPMKID,
 			entry->rBssidInfo.arPMKID, IW_PMKID_LEN)) {
-			DBGLOG(RSN, WARN,
-				"Del " MACSTR " pmkid but mismatch\n",
+			DBGLOG(RSN, WARN, "Del " MACSTR " pmkid but mismatch\n",
 				MAC2STR(prPmkid->arBSSID));
 		}
+		GLUE_ACQUIRE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
+		LINK_REMOVE_KNOWN_ENTRY(cache, entry);
+		GLUE_RELEASE_SPIN_LOCK(prAdapter->prGlueInfo, SPIN_LOCK_PMKID);
 		kalMemFree(entry, VIR_MEM_TYPE, sizeof(struct PMKID_ENTRY));
 	}
 
@@ -3420,7 +3180,7 @@ uint8_t rsnCheckPmkExpiration(struct ADAPTER *prAdapter,
 	if (CHECK_FOR_EXPIRATION(MSEC_TO_SEC(now) + u4RefreshThreshold,
 				u4MinExpiration)) {
 		DBGLOG(RSN, INFO,
-			"PMK is almost expired, pmk expired time=%d, refresh threshold time=%llu!\n",
+			"PMK is almost expired, pmk expired time=%d, refresh threshold time=%u!\n",
 			u4MinExpiration,
 			MSEC_TO_SEC(now) + u4RefreshThreshold);
 		return TRUE;
@@ -3465,12 +3225,11 @@ uint32_t rsnCheckBipKeyInstalled(struct ADAPTER
 		return aisGetAisSpecBssInfo(prAdapter,
 				ucBssIndex)->fgBipKeyInstalled;
 	} else if (IS_BSS_APGO(prBssInfo)) {
-		u_int8_t fgApplyPmf = prStaRec->rPmfCfg.fgApplyPmf &&
-			prStaRec->fgTransmitKeyExist;
-
-		if (fgApplyPmf)
+		if (prStaRec->rPmfCfg.fgApplyPmf)
 			DBGLOG(RSN, INFO, "AP-STA PMF capable\n");
-		return fgApplyPmf;
+		return prStaRec->rPmfCfg.fgApplyPmf;
+	} else if (IS_BSS_P2P(prBssInfo)) {
+		return prBssInfo->fgBipKeyInstalled;
 	} else
 		return FALSE;
 }
@@ -3531,7 +3290,7 @@ uint8_t rsnCheckSaQueryTimeout(
 		if (prAisBssInfo == NULL)
 			DBGLOG(RSN, ERROR, "prAisBssInfo is NULL");
 		else if (prAisBssInfo->eConnectionState ==
-					MEDIA_STATE_CONNECTED)
+					MEDIA_STATE_CONNECTED) {
 #if (CFG_SUPPORT_CONN_LOG == 1)
 			connLogRxDeauthPrint(prAdapter,
 				ucBssIdx);
@@ -3540,7 +3299,7 @@ uint8_t rsnCheckSaQueryTimeout(
 					prAisBssInfo->prStaRecOfAP,
 					prAisBssInfo,
 					FRM_DEAUTH);
-
+		}
 		return TRUE;
 	}
 
@@ -3768,10 +3527,15 @@ void rsnSaQueryRequest(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 	struct ACTION_SA_QUERY_FRAME *prTxFrame;
 	uint8_t ucBssIndex = secGetBssIdxByRfb(prAdapter,
 		prSwRfb);
+#if CFG_SUPPORT_802_11W
 	struct AIS_SPECIFIC_BSS_INFO *prAisSpecificBssInfo;
+#endif
 
 	prBssInfo = aisGetAisBssInfo(prAdapter, ucBssIndex);
-	prAisSpecificBssInfo = aisGetAisSpecBssInfo(prAdapter, ucBssIndex);
+#if CFG_SUPPORT_802_11W
+	prAisSpecificBssInfo =
+		aisGetAisSpecBssInfo(prAdapter, ucBssIndex);
+#endif
 
 	if (!prSwRfb)
 		return;
@@ -3782,20 +3546,12 @@ void rsnSaQueryRequest(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 		return;
 
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
-	if (!prStaRec) {
-		DBGLOG(RSN, WARN,
-		       "Received a SA Query from "MACSTR
-		       " BssIndex[%d] w/o corresponding staRec\n",
-		       ucBssIndex, MAC2STR(prRxFrame->aucSrcAddr));
+	if (!prStaRec)		/* Todo:: for not AIS check */
 		return;
-	}
 
 	DBGLOG(RSN, INFO,
-	       "IEEE 802.11: Received SA Query Request from DA[" MACSTR
-	       "] SA[" MACSTR "] BSSID[" MACSTR "]\n",
-	       MAC2STR(prRxFrame->aucDestAddr),
-	       MAC2STR(prRxFrame->aucSrcAddr),
-	       MAC2STR(prRxFrame->aucBSSID));
+	       "IEEE 802.11: Received SA Query Request from " MACSTR "\n",
+	       MAC2STR(prStaRec->aucMacAddr));
 
 	DBGLOG_MEM8(RSN, INFO, prRxFrame->ucTransId, ACTION_SA_QUERY_TR_ID_LEN);
 
@@ -3808,12 +3564,16 @@ void rsnSaQueryRequest(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 		return;
 	}
 
-	if (!rsnCheckCombackBssDesc(prAdapter, prStaRec, ucBssIndex)) {
+#if CFG_SUPPORT_802_11W
+	if (prAisSpecificBssInfo->prTargetComebackBssDesc
+		&& UNEQUAL_MAC_ADDR(prStaRec->aucMacAddr,
+		    prAisSpecificBssInfo->prTargetComebackBssDesc->aucBSSID)) {
 		DBGLOG(RSN, INFO,
 			"Ignore SA Query Request from non-targeted AP "
 			MACSTR "\n", MAC2STR(prStaRec->aucMacAddr));
 		return;
 	}
+#endif
 
 	DBGLOG(RSN, INFO,
 	       "IEEE 802.11: Sending SA Query Response to " MACSTR "\n",
@@ -3853,13 +3613,23 @@ void rsnSaQueryRequest(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 		     WLAN_MAC_MGMT_HEADER_LEN + u2PayloadLen, NULL,
 		     MSDU_RATE_MODE_AUTO);
 
-	nicTxConfigPktControlFlag(prMsduInfo,
-			MSDU_CONTROL_FLAG_FORCE_LINK |
-			MSDU_CONTROL_FLAG_DIS_MAT,
-			TRUE);
-
+#if 0
+	/* 4 Update information of MSDU_INFO_T */
+	/* Management frame */
+	prMsduInfo->ucPacketType = HIF_TX_PACKET_TYPE_MGMT;
+	prMsduInfo->ucStaRecIndex = prBssInfo->prStaRecOfAP->ucIndex;
+	prMsduInfo->ucNetworkType = prBssInfo->ucNetTypeIndex;
+	prMsduInfo->ucMacHeaderLength = WLAN_MAC_MGMT_HEADER_LEN;
+	prMsduInfo->fgIs802_1x = FALSE;
+	prMsduInfo->fgIs802_11 = TRUE;
+	prMsduInfo->u2FrameLength = WLAN_MAC_MGMT_HEADER_LEN + u2PayloadLen;
+	prMsduInfo->ucPID = nicAssignPID(prAdapter);
+	prMsduInfo->pfTxDoneHandler = NULL;
+	prMsduInfo->fgIsBasicRate = FALSE;
+#endif
 	/* 4 Enqueue the frame to send this action frame. */
 	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
+
 }
 
 /*----------------------------------------------------------------------------*/
@@ -4019,61 +3789,6 @@ uint8_t rsnCheckBipGmac(struct ADAPTER *prAdapter,
 	}
 
 	return TRUE;
-}
-
-void rsnUpdateCombackBssDesc(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
-{
-	struct AIS_FSM_INFO *prAisFsmInfo;
-	struct AIS_SPECIFIC_BSS_INFO *prAisSpecBssInfo;
-	uint8_t i;
-
-	prAisFsmInfo = aisGetAisFsmInfo(prAdapter, ucBssIndex);
-	prAisSpecBssInfo = aisGetAisSpecBssInfo(prAdapter, ucBssIndex);
-	if (!prAisFsmInfo || !prAisSpecBssInfo)
-		return;
-
-	for (i = 0; i < MLD_LINK_MAX; i++)
-		prAisSpecBssInfo->aprTargetComebackBssDesc[i] =
-			aisGetLinkBssDesc(prAisFsmInfo, i);
-}
-
-uint8_t rsnCheckCombackBssDesc(struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec, uint8_t ucBssIndex)
-{
-	struct AIS_SPECIFIC_BSS_INFO *prAisSpecBssInfo = NULL;
-	uint8_t i;
-
-	prAisSpecBssInfo = aisGetAisSpecBssInfo(prAdapter, ucBssIndex);
-
-	if (!prAisSpecBssInfo)
-		return FALSE;
-
-	for (i = 0; i < MLD_LINK_MAX; i++) {
-		if (!prAisSpecBssInfo->aprTargetComebackBssDesc[i])
-			continue;
-
-		if (!prStaRec)
-			return TRUE;
-
-		if (EQUAL_MAC_ADDR(prStaRec->aucMacAddr,
-		    prAisSpecBssInfo->aprTargetComebackBssDesc[i]->aucBSSID))
-			return TRUE;
-	}
-
-	return FALSE;
-}
-
-void rsnResetCombackBssDesc(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
-{
-
-	struct AIS_SPECIFIC_BSS_INFO *prAisSpecBssInfo = NULL;
-
-	prAisSpecBssInfo = aisGetAisSpecBssInfo(prAdapter, ucBssIndex);
-
-	if (prAisSpecBssInfo) {
-		kalMemZero(prAisSpecBssInfo->aprTargetComebackBssDesc,
-			sizeof(prAisSpecBssInfo->aprTargetComebackBssDesc));
-	}
 }
 
 #endif
@@ -4388,7 +4103,7 @@ uint8_t rsnApCheckSaQueryTimeout(struct ADAPTER *prAdapter,
 				p2pFuncDisconnect(prAdapter, prBssInfo,
 					prStaRec, FALSE,
 					REASON_CODE_DEAUTH_LEAVING_BSS,
-					MAC_FRAME_DEAUTH, TRUE);
+					TRUE);
 				/* Deactive BSS if PWR is IDLE and no peer */
 				if (IS_NET_PWR_STATE_IDLE(prAdapter,
 					prBssInfo->ucBssIndex)
@@ -5066,78 +4781,74 @@ bool rsnFwDumpIsLimited(struct ADAPTER *prAdapter)
 	return TRUE;
 }
 
-#if (CFG_SUPPORT_SAP_BCN_PROT == 1)
-uint32_t rsnCalculateMMIELen(struct ADAPTER *prAdapter,
-			       uint8_t ucBssIndex, struct STA_RECORD *prStaRec)
+u_int8_t rsnHasNonce(const uint8_t *pucNonceAddr)
 {
-#define LEN_PMF_MMIE_TRUNCATE		16
-#define LEN_PMF_MMIE			24
+	uint8_t i;
 
-	struct BSS_INFO *prBssInfo;
-	struct P2P_SPECIFIC_BSS_INFO *prP2pSpecificBssInfo;
-	uint32_t u4Length = 0;
+	for (i = 0; i < WPA_NONCE_LEN; i++)
+		if (pucNonceAddr[i] != 0)
+			return TRUE;
 
-	if (!prAdapter)
+	return FALSE;
+}
+
+uint8_t rsnGetEapolMicLen(uint32_t akmp)
+{
+	switch (akmp) {
+	case WLAN_AKM_SUITE_8021X_SUITE_B_192:
+		return 24;
+	case WLAN_AKM_SUITE_FILS_SHA256:
+	case WLAN_AKM_SUITE_FILS_SHA384:
+	case WLAN_AKM_SUITE_FT_FILS_SHA256:
+	case WLAN_AKM_SUITE_FT_FILS_SHA384:
 		return 0;
+	default:
+		return 16;
+	}
+}
+
+uint16_t rsnGetEapolDataLen(uint8_t *pucEapol, uint8_t mic_len)
+{
+	uint16_t u2KeyDataLen = 0;
+	uint8_t key_data_len_offset; /* fixed field len + mic len*/
+
+	key_data_len_offset =
+		ieee802_1x_hdr_size
+		+ wpa_eapol_key_fixed_field_size
+		+ mic_len;
+	WLAN_GET_FIELD_BE16(&pucEapol[key_data_len_offset],
+		&u2KeyDataLen);
+
+	return u2KeyDataLen;
+}
+
+u_int8_t rsnIsEapolM2(struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex, uint8_t *pucEapol)
+{
+	uint16_t u2KeyInfo = 0;
+	uint8_t mic_len = 16;
+	uint16_t u2KeyDataLen = 0;
+	struct BSS_INFO *prBssInfo = NULL;
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
-	if (!prBssInfo || !IS_BSS_APGO(prBssInfo))
-		return 0;
+	if (prBssInfo)
+		mic_len = rsnGetEapolMicLen(prBssInfo->u4RsnSelectedAKMSuite);
 
-	prP2pSpecificBssInfo =
-		prAdapter->rWifiVar
-			.prP2pSpecificBssInfo[prBssInfo->u4PrivateData];
-	if (!prP2pSpecificBssInfo || !prP2pSpecificBssInfo->fgBcnProtEn)
-		return 0;
+	u2KeyDataLen = rsnGetEapolDataLen(pucEapol, mic_len);
 
-	switch (prBssInfo->u4RsnSelectedGroupMgmtCipher) {
-	case RSN_CIPHER_SUITE_BIP_CMAC_128:
-		u4Length = LEN_PMF_MMIE_TRUNCATE;
-		break;
-	default:
-		u4Length = LEN_PMF_MMIE;
-		break;
-	}
+	WLAN_GET_FIELD_BE16(&pucEapol[
+			ieee802_1x_hdr_size
+			+ wpa_eapol_key_key_info_offset],
+			&u2KeyInfo);
 
-	return u4Length;
+	if ((mic_len == 0 && u2KeyDataLen > 16) ||
+	    (mic_len > 0 && u2KeyDataLen == 0 &&
+	     !(u2KeyInfo & WPA_KEY_INFO_SECURE) &&
+	     rsnHasNonce(&pucEapol[ieee802_1x_hdr_size +
+				   wpa_eapol_key_nonce_info_offset])) ||
+	    (mic_len > 0 && u2KeyDataLen != 0 && u2KeyDataLen != 12))
+		return TRUE;
+
+	return FALSE;
 }
-
-void rsnGenerateMMIE(struct ADAPTER *prAdapter,
-		     struct MSDU_INFO *prMsduInfo)
-{
-	struct BSS_INFO *prBssInfo;
-	struct P2P_SPECIFIC_BSS_INFO *prP2pSpecificBssInfo;
-	struct MMIE_ELEM *prMmie;
-	uint32_t u4Length = 0;
-
-	if (!prAdapter)
-		return;
-
-	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prMsduInfo->ucBssIndex);
-	if (!prBssInfo || !IS_BSS_APGO(prBssInfo))
-		return;
-
-	prP2pSpecificBssInfo =
-		prAdapter->rWifiVar
-			.prP2pSpecificBssInfo[prBssInfo->u4PrivateData];
-	if (!prP2pSpecificBssInfo || !prP2pSpecificBssInfo->fgBcnProtEn)
-		return;
-
-	u4Length = rsnCalculateMMIELen(prAdapter, prMsduInfo->ucBssIndex,
-				       NULL);
-	if (u4Length == 0)
-		return;
-
-	prMmie = (struct MMIE_ELEM *)((uintptr_t)prMsduInfo->prPacket +
-				      (uintptr_t)prMsduInfo->u2FrameLength);
-
-	kalMemZero(prMmie, (ELEM_HDR_LEN + u4Length));
-	prMmie->ucElemId = ELEM_ID_MMIE;
-	prMmie->ucLength = u4Length;
-	prMmie->u2KeyId = prP2pSpecificBssInfo->ucBcnKeyIdx;
-	/* Left IPN & MIC to be filled by FW/HW */
-
-	prMsduInfo->u2FrameLength += IE_SIZE(prMmie);
-}
-#endif /* CFG_SUPPORT_SAP_BCN_PROT */
 

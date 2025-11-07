@@ -56,7 +56,7 @@ static unsigned long *g_freq_steps;
 static unsigned int lp_freq;
 static int g_freq_level[CRTC_NUM] = {-1, -1, -1, -1};
 static bool g_freq_lp[CRTC_NUM] = {false, false, false, false};
-static long g_freq;
+static unsigned long g_freq;
 static int step_size = 1;
 
 #ifdef CONFIG_MTK_FB_MMDVFS_SUPPORT
@@ -654,9 +654,15 @@ void mtk_disp_update_channel_hrt_MT6991(struct mtk_drm_crtc *mtk_crtc,
 	unsigned int compr_ratio = 90;
 	int oddmr_hrt = 0;
 	struct mtk_ddp_comp *comp;
+	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
+	struct mtk_lye_ddp_state *lye_state = &crtc_state->lye_state;
+	bool rpo_en = false;
 
 	if (!mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode].req_hrt[DDP_FIRST_PATH])
 		return;
+
+	if (lye_state->rpo_lye)
+		rpo_en = true;
 
 	/* sub_comm0: exdma2(0) + exdma7(5) + 1_exdma5(11) + (1_exdma8)(14)
 	 * sub_comm1: exdma3(1) + exdma6(4) + 1_exdma4(10) + (1_exdma9)(15)
@@ -669,6 +675,10 @@ void mtk_disp_update_channel_hrt_MT6991(struct mtk_drm_crtc *mtk_crtc,
 
 			if (mtk_crtc->usage_ovl_compr[i])
 				bw = bw * compr_ratio / 100;
+
+			if (mtk_crtc->path_data->is_exdma_dual_layer &&
+				(!rpo_en || i))
+				bw = (bw % 2 == 0) ? bw / 2 : bw / 2 + 1;
 
 			if (i == 0 || i == 5 || i == 11 || i == 14)
 				subcomm_bw_sum[0] += bw;
@@ -1262,8 +1272,10 @@ void mtk_drm_pan_disp_set_hrt_bw(struct drm_crtc *crtc, const char *caller)
 	DDPINFO("%s:pan_disp_set_hrt_bw: %u\n", caller, bw);
 
 	/* FIXME: this value is zero when booting, will be assigned in exdma_layer_config */
-	if (priv->data->mmsys_id == MMSYS_MT6991)
+	if (priv->data->mmsys_id == MMSYS_MT6991) {
 		mtk_crtc->usage_ovl_fmt[1] = 4;
+		mtk_crtc->usage_ovl_fmt[2] = 4;
+	}
 
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MAX_CHANNEL_HRT)) {
 		mtk_crtc->usage_ovl_fmt[0] = 4;
@@ -1316,6 +1328,9 @@ void mtk_disp_mmqos_bw_repaint(struct mtk_drm_private *priv)
 	unsigned int i, j, k, c, tmp = 1, flag = DISP_BW_FORCE_UPDATE;
 	int ret = 0;
 	bool is_hrt;
+
+	if (priv->data->respective_ostdl)
+		return;
 
 	for (c = 0 ; c < MAX_CRTC ; ++c) {
 		crtc = priv->crtc[c];
@@ -1504,6 +1519,8 @@ void mtk_drm_mmdvfs_init(struct device *dev)
 
 unsigned int mtk_drm_get_mmclk_step_size(void)
 {
+	if (step_size < 0)
+		return 0;
 	return step_size;
 }
 
@@ -1562,8 +1579,10 @@ void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level, bool lp_mode,
 
 	if (final_level >= 0)
 		freq = g_freq_steps[final_level];
-	else
+	else {
 		freq = g_freq_steps[0];
+		final_level = 0;
+	}
 
 	DDPINFO("%s[%d] final_level(freq=%d, %lu) final_lp_mode:%d\n",
 		__func__, __LINE__, final_level, freq, final_lp_mode);
@@ -1646,3 +1665,10 @@ unsigned long mtk_drm_get_mmclk(struct drm_crtc *crtc, const char *caller)
 	return freq;
 }
 
+void mtk_drm_check_mmclk(void)
+{
+	u8 level = mtk_vidle_check_pll();
+
+	if (level)
+		vdisp_func.set_clk(g_freq_steps[level]);
+}

@@ -47,6 +47,57 @@ static int counter;
 
 static struct rtc_wkalrm p_alm;
 
+#if  IS_ENABLED(CONFIG_RTC_AUTO_PWRON)
+void pon_alarm_parse_data(char *alarm_data, struct rtc_wkalrm *alm)
+{
+	char buf_ptr[BOOTALM_BIT_TOTAL+1] = {0,};
+
+	strscpy(buf_ptr, alarm_data, BOOTALM_BIT_TOTAL+1);
+
+	/* 0|1234|56|78|90|12 */
+	/* 1|2010|01|01|00|00 */
+	/*en yyyy mm dd hh mm */
+	alm->time.tm_sec = 0;
+	alm->time.tm_min = (buf_ptr[BOOTALM_BIT_MIN]-'0') * 10
+					+ (buf_ptr[BOOTALM_BIT_MIN+1]-'0');
+	alm->time.tm_hour = (buf_ptr[BOOTALM_BIT_HOUR]-'0') * 10
+					+ (buf_ptr[BOOTALM_BIT_HOUR+1]-'0');
+	alm->time.tm_mday = (buf_ptr[BOOTALM_BIT_DAY]-'0') * 10
+					+ (buf_ptr[BOOTALM_BIT_DAY+1]-'0');
+	alm->time.tm_mon  = (buf_ptr[BOOTALM_BIT_MONTH]-'0') * 10
+					+ (buf_ptr[BOOTALM_BIT_MONTH+1]-'0');
+	alm->time.tm_year = (buf_ptr[BOOTALM_BIT_YEAR]-'0') * 1000
+					+ (buf_ptr[BOOTALM_BIT_YEAR+1]-'0') * 100
+					+ (buf_ptr[BOOTALM_BIT_YEAR+2]-'0') * 10
+					+ (buf_ptr[BOOTALM_BIT_YEAR+3]-'0');
+	alm->time.tm_mon -= 1;
+	alm->time.tm_year -= 1900;
+	alm->time.tm_wday = 0;
+
+
+	alm->enabled = (*buf_ptr == '1');
+	if (*buf_ptr == '2')
+		alm->enabled = 2;
+
+	if (!alm->enabled) {
+		/* Set disable power on alarm time 1970-01-01 00:00:00 */
+		alm->time.tm_year = 70;
+		alm->time.tm_mon = 0;
+		alm->time.tm_mday = 1;
+		alm->time.tm_hour = 0;
+		alm->time.tm_min = 0;
+	}
+
+	pr_info("%s: %s => tm(%d %04d-%02d-%02d %02d:%02d:%02d)\n",
+			__func__, buf_ptr, alm->enabled,
+			alm->time.tm_year + 1900, alm->time.tm_mon + 1, alm->time.tm_mday,
+			alm->time.tm_hour, alm->time.tm_min, alm->time.tm_sec);
+}
+#endif /* CONFIG_RTC_BOOT_ALARM */
+
+
+
+
 void power_on_mclk(struct mt6685_rtc *rtc)
 {
 	mutex_lock(&rtc->clk_lock);
@@ -1202,7 +1253,24 @@ static int mtk_rtc_ioctl(struct device *dev, unsigned int cmd, unsigned long arg
 	void __user *uarg = (void __user *) arg;
 	int err = 0;
 	struct rtc_wkalrm alm = { 0 };
+#if IS_ENABLED(CONFIG_RTC_AUTO_PWRON)
+	struct alarm_timespec data;
 
+	switch (ANDROID_ALARM_BASE_CMD(cmd)) {
+	case ANDROID_ALARM_SET_ALARM_BOOT:
+		if (copy_from_user(data.alarm, uarg, 14)) {
+			err = -EFAULT;
+			pr_err("%s: set ret=%d\n", __func__, err);
+			return err;
+		}
+		pon_alarm_parse_data(data.alarm, &alm);
+		err = rtc_alarm_set_power_on(dev, &alm);
+		break;
+	default:
+		err = -EINVAL;
+		break;
+	}
+#else
 	switch (cmd) {
 	case RTC_POFF_ALM_SET:
 		if (copy_from_user(&alm.time, uarg, sizeof(alm.time)))
@@ -1213,7 +1281,7 @@ static int mtk_rtc_ioctl(struct device *dev, unsigned int cmd, unsigned long arg
 		err = -EINVAL;
 		break;
 	}
-
+#endif /* CONFIG_RTC_BOOT_ALARM */
 	return err;
 }
 

@@ -12,9 +12,6 @@
  *                              F U N C T I O N S
  *******************************************************************************
  */
-#define NAN_MAIN_LINK_INDEX (0)
-#define NAN_HIGH_LINK_INDEX (1)
-
 void nanGetLinkWmmQueSet(
 	struct ADAPTER *prAdapter,
 	struct BSS_INFO *prBssInfo);
@@ -24,6 +21,9 @@ struct BSS_INFO *nanGetDefaultLinkBssInfo(
 	struct BSS_INFO *bss);
 
 u_int8_t nanLinkNeedMlo(
+	struct ADAPTER *prAdapter);
+
+u_int8_t nanIsMultiLink(
 	struct ADAPTER *prAdapter);
 
 u_int8_t nanGetStaRecExist(
@@ -61,6 +61,7 @@ nanGetLinkIndexbyRole(
 
 uint8_t
 nanGetLinkIndexbyOpClass(
+	struct ADAPTER *prAdapter,
 	uint32_t op);
 
 void nanResetStaRec(

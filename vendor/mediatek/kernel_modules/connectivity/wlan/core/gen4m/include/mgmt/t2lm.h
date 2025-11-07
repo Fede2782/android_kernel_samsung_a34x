@@ -10,6 +10,7 @@
 
 #ifndef _T2LM_H
 #define _T2LM_H
+
 #if (CFG_SUPPORT_802_11BE_T2LM == 1)
 
 /*******************************************************************************
@@ -47,6 +48,7 @@
  *******************************************************************************
  */
 #define T2LM_REQ_TX_TIMEOUT 3000
+#define T2LM_RETRY_LIMIT 5
 
 /*******************************************************************************
  *                             D A T A   T Y P E S
@@ -130,14 +132,12 @@ uint32_t t2lmTeardownTxDoneCb(struct ADAPTER *prAdapter,
 	struct MSDU_INFO *prMsduInfo, enum ENUM_TX_RESULT_CODE rTxDoneStatus);
 
 uint32_t t2lmSend(struct ADAPTER *prAdapter, enum PROTECTED_EHT_ACTION eAction,
-	struct STA_RECORD *prStaRec, struct T2LM_INFO *prT2LMParams);
+	struct BSS_INFO *prBssInfo, struct T2LM_INFO *prT2LMParams);
 
 void t2lmParseT2LMIE(struct ADAPTER *prAdapter,
 	struct STA_RECORD *prStaRec, const uint8_t *pucIE);
 
 void t2lmTimeout(struct ADAPTER *prAdapter, uintptr_t ulParamPtr);
-
-void t2lmFsmTimeout(struct ADAPTER *prAdapter, uintptr_t ulParamPtr);
 
 void t2lmProcessAction(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb);
 

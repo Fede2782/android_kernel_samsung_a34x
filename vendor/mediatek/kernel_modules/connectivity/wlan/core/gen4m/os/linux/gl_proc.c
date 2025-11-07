@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -84,10 +84,6 @@
 #endif
 #endif /* (BUILD_QA_DBG) */
 
-#if CFG_WIFI_TESTMODE_FW_REDOWNLOAD
-#define PROC_TEST_MODE				"testMode"
-#endif
-
 #define PROC_MCR_ACCESS_MAX_USER_INPUT_LEN      20
 #define PROC_RX_STATISTICS_MAX_USER_INPUT_LEN   10
 #define PROC_TX_STATISTICS_MAX_USER_INPUT_LEN   10
@@ -125,10 +121,6 @@
 }
 #endif
 
-#if (KERNEL_VERSION(5, 17, 0) <= LINUX_VERSION_CODE)
-#define PDE_DATA(i) pde_data(i)
-#endif
-
 /*******************************************************************************
  *                            P U B L I C   D A T A
  *******************************************************************************
@@ -141,63 +133,22 @@ struct _TWT_SMART_STA_T g_TwtSmartStaCtrl;
  *                           P R I V A T E   D A T A
  *******************************************************************************
  */
+static struct GLUE_INFO *g_prGlueInfo_proc;
 static struct proc_dir_entry *gprProcRoot;
 #if (BUILD_QA_DBG)
-static const char * const apcDbModuleName[DBG_MODULE_NUM] = {
-	[DBG_INIT_IDX] = "INIT",
-	[DBG_HAL_IDX] = "HAL",
-	[DBG_INTR_IDX] = "INTR",
-	[DBG_REQ_IDX] = "REQ",
-	[DBG_TX_IDX] = "TX",
-	[DBG_RX_IDX] = "RX",
-	[DBG_RFTEST_IDX] = "RFTEST",
-	[DBG_EMU_IDX] = "EMU",
-	[DBG_SW1_IDX] = "SW1",
-	[DBG_SW2_IDX] = "SW2",
-	[DBG_SW3_IDX] = "SW3",
-	[DBG_SW4_IDX] = "SW4",
-	[DBG_HEM_IDX] = "HEM",
-	[DBG_AIS_IDX] = "AIS",
-	[DBG_RLM_IDX] = "RLM",
-	[DBG_MEM_IDX] = "MEM",
-	[DBG_CNM_IDX] = "CNM",
-	[DBG_RSN_IDX] = "RSN",
-	[DBG_BSS_IDX] = "BSS",
-	[DBG_SCN_IDX] = "SCN",
-	[DBG_SAA_IDX] = "SAA",
-	[DBG_AAA_IDX] = "AAA",
-	[DBG_P2P_IDX] = "P2P",
-	[DBG_QM_IDX] = "QM",
-	[DBG_SEC_IDX] = "SEC",
-	[DBG_BOW_IDX] = "BOW",
-	[DBG_WAPI_IDX] = "WAPI",
-	[DBG_ROAMING_IDX] = "ROAMING",
-	[DBG_TDLS_IDX] = "TDLS",
-	[DBG_PF_IDX] = "PF",
-	[DBG_OID_IDX] = "OID",
-	[DBG_NIC_IDX] = "NIC",
-	[DBG_WNM_IDX] = "WNM",
-	[DBG_WMM_IDX] = "WMM",
-	[DBG_TRACE_IDX] = "TRACE",
-	[DBG_TWT_REQUESTER_IDX] = "TWT_REQ",
-	[DBG_TWT_PLANNER_IDX] = "TWT_PLN",
-	[DBG_TWT_RESPONDER_IDX] = "TWT_RES",
-	[DBG_SMC_IDX] = "SMC",
-	[DBG_RRM_IDX] = "RRM",
-	[DBG_ML_IDX] = "ML",
-	[DBG_RTT_IDX] = "RTT",
-	[DBG_NAN_IDX] = "NAN",
-	[DBG_ICS_IDX] = "ICS",
-	[DBG_HIF_WMM_ENHANCE_IDX] = "HIF_WMM",
-	[DBG_APS_IDX] = "APS",
-	[DBG_SA_IDX] = "SA",
-	[DBG_MET_IDX] = "MET",
-	[DBG_FILS_IDX] = "FILS",
-	[DBG_AM_IDX] = "AM",
-	[DBG_CCM_IDX] = "CCM",
-	[DBG_PASN_IDX] = "PASN",
+static uint32_t u4McrOffset;
+static uint8_t aucDbModuleName[][PROC_DBG_LEVEL_MAX_DISPLAY_STR_LEN] = {
+	"INIT", "HAL", "INTR", "REQ", "TX", "RX", "RFTEST", "EMU",
+	"SW1", "SW2", "SW3", "SW4", "HEM", "AIS", "RLM", "MEM",
+	"CNM", "RSN", "BSS", "SCN", "SAA", "AAA", "P2P", "QM",
+	"SEC", "BOW", "WAPI", "ROAMING", "TDLS", "PF", "OID", "NIC"
 };
 #endif /* (BUILD_QA_DBG) */
+
+/* This u32 is only for DriverCmdRead/Write,
+ * should not be used by other function
+ */
+static int32_t g_i4NextDriverReadLen;
 
 #if (!CFG_MTK_ANDROID_WMT) && (BUILD_QA_DBG)
 #if CFG_WIFI_TXPWR_TBL_DUMP
@@ -314,10 +265,8 @@ static ssize_t procDriverCmdWrite(struct file *file, const char __user *buffer,
 {
 	uint8_t *pucProcBuf = kalMemZAlloc(PROC_MAX_BUF_SIZE, VIR_MEM_TYPE);
 	uint32_t u4CopySize = PROC_MAX_BUF_SIZE;
-	struct GLUE_INFO *prGlueInfo = NULL;
+	struct GLUE_INFO *prGlueInfo = g_prGlueInfo_proc;
 	int32_t i4Ret = 0;
-
-	prGlueInfo = (struct GLUE_INFO *) PDE_DATA(file_inode(file));
 
 	if (buffer == NULL || pucProcBuf == NULL || prGlueInfo == NULL) {
 		i4Ret = 0;
@@ -333,31 +282,10 @@ static ssize_t procDriverCmdWrite(struct file *file, const char __user *buffer,
 	}
 	pucProcBuf[u4CopySize] = '\0';
 
-	/* This proc driver command will call priv_driver_cmds, which is
-	 * the same callback function of iwpriv driver command.
-	 * Since "AP_START" command needs know rtnl is locked or not and
-	 * iwpriv command has already hold rtnl_lock in kernel, the proc
-	 * driver "AP_START" command needs to be modified to "PROC_AP_START"
-	 * to distinguish whether the caller holds rtnl_lock.
-	 */
-	if (u4CopySize >= 8 && strnicmp(pucProcBuf, "AP_START", 8) == 0) {
-		uint8_t *pucProcBufTmp = kalMemZAlloc(u4CopySize + 6,
-			VIR_MEM_TYPE);
-
-		if (pucProcBufTmp == NULL) {
-			i4Ret = 0;
-			goto freeBuf;
-		}
-		kalSnprintf(pucProcBufTmp, u4CopySize + 6, "PROC_%s",
-			pucProcBuf);
-		kalMemFree(pucProcBuf, VIR_MEM_TYPE, PROC_MAX_BUF_SIZE);
-		pucProcBuf = pucProcBufTmp;
-		DBGLOG(P2P, INFO, "Add prefix, command: %s\n", pucProcBuf);
+	if (kalStrLen(pucProcBuf) > 0) {
+		priv_driver_cmds(prGlueInfo->prDevHandler, pucProcBuf,
+			kalStrLen(pucProcBuf));
 	}
-
-	if (kalStrLen(pucProcBuf) > 0)
-		priv_driver_cmds(prGlueInfo, prGlueInfo->prDevHandler,
-			pucProcBuf, kalStrLen(pucProcBuf));
 
 	i4Ret = u4CopySize;
 freeBuf:
@@ -389,12 +317,9 @@ static const struct file_operations drivercmd_ops = {
 static int procCSIDataOpen(struct inode *n, struct file *f)
 {
 	struct CSI_INFO_T *prCSIInfo = NULL;
-	struct GLUE_INFO *prGlueInfo = NULL;
 
-	prGlueInfo = (struct GLUE_INFO *) PDE_DATA(n);
-
-	if (prGlueInfo && prGlueInfo->prAdapter) {
-		prCSIInfo = glCsiGetCSIInfo(prGlueInfo);
+	if (g_prGlueInfo_proc && g_prGlueInfo_proc->prAdapter) {
+		prCSIInfo = glCsiGetCSIInfo();
 		prCSIInfo->bIncomplete = FALSE;
 	}
 
@@ -404,12 +329,9 @@ static int procCSIDataOpen(struct inode *n, struct file *f)
 static int procCSIDataRelease(struct inode *n, struct file *f)
 {
 	struct CSI_INFO_T *prCSIInfo = NULL;
-	struct GLUE_INFO *prGlueInfo = NULL;
 
-	prGlueInfo = (struct GLUE_INFO *) PDE_DATA(n);
-
-	if (prGlueInfo && prGlueInfo->prAdapter) {
-		prCSIInfo = glCsiGetCSIInfo(prGlueInfo);
+	if (g_prGlueInfo_proc && g_prGlueInfo_proc->prAdapter) {
+		prCSIInfo = glCsiGetCSIInfo();
 		prCSIInfo->bIncomplete = FALSE;
 	}
 
@@ -425,15 +347,12 @@ static ssize_t procCSIDataRead(struct file *filp,
 	int32_t i4Pos = 0;
 	struct CSI_INFO_T *prCSIInfo = NULL;
 	struct CSI_DATA_T *prTempCSIData = NULL;
-	struct GLUE_INFO *prGlueInfo = NULL;
 	u_int8_t bStatus;
 
-	prGlueInfo = (struct GLUE_INFO *) PDE_DATA(file_inode(filp));
-
-	if (prGlueInfo && prGlueInfo->u4ReadyFlag &&
-			prGlueInfo->prAdapter) {
-		prCSIInfo = glCsiGetCSIInfo(prGlueInfo);
-		temp = glCsiGetCSIBuf(prGlueInfo);
+	if (g_prGlueInfo_proc && g_prGlueInfo_proc->u4ReadyFlag &&
+			g_prGlueInfo_proc->prAdapter) {
+		prCSIInfo = glCsiGetCSIInfo();
+		temp = glCsiGetCSIBuf();
 	} else {
 		DBGLOG(REQ, WARN, "[CSI] driver is not ready.\n");
 		return 0;
@@ -441,16 +360,10 @@ static ssize_t procCSIDataRead(struct file *filp,
 
 	if (prCSIInfo->bIncomplete == FALSE) {
 
-		wait_event_interruptible(prGlueInfo->waitq_csi,
+		wait_event_interruptible(g_prGlueInfo_proc->waitq_csi,
 			prCSIInfo->u4CSIBufferUsed != 0);
-		if (kalIsHalted() || kalIsResetting()) {
-			DBGLOG(INIT, WARN,
-				"[CSI] kalIsHalted=%u kalIsResetting=%u\n",
-				kalIsHalted(), kalIsResetting());
-			return -EFAULT;
-		}
 
-		prTempCSIData = glCsiGetCSIData(prGlueInfo);
+		prTempCSIData = glCsiGetCSIData();
 		if (!prTempCSIData) {
 			DBGLOG(REQ, ERROR, "[CSI] NULL CSI data.\n");
 			return -EFAULT;
@@ -460,7 +373,7 @@ static ssize_t procCSIDataRead(struct file *filp,
 		 * No older CSI data in buffer waiting for reading out,
 		 * so prepare a new one for reading.
 		 */
-		bStatus = wlanPopCSIData(prGlueInfo->prAdapter,
+		bStatus = wlanPopCSIData(g_prGlueInfo_proc->prAdapter,
 			prTempCSIData);
 		if (bStatus)
 			i4Pos = wlanCSIDataPrepare(temp,
@@ -506,7 +419,7 @@ static ssize_t procCSIDataRead(struct file *filp,
 	*f_pos += u4CopySize;
 
 #if CFG_CSI_DEBUG
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 		"[CSI] copy size = %d, [used|head idx|tail idx] = [%d|%d|%d]\n",
 		u4CopySize, prCSIInfo->u4CSIBufferUsed,
 		prCSIInfo->u4CSIBufferHead, prCSIInfo->u4CSIBufferTail);
@@ -540,17 +453,12 @@ static ssize_t procCountryRead(struct file *filp, char __user *buf,
 	uint32_t country = 0;
 	char acCountryStr[MAX_COUNTRY_CODE_LEN + 1] = {0};
 	int32_t i4Ret = 0;
-	struct GLUE_INFO *prGlueInfo = NULL;
-	struct ADAPTER *prAdapter = NULL;
-
-	prGlueInfo = (struct GLUE_INFO *) PDE_DATA(file_inode(filp));
 
 	/* if *f_pos > 0, it means has read successed last time */
-	if (*f_pos > 0 || !buf || !pucProcBuf || !prGlueInfo) {
+	if (*f_pos > 0 || buf == NULL || pucProcBuf == NULL) {
 		i4Ret = 0;
 		goto freeBuf;
 	}
-	prAdapter = prGlueInfo->prAdapter;
 
 	country = rlmDomainGetCountryCode();
 	rlmDomainU32ToAlpha(country, acCountryStr);
@@ -581,17 +489,13 @@ freeBuf:
 static ssize_t procCountryWrite(struct file *file, const char __user *buffer,
 	size_t count, loff_t *data)
 {
-	struct GLUE_INFO *prGlueInfo = NULL;
-	struct ADAPTER *prAdapter = NULL;
 	uint8_t *pucProcBuf = kalMemZAlloc(PROC_MAX_BUF_SIZE, VIR_MEM_TYPE);
 	uint32_t u4BufLen = 0;
 	uint32_t rStatus;
 	uint32_t u4CopySize = PROC_MAX_BUF_SIZE;
 	int32_t i4Ret = 0;
 
-	prGlueInfo = (struct GLUE_INFO *) PDE_DATA(file_inode(file));
-
-	if (buffer == NULL || pucProcBuf == NULL || prGlueInfo == NULL) {
+	if (buffer == NULL || pucProcBuf == NULL) {
 		i4Ret = 0;
 		goto freeBuf;
 	}
@@ -610,27 +514,11 @@ static ssize_t procCountryWrite(struct file *file, const char __user *buffer,
 		goto freeBuf;
 	}
 	pucProcBuf[u4CopySize] = '\0';
-	prAdapter = prGlueInfo->prAdapter;
 
-	if (regd_is_single_sku_en()) {
-		struct COUNTRY_CODE_SETTING prCountrySetting = {0};
-
-		prCountrySetting.aucCountryCode[0] = pucProcBuf[0];
-		prCountrySetting.aucCountryCode[1] = pucProcBuf[1];
-		prCountrySetting.ucCountryLength = 2;
-		prCountrySetting.fgNeedHoldRtnlLock = 1;
-		rStatus = kalIoctl(prGlueInfo,
-					wlanoidSetCountryCode,
-					&prCountrySetting,
-					sizeof(struct COUNTRY_CODE_SETTING),
-					&u4BufLen);
-	} else {
-		rStatus = kalIoctl(prGlueInfo, wlanoidSetCountryCode,
+	rStatus = kalIoctl(g_prGlueInfo_proc, wlanoidSetCountryCode,
 			   pucProcBuf, 2, &u4BufLen);
-	}
-
 	if (rStatus != WLAN_STATUS_SUCCESS) {
-		DBGLOG(INIT, DEBUG, "failed set country code: %s\n",
+		DBGLOG(INIT, INFO, "failed set country code: %s\n",
 			pucProcBuf);
 		i4Ret = -EINVAL;
 		goto freeBuf;
@@ -660,15 +548,13 @@ static const struct file_operations country_ops = {
 static ssize_t procCoreDumpRead(struct file *file, char __user *buf,
 			size_t count, loff_t *f_pos)
 {
-	struct GLUE_INFO *prGlueInfo = NULL;
+	struct GLUE_INFO *prGlueInfo = g_prGlueInfo_proc;
 	struct ADAPTER *prAdapter;
 	struct sk_buff *skb = NULL;
 	int copyLen = 0;
 	unsigned long ret_len = 0;
 
 	KAL_SPIN_LOCK_DECLARATION();
-
-	prGlueInfo = (struct GLUE_INFO *) PDE_DATA(file_inode(file));
 
 	if (!prGlueInfo) {
 		DBGLOG(REQ, WARN, "procCfgRead prGlueInfo is  NULL\n");
@@ -716,10 +602,8 @@ out:
 
 static unsigned int procCoreDumpPoll(struct file *file, poll_table *wait)
 {
-	struct GLUE_INFO *prGlueInfo = NULL;
+	struct GLUE_INFO *prGlueInfo = g_prGlueInfo_proc;
 	unsigned int mask = 0;
-
-	prGlueInfo = (struct GLUE_INFO *) PDE_DATA(file_inode(file));
 
 	if (!prGlueInfo) {
 		DBGLOG(REQ, WARN, "procCoreDumpPoll prGlueInfo is  NULL\n");
@@ -954,7 +838,7 @@ static int procEfuseDump_show(struct seq_file *s, void *v)
 	uint32_t idx_addr, idx_value;
 	struct PARAM_CUSTOM_ACCESS_EFUSE rAccessEfuseInfo = { };
 
-	prGlueInfo = (struct GLUE_INFO *) s->private;
+	prGlueInfo = g_prGlueInfo_proc;
 
 	if (prGlueInfo == NULL) {
 		seq_puts(s, "prGlueInfo is null\n");
@@ -988,16 +872,9 @@ static int procEfuseDump_show(struct seq_file *s, void *v)
 	}
 
 	for (idx_value = 0; idx_value < EFUSE_BLOCK_SIZE; idx_value++)
-#ifdef CFG_SUPPORT_UNIFIED_COMMAND
-		seq_printf(s, "0x%03X=0x%02X\n",
-			rAccessEfuseInfo.u4Address + idx_value,
-			rAccessEfuseInfo.aucData[idx_value]);
-#else
 		seq_printf(s, "0x%03X=0x%02X\n",
 			rAccessEfuseInfo.u4Address + idx_value,
 			prGlueInfo->prAdapter->aucEepromVaule[idx_value]);
-#endif
-
 	return 0;
 #else
 	seq_puts(s, "efuse ops is invalid\n");
@@ -1007,9 +884,6 @@ static int procEfuseDump_show(struct seq_file *s, void *v)
 
 static int procEfuseDumpOpen(struct inode *inode, struct file *file)
 {
-	struct seq_file *seq = NULL;
-	int32_t i4Ret = 0;
-
 	static const struct seq_operations procEfuseDump_ops = {
 		.start = procEfuseDump_start,
 		.next = procEfuseDump_next,
@@ -1017,14 +891,7 @@ static int procEfuseDumpOpen(struct inode *inode, struct file *file)
 		.show = procEfuseDump_show
 	};
 
-	i4Ret = seq_open(file, &procEfuseDump_ops);
-
-	if (i4Ret == 0) {
-		seq = file->private_data;
-		seq->private = PDE_DATA(inode);
-	}
-
-	return i4Ret;
+	return seq_open(file, &procEfuseDump_ops);
 }
 
 #if KERNEL_VERSION(5, 6, 0) <= CFG80211_VERSION_CODE
@@ -1059,7 +926,7 @@ void print_txpwr_tbl(struct txpwr_table *txpwr_tbl, unsigned char ch,
 	unsigned int *pos = NULL;
 	int i;
 
-	TRACE_FUNC(REQ, DEBUG, "Enter %s\n");
+	DBGLOG(REQ, INFO, "Enter print_txpwr_tbl\n");
 
 	/* n_tables: MCS number of each modulation */
 	for (i = 0; i < txpwr_tbl->n_tables; i++) {
@@ -1134,9 +1001,8 @@ static ssize_t procGetTxpwrTblRead(struct file *filp, char __user *buf,
 {
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct ADAPTER  *prAdapter = NULL;
-	struct WIFI_VAR *prWifiVar;
 	struct BSS_INFO *prBssInfo = NULL;
-	unsigned char ucBssIndex;
+	unsigned char ucBssIndex = AIS_DEFAULT_BSS_INDEX;
 	uint32_t status;
 	struct PARAM_CMD_GET_TXPWR_TBL pwr_tbl;
 	struct POWER_LIMIT *tx_pwr_tbl = pwr_tbl.tx_pwr_tbl;
@@ -1149,7 +1015,7 @@ static ssize_t procGetTxpwrTblRead(struct file *filp, char __user *buf,
 	char pwr_offset[TXPWR_TBL_NUM] = {0};
 	int ret;
 
-	TRACE_FUNC(REQ, DEBUG, "Enter %s\n");
+	DBGLOG(REQ, INFO, "Enter procGetTxpwrTblRead\n");
 
 	/* Re-entry to the func to print the remaining table */
 	if (*f_pos > 0) { /* re-entry */
@@ -1163,16 +1029,13 @@ static ssize_t procGetTxpwrTblRead(struct file *filp, char __user *buf,
 		return 0;
 	}
 
-	prGlueInfo = (struct GLUE_INFO *) PDE_DATA(file_inode(file));
-
+	prGlueInfo = g_prGlueInfo_proc;
 	if (!prGlueInfo) {
 		DBGLOG(REQ, WARN, "can't get glue info");
 		return -EFAULT;
 	}
 
 	prAdapter = prGlueInfo->prAdapter;
-	prWifiVar = &prAdapter->rWifiVar;
-	ucBssIndex = prWifiVar->ucBssIdStartValue;
 	prBssInfo = prAdapter->aprBssInfo[ucBssIndex];
 	if (!prBssInfo) {
 		DBGLOG(REQ, WARN, "can't get the BssInfo from adapter");
@@ -1190,7 +1053,7 @@ static ssize_t procGetTxpwrTblRead(struct file *filp, char __user *buf,
 		DBGLOG(REQ, WARN, "Query Tx Power Table fail\n");
 		return -EINVAL;
 	}
-	DBGLOG(REQ, DEBUG, "Query Tx Power Table success\n");
+	DBGLOG(REQ, INFO, "Query Tx Power Table success\n");
 
 
 	buffer = (char *) kalMemAlloc(buf_len, VIR_MEM_TYPE);
@@ -1209,7 +1072,7 @@ static ssize_t procGetTxpwrTblRead(struct file *filp, char __user *buf,
 			goto out;
 		}
 	}
-	DBGLOG(REQ, DEBUG, "stream init\n");
+	DBGLOG(REQ, INFO, "stream init\n");
 
 
 	pos = kalScnprintf(buffer, buf_len,
@@ -1239,26 +1102,26 @@ static ssize_t procGetTxpwrTblRead(struct file *filp, char __user *buf,
 		case DSSS:
 			if (pwr_tbl.ucCenterCh > 14)
 				continue;
-			DBGLOG(REQ, DEBUG, "Print DSSS table\n");
+			DBGLOG(REQ, INFO, "Print DSSS table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_dsss;
 			break;
 		case OFDM_24G:
 			if (pwr_tbl.ucCenterCh > 14)
 				continue;
-			DBGLOG(REQ, DEBUG, "Print OFDM_24G table\n");
+			DBGLOG(REQ, INFO, "Print OFDM_24G table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_ofdm;
 			break;
 		case OFDM_5G:
 			if (pwr_tbl.ucCenterCh <= 14)
 				continue;
-			DBGLOG(REQ, DEBUG, "Print OFDM_5G table\n");
+			DBGLOG(REQ, INFO, "Print OFDM_5G table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_ofdm;
 			break;
 		case HT20:
-			DBGLOG(REQ, DEBUG, "Print HT20 table\n");
+			DBGLOG(REQ, INFO, "Print HT20 table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_ht20;
 			break;
@@ -1266,12 +1129,12 @@ static ssize_t procGetTxpwrTblRead(struct file *filp, char __user *buf,
 			if (pwr_tbl.ucCenterCh <= 14 ||
 					tx_pwr_tbl[0].tx_pwr_ht40[0] >= 127)
 				continue;
-			DBGLOG(REQ, DEBUG, "Print HT40 table\n");
+			DBGLOG(REQ, INFO, "Print HT40 table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_ht40;
 			break;
 		case VHT20:
-			DBGLOG(REQ, DEBUG, "Print VHT20 table\n");
+			DBGLOG(REQ, INFO, "Print VHT20 table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_vht20;
 			break;
@@ -1279,7 +1142,7 @@ static ssize_t procGetTxpwrTblRead(struct file *filp, char __user *buf,
 			if (pwr_tbl.ucCenterCh <= 14 ||
 					tx_pwr_tbl[0].tx_pwr_vht40[0] >= 127)
 				continue;
-			DBGLOG(REQ, DEBUG, "Print VHT40 table\n");
+			DBGLOG(REQ, INFO, "Print VHT40 table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_vht40;
 			break;
@@ -1287,7 +1150,7 @@ static ssize_t procGetTxpwrTblRead(struct file *filp, char __user *buf,
 			if (pwr_tbl.ucCenterCh <= 14 ||
 					tx_pwr_tbl[0].tx_pwr_vht80[0] >= 127)
 				continue;
-			DBGLOG(REQ, DEBUG, "Print VHT80 table\n");
+			DBGLOG(REQ, INFO, "Print VHT80 table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_vht80;
 			break;
@@ -1295,28 +1158,28 @@ static ssize_t procGetTxpwrTblRead(struct file *filp, char __user *buf,
 			if (pwr_tbl.ucCenterCh <= 14 ||
 					tx_pwr_tbl[0].tx_pwr_vht160[0] >= 127)
 				continue;
-			DBGLOG(REQ, DEBUG, "Print VHT160 table\n");
+			DBGLOG(REQ, INFO, "Print VHT160 table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_vht160;
 			break;
 #if (CFG_WIFI_TXPWR_TBL_DUMP_HE == 1)
 		case HE26:
-			DBGLOG(REQ, DEBUG, "Print HE26 table\n");
+			DBGLOG(REQ, INFO, "Print HE26 table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_he26;
 			break;
 		case HE52:
-			DBGLOG(REQ, DEBUG, "Print HE52 table\n");
+			DBGLOG(REQ, INFO, "Print HE52 table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_he52;
 			break;
 		case HE106:
-			DBGLOG(REQ, DEBUG, "Print HE106 table\n");
+			DBGLOG(REQ, INFO, "Print HE106 table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_he106;
 			break;
 		case HE242:
-			DBGLOG(REQ, DEBUG, "Print HE242 table\n");
+			DBGLOG(REQ, INFO, "Print HE242 table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_he242;
 			break;
@@ -1324,7 +1187,7 @@ static ssize_t procGetTxpwrTblRead(struct file *filp, char __user *buf,
 			if (pwr_tbl.ucCenterCh <= 14 ||
 					tx_pwr_tbl[0].tx_pwr_he484[0] >= 127)
 				continue;
-			DBGLOG(REQ, DEBUG, "Print HE484 table\n");
+			DBGLOG(REQ, INFO, "Print HE484 table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_he484;
 			break;
@@ -1332,7 +1195,7 @@ static ssize_t procGetTxpwrTblRead(struct file *filp, char __user *buf,
 			if (pwr_tbl.ucCenterCh <= 14 ||
 					tx_pwr_tbl[0].tx_pwr_he996[0] >= 127)
 				continue;
-			DBGLOG(REQ, DEBUG, "Print HE996 table\n");
+			DBGLOG(REQ, INFO, "Print HE996 table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_he996;
 			break;
@@ -1340,7 +1203,7 @@ static ssize_t procGetTxpwrTblRead(struct file *filp, char __user *buf,
 			if (pwr_tbl.ucCenterCh <= 14 ||
 					tx_pwr_tbl[0].tx_pwr_he996x2[0] >= 127)
 				continue;
-			DBGLOG(REQ, DEBUG, "Print HE996X2 table\n");
+			DBGLOG(REQ, INFO, "Print HE996X2 table\n");
 			for (j = 0; j < TXPWR_TBL_NUM; j++)
 				tx_pwr[j] = tx_pwr_tbl[j].tx_pwr_he996x2;
 			break;
@@ -1411,9 +1274,9 @@ static ssize_t procDbgLevelRead(struct file *filp, char __user *buf,
 	uint8_t *str = NULL;
 	uint32_t u4CopySize = 0;
 	uint16_t i;
-	uint16_t u2ModuleNum;
+	uint16_t u2ModuleNum = 0;
 	uint32_t u4StrLen = 0;
-	uint32_t u4Level;
+	uint32_t u4Level1, u4Level2;
 	int32_t i4Ret = 0;
 
 	/* if *f_ops>0, we should return 0 to make cat command exit */
@@ -1422,24 +1285,36 @@ static ssize_t procDbgLevelRead(struct file *filp, char __user *buf,
 		goto freeBuf;
 	}
 
-	str = "\nDEBUG| TEMP|LOUD|INFO|TRACE | EVENT|STATE|WARN|ERROR\n"
-	    "bit8| bit7|bit6|bit5|bit4 | bit3|bit2|bit1|bit0\n\n"
+	str = "\nVOC|TEMP|LOUD|INFO|TRACE | EVENT|STATE|WARN|ERROR\n"
+	    "bit8|bit7|bit6|bit5|bit4 | bit3|bit2|bit1|bit0\n\n"
 	    "Usage: Module Index:Module Level, such as 0x00:0x1ff\n\n"
 	    "Debug Module\tIndex\tLevel\tDebug Module\tIndex\tLevel\n\n";
 	u4StrLen = kalStrLen(str);
 	kalStrnCpy(temp, str, u4StrLen);
 	temp += u4StrLen;
 
-	u2ModuleNum = ARRAY_SIZE(apcDbModuleName);
+	u2ModuleNum =
+	    (sizeof(aucDbModuleName) /
+	     PROC_DBG_LEVEL_MAX_DISPLAY_STR_LEN) & 0xfe;
 
-	for (i = 0; i < u2ModuleNum; i++) {
-		wlanGetDriverDbgLevel(i, &u4Level);
-		SNPRINTF(temp, PROC_MAX_BUF_SIZE - (temp - pucProcBuf),
-			("DBG_%s_IDX\t(0x%02x):\t0x%03x\t",
-			 apcDbModuleName[i] ? : "?", i, (uint16_t) u4Level));
-		if (i % 2 == 1 || i == u2ModuleNum - 1)
-			SNPRINTF(temp, PROC_MAX_BUF_SIZE - (temp - pucProcBuf),
-				("\n"));
+	for (i = 0; i < u2ModuleNum; i += 2) {
+		wlanGetDriverDbgLevel(i, &u4Level1);
+		wlanGetDriverDbgLevel(i + 1, &u4Level2);
+		SNPRINTF(temp, PROC_MAX_BUF_SIZE - kalStrLen(pucProcBuf),
+			("DBG_%s_IDX\t(0x%02x):\t0x%03x\t"
+			 "DBG_%s_IDX\t(0x%02x):\t0x%03x\n",
+			 &aucDbModuleName[i][0], i, (uint16_t) u4Level1,
+			 &aucDbModuleName[i + 1][0], i + 1,
+			 (uint16_t) u4Level2));
+	}
+
+	if ((sizeof(aucDbModuleName) /
+	     PROC_DBG_LEVEL_MAX_DISPLAY_STR_LEN) & 0x1) {
+		wlanGetDriverDbgLevel(u2ModuleNum, &u4Level1);
+		SNPRINTF(temp, PROC_MAX_BUF_SIZE - kalStrLen(pucProcBuf),
+			 ("DBG_%s_IDX\t(0x%02x):\t0x%03x\n",
+			  &aucDbModuleName[u2ModuleNum][0], u2ModuleNum,
+			  (uint16_t) u4Level1));
 	}
 
 	u4CopySize = kalStrLen(pucProcBuf);
@@ -1467,9 +1342,6 @@ static ssize_t procDbgLevelWrite(struct file *file, const char __user *buffer,
 	uint8_t *temp = NULL;
 	uint32_t u4CopySize = PROC_MAX_BUF_SIZE;
 	int32_t i4Ret = 0;
-	struct GLUE_INFO *prGlueInfo = NULL;
-
-	prGlueInfo = (struct GLUE_INFO *) PDE_DATA(file_inode(file));
 
 	if (buffer == NULL || pucProcBuf == NULL) {
 		i4Ret = 0;
@@ -1488,9 +1360,9 @@ static ssize_t procDbgLevelWrite(struct file *file, const char __user *buffer,
 
 	/*add chip reset cmd for manual test*/
 #if CFG_CHIP_RESET_SUPPORT
-	if (temp[0] == 'R' && prGlueInfo) {
-		DBGLOG(INIT, DEBUG, "WIFI trigger reset!!\n");
-		GL_USER_DEFINE_RESET_TRIGGER(prGlueInfo->prAdapter,
+	if (temp[0] == 'R') {
+		DBGLOG(INIT, INFO, "WIFI trigger reset!!\n");
+		GL_USER_DEFINE_RESET_TRIGGER(g_prGlueInfo_proc->prAdapter,
 			RST_CMD_TRIGGER, RST_FLAG_DO_WHOLE_RESET);
 		temp[0] = 'X';
 	}
@@ -1503,15 +1375,17 @@ static ssize_t procDbgLevelWrite(struct file *file, const char __user *buffer,
 			break;
 		}
 
-		/* If MTKLogger and mobile_log_d are not modified together,
-		 * the following safeguards will be needed."
-		 * u4NewDbgLevel |= DBG_CLASS_DEBUG;
+		/* Foolproof in order not to be changed by Log UI,
+		 * 1. DebugMask = DebugMask OR(|) DBG_CLASS_VOC
+		 * 2. if VOC Test Mode is enabled and DbgMask is
+		 * 0x12f(Default Level)
 		 */
-		u4NewDbgLevel |= DBG_CLASS_DEBUG;
-
-#if (CFG_SUPPORT_UV == 1)
-		wlanSetDbgMaskForUvTestMode(&u4NewDbgLevel);
-#endif
+		u4NewDbgLevel |= (DBG_CLASS_VOC | DBG_CLASS_INFO2);
+		if (wlanDbgIsVocLogTestMode()
+			&& (u4NewDbgLevel == DBG_LOG_LEVEL_DEFAULT_VOC))
+			u4NewDbgLevel = DBG_LOG_LEVEL_VOC;
+		DBGLOG(REQ, VOC, "DbgModule=0x%x DbgLevelMask=0x%x\n",
+			u4NewDbgModule, u4NewDbgLevel);
 
 		if (u4NewDbgModule == 0xFF) {
 			wlanSetDriverDbgLevel(DBG_ALL_MODULE_IDX,
@@ -1578,17 +1452,16 @@ static ssize_t procMCRRead(struct file *filp, char __user *buf,
 	uint32_t rStatus = WLAN_STATUS_SUCCESS;
 	int32_t i4Ret = 0;
 
-	prGlueInfo = (struct GLUE_INFO *) PDE_DATA(file_inode(filp));
-
 	/* if *f_ops>0, we should return 0 to make cat command exit */
-	if (*f_pos > 0 || !buf || !pucProcBuf || !prGlueInfo) {
+	if (*f_pos > 0 || buf == NULL || pucProcBuf == NULL) {
 		i4Ret = 0;
 		goto freeBuf;
 	}
 
 	temp = pucProcBuf;
+	prGlueInfo = g_prGlueInfo_proc;
 	rMcrInfo.u4McrData = 0;
-	rMcrInfo.u4McrOffset = prGlueInfo->u4McrOffset;
+	rMcrInfo.u4McrOffset = u4McrOffset;
 
 	rStatus = kalIoctl(prGlueInfo,
 		wlanoidQueryMcrRead, (void *)&rMcrInfo,
@@ -1654,13 +1527,6 @@ static ssize_t procMCRWrite(struct file *file, const char __user *buffer,
 		return 0;
 	}
 
-	prGlueInfo = (struct GLUE_INFO *) PDE_DATA(file_inode(file));
-
-	if (!prGlueInfo) {
-		DBGLOG(INIT, ERROR, "prGlueInfo is NULL\n");
-		return 0;
-	}
-
 	switch (num) {
 	case 2:
 		/* NOTE: Sometimes we want to test if bus will still be ok,
@@ -1668,7 +1534,9 @@ static ssize_t procMCRWrite(struct file *file, const char __user *buffer,
 		 */
 		/* if (IS_ALIGN_4(rMcrInfo.u4McrOffset)) */
 		{
-			prGlueInfo->u4McrOffset = rMcrInfo.u4McrOffset;
+			prGlueInfo = g_prGlueInfo_proc;
+
+			u4McrOffset = rMcrInfo.u4McrOffset;
 
 			/* rMcrInfo.u4McrOffset, rMcrInfo.u4McrData); */
 
@@ -1681,7 +1549,7 @@ static ssize_t procMCRWrite(struct file *file, const char __user *buffer,
 	case 1:
 		/* if (IS_ALIGN_4(rMcrInfo.u4McrOffset)) */
 		{
-			prGlueInfo->u4McrOffset = rMcrInfo.u4McrOffset;
+			u4McrOffset = rMcrInfo.u4McrOffset;
 		}
 		break;
 
@@ -1732,7 +1600,7 @@ static ssize_t procCfgRead(struct file *filp, char __user *buf, size_t count,
 		goto freeBuf;
 	}
 
-	prGlueInfo = (struct GLUE_INFO *) PDE_DATA(file_inode(filp));
+	prGlueInfo = g_prGlueInfo_proc;
 
 	if (!prGlueInfo) {
 		DBGLOG(REQ, WARN, "procCfgRead prGlueInfo is NULL\n");
@@ -1887,19 +1755,12 @@ static ssize_t procCfgWrite(struct file *file, const char __user *buffer,
 		}
 	}
 
-	prGlueInfo = (struct GLUE_INFO *) PDE_DATA(file_inode(file));
-
-	if (!prGlueInfo) {
-		DBGLOG(REQ, WARN, "prGlueInfo is NULL\n");
-		i4Ret = -EFAULT;
-		goto freeBuf;
-	}
-
-	/* if i4NextDriverReadLen >0,
+	prGlueInfo = g_prGlueInfo_proc;
+	/* if g_i4NextDriverReadLen >0,
 	 * the content for next DriverCmdRead will be
-	 * in : pucProcBuf with length : i4NextDriverReadLen
+	 * in : pucProcBuf with length : g_i4NextDriverReadLen
 	 */
-	prGlueInfo->i4NextDriverReadLen =
+	g_i4NextDriverReadLen =
 		priv_driver_set_cfg(prGlueInfo->prDevHandler, pucProcBuf,
 			kalStrLen(pucProcBuf));
 
@@ -1983,7 +1844,7 @@ static ssize_t procTwtSmartWrite(struct file *file, const char *buffer,
 	}
 
 	buf[len] = '\0';
-	DBGLOG(INIT, DEBUG, "%s: write parameter data = %s", __func__, buf);
+	DBGLOG(INIT, INFO, "%s: write parameter data = %s", __func__, buf);
 	pBuf = buf;
 	pToken = strsep(&pBuf, pDelimiter);
 
@@ -2002,7 +1863,7 @@ static ssize_t procTwtSmartWrite(struct file *file, const char *buffer,
 
 	case 1:
 		g_TwtSmartStaCtrl.fgTwtSmartStaReq = TRUE;
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 			"twt landing stareq %d",
 			g_TwtSmartStaCtrl.fgTwtSmartStaReq);
 		break;
@@ -2014,7 +1875,7 @@ static ssize_t procTwtSmartWrite(struct file *file, const char *buffer,
 
 		g_TwtSmartStaCtrl.fgTwtSmartStaReq = FALSE;
 		g_TwtSmartStaCtrl.eState = TWT_SMART_STA_STATE_IDLE;
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 			"twt landing tdreq %d",
 			g_TwtSmartStaCtrl.fgTwtSmartStaTeardownReq);
 		break;
@@ -2032,76 +1893,11 @@ static const struct file_operations auto_twt_smart_ops = {
 #endif
 #endif /* (BUILD_QA_DBG) */
 
-#if CFG_WIFI_TESTMODE_FW_REDOWNLOAD
-static ssize_t procTestRead(struct file *filp, char __user *buf,
-	size_t count, loff_t *f_pos)
-{
-	uint8_t *pucProcBuf = kalMemZAlloc(PROC_MAX_BUF_SIZE, VIR_MEM_TYPE);
-	uint32_t u4CopySize;
-	struct GLUE_INFO *prGlueInfo;
-	u_int8_t isTest = 0;
-	int32_t i4Ret = 0;
-
-	/* if *f_pos > 0, it means has read succceeded last time */
-	if (*f_pos > 0 || buf == NULL || pucProcBuf == NULL) {
-		i4Ret = 0;
-		goto freeBuf;
-	}
-
-	prGlueInfo = (struct GLUE_INFO *) PDE_DATA(file_inode(filp));
-
-	if (!prGlueInfo) {
-		DBGLOG(REQ, WARN, "prGlueInfo is NULL\n");
-		i4Ret = 0;
-		goto freeBuf;
-	}
-
-
-	if (!prGlueInfo->prAdapter) {
-		DBGLOG(REQ, WARN, "prAdapter is NULL\n");
-		i4Ret = 0;
-		goto freeBuf;
-	}
-
-	/* Check the current Test Mode */
-	isTest = prGlueInfo->fgTestModeStatus;
-
-	kalSnprintf(pucProcBuf, PROC_MAX_BUF_SIZE, "WiFi Operation Mode: %s\n",
-				isTest == 0 ? "MP Mode" : "Test Mode");
-
-	u4CopySize = kalStrLen(pucProcBuf);
-	u4CopySize = (u4CopySize > count) ? count : u4CopySize;
-
-	if (copy_to_user(buf, pucProcBuf, u4CopySize)) {
-		DBGLOG(REQ, WARN, "copy to user failed\n");
-		i4Ret = -EFAULT;
-		goto freeBuf;
-	}
-	*f_pos += u4CopySize;
-	i4Ret = u4CopySize;
-freeBuf:
-	if (pucProcBuf)
-		kalMemFree(pucProcBuf, VIR_MEM_TYPE, PROC_MAX_BUF_SIZE);
-	return i4Ret;
-}
-#if KERNEL_VERSION(5, 6, 0) <= CFG80211_VERSION_CODE
-static const struct proc_ops test_ops = {
-	.proc_read = procTestRead,
-};
-#else
-static const struct file_operations test_ops = {
-	.owner = THIS_MODULE,
-	.read = procTestRead,
-};
-#endif
-#endif /* CFG_WIFI_TESTMODE_FW_REDOWNLOAD */
-
-
-
-int32_t procInitFs(struct GLUE_INFO *prGlueInfo)
+int32_t procInitFs(void)
 {
 	struct proc_dir_entry *prEntry;
 
+	g_i4NextDriverReadLen = 0;
 	prEntry = NULL;
 
 	if (init_net.proc_net == (struct proc_dir_entry *)NULL) {
@@ -2111,7 +1907,7 @@ int32_t procInitFs(struct GLUE_INFO *prGlueInfo)
 	}
 
 	/*
-	 * Directory: Root (/proc/net/wlan)
+	 * Directory: Root (/proc/net/wlan0)
 	 */
 
 	gprProcRoot = proc_mkdir(PROC_ROOT_NAME, init_net.proc_net);
@@ -2124,8 +1920,8 @@ int32_t procInitFs(struct GLUE_INFO *prGlueInfo)
 		      KGIDT_INIT(PROC_GID_WIFI));
 
 #if (BUILD_QA_DBG)
-	prEntry = proc_create_data(PROC_DBG_LEVEL_NAME, 0664,
-		gprProcRoot, &dbglevel_ops, prGlueInfo);
+	prEntry =
+	     proc_create(PROC_DBG_LEVEL_NAME, 0664, gprProcRoot, &dbglevel_ops);
 	if (prEntry == NULL) {
 		DBGLOG(INIT, ERROR,
 			"Unable to create /proc entry dbgLevel\n\r");
@@ -2158,7 +1954,6 @@ int32_t procInitFs(struct GLUE_INFO *prGlueInfo)
 #endif
 #endif /* (BUILD_QA_DBG) */
 
-	DBGLOG(INIT, DEBUG, "init proc fs done\n");
 	return 0;
 }				/* end of procInitProcfs() */
 
@@ -2199,7 +1994,6 @@ int32_t procUninitProcFs(void)
 	remove_proc_entry(PROC_ROOT_NAME, init_net.proc_net);
 #endif
 
-	DBGLOG(INIT, DEBUG, "uninit proc fs done\n");
 	return 0;
 }
 
@@ -2213,72 +2007,50 @@ int32_t procUninitProcFs(void)
  * \return N/A
  */
 /*----------------------------------------------------------------------------*/
-int32_t procRemoveProcfs(struct GLUE_INFO *prGlueInfo)
+int32_t procRemoveProcfs(void)
 {
 #if (!CFG_MTK_ANDROID_WMT) || (BUILD_QA_DBG)
+	remove_proc_entry(PROC_DRIVER_CMD, gprProcRoot);
 #if CFG_SUPPORT_CSI
-	struct CSI_INFO_T *prCSIInfo = NULL;
-#endif /* CFG_SUPPORT_CSI */
-#endif /* (!CFG_MTK_ANDROID_WMT) || (BUILD_QA_DBG) */
-	struct proc_dir_entry *prProcRoot = NULL;
-
-	prProcRoot = gprProcRoot;
-
-#if (!CFG_MTK_ANDROID_WMT) || (BUILD_QA_DBG)
-#if CFG_SUPPORT_CSI
-	prCSIInfo = glCsiGetCSIInfo(prGlueInfo);
-	prCSIInfo->u4CSIBufferUsed = 1;
-	wake_up_interruptible(&(prGlueInfo->waitq_csi));
-	remove_proc_entry(PROC_CSI_DATA_NAME, prProcRoot);
+	remove_proc_entry(PROC_CSI_DATA_NAME, gprProcRoot);
 #endif
-	remove_proc_entry(PROC_DRIVER_CMD, prProcRoot);
 #endif /* (!CFG_MTK_ANDROID_WMT) || (BUILD_QA_DBG) */
 
 #if (!CFG_MTK_ANDROID_WMT)
-	remove_proc_entry(PROC_COUNTRY, prProcRoot);
+	remove_proc_entry(PROC_COUNTRY, gprProcRoot);
 #if (CFG_CE_ASSERT_DUMP == 1)
-	remove_proc_entry(PROC_CORE_DUMP, prProcRoot);
+	remove_proc_entry(PROC_CORE_DUMP, gprProcRoot);
 #endif
 #endif /* (!CFG_MTK_ANDROID_WMT) */
 
 #if (!CFG_MTK_ANDROID_WMT) && (BUILD_QA_DBG)
-	remove_proc_entry(PROC_EFUSE_DUMP, prProcRoot);
-	remove_proc_entry(PROC_PKT_DELAY_DBG, prProcRoot);
+	remove_proc_entry(PROC_EFUSE_DUMP, gprProcRoot);
+	remove_proc_entry(PROC_PKT_DELAY_DBG, gprProcRoot);
 #if CFG_WIFI_TXPWR_TBL_DUMP
-	remove_proc_entry(PROC_GET_TXPWR_TBL, prProcRoot);
+	remove_proc_entry(PROC_GET_TXPWR_TBL, gprProcRoot);
 #endif
 #endif /* (!CFG_MTK_ANDROID_WMT) && (BUILD_QA_DBG) */
 
 #if (BUILD_QA_DBG)
-	remove_proc_entry(PROC_MCR_ACCESS, prProcRoot);
-	remove_proc_entry(PROC_CFG, prProcRoot);
+	remove_proc_entry(PROC_MCR_ACCESS, gprProcRoot);
+	remove_proc_entry(PROC_CFG, gprProcRoot);
 #endif /* (BUILD_QA_DBG) */
 
-#if (CFG_WIFI_TESTMODE_FW_REDOWNLOAD)
-	remove_proc_entry(PROC_TEST_MODE, prProcRoot);
-#endif
-
-	DBGLOG(INIT, DEBUG, "remove proc fs done\n");
 	return 0;
 } /* end of procRemoveProcfs() */
 
 int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 {
-#define PROC_CREATE(NAME, MODE, ROOT, OPS) \
-		proc_create_data(NAME, MODE, ROOT, OPS, prGlueInfo)
-
 	struct proc_dir_entry *prEntry;
-	struct proc_dir_entry *prProcRoot;
 
 	DBGLOG(INIT, TRACE, "[%s]\n", __func__);
-
-	prProcRoot = gprProcRoot;
+	g_prGlueInfo_proc = prGlueInfo;
 	prEntry = NULL;
 
 #if (!CFG_MTK_ANDROID_WMT) || (BUILD_QA_DBG)
 #if CFG_SUPPORT_EASY_DEBUG
 	prEntry =
-		PROC_CREATE(PROC_DRIVER_CMD, 0664, prProcRoot, &drivercmd_ops);
+		proc_create(PROC_DRIVER_CMD, 0664, gprProcRoot, &drivercmd_ops);
 	if (prEntry == NULL) {
 		DBGLOG(INIT, ERROR,
 			"Unable to create /proc entry for driver command\n\r");
@@ -2288,7 +2060,7 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 
 #if CFG_SUPPORT_CSI
 	prEntry =
-	       PROC_CREATE(PROC_CSI_DATA_NAME, 0600, prProcRoot, &csidata_ops);
+	       proc_create(PROC_CSI_DATA_NAME, 0600, gprProcRoot, &csidata_ops);
 	if (prEntry == NULL) {
 		DBGLOG(INIT, ERROR,
 			"[CSI] Unable to create /proc entry csidata\n\r");
@@ -2298,7 +2070,7 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 #endif /* (!CFG_MTK_ANDROID_WMT) || (BUILD_QA_DBG) */
 
 #if (!CFG_MTK_ANDROID_WMT)
-	prEntry = PROC_CREATE(PROC_COUNTRY, 0664, prProcRoot, &country_ops);
+	prEntry = proc_create(PROC_COUNTRY, 0664, gprProcRoot, &country_ops);
 	if (prEntry == NULL) {
 		DBGLOG(INIT, ERROR,
 			"Unable to create /proc entry country\n\r");
@@ -2306,7 +2078,7 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 	}
 
 #if (CFG_CE_ASSERT_DUMP == 1)
-	prEntry = PROC_CREATE(PROC_CORE_DUMP, 0664, prProcRoot, &coredump_ops);
+	prEntry = proc_create(PROC_CORE_DUMP, 0664, gprProcRoot, &coredump_ops);
 	if (prEntry == NULL) {
 		DBGLOG(INIT, ERROR,
 			"Unable to create /proc entry core_dump\n\r");
@@ -2316,8 +2088,8 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 #endif /* (!CFG_MTK_ANDROID_WMT) */
 
 #if (!CFG_MTK_ANDROID_WMT) && (BUILD_QA_DBG)
-	prEntry = PROC_CREATE(
-		PROC_PKT_DELAY_DBG, 0664, prProcRoot, &proc_pkt_delay_dbg_ops);
+	prEntry = proc_create(
+		PROC_PKT_DELAY_DBG, 0664, gprProcRoot, &proc_pkt_delay_dbg_ops);
 	if (prEntry == NULL) {
 		DBGLOG(INIT, ERROR,
 			"Unable to create /proc entry pktDelay\n\r");
@@ -2328,7 +2100,7 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 
 #if CFG_WIFI_TXPWR_TBL_DUMP
 	prEntry =
-	 PROC_CREATE(PROC_GET_TXPWR_TBL, 0664, prProcRoot, &get_txpwr_tbl_ops);
+	 proc_create(PROC_GET_TXPWR_TBL, 0664, gprProcRoot, &get_txpwr_tbl_ops);
 	if (prEntry == NULL) {
 		DBGLOG(INIT, ERROR,
 			"Unable to create /proc entry TXPWR Table\n\r");
@@ -2338,7 +2110,7 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 
 #if CFG_SUPPORT_EASY_DEBUG
 	prEntry =
-		PROC_CREATE(PROC_EFUSE_DUMP, 0664, prProcRoot, &efusedump_ops);
+		proc_create(PROC_EFUSE_DUMP, 0664, gprProcRoot, &efusedump_ops);
 	if (prEntry == NULL) {
 		DBGLOG(INIT, ERROR,
 			"Unable to create /proc entry efuse\n\r");
@@ -2348,7 +2120,7 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 #endif /* (!CFG_MTK_ANDROID_WMT) && (BUILD_QA_DBG) */
 
 #if (BUILD_QA_DBG)
-	prEntry = PROC_CREATE(PROC_MCR_ACCESS, 0664, prProcRoot, &mcr_ops);
+	prEntry = proc_create(PROC_MCR_ACCESS, 0664, gprProcRoot, &mcr_ops);
 	if (prEntry == NULL) {
 		DBGLOG(INIT, ERROR,
 			"Unable to create /proc entry mcr\n\r");
@@ -2356,7 +2128,7 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 	}
 
 #if CFG_SUPPORT_EASY_DEBUG
-	prEntry = PROC_CREATE(PROC_CFG, 0664, prProcRoot, &cfg_ops);
+	prEntry = proc_create(PROC_CFG, 0664, gprProcRoot, &cfg_ops);
 	if (prEntry == NULL) {
 		DBGLOG(INIT, ERROR,
 			"Unable to create /proc entry for driver cfg\n\r");
@@ -2365,17 +2137,6 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 #endif
 #endif /* ((BUILD_QA_DBG) */
 
-#if CFG_WIFI_TESTMODE_FW_REDOWNLOAD
-	prEntry = PROC_CREATE(PROC_TEST_MODE, 0664, prProcRoot, &test_ops);
-	if (!prEntry) {
-		DBGLOG(INIT, ERROR,
-			"Unable to create /proc entry for test mode\n\r");
-		return -1;
-	}
-#endif
-#undef PROC_CREATE
-
-	DBGLOG(INIT, DEBUG, "create proc fs done\n");
 	return 0;
 }
 
@@ -2498,7 +2259,6 @@ static const struct file_operations fwcfg_ops = {
 int32_t cfgRemoveProcEntry(void)
 {
 	remove_proc_entry(PROC_CFG_NAME, gprProcRoot);
-	DBGLOG(INIT, DEBUG, "cfg remove done\n", __func__);
 	return 0;
 }
 
@@ -2517,7 +2277,6 @@ int32_t cfgCreateProcEntry(struct GLUE_INFO *prGlueInfo)
 	proc_set_user(prEntry, KUIDT_INIT(PROC_UID_SHELL),
 		KGIDT_INIT(PROC_GID_WIFI));
 
-	DBGLOG(INIT, DEBUG, "cfg create done\n", __func__);
 	return 0;
 }
 #endif

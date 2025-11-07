@@ -21,6 +21,9 @@
 #include <linux/sched.h>
 #include <linux/fs.h>
 #include <linux/mount.h>
+#include <linux/pid_namespace.h>
+#include <linux/radix-tree.h>
+#include <linux/sched/task.h>
 #include <linux/version.h>
 #include <asm/pgtable.h>
 #include <linux/kernel_stat.h>
@@ -28,10 +31,11 @@
 
 #include "proca_certificate.h"
 #include "proca_identity.h"
+#include "proca_log.h"
 #include "proca_task_descr.h"
 #include "proca_table.h"
 
-#ifdef CONFIG_PROCA_GKI_10
+#if defined(CONFIG_PROCA_GKI_10) || defined(CONFIG_PROCA_GKI_20)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
 #define OFFSETOF_INTEGRITY offsetof(struct task_struct, android_oem_data1[2])
 #define OFFSETOF_F_SIGNATURE 0
@@ -91,7 +95,18 @@ static struct GAForensicINFO {
 	unsigned short proca_certificate_struct_app_name_size;
 	unsigned short hlist_node_struct_next;
 	unsigned short struct_vfsmount_bp_mount;
-	char reserved[1022];
+	unsigned long long init_task;
+	unsigned short task_struct_struct_thread_pid;
+	unsigned short task_struct_struct_pid_links;
+	unsigned short pid_namespace_struct_idr;
+	unsigned short pid_level;
+	unsigned short pid_tasks;
+	unsigned short pid_numbers;
+	unsigned short config_base_small;
+	unsigned short radix_tree_node_slots;
+	unsigned short struct_idr_idr_base;
+	unsigned short struct_radix_tree_root_xa_head;
+	char reserved[994];
 	unsigned short  GAFINFOCheckSum;
 } GAFINFO = {
 	.ver = 0x0600, /* by hryhorii tur 2019 10 21 */
@@ -106,6 +121,19 @@ static struct GAForensicINFO {
 	.task_struct_struct_pid = offsetof(struct task_struct, pid),
 	.task_struct_struct_mm = offsetof(struct task_struct, mm),
 	.mm_struct_struct_pgd = offsetof(struct mm_struct, pgd),
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
+	.task_struct_struct_thread_pid = offsetof(struct task_struct, thread_pid),
+	.task_struct_struct_pid_links = offsetof(struct task_struct, pid_links),
+	.pid_namespace_struct_idr = offsetof(struct pid_namespace, idr), 
+	.pid_level = offsetof(struct pid, level), 
+	.pid_tasks = offsetof(struct pid, tasks), 
+	.pid_numbers = offsetof(struct pid, numbers), 
+	.init_task = (unsigned long long)&init_task,
+	.config_base_small = IS_ENABLED(CONFIG_BASE_SMALL),
+	.radix_tree_node_slots = offsetof(struct radix_tree_node, slots),
+	.struct_idr_idr_base = offsetof(struct idr, idr_base),
+	.struct_radix_tree_root_xa_head = offsetof(struct radix_tree_root, xa_head),
+#endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
 /*The reason of that branching is a changing avl to maple tree
   in mm_struct(since Linux v6). There is a temporary workaround,
@@ -156,15 +184,15 @@ static struct GAForensicINFO {
 	.is_kdp_ns_on = false,
 #endif
 
-#ifdef CONFIG_FIVE
+#if IS_ENABLED(CONFIG_FIVE)
 	.task_struct_integrity = OFFSETOF_INTEGRITY,
 #else
 	.task_struct_integrity = 0xECEF,
 #endif
-#if defined(CONFIG_FIVE_PA_FEATURE) || defined(CONFIG_PROCA)
+#if defined(CONFIG_FIVE_PA_FEATURE) || IS_ENABLED(CONFIG_PROCA)
 	.file_struct_f_signature = OFFSETOF_F_SIGNATURE,
 #endif
-#ifdef CONFIG_PROCA
+#if IS_ENABLED(CONFIG_PROCA)
 	.proca_task_descr_task =
 		offsetof(struct proca_task_descr, task),
 	.proca_task_descr_proca_identity =
@@ -195,12 +223,14 @@ static struct GAForensicINFO {
 	.GAFINFOCheckSum = 0
 };
 
+static void *gaf;
+
 const void *proca_gaf_get_addr(void)
 {
-	return &GAFINFO;
+	return gaf;
 }
 
-static int __init proca_init_gaf(void)
+int __init proca_init_gaf(void)
 {
 	const unsigned short size =
 			offsetof(struct GAForensicINFO, GAFINFOCheckSum);
@@ -216,6 +246,13 @@ static int __init proca_init_gaf(void)
 	}
 	GAFINFO.GAFINFOCheckSum = checksum;
 
+	gaf = kmalloc(sizeof(GAFINFO), GFP_KERNEL);
+	if (unlikely(!gaf)) {
+		PROCA_ERROR_LOG("Cannot allocate gaf\n");
+		return -ENOMEM;
+	}
+
+	memcpy(gaf, &GAFINFO, sizeof(GAFINFO));
+
 	return 0;
 }
-core_initcall(proca_init_gaf)

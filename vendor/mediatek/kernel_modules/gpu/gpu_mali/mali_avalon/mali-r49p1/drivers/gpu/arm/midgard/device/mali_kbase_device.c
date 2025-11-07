@@ -378,12 +378,6 @@ int kbase_device_misc_init(struct kbase_device *const kbdev)
 	atomic_set(&kbdev->fence_signal_timeout_enabled, 1);
 #endif
 
-#if IS_ENABLED(CONFIG_MALI_MTK_GPU_IDLE_STRESS_TEST) && IS_ENABLED(CONFIG_MALI_MTK_API_SYNC_UPDATE)
-	kbdev->ptp_update_in_progress = false;
-	kbdev->temp_api_sync_flag = API_SYNC_FLAG_RESET;
-	kbdev->final_api_sync_flag = API_SYNC_FLAG_RESET;
-#endif
-
 	return 0;
 
 term_as:

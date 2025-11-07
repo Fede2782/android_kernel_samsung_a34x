@@ -17,3 +17,12 @@ config MTK_SEC_MODEM_NVRAM_ANTI_CLONE
 	  (1)NVRAM_EF_SML_LID (2)NVRAM_EF_SIM_LOCK_LID 3. if want to turn on
 	  specific LID, please add attribute NVRAM_ATTR_MSP
 
+config MTK_SEC_DEBUG_SUPPORT
+	bool "SEC Debug Support"
+	depends on MTK_SECURITY_SW_SUPPORT
+	help
+	  This is the driver for MediaTek kernel security debug.
+	  This module contains the security debug functions
+	  To compile this driver as a module, choose M here: the
+	  module will be enabled.
+

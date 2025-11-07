@@ -163,8 +163,6 @@
 #else
 #define MCU_INT_NOTIFY_MD_CRASH         BIT(5)
 #endif
-#define MCU_INT_DISABLE_RRO             BIT(8)
-
 #define CONNAC_SUBSYS_INT BIT(28)
 #define CONNAC_MCU_SW_INT BIT(29)
 

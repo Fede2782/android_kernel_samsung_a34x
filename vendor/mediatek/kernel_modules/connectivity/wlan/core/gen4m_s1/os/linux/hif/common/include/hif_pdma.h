@@ -378,6 +378,8 @@ struct RTMP_TX_RING {
 	struct RTMP_DMACB Cell[TX_RING_SIZE];
 	uint32_t TxCpuIdx;
 	uint32_t TxDmaIdx;
+	uint32_t TxCpuIdxRec;
+	uint32_t TxDmaIdxRec;
 	uint32_t u4BufSize;
 	uint32_t TxSwUsedIdx;
 	uint32_t u4UsedCnt;

@@ -6,6 +6,7 @@
 #ifndef __MTKFB_DEBUG_H
 #define __MTKFB_DEBUG_H
 
+#include "mtk_drm_plane.h"
 #include "mtk_panel_ext.h"
 
 #define ERROR_BUFFER_COUNT 16
@@ -60,15 +61,11 @@ enum DISP_FRAME_STATE {
 enum mtk_set_lcm_sceanario {
 	SET_LCM_NONE = 0,
 	SET_LCM_POWER_MODE_SWITCH,
-
 	SET_LCM_CMDQ_AVAILABLE,
-
 	SET_LCM_FPS_CHANGE,
-
 	SET_LCM_HBM_CMD,
-
 	SET_LCM_BL,
-
+	SET_LCM_ROI,
 	SET_LCM_CMDQ_FRAME_DONE,
 
 	SET_LCM_POWER_MODE_NEED_CMDQ,
@@ -143,6 +140,11 @@ void reset_frame_wq(struct frame_condition_wq *wq);
 void wakeup_frame_wq(struct frame_condition_wq *wq);
 int wait_frame_condition(enum DISP_FRAME_STATE state, unsigned int timeout);
 int mtk_drm_set_frame_skip(bool skip);
+#endif
+#if IS_ENABLED(CONFIG_DRM_PANEL_MCD_COMMON)
+int mtk_drm_wait_one_vblank(void);
+void mtk_disp_mipi_ccci_callback(unsigned int en, unsigned int usrdata);
+int mtk_drm_uevent_trigger(int state);
 #endif
 
 enum mtk_drm_mml_dbg {

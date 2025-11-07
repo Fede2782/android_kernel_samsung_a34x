@@ -298,6 +298,7 @@ int send_message(
 	struct ipi_msg_t *p_ipi_msg)
 {
 	struct msg_queue_t *msg_queue = NULL;
+	struct ipi_msg_t *p_ipi_msg_pop = NULL;
 	bool is_queue_empty = false;
 
 	unsigned long flags = 0;
@@ -374,8 +375,17 @@ int send_message(
 				retval = 0;
 				break;
 			}
-			if (!is_audio_task_dsp_ready(p_ipi_msg->task_scene)) {
+			if (msg_queue->idx_r == idx_msg &&
+				!is_audio_task_dsp_ready(p_ipi_msg->task_scene)) {
 				DUMP_IPI_MSG("dsp not ready", p_ipi_msg);
+
+				/* pop message from queue */
+				spin_lock_irqsave(&msg_queue->rw_lock, flags);
+				pop_msg(msg_queue, &p_ipi_msg_pop);
+				spin_unlock_irqrestore(&msg_queue->rw_lock, flags);
+
+				AUD_ASSERT(p_ipi_msg_pop == p_ipi_msg);
+
 				return 0;
 			}
 			if (msg_queue->idx_r == idx_msg) {

@@ -75,9 +75,9 @@ void __init kdp_init(void)
 	cred.verifiedbootstate	= (u64)verifiedbootstate;
 
 #ifdef CONFIG_UH_PKVM
-	uh_call(UH_APP_KDP, KDP_INIT, (u64)&cred, (u64)&kdp_enable, 0, 0);
 	uh_call(UH_APP_KDP, JARRO_TSEC_SIZE, (u64)cred_jar_ro->size,
 		(u64)tsec_jar->size, 0, 0);
+	uh_call(UH_APP_KDP, KDP_INIT, (u64)&cred, (u64)&kdp_enable, 0, 0);
 #else
 	uh_call(UH_APP_KDP, KDP_INIT, (u64)&cred, 0, 0, 0);
 #endif
@@ -304,8 +304,7 @@ struct cred *prepare_ro_creds(struct cred *old, int kdp_cmd, u64 p)
 	param_data.type = kdp_cmd;
 	param_data.use_cnt = (u64)p;
 
-	uh_call(UH_APP_KDP, PREPARE_RO_CRED, (u64)&param_data,
-				(u64)current, (u64)&init_cred_kdp, (u64)&init_cred_kdp);
+	uh_call(UH_APP_KDP, PREPARE_RO_CRED, (u64)&param_data, (u64)current, 0, 0);
 	if (kdp_cmd == CMD_COPY_CREDS) {
 		if ((new_ro->bp_task != (void *)p) ||
 			new_ro->cred.security != tsec ||
@@ -378,7 +377,7 @@ static bool is_kdp_tsec_jar(unsigned long addr)
 
 static inline int chk_invalid_kern_ptr(u64 tsec)
 {
-	return (((u64)tsec >> 39) != (u64)0x1FFFFFF);
+	return (tsec < PAGE_OFFSET);
 }
 
 void kdp_free_security(unsigned long tsec)
@@ -426,18 +425,11 @@ static inline unsigned int
 		return 0;
 #endif
 	if (((struct cred_kdp *)cred)->bp_task != current)
-		pr_err("[KDP] cred->bp_task: 0x%lx, current: %s:0x%lx\n",
-				(unsigned long) ((struct cred_kdp *)cred)->bp_task,
-				current->comm,
-				(unsigned long)current);
+		pr_err("[KDP] %s: cred->bp_task and current mismatch\n", __func__);
 
 	if (mm && (((struct cred_kdp *)cred)->bp_pgd != swapper_pg_dir) &&
 		(((struct cred_kdp *)cred)->bp_pgd != mm->pgd))
-		pr_err("[KDP] mm: 0x%lx, cred->bp_pgd: 0x%lx, swapper_pg_dir: %p, mm->pgd: 0x%lx\n",
-					(unsigned long) mm,
-					(unsigned long) ((struct cred_kdp *)cred)->bp_pgd,
-					swapper_pg_dir,
-					(unsigned long) mm->pgd);
+		pr_err("[KDP] %s: cred->bp_pgd and swapper_pg_dir mismatch, cred->bp_pgd and mm->pgd mismatch.\n", __func__);
 
 	return ((((struct cred_kdp *)cred)->bp_task != current) ||
 			(mm && (!(in_interrupt() || in_softirq())) &&
@@ -474,8 +466,7 @@ static inline bool is_kdp_invalid_cred_sp(u64 cred, u64 sec_ptr)
 	}
 
 	if ((u64)tsec->bp_cred != cred) {
-		pr_err("[KDP] %s: tesc->bp_cred: %lx, cred: %lx\n",
-				__func__, (unsigned long)tsec->bp_cred, (unsigned long)cred);
+		pr_err("[KDP] %s: tesc->bp_cred and cred mismatch.\n", __func__);
 		return true;
 	}
 

@@ -163,12 +163,16 @@ struct P2P_DEV_FSM_INFO {
 	/* Queued p2p action frame */
 	struct P2P_QUEUED_ACTION_FRAME rQueuedActionFrame;
 
-	u_int8_t fgInitialied;
-
 	/* Record if Go has started to judge if P2P device needs
 	 * to keep active or not.
 	 */
 	uint8_t ucGoStartedBitmap;
+};
+
+struct MSG_P2P_NETDEV_REGISTER {
+	struct MSG_HDR rMsgHdr;	/* Must be the first member */
+	u_int8_t fgIsEnable;
+	uint8_t ucMode;
 };
 
 #if CFG_SUPPORT_WFD
@@ -181,7 +185,6 @@ struct MSG_WFD_CONFIG_SETTINGS_CHANGED {
 struct MSG_P2P_ACS_REQUEST {
 	struct MSG_HDR rMsgHdr; /* Must be the first member */
 	uint8_t ucRoleIdx;
-	int8_t icLinkId;
 	u_int8_t fgIsHtEnable;
 	u_int8_t fgIsHt40Enable;
 	u_int8_t fgIsVhtEnable;
@@ -189,7 +192,6 @@ struct MSG_P2P_ACS_REQUEST {
 	enum ENUM_MAX_BANDWIDTH_SETTING eChnlBw;
 	enum P2P_VENDOR_ACS_HW_MODE eHwMode;
 	uint32_t u4NumChannel;
-	uint32_t au4SafeChnl[ENUM_SAFE_CH_MASK_MAX_NUM];
 	struct RF_CHANNEL_INFO arChannelListInfo[];
 };
 
@@ -200,7 +202,7 @@ struct MSG_P2P_LISTEN_OFFLOAD {
 
 /*========================= Initial ============================*/
 
-uint8_t p2pDevFsmInit(struct ADAPTER *prAdapter, uint8_t aucIntfMac[]);
+uint8_t p2pDevFsmInit(struct ADAPTER *prAdapter);
 
 void p2pDevFsmUninit(struct ADAPTER *prAdapter);
 
@@ -280,5 +282,5 @@ void p2pDevFsmRunEventTxCancelWait(struct ADAPTER *prAdapter,
 		struct MSG_HDR *prMsgHdr);
 
 void p2pDevFsmNotifyGoState(struct ADAPTER *prAdapter,
-	uint8_t ucBssIndex, u_int8_t fgIsGoStarted);
+	uint8_t ucBssIndex, uint8_t fgIsGoStarted);
 

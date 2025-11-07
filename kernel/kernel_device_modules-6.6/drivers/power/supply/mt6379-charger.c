@@ -803,9 +803,13 @@ static int mt6379_get_vbat_monitor(struct mt6379_charger_data *cdata, enum mt637
 	/* Read vbat mon adc by chg_adc */
 	adc_chan = src == MT6379_BATPRO_SRC_VBAT_MON2 ? ADC_CHAN_VBATMON2 : ADC_CHAN_VBATMON;
 	ret = iio_read_channel_processed(&cdata->iio_adcs[adc_chan], vbat_mon);
-	if (ret)
+	if (ret) {
+		*vbat_mon = 0;
 		dev_info(cdata->dev, "%s, Failed to read vbat_mon%s(ret:%d)\n",
 			 __func__, src == MT6379_BATPRO_SRC_VBAT_MON2 ? "2" : "", ret);
+	}
+
+	*vbat_mon = U_TO_M(*vbat_mon);
 
 	/* Disable vbat mon */
 	ret = mt6379_charger_field_set(cdata, vbat_mon_en_field, 0);
@@ -1485,6 +1489,9 @@ int mt6379_charger_fsw_control(struct mt6379_charger_data *cdata)
 		dev_info(dev, "%s, get ibus failed\n", __func__);
 		goto out;
 	}
+
+	vbus = U_TO_M(vbus);
+	ibus = U_TO_M(ibus);
 
 	dev_info(dev, "%s vbus = %d, ibus = %d\n", __func__, vbus, ibus);
 
@@ -2485,6 +2492,8 @@ static int mt6379_charger_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	platform_set_drvdata(pdev, cdata);
+
 	ret = mt6379_charger_get_pdata(dev);
 	if (ret) {
 		dev_info(dev, "%s, Failed to get platform data\n", __func__);
@@ -2509,13 +2518,21 @@ static int mt6379_charger_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	INIT_DELAYED_WORK(&cdata->switching_work, mt6379_charger_switching_work_func);
+	ret = devm_add_action_or_reset(dev, mt6379_charger_destroy_switching_work,
+				       &cdata->switching_work);
+	if (ret) {
+		dev_info(dev, "%s, Failed to add fsw control action\n", __func__);
+		return ret;
+	}
+
+	cdata->non_switching = false;
+
 	ret = devm_work_autocancel(dev, &cdata->bc12_work, mt6379_charger_bc12_work_func);
 	if (ret) {
 		dev_info(dev, "%s, Failed to init bc12 work\n", __func__);
 		return ret;
 	}
-
-	platform_set_drvdata(pdev, cdata);
 
 	ret = mt6379_charger_init_setting(cdata);
 	if (ret) {
@@ -2574,14 +2591,6 @@ static int mt6379_charger_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	INIT_DELAYED_WORK(&cdata->switching_work, mt6379_charger_switching_work_func);
-	ret = devm_add_action_or_reset(dev, mt6379_charger_destroy_switching_work,
-				       &cdata->switching_work);
-	if (ret) {
-		dev_info(dev, "%s, Failed to add fsw control action\n", __func__);
-		return ret;
-	}
-	cdata->non_switching = false;
 
 	mt6379_charger_check_pwr_rdy(cdata);
 	return 0;

@@ -121,7 +121,7 @@
 #include <linux/rtc.h>
 #include <linux/sched/clock.h>
 #endif
-
+#include "rlm_domain.h"
 /*******************************************************************************
  *                              C O N S T A N T S
  *******************************************************************************
@@ -1677,7 +1677,6 @@ uint32_t kalReportAllLinkInfo(struct ADAPTER *prAdapter,
 	uint32_t u4BufLen, uint8_t ucBssIndex)
 {
 	struct BSS_INFO *prBssInfo;
-	struct STA_RECORD *prStaRec;
 	struct CONNECTION_SETTINGS *prConnSettings = NULL;
 	struct LINK_INFO links[MLD_LINK_MAX] = {0};
 	uint32_t status;
@@ -1685,12 +1684,6 @@ uint32_t kalReportAllLinkInfo(struct ADAPTER *prAdapter,
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
 	if (!prBssInfo) {
 		DBGLOG(INIT, INFO, "BSS Info not exist !!\n");
-		return WLAN_STATUS_FAILURE;
-	}
-
-	prStaRec = prBssInfo->prStaRecOfAP;
-	if (!prStaRec) {
-		DBGLOG(INIT, INFO, "StaRec not exist !!\n");
 		return WLAN_STATUS_FAILURE;
 	}
 
@@ -1707,7 +1700,7 @@ uint32_t kalReportAllLinkInfo(struct ADAPTER *prAdapter,
 		uint8_t ucAuthorized = pvBuf ? *(uint8_t *) pvBuf : FALSE;
 
 #if KERNEL_VERSION(6, 0, 0) <= CFG80211_VERSION_CODE
-		rRoamInfo.ap_mld_addr = prStaRec->aucMacAddr;
+		rRoamInfo.ap_mld_addr = NULL;
 		rRoamInfo.valid_links = 0;
 		rRoamInfo.links[0].addr = links[0].addr;
 		rRoamInfo.links[0].bssid = links[0].bssid;
@@ -1753,11 +1746,11 @@ uint32_t kalReportAllLinkInfo(struct ADAPTER *prAdapter,
 		if (eStatus == WLAN_STATUS_MEDIA_CONNECT) {
 			u2JoinStatus = WLAN_STATUS_SUCCESS;
 		} else {
-			if (prStaRec->u2StatusCode !=
+			if (prConnSettings->u2JoinStatus !=
 					STATUS_CODE_AUTH_TIMEOUT &&
-			    prStaRec->u2StatusCode !=
+			    prConnSettings->u2JoinStatus !=
 					STATUS_CODE_ASSOC_TIMEOUT)
-				u2JoinStatus = prStaRec->u2StatusCode;
+				u2JoinStatus = prConnSettings->u2JoinStatus;
 			else if (prBssInfo->u4RsnSelectedAKMSuite ==
 					RSN_AKM_SUITE_SAE)
 				u2JoinStatus = WPA3_NO_NETWORK_FOUND;
@@ -3345,7 +3338,7 @@ kalOidComplete(IN struct GLUE_INFO *prGlueInfo,
 	/* complete ONLY if there are waiters */
 	if (!completion_done(&prGlueInfo->rPendComp)) {
 		kalUpdateCompHdlrRec(prGlueInfo->prAdapter,
-			NULL, prCmdInfo);
+				     NULL, NULL, prCmdInfo);
 
 		if (prCmdInfo)
 			DBGLOG(TX, TRACE, "rPendComp=%p, cmd=0x%02X, seq=%u",
@@ -3559,16 +3552,18 @@ void SET_IOCTL_BSSIDX(
 }
 
 uint32_t
-kalIoctl(IN struct GLUE_INFO *prGlueInfo,
+__kalIoctl(IN struct GLUE_INFO *prGlueInfo,
 	 IN PFN_OID_HANDLER_FUNC pfnOidHandler,
+	 IN const char *pOidHandlerStr,
 	 IN void *pvInfoBuf,
 	 IN uint32_t u4InfoBufLen, IN u_int8_t fgRead,
 	 IN u_int8_t fgWaitResp, IN u_int8_t fgCmd,
 	 OUT uint32_t *pu4QryInfoLen)
 {
-	return kalIoctlByBssIdx(
+	return __kalIoctlByBssIdx(
 		prGlueInfo,
 		pfnOidHandler,
+		pOidHandlerStr,
 		pvInfoBuf,
 		u4InfoBufLen,
 		fgRead,
@@ -3579,8 +3574,9 @@ kalIoctl(IN struct GLUE_INFO *prGlueInfo,
 }
 
 uint32_t
-kalIoctlByBssIdx(IN struct GLUE_INFO *prGlueInfo,
+__kalIoctlByBssIdx(IN struct GLUE_INFO *prGlueInfo,
 	 IN PFN_OID_HANDLER_FUNC pfnOidHandler,
+	 IN const char *pOidHandlerStr,
 	 IN void *pvInfoBuf,
 	 IN uint32_t u4InfoBufLen, IN u_int8_t fgRead,
 	 IN u_int8_t fgWaitResp, IN u_int8_t fgCmd,
@@ -3652,6 +3648,7 @@ kalIoctlByBssIdx(IN struct GLUE_INFO *prGlueInfo,
 	/* <4> Compose the I/O request */
 	prIoReq->prAdapter = prGlueInfo->prAdapter;
 	prIoReq->pfnOidHandler = pfnOidHandler;
+	prIoReq->pOidHandlerStr = pOidHandlerStr;
 	prIoReq->pvInfoBuf = pvInfoBuf;
 	prIoReq->u4InfoBufLen = u4InfoBufLen;
 	prIoReq->pu4QryInfoLen = pu4QryInfoLen;
@@ -3691,14 +3688,14 @@ kalIoctlByBssIdx(IN struct GLUE_INFO *prGlueInfo,
 				prAdapter->arPrevCompHdlrRec[
 					(cIdx + i) % OID_HDLR_REC_NUM].aucName);
 		}
-		DBGLOG(OID, WARN, "Current wait OID hdlr: %ps\n",
-			pfnOidHandler);
+		DBGLOG(OID, WARN, "Current wait OID hdlr: %s\n",
+			pOidHandlerStr);
 	}
 	kalSnprintf(prAdapter->arPrevWaitHdlrRec[
 			prAdapter->u4WaitRecIdx].aucName,
 			sizeof(prAdapter->arPrevWaitHdlrRec[
 			prAdapter->u4WaitRecIdx].aucName),
-			"%ps", pfnOidHandler);
+			"%s", pOidHandlerStr);
 	prAdapter->u4WaitRecIdx = (prAdapter->u4WaitRecIdx + 1)
 					% OID_HDLR_REC_NUM;
 
@@ -4892,20 +4889,22 @@ int main_thread(void *data)
 			kalTraceBegin("OID");
 			/* get current prIoReq */
 			prIoReq = &(prGlueInfo->OidEntry);
-			DBGLOG(NIC, TRACE, "fgRead=%u, pfnOidHandler=%ps",
+			DBGLOG(NIC, TRACE, "fgRead=%u, pfnOidHandler=%s",
 					prIoReq->fgRead,
-					prIoReq->pfnOidHandler);
+					prIoReq->pOidHandlerStr);
 			if (prIoReq->fgRead == FALSE) {
-				prIoReq->rStatus = wlanSetInformation(
+				prIoReq->rStatus = __wlanSetInformation(
 						prIoReq->prAdapter,
 						prIoReq->pfnOidHandler,
+						prIoReq->pOidHandlerStr,
 						prIoReq->pvInfoBuf,
 						prIoReq->u4InfoBufLen,
 						prIoReq->pu4QryInfoLen);
 			} else {
-				prIoReq->rStatus = wlanQueryInformation(
+				prIoReq->rStatus = __wlanQueryInformation(
 						prIoReq->prAdapter,
 						prIoReq->pfnOidHandler,
+						prIoReq->pOidHandlerStr,
 						prIoReq->pvInfoBuf,
 						prIoReq->u4InfoBufLen,
 						prIoReq->pu4QryInfoLen);
@@ -4918,6 +4917,7 @@ int main_thread(void *data)
 					kalUpdateCompHdlrRec(
 						prGlueInfo->prAdapter,
 						prIoReq->pfnOidHandler,
+						prIoReq->pOidHandlerStr,
 						NULL);
 
 					DBGLOG(NIC, TRACE, "rPendComp=%p",
@@ -7995,9 +7995,10 @@ inline int32_t kalPerMonInit(IN struct GLUE_INFO
 		prGlueInfo->prAdapter->rWifiVar.u4PerfMonUpdatePeriod;
 	cnmTimerInitTimerOption(prGlueInfo->prAdapter,
 				&prPerMonitor->rPerfMonTimer,
-				(PFN_MGMT_TIMEOUT_FUNC) kalPerMonHandler,
+				kalPerMonHandler,
 				(unsigned long) NULL,
-				TIMER_WAKELOCK_NONE);
+				TIMER_WAKELOCK_NONE,
+				"kalPerMonHandler");
 
 	/* sync data with netdev */
 	GET_BOOT_SYSTIME(&prPerMonitor->rLastUpdateTime);
@@ -10170,28 +10171,30 @@ kalSyncTimeToFWByIoctl(void)
 }
 
 void kalUpdateCompHdlrRec(IN struct ADAPTER *prAdapter,
-				IN PFN_OID_HANDLER_FUNC pfnOidHandler,
-				IN struct CMD_INFO *prCmdInfo) {
+			  IN PFN_OID_HANDLER_FUNC pfnOidHandler,
+			  IN const char *pOidHandlerStr,
+			  IN struct CMD_INFO *prCmdInfo)
+{
 	if (pfnOidHandler)
 		kalSnprintf(prAdapter->arPrevCompHdlrRec[
 					prAdapter->u4CompRecIdx].aucName,
 				sizeof(prAdapter->arPrevCompHdlrRec[
 					prAdapter->u4CompRecIdx].aucName),
-				"%ps", pfnOidHandler);
+				"%s", pOidHandlerStr);
 	else {
 		if (prCmdInfo)
 			kalSnprintf(prAdapter->arPrevCompHdlrRec[
 					prAdapter->u4CompRecIdx].aucName,
 					sizeof(prAdapter->arPrevCompHdlrRec[
 					prAdapter->u4CompRecIdx].aucName),
-					"[CID 0x%x] %ps", prCmdInfo->ucCID,
+					"[CID 0x%x] %p", prCmdInfo->ucCID,
 					__builtin_return_address(0));
 		else
 			kalSnprintf(prAdapter->arPrevCompHdlrRec[
 					prAdapter->u4CompRecIdx].aucName,
 					sizeof(prAdapter->arPrevCompHdlrRec[
 					prAdapter->u4CompRecIdx].aucName),
-					"%ps", __builtin_return_address(0));
+					"%p", __builtin_return_address(0));
 	}
 
 	prAdapter->u4CompRecIdx = (prAdapter->u4CompRecIdx + 1)
@@ -10276,8 +10279,9 @@ void kalPrintSALog(const char *fmt, ...)
 #endif /* CFG_SUPPORT_SA_LOG */
 
 #if (CFG_SUPPORT_POWER_THROTTLING == 1)
-void kalPwrLevelHdlrRegister(IN struct ADAPTER *prAdapter,
-					PFN_PWR_LEVEL_HANDLER hdlr)
+void __kalPwrLevelHdlrRegister(IN struct ADAPTER *prAdapter,
+			       PFN_PWR_LEVEL_HANDLER hdlr,
+			       const char *hdlrStr)
 {
 	struct PWR_LEVEL_HANDLER_ELEMENT *prRegisterHdlr;
 
@@ -10290,10 +10294,11 @@ void kalPwrLevelHdlrRegister(IN struct ADAPTER *prAdapter,
 	}
 
 	prRegisterHdlr->prPwrLevelHandler = hdlr;
+	prRegisterHdlr->pPwrLevelHandlerStr = hdlrStr;
 
 	LINK_INSERT_HEAD(&prAdapter->rPwrLevelHandlerList,
 		&prRegisterHdlr->rLinkEntry);
-	DBGLOG(INIT, TRACE, "%ps is registered.\n", hdlr);
+	DBGLOG(INIT, TRACE, "%s is registered.\n", hdlrStr);
 
 	prRegisterHdlr->prPwrLevelHandler(prAdapter, prAdapter->u4PwrLevel);
 }
@@ -10305,8 +10310,8 @@ void kalPwrLevelHdlrUnregisterAll(IN struct ADAPTER *prAdapter)
 	while (!LINK_IS_EMPTY(&prAdapter->rPwrLevelHandlerList)) {
 		LINK_REMOVE_HEAD(&prAdapter->rPwrLevelHandlerList,
 			prRegisterHdlr, struct PWR_LEVEL_HANDLER_ELEMENT *);
-		DBGLOG(INIT, TRACE, "%ps is unregistered.\n",
-			prRegisterHdlr->prPwrLevelHandler);
+		DBGLOG(INIT, TRACE, "%s is unregistered.\n",
+			prRegisterHdlr->pPwrLevelHandlerStr);
 
 		kalMemFree(prRegisterHdlr, VIR_MEM_TYPE,
 			sizeof(struct PWR_LEVEL_HANDLER_ELEMENT));
@@ -11040,6 +11045,65 @@ void kalBatNotifierUnReg(void)
 }
 
 #endif
+
+/*----------------------------------------------------------------------------*/
+/*!
+ * @brief This function is send txpower limit by bit map
+ *
+ * @param[in] eType : SAR scenario type
+ *
+ * @return char * : SAR scenario name
+ */
+/*----------------------------------------------------------------------------*/
+int32_t kalSetSarLimitByBitMap(struct GLUE_INFO *prGlueInfo,
+				uint32_t u4ActBitMap)
+{
+
+	struct PARAM_TX_PWR_CTRL_IOCTL rPwrCtrlParam = {0};
+	uint32_t rStatus = 0;
+	uint8_t i = 0;
+	uint16_t u2SubIdx = 0;
+	uint32_t u4SetInfoLen = 0;
+
+	if (!prGlueInfo)
+		return WLAN_STATUS_FAILURE;
+
+	for (i = 0; i < SAR_NUM; i++) {
+		kalMemZero(&rPwrCtrlParam,
+			sizeof(struct PARAM_TX_PWR_CTRL_IOCTL));
+
+		if ((BIT(i) & u4ActBitMap) == 0)
+			u2SubIdx = 0;
+		else
+			u2SubIdx = 1;
+
+		rPwrCtrlParam.fgApplied = (u2SubIdx == 0) ? FALSE : TRUE;
+		rPwrCtrlParam.name = rlmDomainGetSarScenarioName(i);
+		rPwrCtrlParam.index = u2SubIdx;
+		rPwrCtrlParam.newSetting = NULL;
+
+		DBGLOG(REQ, INFO,
+		"[SAR]applied=[%d], name=[%s], index=[%u], setting=[%s]\n",
+		rPwrCtrlParam.fgApplied,
+		rPwrCtrlParam.name,
+		rPwrCtrlParam.index,
+		rPwrCtrlParam.newSetting);
+
+		rStatus = kalIoctl(prGlueInfo,
+  			wlanoidTxPowerControl,
+  			(void *)&rPwrCtrlParam,
+  			sizeof(struct PARAM_TX_PWR_CTRL_IOCTL),
+  			FALSE,
+  			FALSE,
+  			TRUE,
+  			&u4SetInfoLen);
+
+		if (rStatus != WLAN_STATUS_SUCCESS)
+			break;
+	}
+
+	return rStatus;
+}
 
 #if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
 MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);

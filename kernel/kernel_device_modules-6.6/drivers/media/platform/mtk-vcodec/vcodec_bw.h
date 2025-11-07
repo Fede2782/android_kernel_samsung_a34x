@@ -28,7 +28,16 @@ enum vcodec_larb_type {
 	VCODEC_LARB_READ = 0,
 	VCODEC_LARB_WRITE = 1,
 	VCODEC_LARB_READ_WRITE = 2,
-	VCODEC_LARB_SUM = 3
+	/* new port type for legacy chips which need set bw distinguish
+	 * whether ufo is on or off:
+	 *   --PICTURE_UV: set at ufo off, scalling bw at ufo off
+	 *   --PICTURE_UV_UFO: set at ufo on
+	 *   --PICTURE_ALL: set at ufo on/off, scalling bw at ufo off
+	 */
+	VCODEC_LARB_PORT_PICTURE_UV = 3,
+	VCODEC_LARB_PORT_PICTURE_UV_UFO = 4,
+	VCODEC_LARB_PORT_PICTURE_ALL = 5,
+	VCODEC_LARB_SUM = 6
 };
 
 enum vcodec_smi_monitor_state {

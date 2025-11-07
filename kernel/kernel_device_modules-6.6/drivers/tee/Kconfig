@@ -21,8 +21,16 @@ config TEEGRIS_TEE_SUPPORT
 	help
 	  TEEGRIS_TEE_SUPPORT
 
+config TEEGRIS_RPMB_SUPPORT
+	bool "TEEGRIS_RPMB_SUPPORT"
+	default n
+	depends on TEEGRIS_TEE_SUPPORT
+	help
+	  TEEGRIS_RPMB_SUPPORT
+
 source "$(KCONFIG_EXT_PREFIX)drivers/tee/teeperf/Kconfig"
 source "$(KCONFIG_EXT_PREFIX)drivers/tee/gud/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/tee/tzdev/6/Kconfig"
 source "$(KCONFIG_EXT_PREFIX)drivers/tee/tzdev/5/Kconfig"
 source "$(KCONFIG_EXT_PREFIX)drivers/tee/tzdev/4/Kconfig"
 source "$(KCONFIG_EXT_PREFIX)drivers/tee/teei/Kconfig"

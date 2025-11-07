@@ -308,7 +308,8 @@ static inline bool valid_cq_execution_subsample(
 		return ret;
 
 	spin_lock(p->info_lock);
-	ret = ((p->event_ts - p->info->sof_ts_ns) < p->cq_trigger_thres)&&
+	ret = (p->info->sof_ts_ns <= p->info->sof_l_ts_ns) &&
+		((p->event_ts - p->info->sof_ts_ns) < p->cq_trigger_thres) &&
 		(s_acc->seq_no == p->info->inner_seq_no + 1);
 	spin_unlock(p->info_lock);
 

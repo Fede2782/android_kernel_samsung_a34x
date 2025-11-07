@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -56,48 +56,48 @@
  *                           P R I V A T E   D A T A
  *******************************************************************************
  */
-static const char *const apucDebugNetdevState[] = {
-	"NETDEV_UNKNOWN",
-	"NETDEV_UP",
-	"NETDEV_DOWN",
-	"NETDEV_REBOOT",
-	"NETDEV_CHANGE",
-	"NETDEV_REGISTER",
-	"NETDEV_UNREGISTER",
-	"NETDEV_CHANGEMTU",
-	"NETDEV_CHANGEADDR",
+static const uint8_t *apucDebugNetdevState[] = {
+	(uint8_t *) DISP_STRING("NETDEV_UNKNOWN"),
+	(uint8_t *) DISP_STRING("NETDEV_UP"),
+	(uint8_t *) DISP_STRING("NETDEV_DOWN"),
+	(uint8_t *) DISP_STRING("NETDEV_REBOOT"),
+	(uint8_t *) DISP_STRING("NETDEV_CHANGE"),
+	(uint8_t *) DISP_STRING("NETDEV_REGISTER"),
+	(uint8_t *) DISP_STRING("NETDEV_UNREGISTER"),
+	(uint8_t *) DISP_STRING("NETDEV_CHANGEMTU"),
+	(uint8_t *) DISP_STRING("NETDEV_CHANGEADDR"),
 #if (KERNEL_VERSION(5, 0, 0) <= CFG80211_VERSION_CODE)
-	"NETDEV_PRE_CHANGEADDR",
+	(uint8_t *) DISP_STRING("NETDEV_PRE_CHANGEADDR"),
 #endif
-	"NETDEV_GOING_DOWN",
-	"NETDEV_CHANGENAME",
-	"NETDEV_FEAT_CHANGE",
-	"NETDEV_BONDING_FAILOVER",
-	"NETDEV_PRE_UP",
-	"NETDEV_PRE_TYPE_CHANGE",
-	"NETDEV_POST_TYPE_CHANGE",
-	"NETDEV_POST_INIT",
+	(uint8_t *) DISP_STRING("NETDEV_GOING_DOWN"),
+	(uint8_t *) DISP_STRING("NETDEV_CHANGENAME"),
+	(uint8_t *) DISP_STRING("NETDEV_FEAT_CHANGE"),
+	(uint8_t *) DISP_STRING("NETDEV_BONDING_FAILOVER"),
+	(uint8_t *) DISP_STRING("NETDEV_PRE_UP"),
+	(uint8_t *) DISP_STRING("NETDEV_PRE_TYPE_CHANGE"),
+	(uint8_t *) DISP_STRING("NETDEV_POST_TYPE_CHANGE"),
+	(uint8_t *) DISP_STRING("NETDEV_POST_INIT"),
 #if (KERNEL_VERSION(4, 17, 0) > CFG80211_VERSION_CODE)
-	"NETDEV_UNREGISTER_FINAL",
+	(uint8_t *) DISP_STRING("NETDEV_UNREGISTER_FINAL"),
 #endif
-	"NETDEV_RELEASE",
-	"NETDEV_NOTIFY_PEERS",
-	"NETDEV_JOIN",
-	"NETDEV_CHANGEUPPER",
-	"NETDEV_RESEND_IGMP",
-	"NETDEV_PRECHANGEMTU",
-	"NETDEV_CHANGEINFODATA",
-	"NETDEV_BONDING_INFO",
-	"NETDEV_PRECHANGEUPPER",
-	"NETDEV_CHANGELOWERSTATE",
-	"NETDEV_UDP_TUNNEL_PUSH_INFO",
-	"NETDEV_UNKNOWN",
-	"NETDEV_CHANGE_TX_QUEUE_LEN",
+	(uint8_t *) DISP_STRING("NETDEV_RELEASE"),
+	(uint8_t *) DISP_STRING("NETDEV_NOTIFY_PEERS"),
+	(uint8_t *) DISP_STRING("NETDEV_JOIN"),
+	(uint8_t *) DISP_STRING("NETDEV_CHANGEUPPER"),
+	(uint8_t *) DISP_STRING("NETDEV_RESEND_IGMP"),
+	(uint8_t *) DISP_STRING("NETDEV_PRECHANGEMTU"),
+	(uint8_t *) DISP_STRING("NETDEV_CHANGEINFODATA"),
+	(uint8_t *) DISP_STRING("NETDEV_BONDING_INFO"),
+	(uint8_t *) DISP_STRING("NETDEV_PRECHANGEUPPER"),
+	(uint8_t *) DISP_STRING("NETDEV_CHANGELOWERSTATE"),
+	(uint8_t *) DISP_STRING("NETDEV_UDP_TUNNEL_PUSH_INFO"),
+	(uint8_t *) DISP_STRING("NETDEV_UNKNOWN"),
+	(uint8_t *) DISP_STRING("NETDEV_CHANGE_TX_QUEUE_LEN"),
 #if (KERNEL_VERSION(4, 17, 0) <= CFG80211_VERSION_CODE)
-	"NETDEV_CVLAN_FILTER_PUSH_INFO",
-	"NETDEV_CVLAN_FILTER_DROP_INFO",
-	"NETDEV_SVLAN_FILTER_PUSH_INFO",
-	"NETDEV_SVLAN_FILTER_DROP_INFO",
+	(uint8_t *) DISP_STRING("NETDEV_CVLAN_FILTER_PUSH_INFO"),
+	(uint8_t *) DISP_STRING("NETDEV_CVLAN_FILTER_DROP_INFO"),
+	(uint8_t *) DISP_STRING("NETDEV_SVLAN_FILTER_PUSH_INFO"),
+	(uint8_t *) DISP_STRING("NETDEV_SVLAN_FILTER_DROP_INFO"),
 #endif
 };
 
@@ -126,7 +126,7 @@ static int netdev_event(struct notifier_block *nb,
 	struct GLUE_INFO *prGlueInfo = NULL;
 
 	if (prDev == NULL) {
-		/* DBGLOG(REQ, DEBUG, ("netdev_event: device is empty.\n")); */
+		/* DBGLOG(REQ, INFO, ("netdev_event: device is empty.\n")); */
 		return NOTIFY_DONE;
 	}
 
@@ -138,7 +138,7 @@ static int netdev_event(struct notifier_block *nb,
 		&& (strncmp(prDev->name, "aware", 5) != 0)
 #endif
 	    && (strncmp(prDev->name, "wlan", 4) != 0)) {
-		/* DBGLOG(REQ, DEBUG, ("netdev_event: xxx\n")); */
+		/* DBGLOG(REQ, INFO, ("netdev_event: xxx\n")); */
 		return NOTIFY_DONE;
 	}
 #if 0				/* CFG_SUPPORT_PASSPOINT */
@@ -149,19 +149,19 @@ static int netdev_event(struct notifier_block *nb,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prDev));
 	if (prGlueInfo == NULL) {
-		DBGLOG(REQ, DEBUG, "%s: prGlueInfo is empty.\n", __func__);
+		DBGLOG(REQ, INFO, "netdev_event: prGlueInfo is empty.\n");
 		return NOTIFY_DONE;
 	}
 
 	if (prGlueInfo->fgIsInSuspendMode == FALSE) {
-		/* DBGLOG(REQ, DEBUG,
+		/* DBGLOG(REQ, INFO,
 		 *  ("netdev_event: MEDIA_STATE_DISCONNECTED. (%d)\n",
 		 * prGlueInfo->eParamMediaStateIndicated));
 		 */
 		/* return NOTIFY_DONE; */
 	}
 
-	DBGLOG(REQ, DEBUG, "%s: set net addr\n", __func__);
+	DBGLOG(REQ, INFO, "netdev_event: set net addr\n");
 	kalSetNetAddressFromInterface(prGlueInfo, prDev, TRUE);
 
 	return NOTIFY_DONE;
@@ -177,7 +177,7 @@ static int net6dev_event(struct notifier_block *nb,
 	struct GLUE_INFO *prGlueInfo = NULL;
 
 	if (prDev == NULL) {
-		DBGLOG(REQ, DEBUG, "%s: device is empty.\n", __func__);
+		DBGLOG(REQ, INFO, "net6dev_event: device is empty.\n");
 		return NOTIFY_DONE;
 	}
 
@@ -186,7 +186,7 @@ static int net6dev_event(struct notifier_block *nb,
 	    && (strncmp(prDev->name, "ra", 2) != 0)
 #endif
 	    && (strncmp(prDev->name, "wlan", 4) != 0)) {
-		DBGLOG(REQ, DEBUG, "%s: xxx\n", __func__);
+		DBGLOG(REQ, INFO, "net6dev_event: xxx\n");
 		return NOTIFY_DONE;
 	}
 
@@ -203,7 +203,7 @@ static int net6dev_event(struct notifier_block *nb,
 	}
 
 	if (prGlueInfo == NULL) {
-		DBGLOG(REQ, DEBUG, "netdev_event: prGlueInfo is empty.\n");
+		DBGLOG(REQ, INFO, "netdev_event: prGlueInfo is empty.\n");
 		return NOTIFY_DONE;
 	}
 
@@ -213,19 +213,23 @@ static int net6dev_event(struct notifier_block *nb,
 }
 #endif /* CFG_SUPPORT_PASSPOINT */
 
+#if 1       /* unused  */
+static struct notifier_block inetaddr_notifier = {
+	.notifier_call = netdev_event,
+};
+#endif
+
 #if 0				/* CFG_SUPPORT_PASSPOINT */
 static struct notifier_block inet6addr_notifier = {
 	.notifier_call = net6dev_event,
 };
 #endif /* CFG_SUPPORT_PASSPOINT */
 
-void wlanRegisterInetAddrNotifier(struct GLUE_INFO *prGlueInfo)
+void wlanRegisterInetAddrNotifier(void)
 {
-	prGlueInfo->inetaddr_notifier.notifier_call = netdev_event;
-
 #if CFG_ENABLE_NET_DEV_NOTIFY
 
-	register_inetaddr_notifier(&prGlueInfo->inetaddr_notifier);
+	register_inetaddr_notifier(&inetaddr_notifier);
 #if 0				/* CFG_SUPPORT_PASSPOINT */
 	register_inet6addr_notifier(&inet6addr_notifier);
 #endif /* CFG_SUPPORT_PASSPOINT */
@@ -233,11 +237,11 @@ void wlanRegisterInetAddrNotifier(struct GLUE_INFO *prGlueInfo)
 #endif
 }
 
-void wlanUnregisterInetAddrNotifier(struct GLUE_INFO *prGlueInfo)
+void wlanUnregisterInetAddrNotifier(void)
 {
 #if CFG_ENABLE_NET_DEV_NOTIFY
 
-	unregister_inetaddr_notifier(&prGlueInfo->inetaddr_notifier);
+	unregister_inetaddr_notifier(&inetaddr_notifier);
 #if 0				/* CFG_SUPPORT_PASSPOINT */
 	unregister_inetaddr_notifier(&inet6addr_notifier);
 #endif /* CFG_SUPPORT_PASSPOINT */
@@ -263,12 +267,10 @@ int glRegisterEarlySuspend(struct early_suspend *prDesc,
 {
 	int ret = 0;
 
-	prDesc->level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
-
 	if (wlanSuspend != NULL)
 		prDesc->suspend = wlanSuspend;
 	else {
-		DBGLOG(REQ, DEBUG,
+		DBGLOG(REQ, INFO,
 		       "glRegisterEarlySuspend wlanSuspend ERROR.\n");
 		ret = -1;
 	}
@@ -276,7 +278,7 @@ int glRegisterEarlySuspend(struct early_suspend *prDesc,
 	if (wlanResume != NULL)
 		prDesc->resume = wlanResume;
 	else {
-		DBGLOG(REQ, DEBUG,
+		DBGLOG(REQ, INFO,
 		       "glRegisterEarlySuspend wlanResume ERROR.\n");
 		ret = -1;
 	}

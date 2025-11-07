@@ -367,7 +367,7 @@ void mhal_DPTx_SetMSA(struct mtk_dp *mtk_dp)
 		DPTX_TBL->Vbp + DPTX_TBL->Vsw);
 	msWrite2Byte(mtk_dp, REG_3178_DP_ENCODER0_P0, DPTX_TBL->Vde);
 
-	DPTXMSG("MSA:Htt=%d Vtt=%d Hact=%d Vact=%d, fps=%d\n",
+	DPTXMSG("dp_enable: MSA:Htt=%d Vtt=%d Hact=%d Vact=%d, fps=%d\n",
 			DPTX_TBL->Htt, DPTX_TBL->Vtt,
 			DPTX_TBL->Hde, DPTX_TBL->Vde, DPTX_TBL->FrameRate);
 }
@@ -1002,6 +1002,20 @@ void mhal_DPTx_audio_sample_arrange(struct mtk_dp *mtk_dp, BYTE bEnable)
 	DPTXMSG("Audio arrange patch enable = %d, value = 0x%x\n", bEnable, value);
 }
 
+static void mhal_DPTx_spkg_asp_hb32(struct mtk_dp *mtk_dp, bool enable, u8 HB3, u8 HB2)
+{
+
+	msWrite2ByteMask(mtk_dp, REG_30BC_DP_ENCODER0_P0,
+			(enable ? 0x01 : 0x00) << ASP_HB23_SEL_DP_ENCODER0_P0_FLDMASK_POS,
+			ASP_HB23_SEL_DP_ENCODER0_P0_FLDMASK);
+	msWrite2ByteMask(mtk_dp, REG_312C_DP_ENCODER0_P0,
+			HB2 << ASP_HB2_DP_ENCODER0_P0_FLDMASK_POS,
+			ASP_HB2_DP_ENCODER0_P0_FLDMASK);
+	msWrite2ByteMask(mtk_dp, REG_312C_DP_ENCODER0_P0,
+			HB3 << ASP_HB3_DP_ENCODER0_P0_FLDMASK_POS,
+			ASP_HB3_DP_ENCODER0_P0_FLDMASK);
+}
+
 void mhal_DPTx_Audio_PG_EN(struct mtk_dp *mtk_dp, BYTE Channel,
 	BYTE Fs, BYTE bEnable)
 {
@@ -1244,6 +1258,7 @@ void mhal_DPTx_Audio_TDM_PG_EN(struct mtk_dp *mtk_dp, BYTE Channel,
 			msWrite2ByteMask(mtk_dp, REG_331C_DP_ENCODER1_P0,
 				(0x1 << TDM_AUDIO_DATA_CH_NUM_DP_ENCODER1_P0_FLDMASK_POS),
 				TDM_AUDIO_DATA_CH_NUM_DP_ENCODER1_P0_FLDMASK);
+		mhal_DPTx_spkg_asp_hb32(mtk_dp, true, DPTX_SDP_ASP_HB3_AU02CH, 0x0);
 		break;
 
 	case 8:
@@ -1266,6 +1281,7 @@ void mhal_DPTx_Audio_TDM_PG_EN(struct mtk_dp *mtk_dp, BYTE Channel,
 				TDM_AUDIO_DATA_CH_NUM_DP_ENCODER1_P0_FLDMASK);
 			}
 		}
+		mhal_DPTx_spkg_asp_hb32(mtk_dp, true, DPTX_SDP_ASP_HB3_AU08CH, 0x0);
 		break;
 
 	case 16:
@@ -1300,7 +1316,8 @@ void mhal_DPTx_Audio_TDM_PG_EN(struct mtk_dp *mtk_dp, BYTE Channel,
 			msWrite2ByteMask(mtk_dp, REG_331C_DP_ENCODER1_P0,
 				(0x1 << TDM_AUDIO_DATA_CH_NUM_DP_ENCODER1_P0_FLDMASK_POS),
 				TDM_AUDIO_DATA_CH_NUM_DP_ENCODER1_P0_FLDMASK);
-			}
+		}
+		mhal_DPTx_spkg_asp_hb32(mtk_dp, true, DPTX_SDP_ASP_HB3_AU02CH, 0x0);
 		break;
 	}
 	if (!bEnable) {
@@ -1834,7 +1851,7 @@ UINT8 mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 
 	if (mtk_dp->fake_comeplete_irq && (ubCmd == AUX_CMD_NATIVE_R))
 		if (mtk_dp->priv->data->mmsys_id == MMSYS_MT6991 ||
-		  mtk_dp->priv->data->mmsys_id == MMSYS_MT6899)
+				mtk_dp->priv->data->mmsys_id == MMSYS_MT6899)
 			msWrite4ByteMask(mtk_dp, REG_36F4_AUX_TX_P0,
 				1<<IDLE_TO_PRECHARGE_DATA_ONE_EN_AUX_TX_P0_FLDMASK_POS,
 				IDLE_TO_PRECHARGE_DATA_ONE_EN_AUX_TX_P0_FLDMASK);
@@ -1843,6 +1860,11 @@ UINT8 mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 
 	msWriteByte(mtk_dp, REG_3640_AUX_TX_P0, 0x7F);
 	udelay(AUX_WRITE_READ_WAIT_TIME);
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (mtk_dp->sec_dp && mtk_dp->sec_dp->pdic_cable_state == 0)
+		return AUX_HW_FAILED;
+#endif
 
 	if ((ubLength > 16) ||
 		((ubCmd == AUX_CMD_NATIVE_R) && (ubLength == 0x0)))
@@ -1872,6 +1894,12 @@ UINT8 mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 		AUX_TX_REQUEST_READY_AUX_TX_P0_FLDMASK);
 
 	while (--WaitReplyCount) {
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+		if (mtk_dp->sec_dp && mtk_dp->sec_dp->pdic_cable_state == 0) {
+			WaitReplyCount = 0;
+			break;
+		}
+#endif
 		uAuxIrqStatus = msReadByte(mtk_dp, REG_3640_AUX_TX_P0) & 0xFF;
 		if (uAuxIrqStatus & AUX_RX_RECV_COMPLETE_IRQ_TX_P0_FLDMASK) {
 			aux_state = (msRead2Byte(mtk_dp, REG_3644_AUX_TX_P0)
@@ -1902,14 +1930,14 @@ UINT8 mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 
 		if (uAuxIrqStatus & AUX_400US_TIMEOUT_IRQ_AUX_TX_P0_FLDMASK) {
 			usleep_range(AUX_NO_REPLY_WAIT_TIME, AUX_NO_REPLY_WAIT_TIME);
-			DPTXMSG("(AUX Read)HW Timeout 400us irq");
+			DPTXMSG("(AUX Read)HW Timeout 400us irq\n");
 			break;
 		}
 	}
 
 	if (mtk_dp->fake_comeplete_irq && (ubCmd == AUX_CMD_NATIVE_R)) {
 		if (mtk_dp->priv->data->mmsys_id == MMSYS_MT6991 ||
-		  mtk_dp->priv->data->mmsys_id == MMSYS_MT6899)
+				mtk_dp->priv->data->mmsys_id == MMSYS_MT6899)
 			msWrite4ByteMask(mtk_dp, REG_36F4_AUX_TX_P0, 0x0,
 				IDLE_TO_PRECHARGE_DATA_ONE_EN_AUX_TX_P0_FLDMASK);
 		else
@@ -1935,7 +1963,7 @@ UINT8 mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 
 	ubReplyCmd = msReadByte(mtk_dp, REG_3624_AUX_TX_P0) & 0x0F;
 	if (ubReplyCmd)
-		DPTXMSG("ubReplyCmd =%x NACK or Defer\n", ubReplyCmd);
+		DPTXDBG("ubReplyCmd =%x NACK or Defer\n", ubReplyCmd);
 
 	if (ubLength == 0) {
 		msWriteByte(mtk_dp, REG_362C_AUX_TX_P0, 0x00);
@@ -1984,6 +2012,11 @@ UINT8 mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 	BYTE bRegIndex;
 	UINT8 ret = AUX_HW_FAILED;
 
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (mtk_dp->sec_dp && mtk_dp->sec_dp->pdic_cable_state == 0)
+		return AUX_HW_FAILED;
+#endif
+
 	if ((ubLength > 16) || ((ubCmd == AUX_CMD_NATIVE_W) && (ubLength == 0x0)))
 		return AUX_INVALID_CMD;
 
@@ -2021,6 +2054,12 @@ UINT8 mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 	while (--WaitReplyCount) {
 		BYTE uAuxIrqStatus;
 
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+		if (mtk_dp->sec_dp && mtk_dp->sec_dp->pdic_cable_state == 0) {
+			WaitReplyCount = 0;
+			break;
+		}
+#endif
 		uAuxIrqStatus = msReadByte(mtk_dp, REG_3640_AUX_TX_P0) & 0xFF;
 		udelay(1);
 		if (uAuxIrqStatus & AUX_RX_RECV_COMPLETE_IRQ_TX_P0_FLDMASK) {
@@ -2030,7 +2069,7 @@ UINT8 mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 
 		if (uAuxIrqStatus & AUX_400US_TIMEOUT_IRQ_AUX_TX_P0_FLDMASK) {
 			usleep_range(AUX_NO_REPLY_WAIT_TIME, AUX_NO_REPLY_WAIT_TIME);
-			DPTXMSG("(AUX write)HW Timeout 400us irq");
+			DPTXMSG("(AUX write)HW Timeout 400us irq\n");
 			break;
 		}
 	}
@@ -2054,7 +2093,7 @@ UINT8 mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 
 	ubReplyCmd = msReadByte(mtk_dp, REG_3624_AUX_TX_P0) & 0x0F;
 	if (ubReplyCmd)
-		DPTXMSG("ubReplyCmd =%x NACK or Defer\n", ubReplyCmd);
+		DPTXDBG("ubReplyCmd =%x NACK or Defer\n", ubReplyCmd);
 
 	msWriteByte(mtk_dp, REG_3650_AUX_TX_P0 + 1, 0x01);
 
@@ -2067,7 +2106,7 @@ UINT8 mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 		//DPTXMSG("[AUX] Write reply_cmd = %d\n", ubReplyCmd);
 		ret = ubReplyCmd;
 	} else {
-		DPTXMSG("[AUX] Timeout Write reply_cmd = %d\n", ubReplyCmd);
+		DPTXDBG("[AUX] Timeout Write reply_cmd = %d\n", ubReplyCmd);
 		ret = AUX_HW_FAILED;
 	}
 
@@ -2529,8 +2568,10 @@ void mhal_DPTx_PhyCheckReady(struct mtk_dp *mtk_dp, u8 lane_count)
 	case 4:
 		phyd_rdy_bmp |= (RGS_TX_LN3_READY_FLDMASK |
 				RGS_TX_LN2_READY_FLDMASK);
+		break;
 	case 2:
 		phyd_rdy_bmp |= RGS_TX_LN1_READY_FLDMASK;
+		break;
 	default:
 		break;
 	}
@@ -2664,10 +2705,8 @@ void mhal_DPTx_hw_phy_set_param(struct mtk_dp *mtk_dp, BYTE MAX_LANECOUNT)
 	UINT32 usb_info_bit19;
 	UINT32 usb_info_bit18;
 	void *base;
-
-	UINT32 phy_param[6] = {0x221C1814, 0x24241e18, 0x0000302A,	//c0
-			       0x0E080400, 0x000c0600, 0x00000006	//cp1
-			      };
+	uint32_t value = 0;
+	uint8_t mask = 0x3F;
 
 	//phy threshold refine
 	msPhyWrite4ByteMask(mtk_dp, 0x8, 0x00 , BIT(0)|BIT(1));
@@ -2696,38 +2735,78 @@ void mhal_DPTx_hw_phy_set_param(struct mtk_dp *mtk_dp, BYTE MAX_LANECOUNT)
 		msPhyWrite4ByteMask(mtk_dp, 0x0100, BIT(12) ,BIT(12)|BIT(13));
 		msPhyWrite4ByteMask(mtk_dp, 0x0200, BIT(12) ,BIT(12)|BIT(13));
 	}
-	// SW Patch 4.4
-	msPhyWrite4Byte(mtk_dp, 0x1138,0x110E0C0A);
-	msPhyWrite4Byte(mtk_dp, 0x1238,0x110E0C0A);
-	msPhyWrite4Byte(mtk_dp, 0x1338,0x110E0C0A);
-	msPhyWrite4Byte(mtk_dp, 0x1438,0x110E0C0A);
 
-	msPhyWrite4Byte(mtk_dp, 0x113C,0x1212110E);
-	msPhyWrite4Byte(mtk_dp, 0x123C,0x1212110E);
-	msPhyWrite4Byte(mtk_dp, 0x133C,0x1212110E);
-	msPhyWrite4Byte(mtk_dp, 0x143C,0x1212110E);
+	value = (mtk_dp->phy_params[0].C0 & mask)
+		| ((mtk_dp->phy_params[1].C0 & mask) << 8)
+		| ((mtk_dp->phy_params[2].C0 & mask) << 16)
+		| ((mtk_dp->phy_params[3].C0 & mask) << 24);
+	msPhyWrite4Byte(mtk_dp, 0x1138, value);
+	msPhyWrite4Byte(mtk_dp, 0x1238, value);
+	msPhyWrite4Byte(mtk_dp, 0x1338, value);
+	msPhyWrite4Byte(mtk_dp, 0x1438, value);
+	DPTXDBG("0x38:%#010x, 0x38:%#010x", value, msPhyRead4Byte(mtk_dp, 0x1138));
 
-	msPhyWrite4Byte(mtk_dp, 0x1140,0x00001815);
-	msPhyWrite4Byte(mtk_dp, 0x1240,0x00001815);
-	msPhyWrite4Byte(mtk_dp, 0x1340,0x00001815);
-	msPhyWrite4Byte(mtk_dp, 0x1440,0x00001815);
+	value = (mtk_dp->phy_params[4].C0 & mask)
+		| ((mtk_dp->phy_params[5].C0 & mask) << 8)
+		| ((mtk_dp->phy_params[6].C0 & mask) << 16)
+		| ((mtk_dp->phy_params[7].C0 & mask) << 24);
+	msPhyWrite4Byte(mtk_dp, 0x113C, value);
+	msPhyWrite4Byte(mtk_dp, 0x123C, value);
+	msPhyWrite4Byte(mtk_dp, 0x133C, value);
+	msPhyWrite4Byte(mtk_dp, 0x143C, value);
+	DPTXDBG("0x3C:%#010x, 0x3C:%#010x", value, msPhyRead4Byte(mtk_dp, 0x113C));
 
-	msPhyWrite4Byte(mtk_dp, 0x1144,0x07040200);
-	msPhyWrite4Byte(mtk_dp, 0x1244,0x07040200);
-	msPhyWrite4Byte(mtk_dp, 0x1344,0x07040200);
-	msPhyWrite4Byte(mtk_dp, 0x1444,0x07040200);
+	value = (mtk_dp->phy_params[8].C0 & mask)
+		| ((mtk_dp->phy_params[9].C0 & mask) << 8);
+	msPhyWrite4Byte(mtk_dp, 0x1140, value);
+	msPhyWrite4Byte(mtk_dp, 0x1240, value);
+	msPhyWrite4Byte(mtk_dp, 0x1340, value);
+	msPhyWrite4Byte(mtk_dp, 0x1440, value);
+	DPTXDBG("0x40:%#010x, 0x40:%#010x", value, msPhyRead4Byte(mtk_dp, 0x1140));
 
-	msPhyWrite4Byte(mtk_dp, 0x1148,0x00060300);
-	msPhyWrite4Byte(mtk_dp, 0x1248,0x00060300);
-	msPhyWrite4Byte(mtk_dp, 0x1348,0x00060300);
-	msPhyWrite4Byte(mtk_dp, 0x1448,0x00060300);
+	value = (mtk_dp->phy_params[0].CP1 & mask)
+		| ((mtk_dp->phy_params[1].CP1 & mask) << 8)
+		| ((mtk_dp->phy_params[2].CP1 & mask) << 16)
+		| ((mtk_dp->phy_params[3].CP1 & mask) << 24);
+	msPhyWrite4Byte(mtk_dp, 0x1144, value);
+	msPhyWrite4Byte(mtk_dp, 0x1244, value);
+	msPhyWrite4Byte(mtk_dp, 0x1344, value);
+	msPhyWrite4Byte(mtk_dp, 0x1444, value);
+	DPTXDBG("0x44:%#010x, 0x44:%#010x", value, msPhyRead4Byte(mtk_dp, 0x1144));
 
-	msPhyWrite4Byte(mtk_dp, 0x114C,0x00000003);
-	msPhyWrite4Byte(mtk_dp, 0x124C,0x00000003);
-	msPhyWrite4Byte(mtk_dp, 0x134C,0x00000003);
-	msPhyWrite4Byte(mtk_dp, 0x144C,0x00000003);
+	value = (mtk_dp->phy_params[4].CP1 & mask)
+		| ((mtk_dp->phy_params[5].CP1 & mask) << 8)
+		| ((mtk_dp->phy_params[6].CP1 & mask) << 16)
+		| ((mtk_dp->phy_params[7].CP1 & mask) << 24);
+	msPhyWrite4Byte(mtk_dp, 0x1148, value);
+	msPhyWrite4Byte(mtk_dp, 0x1248, value);
+	msPhyWrite4Byte(mtk_dp, 0x1348, value);
+	msPhyWrite4Byte(mtk_dp, 0x1448, value);
+	DPTXDBG("0x48:%#010x, 0x48:%#010x", value, msPhyRead4Byte(mtk_dp, 0x1148));
 
-	mhal_DPTx_phy_param_init(mtk_dp, phy_param, ARRAY_SIZE(phy_param));
+	value = (mtk_dp->phy_params[8].CP1 & mask)
+		| ((mtk_dp->phy_params[9].CP1 & mask) << 8);
+	msPhyWrite4Byte(mtk_dp, 0x114C, value);
+	msPhyWrite4Byte(mtk_dp, 0x124C, value);
+	msPhyWrite4Byte(mtk_dp, 0x134C, value);
+	msPhyWrite4Byte(mtk_dp, 0x144C, value);
+	DPTXDBG("0x4C:%#010x, 0x4C:%#010x", value, msPhyRead4Byte(mtk_dp, 0x114C));
+
+	/*
+	 * 21:18 XTP CKTX VLDO voltage selection
+	 * [2:0]:
+	 * 2'b0:540mv
+	 * 2'b1:550mv [dp default]
+	 * 2'b2:560mv
+	 * 2'b3:600mv
+	 * 2'b4:650mv
+	 * 2'b5:700mv
+	 * 2'b6:750mv
+	 * 2'b7:800mv
+	 */
+	msPhyWrite4ByteMask(mtk_dp, 0x658, 1 << 18, BITMASK(20:18));
+	DPTXDBG("0x658:%#010x, 0x658:%#010x", value, msPhyRead4Byte(mtk_dp, 0x658));
+
 }
 
 void mhal_DPTx_PHYSetting(struct mtk_dp *mtk_dp, BYTE MAX_LANECOUNT)
@@ -2831,7 +2910,16 @@ void mhal_DPTx_PHYSetting(struct mtk_dp *mtk_dp, BYTE MAX_LANECOUNT)
 
 		//PORTING FROM CTP
 		msWrite4ByteMask(mtk_dp, 0x003C, 0x004 << 24, BITMASK(28:24));
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (mtk_dp->sec_dp && mtk_dp->sec_dp->funcs.get_aux_level) {
+		int aux_level = mtk_dp->sec_dp->funcs.get_aux_level();
+
+		// AUX setting DP_PHT_GLB_DPAUX_TX
+		msWrite4ByteMask(mtk_dp, 0x0008, aux_level << 3, BITMASK(6:3));
+	}
+#else
 		msWrite4ByteMask(mtk_dp, 0x0008, 0x7 << 3, BITMASK(6:3));
+#endif
 		msWrite4ByteMask(mtk_dp, 0x003C, BIT(23), BIT(23));
 		msWrite4ByteMask(mtk_dp, 0x0054, BIT(23), BIT(23));
 		msWrite4ByteMask(mtk_dp, 0x0054, 0x004 << 24, BITMASK(28:24));
@@ -2988,20 +3076,6 @@ void mhal_DPTx_AuxSetting(struct mtk_dp *mtk_dp)
 	}
 }
 
-static void mhal_DPTx_spkg_asp_hb32(struct mtk_dp *mtk_dp, u8 enable, u8 HB3, u8 HB2)
-{
-
-	msWrite2ByteMask(mtk_dp, REG_30BC_DP_ENCODER0_P0 ,
-			(enable ? 0x01 : 0x00) << ASP_HB23_SEL_DP_ENCODER0_P0_FLDMASK_POS,
-			ASP_HB23_SEL_DP_ENCODER0_P0_FLDMASK);
-	msWrite2ByteMask(mtk_dp, REG_312C_DP_ENCODER0_P0,
-			HB2 << ASP_HB2_DP_ENCODER0_P0_FLDMASK_POS,
-			ASP_HB2_DP_ENCODER0_P0_FLDMASK);
-	msWrite2ByteMask(mtk_dp, REG_312C_DP_ENCODER0_P0,
-			HB3 << ASP_HB3_DP_ENCODER0_P0_FLDMASK_POS,
-			ASP_HB3_DP_ENCODER0_P0_FLDMASK);
-}
-
 void mtk_dptx_hal_encoder_reset(struct mtk_dp *mtk_dp)
 {
 	// dp tx encoder reset all sw
@@ -3022,7 +3096,7 @@ void mhal_DPTx_DigitalSetting(struct mtk_dp *mtk_dp)
 	if (mtk_dp->priv && mtk_dp->priv->data &&
 			(mtk_dp->priv->data->mmsys_id == MMSYS_MT6991 ||
 			mtk_dp->priv->data->mmsys_id == MMSYS_MT6899)) {
-		mhal_DPTx_spkg_asp_hb32(mtk_dp, FALSE, DPTX_SDP_ASP_HB3_AU02CH, 0x0);
+		mhal_DPTx_spkg_asp_hb32(mtk_dp, false, DPTX_SDP_ASP_HB3_AU02CH, 0x0);
 		// Mengkun suggest: disable reg_sdp_down_cnt_new_mode
 		msWriteByteMask(mtk_dp, REG_304C_DP_ENCODER0_P0, 0,
 						SDP_DOWN_CNT_NEW_MODE_DP_ENCODER0_P0_FLDMASK);
@@ -3155,13 +3229,18 @@ void mhal_DPTx_SetAuxSwap(struct mtk_dp *mtk_dp, bool enable)
 			msPhyWriteByte(mtk_dp, 0x03A0, 0x46);
 			msPhyWriteByte(mtk_dp, 0x04A0, 0x46);
 		}
-		DPTXMSG("set flipped plug setting");
+		DPTXMSG("set flipped plug setting\n");
 	}
 }
 
 void mhal_DPTx_SetTxRate(struct mtk_dp *mtk_dp, u8 Value)
 {
 	DPTXFUNC();
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (mtk_dp->sec_dp)
+		mtk_dp->sec_dp->sink_info.link_rate = (u8)Value;
+#endif
 	if (mtk_dp->priv && mtk_dp->priv->data &&
 			mtk_dp->priv->data->mmsys_id == MMSYS_MT6991) {
 		switch (Value) {
@@ -3310,7 +3389,7 @@ void mhal_DPTx_SetTxRate(struct mtk_dp *mtk_dp, u8 Value)
 
 void mhal_DPTx_SetTxTrainingPattern(struct mtk_dp *mtk_dp, int  Value)
 {
-	DPTXMSG("Set Train Pattern =0x%x\n ", Value);
+	DPTXMSG("Set Train Pattern =0x%x\n", Value);
 
 	msWriteByteMask(mtk_dp,
 		REG_3400_DP_TRANS_P0 + 1,
@@ -3606,4 +3685,9 @@ void mhal_DPTx_PhyTrainingConfig(struct mtk_dp *mtk_dp, u8 ubTargetLinkRate, u8 
 	mhal_DPTx_PhyCheckReady(mtk_dp, ubTargetLaneCount);
 }
 
+
+void mhal_DPTx_Set_Audio_N_Half(struct mtk_dp *mtk_dp)
+{
+	msWrite2Byte(mtk_dp, REG_3058_DP_ENCODER0_P0, 0X4000 & 0xFFFF);
+}
 

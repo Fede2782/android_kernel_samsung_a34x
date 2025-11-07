@@ -227,7 +227,7 @@ void secInit(IN struct ADAPTER *prAdapter, IN uint8_t ucBssIndex)
 #if CFG_SUPPORT_802_11W
 	cnmTimerInitTimer(prAdapter,
 			  &prAisSpecBssInfo->rSaQueryTimer,
-			  (PFN_MGMT_TIMEOUT_FUNC) rsnStartSaQueryTimer,
+			  rsnStartSaQueryTimer,
 			  (unsigned long)ucBssIndex);
 #endif
 

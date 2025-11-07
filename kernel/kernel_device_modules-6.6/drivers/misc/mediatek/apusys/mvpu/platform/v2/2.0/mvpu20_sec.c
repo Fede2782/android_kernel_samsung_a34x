@@ -612,6 +612,7 @@ int mvpu20_update_hash_pool(void *session,
 
 	if (IS_ERR(hash_pool[session_id]->hash_dma_buf[hash_id])) {
 		pr_info("[MVPU][Sec] buffer alloc fail\n");
+		dma_heap_put(hash_pool[session_id]->dma_heap[hash_id]);
 		return PTR_ERR(hash_pool[session_id]->hash_dma_buf[hash_id]);
 	}
 

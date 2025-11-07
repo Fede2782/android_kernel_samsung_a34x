@@ -21,6 +21,14 @@
 #include <linux/sec_debug.h>
 #include <asm/stacktrace.h>
 #include <asm/esr.h>
+#include <linux/kdebug.h>
+#include <linux/notifier.h>
+#include <linux/panic_notifier.h>
+
+#include <trace/hooks/softlockup.h>
+#include <trace/hooks/traps.h>
+#include <trace/hooks/fault.h>
+#include <trace/hooks/bug.h>
 
 /* 
 	--------------------------------------------  sec-initlog
@@ -236,7 +244,6 @@ void sec_debug_set_extra_info_fault(unsigned long addr, struct pt_regs *regs)
 					  regs->compat_lr : regs->regs[30]);
 	}
 }
-EXPORT_SYMBOL(sec_debug_set_extra_info_fault);
 
 /******************************************************************************
  * sec_debug_set_extra_info_bug
@@ -280,7 +287,76 @@ void sec_debug_set_extra_info_upload(char *str)
 		sec_debug_finish_extra_info();
 	}
 }
-EXPORT_SYMBOL(sec_debug_set_extra_info_upload);
+
+static int secdbg_exin_panic_handler(struct notifier_block *nb,
+				   unsigned long l, void *buf)
+{
+	sec_debug_set_extra_info_upload(buf);
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block nb_panic_block = {
+	.notifier_call = secdbg_exin_panic_handler,
+};
+
+static bool is_bug_reported;
+static void android_rvh_report_bug(void *data,
+		const char *file, unsigned int line, unsigned long bugaddr)
+{
+	is_bug_reported = true;
+
+	if (file)
+		sec_debug_set_extra_info_bug(file, line);
+}
+
+static int secdbg_exin_die_handler(struct notifier_block *nb,
+				   unsigned long l, void *buf)
+{
+	struct die_args *args = (struct die_args *)buf;
+	struct pt_regs *regs = args->regs;
+	u64 lr;
+
+	if (is_bug_reported)
+		sec_debug_set_extra_info_fault((unsigned long)regs->pc, regs);
+
+	if (compat_user_mode(regs))
+		lr = regs->compat_lr;
+	else
+		lr = regs->regs[30];
+
+	sec_debug_set_extra_info(INFO_PC, "%pS", regs->pc);
+	sec_debug_set_extra_info(INFO_LR, "%pS",
+			user_mode(regs) ? lr : ptrauth_strip_kernel_insn_pac(lr));
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block nb_die_block = {
+	.notifier_call = secdbg_exin_die_handler,
+	.priority = INT_MAX,
+};
+
+static void register_vendor_hooks(void)
+{
+#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
+/* Disabled on temporary ***************
+	register_trace_android_vh_watchdog_timer_softlockup(android_vh_watchdog_timer_softlockup, NULL);
+	register_trace_android_rvh_do_el1_bti(android_rvh_do_el1_bti, NULL);
+	register_trace_android_rvh_do_el1_fpac(android_rvh_do_el1_fpac, NULL);
+	register_trace_android_rvh_panic_unhandled(android_rvh_bad_mode, NULL);
+	register_trace_android_rvh_arm64_serror_panic(android_rvh_arm64_serror_panic, NULL);
+	register_trace_android_rvh_die_kernel_fault(android_rvh_die_kernel_fault, NULL);
+	register_trace_android_rvh_do_sea(android_rvh_do_sea, NULL);
+	register_trace_android_rvh_do_sp_pc_abort(android_rvh_do_sp_pc_abort, NULL);
+	register_trace_android_vh_try_to_freeze_todo_unfrozen(android_vh_try_to_freeze_todo_unfrozen, NULL);
+	register_trace_android_vh_try_to_freeze_todo(android_vh_try_to_freeze_todo, NULL);
+	register_trace_android_rvh_do_el1_undef(android_rvh_do_el1_undef, NULL);
+****************************************/
+	register_trace_android_rvh_report_bug(android_rvh_report_bug, NULL);
+	register_die_notifier(&nb_die_block);
+#endif
+}
 
 static int sec_debug_check_magic(struct sec_debug_shared_info *sdi)
 {
@@ -470,6 +546,10 @@ static int __init secdbg_extra_info_init(void)
 
 	sec_debug_set_extra_info_id();
 	secdbg_hw_param_init();
+	
+	atomic_notifier_chain_register(&panic_notifier_list, &nb_panic_block);
+	
+	register_vendor_hooks();
 
 	return 0;
 }

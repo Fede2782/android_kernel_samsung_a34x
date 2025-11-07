@@ -68,12 +68,6 @@ assocCheckRxReAssocRspFrameStatus(struct ADAPTER
 				*prAdapter, struct SW_RFB *prSwRfb,
 				uint16_t *pu2StatusCode);
 
-uint32_t assocSendDisAssocFrame(struct ADAPTER *prAdapter,
-				struct BSS_INFO *prBssInfo,
-				struct STA_RECORD *prStaRec,
-				uint16_t u2ReasonCode,
-				PFN_TX_DONE_HANDLER pfTxDoneHandler);
-
 uint32_t
 assocProcessRxDisassocFrame(struct ADAPTER *prAdapter,
 				struct SW_RFB *prSwRfb,

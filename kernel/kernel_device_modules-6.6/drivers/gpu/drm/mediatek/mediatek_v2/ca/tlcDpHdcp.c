@@ -21,6 +21,25 @@
 #define HDCP_2X_TX_ID 3
 #define TZCMD_DRMKEY_LOAD_HDCPKEY 12
 
+#ifdef HDCP_TEE_TYPE_TEEGRIS
+#define TYPE_STRUCT
+#define teec_context TEEC_Context
+#define teec_session TEEC_Session
+#define teec_uuid TEEC_UUID
+#define teec_operation TEEC_Operation
+#define teec_shared_memory TEEC_SharedMemory
+#define teec_uuid TEEC_UUID
+const TYPE_STRUCT TEEC_UUID uuid = {
+	0x00000000, 0x4d54, 0x4b5f,
+	{0x42, 0x46, 0x48, 0x64, 0x43, 0x70, 0x44, 0x50}
+};
+
+const TYPE_STRUCT TEEC_UUID KI_TA_UUID = {
+	0x00000000, 0x4d54, 0x4b5f,
+	{0x42, 0x46, 0x44, 0x52, 0x4D, 0x4B, 0x50, 0x52}
+};
+#else
+#define TYPE_STRUCT struct
 const struct TEEC_UUID uuid = {
 	0xabcd270e, 0xa5c4, 0x4c58,
 	{0xbc, 0xd3, 0x38, 0x4a, 0x2f, 0xa2, 0x53, 0x9e}
@@ -30,19 +49,20 @@ const struct TEEC_UUID KI_TA_UUID = {
 	0x08110000, 0x0000, 0x0000,
 	{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
 };
+#endif
 
 static const size_t MAX_SHARED_MEMORY_SIZE = 4 * 1024; // 4K
-static struct TEEC_SharedMemory sSharedMemoryMain;
+static TYPE_STRUCT TEEC_SharedMemory sSharedMemoryMain;
 
-struct TEEC_Context sContext;
-struct TEEC_Session sSession;
+TYPE_STRUCT TEEC_Context sContext;
+TYPE_STRUCT TEEC_Session sSession;
 static bool g_init;
 
 int tee_addDevice(uint32_t version)
 {
 	uint32_t ret = TEEC_SUCCESS;
 	struct tci_t *tci;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	bool needLoadKey = false;
 
 	if (g_init)
@@ -63,6 +83,8 @@ int tee_addDevice(uint32_t version)
 	ret = TEEC_InitializeContext(NULL, &sContext);
 	if (ret != TEEC_SUCCESS) {
 		TLCERR("ret = 0x%x", ret);
+		if (ret == 0xffff0008)
+			TLCERR("TEE_ERROR_NOT_SUPPORTED, Plz check your load");
 		return ret;
 	}
 
@@ -91,6 +113,9 @@ int tee_addDevice(uint32_t version)
 			TEEC_ReleaseSharedMemory(&sSharedMemoryMain);
 			sSharedMemoryMain.buffer = NULL;
 		}
+		TEEC_CloseSession(&sSession);
+		TEEC_FinalizeContext(&sContext);
+		return ret;
 	}
 
 	// Copy parameter for add new device
@@ -101,8 +126,8 @@ int tee_addDevice(uint32_t version)
 	tci->message.cmdHDCP.cmdBody.cmdHDCPInitForVerion.needLoadKey =
 		needLoadKey;
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
-	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT, TEEC_NONE,
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
+	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INOUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
 	op.params[0].memref.size = TCI_LENGTH;
@@ -121,7 +146,7 @@ EXPORT_SYMBOL(tee_addDevice);
 void tee_removeDevice(void)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameter for add new device
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
 
@@ -132,7 +157,7 @@ void tee_removeDevice(void)
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_DEVICE_REMOVE;
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -155,14 +180,19 @@ EXPORT_SYMBOL(tee_removeDevice);
 int tee_clearParing(void)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameter for add new device
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_DEVICE_CLEAN;
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -178,11 +208,16 @@ EXPORT_SYMBOL(tee_clearParing);
 int tee_hdcp1x_setTxAn(uint8_t *an_code)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	uint8_t an_len = 8;
 	// Copy parameter for add new device
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
 	uint8_t *share_buffer = (uint8_t *)sSharedMemoryMain.buffer;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_WRITE_VAL;
@@ -190,7 +225,7 @@ int tee_hdcp1x_setTxAn(uint8_t *an_code)
 	tci->message.cmdHDCP.cmdBody.cmdHDCPWriteVal.type = TYPE_HDCP_PARAM_AN;
 	memcpy(share_buffer + TCI_LENGTH, an_code, an_len);
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -206,10 +241,15 @@ EXPORT_SYMBOL(tee_hdcp1x_setTxAn);
 int tee_hdcp_enableEncrypt(bool bEnable, uint8_t version)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameter for add new device
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
 	uint8_t *share_buffer = (uint8_t *)sSharedMemoryMain.buffer;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_ENABLE_ENCRYPT;
@@ -223,8 +263,7 @@ int tee_hdcp_enableEncrypt(bool bEnable, uint8_t version)
 	//set HDCP version supportted by device
 	tci->message.cmdHDCP.cmdBody.cmdHDCPWriteVal.len = 1;
 	memset(share_buffer + TCI_LENGTH, version, 1);
-
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -240,10 +279,15 @@ EXPORT_SYMBOL(tee_hdcp_enableEncrypt);
 int tee_hdcp1x_softRst(void)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameter for add new device
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
 	uint8_t *share_buffer = (uint8_t *)sSharedMemoryMain.buffer;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_WRITE_VAL;
@@ -254,7 +298,7 @@ int tee_hdcp1x_softRst(void)
 		DEFAULT_WRITE_VAL_LEN;
 	memset(share_buffer + TCI_LENGTH, DEFAULT_WRITE_VAL,
 		DEFAULT_WRITE_VAL_LEN);
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -270,7 +314,7 @@ EXPORT_SYMBOL(tee_hdcp1x_softRst);
 int tee_hdcp2_softRst(void)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameter for add new device
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
 	uint8_t *share_buffer = (uint8_t *)sSharedMemoryMain.buffer;
@@ -285,7 +329,7 @@ int tee_hdcp2_softRst(void)
 	memset(share_buffer + TCI_LENGTH, DEFAULT_WRITE_VAL,
 		DEFAULT_WRITE_VAL_LEN);
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -303,13 +347,18 @@ int tee_getAksv(uint8_t *Aksv)
 {
 	uint32_t ret = TEEC_SUCCESS;
 	struct tci_t *tci;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	// Copy parameters
 	tci = (struct tci_t *)sSharedMemoryMain.buffer;
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_GET_AKSV;
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INOUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -329,7 +378,12 @@ int tee_calculateLm(uint8_t *Bksv)
 {
 	uint32_t ret = TEEC_SUCCESS;
 	struct tci_t *tci;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	// Copy parameters
 	tci = (struct tci_t *)sSharedMemoryMain.buffer;
@@ -338,7 +392,7 @@ int tee_calculateLm(uint8_t *Bksv)
 	memcpy(tci->message.cmdHDCP.cmdBody.cmdHDCPCalculateLm.bksv, Bksv,
 		BKSV_LEN);
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -354,17 +408,22 @@ EXPORT_SYMBOL(tee_calculateLm);
 int tee_compareR0(uint8_t *r0, uint32_t len)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameters
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
 	uint8_t *share_buffer = (uint8_t *)sSharedMemoryMain.buffer;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_COMPARE_R0;
 	tci->message.cmdHDCP.cmdBody.cmdHDCPCompare.rx_val_len = len;
 	memcpy(share_buffer + TCI_LENGTH, r0, len);
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -381,7 +440,7 @@ int tee_hdcp1x_ComputeCompareV(uint8_t *cryptoParam, uint32_t paramLen,
 	uint8_t *rxV)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameters
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
 	uint8_t *share_buffer = (uint8_t *)sSharedMemoryMain.buffer;
@@ -393,7 +452,7 @@ int tee_hdcp1x_ComputeCompareV(uint8_t *cryptoParam, uint32_t paramLen,
 	memcpy(share_buffer + TCI_LENGTH, rxV, 20);
 	memcpy(share_buffer + TCI_LENGTH + 20, cryptoParam, paramLen);
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -411,16 +470,21 @@ int tee_akeCertificate(uint8_t *certificate, bool *bStored, uint8_t *out_m,
 	uint8_t *out_ekm)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameters
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_AKE_CERTIFICATE;
 	memcpy(tci->message.cmdHDCP.cmdBody.cmdHDCPAKECertificate.certification,
 		certificate, CERT_LEN);
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INOUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -445,14 +509,19 @@ EXPORT_SYMBOL(tee_akeCertificate);
 int tee_encRsaesOaep(uint8_t *ekm)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameters
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_ENC_KM;
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INOUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -471,10 +540,15 @@ int tee_akeHPrime(uint8_t *rtx, uint8_t *rrx, uint8_t *rxCaps, uint8_t *txCaps,
 	 uint8_t *rxH, uint32_t rxH_len)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameters
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
 	uint8_t *share_buffer = (uint8_t *)sSharedMemoryMain.buffer;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_AKE_H_PRIME;
@@ -488,7 +562,7 @@ int tee_akeHPrime(uint8_t *rtx, uint8_t *rrx, uint8_t *rxCaps, uint8_t *txCaps,
 		CAPS_LEN);
 	memcpy(share_buffer + TCI_LENGTH, rxH, rxH_len);
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INOUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -506,16 +580,21 @@ EXPORT_SYMBOL(tee_akeHPrime);
 int tee_akeParing(uint8_t *rx_ekm)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameters
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_AKE_PARING;
 	memcpy(tci->message.cmdHDCP.cmdBody.cmdHDCPAKEParing.ekm, rx_ekm,
 		EKM_LEN);
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -531,10 +610,15 @@ EXPORT_SYMBOL(tee_akeParing);
 int tee_lcLPrime(uint8_t *rn, uint8_t *rxL, uint32_t len)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameters
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
 	uint8_t *share_buffer = (uint8_t *)sSharedMemoryMain.buffer;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_LC_L_PRIME;
@@ -542,7 +626,7 @@ int tee_lcLPrime(uint8_t *rn, uint8_t *rxL, uint32_t len)
 	tci->message.cmdHDCP.cmdBody.cmdHDCPLcLPrime.rxL_len = len;
 	memcpy(share_buffer + TCI_LENGTH, rxL, len);
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INOUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -560,16 +644,21 @@ EXPORT_SYMBOL(tee_lcLPrime);
 int tee_skeEncKs(uint8_t *riv, uint8_t *eks)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameters
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
 	uint8_t *share_buffer = (uint8_t *)sSharedMemoryMain.buffer;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_SKE_CAL_EKS;
 	memcpy(tci->message.cmdHDCP.cmdBody.cmdHDCPSKEEks.riv, riv, RIV_LEN);
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INOUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -588,10 +677,15 @@ int tee_hdcp2_ComputeCompareV(uint8_t *cryptoParam, uint32_t paramLen,
 	uint8_t *rxV, uint8_t *txV)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameters
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
 	uint8_t *share_buffer = (uint8_t *)sSharedMemoryMain.buffer;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_COMPARE_V2;
@@ -600,7 +694,7 @@ int tee_hdcp2_ComputeCompareV(uint8_t *cryptoParam, uint32_t paramLen,
 	memcpy(share_buffer + TCI_LENGTH, rxV, 16);
 	memcpy(share_buffer + TCI_LENGTH + 16, cryptoParam, paramLen);
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INOUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -608,9 +702,9 @@ int tee_hdcp2_ComputeCompareV(uint8_t *cryptoParam, uint32_t paramLen,
 	ret = TEEC_InvokeCommand(&sSession, CMD_COMPARE_V2, &op, NULL);
 	if (ret != TEEC_SUCCESS)
 		TLCERR("InvokeCommand ret = 0x%x", ret);
+
 	else
 		memcpy(txV, share_buffer + TCI_LENGTH, 16);
-
 	return ret;
 }
 EXPORT_SYMBOL(tee_hdcp2_ComputeCompareV);
@@ -619,10 +713,15 @@ int tee_hdcp2_ComputeCompareM(uint8_t *cryptoParam, uint32_t paramLen,
 	uint8_t *rxM)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameters
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
 	uint8_t *share_buffer = (uint8_t *)sSharedMemoryMain.buffer;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_COMPARE_M;
@@ -631,7 +730,7 @@ int tee_hdcp2_ComputeCompareM(uint8_t *cryptoParam, uint32_t paramLen,
 	memcpy(share_buffer + TCI_LENGTH, rxM, 32);
 	memcpy(share_buffer + TCI_LENGTH + 32, cryptoParam, paramLen);
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -647,9 +746,9 @@ EXPORT_SYMBOL(tee_hdcp2_ComputeCompareM);
 int tee_loadHdcpKeyById(uint32_t version)
 {
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation sOperation;
-	struct TEEC_Context context;
-	struct TEEC_Session session;
+	TYPE_STRUCT TEEC_Operation sOperation;
+	TYPE_STRUCT TEEC_Context context;
+	TYPE_STRUCT TEEC_Session session;
 	uint32_t keyID = 0;
 
 	switch (version) {
@@ -670,8 +769,7 @@ int tee_loadHdcpKeyById(uint32_t version)
 		TLCERR("load key ret = 0x%x", ret);
 		return ret;
 	}
-
-	memset(&sOperation, 0, sizeof(struct TEEC_Operation));
+	memset(&sOperation, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	sOperation.paramTypes = 0;
 	ret = TEEC_OpenSession(&context,
 		&session,               /* OUT session */
@@ -687,7 +785,7 @@ int tee_loadHdcpKeyById(uint32_t version)
 		return ret;
 	}
 
-	memset(&sOperation, 0, sizeof(struct TEEC_Operation));
+	memset(&sOperation, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	sOperation.paramTypes = TEEC_PARAM_TYPES(
 		TEEC_VALUE_INPUT,
 		TEEC_NONE,
@@ -712,10 +810,15 @@ int tee_hdcp1x_setKey(uint8_t *key)
 {
 #ifdef HDCP_SETKEY_FROM_KERNEL
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameters
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
 	uint8_t *share_buffer = (uint8_t *)sSharedMemoryMain.buffer;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_LOAD_KEY;
@@ -723,7 +826,7 @@ int tee_hdcp1x_setKey(uint8_t *key)
 	tci->message.cmdHDCP.cmdBody.cryptokeys.len = 289;
 	memcpy(share_buffer + TCI_LENGTH, key, 289);
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;
@@ -743,11 +846,16 @@ int tee_hdcp2_setKey(uint8_t *kpubdcp, uint8_t *lc128)
 {
 #ifdef HDCP_SETKEY_FROM_KERNEL
 	uint32_t ret = TEEC_SUCCESS;
-	struct TEEC_Operation op;
+	TYPE_STRUCT TEEC_Operation op;
 	// Copy parameters
 	struct tci_t *tci = (struct tci_t *)sSharedMemoryMain.buffer;
 	uint8_t *share_buffer = (uint8_t *)sSharedMemoryMain.buffer;
 	uint32_t len = 385 + 16;
+
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
+	if (!g_init)
+		return -ENODEV;
+#endif
 
 	memset(tci, 0, TCI_LENGTH);
 	tci->message.cmdHDCP.commandHeader.commandId = CMD_LOAD_KEY;
@@ -756,7 +864,7 @@ int tee_hdcp2_setKey(uint8_t *kpubdcp, uint8_t *lc128)
 	memcpy(share_buffer + TCI_LENGTH, kpubdcp, 385);
 	memcpy(share_buffer + TCI_LENGTH + 385, lc128, 16);
 
-	memset(&op, 0, sizeof(struct TEEC_Operation));
+	memset(&op, 0, sizeof(TYPE_STRUCT TEEC_Operation));
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INPUT, TEEC_NONE,
 		TEEC_NONE, TEEC_NONE);
 	op.params[0].memref.parent = &sSharedMemoryMain;

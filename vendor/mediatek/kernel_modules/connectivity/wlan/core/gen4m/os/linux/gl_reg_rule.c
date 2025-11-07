@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -46,7 +46,7 @@ const struct ieee80211_regdomain regdom_us01 = {
 };
 
 const struct ieee80211_regdomain regdom_us = {
-	.n_reg_rules = 7,
+	.n_reg_rules = 5,
 	.dfs_region = NL80211_DFS_FCC,
 	.reg_rules = {
 	/* channels 1..11 */
@@ -55,34 +55,10 @@ const struct ieee80211_regdomain regdom_us = {
 	REG_RULE_LIGHT(5180-10, 5240+10, 80, KAL_RRF_AUTO_BW),
 	/* channels 52..64 */
 	REG_RULE_LIGHT(5260-10, 5320+10, 80, KAL_RRF_DFS | KAL_RRF_AUTO_BW),
-	/* channels 100..144 */
+	/* channels 100..140 */
 	REG_RULE_LIGHT(5500-10, 5720+10, 160, KAL_RRF_DFS),
 	/* channels 149..165 */
-	REG_RULE_LIGHT(5745-10, 5825+10, 80, KAL_RRF_AUTO_BW),
-	/* channels 169..177 */
-	REG_RULE_LIGHT(5845-10, 5885+10, 40, KAL_RRF_AUTO_BW),
-	/* channels 2..233 */
-	REG_RULE_LIGHT(5935-10, 7115+10, 320, 0) }
-};
-
-const struct ieee80211_regdomain regdom_ca = {
-	.n_reg_rules = 7,
-	.dfs_region = NL80211_DFS_FCC,
-	.reg_rules = {
-	/* channels 1..11 */
-	REG_RULE_LIGHT(2412-10, 2462+10, 40, 0),
-	/* channels 36..48 */
-	REG_RULE_LIGHT(5180-10, 5240+10, 80, KAL_RRF_AUTO_BW),
-	/* channels 52..64 */
-	REG_RULE_LIGHT(5260-10, 5320+10, 80, KAL_RRF_DFS | KAL_RRF_AUTO_BW),
-	/* channels 100..116 */
-	REG_RULE_LIGHT(5500-10, 5580+10, 80, KAL_RRF_DFS),
-	/* channels 132..144 */
-	REG_RULE_LIGHT(5660-10, 5720+10, 80, KAL_RRF_DFS),
-	/* channels 149..165 */
-	REG_RULE_LIGHT(5745-10, 5825+10, 80, 0),
-	/* channels 2..233 */
-	REG_RULE_LIGHT(5935-10, 7115+10, 320, 0) }
+	REG_RULE_LIGHT(5745-10, 5825+10, 80, 0) }
 };
 
 const struct ieee80211_regdomain regdom_cn = {
@@ -161,11 +137,6 @@ const struct mtk_regdomain my_regdom_us = {
 	.prRegdRules = &regdom_us
 };
 
-const struct mtk_regdomain my_regdom_ca = {
-	.country_code = "CA",
-	.prRegdRules = &regdom_ca
-};
-
 const struct mtk_regdomain my_regdom_cn = {
 	.country_code = "CN",
 	.prRegdRules = &regdom_cn
@@ -197,7 +168,6 @@ const struct mtk_regdomain my_regdom_tr = {
 const struct mtk_regdomain *g_prRegRuleTable[] = {
 	&my_regdom_us01,
 	&my_regdom_us,
-	&my_regdom_ca,
 	&my_regdom_cn,
 	&my_regdom_nl,
 	&my_regdom_cz,

@@ -89,8 +89,6 @@ enum {
 	SERV_TEST_TXPWR_GET_PWR,
 	SERV_TEST_TXPWR_SET_PWR_INIT,
 	SERV_TEST_TXPWR_SET_PWR_MAN,
-	SERV_TEST_TXPWR_GET_DEFAULT_PWR,
-	SERV_TEST_TXPWR_SET_GET_PWR_TYPE,
 };
 
 /* Service test frequency offset type */
@@ -190,7 +188,7 @@ s_int32 mt_serv_set_dpd(
 	u_int32 on_off,
 	u_int32 wf_sel);
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 s_int32 mt_serv_set_max_pac_ext(
 	struct service_test *serv_test,
 	u_int32 max_pac_ext);
@@ -333,9 +331,5 @@ s_int32 mt_serv_get_tssi_meas_dbv(
 	u_int32 band_idx,
 	u_int32 wf_path,
 	u_int32 *dbv_value);
-s_int32 mt_serv_get_sleep_check(
-	struct service_test *serv_test,
-	u_int32 action,
-	u_int32 *sleep_result);
 
 #endif /* __SERVICE_TEST_H__ */

@@ -101,9 +101,9 @@ uint32_t p2pSetSapRps(
 	rForceRps.ucForceSapRpsEn = fgEnSapRps;
 	rForceRps.ucSapRpsPhase= ucSetRpsPhase;
 	rForceRps.ucBssIdx = ucBssIdx;
-	DBGLOG(REQ, DEBUG, "ucForceSapRpsEn = %d\n",
+	DBGLOG(REQ, INFO, "ucForceSapRpsEn = %d\n",
 			fgEnSapRps);
-	DBGLOG(REQ, DEBUG, "ucSapRpsPhase = %d\n",
+	DBGLOG(REQ, INFO, "ucSapRpsPhase = %d\n",
 			ucSetRpsPhase);
 
 	wlanSendSetQueryCmd(prAdapter,	/* prAdapter */
@@ -131,7 +131,7 @@ uint32_t p2pSetSapSus(struct ADAPTER *prAdapter,
 
 	rForceSus.ucForceSapSusEn = fgEnSapSus;
 	rForceSus.ucBssIdx = ucBssIndex;
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 		"ucBssIndex = %d, ucForceSapSusEn = %d\n",
 		ucBssIndex, fgEnSapSus);
 
@@ -163,9 +163,9 @@ u_int8_t p2pFuncIsRpsEnable(struct ADAPTER *prAdapter,
 	}
 
 	u32TotalIncomePkt = (u32TotalIncomePkt* u32Period/ 1000);
-	DBGLOG(P2P, WARN, "Total Incoming Pkt: %lu\n",
+	DBGLOG(P2P, INFO, "Total Incoming Pkt: %u\n",
 		u32TotalIncomePkt);
-	DBGLOG(P2P, WARN, "Incoming Pkt Threshold: %lu\n",
+	DBGLOG(P2P, INFO, "Incoming Pkt Threshold: %u\n",
 		prAdapter->rWifiVar.u4RpsInpktThresh);
 	cnmTimerStopTimer(prAdapter,
 			  &(prP2pRoleFsmInfo->rP2pRpsEnterTimer));
@@ -176,9 +176,9 @@ u_int8_t p2pFuncIsRpsEnable(struct ADAPTER *prAdapter,
 			prAdapter->rWifiVar.u4RpsMeetTime + u32Period;
 	else
 		prAdapter->rWifiVar.u4RpsMeetTime = 0;
-	DBGLOG(P2P, WARN, "RpsMeetTime: %lu\n",
+	DBGLOG(P2P, INFO, "RpsMeetTime: %u\n",
 		prAdapter->rWifiVar.u4RpsMeetTime);
-	DBGLOG(P2P, WARN, "RpsTriggerTime: %lu\n",
+	DBGLOG(P2P, INFO, "RpsTriggerTime: %u\n",
 		prAdapter->rWifiVar.u4RpsTriggerTime);
 
 	if (prAdapter->rWifiVar.u4RpsMeetTime >=

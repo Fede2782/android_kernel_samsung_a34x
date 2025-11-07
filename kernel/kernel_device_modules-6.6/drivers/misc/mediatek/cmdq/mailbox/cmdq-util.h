@@ -231,7 +231,7 @@ bool cmdq_util_check_hw_trace_work(u8 hwid);
 const char *cmdq_util_event_module_dispatch(phys_addr_t gce_pa, const u16 event, s32 thread);
 const char *cmdq_util_thread_module_dispatch(phys_addr_t gce_pa, s32 thread);
 u32 cmdq_util_get_hw_id(u32 pa);
-u32 cmdq_util_test_get_subsys_list(u32 **regs_out);
+s32 cmdq_util_test_get_subsys_list(u32 **regs_out);
 void cmdq_util_test_set_ostd(void);
 
 u32 cmdq_util_get_bit_feature(void);

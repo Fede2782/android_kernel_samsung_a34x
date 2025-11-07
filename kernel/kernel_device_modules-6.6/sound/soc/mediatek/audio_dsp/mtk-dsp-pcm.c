@@ -67,6 +67,7 @@ static char *dsp_task_dsp_name[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_CALL_FINAL_ID]  = "mtk-dsp-call-final",
 	[AUDIO_TASK_FAST_ID]        = "mtk-dsp-fast",
 	[AUDIO_TASK_SPATIALIZER_ID] = "mtk-dsp-spatializer",
+	[AUDIO_TASK_DIRECT_ID]      = "mtk-dsp-direct",
 	[AUDIO_TASK_KTV_ID]         = "mtk-dsp-ktv",
 	[AUDIO_TASK_CAPTURE_RAW_ID] = "mtk-dsp-capture-raw",
 	[AUDIO_TASK_FM_ADSP_ID]     = "mtk-dsp-fm",
@@ -79,6 +80,8 @@ static char *dsp_task_dsp_name[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_MDUL_ID]        = "mtk-dsp-mdul",
 	[AUDIO_TASK_CALLDL_ID]      = "mtk-dsp-calldl",
 	[AUDIO_TASK_CALLUL_ID]      = "mtk-dsp-callul",
+	[AUDIO_TASK_FAST_MEDIA_ID]  = "mtk-dsp-fast-media",
+	[AUDIO_TASK_SEPARATE_ID]    = "mtk-dsp-separate",
 #if IS_ENABLED(CONFIG_MTK_ADSP_AUTO_HFP_CLIENT_SUPPORT)
 	[AUDIO_TASK_HFP_CLIENT_RX_ADSP_ID]      = "mtk-dsp-hfp-client-rx",
 	[AUDIO_TASK_HFP_CLIENT_TX_ADSP_ID]      = "mtk-dsp-hfp-client-tx",

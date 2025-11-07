@@ -18,6 +18,10 @@
  */
 #include "nan/nan_base.h"
 #include "wpa_supp/src/utils/common.h"
+#include "wpa_supp/src/common/defs.h"
+#include "wpa_supp/src/common/ieee802_11_defs.h"
+#include "wpa_supp/src/common/wpa_common.h"
+#include "wpa_supp/src/utils/common.h"
 
 struct wpa_key_replay_counter;
 extern int wpa_replay_counter_valid(struct wpa_key_replay_counter *ctr,
@@ -159,7 +163,7 @@ uint32_t nanSecNotifyMsgBodyRdy(struct _NAN_NDP_INSTANCE_T *prNdp,
 				uint8_t u1SrcMsg, uint32_t u4TxMsgLen,
 				uint8_t *pu1TxMsgBuf);
 
-void nan_sec_wpa_supplicant_start(struct GLUE_INFO *prGlueInfo);
+void nan_sec_wpa_supplicant_start(void);
 void nan_sec_hostapd_deinit(void);
 uint32_t nanSecInsertCipherList(uint32_t u4CipherType,
 				uint16_t u2PublishId);
@@ -170,6 +174,10 @@ void nanSecAppendKdeAttrFunc(struct _NAN_NDP_INSTANCE_T *prNdp,
 
 struct wpa_state_machine *nanSecGetInitiatorSm(uint8_t u1Index);
 struct wpa_sm *nanSecGetResponderSm(uint8_t u1Index);
+
+struct wpa_state_machine *nanSecGetPairingInitiatorSm(uint8_t u1Index);
+struct wpa_sm *nanSecGetPairingResponderSm(uint8_t u1Index);
+
 uint32_t nan_sec_wpa_sm_rx_eapol(struct wpa_sm *sm, const u8 *src_addr);
 
 void nanSecResetTk(struct STA_RECORD *prStaRec);
@@ -259,6 +267,10 @@ void nanSecDumpEapolKey(struct wpa_eapol_key *key);
  *                              F U N C T I O N S
  *******************************************************************************
  */
+int
+nan_sec_wpas_setkey_glue(bool fgIsAp, u8 szBssIdx, enum wpa_alg alg,
+			 const u8 *addr, int key_idx,
+			 const u8 *key, size_t key_len);
 
 #endif
 #endif /* _NAN_SEC_H_ */

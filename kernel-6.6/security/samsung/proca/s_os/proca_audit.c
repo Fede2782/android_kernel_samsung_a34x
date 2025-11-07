@@ -19,11 +19,17 @@
 #include <linux/slab.h>
 #include <linux/gfp.h>
 #include <linux/audit.h>
+
+#if defined(CONFIG_PROCA_GKI_20)
+#include "gki/task_integrity.h"
+#else
 #include <linux/task_integrity.h>
+#endif
+
 #include <linux/version.h>
-#include <linux/iversion.h>
 
 #include "proca_log.h"
+#include "proca_porting.h"
 #include "proca_vfs.h"
 
 static void proca_audit_msg(struct task_struct *task, struct file *file,

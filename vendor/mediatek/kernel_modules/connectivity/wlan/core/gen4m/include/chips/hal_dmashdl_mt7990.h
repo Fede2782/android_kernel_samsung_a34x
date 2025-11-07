@@ -89,19 +89,19 @@
 #define MT7990_DMASHDL_QUEUE_0_TO_GROUP                (0x0)   /* LMAC AC00 */
 #define MT7990_DMASHDL_QUEUE_1_TO_GROUP                (0x0)   /* LMAC AC01 */
 #define MT7990_DMASHDL_QUEUE_2_TO_GROUP                (0x0)   /* LMAC AC02 */
-#define MT7990_DMASHDL_QUEUE_3_TO_GROUP                (0x2)   /* LMAC AC03 */
+#define MT7990_DMASHDL_QUEUE_3_TO_GROUP                (0x0)   /* LMAC AC03 */
 #define MT7990_DMASHDL_QUEUE_4_TO_GROUP                (0x1)   /* LMAC AC10 */
 #define MT7990_DMASHDL_QUEUE_5_TO_GROUP                (0x1)   /* LMAC AC11 */
 #define MT7990_DMASHDL_QUEUE_6_TO_GROUP                (0x1)   /* LMAC AC12 */
-#define MT7990_DMASHDL_QUEUE_7_TO_GROUP                (0x2)   /* LMAC AC13 */
-#define MT7990_DMASHDL_QUEUE_8_TO_GROUP                (0x0)   /* LMAC AC20 */
-#define MT7990_DMASHDL_QUEUE_9_TO_GROUP                (0x0)   /* LMAC AC21 */
-#define MT7990_DMASHDL_QUEUE_10_TO_GROUP               (0x0)   /* LMAC AC22 */
+#define MT7990_DMASHDL_QUEUE_7_TO_GROUP                (0x1)   /* LMAC AC13 */
+#define MT7990_DMASHDL_QUEUE_8_TO_GROUP                (0x2)   /* LMAC AC20 */
+#define MT7990_DMASHDL_QUEUE_9_TO_GROUP                (0x2)   /* LMAC AC21 */
+#define MT7990_DMASHDL_QUEUE_10_TO_GROUP               (0x2)   /* LMAC AC22 */
 #define MT7990_DMASHDL_QUEUE_11_TO_GROUP               (0x2)   /* LMAC AC23 */
-#define MT7990_DMASHDL_QUEUE_12_TO_GROUP               (0x1)   /* LMAC AC30 */
-#define MT7990_DMASHDL_QUEUE_13_TO_GROUP               (0x1)   /* LMAC AC31 */
-#define MT7990_DMASHDL_QUEUE_14_TO_GROUP               (0x1)   /* LMAC AC32 */
-#define MT7990_DMASHDL_QUEUE_15_TO_GROUP               (0x2)   /* LMAC AC33 */
+#define MT7990_DMASHDL_QUEUE_12_TO_GROUP               (0x0)   /* LMAC AC30 */
+#define MT7990_DMASHDL_QUEUE_13_TO_GROUP               (0x0)   /* LMAC AC31 */
+#define MT7990_DMASHDL_QUEUE_14_TO_GROUP               (0x0)   /* LMAC AC32 */
+#define MT7990_DMASHDL_QUEUE_15_TO_GROUP               (0x0)   /* LMAC AC33 */
 #define MT7990_DMASHDL_QUEUE_16_TO_GROUP               (0x0)   /* ALTX */
 #define MT7990_DMASHDL_QUEUE_17_TO_GROUP               (0x0)   /* BMC */
 #define MT7990_DMASHDL_QUEUE_18_TO_GROUP               (0x0)   /* BCN */

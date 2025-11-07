@@ -38,6 +38,13 @@ enum DSI_N_Version {
 	VER_N3,
 };
 
+enum PREURGENT_MODE {
+	PREURGENT_NOT_SUPPORT = 0,
+	PREURGENT_SUPPORT_VDO,
+	PREURGENT_SUPPORT_CMD,
+	PREURGENT_SUPPORT_ALL,
+};
+
 struct mtk_dsi_driver_data {
 	const u32 reg_cmdq0_ofs;
 	const u32 reg_cmdq1_ofs;
@@ -56,6 +63,10 @@ struct mtk_dsi_driver_data {
 	bool new_rst_dsi;
 	const u32 buffer_unit;
 	const u32 sram_unit;
+	const u32 preultra_lo_fifo_us;
+	const u32 preultra_hi_fifo_us;
+	const u32 ultra_lo_fifo_us;
+	const u32 ultra_hi_fifo_us;
 	const u32 urgent_lo_fifo_us;
 	const u32 urgent_hi_fifo_us;
 	const u32 output_valid_fifo_us;
@@ -63,7 +74,8 @@ struct mtk_dsi_driver_data {
 	bool smi_dbg_disable;
 	bool require_phy_reset; /* reset phy before trigger DSI */
 	bool keep_hs_eotp; /* keep HS eotp */
-	bool support_pre_urgent;
+	enum PREURGENT_MODE support_pre_urgent;
+	bool non_block_urgent_wa;
 	u32 max_vfp;
 	void (*mmclk_by_datarate)(struct mtk_dsi *dsi,
 		struct mtk_drm_crtc *mtk_crtc, unsigned int en);
@@ -216,7 +228,7 @@ unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi);
 struct mtk_panel_ext *mtk_dsi_get_panel_ext(struct mtk_ddp_comp *comp);
 void mtk_disp_mutex_trigger(struct mtk_disp_mutex *mutex, void *handle);
 void mtk_output_bdg_enable(struct mtk_dsi *dsi, int force_lcm_update);
-unsigned int _dsi_get_pcw(unsigned long data_rate,
+int _dsi_get_pcw(unsigned long data_rate,
 	unsigned int pcw_ratio);
 int mtk_dsi_porch_setting(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			  enum dsi_porch_type type, unsigned int value);

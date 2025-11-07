@@ -74,6 +74,8 @@
 	| (TMC_TW_PWR_REDUCE_NR_MAX_TX_EVENT << 16)	\
 	| (pwr << 24))
 
+#define ID_GET_MD_BOOT_CNT_FOR_THERMAL 10
+
 /* State of "MD off & noIMS" are not included. */
 #define MAX_NUM_INSTANCE_MTK_COOLER_MUTT  8
 #define MAX_NUM_TX_PWR_LV  3
@@ -347,24 +349,6 @@ static struct clmutt_param clmutt_data = {
 };
 
 /****************************************************************************
- *  Weak Function
- ****************************************************************************/
-unsigned long __attribute__ ((weak))
-ccci_get_md_boot_count(void)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-
-int __attribute__ ((weak))
-exec_ccci_kern_func(
-unsigned int id, char *buf, unsigned int len)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return -316;
-}
-
-/****************************************************************************
  *  Static Function
  ****************************************************************************/
 static int clmutt_decide_final_level(enum mutt_type type, int lv)
@@ -453,7 +437,7 @@ static int clmutt_send_tmc_cmd(unsigned int cmd)
 
 	if (cmd != clmutt_data.cur_limit) {
 		clmutt_data.cur_limit = cmd;
-		clmutt_data.last_md_boot_cnt = ccci_get_md_boot_count();
+		clmutt_data.last_md_boot_cnt = exec_ccci_kern_func(ID_GET_MD_BOOT_CNT_FOR_THERMAL, NULL, 0);
 		ret = exec_ccci_kern_func(
 			ID_THROTTLING_CFG, (char *) &cmd,4);
 
@@ -462,7 +446,7 @@ static int clmutt_send_tmc_cmd(unsigned int cmd)
 			ret, cmd, clmutt_data.last_md_boot_cnt);
 
 	} else if (cmd != MUTT_TMC_COOLER_LV_DISABLE) {
-		unsigned long cur_md_bcnt = ccci_get_md_boot_count();
+		unsigned long cur_md_bcnt = exec_ccci_kern_func(ID_GET_MD_BOOT_CNT_FOR_THERMAL, NULL, 0);
 
 		if (clmutt_data.last_md_boot_cnt != cur_md_bcnt) {
 			clmutt_data.last_md_boot_cnt = cur_md_bcnt;
@@ -770,6 +754,8 @@ static struct thermal_cooling_device_ops mtk_cl_mdoff_ops = {
 	.get_cur_state = mtk_cl_mdoff_get_cur_state,
 	.set_cur_state = mtk_cl_mdoff_set_cur_state,
 };
+
+
 
 static void mtk_cl_mutt_set_onIMS(enum mutt_type type, unsigned long state)
 {

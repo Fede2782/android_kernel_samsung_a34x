@@ -1,6 +1,15 @@
-/* SPDX-License-Identifier: BSD-2-Clause */
+//  SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021 MediaTek Inc.
+ *  Copyright (c) 2018 MediaTek Inc.
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *  See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #include "btmtk_main.h"
@@ -29,7 +38,7 @@ MODULE_LICENSE("Dual BSD/GPL");
  *                              C O N S T A N T S
  *******************************************************************************
  */
-#define BT_BUFFER_SIZE				(5120)
+#define BT_BUFFER_SIZE				(4096)
 #define FTRACE_STR_LOG_SIZE			(256)
 #define TRIGGER_HW_ERR_EVT_COUNT	(1000)
 /*
@@ -61,7 +70,6 @@ module_param(BT_major, uint, 0444);
 static struct cdev BT_cdev;
 static struct class *BT_class;
 static struct device *BT_dev;
-static uint32_t BT_open_count = 0;
 
 static uint8_t i_buf[BT_BUFFER_SIZE]; /* Input buffer for read */
 static uint8_t o_buf[BT_BUFFER_SIZE]; /* Output buffer for write */
@@ -426,16 +434,18 @@ static ssize_t BT_read(struct file *filp, char __user *buf, size_t count, loff_t
 
 OUT:
 	up(&rd_mtx);
+	if (!btmtk_rx_data_valid())
+		__pm_relax(bt_wakelock);
+
 	return retval;
 }
 
 int _ioctl_copy_evt_to_buf(uint8_t *buf, int len)
 {
-	BTMTK_INFO("%s", __func__);
 	memset(ioc_buf, 0x00, sizeof(ioc_buf));
 	ioc_buf[0] = 0x04; // evt packet type
 	memcpy(ioc_buf + 1, buf, len); // copy evt to ioctl buffer
-	BTMTK_INFO_RAW(ioc_buf, len + 1, "%s: len[%d] RX: ", __func__, len + 1);
+	BTMTK_DBG_RAW(ioc_buf, len + 1, "%s: len[%d] RX: ", __func__, len + 1);
 	return 0;
 }
 
@@ -456,7 +466,7 @@ static long BT_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		else {
 			uint32_t *pint32 = (uint32_t *)&ioc_buf[0];
 
-			BTMTK_INFO("%s: id[%x], value[0x%08x], desc[%s]", __func__, pint32[0], pint32[1], &ioc_buf[8]);
+			BTMTK_INFO_LIMITTED("%s: id[%x], value[0x%08x], desc[%s]", __func__, pint32[0], pint32[1], &ioc_buf[8]);
 			bthost_debug_save(pint32[0], pint32[1], (char *)&ioc_buf[8]);
 		}
 		break;
@@ -468,32 +478,18 @@ static long BT_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long
 		if (copy_from_user(ioc_buf, (uint8_t __user *)arg, IOCTL_BT_HOST_INTTRX_SIZE))
 			retval = -EFAULT;
 		else {
+			BTMTK_DBG_RAW(ioc_buf, ioc_buf[3] + 4, "%s: len[%d] TX: ", __func__, ioc_buf[3] + 4);
 			/* DynamicAdjustTxPower function */
 			if (ioc_buf[0] == 0x01 && ioc_buf[1] == 0x2D && ioc_buf[2] == 0xFC) {
-				BTMTK_INFO_RAW(ioc_buf, ioc_buf[3] + 4, "%s: len[%d] TX: ", __func__, ioc_buf[3] + 4);
 				if (ioc_buf[4] == HCI_CMD_DY_ADJ_PWR_QUERY)
 					btmtk_query_tx_power(g_sbdev, _ioctl_copy_evt_to_buf);
 				else
 					btmtk_set_tx_power(g_sbdev, ioc_buf[5], _ioctl_copy_evt_to_buf);
 				if (copy_to_user((uint8_t __user *)arg, ioc_buf, IOCTL_BT_HOST_INTTRX_SIZE))
 					retval = -EFAULT;
-			} else if (ioc_buf[0] == 0x01 && ioc_buf[1] == 0x64 && ioc_buf[2] == 0xFD) {
-				BTMTK_INFO_RAW(ioc_buf, ioc_buf[6] + 7, "%s: len[%d] TX: ", __func__, ioc_buf[6] + 7);
-				if (ioc_buf[6] > 240) {
-					BTMTK_ERR("eids buffer is large than expected");
-					retval = -EFAULT;
-				} else
-					btmtk_send_finder_eids(ioc_buf, ioc_buf[6] + 7);
 			} else
 				retval = -EFAULT;
 		}
-		break;
-	case COMBO_IOCTL_BT_FINDER_MODE:
-		if (copy_from_user(ioc_buf, (uint8_t __user *)arg, 1))
-			retval = -EFAULT;
-
-		BTMTK_INFO("Finder's switch fucntion [%d], g_sbdev = %p", ioc_buf[0], g_sbdev);
-		atomic_set(&g_sbdev->poweroff_finder_mode, ioc_buf[0]);
 		break;
 	default:
 		break;
@@ -523,12 +519,6 @@ static int BT_open(struct inode *inode, struct file *file)
 		return -1;
 	}
 
-	if (BT_open_count > 0) {
-		BTMTK_INFO("Driver already openned, reuse openned driver as tunnel");
-		BT_open_count++;
-		return 0;
-	}
-
 	__pm_stay_awake(bt_wakelock);
 	BTMTK_INFO("major %d minor %d (pid %d)", imajor(inode), iminor(inode), current->pid);
 
@@ -547,7 +537,7 @@ static int BT_open(struct inode *inode, struct file *file)
 			ret = bt_open(g_sbdev->hdev);
 		}
 		if (ret) {
-			BTMTK_WARN_LIMITTED("%s: ret[%d] retry[%d] is_pre_cal_done[%d]"
+			BTMTK_WARN_LIMITTED("%s: retry[%d] ret[%d] is_pre_cal_done[%d]"
 							, __func__, ret, retry, g_sbdev->is_pre_cal_done);
 			msleep(50);
 		}
@@ -559,15 +549,15 @@ static int BT_open(struct inode *inode, struct file *file)
 		return ret;
 	}
 
-	BT_open_count++;
 	btmtk_register_rx_event_cb(BT_event_cb);
 
 	bt_ftrace_flag = 1;
 	hw_err_retry = 0;
 	__pm_relax(bt_wakelock);
+
 	bthost_debug_init();
 
-	BTMTK_INFO("BT turn on OK!");
+	BTMTK_INFO("BT turn on OK");
 	return 0;
 }
 
@@ -592,12 +582,6 @@ static int BT_close(struct inode *inode, struct file *file)
 		return -1;
 	}
 
-	if (BT_open_count > 1) {
-		BT_open_count--;
-		BTMTK_INFO("BT turn off OK!, BT_open_count [%d]", BT_open_count);
-		return 0;
-	}
-
 	__pm_stay_awake(bt_wakelock);
 	BTMTK_INFO("%s: major %d minor %d (pid %d)", __func__, imajor(inode), iminor(inode), current->pid);
 	/* wait uds_work done or remove uds_work from workqueue */
@@ -607,13 +591,12 @@ static int BT_close(struct inode *inode, struct file *file)
 
 	bthost_debug_init();
 
-	BT_open_count--;
 	if (ret) {
 		BTMTK_ERR("BT turn off fail!");
 		return ret;
 	}
 
-	BTMTK_INFO("BT turn off OK!");
+	BTMTK_INFO("BT turn off OK");
 	return 0;
 }
 

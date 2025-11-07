@@ -210,7 +210,8 @@ static noinline u32 _get_devinfo(struct apu_dev *ad, const char *name)
 
 out:
 	kfree(buf);
-	return ret;
+
+	return (u32)(ret);
 }
 #else
 static u32 _get_devinfo(struct apu_dev *ad, const char *name) { return 0; }

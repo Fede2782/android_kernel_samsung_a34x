@@ -3541,6 +3541,46 @@ static void clk_dump_one(struct seq_file *s, struct clk_core *c, int level)
 		   clk_core_get_scaled_duty_cycle(c, 100000));
 }
 
+#if IS_ENABLED(CONFIG_SEC_PM)
+static int sec_clock_debug_print_clock(struct clk_core *c)
+{
+	if (clk_core_is_enabled(c)) {
+		pr_info("%*s%-*s %11d %12d %11lu %10lu %-3d\n",
+			3, "", 27, c->name,
+			c->enable_count, c->prepare_count,
+			clk_core_get_rate_recalc(c),
+			clk_core_get_accuracy_recalc(c),
+			clk_core_get_phase(c));
+		return 1;
+	}
+
+	return 0;
+}
+
+void sec_clock_debug_print_enabled(void)
+{
+	int count = 0;
+	struct clk_core *c;
+
+	pr_info("Enabled clocks:\n");
+	pr_info("   clock                         enable_cnt  prepare_cnt        rate   accuracy   phase\n");
+	pr_info("----------------------------------------------------------------------------------------\n");
+
+	clk_prepare_lock();
+
+	hlist_for_each_entry(c, &clk_root_list, child_node)
+		count += sec_clock_debug_print_clock(c);
+
+	hlist_for_each_entry(c, &clk_orphan_list, child_node)
+		count += sec_clock_debug_print_clock(c);
+
+	clk_prepare_unlock();
+
+	pr_info("Enabled clock count: %d\n", count);
+}
+EXPORT_SYMBOL(sec_clock_debug_print_enabled);
+#endif /* CONFIG_SEC_PM */
+
 static void clk_dump_subtree(struct seq_file *s, struct clk_core *c, int level)
 {
 	struct clk_core *child;

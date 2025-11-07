@@ -144,7 +144,10 @@ void mtk_imgsys_mmdvfs_init_plat8(struct mtk_imgsys_dev *imgsys_dev)
 		"mediatek,imgsys-dvfs-pix-mode", &ret) != 0) {
 		dev_info(dvfs_info->dev, "mmdvfs pix mode is not exist\n");
 	} else {
-		dvfs_info->pix_mode = ret;
+		if(ret >= 0)
+			dvfs_info->pix_mode = ret;
+		else
+			dvfs_info->pix_mode = 0;
 	}
 
 	dvfs_info->cur_volt = 0;

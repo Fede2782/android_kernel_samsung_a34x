@@ -112,7 +112,6 @@ void wmmInit(IN struct ADAPTER *prAdapter)
 			prTspecInfo->ucTid = ucTid;
 			cnmTimerInitTimer(prAdapter,
 			&prTspecInfo->rAddTsTimer,
-			(PFN_MGMT_TIMEOUT_FUNC)
 			wmmSetupTspecTimeOut,
 			(unsigned long)prTspecInfo);
 		}

@@ -231,9 +231,13 @@ static void filter_2nd_display(struct drm_mtk_layering_info *disp_info)
 	}
 }
 
-static bool is_ovl_wcg(enum mtk_drm_dataspace ds)
+static bool is_ovl_wcg(struct drm_device *dev, int disp_idx,
+	enum mtk_drm_dataspace ds)
 {
+	struct mtk_drm_private *priv = dev->dev_private;
 	bool ret = false;
+	int dp_hdr_off = mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_OVL_WCG_DP_OFF_HDR_DS);
 
 	switch (ds) {
 	case MTK_DRM_DATASPACE_V0_SCRGB:
@@ -246,17 +250,23 @@ static bool is_ovl_wcg(enum mtk_drm_dataspace ds)
 		break;
 	}
 
+	if (dp_hdr_off && disp_idx == 1 && ds == MTK_DRM_DATASPACE_BT2020_PQ)
+		ret = true;
+
 	return ret;
 }
 
-static bool is_ovl_standard(struct drm_device *dev, enum mtk_drm_dataspace ds)
+static bool is_ovl_standard(struct drm_device *dev, int disp_idx,
+	enum mtk_drm_dataspace ds)
 {
 	struct mtk_drm_private *priv = dev->dev_private;
 	enum mtk_drm_dataspace std = ds & MTK_DRM_DATASPACE_STANDARD_MASK;
 	bool ret = false;
+	int dp_hdr_off = mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_OVL_WCG_DP_OFF_HDR_DS);
 
 	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_WCG) &&
-	    is_ovl_wcg(ds))
+	    is_ovl_wcg(dev, disp_idx, ds))
 		return ret;
 
 	switch (std) {
@@ -268,6 +278,10 @@ static bool is_ovl_standard(struct drm_device *dev, enum mtk_drm_dataspace ds)
 		ret = true;
 		break;
 	}
+
+	if (dp_hdr_off && disp_idx == 1 && ds == MTK_DRM_DATASPACE_BT2020_PQ)
+		ret = true;
+
 	return ret;
 }
 
@@ -278,6 +292,9 @@ static void filter_by_wcg(struct drm_device *dev,
 	struct drm_mtk_layer_config *c;
 	unsigned int disp_idx = 0;
 	unsigned int condition;
+	struct mtk_drm_private *priv = dev->dev_private;
+	int dp_hdr_off = mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_OVL_WCG_DP_OFF_HDR_DS);
 
 	if (get_layering_opt(LYE_OPT_SPHRT))
 		disp_idx = disp_info->disp_idx;
@@ -286,9 +303,9 @@ static void filter_by_wcg(struct drm_device *dev,
 		for (j = 0; j < disp_info->layer_num[disp_idx]; j++) {
 			c = &disp_info->input_config[disp_idx][j];
 			/* TODO: check disp WCG cap */
-			condition = (disp_idx == 0) || !is_ovl_wcg(c->dataspace);
+			condition = (disp_idx == 0) || !is_ovl_wcg(dev, disp_idx, c->dataspace);
 			if (condition &&
-			    (is_ovl_standard(dev, c->dataspace) ||
+			    (is_ovl_standard(dev, disp_idx, c->dataspace) ||
 			     mtk_has_layer_cap(c, MTK_MDP_HDR_LAYER)))
 				continue;
 
@@ -419,12 +436,16 @@ uint16_t get_dynamic_mapping_table(struct drm_device *dev, unsigned int disp_idx
 		unsigned int disp_list, unsigned int tb_type, unsigned int hrt_type)
 {
 	struct mtk_drm_private *priv = dev->dev_private;
-	unsigned int temp, temp1 = 0, comp_id_nr, *comp_id_list;
+	unsigned int temp, temp1 = 0, *comp_id_list;
+	int comp_id_nr = 0;
 	unsigned int i, j;
 	int main_disp_idx = -1;
 	uint16_t ret = 0;
 
 	comp_id_nr = mtk_ddp_ovl_resource_list(priv, &comp_id_list);
+
+	if (comp_id_nr < 0)
+		return ret;
 
 	for (i = 0; i < MAX_CRTC ; ++i) {
 		if (priv->pre_defined_bw[i] == 0xFFFFFFFF) {
@@ -597,7 +618,7 @@ static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx, int disp
 			else {
 					map = ovl_mapping_table_mt6985[addon_data->hrt_type];
 			}
-		else if (priv->data->ovl_exdma_rule)
+		else if (l_rule_info.ovl_exdma_rule)
 			if (get_layering_opt(LYE_OPT_SPDA_OVL_SWITCH))
 				map = get_dynamic_mapping_table(dev, disp_idx,
 						disp_list, DISP_HW_LAYER_TB, addon_data->hrt_type);
@@ -665,6 +686,7 @@ void mtk_layering_rule_init(struct drm_device *dev)
 {
 	struct mtk_drm_private *private = dev->dev_private;
 
+	l_rule_info.ovl_exdma_rule = private->data->ovl_exdma_rule;
 	l_rule_info.primary_fps = 60;
 	l_rule_info.hrt_idx = 0;
 	mtk_register_layering_rule_ops(&l_rule_ops, &l_rule_info);
@@ -707,7 +729,10 @@ void mtk_layering_rule_init(struct drm_device *dev)
 
 		if(private->data->mmsys_id != MMSYS_MT6991 &&
 			private->data->mmsys_id != MMSYS_MT6899 &&
-			private->data->mmsys_id != MMSYS_MT6989) {
+			private->data->mmsys_id != MMSYS_MT6989 &&
+			private->data->mmsys_id != MMSYS_MT6833 &&
+			private->data->mmsys_id != MMSYS_MT6768 &&
+			private->data->mmsys_id != MMSYS_MT6877) {
 			comp = private->ddp_comp[module_data->attach_comp];
 			if (!comp) {
 				DDPPR_ERR("RPO attached comp is NULL %d\n", module_data->attach_comp);
@@ -806,8 +831,10 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 	int mode_idx = disp_info->disp_mode_idx[0];
 
 	if (!mtk_drm_helper_get_opt(priv->helper_opt,
-			MTK_DRM_OPT_MMQOS_SUPPORT))
-		return 600;
+			MTK_DRM_OPT_MMQOS_SUPPORT)){
+		dvfs_bw = 600;
+		goto out_dvfs_bw;
+	}
 
 	if (get_layering_opt(LYE_OPT_SPHRT)) {
 		if (priv->pre_defined_bw[disp_idx] != 0xffffffff) {
@@ -835,7 +862,8 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 	}
 	if (avail_bw == 0xfffffffffffffffe) {
 		DDPPR_ERR("mm_hrt_get_available_hrt_bw=-2\n");
-		return 600;
+		dvfs_bw = 600;
+		goto out_dvfs_bw;
 	}
 	avail_bw -= tmp;
 	dvfs_bw = avail_bw;
@@ -854,10 +882,13 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 		/* for avail_bw == 0 case, which imply this display is not HRT,
 		 *  return this function to 16 overlap
 		 */
-		if (avail_bw == 0)
-			return 1600;
+		if (avail_bw == 0){
+			dvfs_bw = 1600;
+			goto out_dvfs_bw;
+		}
 		DDPPR_ERR("Get frame hrt bw by datarate is zero\n");
-		return 600;
+		dvfs_bw = 600;
+		goto out_dvfs_bw;
 	}
 	dvfs_bw = DO_COMMON_DIV(dvfs_bw, tmp * 100);
 
@@ -874,6 +905,11 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 
 	DDPINFO("disp %u get avail HRT BW:%llu : %llu %llu\n",
 		disp_idx, avail_bw, dvfs_bw, tmp);
+
+out_dvfs_bw:
+
+	if ((priv->data->mmsys_id == MMSYS_MT6991) && (dvfs_bw > 400))
+		dvfs_bw = 400;
 
 	return dvfs_bw;
 }

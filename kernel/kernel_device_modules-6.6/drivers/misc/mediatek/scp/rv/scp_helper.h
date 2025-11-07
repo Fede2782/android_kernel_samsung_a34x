@@ -310,8 +310,6 @@ enum MTK_TINYSYS_SCP_KERNEL_OP {
 	MTK_TINYSYS_SCP_KERNEL_OP_HALT_SET,
 	MTK_TINYSYS_SCP_KERNEL_OP_WDT_CLEAR,
 	MTK_TINYSYS_SCP_KERNEL_OP_GPR_CLEAR,
-	MTK_TINYSYS_SCP_KERNEL_OP_INFRA_REQ,
-	MTK_TINYSYS_SCP_KERNEL_OP_INFRA_REL,
 	MTK_TINYSYS_SCP_KERNEL_OP_DRAM_REQ,
 	MTK_TINYSYS_SCP_KERNEL_OP_DRAM_REL,
 	MTK_TINYSYS_SCP_KERNEL_OP_AWAKE_CTRL,
@@ -416,26 +414,6 @@ static inline uint64_t scp_do_gpr_clear(uint64_t idx)
 	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
 			MTK_TINYSYS_SCP_KERNEL_OP_GPR_CLEAR,
 			idx, 0, 0, 0, 0, 0, &res);
-	return res.a0;
-}
-
-static inline uint64_t scp_lpm_req_infra(void)
-{
-	struct arm_smccc_res res;
-
-	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
-			MTK_TINYSYS_SCP_KERNEL_OP_INFRA_REQ,
-			0, 0, 0, 0, 0, 0, &res);
-	return res.a0;
-}
-
-static inline uint64_t scp_lpm_rel_infra(void)
-{
-	struct arm_smccc_res res;
-
-	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
-			MTK_TINYSYS_SCP_KERNEL_OP_INFRA_REL,
-			0, 0, 0, 0, 0, 0, &res);
 	return res.a0;
 }
 

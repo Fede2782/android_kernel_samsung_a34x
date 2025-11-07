@@ -386,7 +386,7 @@ static void gs_rx_push(struct work_struct *work)
 
 		default:
 			/* presumably a transient fault */
-			pr_warn("ttyGS%d: unexpected RX status %d\n",
+			pr_debug("ttyGS%d: unexpected RX status %d\n",
 				port->port_num, req->status);
 			fallthrough;
 		case 0:

@@ -31,7 +31,7 @@
 #include <mt-plat/aee.h>
 #endif
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #include <../drivers/battery/common/sec_charging_common.h>
 #define SEC_BATTERY_FAKE_CAPACITY 0
 #endif
@@ -53,7 +53,7 @@ struct mtk_battery_manager *get_mtk_battery_manager(void)
 	struct power_supply *psy;
 
 	if (bm == NULL) {
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 		psy = power_supply_get_by_name("battery");
@@ -140,8 +140,7 @@ static int shutdown_event_handler(struct mtk_battery *gm)
 			tmp_duraction = ktime_to_timespec64(duraction);
 			polling++;
 			if (is_single && tmp_duraction.tv_sec >= SHUTDOWN_TIME) {
-				pr_err("soc zero shutdown\n");
-				kernel_power_off();
+				pr_debug("soc zero notify zero percent after %d\n", (int)tmp_duraction.tv_sec);
 				return next_waketime(polling);
 			}
 		} else if (current_soc > 0) {
@@ -163,8 +162,7 @@ static int shutdown_event_handler(struct mtk_battery *gm)
 
 			tmp_duraction = ktime_to_timespec64(duraction);
 			if (is_single && tmp_duraction.tv_sec >= SHUTDOWN_TIME) {
-				pr_err("uisoc one percent shutdown\n");
-				kernel_power_off();
+				pr_debug("uisoc one notify zero percent after %d\n", (int)tmp_duraction.tv_sec);
 				return next_waketime(polling);
 			}
 		} else if (now_current > 0 && current_soc > 0) {
@@ -261,9 +259,8 @@ static int shutdown_event_handler(struct mtk_battery *gm)
 
 				tmp_duraction  = ktime_to_timespec64(duraction);
 				if (is_single && tmp_duraction.tv_sec >= SHUTDOWN_TIME) {
-					pr_err("low bat shutdown, over %d second\n",
+					pr_debug("low bat zero percent, over %d second\n",
 						SHUTDOWN_TIME);
-					kernel_power_off();
 					return next_waketime(polling);
 				}
 			}
@@ -343,8 +340,7 @@ static int bm_shutdown_event_handler(struct mtk_battery_manager *bm)
 			tmp_duraction = ktime_to_timespec64(duraction);
 			polling++;
 			if (tmp_duraction.tv_sec >= SHUTDOWN_TIME) {
-				pr_err("soc zero shutdown\n");
-				kernel_power_off();
+				pr_debug("soc zero notify zero percent after %d\n", (int)tmp_duraction.tv_sec);
 				return polling;
 			}
 		} else if (current_gm1_soc > 0 && current_gm2_soc > 0) {
@@ -375,8 +371,7 @@ static int bm_shutdown_event_handler(struct mtk_battery_manager *bm)
 			polling++;
 			tmp_duraction = ktime_to_timespec64(duraction);
 			if (tmp_duraction.tv_sec >= SHUTDOWN_TIME) {
-				pr_err("uisoc one percent shutdown\n");
-				kernel_power_off();
+				pr_debug("uisoc one notify zero percent after %d\n", (int)tmp_duraction.tv_sec);
 				return polling;
 			}
 		} else if (now_current1 > 0 && now_current2 > 0 &&
@@ -479,9 +474,8 @@ static int bm_shutdown_event_handler(struct mtk_battery_manager *bm)
 				tmp_duraction  = ktime_to_timespec64(duraction);
 				polling++;
 				if (tmp_duraction.tv_sec >= SHUTDOWN_TIME) {
-					pr_err("low bat shutdown, over %d second\n",
+					pr_debug("low bat notify zero percent, over %d second\n",
 						SHUTDOWN_TIME);
-					kernel_power_off();
 					return polling;
 				}
 			}
@@ -1101,10 +1095,8 @@ static int bs_psy_get_property(struct power_supply *psy,
 	int temp = 0;
 	struct mtk_battery_manager *bm;
 	struct battery_data *bs_data;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
-#if IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	union power_supply_propval value = {0, };
-#endif
 	enum power_supply_ext_property ext_psp = (enum power_supply_ext_property) psp;
 #endif
 
@@ -1113,7 +1105,7 @@ static int bs_psy_get_property(struct power_supply *psy,
 
 	/* gauge_get_property should check return value */
 	/* to avoid i2c suspend but query by other module */
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	switch ((int)psp) {
 #else
 	switch (psp) {
@@ -1147,7 +1139,7 @@ static int bs_psy_get_property(struct power_supply *psy,
 			val->intval = cycle / qmax;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY: //sum(uisoc)
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		if (val->intval == SEC_FUELGAUGE_CAPACITY_TYPE_RAW) {
 			val->intval = bm->gm1->ss_precise_soc * 10;
 		} else if (val->intval == SEC_FUELGAUGE_CAPACITY_TYPE_DYNAMIC_SCALE) {
@@ -1170,7 +1162,7 @@ static int bs_psy_get_property(struct power_supply *psy,
 			else
 				val->intval = bs_data->bat_capacity;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 			if (val->intval < 0) {
 				pr_info("%s : real / fake capacity(%d%%/%d%%)\n",
 					__func__, val->intval,
@@ -1189,7 +1181,7 @@ static int bs_psy_get_property(struct power_supply *psy,
 			if(!bm->gm2->bat_plug_out)
 				curr_now += bm_update_psy_property(bm->gm2, CURRENT_NOW);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		if (val->intval == SEC_BATTERY_CURRENT_UA)
 			val->intval = curr_now * 100;
 		else
@@ -1207,7 +1199,7 @@ static int bs_psy_get_property(struct power_supply *psy,
 			if(!bm->gm2->bat_plug_out)
 				curr_avg += bm_update_psy_property(bm->gm2, CURRENT_AVG);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		if (val->intval == SEC_BATTERY_CURRENT_UA)
 			val->intval = curr_avg * 100;
 		else
@@ -1238,11 +1230,11 @@ static int bs_psy_get_property(struct power_supply *psy,
 
 		val->intval = bs_data->bat_capacity * qmax;
 		break;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	case POWER_SUPPLY_PROP_VOLTAGE_AVG:
 #endif
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		if (bm->gm1->f_mode == OB_MODE) {
 			psy_do_property("sec-mtk-charger", get,
 				POWER_SUPPLY_EXT_PROP_BATT_VSYS, value);
@@ -1263,7 +1255,7 @@ static int bs_psy_get_property(struct power_supply *psy,
 				count += 1;
 			}
 		if (count != 0)
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		{
 			if (val->intval == SEC_BATTERY_VOLTAGE_MV)
 				val->intval = volt_now / count;
@@ -1275,7 +1267,7 @@ static int bs_psy_get_property(struct power_supply *psy,
 #endif
 		ret = 0;
 		break;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	case POWER_SUPPLY_PROP_TEMP_AMBIENT:
 #endif
 	case POWER_SUPPLY_PROP_TEMP:
@@ -1291,7 +1283,7 @@ static int bs_psy_get_property(struct power_supply *psy,
 				count += 1;
 			}
 		if (count != 0)
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		{
 			if (val->intval == SEC_BATTERY_TEMP_ADC) {
 				pr_info("%s : mtk tbat temp(%d), temp adc(%d)\n",
@@ -1305,7 +1297,7 @@ static int bs_psy_get_property(struct power_supply *psy,
 #endif
 		ret = 0;
 		break;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	case POWER_SUPPLY_PROP_ENERGY_NOW:
 		switch (val->intval) {
 		case SEC_BATTERY_CAPACITY_FULL:
@@ -1391,7 +1383,7 @@ static int bs_psy_get_property(struct power_supply *psy,
 			}
 		}
 		break;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	case POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN:
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
@@ -1466,18 +1458,18 @@ static int bs_psy_set_property(struct power_supply *psy,
 {
 	int ret = 0;
 	struct mtk_battery_manager *bm;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	enum power_supply_ext_property ext_psp = (enum power_supply_ext_property) psp;
 #endif
 
 	bm = (struct mtk_battery_manager *)power_supply_get_drvdata(psy);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	switch ((int)psp) {
 #else
 	switch (psp) {
 #endif
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	case POWER_SUPPLY_PROP_STATUS:
 		if (val->intval == POWER_SUPPLY_STATUS_FULL) {
 			bm_send_cmd(bm, MANAGER_NOTIFY_CHR_FULL, 0);
@@ -1519,9 +1511,9 @@ static int bs_psy_set_property(struct power_supply *psy,
 			break;
 		case POWER_SUPPLY_EXT_PROP_BATT_F_MODE:
 			bm->gm1->f_mode = val->intval;
-#if IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
 			pr_info("%s: mtk-fg-battery: FG f_mode: %s\n", __func__,
 					BOOT_MODE_STRING[bm->gm1->f_mode]);
+#if defined(CONFIG_MTK_NO_BAT_BOOT_SUPPORT)
 #if IS_ENABLED(CONFIG_SEC_FACTORY)
 			if (bm->gm1->f_mode == OB_MODE)
 				bm_send_cmd(bm, MANAGER_DISABLE_FG, 0);
@@ -1673,7 +1665,7 @@ void bm_battery_service_init(struct mtk_battery_manager *bm)
 	struct battery_data *bs_data;
 
 	bs_data = &bm->bs_data;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	bs_data->psd.name = "mtk-fg-battery";
 #else
 	bs_data->psd.name = "battery";

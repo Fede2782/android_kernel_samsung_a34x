@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2022 MediaTek Inc.
  */
@@ -103,7 +103,7 @@ void halSwEmiInit(struct GLUE_INFO *prGlueInfo)
 	prSwEmiRingInfo->u4ReadBlockCnt = 0;
 	prSwEmiRingInfo->fgIsEnable = TRUE;
 
-	DBGLOG(HAL, DEBUG, "base: 0x%llx\n", prMem->pa);
+	DBGLOG(HAL, INFO, "base: 0x%llx\n", prMem->pa);
 }
 
 u_int8_t halSwEmiRead(struct GLUE_INFO *prGlueInfo, uint32_t u4Addr,
@@ -118,7 +118,7 @@ u_int8_t halSwEmiRead(struct GLUE_INFO *prGlueInfo, uint32_t u4Addr,
 	uint32_t u4DrvIdx = 0, u4Cnt = 0, u4ReadBlockCnt = 0;
 	u_int8_t fgRet = TRUE, fgDbg = FALSE;
 
-	KAL_BOOTTIME_INTERVAL_DECLARATION();
+	KAL_TIME_INTERVAL_DECLARATION();
 
 	prChipInfo = prGlueInfo->prAdapter->chip_info;
 	prBusInfo = prChipInfo->bus_info;
@@ -150,7 +150,7 @@ u_int8_t halSwEmiRead(struct GLUE_INFO *prGlueInfo, uint32_t u4Addr,
 	}
 
 	if (IS_FEATURE_ENABLED(prWifiVar->fgEnSwEmiDbg))
-		KAL_BOOT_TIME_START();
+		KAL_REC_TIME_START();
 
 	GLUE_INC_REF_CNT(prSwEmiRingInfo->u4ReadBlockCnt);
 	u4ReadBlockCnt = GLUE_GET_REF_CNT(prSwEmiRingInfo->u4ReadBlockCnt);
@@ -175,9 +175,6 @@ u_int8_t halSwEmiRead(struct GLUE_INFO *prGlueInfo, uint32_t u4Addr,
 
 	for (u4Cnt = 0; u4DrvIdx != prEmi->u4FwIdx; u4Cnt++) {
 		if (u4Cnt > SW_EMI_WAITING_FW_READY_CNT) {
-			DBGLOG(HAL, ERROR,
-			       "Read[0x%08x] timeout DrvIdx[%u] & FwIdx[%u] ",
-			       u4Addr, prEmi->u4DrvIdx, prEmi->u4FwIdx);
 			fgDbg = TRUE;
 			fgRet = FALSE;
 			goto end;
@@ -192,14 +189,17 @@ end:
 	GLUE_DEC_REF_CNT(prSwEmiRingInfo->u4ReadBlockCnt);
 
 	if (IS_FEATURE_ENABLED(prWifiVar->fgEnSwEmiDbg)) {
-		KAL_BOOT_TIME_END();
+		KAL_REC_TIME_END();
 		fgDbg = TRUE;
-		DBGLOG(HAL, DEBUG,
-		       "read [0x%08x]=[0x%08x] time[%llu us]\n",
-		       u4Addr, *pu4Val, KAL_GET_BOOTTIME_INTERVAL());
+		DBGLOG(HAL, INFO,
+		       "read [0x%08x]=[0x%08x] time[%u us]\n",
+		       u4Addr, *pu4Val, KAL_GET_TIME_INTERVAL());
 	}
 debug:
 	if (fgDbg) {
+		DBGLOG(HAL, ERROR,
+		       "Read[0x%08x] timeout DrvIdx[%u] & FwIdx[%u] ",
+		       u4Addr, prEmi->u4DrvIdx, prEmi->u4FwIdx);
 		halSwEmiDebug(prGlueInfo);
 		if (prDbgOps && prDbgOps->dumpwfsyscpupcr)
 			prDbgOps->dumpwfsyscpupcr(prGlueInfo->prAdapter);
@@ -225,7 +225,7 @@ void halSwEmiDebug(struct GLUE_INFO *prGlueInfo)
 	    !prEmi)
 		return;
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "En[%d] CCIF[0x%08x %u] DrvIdx[%u] FwIdx[%u] Size[%u]\n",
 	       prSwEmiRingInfo->fgIsEnable,
 	       prSwEmiRingInfo->u4CcifTchnumAddr,
@@ -233,8 +233,8 @@ void halSwEmiDebug(struct GLUE_INFO *prGlueInfo)
 	       prEmi->u4DrvIdx,
 	       prEmi->u4FwIdx,
 	       prEmi->u4RingSize);
-	DBGLOG(HAL, DEBUG, "Dump EMI:\n");
-	DBGLOG_MEM32(HAL, DEBUG, prEmi, sizeof(struct SW_EMI_CTX));
+	DBGLOG(HAL, INFO, "Dump EMI:\n");
+	DBGLOG_MEM32(HAL, INFO, prEmi, sizeof(struct SW_EMI_CTX));
 }
 
 #endif /* CFG_MTK_WIFI_SW_EMI_RING */

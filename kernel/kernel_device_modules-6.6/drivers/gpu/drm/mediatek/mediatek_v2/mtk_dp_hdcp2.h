@@ -111,10 +111,18 @@ enum ENUM_HDCP_ERR_CODE {
 	HDCP_ERR_PROCESS_FAIL
 };
 
+enum check_link {
+	LINK_PROTECTED	= 0,
+	TOPOLOGY_CHANGE,
+	LINK_INTEGRITY_FAILURE,
+	REAUTH_REQUEST
+};
+
 int HDCPTx_Hdcp2FSM(struct mtk_dp *mtk_dp);
 void mdrv_DPTx_HDCP2_SetStartAuth(struct mtk_dp *mtk_dp, bool bEnable);
 bool mdrv_DPTx_HDCP2_Support(struct mtk_dp *mtk_dp);
 bool mdrv_DPTx_HDCP2_irq(struct mtk_dp *mtk_dp);
+int dp_tx_hdcp2x_check_link(struct mtk_dp *mtk_dp, struct DPTX_INFO *info);
 
 #endif
 #endif //#ifndef HDCP_TX_H

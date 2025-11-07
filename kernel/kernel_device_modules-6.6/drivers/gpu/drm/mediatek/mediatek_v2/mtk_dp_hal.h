@@ -355,5 +355,6 @@ void mhal_DPTx_DataLanePNSwap(struct mtk_dp *mtk_dp, bool bENABLE);
 void mhal_DPTx_SetAuxSwap(struct mtk_dp *mtk_dp, bool enable);
 void mhal_DPTx_Set_BS2BS_Cnt(struct mtk_dp *mtk_dp, bool bEnable, DWORD uiHTT);
 void mhal_DPTx_PhyTrainingConfig(struct mtk_dp *mtk_dp, u8 ubTargetLinkRate, u8 ubTargetLaneCount);
+void mhal_DPTx_Set_Audio_N_Half(struct mtk_dp *mtk_dp);
 
 #endif //__DRTX_HAL_H__

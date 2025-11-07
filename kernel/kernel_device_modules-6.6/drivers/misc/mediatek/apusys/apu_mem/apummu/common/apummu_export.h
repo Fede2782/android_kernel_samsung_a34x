@@ -31,7 +31,7 @@ int apummu_unmap_mem(uint64_t session, uint32_t sid);
  *  for apummu, we also record translate info into session table
  */
 int apummu_iova2eva(uint32_t type, uint64_t session, uint64_t device_va,
-			uint32_t buf_size, uint64_t *eva);
+			uint64_t buf_size, uint64_t *eva);
 
 int apummu_eva2iova(uint64_t eva, uint64_t *iova);
 

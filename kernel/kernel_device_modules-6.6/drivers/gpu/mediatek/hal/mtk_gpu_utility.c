@@ -129,14 +129,14 @@ bool mtk_get_bottom_gpu_freq(unsigned int *pui32FreqLevel)
 }
 EXPORT_SYMBOL(mtk_get_bottom_gpu_freq);
 /* -------------------------------------------------------------------------- */
-unsigned int (*mtk_custom_get_gpu_freq_level_count_fp)(void) = NULL;
+int (*mtk_custom_get_gpu_freq_level_count_fp)(void) = NULL;
 EXPORT_SYMBOL(mtk_custom_get_gpu_freq_level_count_fp);
 
-bool mtk_custom_get_gpu_freq_level_count(unsigned int *pui32FreqLevelCount)
+bool mtk_custom_get_gpu_freq_level_count(int *pi32FreqLevelCount)
 {
 	if (mtk_custom_get_gpu_freq_level_count_fp != NULL) {
-		if (pui32FreqLevelCount) {
-			*pui32FreqLevelCount =
+		if (pi32FreqLevelCount) {
+			*pi32FreqLevelCount =
 				mtk_custom_get_gpu_freq_level_count_fp();
 			return true;
 		}

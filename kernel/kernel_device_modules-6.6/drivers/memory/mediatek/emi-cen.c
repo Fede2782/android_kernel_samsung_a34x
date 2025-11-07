@@ -863,7 +863,10 @@ static inline unsigned int use_a2d_magic_v2(unsigned long addr,
 	unsigned int ret;
 
 	ret = test_bit(bit, &addr) ? 1 : 0;
-	ret ^= (test_bit(16, &addr) && test_bit(0, &magic)) ? 1 : 0;
+	if (bit == 16)
+		ret ^= (test_bit(22, &addr) && test_bit(0, &magic)) ? 1 : 0;
+	else
+		ret ^= (test_bit(16, &addr) && test_bit(0, &magic)) ? 1 : 0;
 	ret ^= (test_bit(17, &addr) && test_bit(1, &magic)) ? 1 : 0;
 	ret ^= (test_bit(18, &addr) && test_bit(2, &magic)) ? 1 : 0;
 	ret ^= (test_bit(19, &addr) && test_bit(3, &magic)) ? 1 : 0;

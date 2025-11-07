@@ -30,6 +30,47 @@ static const struct mtk_jpeg_enc_qlt mtk_jpeg_enc_quality[] = {
 	{.quality_param = 97, .hardware_value = JPEG_ENC_QUALITY_Q97},
 };
 
+void mtk_jpeg_enc_set_axdomain(struct mtk_jpeg_dev *jpeg, void __iomem *base)
+{
+	u32 value = 0;
+	//port 7
+	value = readl(base+ (0xF00 + 7*4));
+	value |= jpeg->axdomain;
+	writel(value, base+ (0xF00 + 7*4));
+
+	value = readl(base+ (0xF80 + 7*4));
+	value |= jpeg->axdomain;
+	writel(value, base+ (0xF80 + 7*4));
+
+	//port 8
+	value = readl(base+ (0xF00 + 8*4));
+	value |= jpeg->axdomain;
+	writel(value, base+ (0xF00 + 8*4));
+
+	value = readl(base+ (0xF80 + 8*4));
+	value |= jpeg->axdomain;
+	writel(value, base+ (0xF80 + 8*4));
+
+	//port 9
+	value = readl(base+ (0xF00 + 9*4));
+	value |= jpeg->axdomain;
+	writel(value, base+ (0xF00 + 9*4));
+
+	value = readl(base+ (0xF80 + 9*4));
+	value |= jpeg->axdomain;
+	writel(value, base+ (0xF80 + 9*4));
+
+	//port 16
+	value = readl(base+ (0xF00 + 16*4));
+	value |= jpeg->axdomain;
+	writel(value, base+ (0xF00 + 16*4));
+
+	value = readl(base+ (0xF80 + 16*4));
+	value |= jpeg->axdomain;
+	writel(value, base+ (0xF80 + 16*4));
+	pr_info("%s %d: set jpeg enc domain", __func__, __LINE__);
+}
+
 void mtk_jpeg_enc_set_34bits(struct mtk_jpeg_ctx *ctx, void __iomem *base,
 				struct vb2_buffer *dst_buf)
 {

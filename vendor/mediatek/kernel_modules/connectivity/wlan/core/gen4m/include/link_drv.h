@@ -192,7 +192,7 @@ do { \
 #define LINK_IS_VALID(prLink)           \
 	(((struct LINK *)(prLink))->prNext != (struct LINK_ENTRY *)NULL)
 
-#define LINK_ENTRY(ptr, type, member)   CONTAINER_OF(ptr, type, member)
+#define LINK_ENTRY(ptr, type, member)   ENTRY_OF(ptr, type, member)
 
 /* Insert an entry into a link list's head */
 #define LINK_INSERT_HEAD(prLink, prEntry) \
@@ -206,26 +206,6 @@ do { \
 	{ \
 	    linkAddTail(prEntry, prLink); \
 	    ((prLink)->u4NumElem)++; \
-	}
-
-/* Insert an entry after a speceified entry */
-#define LINK_INSERT_AFTER(prLink, prEntry, prNew) \
-	{ \
-		__linkAdd( \
-			(struct LINK_ENTRY *)prNew, \
-			(struct LINK_ENTRY *)prEntry, \
-			(struct LINK_ENTRY *)(prEntry)->prNext); \
-		((prLink)->u4NumElem)++; \
-	}
-
-/* Insert an entry before a speceified entry */
-#define LINK_INSERT_BEFORE(prLink, prEntry, prNew) \
-	{ \
-		__linkAdd( \
-			(struct LINK_ENTRY *)prNew, \
-			(struct LINK_ENTRY *)(prEntry)->prPrev,	\
-			(struct LINK_ENTRY *)prEntry); \
-		((prLink)->u4NumElem)++; \
 	}
 
 /* Peek head entry, but keep still in link list */

@@ -900,7 +900,7 @@ int charger_dev_enable_hidden_mode(struct charger_device *charger_dev, bool en)
 }
 EXPORT_SYMBOL(charger_dev_enable_hidden_mode);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 /* ALPS09479827 Charger: add charger class APIs of MT6360 for factory */
 int charger_dev_get_vsys(struct charger_device *charger_dev, u32 *vsys)
 {

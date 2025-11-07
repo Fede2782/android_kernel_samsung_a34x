@@ -545,21 +545,23 @@ static void mtk_vcodec_set_uclamp(bool enable, int ctx_id, int pid, unsigned int
 		attr.sched_policy = p->policy;
 		if(p->policy == SCHED_FIFO || p->policy == SCHED_RR)
 			attr.sched_priority = p->rt_priority;
+		rcu_read_unlock();
 		ret = sched_setattr_nocheck(p, &attr);
 		for_each_thread(p, task_child) {
 			if(task_child) {
+				rcu_read_lock();
 				get_task_struct(task_child);
-				if(try_get_task_stack(task_child))
-					ret = sched_setattr_nocheck(task_child, &attr);
+				rcu_read_unlock();
+				ret = sched_setattr_nocheck(task_child, &attr);
 				put_task_struct(task_child);
 			}
 		}
 		put_task_struct(p);
 		if(ret != 0)
 			mtk_v4l2_err("[VDVFS][%d] set uclamp fail, pid: %d, ret: %d", ctx_id, pid, ret);
-	}
-	rcu_read_unlock();
-};
+	} else
+		rcu_read_unlock();
+}
 
 void mtk_vcodec_set_cpu_hint(struct mtk_vcodec_dev *dev, bool enable,
 	enum mtk_instance_type type, int ctx_id, int cpu_caller_pid, const char *debug_str)
@@ -579,8 +581,59 @@ void mtk_vcodec_set_cpu_hint(struct mtk_vcodec_dev *dev, bool enable,
 #endif
 			}
 		}
-		if (dev->cpu_hint_mode & (1 << MTK_UCLAMP_MODE)) // uclamp mode
+		if ((dev->cpu_hint_mode & (1 << MTK_UCLAMP_MODE)) &&
+			dev->cpu_hint_ref_cnt == 0) { // uclamp mode
 			mtk_vcodec_set_uclamp(enable, ctx_id, cpu_caller_pid, dev->uclamp_util_val);
+
+			if (type == MTK_INST_ENCODER &&
+				dev->freq_min_request == NULL) { // limit to Encoder instance
+				int policy_num = 0, cpu = 0;
+				struct cpufreq_policy *policy;
+
+				// Calcualte CPU num, and alloc to freq_min_request
+				for_each_possible_cpu(cpu) {
+					policy = cpufreq_cpu_get(cpu);
+
+					if (policy) {
+						policy_num++;
+						cpu = cpumask_last(policy->related_cpus);
+						cpufreq_cpu_put(policy);
+					}
+				}
+
+				dev->freq_min_request = kcalloc(policy_num,
+					sizeof(struct freq_qos_request), GFP_KERNEL);
+
+				if (!dev->freq_min_request)
+					goto after_freq_qos_add_request;
+
+				cpu = 0;
+				int num = 0, ret = 0;
+
+				for_each_possible_cpu(cpu) {
+					if (num >= policy_num)
+						break;
+
+					policy = cpufreq_cpu_get(cpu);
+					if (!policy)
+						continue;
+
+					mtk_v4l2_debug(8, " [VDVFS][%d] cpu: %d policy: first:%d, min:%d, max:%d, num:%d",
+						ctx_id, cpu, policy->cpu, policy->min, policy->max, num);
+					ret = freq_qos_add_request(&(policy->constraints),
+						&(dev->freq_min_request[num]), FREQ_QOS_MIN,
+						FREQ_QOS_MAX_DEFAULT_VALUE);
+					if (ret < 0)
+						mtk_v4l2_debug(0, " [VDVFS][%d] fail to add freq constraint (%d) %d %d",
+							ctx_id, ret, IS_ERR_OR_NULL(&(policy->constraints)),
+							!(&(dev->freq_min_request[num])));
+					num++;
+					cpu = cpumask_last(policy->related_cpus);
+					cpufreq_cpu_put(policy);
+				}
+			}
+		}
+after_freq_qos_add_request:
 
 		dev->cpu_hint_ref_cnt++;
 		mtk_v4l2_debug(0, " [VDVFS][%d][%s] enable CPU hint by %s (ref cnt %d, mode %d)",
@@ -595,8 +648,34 @@ void mtk_vcodec_set_cpu_hint(struct mtk_vcodec_dev *dev, bool enable,
 #endif
 			}
 		}
-		if (dev->cpu_hint_mode & (1 << MTK_UCLAMP_MODE))
+		if ((dev->cpu_hint_mode & (1 << MTK_UCLAMP_MODE)) &&
+			dev->cpu_hint_ref_cnt == 0) {
 			mtk_vcodec_set_uclamp(enable, ctx_id, cpu_caller_pid, dev->uclamp_util_val);
+
+			if (type == MTK_INST_ENCODER &&
+				dev->freq_min_request != NULL) { // limit to Encoder instance
+				int cpu = 0, num = 0, ret = 0;
+				struct cpufreq_policy *policy;
+
+				for_each_possible_cpu(cpu) {
+					policy = cpufreq_cpu_get(cpu);
+					if (!policy)
+						continue;
+					mtk_v4l2_debug(8, " [VDVFS][%d] cpu: %d policy: first:%d, min:%d, max:%d",
+						ctx_id, cpu, policy->cpu, policy->min, policy->max);
+					ret = freq_qos_remove_request(&(dev->freq_min_request[num]));
+					if (ret < 0)
+						mtk_v4l2_debug(0, " [VDVFS][%d] fail to remove freq constraint (%d)",
+							 ctx_id, ret);
+					num++;
+					cpu = cpumask_last(policy->related_cpus);
+					cpufreq_cpu_put(policy);
+				}
+
+				kvfree(dev->freq_min_request);
+				dev->freq_min_request = NULL;
+			}
+		}
 
 		mtk_v4l2_debug(0, "[VDVFS][%d][%s] disable CPU hint by %s (ref cnt %d mode %d)",
 			ctx_id, (type == MTK_INST_DECODER) ? "VDEC" : "VENC", debug_str,

@@ -3,3 +3,5 @@
 source "$(KCONFIG_EXT_PREFIX)drivers/usb/mtu3/Kconfig"
 
 source "$(KCONFIG_EXT_PREFIX)drivers/usb/ss_function/Kconfig"
+
+source "$(KCONFIG_EXT_PREFIX)drivers/usb/misc/Kconfig"

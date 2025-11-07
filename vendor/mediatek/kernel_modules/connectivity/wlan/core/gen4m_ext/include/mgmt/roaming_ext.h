@@ -67,6 +67,45 @@ struct IE_ASSURANCE_BEACON_REPORT {
 } __KAL_ATTRIB_PACKED__;
 #endif
 
+enum ENUM_ROAMING_SCAN_SORUCE {
+	ROAMING_SCAN_INVALID = 0,
+	ROAMING_SCAN_SINGLE_TIMER,     /* Scan Timer */
+	ROAMING_SCAN_INACTIVE_TIMER,   /* Inactive Timer */
+	ROAMING_SCAN_NUM
+};
+
+struct ROAMING_SCAN_CADENCE {
+	struct TIMER rScanTimer;
+	uint8_t fgIsInitialConn;
+	uint8_t ucScanSource;
+	uint8_t ucFullScanCount;
+	uint32_t u4ScanScheduleSec;
+	unsigned long ulLastTxPackets;
+	unsigned long ulLastRxPackets;
+	OS_SYSTIME rLastCheckTime;
+};
+
+struct GET_BSSINFO {
+	uint8_t  OUI[3];
+	uint32_t channel_freq;
+	uint32_t channel_bw;
+	int32_t  rssi;
+	uint32_t datarate;
+	uint8_t  phy_mode;
+	uint8_t  ant_mode;
+	uint8_t  AKM;
+	uint16_t Roaming_count;
+	uint32_t KV;
+	uint32_t KVIE;
+};
+
+struct AIS_EXT_INFO {
+	/* roaming count */
+	uint16_t u2ConnectedCount;
+
+	struct GET_BSSINFO rBssInfoBackup;
+};
+
 /* SS IE*/
 #define VENDOR_IE_SS_OUI                      0x0000F0
 
@@ -512,5 +551,21 @@ uint8_t roamingFsmScheduleNextSearch(struct ADAPTER *prAdapter,
 void roamingFsmInitScanTimer(struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex);
 
+void roamingFsmInactiveMonitor(struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex);
+
 void roamingDumpConfig(struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex);
+
+struct AIS_EXT_INFO *aisGetAisExtInfo(struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex);
+
+void aisInitAisExtInfo(struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex);
+
+void aisExtInfoDisconnectedAction(struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex);
+
+void aisFsmBackupBssInfo(struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex);
+

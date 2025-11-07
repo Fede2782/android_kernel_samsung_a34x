@@ -49,18 +49,12 @@ extern const struct net_device_ops p2p_netdev_ops;
 #define OID_SET_GET_STRUCT_LENGTH		4096
 
 #define MAX_P2P_IE_SIZE	5
-
-#ifdef CFG_P2P_MAXIMUM_CLIENT_COUNT
-#define P2P_MAXIMUM_CLIENT_COUNT                    CFG_P2P_MAXIMUM_CLIENT_COUNT
-#else
+#if CFG_TC10_FEATURE
 #define P2P_MAXIMUM_CLIENT_COUNT                    10
+#else
+#define P2P_MAXIMUM_CLIENT_COUNT                    16
 #endif
-
 #define P2P_DEFAULT_CLIENT_COUNT 4
-
-#if (CFG_SUPPORT_SUSPEND_NOTIFY_APGO_STOP == 1)
-#define SUSPEND_STOP_APGO_WAITING_0 (0)
-#endif
 
 /******************************************************************************
  *                             D A T A   T Y P E S
@@ -71,6 +65,10 @@ extern const struct net_device_ops p2p_netdev_ops;
  *                            P U B L I C   D A T A
  ******************************************************************************
  */
+
+extern struct net_device *g_P2pPrDev;
+extern struct wireless_dev *gprP2pWdev[KAL_P2P_NUM];
+extern struct wireless_dev *gprP2pRoleWdev[KAL_P2P_NUM];
 
 /******************************************************************************
  *                           P R I V A T E   D A T A
@@ -125,6 +123,8 @@ struct GL_P2P_INFO {
 
 	/*ENUM_PARAM_MEDIA_STATE_T eState;*//* TH3 multiple P2P */
 	/*UINT_32 u4PacketFilter;*//* TH3 multiple P2P */
+	/* TH3 multiple P2P */
+	/*PARAM_MAC_ADDRESS aucMCAddrList[MAX_NUM_GROUP_ADDR];*/
 
 	/* connection-requested peer information *//* TH3 multiple P2P */
 	/*UINT_8 aucConnReqDevName[32];*//* TH3 multiple P2P */
@@ -158,7 +158,7 @@ struct GL_P2P_INFO {
 #endif
 
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
-	uint8_t aucMlIE[ELEM_HDR_LEN + MAX_LEN_OF_MLIE];
+	uint8_t aucMlIE[MAX_LEN_OF_MLIE];
 	uint16_t u2MlIELen;
 #endif
 
@@ -181,7 +181,7 @@ struct GL_P2P_INFO {
 #endif
 
 #if CFG_SUPPORT_HOTSPOT_WPS_MANAGER
-	uint8_t aucBlockMACList[P2P_MAXIMUM_CLIENT_COUNT][PARAM_MAC_ADDR_LEN];
+	uint8_t aucblackMACList[P2P_MAXIMUM_CLIENT_COUNT][PARAM_MAC_ADDR_LEN];
 	uint8_t ucMaxClients;
 #endif
 
@@ -197,35 +197,16 @@ struct GL_P2P_INFO {
 	/* indicate caller thread for delete sta complete */
 	struct completion rDelStaComp;
 
-#if (CFG_SUPPORT_SUSPEND_NOTIFY_APGO_STOP == 1)
-	struct completion rSuspendStopApComp;
-	unsigned long ulSuspendStopAp;
-#endif
-
 	struct LINK rWaitTxDoneLink;
 
 	enum ENUM_CHNL_SWITCH_POLICY eChnlSwitchPolicy;
 	u_int8_t fgChannelSwitchReq;
-
-	uint32_t u4LinkId;
 };
-
-#if CFG_ENABLE_WIFI_DIRECT_CFG_80211
-struct cfg80211_p2p_roc_request {
-	struct wireless_dev *wdev;
-	uint64_t u8Cookie;
-	uint8_t ucReqChnlNum;
-	enum ENUM_BAND eBand;
-	enum ENUM_CHNL_EXT eChnlSco;
-	uint32_t u4MaxInterval;
-};
-#endif
 
 struct GL_P2P_DEV_INFO {
 #if CFG_ENABLE_WIFI_DIRECT_CFG_80211
 	struct cfg80211_scan_request *prScanRequest;
 	uint8_t fgScanSpecificSSID;
-	struct cfg80211_p2p_roc_request rP2pRocRequest;
 #if 0
 	struct cfg80211_scan_request rBackupScanRequest;
 #endif
@@ -233,6 +214,7 @@ struct GL_P2P_DEV_INFO {
 	uint32_t u4OsMgmtFrameFilter;
 #endif
 	uint32_t u4PacketFilter;
+	uint8_t aucMCAddrList[MAX_NUM_GROUP_ADDR][PARAM_MAC_ADDR_LEN];
 	uint8_t ucWSCRunning;
 };
 
@@ -347,19 +329,20 @@ u_int8_t glRegisterP2P(struct GLUE_INFO *prGlueInfo,
 		const char *prDevName2,
 		uint8_t ucApMode);
 
-int glSetupP2P(struct GLUE_INFO *prGlueInfo, struct wireless_dev *prP2pWdev,
-	struct net_device *prP2pDev, uint8_t u4Idx, u_int8_t fgIsApMode,
-	u_int8_t fgSkipRole, uint8_t aucIntfMac[]);
+int glSetupP2P(struct GLUE_INFO *prGlueInfo,
+		struct wireless_dev *prP2pWdev,
+		struct net_device *prP2pDev,
+		uint8_t u4Idx,
+		u_int8_t fgIsApMode,
+		u_int8_t fgSkipRole);
 
-u_int8_t glUnregisterP2P(struct GLUE_INFO *prGlueInfo, uint8_t ucIdx,
-	uint8_t fgIsRtnlLockAcquired);
+u_int8_t glUnregisterP2P(struct GLUE_INFO *prGlueInfo, uint8_t ucIdx);
 
 u_int8_t p2pNetRegister(struct GLUE_INFO *prGlueInfo,
 		uint8_t fgIsRtnlLockAcquired);
 
 u_int8_t p2pNetUnregister(struct GLUE_INFO *prGlueInfo,
-		uint8_t fgIsRtnlLockAcquired,
-		u_int8_t fgIsWiphyLockHeld);
+		uint8_t fgIsRtnlLockAcquired);
 
 
 u_int8_t p2PAllocInfo(struct GLUE_INFO *prGlueInfo, uint8_t ucIdex);

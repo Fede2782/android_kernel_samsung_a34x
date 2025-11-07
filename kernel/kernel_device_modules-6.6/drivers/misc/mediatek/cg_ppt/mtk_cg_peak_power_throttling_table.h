@@ -156,6 +156,8 @@ extern struct peakpowercombotableDataRow
 	peak_power_combo_table_gpu_mt6991[GPU_PEAK_POWER_COMBO_TABLE_IDX_ROW_COUNT];
 extern struct peakpowercombotableDataRow
 	peak_power_combo_table_cpu_mt6991[CPU_PEAK_POWER_COMBO_TABLE_IDX_ROW_COUNT];
+extern struct peakpowercombotableDataRow
+	peak_power_combo_table_cpu_mt6991_91t[CPU_PEAK_POWER_COMBO_TABLE_IDX_ROW_COUNT];
 
 /*
  * -----------------------------------------------

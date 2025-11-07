@@ -1,6 +1,15 @@
-/* SPDX-License-Identifier: BSD-2-Clause */
+//  SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021 MediaTek Inc.
+ *  Copyright (c) 2018 MediaTek Inc.
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *  See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #include <linux/rtc.h>
@@ -33,7 +42,6 @@
  *			     P R I V A T E   D A T A
  *******************************************************************************
  */
-//extern struct bt_dbg_st g_bt_dbg_st;
 
 static struct bt_ring_buffer_mgmt g_rx_buffer;
 static BT_RX_EVENT_CB g_rx_event_cb;
@@ -63,7 +71,7 @@ static u8 is_rx_queue_empty(void)
 	return FALSE;
 }
 
-static u8 is_rx_queue_res_available(u32 length)
+u8 is_rx_queue_res_available(u32 length)
 {
 	u32 room_left = 0;
 	struct bt_ring_buffer_mgmt *p_ring = &g_rx_buffer;
@@ -79,7 +87,7 @@ static u8 is_rx_queue_res_available(u32 length)
 	spin_unlock(&p_ring->lock);
 
 	if (room_left < length) {
-		BTMTK_WARN("RX queue room left (%u) < required (%u)", room_left, length);
+		BTMTK_WARN_LIMITTED("RX queue room left (%u) < required (%u)", room_left, length);
 		return FALSE;
 	}
 	return TRUE;
@@ -90,16 +98,10 @@ static s32 rx_pkt_enqueue(u8 *buffer, u32 length)
 	s32 tail_len = 0;
 	struct bt_ring_buffer_mgmt *p_ring = &g_rx_buffer;
 
-#if 0
-	/*
-	 * Remove this check since VTS will test ACL with 4096
-	 * payload from Android V
-	 */
 	if (length > BT_HCI_MAX_FRAME_SIZE) {
 		BTMTK_ERR("Abnormal packet length %u, not enqueue!", length);
 		return -EINVAL;
 	}
-#endif
 
 	spin_lock(&p_ring->lock);
 	if (p_ring->write_idx + length < RING_BUFFER_SIZE) {
@@ -128,7 +130,7 @@ s32 rx_skb_enqueue(struct sk_buff *skb)
 		goto end;
 	}
 
-	#define WAIT_TIMES 40
+	#define WAIT_TIMES 20
 
 	/*
 	 * FW will block the data if it's buffer is full,
@@ -143,7 +145,8 @@ s32 rx_skb_enqueue(struct sk_buff *skb)
 	}
 
 	if (!is_rx_queue_res_available(skb->len + 1)) {
-		BTMTK_WARN("rx packet drop!!!");
+		BTMTK_INFO_RAW(skb->data, skb->len, "%s: rx packet drop!!! len[%d] %02x", __func__,
+					skb->len + 1, hci_skb_pkt_type(skb));
 		ret = -1;
 		goto end;
 	}
@@ -254,7 +257,6 @@ int32_t btmtk_receive_data(struct hci_dev *hdev, u8 *buf, u32 count)
 int32_t btmtk_send_data(struct hci_dev *hdev, u8 *buf, u32 count)
 {
 	struct sk_buff *skb = NULL;
-	int ret = 0;
 
 	if (hdev == NULL) {
 		BTMTK_ERR("%s hdev is NULL", __func__);
@@ -278,14 +280,9 @@ int32_t btmtk_send_data(struct hci_dev *hdev, u8 *buf, u32 count)
 	memcpy(skb->data, buf + 1, count - 1);
 	skb->len = count - 1;
 
-	ret = bt_send_frame(hdev, skb);
-	if (ret < 0) {
-		BTMTK_ERR_LIMITTED("%s send fail, ret[%d]", __func__, ret);
-		/* ERRNUM is used to handle when skb has been sent successful,
-		 * but wait related event failed, in this case, we don't need to free skb here,
-		 * otherwise, it will be double free.
-		 */
-		if (ret != -ERRNUM && skb) {
+	if (bt_send_frame(hdev, skb) < 0) {
+		BTMTK_ERR_LIMITTED("%s send fail, free skb", __func__);
+		if (skb) {
 			kfree_skb(skb);
 			skb = NULL;
 		}

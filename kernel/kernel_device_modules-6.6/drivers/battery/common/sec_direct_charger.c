@@ -129,12 +129,6 @@ static bool sec_direct_chg_set_switching_charge(
 {
 	union power_supply_propval value = {0,};
 
-	if (charger->charger_mode_main == charger_mode) {
-		pr_info("%s: skip due to change same mode! charger_mode(%s)\n", __func__,
-			sec_direct_charger_mode_str[charger_mode]);
-		return true;
-	}
-
 	pr_info("%s: charger_mode(%s->%s)\n", __func__,
 		sec_direct_charger_mode_str[charger->charger_mode_main],
 		sec_direct_charger_mode_str[charger_mode]);

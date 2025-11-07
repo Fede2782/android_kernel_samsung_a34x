@@ -25,6 +25,7 @@
 		$(SRC_ROOT)\..\..\..\nic\nic_rate.c
 		$(SRC_ROOT)\..\..\..\nic\nic_rx.c
 		$(SRC_ROOT)\..\..\..\nic\nic_tx.c
+		$(SRC_ROOT)\..\..\..\nic\nic_umac.c
 		$(SRC_ROOT)\..\..\..\nic\p2p_nic.c
 		$(SRC_ROOT)\..\..\..\nic\que_mgt.c
 		$(SRC_ROOT)\..\..\..\nic\radiotap.c

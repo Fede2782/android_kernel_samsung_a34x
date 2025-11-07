@@ -78,12 +78,7 @@
 /* Todo:: By chip capability */
 /* Max wlan table size, the max+1 used for probe request,... mgmt frame */
 /*sending use basic rate and no security */
-#ifdef CFG_WTBL_MAXSIZE
-#define WTBL_SIZE                   CFG_WTBL_MAXSIZE
-#else
-#define WTBL_SIZE                   32
-#endif
-
+#define WTBL_SIZE                       32
 
 #define WTBL_ALLOC_FAIL                 WTBL_RESERVED_ENTRY
 #define WTBL_DEFAULT_ENTRY              0

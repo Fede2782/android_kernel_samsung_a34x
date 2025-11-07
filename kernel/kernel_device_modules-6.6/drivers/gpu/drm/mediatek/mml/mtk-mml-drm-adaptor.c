@@ -72,19 +72,29 @@ static struct mml_drm_ctx *task_ctx_to_drm(struct mml_task *task)
 
 static u32 afbc_drm_to_mml(u32 drm_format)
 {
+	u32 afbc_format;
+
 	switch (drm_format) {
 	case MML_FMT_RGBA8888:
-		return MML_FMT_RGBA8888_AFBC;
+		afbc_format = MML_FMT_RGBA8888_AFBC;
+		break;
 	case MML_FMT_RGBA1010102:
-		return MML_FMT_RGBA1010102_AFBC;
+		afbc_format = MML_FMT_RGBA1010102_AFBC;
+		break;
 	case MML_FMT_NV12:
-		return MML_FMT_YUV420_AFBC;
+		afbc_format = MML_FMT_YUV420_AFBC;
+		break;
 	case MML_FMT_NV12_10L:
-		return MML_FMT_YUV420_10P_AFBC;
+		afbc_format = MML_FMT_YUV420_10P_AFBC;
+		break;
 	default:
 		mml_err("[drm]%s unknown drm format %#x", __func__, drm_format);
-		return drm_format;
+		afbc_format = drm_format;
+		break;
 	}
+	mml_msg("[drm]%s mapping drm format %#x to %#x", __func__, drm_format, afbc_format);
+
+	return afbc_format;
 }
 
 #define MML_AFBC	DRM_FORMAT_MOD_ARM_AFBC( \
@@ -203,6 +213,12 @@ bool mml_drm_query_hw_support(const struct mml_frame_info *info)
 		if (dest->pq_config.en && dest->crop.r.width < 48) {
 			mml_err("[drm]exceed HW limitation crop width %u < 48 with pq",
 				dest->crop.r.width);
+			goto not_support;
+		}
+
+		if ((destw > crop_srcw && desth < crop_srch) ||
+		    (destw < crop_srcw && desth > crop_srch)) {
+			mml_err("[drm]not support shrink and expand h/v ratio at the same time");
 			goto not_support;
 		}
 
@@ -724,6 +740,8 @@ s32 mml_drm_submit(struct mml_drm_ctx *dctx, struct mml_submit *submit,
 	 */
 	submit->info.src.format = format_drm_to_mml(
 		submit->info.src.format, submit->info.src.modifier);
+	mml_msg("[drm]%s src modifier: %#010llx, format %#x",
+		__func__, submit->info.src.modifier, submit->info.src.format);
 
 	/* always fixup plane offset */
 	if (likely(submit->info.mode != MML_MODE_SRAM_READ)) {
@@ -1171,7 +1189,7 @@ bool mml_drm_ctx_idle(struct mml_drm_ctx *dctx)
 	mutex_unlock(&ctx->config_mutex);
 
 	if (!idle) {
-		if (!wait_for_completion_timeout(&dctx->idle, jiffies_to_msecs(5000))) {
+		if (!wait_for_completion_timeout(&dctx->idle, nsecs_to_jiffies(1000000000))) {
 			mml_err("[drm]wait idle timed out");
 			return false;
 		}

@@ -29,7 +29,7 @@ config MMAP_READAROUND_LIMIT
 
 config HUGEPAGE_POOL
 	tristate "hugepage pool management"
-	default n
+	default m
 	depends on !HIGHMEM
 	depends on !NEED_MULTIPLE_NODES
 	depends on TRANSPARENT_HUGEPAGE

@@ -201,7 +201,7 @@ int sec_input_set_temperature(struct device *dev, int state)
 	pdata->tsp_temperature_data_skip = false;
 
 	if (!pdata->psy)
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		pdata->psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 		pdata->psy = power_supply_get_by_name("battery");

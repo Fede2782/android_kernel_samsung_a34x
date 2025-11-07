@@ -327,7 +327,7 @@ void mutex_dump_analysis_mt6991(struct mtk_disp_mutex *mutex);
 void mmsys_config_dump_reg_mt6991(void __iomem *config_regs);
 void ovlsys_config_dump_reg_mt6991(void __iomem *config_regs);
 void mmsys_config_dump_analysis_mt6991(void __iomem *config_regs, int sys_id);
-void ovlsys_config_dump_analysis_mt6991(void __iomem *config_regs);
+void ovlsys_config_dump_analysis_mt6991(void __iomem *config_regs, bool rg_dump);
 void mtk_ddp_insert_dsc_prim_MT6885(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle);
 void mtk_ddp_remove_dsc_prim_MT6885(struct mtk_drm_crtc *mtk_crtc,
@@ -424,9 +424,9 @@ void mutex_dump_analysis_mt6879(struct mtk_disp_mutex *mutex);
 void mmsys_config_dump_analysis_mt6855(void __iomem *config_regs);
 void mutex_dump_analysis_mt6855(struct mtk_disp_mutex *mutex);
 struct mtk_ddp_comp *mtk_ddp_get_path_addon_dsc_comp(struct mtk_drm_crtc *mtk_crtc);
-unsigned int mtk_ddp_ovlsys_path(struct mtk_drm_private *priv, unsigned int **ovl_list);
-unsigned int mtk_ddp_ovl_usage_trans(struct mtk_drm_private *priv, unsigned int usage);
-unsigned int mtk_ddp_ovl_resource_list(struct mtk_drm_private *priv, unsigned int **ovl_list);
+int mtk_ddp_ovlsys_path(struct mtk_drm_private *priv, unsigned int **ovl_list);
+int mtk_ddp_ovl_usage_trans(struct mtk_drm_private *priv, unsigned int usage);
+int mtk_ddp_ovl_resource_list(struct mtk_drm_private *priv, unsigned int **ovl_list);
 
 void mtk_ddp_disable_merge_irq(struct drm_device *drm);
 

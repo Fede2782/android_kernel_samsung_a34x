@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -85,13 +85,12 @@ uint8_t g_au8RlmHeCfgContellIdx[4][4][2] = {
 };
 
 #if (CFG_SUPPORT_802_11AX == 1)
-#define TESTMODE_FORCE_DISABLE 0xFE
-uint8_t  g_ucHtSMPSCapValue = TESTMODE_FORCE_DISABLE;
-uint8_t  g_ucHeSMPSCapValue = TESTMODE_FORCE_DISABLE;
-uint8_t  g_ucHtSMPS6GCapValue = TESTMODE_FORCE_DISABLE;
-uint8_t  g_fgSigmaCMDHt = TESTMODE_FORCE_DISABLE;
-uint8_t  g_fgSigmaCMDHe = TESTMODE_FORCE_DISABLE;
-uint8_t  g_fgSigmaCMD6g = TESTMODE_FORCE_DISABLE;
+uint8_t  g_ucHtSMPSCapValue = 5;
+uint8_t  g_ucHeSMPSCapValue = 5;
+uint8_t  g_ucHtSMPS6GCapValue = 5;
+uint8_t  g_fgSigmaCMDHt = 2;
+uint8_t  g_fgSigmaCMDHe = 2;
+uint8_t  g_fgSigmaCMD6g = 2;
 #endif
 
 /*******************************************************************************
@@ -217,7 +216,6 @@ static void heRlmFillMCSMap(
 	struct _HE_SUPPORTED_MCS_FIELD *prHeSupportedMcsSet)
 {
 	uint8_t i, ucSupportedNss;
-	struct WIFI_VAR *prWifiVar = &prAdapter->rWifiVar;
 
 	kalMemZero((void *) prHeSupportedMcsSet,
 		sizeof(struct _HE_SUPPORTED_MCS_FIELD));
@@ -228,17 +226,11 @@ static void heRlmFillMCSMap(
 		uint8_t ucMcsMap;
 
 		if (i < ucSupportedNss) {
-			if (prAdapter->fgMcsMapBeenSet & SET_HE_MCS_MAP) {
+			if (prAdapter->fgMcsMapBeenSet & SET_HE_MCS_MAP)
 				ucMcsMap = kal_min_t(uint8_t,
 					prAdapter->ucMcsMapSetFromSigma,
 					HE_CAP_INFO_MCS_MAP_MCS11);
-			} else if (IS_BSS_AIS(prBssInfo) &&
-				 prWifiVar->ucStaMaxMcsMap != 0xFF) {
-				ucMcsMap = kal_min_t(uint8_t,
-					prWifiVar->ucStaMaxMcsMap,
-					heRlmGetHeSupportedMcs(prAdapter,
-								prBssInfo));
-			} else
+			else
 				ucMcsMap = heRlmGetHeSupportedMcs(prAdapter,
 								prBssInfo);
 
@@ -246,24 +238,9 @@ static void heRlmFillMCSMap(
 		} else {
 			ucMcsMap = HE_CAP_INFO_MCS_NOT_SUPPORTED;
 		}
-#if CFG_ENABLE_WIFI_DIRECT
-#if CFG_SUPPORT_TRX_LIMITED_CONFIG
-		if (p2pFuncGetForceTrxConfig(prAdapter) !=
-			P2P_FORCE_TRX_CONFIG_NONE &&
-			prBssInfo->ucOpChangeTxNss <= i)
-			ucMcsMap = VHT_CAP_INFO_MCS_NOT_SUPPORTED;
-#endif
-#endif
-		prHeSupportedMcsSet->u2TxMcsMap |= (ucMcsMap << ucOffset);
-#if CFG_ENABLE_WIFI_DIRECT
-#if CFG_SUPPORT_TRX_LIMITED_CONFIG
-		if (p2pFuncGetForceTrxConfig(prAdapter) !=
-			P2P_FORCE_TRX_CONFIG_NONE &&
-			prBssInfo->ucOpChangeRxNss <= i)
-			ucMcsMap = VHT_CAP_INFO_MCS_NOT_SUPPORTED;
-#endif
-#endif
+
 		prHeSupportedMcsSet->u2RxMcsMap |= (ucMcsMap << ucOffset);
+		prHeSupportedMcsSet->u2TxMcsMap |= (ucMcsMap << ucOffset);
 	}
 
 	prHeSupportedMcsSet->u2RxMcsMap =
@@ -361,19 +338,10 @@ static uint8_t heRlmFillPPEThreshold(
 	uint8_t *pPPEThreshold)
 {
 	uint8_t ucRUIdxSize = 0, ucLen;
+	uint8_t ucSupportedNss =
+		wlanGetSupportNss(prAdapter, prBssInfo->ucBssIndex) - 1;
 	uint8_t ucMaxBw =
 		cnmGetBssMaxBw(prAdapter, prBssInfo->ucBssIndex);
-	uint8_t ucSupportedNss =
-		wlanGetSupportNss(prAdapter, prBssInfo->ucBssIndex);
-
-	/* Fix coverity issue :
-	 * if wlanGetSupportNss() returns 0, -1 will overflow.
-	 * Because ucSupportedNss is unsigned int.
-	 */
-	if (ucSupportedNss > 0)
-		ucSupportedNss -= 1;
-	else
-		ucSupportedNss = 0;
 
 	kalMemZero((void *) pPPEThreshold, sizeof(struct _PPE_THRESHOLD_FIELD));
 
@@ -436,7 +404,8 @@ void heRlmFillHeCapIE(
 	uint8_t *pPPEThreshold;
 #endif
 #if ((CFG_SUPPORT_BFEE == 1) || (CFG_SUPPORT_HE_ER == 1))
-	uint8_t ucSupportedNss = 0;
+	uint8_t ucSupportedNss =
+		wlanGetSupportNss(prAdapter, prBssInfo->ucBssIndex) - 1;
 #endif
 	u_int8_t fgTxStbcEn = TRUE;
 
@@ -446,19 +415,6 @@ void heRlmFillHeCapIE(
 	ASSERT(prAdapter);
 	ASSERT(prBssInfo);
 	ASSERT(prMsduInfo);
-
-#if ((CFG_SUPPORT_BFEE == 1) || (CFG_SUPPORT_HE_ER == 1))
-	ucSupportedNss =
-		wlanGetSupportNss(prAdapter, prBssInfo->ucBssIndex);
-	/* Fix coverity issue :
-	 * if wlanGetSupportNss() returns 0, -1 will overflow.
-	 * Because ucSupportedNss is unsigned int.
-	 */
-	if (ucSupportedNss > 0)
-		ucSupportedNss -= 1;
-	else
-		ucSupportedNss = 0;
-#endif
 
 	prChipInfo = prAdapter->chip_info;
 
@@ -484,7 +440,7 @@ void heRlmFillHeCapIE(
 		prWifiVar->ucTrigMacPadDur);
 
 	if (IS_FEATURE_ENABLED(prWifiVar->ucHeHTC)) {
-		/* Check HTC blocklist */
+		/* Check HTC blacklist */
 		if (IS_BSS_AIS(prBssInfo)) {
 			prAisFsmInfo = aisGetAisFsmInfo(prAdapter,
 				prBssInfo->ucBssIndex);
@@ -492,7 +448,7 @@ void heRlmFillHeCapIE(
 					prBssInfo->ucBssIndex);
 			if (prAisFsmInfo && prBssDesc != NULL &&
 				queryAxBlocklist(prAdapter, prBssDesc->aucBSSID,
-				   prBssInfo->ucBssIndex, BLOCKLIST_DIS_HE_HTC))
+				   prBssInfo->ucBssIndex, BLACKLIST_DIS_HE_HTC))
 				DBGLOG(BSS, INFO,
 				    "BSSID " MACSTR " is in HTC blocklist!\n",
 				    MAC2STR(prBssDesc->aucBSSID));
@@ -506,8 +462,7 @@ void heRlmFillHeCapIE(
 	if (IS_FEATURE_ENABLED(prWifiVar->ucHeOMCtrl))
 		HE_SET_MAC_CAP_OM_CTRL(prHeCap->ucHeMacCap);
 
-	if (IS_FEATURE_ENABLED(prWifiVar->ucRxCtrlToMutiBss))
-		HE_SET_MAC_CAP_RX_CTRL_TO_MUTI_BSS(prHeCap->ucHeMacCap);
+	HE_SET_MAC_CAP_RX_CTRL_TO_MUTI_BSS(prHeCap->ucHeMacCap);
 
 	HE_SET_MAC_CAP_MAX_AMPDU_LEN_EXP(prHeCap->ucHeMacCap,
 		prWifiVar->ucMaxAmpduLenExp);
@@ -581,8 +536,7 @@ void heRlmFillHeCapIE(
 			HE_SET_PHY_CAP_CHAN_WIDTH_SET_BW160_5G(
 				prHeCap->ucHePhyCap);
 
-		/* 80+80 not supported, skip setting 80+80 for bw320 */
-		if (ucMaxBw == MAX_BW_80_80_MHZ)
+		if (ucMaxBw >= MAX_BW_80_80_MHZ)
 			HE_SET_PHY_CAP_CHAN_WIDTH_SET_BW80P80_5G(
 				prHeCap->ucHePhyCap);
 	}
@@ -674,12 +628,6 @@ void heRlmFillHeCapIE(
 	}
 #endif
 
-	if (IS_BSS_APGO(prBssInfo)) {
-		/* SAP not support UL MU MIMO */
-		HE_UNSET_PHY_CAP_FULL_BW_UL_MU_MIMO(prHeCap->ucHePhyCap);
-		HE_UNSET_PHY_CAP_PARTIAL_BW_UL_MU_MIMO(prHeCap->ucHePhyCap);
-	}
-
 #if (CFG_SUPPORT_HE_ER == 1)
 	if (IS_FEATURE_ENABLED(prWifiVar->u4ExtendedRange)) {
 		if (IS_FEATURE_ENABLED(prWifiVar->fgErTx)) {
@@ -735,8 +683,7 @@ void heRlmFillHeCapIE(
 		u4OverallLen += sizeof(struct _HE_SUPPORTED_MCS_FIELD);
 	}
 
-	/* 80+80 not supported, skip setting 80+80 for bw320 */
-	if (ucMaxBw == MAX_BW_80_80_MHZ) {
+	if (ucMaxBw >= MAX_BW_80_80_MHZ) {
 		prHeSupportedMcsSet = (struct _HE_SUPPORTED_MCS_FIELD *)
 			(((uint8_t *) prHeCap) + u4OverallLen);
 		heRlmFillMCSMap(prAdapter, prBssInfo, prHeSupportedMcsSet);
@@ -816,7 +763,6 @@ void heRlmRspGenerateHeRnrIE(
 	struct ADAPTER *prAdapter,
 	struct MSDU_INFO *prMsduInfo)
 {
-#if CFG_ENABLE_WIFI_DIRECT
 	struct BSS_INFO *prBssInfo;
 	struct P2P_SPECIFIC_BSS_INFO *prP2pSpecBssInfo;
 	uint8_t *pucBuffer;
@@ -839,7 +785,6 @@ void heRlmRspGenerateHeRnrIE(
 
 	DBGLOG(RSN, INFO, "[%d] Keep supplicant RNR IE content w/o update\n",
 		prBssInfo->ucBssIndex);
-#endif
 }
 
 static void heRlmFillHeOpIE(
@@ -982,14 +927,14 @@ static void heRlmFillHe6gBandCapIE(struct ADAPTER *prAdapter,
 	}
 #endif
 
-	if (prBssInfo->eBand == BAND_6G &&
-	    prAdapter->rWifiVar.ucHtSmps6g == 1) {
+	if ((prBssInfo->eBand == BAND_6G) &&
+		(prAdapter->rWifiVar.ucHtSmps6g == 1)) {
 		prHe6gBandCap->u2CapInfo &=
 			(~HE_6G_CAP_INFO_SM_POWER_SAVE);
 		(prHe6gBandCap->u2CapInfo) |=
 			(1 << HE_6G_CAP_INFO_SM_POWER_SAVE_OFFSET);
-	} else if (prBssInfo->eBand == BAND_6G &&
-		   prAdapter->rWifiVar.ucHtSmps6g == 3) {
+	} else if ((prBssInfo->eBand == BAND_6G) &&
+		(prAdapter->rWifiVar.ucHtSmps6g == 3)) {
 		prHe6gBandCap->u2CapInfo |=
 			HE_6G_CAP_INFO_SM_POWER_SAVE;
 	}
@@ -1068,7 +1013,7 @@ uint32_t heRlmFillNANHECapIE(
 	HE_SET_MAC_CAP_TRIGGER_PAD_DURATION(prHeCap->ucHeMacCap,
 		prWifiVar->ucTrigMacPadDur);
 
-	/* Check HTC blocklist */
+	/* Check HTC blacklist */
 	if (IS_BSS_AIS(prBssInfo)) {
 		prAisFsmInfo = aisGetAisFsmInfo(prAdapter,
 			prBssInfo->ucBssIndex);
@@ -1076,7 +1021,7 @@ uint32_t heRlmFillNANHECapIE(
 				prBssInfo->ucBssIndex);
 		if (prBssDesc != NULL &&
 			queryAxBlocklist(prAdapter, prBssDesc->aucBSSID,
-			    prBssInfo->ucBssIndex, BLOCKLIST_DIS_HE_HTC)) {
+			    prBssInfo->ucBssIndex, BLACKLIST_DIS_HE_HTC)) {
 			DBGLOG(BSS, INFO,
 			    "BSSID " MACSTR " is in HTC blocklist!\n",
 			    MAC2STR(prBssDesc->aucBSSID));
@@ -1606,12 +1551,6 @@ void heRlmRecHeOperation(struct ADAPTER *prAdapter, struct BSS_INFO *prBssInfo,
 	prBssInfo->ucBssColorInfo = prHeOp->ucBssColorInfo;
 	prBssInfo->u2HeBasicMcsSet = prHeOp->u2HeBasicMcsSet;
 
-	/* BssColor Disabled bit == False && Color == 0 -> AP ERROR*/
-	if ((((prBssInfo->ucBssColorInfo) & (HE_OP_BSSCOLOR_BSS_COLOR_DISABLE))
-		>> HE_OP_BSSCOLOR_BSS_COLOR_DISABLE_SHFT == 0) &&
-		((prBssInfo->ucBssColorInfo)
-			& (HE_OP_BSSCOLOR_BSS_COLOR_MASK) == 0))
-		log_dbg(RLM, ERROR, "BssColor Enable but Color = 0\n");
 
 	log_dbg(RLM, LOUD, "RlmHeOpInfo-0x:%x,%x,%x,%x,%x\n",
 		prBssInfo->ucHeOpParams[0],
@@ -1639,39 +1578,6 @@ void heRlmRecHeOperation(struct ADAPTER *prAdapter, struct BSS_INFO *prBssInfo,
 	}
 #endif
 }
-
-#if (CFG_SUPPORT_UPDATE_HE_BSS_COLOR_FROM_BEACON == 1)
-void heRlmRecBssColorChangeAnnouncement(
-	struct ADAPTER *prAdapter,
-	struct BSS_INFO *prBssInfo,
-	const uint8_t *pucIE)
-{
-	struct _IE_COLOR_CHANGE_ANNOUNCEMENT_T *prColorChangeAnnouncement =
-		(struct _IE_COLOR_CHANGE_ANNOUNCEMENT_T *) pucIE;
-
-	if (IE_SIZE(prColorChangeAnnouncement)
-			< (sizeof(struct _IE_COLOR_CHANGE_ANNOUNCEMENT_T))) {
-		DBGLOG(SCN, WARN, "COLOR_CHANGE_ANNOUNCEMENT IE_LEN err(%d)!\n",
-			IE_LEN(prColorChangeAnnouncement));
-		return;
-	}
-
-	prBssInfo->ucColorAnnouncement = TRUE;
-
-	prBssInfo->ucColorSwitchCntdn =
-		prColorChangeAnnouncement->ucColorSwitchCntdn;
-	prBssInfo->ucNewBssColorInfo =
-		prColorChangeAnnouncement->ucNewBssColorInfo;
-
-
-	DBGLOG(RLM, LOUD,
-		"RlmBssColorChangeAnnouncement-ColorSwitchCntdn:0x%x,NewBssColorInfo:0x%x\n",
-		prBssInfo->ucColorSwitchCntdn,
-		prBssInfo->ucNewBssColorInfo
-	);
-
-}   /* end of heRlmRecBssColorChangeAnnouncement */
-#endif /* CFG_SUPPORT_UPDATE_HE_BSS_COLOR_FROM_BEACON */
 
 uint8_t heRlmUpdateSRParams(
 	struct BSS_INFO *prBssInfo,
@@ -1861,7 +1767,7 @@ heRlmComposeHtcNullFrame(
 	ASSERT(prStaRec);
 	ucBssIndex = prStaRec->ucBssIndex;
 
-	ASSERT(ucBssIndex <= prAdapter->ucSwBssIdNum);
+	ASSERT(ucBssIndex <= prAdapter->ucHwBssIdNum);
 
 	ASSERT(pucBuffer);
 
@@ -1947,7 +1853,7 @@ uint32_t heRlmSendHtcNullFrame(
 	prMsduInfo = cnmMgtPktAlloc(prAdapter, u2EstimatedFrameLen);
 	if (prMsduInfo == NULL) {
 		DBGLOG(RLM, WARN, "No PKT_INFO_T for sending Null Frame.\n");
-		return WLAN_STATUS_FAILURE;
+		return WLAN_STATUS_RESOURCES;
 	}
 	/* 4 <2> Compose Null frame in MSDU_INfO_T. */
 	heRlmComposeHtcNullFrame(prAdapter,
@@ -1964,10 +1870,10 @@ uint32_t heRlmSendHtcNullFrame(
 		     pfTxDoneHandler,
 		     MSDU_RATE_MODE_AUTO);
 
+	prMsduInfo->fgNullUseDataQ = TRUE;
 	/* prMsduInfo->ucUserPriority = 0;*/
 	prMsduInfo->u4Option |= MSDU_OPT_NO_AGGREGATE;
 	prMsduInfo->u4Option |= MSDU_OPT_SW_HTC;
-	prMsduInfo->fgMgmtForceAutoRate = TRUE;
 	/* 4 <4> Inform TXM  to send this Null frame. */
 	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
 
@@ -2163,22 +2069,13 @@ void heRlmRecBTWTparams(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 	struct _IE_BTWT_T *prBTWTIE = NULL;
 	const uint8_t *pucBTWT_PARAMS_HEAD = NULL;
 	const uint8_t *pucBTWT_PARAMS = NULL;
-	struct _IE_BTWT_PARAMS_T *p_IE_BTWT_PARAMS = NULL;
 	struct _TWT_PARAMS_T  *prTWT_PARAMS = NULL;
 	uint8_t ucBtwtId = 0;
 	uint64_t u8TargetWakeTime = 0;
 	uint64_t u8Temp = 0;
 	uint64_t u8twt_interval = 0;
 	uint64_t u8Mod = 0;
-	struct BSS_INFO *prBssInfo;
-	uint8_t ucRecommendation = 0;
-	struct _TWT_FLOW_T *prTWTFlow = NULL;
-#if (CFG_SUPPORT_RTWT == 1)
-	/* The RTWT IE handling must be backward compatible with BTWT IE */
-	struct _IE_RTWT_PARAMS_T *p_IE_RTWT_PARAMS = NULL;
-	uint8_t ucRtwtTfInfoLen = 0;
-	struct _TWT_PARAMS_T  rRTWT_PARAMS = {0};
-#endif
+	struct BSS_INFO *prBssInfo = NULL;
 
 	if (prAdapter == NULL)
 		return;
@@ -2194,7 +2091,9 @@ void heRlmRecBTWTparams(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 	if (GET_BTWT_CTRL_NEGO(prBTWTIE->ucCtrl) != 0x2)
 		return;
 
-	u4Offset = OFFSET_OF(struct _IE_BTWT_T,	u2ReqType);
+	u4Offset = OFFSET_OF(
+		struct _IE_BTWT_T,
+		u2ReqType);
 
 	DBGLOG(RLM, WARN, "(struct _IE_BTWT_T, u2ReqType)=%d\n", u4Offset);
 
@@ -2205,269 +2104,115 @@ void heRlmRecBTWTparams(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 	if (prBssInfo == NULL)
 		return;
 
-	/*
-	 * The RTWT IE handling must be backward compatible with BTWT IE
-	 * [1]parse BTWT IE and insert BTWT param into
-	 *    prStaRec->arBTWTFlow[ID==0].rTWTPeerParams and
-	 *    prStaRec->arBTWTFlow[Otherwise].rTWTParams
-	 * [2]parse RTWT IE and insert RTWT param into
-	 *    prStaRec->arRTWTFlow[ID!=0].rTWTParams,
-	 *    RTWT not operate on ID=0!!!!!!
-	 */
+	/* parse BTWT IE and insert BTWT param into */
+	/* prStaRec->arTWTFlow[flow_id].rTWTPeerParams */
 	for (pucBTWT_PARAMS = pucBTWT_PARAMS_HEAD, u4Offset = 0;
 		(pucBTWT_PARAMS != NULL) &&
 		(u4Offset < (prBTWTIE->ucLength - 1));
-#if (CFG_SUPPORT_RTWT == 1)
-		pucBTWT_PARAMS += sizeof(struct _IE_BTWT_PARAMS_T)
-					+ ucRtwtTfInfoLen,
-		u4Offset += sizeof(struct _IE_BTWT_PARAMS_T)
-				+ ucRtwtTfInfoLen
-#else
 		pucBTWT_PARAMS += sizeof(struct _IE_BTWT_PARAMS_T),
-		u4Offset += sizeof(struct _IE_BTWT_PARAMS_T)
-#endif
-		) {
-		p_IE_BTWT_PARAMS = (struct _IE_BTWT_PARAMS_T *)pucBTWT_PARAMS;
-
+		u4Offset += sizeof(struct _IE_BTWT_PARAMS_T)) {
 		DBGLOG_MEM8(RLM, WARN,
 			pucBTWT_PARAMS, sizeof(struct _IE_BTWT_PARAMS_T));
-
+#if 0
 		DBGLOG(RLM, WARN,
 			"BTWT ReqType=%x TWT=%x MinWakeDur=%x\n",
-			p_IE_BTWT_PARAMS->u2ReqType,
-			p_IE_BTWT_PARAMS->u2TWT,
-			p_IE_BTWT_PARAMS->ucMinWakeDur);
+			((struct _IE_BTWT_PARAMS_T *)pucBTWT_PARAMS)->u2ReqType,
+			((struct _IE_BTWT_PARAMS_T *)pucBTWT_PARAMS)->u2TWT,
+			(((struct _IE_BTWT_PARAMS_T *)pucBTWT_PARAMS)
+				->ucMinWakeDur);
 
 		DBGLOG(RLM, WARN,
 			"BTWT WakeIntMantissa=%x BTWTInfo=%x\n",
-			p_IE_BTWT_PARAMS->u2WakeIntvalMantiss,
-			p_IE_BTWT_PARAMS->u2BTWTInfo);
+			((struct _IE_BTWT_PARAMS_T *)pucBTWT_PARAMS)
+				->u2WakeIntvalMantiss,
+			((struct _IE_BTWT_PARAMS_T *)pucBTWT_PARAMS)
+				->u2BTWTInfo);
+#endif
 
-		ucBtwtId = GET_BTWT_ID(p_IE_BTWT_PARAMS->u2BTWTInfo);
+		ucBtwtId = GET_BTWT_ID(
+		((struct _IE_BTWT_PARAMS_T *)pucBTWT_PARAMS)->u2BTWTInfo);
 
-		ucRecommendation = GET_BTWT_RECOMMENDATION(
-					p_IE_BTWT_PARAMS->u2ReqType);
+		DBGLOG(RLM, WARN, "BTWT[%d] Ofset=%d\n", ucBtwtId, u4Offset);
 
-		DBGLOG(RLM, WARN, "BTWT[%d] Ofset=%d recomd=%d\n",
-			ucBtwtId, u4Offset, ucRecommendation);
-
-		if (ucBtwtId >= RTWT_MAX_FLOW_NUM) {
-			DBGLOG(RLM, ERROR,
-				"BTWT[%d] Ofset=%d recomd=%d out of range\n",
-				ucBtwtId, u4Offset, ucRecommendation);
-
+		if (ucBtwtId >= TWT_MAX_FLOW_NUM)
 			break;
-		}
 
-		/*
-		 * We need to consider the case AP supports both BTWT and RTWT
-		 * , where BTWT[0|1|2..] and RTWT[1|2|3...], only BTWT support
-		 * BTWT_ID = 0!!!
-		 */
-#if (CFG_SUPPORT_RTWT == 1)
-		if (ucRecommendation == 0)
-#endif
-			prTWTFlow = &prStaRec->arBTWTFlow[ucBtwtId];
-#if (CFG_SUPPORT_RTWT == 1)
-		else
-			prTWTFlow = &prStaRec->arRTWTFlow[ucBtwtId];
-#endif
-
-		/*
-		 * Native join BTWT_ID[0], otherwise keep whatever TWT
-		 * parameters in prStaRec->arBTWTFlow[ucBtwtId].rTWTParams,
-		 * this holds for both BTWT and RTWT.
-		 */
 		if (ucBtwtId == 0)
 			prTWT_PARAMS =
-				&prTWTFlow->rTWTPeerParams;
+				&prStaRec->arTWTFlow[ucBtwtId].rTWTPeerParams;
 		else
 			prTWT_PARAMS =
-				&prTWTFlow->rTWTParams;
+				&prStaRec->arTWTFlow[ucBtwtId].rTWTParams;
 
 		if (prTWT_PARAMS == NULL)
 			break;
 
-#if (CFG_SUPPORT_RTWT == 1)
-		if (ucRecommendation == 0) {
-#endif
+		prStaRec->arTWTFlow[ucBtwtId].fgIsBTWT = 0x1;
 
-			prTWTFlow->eTwtType = ENUM_TWT_TYPE_BTWT;
-
-			prTWT_PARAMS->ucSetupCmd = 0x0; /* Request TWT by WFA */
-
-#if (CFG_SUPPORT_RTWT == 1)
-
-			ucRtwtTfInfoLen = 0;
-		} else {
-			prTWTFlow->eTwtType = ENUM_TWT_TYPE_RTWT;
-
-			prTWT_PARAMS->ucSetupCmd = 0x2; /* Demand TWT by WFA */
-
-			if (GET_BTWT_RTWT_TRAFFIC_INFO_PRESENT(
-						((struct _IE_BTWT_PARAMS_T *)
-						pucBTWT_PARAMS)->u2BTWTInfo)) {
-				ucRtwtTfInfoLen =
-					RTWT_TRAFFIC_INFO_BYTE_LENGTH;
-
-				/*
-				 * Cast _IE_BTWT_PARAMS_T to _IE_RTWT_PARAMS_T,
-				 * RTWT = BTWT + RTWT traffic info(3 bytes)
-				 */
-				p_IE_RTWT_PARAMS =
-				(struct _IE_RTWT_PARAMS_T *)pucBTWT_PARAMS;
-
-				prTWT_PARAMS->ucTrafficInfoPresent = 1;
-				prTWT_PARAMS->ucDlUlBmpValid =
-				p_IE_RTWT_PARAMS->uc_arRTWTTrafficInfo[0];
-				prTWT_PARAMS->ucDlBmp =
-				p_IE_RTWT_PARAMS->uc_arRTWTTrafficInfo[1];
-				prTWT_PARAMS->ucUlBmp =
-				p_IE_RTWT_PARAMS->uc_arRTWTTrafficInfo[2];
-			} else {
-				ucRtwtTfInfoLen = 0;
-				prTWT_PARAMS->ucTrafficInfoPresent = 0;
-				prTWT_PARAMS->ucDlUlBmpValid = 0;
-				prTWT_PARAMS->ucDlBmp = 0;
-				prTWT_PARAMS->ucUlBmp = 0;
-			}
-		}
-
-#endif
-
-		prTWT_PARAMS->ucMinWakeDur = p_IE_BTWT_PARAMS->ucMinWakeDur;
+		prTWT_PARAMS->ucMinWakeDur =
+			((struct _IE_BTWT_PARAMS_T *)
+				pucBTWT_PARAMS)->ucMinWakeDur;
 		prTWT_PARAMS->u2WakeIntvalMantiss =
-			p_IE_BTWT_PARAMS->u2WakeIntvalMantiss;
-		prTWT_PARAMS->u8TWT = 0;
+			((struct _IE_BTWT_PARAMS_T *)
+				pucBTWT_PARAMS)->u2WakeIntvalMantiss;
 		prTWT_PARAMS->fgReq = 0x1;
+		prTWT_PARAMS->ucSetupCmd = 0x0;
 		prTWT_PARAMS->fgTrigger = GET_TWT_RT_TRIGGER(
-						p_IE_BTWT_PARAMS->u2ReqType);
+			((struct _IE_BTWT_PARAMS_T *)
+				pucBTWT_PARAMS)->u2ReqType);
 		prTWT_PARAMS->fgUnannounced = GET_TWT_RT_FLOW_TYPE(
-						p_IE_BTWT_PARAMS->u2ReqType);
+			((struct _IE_BTWT_PARAMS_T *)
+				pucBTWT_PARAMS)->u2ReqType);
 		prTWT_PARAMS->ucWakeIntvalExponent =
-					GET_TWT_RT_WAKE_INTVAL_EXP(
-						p_IE_BTWT_PARAMS->u2ReqType);
+			GET_TWT_RT_WAKE_INTVAL_EXP(
+			((struct _IE_BTWT_PARAMS_T *)pucBTWT_PARAMS)
+			->u2ReqType);
 		prTWT_PARAMS->fgProtect = 0x0;
 
-		if ((prTWTFlow->eTwtType == ENUM_TWT_TYPE_BTWT) &&
-			(prTWTFlow->eBtwtState
-				== ENUM_BTWT_FLOW_STATE_DEFAULT) &&
-			(ucBtwtId == 0)) {
-			u8TargetWakeTime = (prStaRec->au4Timestamp[0] |
-				(((uint64_t)(prStaRec->au4Timestamp[1]))
-				<< 32));
-
-			u8twt_interval = (((u_int64_t)
+		if (prStaRec->arTWTFlow[ucBtwtId].eBtwtState
+				== ENUM_BTWT_FLOW_STATE_DEFAULT) {
+			if (ucBtwtId == 0) {
+				u8TargetWakeTime = (prStaRec->au4Timestamp[0] |
+					(((uint64_t)(prStaRec->au4Timestamp[1]))
+					<< 32));
+				u8twt_interval = (((u_int64_t)
 					prTWT_PARAMS->u2WakeIntvalMantiss)
 					<< prTWT_PARAMS->ucWakeIntvalExponent);
+				u8Temp = u8TargetWakeTime + u8twt_interval;
+				u8Mod = kal_mod64(u8Temp, u8twt_interval);
+				prTWT_PARAMS->u8TWT = (u8TargetWakeTime +
+					(u8twt_interval - u8Mod));
 
-			u8Temp = u8TargetWakeTime + u8twt_interval;
-
-			u8Mod = kal_mod64(u8Temp, u8twt_interval);
-
-			prTWT_PARAMS->u8TWT = (u8TargetWakeTime +
-						(u8twt_interval - u8Mod));
-
-			/* BTWT[0] by default join */
-			btwtPlannerAddAgrtTbl(prAdapter, prBssInfo,
-				prStaRec, prTWT_PARAMS, ucBtwtId, FALSE,
-				NULL, NULL);
-		}
-
-		/*
-		 * By WFA RTWT test plan, the RTWT 5.52.1 STAUT stops TXOP
-		 * before each active RTWT service period start, because
-		 * STAUT's RTXT has not yet activated, the uplink traffic
-		 * has been asked not to overlap with active RTWT service
-		 * period start.
-		 *
-		 * We need to setup a local bypass TWT to skip the active
-		 * RTWT service period start and with a shrinkaged interval.
-		 *
-		 * We only do this in WFA logo test!!!
-		 */
-
-#if (CFG_SUPPORT_RTWT == 1)
-		if ((g_IsTwtLogo == 1) && (g_IsWfaTestBed == 0) &&
-			(prTWTFlow->eTwtType == ENUM_TWT_TYPE_RTWT) &&
-			(IS_FEATURE_ENABLED(
-				prAdapter->rWifiVar.ucRTWTStautProtect))) {
-			/*
-			 * To etimate current active RTWT target time
-			 */
-			u8TargetWakeTime = (prStaRec->au4Timestamp[0] |
-				(((uint64_t)(prStaRec->au4Timestamp[1]))
-				<< 32));
-
-			u8twt_interval = (((u_int64_t)
-					prTWT_PARAMS->u2WakeIntvalMantiss)
-					<< prTWT_PARAMS->ucWakeIntvalExponent);
-
-			u8Temp = u8TargetWakeTime + u8twt_interval;
-
-			u8Mod = kal_mod64(u8Temp, u8twt_interval);
-
-			if (twtPlannerDrvAgrtFindWithTwtType(
-				prAdapter,
-				prBssInfo->ucBssIndex,
-				ucBtwtId,
-				/*
-				 * We'd like to know if bypass nego has
-				 * been setup previously!!
-				 */
-				1,
-				ENUM_TWT_TYPE_RTWT) >= TWT_AGRT_MAX_NUM) {
-				/*
-				 * If we reach here, we are safe to add
-				 * local bypass nego of ucBtwtId.
-				 */
-				kalMemCopy(&rRTWT_PARAMS, prTWT_PARAMS,
-					sizeof(struct _TWT_PARAMS_T));
-
-				/*
-				 * For WFA RTWT 5.52.1, alive RTWT schedule:
-				 *     32 * 255 = 8.160ms SP in 32ms interval
-				 *
-				 * We setup local bypass nego:
-				 *     112 * 255 = 28.560ms SP in 32ms interval
-				 *
-				 * We'd likt to shift 2ms away!!!
-				 */
-				rRTWT_PARAMS.ucMinWakeDur = 112;
-
-				rRTWT_PARAMS.u8TWT = (u8TargetWakeTime +
-						(u8twt_interval - u8Mod));
-
-				rRTWT_PARAMS.u8TWT += 2048;
-
-				rRTWT_PARAMS.fgByPassNego = 1;
-
-				rtwtPlannerAddAgrtTbl(
-					prAdapter, prBssInfo,
-					prStaRec, &rRTWT_PARAMS,
-					ucBtwtId, FALSE,
+				btwtPlannerAddAgrtTbl(prAdapter, prBssInfo,
+					prStaRec, prTWT_PARAMS, ucBtwtId, FALSE,
 					NULL, NULL);
+			} else {
+				prTWT_PARAMS->u8TWT = 0;
 			}
-		}
+#if 0
+			DBGLOG(RLM, WARN,
+				"BTWT[%d] %x, %x, %x, %x, %x, %x %x, %x, %x, %x\n",
+				ucBtwtId,
+				prTWT_PARAMS->ucMinWakeDur,
+				prTWT_PARAMS->u2WakeIntvalMantiss,
+				prTWT_PARAMS->fgTrigger,
+				prTWT_PARAMS->fgUnannounced,
+				prTWT_PARAMS->ucWakeIntvalExponent,
+				(prTWT_PARAMS->u8TWT & 0x00000000FFFFFFFF),
+				((prTWT_PARAMS->u8TWT &
+				0xFFFFFFFF00000000) >> 32),
+				prStaRec->au4Timestamp[0],
+				prStaRec->au4Timestamp[1],
+				((struct _IE_BTWT_PARAMS_T *)pucBTWT_PARAMS)
+				->u2TWT
+				);
 #endif
 
-		DBGLOG(RLM, WARN,
-			"%sTWT[%d] %x, %x, %x, %x, %x, %x %x, %x, %x, %x\n",
-			(prTWTFlow->eTwtType == ENUM_TWT_TYPE_BTWT) ? "B":"R",
-			ucBtwtId,
-			prTWT_PARAMS->ucMinWakeDur,
-			prTWT_PARAMS->u2WakeIntvalMantiss,
-			prTWT_PARAMS->fgTrigger,
-			prTWT_PARAMS->fgUnannounced,
-			prTWT_PARAMS->ucWakeIntvalExponent,
-			(prTWT_PARAMS->u8TWT & 0x00000000FFFFFFFF),
-			((prTWT_PARAMS->u8TWT &
-			0xFFFFFFFF00000000) >> 32),
-			prStaRec->au4Timestamp[0],
-			prStaRec->au4Timestamp[1],
-			p_IE_BTWT_PARAMS->u2TWT);
+		}
 
-		if (GET_BTWT_LAST_BCAST(p_IE_BTWT_PARAMS->u2ReqType) == 0x1)
+		if (GET_BTWT_LAST_BCAST((
+			(struct _IE_BTWT_PARAMS_T *)pucBTWT_PARAMS)->u2ReqType)
+			== 0x1)
 			break;
 	}
 }

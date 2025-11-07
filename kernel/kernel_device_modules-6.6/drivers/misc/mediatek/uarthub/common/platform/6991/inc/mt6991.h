@@ -6,7 +6,7 @@
 #ifndef MT6991_H
 #define MT6991_H
 
-#define MT6991_UARTHUB_DUMP_VERSION    "20230807"
+#define MT6991_UARTHUB_DUMP_VERSION    "20250323"
 
 #define UARTHUB_SUPPORT_FPGA           0
 #define UARTHUB_SUPPORT_DVT            0
@@ -79,6 +79,22 @@ extern struct uarthub_ut_test_ops_struct mt6991_plat_ut_test_data;
 
 #define TRX_BUF_LEN                64
 
+#define UARTHUB_IRQ_OP_LOG_SIZE     5
+#define UARTHUB_LOG_IRQ_PKT_SIZE    12
+#define UARTHUB_LOG_IRQ_IDX_ADDR(addr) (addr)
+
+#define UARTHUB_TSK_OP_LOG_SIZE     20
+#define UARTHUB_LOG_TSK_PKT_SIZE    20
+#define UARTHUB_LOG_TSK_IDX_ADDR(addr) \
+		(addr + (UARTHUB_LOG_IRQ_PKT_SIZE * UARTHUB_IRQ_OP_LOG_SIZE) + 4)
+
+#define UARTHUB_CK_CNT_ADDR(addr) \
+	(UARTHUB_LOG_TSK_IDX_ADDR(addr) + (UARTHUB_TSK_OP_LOG_SIZE * UARTHUB_LOG_TSK_PKT_SIZE) + 4)
+
+#define UARTHUB_LAST_CK_ON(addr) (UARTHUB_CK_CNT_ADDR(addr) + 4)
+#define UARTHUB_LAST_CK_ON_CNT(addr) (UARTHUB_LAST_CK_ON(addr) + 8)
+#define UARTHUB_DEFAULT_CONFIG(addr) (UARTHUB_LAST_CK_ON_CNT(addr) + 4)
+
 int uarthub_uarthub_init_mt6991(struct platform_device *pdev);
 int uarthub_uarthub_exit_mt6991(void);
 int uarthub_uarthub_open_mt6991(void);
@@ -91,7 +107,7 @@ int uarthub_is_bypass_mode_mt6991(void);
 int uarthub_set_host_trx_request_mt6991(int dev_index, enum uarthub_trx_type trx);
 int uarthub_clear_host_trx_request_mt6991(int dev_index, enum uarthub_trx_type trx);
 int uarthub_config_bypass_ctrl_mt6991(int enable);
-int uarthub_config_baud_rate_m6991(void __iomem *dev_base, int rate_index);
+int uarthub_config_baud_rate_mt6991(void __iomem *dev_base, int rate_index);
 int uarthub_usb_rx_pin_ctrl_mt6991(void __iomem *dev_base, int enable);
 #if !(UARTHUB_SUPPORT_FPGA)
 int uarthub_get_spm_res_info_mt6991(
@@ -101,21 +117,25 @@ int uarthub_get_uart_src_clk_info_mt6991(void);
 int uarthub_get_spm_sys_timer_mt6991(uint32_t *hi, uint32_t *lo);
 #endif
 int uarthub_get_uart_mux_info_mt6991(void);
+int uarthub_get_adsp_uart_mux_info_mt6991(void);
 int uarthub_get_uarthub_mux_info_mt6991(void);
 
 int uarthub_inband_enable_ctrl_mt6991(int enable);
 int uarthub_inband_irq_mask_ctrl_mt6991(int mask);
 int uarthub_inband_irq_clear_ctrl_mt6991(void);
 int uarthub_inband_irq_get_sta_mt6991(void);
-unsigned char uarthub_inband_get_esc_sta_mt6991(void);
-int uarthub_inband_clear_esc_sta_mt6991(void);
+unsigned char uarthub_inband_get_received_sta_mt6991(void);
+int uarthub_inband_clear_received_sta_mt6991(void);
 int uarthub_inband_set_esc_char_mt6991(unsigned char esc_char);
-int uarthub_inband_set_esc_sta_mt6991(unsigned char esc_sta);
+int uarthub_inband_set_sta_char_mt6991(unsigned char sta_char);
+unsigned char uarthub_inband_get_sta_char_mt6991(void);
 int uarthub_inband_is_tx_complete_mt6991(void);
 int uarthub_inband_trigger_ctrl_mt6991(void);
-int uarthub_inband_trigger_with_esc_sta_mt6991(unsigned char esc_sta);
+int uarthub_inband_trigger_with_sta_char_mt6991(unsigned char sta_char);
 int uarthub_get_bt_on_count_mt6991(void);
 int uarthub_bt_on_count_inc_mt6991(void);
+int uarthub_inband_is_support_mt6991(void);
+int uarthub_is_enable_fw_flow_ctrl_with_inband_mt6991(void);
 
 /* debug API */
 int uarthub_get_intfhub_base_addr_mt6991(void);
@@ -141,12 +161,17 @@ int uarthub_dump_sspm_log_mt6991(const char *tag);
 int uarthub_trigger_fpga_testing_mt6991(int type);
 int uarthub_trigger_dvt_ut_testing_mt6991(int type);
 int uarthub_trigger_dvt_it_testing_mt6991(int type);
-int uarthub_read_dbg_monitor(int *sel, int *tx_monitor, int *rx_monitor);
-int uarthub_record_check_data_mode_sta_to_buffer(
+int uarthub_read_dbg_monitor_mt6991(int *sel, int *tx_monitor, int *rx_monitor);
+int uarthub_record_check_data_mode_sta_to_buffer_mt6991(
 	unsigned char *dmp_info_buf, int len,
 	int debug_monitor_sel,
 	int *tx_monitor, int *rx_monitor,
 	int tx_monitor_pointer, int rx_monitor_pointer,
 	int check_data_mode_sel, const char *tag);
+int uarthub_record_packet_info_mode_sta_to_buffer_mt6991(
+	unsigned char *dmp_info_buf, int len,
+	int debug_monitor_sel,
+	int *tx_monitor, int *rx_monitor,
+	int tx_monitor_pointer, int rx_monitor_pointer, const char *tag);
 
 #endif /* MT6991_H */

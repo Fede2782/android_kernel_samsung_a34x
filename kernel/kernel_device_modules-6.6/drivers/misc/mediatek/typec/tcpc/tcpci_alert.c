@@ -356,7 +356,7 @@ int tcpci_alert(struct tcpc_device *tcpc, bool masked)
 		mutex_lock(&tcpc->rxbuf_lock);
 		if (!(alert_status & TCPC_V10_REG_ALERT_RX_HARD_RST) &&
 		    pd_bist_mode == PD_BIST_MODE_DISABLE)
-		tcpci_alert_recv_msg(tcpc);
+			tcpci_alert_recv_msg(tcpc);
 	}
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
@@ -449,7 +449,7 @@ int tcpci_report_usb_port_attached(struct tcpc_device *tcpc)
 {
 	TCPC_DBG("usb_port_attached\n");
 
-
+	tcpci_set_vbus_dischg_gpio(tcpc, 0);
 #if IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 	tcpci_port_role_event_work(tcpc->typec_attach_new);
 #endif
@@ -498,7 +498,7 @@ int tcpci_report_usb_port_detached(struct tcpc_device *tcpc)
 #if IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 	sec_dfp_accessory_detach_handler(&tcpc->pd_port);
 #endif /* CONFIG_PDIC_NOTIFIER */
-
+	tcpci_set_vbus_dischg_gpio(tcpc, 1);
 	return 0;
 }
 

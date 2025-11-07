@@ -20,7 +20,7 @@
 #include "mtk_low_battery_throttling_trace.h"
 #include "../mbraink/mbraink_ioctl_struct_def.h"
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_MTK_NO_BAT_BOOT_SUPPORT)
 #include <../../drivers/battery/common/sec_charging_common.h>
 #endif
 
@@ -99,6 +99,7 @@ struct lbat_thl_priv {
 	unsigned int *thl_lv;                  /* pmic notify level to throttle level mapping table */
 	unsigned int cur_thl_lv;               /* current throttle level to each module */
 	unsigned int cur_cg_thl_lv;            /* current cpu/gpu throttle level to each module */
+	unsigned int lvsys_cust_thl_lv;        /* pmic lvsys level to throttle level customization */
 	unsigned int thl_cnt[LOW_BATTERY_USER_NUM][LOW_BATTERY_LEVEL_NUM];
 	struct lbat_mbrain lbat_mbrain_info;
 	struct lbat_user *lbat_pt[INTR_MAX_NUM];
@@ -121,6 +122,8 @@ static int low_battery_f_mode;
 #endif
 #endif
 static DEFINE_MUTEX(exe_thr_lock);
+
+static int g_lbat_legacy_proj;
 
 static int rearrange_volt(struct lbat_intr_tbl *intr_info, unsigned int *volt_l, unsigned int *volt_h,
 	unsigned int num)
@@ -314,7 +317,7 @@ static unsigned int convert_to_thl_lv(enum LOW_BATTERY_USER_TAG intr_type, unsig
 				intr_type, input_lv, temp_stage, input_lv);
 	} else if (intr_type == LVSYS_INTR) {
 		if (input_lv && temp_stage <= lbat_data->temp_max_stage)
-			thl_lv = lbat_data->thl_lv[temp_stage * LBAT_PMIC_LEVEL_NUM + LBAT_PMIC_MAX_LEVEL];
+			thl_lv = lbat_data->thl_lv[temp_stage * LBAT_PMIC_LEVEL_NUM + lbat_data->lvsys_cust_thl_lv];
 		else if (temp_stage > lbat_data->temp_max_stage)
 			pr_info("%s:Out of boundary: intr_type=%d pmic_lv=%d temp_stage=%d return %d\n", __func__,
 				intr_type, input_lv, temp_stage, input_lv);
@@ -505,6 +508,9 @@ void exec_low_battery_callback(unsigned int thd)
 	if (lbat_lv == -1)
 		return;
 
+	if (g_lbat_legacy_proj && lbat_lv >= 3)
+		return;
+
 	decide_and_throttle(LBAT_INTR_1, lbat_lv, thd);
 }
 
@@ -519,6 +525,9 @@ void exec_dual_low_battery_callback(unsigned int thd)
 
 	lbat_lv = lbat_thd_to_lv(thd, lbat_data->temp_reg_stage, LBAT_INTR_2);
 	if (lbat_lv == -1)
+		return;
+
+	if (g_lbat_legacy_proj && lbat_lv >= 3)
 		return;
 
 	decide_and_throttle(LBAT_INTR_2, lbat_lv, thd);
@@ -802,8 +811,34 @@ static int __used pt_check_power_off(void)
 		pt_power_off_cnt = 0;
 
 	if (pt_power_off_cnt >= 4) {
-		pr_info("Powering off by PT.\n");
-		kernel_power_off();
+		// pr_info("Powering off by PT.\n");
+		// kernel_power_off();
+	}
+
+	return ret;
+}
+
+static int __used pt_check_power_off_legacy(void)
+{
+	int ret = 0, pt_power_off_lv = 2;
+	static int pt_power_off_cnt;
+
+	if (!lbat_data)
+		return 0;
+
+	if (lbat_data->cur_thl_lv == pt_power_off_lv) {
+		if (pt_power_off_cnt == 0)
+			ret = 0;
+		else
+			ret = 1;
+		pt_power_off_cnt++;
+		pr_info("[%s] %d ret:%d\n", __func__, pt_power_off_cnt, ret);
+	} else
+		pt_power_off_cnt = 0;
+
+	if (pt_power_off_cnt >= 4) {
+		// pr_info("Powering off by PT.\n");
+		// kernel_power_off();
 	}
 
 	return ret;
@@ -839,11 +874,17 @@ static void __used pt_set_shutdown_condition(void)
 
 static int pt_notify_handler(void *unused)
 {
+	int pt_power_off = 0;
 	do {
 		wait_event_interruptible(lbat_data->notify_waiter,
 			(lbat_data->notify_flag == true));
 
-		if (pt_check_power_off()) {
+		if (g_lbat_legacy_proj)
+			pt_power_off = pt_check_power_off_legacy();
+		else
+			pt_power_off = pt_check_power_off();
+
+		if (pt_power_off) {
 			/* notify battery driver to power off by SOC=0 */
 			pt_set_shutdown_condition();
 			pr_info("[PT] notify battery SOC=0 to power off.\n");
@@ -871,7 +912,7 @@ int pt_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 		return NOTIFY_DONE;
 	}
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	if (strcmp(psy->desc->name, "mtk-fg-battery") != 0)
 #else
 	if (strcmp(psy->desc->name, "battery") != 0)
@@ -947,7 +988,7 @@ static void psy_handler(struct work_struct *work)
 
 	psy = lbat_data->psy;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	if (strcmp(psy->desc->name, "mtk-fg-battery") != 0)
 #else
 	if (strcmp(psy->desc->name, "battery") != 0)
@@ -1243,6 +1284,14 @@ static int low_battery_thd_setting(struct platform_device *pdev, struct lbat_thl
 		return -EINVAL;
 	}
 
+	ret = of_property_read_u32(np, "lvsys-cust-thl-lv", &priv->lvsys_cust_thl_lv);
+	if (ret || priv->lvsys_cust_thl_lv > LBAT_PMIC_MAX_LEVEL) {
+		priv->lvsys_cust_thl_lv = LBAT_PMIC_MAX_LEVEL;
+		pr_info("[%s] get lvsys_cust_thl_lv fail from dt, ret=%d lvsys_cust_thl_lv=%d\n", __func__, ret,
+			priv->lvsys_cust_thl_lv);
+	}
+	pr_info("[%s] get lvsys_cust_thl_lv=%d\n", __func__, priv->lvsys_cust_thl_lv);
+
 	volt_size = LBAT_PMIC_MAX_LEVEL * (priv->temp_max_stage + 1);
 	volt_thd = devm_kmalloc_array(&pdev->dev, volt_size * 2, sizeof(u32), GFP_KERNEL);
 	if (!volt_thd)
@@ -1357,7 +1406,7 @@ static int low_battery_register_setting(struct platform_device *pdev,
 static int low_battery_throttling_probe(struct platform_device *pdev)
 {
 	int ret, i;
-	int lvsys_thd_enable, vbat_thd_enable;
+	int lvsys_thd_enable, lbat_legacy_proj, vbat_thd_enable;
 	struct lbat_thl_priv *priv;
 	struct device_node *np = pdev->dev.of_node;
 #if defined(CONFIG_MTK_NO_BAT_BOOT_SUPPORT)
@@ -1388,6 +1437,14 @@ static int low_battery_throttling_probe(struct platform_device *pdev)
 		lvsys_thd_enable = 0;
 	}
 
+	ret = of_property_read_u32(np, "lbat-legacy-proj", &lbat_legacy_proj);
+	if (ret) {
+		dev_notice(&pdev->dev,
+			"[%s] failed to get lbat_legacy_proj ret=%d\n", __func__, ret);
+		lbat_legacy_proj = 0;
+	}
+	g_lbat_legacy_proj = lbat_legacy_proj;
+
 	ret = of_property_read_u32(np, "vbat-thd-enable", &vbat_thd_enable);
 	if (ret) {
 		dev_notice(&pdev->dev,
@@ -1395,13 +1452,13 @@ static int low_battery_throttling_probe(struct platform_device *pdev)
 		vbat_thd_enable = 1;
 	}
 
-	if (vbat_thd_enable) {
-		ret = low_battery_thd_setting(pdev, priv);
-		if (ret) {
-			pr_info("[%s] low_battery_thd_setting error, ret=%d\n", __func__, ret);
-			return ret;
-		}
+	ret = low_battery_thd_setting(pdev, priv);
+	if (ret) {
+		pr_info("[%s] low_battery_thd_setting error, ret=%d\n", __func__, ret);
+		return ret;
+	}
 
+	if (vbat_thd_enable) {
 		for (i = 0; i < priv->lbat_intr_num; i++) {
 			ret = low_battery_register_setting(pdev, priv, i, 0);
 			if (ret) {

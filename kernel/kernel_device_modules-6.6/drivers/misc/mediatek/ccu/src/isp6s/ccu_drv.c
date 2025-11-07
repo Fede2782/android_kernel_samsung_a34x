@@ -870,17 +870,34 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		struct ccu_cmd_s *cmd = 0;
 
 		/*allocate ccu_cmd_st_list instead of ccu_cmd_st*/
-		ccu_alloc_command(&cmd);
+		ret = ccu_alloc_command(&cmd);
+		if (ret != 0) {
+			LOG_ERR("[ENQUE_COMMAND] ccu_alloc_command, ret=%d\n", ret);
+			mutex_unlock(&g_ccu_device->dev_mutex);
+			return ret;
+		}
 		ret = copy_from_user(
 			cmd, (void *)arg, sizeof(struct ccu_cmd_s));
 		if (ret != 0) {
 			LOG_ERR(
 			"[ENQUE_COMMAND] copy_from_user failed, ret=%d\n", ret);
+			ret = ccu_free_command(cmd);
+			if (ret != 0)
+				LOG_ERR("[ENQUE_COMMAND] free command user, ret=%d\n", ret);
 			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
 		}
 
 		ret = ccu_push_command_to_queue(user, cmd);
+		if (ret != 0) {
+			LOG_ERR("[ENQUE_COMMAND] push command, ret=%d\n", ret);
+			ret = ccu_free_command(cmd);
+			if (ret != 0)
+				LOG_ERR("[ENQUE_COMMAND] free command, ret=%d\n", ret);
+			mutex_unlock(&g_ccu_device->dev_mutex);
+			return -EFAULT;
+		}
+
 		break;
 	}
 
@@ -899,6 +916,9 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		if (ret != 0) {
 			LOG_ERR(
 			"[DEQUE_COMMAND] copy_to_user failed, ret=%d\n", ret);
+			ret = ccu_free_command(cmd);
+			if (ret != 0)
+				LOG_ERR("[DEQUE_COMMAND] free command user, ret=%d\n", ret);
 			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
 		}
@@ -933,11 +953,14 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		uint32_t *outdata = NULL;
 
 		indata = kzalloc(CCU_IPC_IBUF_CAPACITY, GFP_KERNEL);
-		if (!indata)
+		if (!indata) {
+			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -ENOMEM;
+		}
 		outdata = kzalloc(CCU_IPC_OBUF_CAPACITY, GFP_KERNEL);
 		if (!outdata) {
 			kfree(indata);
+			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -ENOMEM;
 		}
 		ret = copy_from_user(&msg,
@@ -1331,8 +1354,10 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		dma_addr_t dma_addr;
 		struct dma_buf *buf;
 
-		if (iova_buf_count >= CCU_IOVA_BUFFER_MAX)
+		if (iova_buf_count >= CCU_IOVA_BUFFER_MAX) {
+			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
+		}
 
 		ret = copy_from_user(&fd,
 			(void *)arg, sizeof(int));
@@ -1384,11 +1409,16 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		if (ret != 0) {
 			LOG_ERR(
 			"[CCU_IOCTL_GET_IOVA] copy_to_user failed, ret=%d\n", ret);
-			mutex_unlock(&g_ccu_device->dev_mutex);
-			return -EFAULT;
+			goto err_copy_out;
 		}
 
 		break;
+
+err_copy_out:
+		--iova_buf_count;
+		dma_buf_unmap_attachment(ccu_iova[iova_buf_count].attach,
+			ccu_iova[iova_buf_count].sgt, DMA_BIDIRECTIONAL);
+
 err_map:
 		dma_buf_detach(ccu_iova[iova_buf_count].dma_buf, ccu_iova[iova_buf_count].attach);
 

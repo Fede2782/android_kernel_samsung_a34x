@@ -17,20 +17,12 @@
 #ifndef _RESET_FSM
 #define _RESET_FSM
 
-#ifndef CFG_RESETKO_ENABLE_WAKE_LOCK
-#define CFG_RESETKO_ENABLE_WAKE_LOCK 1
-#endif
-
 /**********************************************************************
 *                    E X T E R N A L   R E F E R E N C E S
 ***********************************************************************
 */
 #include <linux/kernel.h>
 #include <linux/timer.h>
-#include <linux/workqueue.h>
-#include <linux/list.h>
-#include <linux/mutex.h>
-#include <linux/device.h>
 
 /**********************************************************************
 *                                 M A C R O S
@@ -56,7 +48,6 @@ enum ModuleType {
 	RESET_MODULE_TYPE_WIFI = 0,
 	RESET_MODULE_TYPE_BT,
 	RESET_MODULE_TYPE_ZB,
-	RESET_MODULE_TYPE_LRWPAN = RESET_MODULE_TYPE_ZB,
 
 	RESET_MODULE_TYPE_MAX
 };
@@ -101,32 +92,25 @@ struct FsmState {
 struct FsmEntity {
 	struct list_head node;
 
-	uint32_t dongle_id;
 	char *name;
 	enum ModuleType eModuleType;
 
-	bool fgReady;
+	enum TriggerResetApiType resetApiType;
+	bool fgReadyForReset;
+	ResetFunc resetFunc;
 	NotifyFunc notifyFunc;
-	struct mutex notifyEventMutex;
-	struct list_head notifyEventList;
-	struct delayed_work notifyWork;
-
-#if CFG_RESETKO_ENABLE_WAKE_LOCK
-	struct wakeup_source *wakeupSource;
-#endif
-	int wakeupCount;
 
 	struct timer_list resetTimer;
 	struct FsmState *fsmState;
-
 };
 
 /**********************************************************************
 *                  F U N C T I O N   D E C L A R A T I O N S
 ***********************************************************************
 */
-struct FsmEntity *allocFsmEntity(uint32_t dongle_id,
-				char *name, enum ModuleType eModuleType);
+struct FsmEntity *allocFsmEntity(char *name,
+				 enum ModuleType eModuleType,
+				 enum TriggerResetApiType resetApiType);
 void freeFsmEntity(struct FsmEntity *fsm);
 
 void RFSM_handle_event(struct FsmEntity *fsm, unsigned int event);

@@ -105,6 +105,8 @@ static void ffa_mem_list_dump(void)
 	struct ffa_mem_record_table __maybe_unused *mem_record;
 
 	list_head = ffa_mem_list_lock();
+	if (!list_head)
+		goto err_unlock;
 	for (iterator = list_head->next; iterator != list_head; iterator = iterator->next) {
 		mem_record = list_entry(iterator, struct ffa_mem_record_table, list);
 		/* FFA_DEBUG("[DUMP] handle=0x%lx mem_region=0x%lx, meta_data=0x%lx\n",
@@ -113,6 +115,7 @@ static void ffa_mem_list_dump(void)
 		 *				mem_record->meta_data);
 		 */
 	}
+err_unlock:
 	ffa_mem_list_unlock();
 }
 
@@ -233,7 +236,7 @@ static long memory_send(bool share, bool involve_sp,
 	void *mem_region;
 	char *buf;
 	struct sg_table sgt;
-	struct page **pages;
+	struct page **pages = NULL;
 	struct ffa_mem_ops_args args;
 	u32 index;
 	struct ffa_mem_region_attributes mem_region_attributes[VM_NUMBER_MAX+1];
@@ -262,6 +265,11 @@ static long memory_send(bool share, bool involve_sp,
 
 	/* sharing only even pages to produce fragmentations */
 	page_entries /= 2;
+	if (page_entries == 0) {
+		retval = -EINVAL;
+		goto free_mem_ret;
+	}
+
 	pages = kcalloc(page_entries, sizeof(void *), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(pages)) {
 		FFA_ERR("Out of memory. %s:%d\n", __FILE__, __LINE__);
@@ -450,6 +458,7 @@ static int ffa_memory_share_read(struct args *args)
 {
 	uint32_t i;
 	unsigned char *ptr;
+	int ret = 0;
 
 	int found = 0;
 	uint32_t mem_size;
@@ -461,6 +470,10 @@ static int ffa_memory_share_read(struct args *args)
 	handle = args->arg[1];
 
 	list_head = ffa_mem_list_lock();
+	if (!list_head) {
+		ffa_mem_list_unlock();
+		return -1;
+	}
 
 	for (iterator = list_head->next; iterator != list_head; iterator = iterator->next) {
 		mem_record = list_entry(iterator, struct ffa_mem_record_table, list);
@@ -469,29 +482,34 @@ static int ffa_memory_share_read(struct args *args)
 			break;
 		}
 	}
-	ffa_mem_list_unlock();
 
 	if (found) {
 		ptr = (unsigned char *)mem_record->mem_region;
 		mem_size = mem_record->mem_size;
 	} else {
-		return -1;
+		ret = -1;
+		goto err_ret;
 	}
 
 	if (!ptr) {
 		FFA_ERR("share memory is not yet configured\n");
-		return -EFAULT;
+		ret = -EFAULT;
+		goto err_ret;
 	}
 
 	for (i = 0; i < mem_size; i++) {
 		if (ptr[i] != 'B') {
 			FFA_ERR("%s %d Test failed on ptr[%u], expect=%x, real=%x\n",
 				   __func__, __LINE__, i, 'B', ptr[i]);
-			return -EFAULT;
+			ret = -EFAULT;
+			goto err_ret;
 		}
 	}
+
 	FFA_INFO("%s test passed!\n", __func__);
-	return 0;
+err_ret:
+	ffa_mem_list_unlock();
+	return ret;
 }
 
 /**
@@ -591,7 +609,6 @@ static int gz_ffa_memory_reclaim(struct args *args)
 			break;
 		}
 	}
-	ffa_mem_list_unlock();
 
 	if (found) {
 		kfree(mem_record->origin_mem_region);
@@ -604,9 +621,10 @@ static int gz_ffa_memory_reclaim(struct args *args)
 
 		kfree(mem_record->meta_data);
 
-		ffa_mem_list_dump();
+		ffa_mem_list_unlock();
 		return 0;
 	}
+	ffa_mem_list_unlock();
 
 	ffa_mem_list_dump();
 	return -10;
@@ -640,6 +658,10 @@ static int gz_ffa_partition_info(struct args *args)
 	int ret = 0;
 	char target_uuid[VM_UUID_LENGTH + 1] = {0};
 	struct ffa_partition_info *buffer = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	if (unlikely(!buffer)) {
+		FFA_ERR("Out of memory. %s:%d\n", __FILE__, __LINE__);
+		return -ENOMEM;
+	}
 
 	memcpy(target_uuid, args, VM_UUID_LENGTH);
 

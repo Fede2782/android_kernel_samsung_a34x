@@ -161,10 +161,15 @@ static inline struct dentry *d_real_comp(struct dentry *dentry)
 {
 	return d_real(dentry, NULL, 0, 0);
 }
-#else
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0)
 static inline struct dentry *d_real_comp(struct dentry *dentry)
 {
 	return d_real(dentry, d_real_inode(dentry));
+}
+#else
+static inline struct dentry *d_real_comp(struct dentry *dentry)
+{
+	return d_real(dentry, D_REAL_METADATA);
 }
 #endif
 
@@ -270,9 +275,13 @@ static inline int base64_encode(const u8 *src, int srclen, char *dst)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
 #define __vfs_setxattr_noperm(dentry, name, value, size, flags) \
 		__vfs_setxattr_noperm(&nop_mnt_idmap, dentry, name, value, size, flags)
+#define __vfs_setxattr(dentry, inode, name, value, size, flags) \
+		__vfs_setxattr(&nop_mnt_idmap, dentry, inode, name, value, size, flags)
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
 #define __vfs_setxattr_noperm(dentry, name, value, size, flags) \
 		__vfs_setxattr_noperm(&init_user_ns, dentry, name, value, size, flags)
+#define __vfs_setxattr(dentry, inode, name, value, size, flags) \
+		__vfs_setxattr(&init_user_ns, dentry, inode, name, value, size, flags)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 3, 0)
@@ -286,6 +295,27 @@ static inline size_t str_has_prefix(const char *str, const char *prefix)
 	size_t len = strlen(prefix);
 	return strncmp(str, prefix, len) == 0 ? len : 0;
 }
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0)
+#include <linux/fs.h>
+static inline u64
+inode_query_iversion(struct inode *inode)
+{
+	return inode->i_version;
+}
+#else
+#include <linux/iversion.h>
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+#define proca_lsmid "proca_lsm"
+#else
+static const struct lsm_id struct_proca_lsmid = {
+	.name = "proca_lsm",
+	.id = LSM_ORDER_LAST,
+};
+static const struct lsm_id * proca_lsmid = &struct_proca_lsmid;
 #endif
 
 #endif /* __LINUX_PROCA_PORTING_H */

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -46,107 +46,107 @@ struct IDX_LOG_ENTRY {
 	uint32_t u4EntryLen;	/* total log message entry length */
 };
 
-static const char * const apucFwDbgModule[] = {
-	"HEM",			/* 0 */
-	"AIS",
-	"RLM",
-	"MEM",
-	"CNM",
-	"RSN",			/* 5 */
-	"RXM",
-	"TXM",
-	"BSS",
-	"EVENT",
-	"SCN",			/* 10 */
-	"SAA",
-	"AAA",
-	"MGT",
-	"INIT",
-	"REQ",			/* 15 */
-	"WAPI",
-	"NIC",
-	"HAL",
-	"COEX",
-	"PM",			/* 20 */
-	"LP",
-	"RFTEST",
-	"ICAP",
-	"RRM",
-	"MQM",			/* 25 */
-	"RDM",
-	"P2P",
-	"RLM_AR",
-	"AR",
-	"ROAMING",		/* 30 */
-	"RTT",
-	"TDLS",
-	"BF",
-	"MU",
-	"SLT",			/* 35 */
-	"CMD",
-	"RA",
-	"PF",
-	"WTBL",
-	"SER",			/* 40 */
-	"WH_HIF",
-	"TP",
-	"SUSPEND_MODE",
-	"DBDC",
-	"ISR",			/* 45 */
-	"HWCFG",
-	"VOW",
-	"EMUL",
-	"ARP_NS",
-	"TIMER",		/* 50 */
-	"STAREC",
-	"THERMAL",
-	"TXPOWER",
-	"PKT_DROP",
-	"STATS",		/* 55 */
-	"RSSI_MONITOR",
-	"WFC_KEEP_ALIVE",
-	"TB",
-	"TXCMD",
-	"DYNSND",		/* 60 */
-	"SPE",
-	"EXT_TXCMD",
-	"EXT_CMDRPT_TX",
-	"EXT_CMDRPT_TRIG",
-	"EXT_SPL",		/* 65 */
-	"EXT_RXRPT",
-	"EXT_TXV",
-	"EXT_HERA",
-	"SCS",
-	"COANT",		/* 70 */
-	"ECC",
-	"MURU",
-	"TAM",
-	"SR",
-	"RXV",			/* 75 */
-	"CONNCOEX",
-	"MDVT",
-	"CAL",
-	"EXT_RANGE",
-	"AHDBG",		/* 80 */
-	"DPP",
-	"NAN",
-	"DYNWMM",
-	"EXT_SND",
-	"EXT_BSRP",		/* 85 */
-	"EXT_TPUTM",
-	"MLO",
-	"AMSDU",
-	"MLR",
+static uint8_t *apucFwDbgModule[] = {
+	(uint8_t *) DISP_STRING("HEM"),			/* 0 */
+	(uint8_t *) DISP_STRING("AIS"),
+	(uint8_t *) DISP_STRING("RLM"),
+	(uint8_t *) DISP_STRING("MEM"),
+	(uint8_t *) DISP_STRING("CNM"),
+	(uint8_t *) DISP_STRING("RSN"),			/* 5 */
+	(uint8_t *) DISP_STRING("RXM"),
+	(uint8_t *) DISP_STRING("TXM"),
+	(uint8_t *) DISP_STRING("BSS"),
+	(uint8_t *) DISP_STRING("EVENT"),
+	(uint8_t *) DISP_STRING("SCN"),			/* 10 */
+	(uint8_t *) DISP_STRING("SAA"),
+	(uint8_t *) DISP_STRING("AAA"),
+	(uint8_t *) DISP_STRING("MGT"),
+	(uint8_t *) DISP_STRING("INIT"),
+	(uint8_t *) DISP_STRING("REQ"),			/* 15 */
+	(uint8_t *) DISP_STRING("WAPI"),
+	(uint8_t *) DISP_STRING("NIC"),
+	(uint8_t *) DISP_STRING("HAL"),
+	(uint8_t *) DISP_STRING("COEX"),
+	(uint8_t *) DISP_STRING("PM"),			/* 20 */
+	(uint8_t *) DISP_STRING("LP"),
+	(uint8_t *) DISP_STRING("RFTEST"),
+	(uint8_t *) DISP_STRING("ICAP"),
+	(uint8_t *) DISP_STRING("RRM"),
+	(uint8_t *) DISP_STRING("MQM"),			/* 25 */
+	(uint8_t *) DISP_STRING("RDM"),
+	(uint8_t *) DISP_STRING("P2P"),
+	(uint8_t *) DISP_STRING("RLM_AR"),
+	(uint8_t *) DISP_STRING("AR"),
+	(uint8_t *) DISP_STRING("ROAMING"),		/* 30 */
+	(uint8_t *) DISP_STRING("RTT"),
+	(uint8_t *) DISP_STRING("TDLS"),
+	(uint8_t *) DISP_STRING("BF"),
+	(uint8_t *) DISP_STRING("MU"),
+	(uint8_t *) DISP_STRING("SLT"),			/* 35 */
+	(uint8_t *) DISP_STRING("CMD"),
+	(uint8_t *) DISP_STRING("RA"),
+	(uint8_t *) DISP_STRING("PF"),
+	(uint8_t *) DISP_STRING("WTBL"),
+	(uint8_t *) DISP_STRING("SER"),			/* 40 */
+	(uint8_t *) DISP_STRING("WH_HIF"),
+	(uint8_t *) DISP_STRING("TP"),
+	(uint8_t *) DISP_STRING("SUSPEND_MODE"),
+	(uint8_t *) DISP_STRING("DBDC"),
+	(uint8_t *) DISP_STRING("ISR"),			/* 45 */
+	(uint8_t *) DISP_STRING("HWCFG"),
+	(uint8_t *) DISP_STRING("VOW"),
+	(uint8_t *) DISP_STRING("EMUL"),
+	(uint8_t *) DISP_STRING("ARP_NS"),
+	(uint8_t *) DISP_STRING("TIMER"),		/* 50 */
+	(uint8_t *) DISP_STRING("STAREC"),
+	(uint8_t *) DISP_STRING("THERMAL"),
+	(uint8_t *) DISP_STRING("TXPOWER"),
+	(uint8_t *) DISP_STRING("PKT_DROP"),
+	(uint8_t *) DISP_STRING("STATS"),		/* 55 */
+	(uint8_t *) DISP_STRING("RSSI_MONITOR"),
+	(uint8_t *) DISP_STRING("WFC_KEEP_ALIVE"),
+	(uint8_t *) DISP_STRING("TB"),
+	(uint8_t *) DISP_STRING("TXCMD"),
+	(uint8_t *) DISP_STRING("DYNSND"),		/* 60 */
+	(uint8_t *) DISP_STRING("SPE"),
+	(uint8_t *) DISP_STRING("EXT_TXCMD"),
+	(uint8_t *) DISP_STRING("EXT_CMDRPT_TX"),
+	(uint8_t *) DISP_STRING("EXT_CMDRPT_TRIG"),
+	(uint8_t *) DISP_STRING("EXT_SPL"),		/* 65 */
+	(uint8_t *) DISP_STRING("EXT_RXRPT"),
+	(uint8_t *) DISP_STRING("EXT_TXV"),
+	(uint8_t *) DISP_STRING("EXT_HERA"),
+	(uint8_t *) DISP_STRING("SCS"),
+	(uint8_t *) DISP_STRING("COANT"),		/* 70 */
+	(uint8_t *) DISP_STRING("ECC"),
+	(uint8_t *) DISP_STRING("MURU"),
+	(uint8_t *) DISP_STRING("TAM"),
+	(uint8_t *) DISP_STRING("SR"),
+	(uint8_t *) DISP_STRING("RXV"),			/* 75 */
+	(uint8_t *) DISP_STRING("CONNCOEX"),
+	(uint8_t *) DISP_STRING("MDVT"),
+	(uint8_t *) DISP_STRING("CAL"),
+	(uint8_t *) DISP_STRING("EXT_RANGE"),
+	(uint8_t *) DISP_STRING("AHDBG"),		/* 80 */
+	(uint8_t *) DISP_STRING("DPP"),
+	(uint8_t *) DISP_STRING("NAN"),
+	(uint8_t *) DISP_STRING("DYNWMM"),
+	(uint8_t *) DISP_STRING("EXT_SND"),
+	(uint8_t *) DISP_STRING("EXT_BSRP"),		/* 85 */
+	(uint8_t *) DISP_STRING("EXT_TPUTM"),
+	(uint8_t *) DISP_STRING("MLO"),
+	(uint8_t *) DISP_STRING("AMSDU"),
+	(uint8_t *) DISP_STRING("MLR"),
 };
 
-static const char * const apucFwDbgLvl[] = {
-	"ERROR",
-	"WARN",
-	"STATE",
-	"INFO",
-	"LOUD",
-	"EVENT",		/* 5 */
-	"TRACE",
+static uint8_t *apucFwDbgLvl[] = {
+	(uint8_t *) DISP_STRING("ERROR"),
+	(uint8_t *) DISP_STRING("WARN"),
+	(uint8_t *) DISP_STRING("STATE"),
+	(uint8_t *) DISP_STRING("INFO"),
+	(uint8_t *) DISP_STRING("LOUD"),
+	(uint8_t *) DISP_STRING("EVENT"),		/* 5 */
+	(uint8_t *) DISP_STRING("TRACE"),
 };
 
 /*******************************************************************************
@@ -372,14 +372,15 @@ uint8_t *dbgFwLogIdxToStr(struct IDX_LOG_ENTRY *prLogEntry,
 	uint32_t u4HeadPos;
 	uint8_t aucModule[PARAM_SIZE] = {0};
 	uint8_t aucLevel[PARAM_SIZE] = {0};
-	const char *prModule;
-	const char *prLevel;
+	uint8_t *prModule;
+	uint8_t *prLevel;
 
 	prIdxV2Header = (struct IDX_LOG_V2_FORMAT *)pucIdxLog;
 	prArgu = (uint32_t *)(pucIdxLog + sizeof(struct IDX_LOG_V2_FORMAT));
 	prLogPtr = prLogEntry->prStr;
 
-	if (prIdxV2Header->ucModId >= ARRAY_SIZE(apucFwDbgModule)) {
+	if (prIdxV2Header->ucModId >=
+		sizeof(apucFwDbgModule)/sizeof(uint8_t *)) {
 		kalSnprintf(aucModule, PARAM_SIZE, "%d",
 			prIdxV2Header->ucModId);
 		prModule = aucModule;
@@ -387,7 +388,8 @@ uint8_t *dbgFwLogIdxToStr(struct IDX_LOG_ENTRY *prLogEntry,
 		prModule = apucFwDbgModule[prIdxV2Header->ucModId];
 	}
 
-	if (prIdxV2Header->ucLevelId >= ARRAY_SIZE(apucFwDbgLvl)) {
+	if (prIdxV2Header->ucLevelId >=
+		sizeof(apucFwDbgLvl)/sizeof(uint8_t *)) {
 		kalSnprintf(aucLevel, PARAM_SIZE, "%d",
 			prIdxV2Header->ucLevelId);
 		prLevel = aucLevel;

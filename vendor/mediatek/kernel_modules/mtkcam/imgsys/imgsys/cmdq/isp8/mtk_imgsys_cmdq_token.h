@@ -29,9 +29,9 @@ unsigned int imgsys_cmdq_try_vsdof_clear_event(struct token_data *data, struct c
 
 unsigned int imgsys_cmdq_release_token_vsdof(int sw_ridx);
 
-unsigned int imgsys_cmdq_frm_sync_init(void);
+int imgsys_cmdq_frm_sync_init(void);
 
-unsigned int imgsys_cmdq_frm_sync_uninit(void);
+int imgsys_cmdq_frm_sync_uninit(void);
 
 unsigned int imgsys_cmdq_frm_sync_dump_event_info(int event);
 

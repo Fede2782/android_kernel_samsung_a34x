@@ -2554,7 +2554,7 @@ static kal_uint32 get_sensor_temperature(void)
 	/* pr_debug("temp_c(%d), read_reg(%d)\n",*/
 	/*	temperature_convert, temperature); */
 
-	return temperature_convert;
+	return (temperature_convert < 0) ? 0 : temperature_convert;
 }
 
 static kal_uint32 streaming_control(kal_bool enable)

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -350,7 +350,8 @@ u_int8_t wapiPerformPolicySelection(struct ADAPTER *prAdapter,
 	 */
 	prWlanInfo = &prAdapter->rWlanInfo;
 
-	prConnSettings = aisGetConnSettings(prAdapter, ucBssIndex);
+	prConnSettings =
+		aisGetConnSettings(prAdapter, ucBssIndex);
 
 	if (prBss->fgIEWAPI) {
 		prBssWapiInfo = &prBss->rIEWAPI;

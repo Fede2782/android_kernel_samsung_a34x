@@ -79,6 +79,16 @@ config LEDS_REGULATOR_VIBRATOR
 	  To compile this driver as a module, choose 'M' here: the module
 	  will be called regulator-vibrator.
 
+config LEDS_SM5714B
+	tristate "LED support for the SM5714B"
+	depends on LEDS_CLASS && MFD_SM5714B
+	help
+	  This option enables support for SM5714b led chip.
+	  Say yes here to enable this.
+
+	  This driver is invoked from SM5714B PMIC.
+	  This driver will be called sm5714b-fled
+
 comment "Flash and Torch LED drivers"
 source "$(KCONFIG_EXT_PREFIX)drivers/leds/flash/Kconfig"
 

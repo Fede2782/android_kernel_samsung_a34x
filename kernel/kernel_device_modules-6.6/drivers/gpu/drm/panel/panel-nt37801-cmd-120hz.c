@@ -1352,7 +1352,7 @@ static struct mtk_panel_funcs ext_funcs = {
 	.ext_param_set = mtk_panel_ext_param_set,
 	.ext_param_get = mtk_panel_ext_param_get,
 	.get_res_switch_type = mtk_get_res_switch_type,
-	.scaling_mode_mapping = mtk_scaling_mode_mapping,
+	//.scaling_mode_mapping = mtk_scaling_mode_mapping,
 	.mode_switch = mode_switch,
 	.set_bl_elvss_cmdq = lcm_set_bl_elvss_cmdq,
 	/* Not real backlight cmd in AOD, just for QC purpose */

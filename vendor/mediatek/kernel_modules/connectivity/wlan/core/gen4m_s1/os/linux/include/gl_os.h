@@ -508,6 +508,7 @@ struct GL_IO_REQ {
 	u_int8_t fgWaitResp;
 	struct ADAPTER *prAdapter;
 	PFN_OID_HANDLER_FUNC pfnOidHandler;
+	const char *pOidHandlerStr;
 	void *pvInfoBuf;
 	uint32_t u4InfoBufLen;
 	uint32_t *pu4QryInfoLen;

@@ -161,14 +161,16 @@ void mml_dpc_hrt_bw_set(u32 sysid, const u32 bw_in_mb, bool force_keep)
 
 	mml_dpc_funcs.dpc_hrt_bw_set(mml_sysid_to_dpc_subsys(sysid), bw_in_mb, force_keep);
 
-	/* report hrt read channel bw */
-	if (mml_dpc_funcs.dpc_channel_bw_set_by_idx == NULL) {
-		mml_msg_dpc("%s dpc_channel_bw_set_by_idx not exist", __func__);
-		return;
-	}
+	if (mml_dpc_version == DPC_VER2) {
+		/* report hrt read channel bw */
+		if (mml_dpc_funcs.dpc_channel_bw_set_by_idx == NULL) {
+			mml_msg_dpc("%s dpc_channel_bw_set_by_idx not exist", __func__);
+			return;
+		}
 
-	mml_dpc_funcs.dpc_channel_bw_set_by_idx(mml_sysid_to_dpc_subsys(sysid),
-		mml_sysid_to_dpc_hrt_read_idx(sysid), bw_in_mb);
+		mml_dpc_funcs.dpc_channel_bw_set_by_idx(mml_sysid_to_dpc_subsys(sysid),
+			mml_sysid_to_dpc_hrt_read_idx(sysid), bw_in_mb);
+	}
 }
 
 void mml_dpc_srt_bw_set(u32 sysid, const u32 bw_in_mb, bool force_keep)
@@ -180,14 +182,16 @@ void mml_dpc_srt_bw_set(u32 sysid, const u32 bw_in_mb, bool force_keep)
 
 	mml_dpc_funcs.dpc_srt_bw_set(mml_sysid_to_dpc_subsys(sysid), bw_in_mb, force_keep);
 
-	/* report srt read channel bw */
-	if (mml_dpc_funcs.dpc_channel_bw_set_by_idx == NULL) {
-		mml_msg_dpc("%s dpc_channel_bw_set_by_idx not exist", __func__);
-		return;
-	}
+	if (mml_dpc_version == DPC_VER2) {
+		/* report srt read channel bw */
+		if (mml_dpc_funcs.dpc_channel_bw_set_by_idx == NULL) {
+			mml_msg_dpc("%s dpc_channel_bw_set_by_idx not exist", __func__);
+			return;
+		}
 
-	mml_dpc_funcs.dpc_channel_bw_set_by_idx(mml_sysid_to_dpc_subsys(sysid),
-		mml_sysid_to_dpc_srt_read_idx(sysid), bw_in_mb);
+		mml_dpc_funcs.dpc_channel_bw_set_by_idx(mml_sysid_to_dpc_subsys(sysid),
+			mml_sysid_to_dpc_srt_read_idx(sysid), bw_in_mb);
+	}
 }
 
 void mml_dpc_dvfs_bw_set(u32 sysid, const u32 bw_in_mb)
@@ -235,6 +239,9 @@ void mml_dpc_channel_bw_set_by_idx(u32 sysid, u32 bw, bool hrt)
 {
 	u8 idx;
 
+	if (mml_dpc_version == DPC_VER1)
+		return;
+
 	if (mml_dpc_funcs.dpc_channel_bw_set_by_idx == NULL) {
 		mml_msg_dpc("%s dpc_channel_bw_set_by_idx not exist", __func__);
 		return;
@@ -244,6 +251,23 @@ void mml_dpc_channel_bw_set_by_idx(u32 sysid, u32 bw, bool hrt)
 		idx = hrt ? 3 : 1;
 	else
 		idx = hrt ? 11 : 9;
+
+	mml_dpc_funcs.dpc_channel_bw_set_by_idx(mml_sysid_to_dpc_subsys(sysid), idx, bw);
+}
+
+void mml_dpc_channel_bw_set(u32 sysid, u32 bw)
+{
+	u8 idx;
+
+	if (mml_dpc_version == DPC_VER2)
+		return;
+
+	if (mml_dpc_funcs.dpc_channel_bw_set_by_idx == NULL) {
+		mml_msg_dpc("%s dpc_channel_bw_set_by_idx not exist", __func__);
+		return;
+	}
+
+	idx = 3;
 
 	mml_dpc_funcs.dpc_channel_bw_set_by_idx(mml_sysid_to_dpc_subsys(sysid), idx, bw);
 }

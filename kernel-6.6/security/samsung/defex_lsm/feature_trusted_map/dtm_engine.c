@@ -21,13 +21,6 @@
 #include "include/ptree.h"
 
 #define DTM_ANY_VALUE "*" /* wildcard value for files and arguments */
-#if defined(DEFEX_TM_DEFAULT_POLICY_ENABLE) || defined(DEFEX_GKI)
-/* Kernel-only builds don't use DEFEX's dynamic policy loading mechanism. */
-#define USE_EMBEDDED_POLICY
-static struct PPTree embedded_header;
-/* File with hardcoded policy */
-#include "dtm_engine_defaultpolicy.h"
-#endif
 
 #ifdef DEFEX_KUNIT_ENABLED
 static struct PPTree override_header, *pptree_override;
@@ -51,26 +44,6 @@ static int dtm_check_stdin(struct dtm_context *context, int allowed_stdin_modes)
 		return DTM_DENY;
 	}
 	return DTM_ALLOW;
-}
-
-/* String comparator with simple wildcard.
- * Similar to strncmp, except if the second argument contains '*': in this
- * case, returns 0 if the preceding text matches.
- */
-static int strncmp_wc(const char *str, const char *pattern, Str_size_t n)
-{
-	Str_size_t i = 0;
-
-	while (i < n) {
-		if (pattern[i] == '*')
-			return 0;
-		if (str[i] != pattern[i])
-			return str[i] - pattern[i];
-		if (!str[i])
-			break;
-		++i;
-	}
-	return 0;
 }
 
 /*
@@ -99,9 +72,6 @@ int dtm_enforce(struct dtm_context *context)
 		else
 			defex_log_warn("DTM: dynamic policy not loaded");
 		first_run = 0;
-#ifdef USE_EMBEDDED_POLICY
-		pptree_set_data(&embedded_header, dtm_engine_defaultpolicy);
-#endif
 	}
 
 	dtm_trace("Pid : %d %d", current->tgid, current->pid);
@@ -122,11 +92,7 @@ int dtm_enforce(struct dtm_context *context)
 		pptree = pptree_override;
 	else
 #endif
-#ifdef USE_EMBEDDED_POLICY /* try dynamic policy first, use embedded if not found */
-		pptree = dtm_tree.data ? &dtm_tree : &embedded_header;
-#else /* only dynamically loaded policy is acceptable */
 		pptree = &dtm_tree;
-#endif
 	if (!pptree->data) { /* Should never happen */
 		defex_log_warn("(0) TME: neither dynamic nor hardcoded rules loaded");
 		return DTM_ALLOW;
@@ -213,8 +179,7 @@ int dtm_enforce(struct dtm_context *context)
 	     ++argc) {
 		pp_ctx.types |= PTREE_FIND_PEEK;
 		argument_value = dtm_get_callee_arg(context, argc);
-		if (pptree_find_path_c(pptree, argument_value, 0, &pp_ctx,
-				       strncmp_wc)) {
+		if (pptree_find_path(pptree, argument_value, 0, &pp_ctx)) {
 			pp_ctx.types |= PTREE_FIND_PEEKED;
 			pptree_find_path(pptree, "", 0, &pp_ctx);
 			pp_ctx.types &= ~PTREE_FIND_PEEKED;
@@ -237,8 +202,7 @@ int dtm_enforce(struct dtm_context *context)
 		}
 	}
 	if (call_argc > 1 && pptree_get_offset(pptree, &pp_ctx) &&
-		!pptree_find_path_c(pptree, DTM_ANY_VALUE, 0, &pp_ctx,
-				strncmp_wc)) {
+		!pptree_find_path(pptree, DTM_ANY_VALUE, 0, &pp_ctx)) {
 		dtm_trace(
 			"(11) TMED callee '%s', caller '%s', program '%s': %d argument(s),"
 				" more required",

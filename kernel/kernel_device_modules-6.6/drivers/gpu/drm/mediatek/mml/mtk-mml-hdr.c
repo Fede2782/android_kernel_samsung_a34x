@@ -38,6 +38,7 @@
 #define call_hw_op(_comp, op, ...) \
 	(_comp->hw_ops->op ? _comp->hw_ops->op(_comp, ##__VA_ARGS__) : 0)
 #define REG_NOT_SUPPORT 0xfff
+#define OFFSET(m, n) ((m > n) ? (m - n) : 0)
 
 enum mml_hdr_reg_index {
 	HDR_TOP,
@@ -666,12 +667,25 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 
 	hdr_hist_left_start =
 		(tile->out.xs > hdr_frm->out_hist_xs) ? tile->out.xs : hdr_frm->out_hist_xs;
-	hdr_hist_begin_x = hdr_hist_left_start - tile->in.xs;
+	if (hdr_hist_left_start >= tile->in.xs)
+		hdr_hist_begin_x = OFFSET(hdr_hist_left_start, tile->in.xs);
+	else
+		mml_pq_err("compute to negative value error! (%x - %x)",
+			hdr_hist_left_start, tile->in.xs);
 
 	if (task->config->dual && !ccfg->pipe && (idx + 1 >= tile_cnt))
-		hdr_hist_end_x = hdr_frm->cut_pos_x - tile->in.xs - 1;
-	else
-		hdr_hist_end_x = tile->out.xe - tile->in.xs;
+		if (hdr_frm->cut_pos_x >= (tile->in.xs - 1))
+			hdr_hist_end_x = OFFSET(hdr_frm->cut_pos_x, tile->in.xs - 1);
+		else
+			mml_pq_err("compute to negative value error! (%x - %x)",
+				hdr_frm->cut_pos_x, tile->in.xs - 1);
+	else {
+		if (tile->out.xe >= tile->in.xs)
+			hdr_hist_end_x = OFFSET(tile->out.xe, tile->in.xs);
+		else
+			mml_pq_err("compute to negative value error! (%x - %x)",
+				tile->out.xe, tile->in.xs);
+	}
 
 	if (tile->in.xs + hdr_hist_begin_x > tile->in.xe)
 		hdr_hist_begin_x = tile->in.xe - tile->in.xs;
@@ -1044,6 +1058,12 @@ static s32 hdr_config_repost(struct mml_comp *comp, struct mml_task *task,
 	} else {
 		mml_pq_get_readback_buffer(task, pipe, &(task->pq_task->hdr_hist[pipe]));
 
+		begin_pa = cmdq_pkt_get_pa_by_offset(pkt, hdr_frm->begin_offset);
+		condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, hdr_frm->condi_offset);
+		if (unlikely(!condi_inst))
+			mml_pq_err("%s wrong offset %u", __func__, hdr_frm->condi_offset);
+		*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(begin_pa);
+
 		if (unlikely(!task->pq_task->hdr_hist[pipe])) {
 			mml_pq_err("%s job_id[%d] hdr_hist is null", __func__,
 				task->job.jobid);
@@ -1054,13 +1074,6 @@ static s32 hdr_config_repost(struct mml_comp *comp, struct mml_task *task,
 			(u32)task->pq_task->hdr_hist[pipe]->pa);
 		mml_update(comp->id, reuse, hdr_frm->labels[HDR_POLLGPR_1],
 			(u32)DO_SHIFT_RIGHT(task->pq_task->hdr_hist[pipe]->pa, 32));
-
-		begin_pa = cmdq_pkt_get_pa_by_offset(pkt, hdr_frm->begin_offset);
-		condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, hdr_frm->condi_offset);
-		if (unlikely(!condi_inst))
-			mml_pq_err("%s wrong offset %u\n", __func__, hdr_frm->condi_offset);
-
-		*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(begin_pa);
 
 		mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%pad] pkt[%p] ",
 			__func__, task->job.jobid, comp->id, task->pq_task->hdr_hist[pipe]->va,
@@ -1449,14 +1462,20 @@ static void hdr_ir_histogram_check(struct mml_comp_hdr *hdr)
 		0x0000FFFF) >> 0);
 	letter_down = ((hdr->hdr_hist[pipe]->va[57] &
 		0xFFFF0000) >> 16);
-	letter_height = letter_down - letter_up;
+	if (letter_down > letter_up)
+		letter_height = letter_down - letter_up;
+	else
+		mml_pq_err("compute to negative value error! (%x - %x)", letter_down, letter_up);
 
 	hist_up = ((hdr->hdr_hist[pipe]->va[58] &
 		0xFFFF0000) >> 16);
 	hist_down = ((hdr->hdr_hist[pipe]->va[59] &
 		0xFFFF0000) >> 16);
 
-	hist_height = hist_down - hist_up;
+	if (hist_down > hist_up)
+		hist_height = hist_down - hist_up;
+	else
+		mml_pq_err("compute to negative value error! (%x - %x)", hist_down, hist_up);
 
 	if (hdr->dual) {
 		if (pipe) {

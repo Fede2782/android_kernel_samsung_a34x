@@ -652,7 +652,9 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx, struct kbase_as
 
 		/* terminal fault, print info about the fault */
 		if (kbdev->gpu_props.gpu_id.product_model < GPU_ID_MODEL_MAKE(14, 0)) {
-#if IS_ENABLED(CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG)
+#if IS_ENABLED(CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG)\
+			/* Add the unhandled page fault counter for recording */
+			mtk_common_upf_counter_add();
 			dev_err(kbdev->dev,
 				"Unhandled Page fault (p-mode %d) in AS%u at VA 0x%016llX\n"
 				"Reason: %s\n"

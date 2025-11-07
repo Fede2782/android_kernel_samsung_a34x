@@ -75,6 +75,12 @@ void fsm_md_bootup_timeout_handler(struct ccci_fsm_ee *ee_ctl)
 		"Dump MD ee boot failed info\n");
 
 	ee_ctl->ops->dump_ee_info(ee_ctl, MDEE_DUMP_LEVEL_BOOT_FAIL, 0);
+#ifdef MTK_TC10_FEATURE_SET_DEBUG_LEVEL
+	if (ccci_fsm_get_md_state() == BOOT_WAITING_FOR_HS1) {
+		CCCI_ERROR_LOG(0, FSM, "[md1] MD_BOOT_HS1_FAIL trigger panic\n");
+		drv_tri_panic_by_lvl();
+	}
+#endif
 }
 
 void fsm_md_exception_stage(struct ccci_fsm_ee *ee_ctl, int stage)

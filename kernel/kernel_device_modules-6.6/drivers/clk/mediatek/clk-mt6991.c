@@ -5259,12 +5259,12 @@ static void __iomem *plls_base[PLL_SYS_NUM];
 		.pcwibits = MT6991_INTEGER_BITS,			\
 	}
 
-#define PLL_FENC(_id, _name, _fenc_sta_ofs, _fenc_sta_bit,		\
+#define PLL_FENC(_id, _name, _reg, _fenc_sta_ofs, _fenc_sta_bit,	\
 			_flags, _pd_reg, _pd_shift,			\
 			 _pcw_reg, _pcw_shift, _pcwbits) {		\
 		.id = _id,						\
 		.name = _name,						\
-		.reg = 0,						\
+		.reg = _reg,						\
 		.fenc_sta_ofs = _fenc_sta_ofs,				\
 		.fenc_sta_bit = _fenc_sta_bit,				\
 		.flags = (_flags | PLL_CFLAGS | CLK_FENC_ENABLE),	\
@@ -5288,38 +5288,38 @@ static const struct mtk_pll_data cci_plls[] = {
 };
 
 static const struct mtk_pll_data apmixed_plls[] = {
-	PLL_FENC(CLK_APMIXED_MAINPLL, "mainpll",
+	PLL_FENC(CLK_APMIXED_MAINPLL, "mainpll", MAINPLL_CON0,
 		0x003C/*fenc*/, 7, PLL_AO,
 		MAINPLL_CON1, 24/*pd*/,
 		MAINPLL_CON1, 0, 22/*pcw*/),
-	PLL_FENC(CLK_APMIXED_UNIVPLL, "univpll",
+	PLL_FENC(CLK_APMIXED_UNIVPLL, "univpll", UNIVPLL_CON0,
 		0x003C/*fenc*/, 6, 0,
 		UNIVPLL_CON1, 24/*pd*/,
 		UNIVPLL_CON1, 0, 22/*pcw*/),
-	PLL_FENC(CLK_APMIXED_MSDCPLL, "msdcpll",
+	PLL_FENC(CLK_APMIXED_MSDCPLL, "msdcpll", MSDCPLL_CON0,
 		0x003C/*fenc*/, 5, 0,
 		MSDCPLL_CON1, 24/*pd*/,
 		MSDCPLL_CON1, 0, 22/*pcw*/),
-	PLL_FENC(CLK_APMIXED_ADSPPLL, "adsppll",
+	PLL_FENC(CLK_APMIXED_ADSPPLL, "adsppll", ADSPPLL_CON0,
 		0x003C/*fenc*/, 4, 0,
 		ADSPPLL_CON1, 24/*pd*/,
 		ADSPPLL_CON1, 0, 22/*pcw*/),
-	PLL_FENC(CLK_APMIXED_EMIPLL, "emipll",
+	PLL_FENC(CLK_APMIXED_EMIPLL, "emipll", EMIPLL_CON0,
 		0x003C/*fenc*/, 3, PLL_AO,
 		EMIPLL_CON1, 24/*pd*/,
 		EMIPLL_CON1, 0, 22/*pcw*/),
-	PLL_FENC(CLK_APMIXED_EMIPLL2, "emipll2",
+	PLL_FENC(CLK_APMIXED_EMIPLL2, "emipll2", EMIPLL2_CON0,
 		0x003C/*fenc*/, 2, PLL_AO,
 		EMIPLL2_CON1, 24/*pd*/,
 		EMIPLL2_CON1, 0, 22/*pcw*/),
 };
 
 static const struct mtk_pll_data vlp_ck_plls[] = {
-	PLL_FENC(CLK_VLP_CK_VLP_APLL1, "vlp-apll1",
+	PLL_FENC(CLK_VLP_CK_VLP_APLL1, "vlp-apll1", VLP_APLL1_CON0,
 		0x0358/*fenc*/, 1, 0,
 		VLP_APLL1_CON1, 24/*pd*/,
 		VLP_APLL1_CON2, 0, 32/*pcw*/),
-	PLL_FENC(CLK_VLP_CK_VLP_APLL2, "vlp-apll2",
+	PLL_FENC(CLK_VLP_CK_VLP_APLL2, "vlp-apll2", VLP_APLL2_CON0,
 		0x0358/*fenc*/, 0, 0,
 		VLP_APLL2_CON1, 24/*pd*/,
 		VLP_APLL2_CON2, 0, 32/*pcw*/),
@@ -5335,31 +5335,31 @@ static const struct mtk_pll_data mfg_ao_plls[] = {
 };
 
 static const struct mtk_pll_data apmixed2_plls[] = {
-	PLL_FENC(CLK_APMIXED2_MAINPLL2, "mainpll2",
+	PLL_FENC(CLK_APMIXED2_MAINPLL2, "mainpll2", MAINPLL2_CON0,
 		0x03C/*fenc*/, 6, 0,
 		MAINPLL2_CON1, 24/*pd*/,
 		MAINPLL2_CON1, 0, 22/*pcw*/),
-	PLL_FENC(CLK_APMIXED2_UNIVPLL2, "univpll2",
+	PLL_FENC(CLK_APMIXED2_UNIVPLL2, "univpll2", UNIVPLL2_CON0,
 		0x03C/*fenc*/, 5, 0,
 		UNIVPLL2_CON1, 24/*pd*/,
 		UNIVPLL2_CON1, 0, 22/*pcw*/),
-	PLL_FENC(CLK_APMIXED2_MMPLL2, "mmpll2",
+	PLL_FENC(CLK_APMIXED2_MMPLL2, "mmpll2", MMPLL2_CON0,
 		0x03C/*fenc*/, 4, 0,
 		MMPLL2_CON1, 24/*pd*/,
 		MMPLL2_CON1, 0, 22/*pcw*/),
-	PLL_FENC(CLK_APMIXED2_IMGPLL, "imgpll",
+	PLL_FENC(CLK_APMIXED2_IMGPLL, "imgpll", IMGPLL_CON0,
 		0x03C/*fenc*/, 3, 0,
 		IMGPLL_CON1, 24/*pd*/,
 		IMGPLL_CON1, 0, 22/*pcw*/),
-	PLL_FENC(CLK_APMIXED2_TVDPLL1, "tvdpll1",
+	PLL_FENC(CLK_APMIXED2_TVDPLL1, "tvdpll1", TVDPLL1_CON0,
 		0x03C/*fenc*/, 2, 0,
 		TVDPLL1_CON1, 24/*pd*/,
 		TVDPLL1_CON1, 0, 22/*pcw*/),
-	PLL_FENC(CLK_APMIXED2_TVDPLL2, "tvdpll2",
+	PLL_FENC(CLK_APMIXED2_TVDPLL2, "tvdpll2", TVDPLL2_CON0,
 		0x03C/*fenc*/, 1, 0,
 		TVDPLL2_CON1, 24/*pd*/,
 		TVDPLL2_CON1, 0, 22/*pcw*/),
-	PLL_FENC(CLK_APMIXED2_TVDPLL3, "tvdpll3",
+	PLL_FENC(CLK_APMIXED2_TVDPLL3, "tvdpll3", TVDPLL3_CON0,
 		0x03C/*fenc*/, 0, 0,
 		TVDPLL3_CON1, 24/*pd*/,
 		TVDPLL3_CON1, 0, 22/*pcw*/),

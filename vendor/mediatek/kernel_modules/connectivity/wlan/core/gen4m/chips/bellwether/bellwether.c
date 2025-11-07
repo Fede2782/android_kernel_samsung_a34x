@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -17,7 +17,6 @@
 #include "bellwether.h"
 #include "coda/bellwether/wf_wfdma_host_dma0.h"
 #include "coda/bellwether/wf_wfdma_mcu_dma0.h"
-#include "coda/bellwether/wf_hif_dmashdl_top.h"
 #include "coda/bellwether/wf_pse_top.h"
 #include "coda/bellwether/pcie_mac_ireg.h"
 #include "coda/bellwether/conn_infra_rgu_on.h"
@@ -333,11 +332,9 @@ struct BUS_INFO bellwether_bus_info = {
 	.wfmda_wm_rx_group = bellwether_wfmda_wm_rx_group,
 	.wfmda_wm_rx_group_len = ARRAY_SIZE(bellwether_wfmda_wm_rx_group),
 	.prDmashdlCfg = &rBellwetherDmashdlCfg,
-#if (DBG_DISABLE_ALL_INFO == 0)
 	.prPleTopCr = &rBellwetherPleTopCr,
 	.prPseTopCr = &rBellwetherPseTopCr,
 	.prPpTopCr = &rBellwetherPpTopCr,
-#endif
 	.prPseGroup = bellwether_pse_group,
 	.u4PseGroupLen = ARRAY_SIZE(bellwether_pse_group),
 	.pdmaSetup = bellwetherWpdmaConfig,
@@ -389,7 +386,6 @@ struct TX_DESC_OPS_T bellwether_TxDescOps = {
 
 struct RX_DESC_OPS_T bellwether_RxDescOps = {};
 
-#if (DBG_DISABLE_ALL_INFO == 0)
 struct CHIP_DBG_OPS bellwether_DebugOps = {
 	.showPdmaInfo = connac3x_show_wfdma_info,
 	.showPseInfo = connac3x_show_pse_info,
@@ -412,7 +408,6 @@ struct CHIP_DBG_OPS bellwether_DebugOps = {
 	.show_wfdma_dbg_probe_info = bellwether_show_wfdma_dbg_probe_info,
 	.show_wfdma_wrapper_info = bellwether_show_wfdma_wrapper_info,
 };
-#endif /* DBG_DISABLE_ALL_INFO */
 
 struct mt66xx_chip_info mt66xx_chip_info_bellwether = {
 	.bus_info = &bellwether_bus_info,
@@ -421,18 +416,15 @@ struct mt66xx_chip_info mt66xx_chip_info_bellwether = {
 #endif /* CFG_ENABLE_FW_DOWNLOAD */
 	.prTxDescOps = &bellwether_TxDescOps,
 	.prRxDescOps = &bellwether_RxDescOps,
-#if (DBG_DISABLE_ALL_INFO == 0)
 	.prDebugOps = &bellwether_DebugOps,
-#endif
 	.chip_id = BELLWETHER_CHIP_ID,
 	.should_verify_chip_id = FALSE,
-	.sw_sync0 = CONNAC3X_CONN_CFG_ON_CONN_ON_MISC_ADDR,
+	.sw_sync0 = Connac3x_CONN_CFG_ON_CONN_ON_MISC_ADDR,
 	.sw_ready_bits = WIFI_FUNC_NO_CR4_READY_BITS,
 	.sw_ready_bit_offset =
 		Connac3x_CONN_CFG_ON_CONN_ON_MISC_DRV_FM_STAT_SYNC_SHFT,
 	.is_support_cr4 = FALSE,
 	.is_support_wacpu = FALSE,
-	.sw_sync_emi_info = NULL,
 	.txd_append_size = BELLWETHER_TX_DESC_APPEND_LENGTH,
 	.rxd_size = BELLWETHER_RX_DESC_LENGTH,
 	.init_evt_rxd_size = BELLWETHER_RX_INIT_DESC_LENGTH,
@@ -459,10 +451,6 @@ struct mt66xx_chip_info mt66xx_chip_info_bellwether = {
 	.u4LmacWtblDUAddr = CONNAC3X_WIFI_LWTBL_BASE,
 	.u4UmacWtblDUAddr = CONNAC3X_WIFI_UWTBL_BASE,
 	.isSupportMddpAOR = false,
-	.u4HostWfdmaBaseAddr = WF_WFDMA_HOST_DMA0_BASE,
-	.u4HostWfdmaWrapBaseAddr = 0x7c027000,
-	.u4McuWfdmaBaseAddr = WF_WFDMA_MCU_DMA0_BASE,
-	.u4DmaShdlBaseAddr = WF_HIF_DMASHDL_TOP_BASE,
 	.cmd_max_pkt_size = CFG_TX_MAX_PKT_SIZE, /* size 1600 */
 	.chip_capability = BIT(CHIP_CAPA_FW_LOG_TIME_SYNC),
 
@@ -884,7 +872,7 @@ static int __load_rom_binary(struct ADAPTER *prAdapter,
 			continue;
 		}
 
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 			"Request FW ROM image: %s done, size: 0x%zx\n",
 			name_table[idx],
 			temp->size);
@@ -966,7 +954,7 @@ static uint32_t __polling_wf_mcu_idle(struct ADAPTER *prAdapter)
 		kalUdelay(MCU_IDLE_POLL_US);
 	} while ((i++) < MCU_IDLE_POLL_ROUND);
 
-	DBGLOG(INIT, DEBUG, "u4Value: 0x%x, fgIdle: %d\n", u4Value, fgIdle);
+	DBGLOG(INIT, INFO, "u4Value: 0x%x, fgIdle: %d\n", u4Value, fgIdle);
 
 	return (fgIdle == TRUE ? WLAN_STATUS_SUCCESS : WLAN_STATUS_FAILURE);
 }
@@ -992,7 +980,7 @@ static uint32_t __polling_wf_task_idle(struct ADAPTER *prAdapter)
 		kalUdelay(WF_IDLE_POLL_US);
 	} while ((i++) < WF_IDLE_POLL_ROUND);
 
-	DBGLOG(INIT, DEBUG, "u4Value: 0x%x, fgIdle: %d\n", u4Value, fgIdle);
+	DBGLOG(INIT, INFO, "u4Value: 0x%x, fgIdle: %d\n", u4Value, fgIdle);
 
 	return (fgIdle == TRUE ? WLAN_STATUS_SUCCESS : WLAN_STATUS_FAILURE);
 }
@@ -1015,9 +1003,8 @@ static uint32_t bellwetherDownloadRomCode(struct ADAPTER *prAdapter)
 		if (u4Value == CONNSYS_VERSION_ID)
 			break;
 		else if (u4PollingCnt > 100) {
-			DBGLOG(INIT, DEBUG,
-			       "(%d) Polling conninfra id failed, value=0x%x.\n",
-			       __LINE__, u4Value);
+			DBGLOG(INIT, INFO, "(%d) Polling conninfra id failed, value=0x%x.\n",
+				__LINE__, u4Value);
 			ret = WLAN_STATUS_FAILURE;
 			goto exit2;
 		}
@@ -1031,9 +1018,7 @@ static uint32_t bellwetherDownloadRomCode(struct ADAPTER *prAdapter)
 		if (u4Value & CONN_INFRA_CFG_ON_CONN_INFRA_CFG_PWRCTRL1_CONN_INFRA_RDY_MASK)
 			break;
 		else if (u4PollingCnt > 100) {
-			DBGLOG(INIT, DEBUG,
-			       "Polling conninfra ready failed, value=0x%x.\n",
-			       u4Value);
+			DBGLOG(INIT, INFO, "Polling conninfra ready failed, value=0x%x.\n", u4Value);
 			ret = WLAN_STATUS_FAILURE;
 			goto exit1;
 		}
@@ -1059,9 +1044,7 @@ static uint32_t bellwetherDownloadRomCode(struct ADAPTER *prAdapter)
 			(u4Value & CONN_INFRA_CFG_ON_CONN_INFRA_WF_SLP_STATUS_WF2CONN_SLP_PROT_RDY_MASK))
 			break;
 		else if (u4PollingCnt > 100) {
-			DBGLOG(INIT, DEBUG,
-			       "Polling slp prot rdy failed, value=0x%x.\n",
-			       u4Value);
+			DBGLOG(INIT, INFO, "Polling slp prot rdy failed, value=0x%x.\n", u4Value);
 			ret = WLAN_STATUS_FAILURE;
 			goto exit1;
 		}
@@ -1095,9 +1078,8 @@ static uint32_t bellwetherDownloadRomCode(struct ADAPTER *prAdapter)
 		if (u4Value == CONNSYS_VERSION_ID)
 			break;
 		else if (u4PollingCnt > 100) {
-			DBGLOG(INIT, DEBUG,
-			       "(%d) Polling conninfra id failed, value=0x%x.\n",
-			       __LINE__, u4Value);
+			DBGLOG(INIT, INFO, "(%d) Polling conninfra id failed, value=0x%x.\n",
+				__LINE__, u4Value);
 			ret = WLAN_STATUS_FAILURE;
 			goto exit1;
 		}
@@ -1139,7 +1121,7 @@ exit1:
 	HAL_MCR_WR(prAdapter, CONN_HOST_CSR_TOP_CONN_INFRA_WAKEPU_TOP_ADDR, u4Value);
 
 exit2:
-	DBGLOG(INIT, DEBUG, "ret: 0x%lx\n", ret);
+	DBGLOG(INIT, INFO, "ret: 0x%lx\n", ret);
 	return ret;
 }
 

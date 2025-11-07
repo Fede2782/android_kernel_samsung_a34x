@@ -17,6 +17,7 @@ struct mtk_vdisp_funcs {
 	void (*vlp_disp_vote)(u32 user, bool set);
 	s32 (*poll_power_cnt)(s32 val);
 	void (*sent_aod_scp_sema)(void __iomem *_SPM_SEMA_AP);
+	void (*set_clk)(unsigned long rate);
 	void (*query_aging_val)(void);
 	void (*debug_mtcmos_ctrl)(u32 pd_id, bool on);
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK_AUTO_YCT)

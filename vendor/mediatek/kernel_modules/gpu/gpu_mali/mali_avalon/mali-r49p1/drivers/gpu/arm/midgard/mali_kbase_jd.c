@@ -756,11 +756,6 @@ static bool jd_submit_atom(struct kbase_context *const kctx,
 
 	katom->age = kctx->age_count++;
 
-#if defined(CONFIG_MALI_MTK_GPU_BM_JM)
-	/* set up frame number */
-	katom->frame_nr = user_atom->frame_nr;
-#endif
-
 	INIT_LIST_HEAD(&katom->queue);
 	INIT_LIST_HEAD(&katom->jd_item);
 

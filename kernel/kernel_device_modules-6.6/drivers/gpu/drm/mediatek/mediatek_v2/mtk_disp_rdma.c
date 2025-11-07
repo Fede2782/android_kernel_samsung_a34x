@@ -323,9 +323,9 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		//set_swpm_disp_work(); /* counting fps for swpm */
 		if (rdma->id == DDP_COMPONENT_RDMA0)
 			DRM_MMP_EVENT_END(rdma0, val, 0);
-		wakeup_frame_wq(&mtk_crtc->frame_done);
-		DDPIRQ("[IRQ] %s: frame done!\n", mtk_dump_comp_str(rdma));
 		if (mtk_crtc) {
+			wakeup_frame_wq(&mtk_crtc->frame_done);
+			DDPIRQ("[IRQ] %s: frame done!\n", mtk_dump_comp_str(rdma));
 			if (mtk_crtc->esd_ctx) {
 				unsigned int index = drm_crtc_index(&mtk_crtc->base);
 
@@ -389,7 +389,8 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 				wake_up_interruptible(&mtk_crtc->present_fence_wq);
 			}
 		}
-		wakeup_frame_wq(&mtk_crtc->frame_start);
+		if (mtk_crtc)
+			wakeup_frame_wq(&mtk_crtc->frame_start);
 	}
 
 	if (val & (1 << 3)) {

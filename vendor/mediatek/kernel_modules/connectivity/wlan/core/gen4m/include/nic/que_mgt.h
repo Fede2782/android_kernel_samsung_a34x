@@ -227,13 +227,42 @@ extern const uint8_t *apucACI2Str[4];
 #define TXM_DEFAULT_FLUSH_QUEUE_GUARD_TIME  0	/* Unit: 64 us */
 
 #define QM_RX_BA_ENTRY_MISS_TIMEOUT_MS		(200)
-#if CFG_SUPPORT_IOT_AP_BLOCKLIST
 #define QM_RX_BA_ENTRY_IOTAP_MISS_TIMEOUT_MS	(100)
-#endif /* CFG_SUPPORT_IOT_AP_BLOCKLIST */
 #if CFG_SUPPORT_LOWLATENCY_MODE
 #define QM_RX_BA_ENTRY_MISS_TIMEOUT_MS_SHORT	(50)
 #endif /* CFG_SUPPORT_LOWLATENCY_MODE */
 
+#if CFG_MOVE_BA_TO_DRIVER
+/* MQM internal control bitmap per-bit usage
+ * (for operations on g_prMqm->u4FlagBitmap)
+ */
+#define MQM_FLAG_TSPEC_NEGO_ADD_IN_PROGRESS 0
+#define MQM_FLAG_IDLE_TX_BA_TIMER_STARTED   1
+#define MQM_FLAG_IDLE_RX_BA_TIMER_STARTED   2
+
+#define MQM_IDLE_RX_BA_DETECTION			0
+#define MQM_IDLE_RX_BA_CHECK_INTERVAL       5000	/* in msec */
+#define MQM_DEL_IDLE_RXBA_THRESHOLD_BK      6
+#define MQM_DEL_IDLE_RXBA_THRESHOLD_BE      12
+#define MQM_DEL_IDLE_RXBA_THRESHOLD_VI      6
+#define MQM_DEL_IDLE_RXBA_THRESHOLD_VO      6
+
+/* For indicating whether the role when generating a DELBA message */
+#define DELBA_ROLE_INITIATOR			TRUE
+#define DELBA_ROLE_RECIPIENT			FALSE
+
+#define MQM_SET_FLAG(_Bitmap, _flag)	{ (_Bitmap) |= (BIT((_flag))); }
+#define MQM_CLEAR_FLAG(_Bitmap, _flag)	{ (_Bitmap) &= (~BIT((_flag))); }
+#define MQM_CHECK_FLAG(_Bitmap, _flag)	((_Bitmap) & (BIT((_flag))))
+
+enum ENUM_BA_RESET_SEL {
+	MAC_ADDR_TID_MATCH = 0,
+	MAC_ADDR_MATCH,
+	ALWAYS_MATCH,
+	MATCH_NUM
+};
+
+#endif
 /* BW80 NSS1 rate: MCS9 433 Mbps */
 #define QM_DEQUE_PERCENT_VHT80_NSS1	23
 /* BW40 NSS1 Max rate: 200 Mbps */
@@ -246,13 +275,8 @@ extern const uint8_t *apucACI2Str[4];
 /* BW20 NSS1 Max rate: 72.2Mbps (MCS8 86.7Mbps)*/
 #define QM_DEQUE_PERCENT_HT20_NSS1	5
 
-#if (CFG_TC10_FEATURE == 1)
 #define QM_ABS_PRES_LOG_BUF_SIZE	512
 #define QA_ABS_PRES_LOG_MAX_COUNT	25
-#endif
-
-#define QM_ABSENCE_DETECT_INTERVAL      1000 /* Unit: ms */
-#define QM_ABSENCE_DETECT_TIMEOUT      10000 /* Unit: ms */
 
 /*******************************************************************************
  *                             D A T A   T Y P E S
@@ -350,11 +374,20 @@ struct RX_BA_ENTRY {
 	uint16_t u2FirstBubbleSn;
 	u_int8_t fgHasBubble;
 
+#if CFG_MOVE_BA_TO_DRIVER
+	uint8_t ucStatus;
+	uint8_t ucIdleCount;
+	uint16_t u2SnapShotSN;
+#endif
+	/* UINT_8                  ucTxBufferSize; */
+	/* BOOL                    fgIsAcConstrain; */
+	/* BOOL                    fgIsBaEnabled; */
 #if CFG_SUPPORT_RX_AMSDU
 	/* RX reorder for one MSDU in AMSDU issue */
+	/* P_SW_RFB_T prMpduSwRfb; */
 	uint16_t u2SeqNo; /* for statistic */
 	u_int8_t fgAmsduNeedLastFrame; /* for statistic */
-	uint8_t ucLastAmsduSubIdx;
+	uint8_t u8LastAmsduSubIdx;
 	u_int8_t fgIsAmsduDuplicated;
 	u_int8_t fgNoDrop;
 	uint32_t u4SNOverlapCount;
@@ -373,16 +406,11 @@ struct RX_BA_ENTRY {
 
 	u_int8_t fgFlushToHost; /* flush to host (1) or drop (0) */
 
-#if (CFG_SUPPORT_CONNAC3X == 1)
-	/* Detecting Peer TX retry over threshold to trigger TX reset */
-	uint32_t u4RxRetryCount;
-	uint16_t u2LoggedDropHeadSN;
-#endif
-	uint32_t u4ScrambleReset;
+	/* Detecting RX drop over threshold to trigger TX reset */
 	struct {
-		uint32_t u4Count;
-		uint16_t u2SSN;
-	} rDupDrop;
+		uint32_t u4DropCount; /* incremental & reset */
+		uint8_t ucRxMcs; /* log at u4DropCount++ from 0 to 1 */
+	} rDrop;
 };
 
 struct RX_BA_QUE_ENTRY {
@@ -675,7 +703,7 @@ struct IE_WMM_TSPEC {
 	/* WMM TSPEC body */
 	uint8_t aucTsInfo[3];	/* TS Info */
 	/* Note: Utilize PARAM_QOS_TSPEC to fill (memory copy) */
-	uint8_t aucTspecBodyPart[];
+	uint8_t aucTspecBodyPart[1];
 };
 
 struct IE_WMM_HDR {
@@ -685,7 +713,7 @@ struct IE_WMM_HDR {
 	uint8_t ucOuiType;	/* OUI Type */
 	uint8_t ucOuiSubtype;	/* OUI Subtype */
 	uint8_t ucVersion;	/* Version */
-	uint8_t aucBody[];	/* IE body */
+	uint8_t aucBody[1];	/* IE body */
 };
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -803,6 +831,54 @@ struct CMD_ADDBA_REJECT {
 	u_int8_t fgApply;
 	uint8_t aucReserved[2];
 };
+
+#if ARP_MONITER_ENABLE
+struct ARP_MONITOR {
+	/* ARP Req Tx Cnt (Not yet Recv ARP Rsp) */
+	uint16_t arpMoniter;
+	uint8_t apIp[IPV4_ADDR_LEN];
+	uint8_t gatewayIp[IPV4_ADDR_LEN];
+	uint8_t gatewayMac[MAC_ADDR_LEN];
+	uint32_t LastRxCnt;
+	uint32_t CurrentRxCnt;
+	uint32_t LastRxUnicastTime;
+	uint32_t CurrentRxUnicastTime;
+	uint8_t arpIsCriticalThres;
+};
+
+struct ARP_MONITOR_PKT_INFO {
+	uint8_t ucBssIndex;
+	uint16_t u2PacketLen;
+	uint8_t aucTaAddr[MAC_ADDR_LEN];
+	uint8_t *pucData;
+};
+
+enum ENUM_ARP_MONITOR_TYPE {
+	ARP_MONITOR_TYPE_TX_ARP = 0,
+	ARP_MONITOR_TYPE_RX_ARP,
+	ARP_MONITOR_TYPE_RX_DHCP,
+	ARP_MONITOR_TYPE_MAX
+};
+
+struct MSG_ARP_MONITOR {
+	struct MSG_HDR rMsgHdr; /* Must be the first member */
+	enum ENUM_ARP_MONITOR_TYPE eType;
+	struct ARP_MONITOR_PKT_INFO rArpMonPktInfo;
+	uint8_t arData[ETHER_MAX_PKT_SZ];
+};
+#endif /* ARP_MONITER_ENABLE */
+
+#if CFG_MOVE_BA_TO_DRIVER
+/* The status of an TX/RX BA entry in FW
+ * (NEGO means the negotiation process is in progress)
+ */
+enum ENUM_BA_ENTRY_STATUS {
+	BA_ENTRY_STATUS_INVALID = 0,
+	BA_ENTRY_STATUS_NEGO,
+	BA_ENTRY_STATUS_ACTIVE,
+	BA_ENTRY_STATUS_DELETING
+};
+#endif
 
 /*******************************************************************************
  *                            P U B L I C   D A T A
@@ -1158,8 +1234,8 @@ void mqmFillAcQueParam(struct WMM_AC_PARAM *prAcParam,
 		struct AC_QUE_PARMS *prAcQueParams);
 
 void mqmProcessScanResult(struct ADAPTER *prAdapter,
-			  struct BSS_DESC *prScanResult,
-			  struct STA_RECORD *prStaRec);
+			struct BSS_DESC *prScanResult,
+			struct STA_RECORD *prStaRec);
 
 uint32_t mqmFillWmmInfoIE(uint8_t *pucOutBuf,
 	u_int8_t fgSupportUAPSD, uint8_t ucBmpDeliveryAC,
@@ -1191,10 +1267,6 @@ enum ENUM_FRAME_ACTION qmGetFrameAction(struct ADAPTER
 
 void qmHandleEventBssAbsencePresence(struct ADAPTER
 				     *prAdapter, struct WIFI_EVENT *prEvent);
-
-#if (CFG_ABSENCE_TIMEOUT_DETECTION == 1)
-void qmDetectAbnormalBssAbsence(struct ADAPTER *ad);
-#endif /* CFG_ABSENCE_TIMEOUT_DETECTION */
 
 #if CFG_ENABLE_WIFI_DIRECT
 void qmHandleEventStaChangePsMode(struct ADAPTER
@@ -1236,12 +1308,68 @@ void qmFlushTimeoutReorderBubble(struct ADAPTER *prAdapter,
 void qmFlushDeletedBaReorder(struct ADAPTER *prAdapter,
 		struct RX_BA_ENTRY *prReorderQueParm);
 
+#if CFG_MOVE_BA_TO_DRIVER
+void
+mqmSendDelBaFrame(struct ADAPTER *prAdapter,
+		  u_int8_t fgIsInitiator, struct STA_RECORD *prStaRec,
+		  uint32_t u4Tid
+		  uint32_t u4ReasonCode);
+
+uint32_t
+mqmCallbackAddBaRspSent(struct ADAPTER *prAdapter,
+			struct MSDU_INFO *prMsduInfo,
+			enum ENUM_TX_RESULT_CODE rTxDoneStatus);
+
+void mqmTimeoutCheckIdleRxBa(struct ADAPTER *prAdapter,
+			     uintptr_t ulParamPtr);
+
+void
+mqmRxModifyBaEntryStatus(struct ADAPTER *prAdapter,
+			 struct RX_BA_ENTRY *prRxBaEntry,
+			 enum ENUM_BA_ENTRY_STATUS eStatus);
+
+void mqmHandleAddBaReq(struct ADAPTER *prAdapter,
+		       struct SW_RFB *prSwRfb);
+
+void mqmHandleBaActionFrame(struct ADAPTER *prAdapter,
+			    struct SW_RFB *prSwRfb);
+#endif
+
 void qmResetTcControlResource(struct ADAPTER *prAdapter);
 void qmAdjustTcQuotaPle(struct ADAPTER *prAdapter,
 			struct TX_TCQ_ADJUST *prTcqAdjust,
 			struct TX_TCQ_STATUS *prTcqStatus);
+
+#if ARP_MONITER_ENABLE
+void qmDetectArpNoResponse(struct ADAPTER *prAdapter,
+			   struct MSDU_INFO *prMsduInfo);
+u_int8_t qmArpMonitorIsCritical(uint8_t ucBssIndex);
+void qmResetArpDetect(struct ADAPTER *prAdapter,
+			uint8_t ucBssIndex);
+void qmHandleRxArpPackets(struct ADAPTER *prAdapter,
+			  struct SW_RFB *prSwRfb);
+void qmHandleRxDhcpPackets(struct ADAPTER *prAdapter,
+			   struct SW_RFB *prSwRfb);
+void qmArpMonitorHandleLegacyBTOEvent(struct ADAPTER *prAdapter);
+#if CFG_QM_ARP_MONITOR_MSG
+void qmArpMonitorSendMsg(struct ADAPTER *prAdapter,
+	enum ENUM_ARP_MONITOR_TYPE eType,
+	struct ARP_MONITOR_PKT_INFO *prArpMonPktInfo);
+void qmArpMonitorHandleMsg(struct ADAPTER *prAdapter,
+	struct MSG_HDR *prMsgHdr);
+#else /* CFG_QM_ARP_MONITOR_MSG */
+void qmArpMonitorHandlePkt(struct ADAPTER *prAdapter,
+	enum ENUM_ARP_MONITOR_TYPE eType,
+	struct ARP_MONITOR_PKT_INFO *prArpMonPktInfo);
+#endif /* CFG_QM_ARP_MONITOR_MSG */
+uint8_t *qmGetArpPkt(uint8_t *pucData, uint16_t u2PacketLen);
 struct DHCP_PROTOCOL *qmGetDhcpPkt(uint8_t *pucData, uint16_t u2PacketLen,
 	u_int8_t fgFromServer, uint16_t *pDhcpLen);
+void qmGetRxSrcMac(struct ADAPTER *prAdapter,
+	struct SW_RFB *prSwRfb, uint8_t *prMacAddr);
+void qmArpMonitorGetUnicastPktTime(struct ADAPTER *prAdapter,
+	struct SW_RFB *prSwRfb);
+#endif
 
 #if defined(CFG_SUPPORT_REPLAY_DETECTION) || \
 	defined(CFG_SUPPORT_FRAG_AGG_VALIDATION)

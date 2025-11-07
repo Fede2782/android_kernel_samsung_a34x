@@ -1114,6 +1114,46 @@ struct mtk_regdomain {
 #endif
 
 #endif
+
+enum ENUM_SAR_TYPE {
+	SAR_HEAD = 0,
+	SAR_BODY,   /* GRIP */
+	SAR_NR_MMWAVE,
+	SAR_NR_SUB6,
+	SAR_MHS,
+	SAR_NR_SUB6_BAND_INFO_2,
+	SAR_NR_SUB6_BAND_INFO_7,
+	SAR_NR_SUB6_BAND_INFO_25,
+	SAR_NR_SUB6_BAND_INFO_38,
+	SAR_NR_SUB6_BAND_INFO_40,
+	SAR_NR_SUB6_BAND_INFO_41,
+	SAR_NR_SUB6_BAND_INFO_48,
+	SAR_NR_SUB6_BAND_INFO_66,
+	SAR_NR_SUB6_BAND_INFO_77,
+	SAR_NR_SUB6_BAND_INFO_78,
+	SAR_NUM
+};
+
+enum ENUM_SAR_EVENT_ID {
+	HEAD_SAR_BACKOFF_DISABLED = -1,
+	HEAD_SAR_BACKOFF_ENABLED = 0,
+	BODY_SAR_BACKOFF_DISABLED = 1,
+	BODY_SAR_BACKOFF_ENABLED = 2,
+	NR_MMWAVE_SAR_BACKOFF_DISABLED = 3,
+	NR_MMWAVE_SAR_BACKOFF_ENABLED = 4,
+	NR_SUB6_SAR_BACKOFF_DISABLED = 5,
+	NR_SUB6_SAR_BACKOFF_ENABLED = 6,
+	SAR_SAR_BACKOFF_DISABLE_ALL = 7,
+	MHS_SAR_BACKOFF_DISABLED = 8,
+	MHS_SAR_BACKOFF_ENABLED = 9,
+	SAR_EVENT_NUM,
+};
+
+enum ENUM_SAR_CMD_TYPE {
+	SAR_TX_POWER_CALLING = 0,
+	SAR_TX_POWER_SUB6_BAND,
+	SAR_CMD_TYPE_NUM
+};
 /*******************************************************************************
  * P U B L I C   D A T A
  *******************************************************************************
@@ -1294,6 +1334,39 @@ int32_t txPwrParseTagAllT(
 #endif
 
 #endif
+/*----------------------------------------------------------------------------*/
+/*!
+ * @brief This function is gen SAR bitmap
+ *
+ * @param[in] eType : SAR cmd type
+ * @param[in] eId : Event ID
+ *
+ * @return void
+ */
+/*----------------------------------------------------------------------------*/
+void rlmDomainGenSarBitMap(
+	enum ENUM_SAR_CMD_TYPE eType,
+	enum ENUM_SAR_EVENT_ID eId);
+/*----------------------------------------------------------------------------*/
+/*!
+ * @brief This function is use get SAR action bitmap
+ *
+ * @param[in] void
+ *
+ * @return uint32_t : SAR action bitmap
+ */
+/*----------------------------------------------------------------------------*/
+uint32_t rlmDomainGetSarActBitMap(void);
+/*----------------------------------------------------------------------------*/
+/*!
+ * @brief This function is use get SAR scenario name
+ *
+ * @param[in] eType : SAR scenario type
+ *
+ * @return char * : SAR scenario name
+ */
+/*----------------------------------------------------------------------------*/
+char *rlmDomainGetSarScenarioName(enum ENUM_SAR_TYPE eType);
 /*******************************************************************************
  *   F U N C T I O N S
  *******************************************************************************

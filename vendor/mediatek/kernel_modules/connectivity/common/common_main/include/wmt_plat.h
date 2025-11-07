@@ -418,7 +418,7 @@ P_CONSYS_EMI_ADDR_INFO wmt_plat_get_emi_phy_add(VOID);
 UINT32 wmt_plat_read_cpupcr(VOID);
 UINT32 wmt_plat_read_dmaregs(UINT32);
 INT32 wmt_plat_set_host_dump_state(ENUM_HOST_DUMP_STATE state);
-UINT32 wmt_plat_force_trigger_assert(ENUM_FORCE_TRG_ASSERT_T type);
+INT32 wmt_plat_force_trigger_assert(ENUM_FORCE_TRG_ASSERT_T type);
 INT32 wmt_plat_update_host_sync_num(VOID);
 INT32 wmt_plat_get_dump_info(UINT32 offset);
 INT32 wmt_plat_write_emi_l(UINT32 offset, UINT32 value);

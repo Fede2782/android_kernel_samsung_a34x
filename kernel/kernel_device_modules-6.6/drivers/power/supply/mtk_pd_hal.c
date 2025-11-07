@@ -140,7 +140,7 @@ int pd_hal_is_adapter_ready(struct chg_alg_device *alg)
 		if (info->select_adapter) {
 			pd_dbg("%s ta_cap:%d\n", __func__, info->ta_capability);
 			hal->adapter = info->select_adapter;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 			if (info->ta_capability == APDO_TA || info->ta_capability == WO_APDO_TA)
 #else
 			if (info->ta_capability == APDO_TA)
@@ -380,7 +380,7 @@ int pd_hal_set_input_current(struct chg_alg_device *alg,
 	if (alg == NULL)
 		return -EINVAL;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	return 0;
 #endif
 
@@ -443,7 +443,7 @@ int pd_hal_set_charging_current(struct chg_alg_device *alg,
 	if (alg == NULL)
 		return -EINVAL;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	return 0;
 #endif
 
@@ -457,7 +457,7 @@ int pd_hal_set_charging_current(struct chg_alg_device *alg,
 
 	return 0;
 }
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 int pd_hal_set_adapter_cap_type(struct chg_alg_device *alg, enum adapter_cap_type type, int mV, int mA)
 {
 	struct pd_hal *hal;
@@ -724,7 +724,7 @@ int pd_hal_get_uisoc(struct chg_alg_device *alg)
 
 	if (bat_psy == NULL) {
 		pr_notice("%s retry to get bat_psy\n", __func__);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		bat_psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 		bat_psy = power_supply_get_by_name("battery");

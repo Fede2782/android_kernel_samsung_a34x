@@ -23,16 +23,6 @@
  */
 
 /*******************************************************************************
- *			T Y P E   D E C L A R A T I O N S
- *******************************************************************************
- */
-
-struct BSS_DESC;
-struct BSS_DESC_SET;
-struct AP_COLLECTION;
-struct AP_SCORE_INFO;
-
-/*******************************************************************************
  *                    E X T E R N A L   R E F E R E N C E S
  *******************************************************************************
  */
@@ -90,15 +80,7 @@ extern struct mt66xx_hif_driver_data mt66xx_driver_data_mt7990;
 #ifdef MT7925
 extern struct mt66xx_hif_driver_data mt66xx_driver_data_mt7925;
 #endif /* MT7925 */
-#ifdef MT7935
-extern struct mt66xx_hif_driver_data mt66xx_driver_data_mt7935;
-#endif /* MT7935 */
-#ifdef MT7999
-extern struct mt66xx_hif_driver_data mt66xx_driver_data_mt7999;
-#endif /* MT7999 */
-#ifdef MT7902
-extern struct mt66xx_hif_driver_data mt66xx_driver_data_mt7902;
-#endif /* MT7902 */
+
 /*******************************************************************************
  *                              C O N S T A N T S
  *******************************************************************************
@@ -157,6 +139,8 @@ extern struct mt66xx_hif_driver_data mt66xx_driver_data_mt7902;
 #define PCIE_REMAP2_MASK     (BITS(19, 31))
 #define PCIE_REMAP2_BUS_ADDR (0x80000)
 
+
+
 /* UMAC Register */
 #define UMAC_PLE_CR_CFG_BASE_ADDR       0x82060000
 #define UMAC_PSE_CR_CFG_BASE_ADDR       0x82068000
@@ -167,7 +151,6 @@ extern struct mt66xx_hif_driver_data mt66xx_driver_data_mt7902;
 #define UMAC_PSE_PLE_ADDR_DIFF_MAR(_x) \
 	(_x << UMAC_PSE_CR_BITMAP_OFFSET)
 
-#define UMAC_FID_FAULT 0xFFF
 
 #define UMAC_PLE_BASE_ADDRESS   (0xa << 28)
 
@@ -236,6 +219,31 @@ extern struct mt66xx_hif_driver_data mt66xx_driver_data_mt7902;
 #define UMAC_FREEPG_CNT(_x)             (UMAC_BASE(_x) + 0x00000100)
 
 #define UMAC_FREEPG_HEAD_TAIL(_x)       (UMAC_BASE(_x) + 0x00000104)
+
+
+#define UMAC_PG_HIF0_GROUP(_x)          (UMAC_BASE(_x) + 0x00000110)
+#define UMAC_HIF0_PG_INFO(_x)           (UMAC_BASE(_x) + 0x00000114)
+
+#define UMAC_PG_HIF1_GROUP(_x)          (UMAC_BASE(_x) + 0x00000118)
+#define UMAC_HIF1_PG_INFO(_x)           (UMAC_BASE(_x) + 0x0000011C)
+
+#define UMAC_PG_CPU_GROUP(_x)           (UMAC_BASE(_x) + 0x00000150)
+#define UMAC_CPU_PG_INFO(_x)            (UMAC_BASE(_x) + 0x00000154)
+
+
+#define UMAC_PG_LMAC0_GROUP(_x)         (UMAC_BASE(_x) + 0x00000170)
+#define UMAC_LMAC0_PG_INFO(_x)          (UMAC_BASE(_x) + 0x00000174)
+
+#define UMAC_PG_LMAC1_GROUP(_x)         (UMAC_BASE(_x) + 0x00000178)
+#define UMAC_LMAC1_PG_INFO(_x)          (UMAC_BASE(_x) + 0x0000017C)
+
+
+#define UMAC_PG_LMAC2_GROUP(_x)         (UMAC_BASE(_x) + 0x00000180)
+#define UMAC_LMAC2_PG_INFO(_x)          (UMAC_BASE(_x) + 0x00000184)
+
+#define UMAC_PG_PLE_GROUP(_x)           (UMAC_BASE(_x) + 0x00000190)
+#define UMAC_PLE_PG_INFO(_x)            (UMAC_BASE(_x) + 0x00000194)
+
 
 #define UMAC_RL_BUF_CTRL_0(_x)          (UMAC_BASE(_x) + 0x000001A0)
 #define UMAC_RL_BUF_CTRL_1(_x)          (UMAC_BASE(_x) + 0x000001A4)
@@ -445,6 +453,7 @@ extern struct mt66xx_hif_driver_data mt66xx_driver_data_mt7902;
 #define WIFI_CFG_SYNC0_RDY_OFFSET		(16)
 
 #define PCIE_HIF_BASE					0x4000
+#define PCIE_NEW_HIF_BASE				0x7c030000
 
 /* HIF Sys Revision */
 #define HIF_SYS_REV		(PCIE_HIF_BASE + 0x0000)
@@ -949,17 +958,6 @@ union DELAY_INT_CFG_STRUCT {
 /* 4 WLAN TX Data Register 1 */
 #define MCR_WTDR1                           0x0034
 
-/* Since MT7902, add these CR for debug+ */
-/* 4 DB domian debug data */
-#define MCR_DB_COMDBGCR                     0x0040
-
-/* 4 DB domain debug data sel */
-#define MCR_DB_COMDBGCR_SEL                 0x0044
-
-/* 4 Wf mixed debug sel */
-#define MCR_WF_MIXED_DEBUG_SEL              0x0048
-/* Add from MT7902, used for debug- */
-
 /* 4 WLAN RX Data Register 0 */
 #define MCR_WRDR0                           0x0050
 
@@ -975,18 +973,6 @@ union DELAY_INT_CFG_STRUCT {
 /* 4 Host to Device Send Mailbox 2 Register */
 #define MCR_H2DSM2R                         0x0160
 
-/* 4 Host to Device Send Mailbox 3 Register */
-#define MCR_H2DSM3R                         0x0164
-
-/* 4 Host to Device Send Mailbox 4 Register */
-#define MCR_H2DSM4R                         0x0168
-
-/* 4 Host to Device Send Mailbox 5 Register */
-#define MCR_H2DSM5R                         0x016C
-
-/* 4 Host to Device Send Mailbox 6 Register */
-#define MCR_H2DSM6R                         0x0170
-
 /* 4 Device to Host Receive Mailbox 0 Register */
 #define MCR_D2HRM0R                         0x0078
 
@@ -995,18 +981,6 @@ union DELAY_INT_CFG_STRUCT {
 
 /* 4 Device to Host Receive Mailbox 2 Register */
 #define MCR_D2HRM2R                         0x0080
-
-/* 4 Device to Host Receive Mailbox 3 Register */
-#define MCR_D2HRM3R                         0x0174
-
-/* 4 Device to Host Receive Mailbox 4 Register */
-#define MCR_D2HRM4R                         0x0178
-
-/* 4 Device to Host Receive Mailbox 5 Register */
-#define MCR_D2HRM5R                         0x017C
-
-/* 4 Device to Host Receive Mailbox 6 Register */
-#define MCR_D2HRM6R                         0x0180
 
 /* 4 WLAN RX Packet Length Register */
 #define MCR_WRPLR                           0x0090
@@ -1159,13 +1133,6 @@ struct ENHANCE_MODE_DATA_STRUCT {
 	uint32_t u4RcvMailbox0;
 	uint32_t u4RcvMailbox1;
 };
-
-struct TX_RES_INFO_STRUCT {
-	union {
-		uint16_t auTQCnt[SDIO_TX_RESOURCE_NUM];
-		uint32_t au4WTSR[SDIO_TX_RESOURCE_REG_NUM];
-	} rTxResInfo;
-};
 #endif
 
 /* 2 Definition in each register */
@@ -1179,13 +1146,6 @@ struct TX_RES_INFO_STRUCT {
 #define MTK_CHIP_MP_REVERSION_ID        0x0
 
 /* 3 WHLPCR 0x0004 */
-#if (CFG_SUPPORT_SDIO_FORCE_DRV_OWN == 1)
-#define WHLPCR_REG_DB_DELAY_CNT_0x60    0x60
-#define WHLPCR_REG_DB_DELAY_CNT_SHIFT   25
-#define WHLPCR_REG_DB_DELAY_CNT_MASK    BITS(25, 31)
-#define WHLPCR_FORCE_DRV_OWN            BIT(24)
-#define WHLPCR_REG_DB_DELAY_CNT_ENABLE  BIT(22)
-#endif
 #define WHLPCR_FW_OWN_REQ_CLR           BIT(9)
 #define WHLPCR_FW_OWN_REQ_SET           BIT(8)
 #define WHLPCR_IS_DRIVER_OWN            BIT(8)
@@ -1216,11 +1176,6 @@ struct TX_RES_INFO_STRUCT {
 #define WHISR_D2H_SW_ASSERT_INFO_INT    BIT(31)
 #define WHISR_D2H_WKUP_BY_RX_PACKET		BIT(30)
 #define WHISR_D2H_SW_RD_MAILBOX_INT     BIT(29)
-#if (CFG_SUPPORT_WF_DUMP_BT_COREDUMP == 1)
-#define WHISR_D2H_SW_COREDUMP_CHK_HIF_INT      BITS(27, 28)
-#define WHISR_D2H_SW_COREDUMP_CHK_HIF_STS_INT  BIT(28)
-#define WHISR_D2H_SW_COREDUMP_CHK_HIF_CLR_INT  BIT(27)
-#endif /* CFG_SUPPORT_WF_DUMP_BT_COREDUMP */
 #define WHISR_FW_OWN_BACK_INT           BIT(7)
 #define WHISR_WDT_INT                   BIT(5)
 #define WHISR_ABNORMAL_INT              BIT(6)
@@ -1294,13 +1249,6 @@ struct TX_RES_INFO_STRUCT {
  *                             D A T A   T Y P E S
  *******************************************************************************
  */
-
-
-
-enum ENUM_SW_SYNC_BY_EMI_TAG {
-	SW_SYNC_ON_OFF_TAG,
-	SW_SYNC_TAG_NUM
-};
 
 enum ENUM_WIFI_FUNC {
 	WIFI_FUNC_INIT_DONE = BIT(0),
@@ -1473,13 +1421,7 @@ union WPDMA_GLO_CFG_STRUCT {
 };
 
 #define MIN_TEMP_QUERY_TIME		(5 * 60 * 1000) /* ms */
-#define MAX_TEMP_THRESHOLD		(70 * 1000)
-
-struct sw_sync_emi_info {
-	uint32_t tag;
-	uint8_t isValid;
-	uint32_t offset;
-};
+#define MAX_TEMP_THRESHOLD		(60 * 1000)
 
 struct thermal_sensor_info {
 	const char name[16];
@@ -1495,14 +1437,6 @@ struct thermal_info {
 	struct thermal_sensor_info *sensor_info;
 };
 
-#if CFG_SUPPORT_XONVRAM
-struct platcfg_infra_sysram {
-	/* Conninfra sysram address and size for custom config */
-	const uint32_t size;
-	const uint32_t addr;
-};
-#endif
-
 struct mt66xx_chip_info {
 	struct BUS_INFO *bus_info;
 	struct FWDL_OPS_T *fw_dl_ops;
@@ -1512,23 +1446,12 @@ struct mt66xx_chip_info {
 	struct ATE_OPS_T *prAteOps;
 #endif
 	struct CHIP_DBG_OPS *prDebugOps;
-#if (CFG_MTK_WIFI_SUPPORT_IPC == 1)
-	struct WLAN_IPC_INFO * const ipc_info;
-#endif /* CFG_MTK_WIFI_SUPPORT_IPC */
 
 	const unsigned int chip_id;	/* chip id */
 	const unsigned int should_verify_chip_id;	/* verify chip id */
 	const unsigned int sw_sync0;	/* sw_sync0 address */
 	const unsigned int sw_ready_bits;	/* sw_sync0 ready bits */
 	const unsigned int sw_ready_bit_offset;	/* sw_sync0 ready bit offset */
-	/* Pointer to array of emi info for host and FW to sync */
-	struct sw_sync_emi_info * const sw_sync_emi_info;
-#if (CFG_MTK_WIFI_SUPPORT_SW_SYNC_BY_EMI == 1)
-	/* Driver will polling this value when Wi-Fi off
-	 * if sync by EMI is supported.
-	 */
-	const uint32_t wifi_off_magic_num;
-#endif /* CFG_MTK_WIFI_SUPPORT_SW_SYNC_BY_EMI */
 #if defined(_HIF_USB)
 	const unsigned int vdr_pwr_on; /* for USB polling pwr on vdr req done */
 	const unsigned int vdr_pwr_on_chk_bit; /* vdr req done check bit */
@@ -1538,35 +1461,17 @@ struct mt66xx_chip_info {
 	const unsigned int patch_addr;	/* patch download start address */
 	const unsigned int is_support_cr4;	/* support CR4 */
 	const unsigned int is_support_wacpu;	/* support WA-CPU */
-	const u_int8_t is_support_dmashdl_lite;
 #if (CFG_SUPPORT_HOST_OFFLOAD == 1)
 	const u_int8_t is_support_mawd;		/* support MAWD */
 	const u_int8_t is_support_sdo;		/* support SDO */
 	const u_int8_t is_support_rro;		/* support RRO */
 	const u_int8_t is_en_fix_rro_amsdu_error;
+	const uint32_t mawd_cr_backup_offset;
+	const uint32_t *mawd_idx_patch;
 #endif /* CFG_SUPPORT_HOST_OFFLOAD == 1 */
 	const u_int8_t is_en_wfdma_no_mmio_read;
-#if CFG_MTK_WIFI_WFDMA_WB
 	const u_int8_t is_support_wfdma_write_back;
-	const u_int8_t is_support_wfdma_cidx_fetch;
-	const uint32_t wb_dmy_dbg_size;
-	const uint32_t wb_int_sta_size;
-	const uint32_t wb_didx_size;
-	const uint32_t wb_cidx_size;
-	const uint32_t wb_hw_done_flag_size;
-	const uint32_t wb_sw_done_flag_size;
-	const uint32_t wb_md_int_sta_size;
-	const uint32_t wb_md_didx_size;
-	u_int8_t is_enable_wfdma_write_back;
-
-	void (*allocWfdmaWbBuffer)(struct GLUE_INFO *prGlueInfo,
-				   bool fgAllocMem);
-	void (*freeWfdmaWbBuffer)(struct GLUE_INFO *prGlueInfo);
-	void (*enableWfdmaWb)(struct GLUE_INFO *prGlueInfo);
-	void (*runWfdmaCidxFetch)(struct GLUE_INFO *prGlueInfo);
-#endif /* CFG_ENABLE_MAWD_MD_RING */
-	void (*updatePrdcInt)(struct GLUE_INFO *prGlueInfo, u_int8_t fgForceEn);
-#if CFG_MTK_WIFI_SW_EMI_RING
+#if CFG_MTK_WIFI_EN_SW_EMI_READ
 	const u_int8_t is_en_sw_emi_read;
 #endif
 	const u_int8_t fgDumpViaBtOnlyForDbgSOP;
@@ -1588,18 +1493,9 @@ struct mt66xx_chip_info {
 	const unsigned int custom_oid_interface_version;
 	const unsigned int em_interface_version;
 	const unsigned int cmd_max_pkt_size;
-#if CFG_MTK_MDDP_SUPPORT
-	void (*checkMdRxStall)(struct ADAPTER *prAdapter);
-#endif
 	const bool isSupportMddpAOR;
 	const bool isSupportMddpSHM;
-	const unsigned int u4MdLpctlAddr;
 	const uint32_t u4MdDrvOwnTimeoutTime;
-
-	const uint32_t u4HostWfdmaBaseAddr;
-	const uint32_t u4HostWfdmaWrapBaseAddr;
-	const uint32_t u4McuWfdmaBaseAddr;
-	const uint32_t u4DmaShdlBaseAddr;
 
 	const struct ECO_INFO *eco_info;	/* chip version table */
 	uint8_t eco_ver;	/* chip version */
@@ -1664,7 +1560,6 @@ struct mt66xx_chip_info {
 	uint8_t (*asicRxGetRcpiValueFromRxv)(
 		uint8_t ucRcpiMode,
 		struct SW_RFB *prSwRfb);
-	uint8_t (*asicRxGetRxModeValueFromRxv)(struct SW_RFB *prSwRfb);
 	void (*asicRxPerfIndProcessRXV)(
 		struct ADAPTER *prAdapter,
 		struct SW_RFB *prSwRfb,
@@ -1676,18 +1571,11 @@ struct mt66xx_chip_info {
 	uint8_t ucMaxSwapAntenna;
 	uint32_t workAround;
 	char *prTxPwrLimitFile;
-#if (CFG_SUPPORT_POWER_SKU_ENHANCE == 1)
-	char *prTxPwrLimit1ss1tFile;
-#endif
 #if (CFG_SUPPORT_SINGLE_SKU_6G == 1)
 	char *prTxPwrLimit6GFile;
 #if (CFG_SUPPORT_SINGLE_SKU_6G_1SS1T == 1)
 	char *prTxPwrLimit6G1ss1tFile;
 #endif
-#if (CFG_SUPPORT_CE_6G_PWR_REGULATIONS == 1)
-	char *prTxPwrLimit6GVlpFile;
-	char *prTxPwrLimit6GSpFile;
-#endif  /*CFG_SUPPORT_CE_6G_PWR_REGULATIONS == 1*/
 #endif
 	uint8_t ucTxPwrLimitBatchSize;
 	u_int8_t is_support_asic_lp;
@@ -1727,7 +1615,7 @@ struct mt66xx_chip_info {
 	uint32_t (*dmashdlQuotaDecision)(struct ADAPTER *prAdapter,
 		uint8_t ucWmmIndex);
 	u_int8_t is_support_nvram_fragment;
-	int (*checkbusNoAck)(void *prAdapter,
+	int (*checkbushang)(void *prAdapter,
 		uint8_t ucWfResetEnable);
 	void (*checkmcuoff)(struct ADAPTER *prAdapter);
 	uint32_t u4ADieVer;
@@ -1741,34 +1629,6 @@ struct mt66xx_chip_info {
 	void (*asicSerInit)(struct ADAPTER *prAdapter,
 			    const u_int8_t fgAtResetFlow);
 	u_int8_t (*isWfdmaRxReady)(struct ADAPTER *prAdapter);
-#if CFG_NEW_HIF_DEV_REG_IF
-	const enum HIF_DEV_REG_REASON *prValidMmioReadReason;
-	const uint32_t u4ValidMmioReadReasonSize;
-	u_int8_t aucValidMmioReadAry[HIF_DEV_REG_MAX];
-	const u_int8_t fgIsWarnInvalidMmioRead;
-	const u_int8_t fgIsResetInvalidMmioRead;
-	u_int8_t fgIsInitValidMmioReadAry;
-	const enum HIF_DEV_REG_REASON *prNoMmioReadReason;
-	const uint32_t u4NoMmioReadReasonSize;
-	u_int8_t aucNoMmioReadReasonAry[HIF_DEV_REG_MAX];
-
-	u_int8_t (*isValidMmioReadReason)(
-		struct mt66xx_chip_info *prChipInfo,
-		enum HIF_DEV_REG_REASON eReason);
-	u_int8_t (*isNoMmioReadReason)(
-		struct mt66xx_chip_info *prChipInfo,
-		enum HIF_DEV_REG_REASON eReason);
-#endif /* CFG_NEW_HIF_DEV_REG_IF */
-
-	uint8_t (*apsLinkPlanDecision)(struct ADAPTER *prAdapter,
-		struct AP_COLLECTION *prAp, enum ENUM_MLO_LINK_PLAN eLinkPlan,
-		uint8_t ucBssIndex);
-	void (*apsUpdateTotalScore)(struct ADAPTER *prAdapter,
-		struct BSS_DESC *arLinks[], uint8_t ucLinkNum,
-		struct AP_SCORE_INFO *prScoreInfo, uint8_t ucBssidx);
-	void (*apsFillBssDescSet)(struct ADAPTER *prAdapter,
-		struct BSS_DESC_SET *prSet,
-		uint8_t ucBssidx);
 
 	/* If you want to explicitly specify the max AMPDU length exponent in
 	 * HE CAP IE instead of using default one specified by
@@ -1783,9 +1643,6 @@ struct mt66xx_chip_info {
 
 	u_int8_t fgIsSupportL0p5Reset;
 	uint32_t (*queryPmicInfo)(struct ADAPTER *prAdapter);
-	uint32_t (*queryDFDInfo)(struct ADAPTER *prAdapter, uint32_t u4InfoIdx,
-		uint32_t u4Offset, uint32_t u4Length, uint8_t *pBuf);
-	u_int8_t (*isUpgradeWholeChipReset)(struct ADAPTER *prAdapter);
 	struct CCIF_OPS *ccif_ops;
 	struct WLAN_PINCTRL_OPS *pinctrl_ops;
 	struct EMI_MEM_INFO rEmiInfo;
@@ -1796,31 +1653,12 @@ struct mt66xx_chip_info {
 	u_int8_t fgWifiNappingEn; /* sw var used to align hw cfg */
 	u_int8_t fgWifiNappingForceDisable; /* main thread: w, hif thread: r */
 	struct EMI_WIFI_MISC_RSV_MEM_INFO *rsvMemWiFiMisc;
-	uint32_t rsvMemWiFiMiscSize;
-#if CFG_SUPPORT_XONVRAM
-	struct platcfg_infra_sysram rPlatcfgInfraSysram;
-#endif
-#if (CFG_DYNAMIC_DMASHDL_MAX_QUOTA == 1)
-	enum ENUM_MBMC_BN eMloMaxQuotaHwBand;
-	uint32_t u4DefaultMinQuota;
-	uint32_t u4DefaultMaxQuota;
-	uint32_t au4DmaMaxQuotaBand[ENUM_BAND_NUM];
-	uint32_t au4DmaMaxQuotaRfBand[BAND_NUM];
-#endif
-#if ((CFG_SUPPORT_PHY_ICS_V3 == 1) || (CFG_SUPPORT_PHY_ICS_V4 == 1))
-	uint32_t u4PhyIcsEmiBaseAddr;
-	uint32_t u4PhyIcsTotalCnt;
-	uint32_t u4PhyIcsBufSize;
-	uint32_t u4MemoryPart;
-#endif
-	u_int8_t isAaDbdcEnable;
-	u_int8_t isSupportBand2;
 };
 
 struct mt66xx_hif_driver_data {
 	struct mt66xx_chip_info *chip_info;
 	const char *fw_flavor;
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 #if CFG_TC10_FEATURE
 	const char *memdump;
 #endif

@@ -55,7 +55,7 @@ bool mtk_get_gpu_idle(unsigned int *pIlde);
 bool mtk_set_bottom_gpu_freq(unsigned int ui32FreqLevel);
 
 /* ui32FreqLevel: 0=>lowest freq, count-1=>highest freq */
-bool mtk_custom_get_gpu_freq_level_count(unsigned int *pui32FreqLevelCount);
+bool mtk_custom_get_gpu_freq_level_count(int *pi32FreqLevelCount);
 bool mtk_custom_boost_gpu_freq(unsigned int ui32FreqLevel);
 bool mtk_get_custom_upbound_gpu_freq(unsigned long *pulFreq);
 bool mtk_get_custom_boost_gpu_freq(unsigned long *pulFreq);

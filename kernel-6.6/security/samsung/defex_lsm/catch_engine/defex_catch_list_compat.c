@@ -13,7 +13,9 @@
 #include <linux/version.h>
 #include "include/defex_catch_list.h"
 
-#if KERNEL_VER_GTE(4, 0, 0)
+#if KERNEL_VER_GTE(6, 12, 0)
+#define __NR_compat_syscalls 463
+#elif KERNEL_VER_GTE(4, 0, 0)
 #define __COMPAT_SYSCALL_NR
 #include <asm/unistd.h>
 #else

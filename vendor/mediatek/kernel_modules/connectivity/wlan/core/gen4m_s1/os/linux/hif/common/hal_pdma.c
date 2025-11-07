@@ -622,6 +622,9 @@ void halSetFWOwn(IN struct ADAPTER *prAdapter, IN u_int8_t fgEnableGlobalInt)
 		if (prBusInfo->setDummyReg)
 			prBusInfo->setDummyReg(prAdapter->prGlueInfo);
 
+		if (prBusInfo->recordWFDMAIdx)
+			prBusInfo->recordWFDMAIdx(prAdapter);
+
 		HAL_LP_OWN_SET(prAdapter, &fgResult);
 
 		prAdapter->fgIsFwOwn = TRUE;

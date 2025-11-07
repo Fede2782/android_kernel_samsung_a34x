@@ -31,6 +31,7 @@ kernel_device_modules-6.6
 ../vendor/mediatek/kernel_modules/connectivity/wlan/adaptor
 ../vendor/mediatek/kernel_modules/connectivity/wlan/adaptor/wlan_page_pool
 ../vendor/mediatek/kernel_modules/connectivity/bt/linux_v2
+../vendor/mediatek/kernel_modules/connectivity/bt/linux_v2_mt6653
 ../vendor/mediatek/kernel_modules/hbt_driver_cus
 ../vendor/mediatek/kernel_modules/mtkcam
 ../vendor/mediatek/tests/kernel/ktf_testcase

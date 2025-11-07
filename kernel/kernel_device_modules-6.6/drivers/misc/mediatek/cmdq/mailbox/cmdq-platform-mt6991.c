@@ -80,7 +80,7 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 			... CMDQ_EVENT_DSI2_TE_I_DSI2_TE_I:
 		case CMDQ_EVENT_DSI3_TE_I_DSI3_TE_I:
 		case CMDQ_SYNC_TOKEN_CONFIG_DIRTY
-			... CMDQ_SYNC_TOKEN_VFP_PERIOD:
+			... CMDQ_SYNC_TOKEN_VDO_MODE_CABC_EOF:
 		case CMDQ_SYNC_TOKEN_CONFIG_DIRTY_1
 			... CMDQ_SYNC_TOKEN_CABC_EOF_1:
 		case CMDQ_SYNC_TOKEN_CONFIG_DIRTY_3

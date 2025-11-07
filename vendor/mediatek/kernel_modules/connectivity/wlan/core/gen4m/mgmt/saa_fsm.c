@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -40,19 +40,19 @@
  *                           P R I V A T E   D A T A
  *******************************************************************************
  */
-static const char * const apucDebugAAState[AA_STATE_NUM] = {
-	"AA_IDLE",
-	"SAA_SEND_AUTH1",
-	"SAA_WAIT_AUTH2",
-	"SAA_SEND_AUTH3",
-	"SAA_WAIT_AUTH4",
-	"SAA_EXTERNAL_AUTH",
-	"SAA_SEND_ASSOC1",
-	"SAA_WAIT_ASSOC2",
-	"AAA_SEND_AUTH2",
-	"AAA_SEND_AUTH4",
-	"AAA_SEND_ASSOC2",
-	"AA_RESOURCE",
+static uint8_t *apucDebugAAState[AA_STATE_NUM] = {
+	(uint8_t *) DISP_STRING("AA_IDLE"),
+	(uint8_t *) DISP_STRING("SAA_SEND_AUTH1"),
+	(uint8_t *) DISP_STRING("SAA_WAIT_AUTH2"),
+	(uint8_t *) DISP_STRING("SAA_SEND_AUTH3"),
+	(uint8_t *) DISP_STRING("SAA_WAIT_AUTH4"),
+	(uint8_t *) DISP_STRING("SAA_EXTERNAL_AUTH"),
+	(uint8_t *) DISP_STRING("SAA_SEND_ASSOC1"),
+	(uint8_t *) DISP_STRING("SAA_WAIT_ASSOC2"),
+	(uint8_t *) DISP_STRING("AAA_SEND_AUTH2"),
+	(uint8_t *) DISP_STRING("AAA_SEND_AUTH4"),
+	(uint8_t *) DISP_STRING("AAA_SEND_ASSOC2"),
+	(uint8_t *) DISP_STRING("AA_RESOURCE")
 };
 
 /*******************************************************************************
@@ -160,9 +160,8 @@ saaFsmSteps(struct ADAPTER *prAdapter,
 					WLAN_STATUS_SUCCESS :
 					WLAN_STATUS_FAILURE;
 				uint32_t result = saaFsmSendEventJoinComplete(
-						prAdapter, ePreviousState,
-						status, prStaRec,
-						prRetainedSwRfb);
+					    prAdapter, ePreviousState, status,
+					    prStaRec, prRetainedSwRfb);
 
 				if (result != WLAN_STATUS_SUCCESS) {
 					if (status == WLAN_STATUS_SUCCESS ||
@@ -282,30 +281,6 @@ saaFsmSteps(struct ADAPTER *prAdapter,
 #endif /* CFG_SUPPORT_WPA3 */
 
 		case SAA_STATE_SEND_ASSOC1:
-#if (CFG_SUPPORT_AIS_TEST_MODE == 1)
-			if (prAdapter->rWifiVar.u4AisTestMode.fgAssocTimeout) {
-				DBGLOG(AIS, WARN, "[TEST] Assoc Timeout\n");
-				prStaRec->u2StatusCode =
-					STATUS_CODE_ASSOC_TIMEOUT;
-				saaFsmSendEventJoinComplete(prAdapter,
-					ePreviousState,
-					WLAN_STATUS_FAILURE,
-					prStaRec, NULL);
-				break;
-			}
-			if (prAdapter->rWifiVar
-				.u4AisTestMode.fgAssocTempReject) {
-				DBGLOG(AIS, WARN, "[TEST] Assoc Temp Reject\n");
-				prStaRec->u2StatusCode =
-					STATUS_CODE_ASSOC_REJECTED_TEMPORARILY;
-				saaFsmSendEventJoinComplete(prAdapter,
-					ePreviousState,
-					WLAN_STATUS_FAILURE,
-					prStaRec, NULL);
-				break;
-			}
-#endif
-
 			/* Do tasks in INIT STATE */
 			if (prStaRec->ucTxAuthAssocRetryCount >=
 			    prStaRec->ucTxAuthAssocRetryLimit) {
@@ -334,6 +309,7 @@ saaFsmSteps(struct ADAPTER *prAdapter,
 					    TX_ASSOCIATION_RETRY_TIMEOUT_TU));
 				}
 			}
+
 			break;
 
 		case SAA_STATE_WAIT_ASSOC2:
@@ -390,8 +366,7 @@ saaFsmSendEventJoinComplete(struct ADAPTER *prAdapter,
 
 	/* For wlan0 (AP) + p2p0, don't check the prAisBssInfo for the P2P. */
 #if CFG_ENABLE_WIFI_DIRECT
-	if ((prAdapter->fgIsP2PRegistered) &&
-	    (IS_STA_IN_P2P(prAdapter, prStaRec))) {
+	if ((prAdapter->fgIsP2PRegistered) && (IS_STA_IN_P2P(prStaRec))) {
 		struct MSG_SAA_FSM_COMP *prSaaFsmCompMsg;
 
 		prSaaFsmCompMsg = cnmMemAlloc(prAdapter, RAM_TYPE_MSG,
@@ -404,7 +379,6 @@ saaFsmSendEventJoinComplete(struct ADAPTER *prAdapter,
 
 		prSaaFsmCompMsg->rMsgHdr.eMsgId = MID_SAA_P2P_JOIN_COMPLETE;
 		prSaaFsmCompMsg->ucSeqNum = prStaRec->ucAuthAssocReqSeqNum;
-		prSaaFsmCompMsg->ucAuthAssocState = (uint8_t)ePreviousState;
 		prSaaFsmCompMsg->rJoinStatus = rJoinStatus;
 		prSaaFsmCompMsg->prStaRec = prStaRec;
 		prSaaFsmCompMsg->prSwRfb = prSwRfb;
@@ -418,7 +392,7 @@ saaFsmSendEventJoinComplete(struct ADAPTER *prAdapter,
 	}
 #endif /* CFG_ENABLE_WIFI_DIRECT */
 
-	if (IS_STA_IN_AIS(prAdapter, prStaRec)) {
+	if (IS_STA_IN_AIS(prStaRec)) {
 		struct MSG_SAA_FSM_COMP *prSaaFsmCompMsg;
 
 		prSaaFsmCompMsg = cnmMemAlloc(prAdapter, RAM_TYPE_MSG,
@@ -431,6 +405,7 @@ saaFsmSendEventJoinComplete(struct ADAPTER *prAdapter,
 
 		prSaaFsmCompMsg->rMsgHdr.eMsgId = MID_SAA_AIS_JOIN_COMPLETE;
 		prSaaFsmCompMsg->ucSeqNum = prStaRec->ucAuthAssocReqSeqNum;
+		prSaaFsmCompMsg->ucAuthAssocState = (uint8_t)ePreviousState;
 		prSaaFsmCompMsg->rJoinStatus = rJoinStatus;
 		prSaaFsmCompMsg->prStaRec = prStaRec;
 		prSaaFsmCompMsg->prSwRfb = prSwRfb;
@@ -521,7 +496,7 @@ void saaFsmRunEventStart(struct ADAPTER *prAdapter,
 
 		/* Ignore the return value because don't care the prSwRfb */
 		saaFsmSendEventJoinComplete(prAdapter, AA_STATE_IDLE,
-				WLAN_STATUS_FAILURE, prStaRec, NULL);
+					WLAN_STATUS_FAILURE, prStaRec, NULL);
 
 		return;
 	}
@@ -559,6 +534,14 @@ void saaFsmRunEventStart(struct ADAPTER *prAdapter,
 
 	/* 4 <7> Trigger SAA FSM */
 	if (prStaRec->ucStaState == STA_STATE_1) {
+		/* Indicate supplicant to reset FT process */
+		if (IS_AP_STA(prStaRec) &&
+		    (prStaRec->ucAuthAlgNum ==
+				(uint8_t) AUTH_ALGORITHM_NUM_OPEN_SYSTEM ||
+		     prStaRec->ucAuthAlgNum ==
+				(uint8_t) AUTH_ALGORITHM_NUM_SAE))
+			aisFsmIndicateToResetFT(prAdapter,
+					prStaRec->ucBssIndex);
 #if CFG_SUPPORT_WPA3_LOG
 		wpa3LogSaaStart(prAdapter, prStaRec);
 #endif
@@ -695,14 +678,11 @@ saaFsmRunEventTxDone(struct ADAPTER *prAdapter,
 #endif
 #if CFG_STAINFO_FEATURE
 			if (IS_BSS_INDEX_AIS(prAdapter, prStaRec->ucBssIndex)) {
-				struct AIS_FSM_INFO *fsm =
-						aisGetAisFsmInfo(prAdapter,
-						prStaRec->ucBssIndex);
 				if (rTxDoneStatus == TX_RESULT_MPDU_ERROR) {
-					fsm->u2ConnRejectStatus
+					prAdapter->u2ConnRejectStatus
 					= AUTH_NO_ACK;
 				} else {
-					fsm->u2ConnRejectStatus
+					prAdapter->u2ConnRejectStatus
 					= AUTH_SENDING_FAIL;
 				}
 			}
@@ -788,14 +768,11 @@ saaFsmRunEventTxDone(struct ADAPTER *prAdapter,
 
 #if CFG_STAINFO_FEATURE
 			if (IS_BSS_INDEX_AIS(prAdapter, prStaRec->ucBssIndex)) {
-				struct AIS_FSM_INFO *fsm =
-						aisGetAisFsmInfo(prAdapter,
-						prStaRec->ucBssIndex);
 				if (rTxDoneStatus == TX_RESULT_MPDU_ERROR) {
-					fsm->u2ConnRejectStatus
+					prAdapter->u2ConnRejectStatus
 					= WPA3_ASSOC_NO_ACK;
 				} else {
-					fsm->u2ConnRejectStatus
+					prAdapter->u2ConnRejectStatus
 					= WPA3_ASSOC_SENDING_FAIL;
 				}
 			}
@@ -892,9 +869,8 @@ void saaFsmRunEventRxRespTimeOut(struct ADAPTER *prAdapter,
 #endif
 #if CFG_STAINFO_FEATURE
 		if (IS_BSS_INDEX_AIS(prAdapter, prStaRec->ucBssIndex)) {
-			struct AIS_FSM_INFO *fsm = aisGetAisFsmInfo(prAdapter,
-					prStaRec->ucBssIndex);
-			fsm->u2ConnRejectStatus = AUTH_NO_RESP;
+			prAdapter->u2ConnRejectStatus
+				= AUTH_NO_RESP;
 		}
 #endif
 
@@ -919,9 +895,8 @@ void saaFsmRunEventRxRespTimeOut(struct ADAPTER *prAdapter,
 #endif
 #if CFG_STAINFO_FEATURE
 		if (IS_BSS_INDEX_AIS(prAdapter, prStaRec->ucBssIndex)) {
-			struct AIS_FSM_INFO *fsm = aisGetAisFsmInfo(prAdapter,
-					prStaRec->ucBssIndex);
-			fsm->u2ConnRejectStatus = ASSOC_NO_RESP;
+			prAdapter->u2ConnRejectStatus
+				= ASSOC_NO_RESP;
 		}
 #endif
 
@@ -946,7 +921,7 @@ struct STA_RECORD *saaFsmFindStaRec(struct ADAPTER *prAdapter,
 
 	do {
 		for (ucBssIdx = 0;
-			ucBssIdx < prAdapter->ucSwBssIdNum; ucBssIdx++) {
+			ucBssIdx < prAdapter->ucHwBssIdNum; ucBssIdx++) {
 			if (!IS_NET_ACTIVE(prAdapter, ucBssIdx))
 				continue;
 
@@ -1005,7 +980,7 @@ void saaFsmRunEventRxAuth(struct ADAPTER *prAdapter,
 			MAC2STR(mgmt->aucBSSID),
 			ucWlanIdx,
 			ucStaRecIdx);
-#if (CFG_WLAN_CONNAC3_DEV == 1) || (CFG_SUPPORT_PASN)
+#if (CFG_WLAN_CONNAC3_DEV == 1)
  		prStaRec = saaFsmFindStaRec(prAdapter, mgmt);
 		if (!prStaRec) {
 			DBGLOG(SAA, WARN, "StaRec not found\n");
@@ -1036,17 +1011,14 @@ void saaFsmRunEventRxAuth(struct ADAPTER *prAdapter,
 					       AUTH_TRANSACTION_SEQ_2,
 					       &u2StatusCode) ==
 					       WLAN_STATUS_SUCCESS) {
+
 			cnmTimerStopTimer(prAdapter,
 					  &prStaRec->rTxReqDoneOrRxRespTimer);
 
 			/* Record the Status Code of Authentication Request */
 			prStaRec->u2StatusCode = u2StatusCode;
 #if CFG_STAINFO_FEATURE
-			if (IS_BSS_INDEX_AIS(prAdapter, prStaRec->ucBssIndex)) {
-				struct AIS_FSM_INFO *fsm = aisGetAisFsmInfo(
-					prAdapter, prStaRec->ucBssIndex);
-				fsm->u2ConnRejectStatus = u2StatusCode;
-			}
+			prAdapter->u2ConnRejectStatus = u2StatusCode;
 #endif
 
 			if (u2StatusCode == STATUS_CODE_SUCCESSFUL &&
@@ -1124,13 +1096,8 @@ void saaFsmRunEventRxAuth(struct ADAPTER *prAdapter,
 			/* Record the Status Code of Authentication Request */
 			prStaRec->u2StatusCode = u2StatusCode;
 #if CFG_STAINFO_FEATURE
-			if (IS_BSS_INDEX_AIS(prAdapter, prStaRec->ucBssIndex)) {
-				struct AIS_FSM_INFO *fsm = aisGetAisFsmInfo(
-					prAdapter, prStaRec->ucBssIndex);
-				fsm->u2ConnRejectStatus = u2StatusCode;
-			}
+			prAdapter->u2ConnRejectStatus = u2StatusCode;
 #endif
-
 
 			if (u2StatusCode == STATUS_CODE_SUCCESSFUL) {
 
@@ -1185,15 +1152,12 @@ void saaFsmRunEventRxAuth(struct ADAPTER *prAdapter,
 		break;
 
 	case SAA_STATE_EXTERNAL_AUTH:
-	{
-		uint32_t u4LinkId = MLD_LINK_ID_NONE;
-
 		if (authCheckRxAuthFrameStatus(prAdapter,
 					       prSwRfb,
 					       AUTH_TRANSACTION_SEQ_2,
 					       &u2StatusCode) ==
 					       WLAN_STATUS_SUCCESS) {
-			if (u2StatusCode == WLAN_STATUS_SAE_HASH_TO_ELEMENT)
+			if (u2StatusCode == STATUS_SAE_HASH_TO_ELEMENT)
 				DBGLOG(SAA, INFO,
 					"SAE auth uses the hash-to-element method, instead of looping\n");
 			else if (u2StatusCode != STATUS_CODE_SUCCESSFUL) {
@@ -1205,28 +1169,13 @@ void saaFsmRunEventRxAuth(struct ADAPTER *prAdapter,
 				/* Record join fail status code only*/
 				prStaRec->u2StatusCode = u2StatusCode;
 #if CFG_STAINFO_FEATURE
-				if (IS_BSS_INDEX_AIS(prAdapter,
-				    prStaRec->ucBssIndex)) {
-					struct AIS_FSM_INFO *fsm =
-						aisGetAisFsmInfo(
-						prAdapter,
-						prStaRec->ucBssIndex);
-					fsm->u2ConnRejectStatus = u2StatusCode;
-				}
+				prAdapter->u2ConnRejectStatus = u2StatusCode;
 #endif
 
 			}
 		}
-
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-		u4LinkId = (uint32_t)prStaRec->ucLinkId;
-#endif
-		DBGLOG(SAA, INFO, "Forward RxAuth Seq: %d\n",
-			((struct WLAN_AUTH_FRAME *)prSwRfb->pvHeader)->
-				u2AuthTransSeqNo);
 		kalIndicateRxMgmtFrame(prAdapter, prAdapter->prGlueInfo,
-				prSwRfb, prStaRec->ucBssIndex, u4LinkId);
-	}
+				prSwRfb, prStaRec->ucBssIndex);
 		break;
 
 	default:
@@ -1302,11 +1251,7 @@ uint32_t saaFsmRunEventRxAssoc(struct ADAPTER *prAdapter,
 			/* Record the Status Code of Authentication Request */
 			prStaRec->u2StatusCode = u2StatusCode;
 #if CFG_STAINFO_FEATURE
-			if (IS_BSS_INDEX_AIS(prAdapter, prStaRec->ucBssIndex)) {
-				struct AIS_FSM_INFO *fsm = aisGetAisFsmInfo(
-					prAdapter, prStaRec->ucBssIndex);
-				fsm->u2ConnRejectStatus = u2StatusCode;
-			}
+			prAdapter->u2ConnRejectStatus = u2StatusCode;
 #endif
 			prRetainedSwRfb = prSwRfb;
 			rStatus = WLAN_STATUS_PENDING;
@@ -1325,9 +1270,8 @@ uint32_t saaFsmRunEventRxAssoc(struct ADAPTER *prAdapter,
 
 				/* Clear history. */
 				prStaRec->ucJoinFailureCount = 0;
+				rStatus = WLAN_STATUS_PENDING;
 			} else {
-				cnmStaRecChangeState(prAdapter, prStaRec,
-						STA_STATE_1);
 				DBGLOG(SAA, INFO,
 				       "Assoc Req was rejected by [" MACSTR
 				       "], Status Code = %d\n",
@@ -1420,11 +1364,7 @@ uint32_t saaFsmStaState2HandleRxDeauth(struct ADAPTER *prAdapter,
 
 	prStaRec->u2StatusCode = u2StatusCode;
 #if CFG_STAINFO_FEATURE
-	if (IS_BSS_INDEX_AIS(prAdapter, prStaRec->ucBssIndex)) {
-		struct AIS_FSM_INFO *fsm = aisGetAisFsmInfo(
-				prAdapter, prStaRec->ucBssIndex);
-		fsm->u2ConnRejectStatus = u2StatusCode;
-	}
+	prAdapter->u2ConnRejectStatus = u2StatusCode;
 #endif
 
 	/* Reset Send Auth/(Re)Assoc Frame Count */
@@ -1471,27 +1411,6 @@ uint32_t saaFsmRunEventRxDeauth(struct ADAPTER *prAdapter,
 	}
 #endif
 
-#if CFG_SUPPORT_RTT
-	if (!prStaRec) {
-		struct WLAN_MAC_MGMT_HEADER *mgmt =
-			(struct WLAN_MAC_MGMT_HEADER *)prSwRfb->pvHeader;
-
-		prStaRec = saaFsmFindStaRec(prAdapter, mgmt);
-		if (!prStaRec) {
-			DBGLOG(SAA, WARN, "StaRec not found\n");
-			goto exit;
-		}
-	}
-
-	if (IS_STA_RTT_TYPE(prStaRec)) {
-		DBGLOG(SAA, WARN,
-			"Received a Deauth: wlanIdx[%d] from RTT network\n",
-			ucWlanIdx);
-		rttHandleDeauth(prAdapter, prStaRec);
-		goto exit;
-	}
-#endif
-
 	if (!prStaRec) {
 		DBGLOG(SAA, WARN,
 		       "Received a Deauth: wlanIdx[%d] staRecIdx[%d] w/o corresponding staRec\n",
@@ -1499,7 +1418,7 @@ uint32_t saaFsmRunEventRxDeauth(struct ADAPTER *prAdapter,
 		goto exit;
 	}
 
-	if (IS_STA_IN_AIS(prAdapter, prStaRec)) {
+	if (IS_STA_IN_AIS(prStaRec)) {
 		struct BSS_INFO *prAisBssInfo;
 		struct BSS_DESC *prBssDesc;
 		uint8_t ucBssIndex = prStaRec->ucBssIndex;
@@ -1562,7 +1481,7 @@ uint32_t saaFsmRunEventRxDeauth(struct ADAPTER *prAdapter,
 					ucWlanIdx,
 					prStaRec->fgIsTxAllowed);
 
-				if (IS_STA_IN_AIS(prAdapter, prStaRec) &&
+				if (IS_STA_IN_AIS(prStaRec) &&
 				    prStaRec->fgIsTxAllowed &&
 				    prAisSpecBssInfo->fgMgmtProtection
 				    && IS_INCORRECT_SEC_RX_FRAME(
@@ -1592,6 +1511,7 @@ uint32_t saaFsmRunEventRxDeauth(struct ADAPTER *prAdapter,
 					prDeauthFrame,
 					prBssDesc);
 #endif
+
 				if (saaFsmStaState2HandleRxDeauth(prAdapter,
 					prStaRec) == WLAN_STATUS_SUCCESS)
 					goto exit;
@@ -1604,8 +1524,7 @@ uint32_t saaFsmRunEventRxDeauth(struct ADAPTER *prAdapter,
 		}
 	}
 #if CFG_ENABLE_WIFI_DIRECT
-	else if (prAdapter->fgIsP2PRegistered &&
-		 IS_STA_IN_P2P(prAdapter, prStaRec)) {
+	else if (prAdapter->fgIsP2PRegistered && IS_STA_IN_P2P(prStaRec)) {
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
 		struct MLD_STA_RECORD *mld_starec;
 #endif
@@ -1740,33 +1659,21 @@ saaSendDisconnectMsgHandler(struct ADAPTER *prAdapter,
 {
 	if (prStaRec->ucStaState == STA_STATE_3) {
 		struct MSG_AIS_ABORT *prAisAbortMsg;
-		u_int8_t fgDelayIndication = TRUE;
-		struct AIS_FSM_INFO *prAisFsmInfo;
+		u_int8_t fgIsTxAllowed;
 
-		prAisFsmInfo = aisGetAisFsmInfo(prAdapter,
-			prStaRec->ucBssIndex);
-
-		if (!prAisFsmInfo) {
-			DBGLOG(SAA, WARN, "prAisFsmInfo[%d] is NULL\n",
-					  prStaRec->ucBssIndex);
-			return;
-		}
+		/* Backup txallowed status here because
+		 * cnmStaRecChangeState will change it
+		 */
+		fgIsTxAllowed = prStaRec->fgIsTxAllowed;
 
 #if CFG_SUPPORT_NCHO
 		/* Disconnect directly under NCHO mode */
 		if (prAdapter && prAdapter->rNchoInfo.fgNCHOEnabled) {
 			DBGLOG(RSN, INFO,
 				"Disconnect directly due to NCHO enabled\n");
-			fgDelayIndication = FALSE;
+			fgIsTxAllowed = FALSE;
 		}
 #endif
-
-		if (timerPendingTimer(&prAisFsmInfo->rJoinTimeoutTimer)) {
-			DBGLOG(SAA, INFO, "[SAA] Stop rJoinTimeoutTimer\n");
-
-			aisFsmStopJoinTimer(prAdapter,
-			    aisGetMainLinkBssIndex(prAdapter, prAisFsmInfo));
-		}
 
 		/* NOTE(Kevin): Change state immediately to
 		 * avoid starvation of MSG buffer because of too
@@ -1788,7 +1695,7 @@ saaSendDisconnectMsgHandler(struct ADAPTER *prAdapter,
 		prAisAbortMsg->ucReasonOfDisconnect = eFrmType == FRM_DEAUTH ?
 				DISCONNECT_REASON_CODE_DEAUTHENTICATED :
 				DISCONNECT_REASON_CODE_DISASSOCIATED;
-		prAisAbortMsg->fgDelayIndication = fgDelayIndication;
+		prAisAbortMsg->fgDelayIndication = fgIsTxAllowed;
 		prAisAbortMsg->ucBssIndex = prStaRec->ucBssIndex;
 		prAisAbortMsg->u2DeauthReason = prStaRec->u2ReasonCode;
 		mboxSendMsg(prAdapter, MBOX_ID_0,
@@ -1821,31 +1728,23 @@ uint32_t saaFsmRunEventRxDisassoc(struct ADAPTER *prAdapter,
 	ucWlanIdx = prSwRfb->ucWlanIdx;
 	ucStaRecIdx = prSwRfb->ucStaRecIdx;
 
+	DBGLOG(SAA, INFO,
+	       "Rx Disassoc frame from SA[" MACSTR "] BSSID[" MACSTR
+	       "] DA[" MACSTR "] ReasonCode[0x%x]\n",
+	       MAC2STR(prDisassocFrame->aucSrcAddr),
+	       MAC2STR(prDisassocFrame->aucBSSID),
+	       MAC2STR(prDisassocFrame->aucDestAddr),
+	       prDisassocFrame->u2ReasonCode);
+
 	/* We should have the corresponding Sta Record. */
 	if (!prStaRec) {
 		DBGLOG(SAA, WARN,
-		       "Received a DisAssoc: wlanIdx[%d] staRecIdx[%d] SA["
-			MACSTR "] BSSID[" MACSTR "] DA[" MACSTR
-			"]w/o corresponding staRec\n",
-			ucWlanIdx, ucStaRecIdx,
-			MAC2STR(prDisassocFrame->aucSrcAddr),
-			MAC2STR(prDisassocFrame->aucBSSID),
-			MAC2STR(prDisassocFrame->aucDestAddr));
+		       "Received a DisAssoc: wlanIdx[%d] staRecIdx[%d] w/o corresponding staRec\n",
+		       ucWlanIdx, ucStaRecIdx);
 		goto exit;
 	}
 
-	DBGLOG(SAA, INFO,
-	       "%sRX_DISASSOC sn=%d reason=%d SA[" MACSTR "] BSSID[" MACSTR
-	       "] DA[" MACSTR "] ReasonCode[0x%x]\n",
-		IS_BSS_INDEX_AIS(prAdapter, prStaRec->ucBssIndex) ?
-		"<CONN>" : "",
-	       prDisassocFrame->u2SeqCtrl,
-	       prDisassocFrame->u2ReasonCode,
-	       MAC2STR(prDisassocFrame->aucSrcAddr),
-	       MAC2STR(prDisassocFrame->aucBSSID),
-	       MAC2STR(prDisassocFrame->aucDestAddr));
-
-	if (IS_STA_IN_AIS(prAdapter, prStaRec)) {
+	if (IS_STA_IN_AIS(prStaRec)) {
 		struct BSS_INFO *prAisBssInfo;
 		struct AIS_FSM_INFO *prAisFsmInfo;
 		struct BSS_DESC *prBssDesc;
@@ -1905,7 +1804,7 @@ uint32_t saaFsmRunEventRxDisassoc(struct ADAPTER *prAdapter,
 					ucWlanIdx,
 					prStaRec->fgIsTxAllowed);
 
-				if (IS_STA_IN_AIS(prAdapter, prStaRec) &&
+				if (IS_STA_IN_AIS(prStaRec) &&
 				    prStaRec->fgIsTxAllowed &&
 				    prAisSpecBssInfo->fgMgmtProtection
 				    && IS_INCORRECT_SEC_RX_FRAME(
@@ -1944,8 +1843,7 @@ uint32_t saaFsmRunEventRxDisassoc(struct ADAPTER *prAdapter,
 		}
 	}
 #if CFG_ENABLE_WIFI_DIRECT
-	else if (prAdapter->fgIsP2PRegistered &&
-		 (IS_STA_IN_P2P(prAdapter, prStaRec))) {
+	else if (prAdapter->fgIsP2PRegistered && (IS_STA_IN_P2P(prStaRec))) {
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
 		struct MLD_STA_RECORD *mld_starec;
 #endif

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -255,7 +255,7 @@ uint32_t halTxUSBSendCmd(struct GLUE_INFO *prGlueInfo, uint8_t ucTc,
 		return WLAN_STATUS_RESOURCES;
 	}
 
-	DBGLOG(HAL, DEBUG, "TX CMD CID[0x%X] URB[0x%p] SEQ[%d]\n",
+	DBGLOG(HAL, INFO, "TX CMD CID[0x%X] URB[0x%p] SEQ[%d]\n",
 			prCmdInfo->ucCID,
 			prUsbReq->prUrb, prCmdInfo->ucCmdSeqNum);
 
@@ -291,7 +291,7 @@ uint32_t halTxUSBSendCmd(struct GLUE_INFO *prGlueInfo, uint8_t ucTc,
 			TRUE);
 	}
 
-	/* DBGLOG_MEM32(SW4, DEBUG, prBufCtrl->pucBuf, 32); */
+	/* DBGLOG_MEM32(SW4, INFO, prBufCtrl->pucBuf, 32); */
 	memset(prBufCtrl->pucBuf + u2OverallBufferLength, 0,
 	       ((TFCB_FRAME_PAD_TO_DW(u2OverallBufferLength) - u2OverallBufferLength) + LEN_USB_UDMA_TX_TERMINATOR));
 	prBufCtrl->u4WrIdx = TFCB_FRAME_PAD_TO_DW(u2OverallBufferLength) + LEN_USB_UDMA_TX_TERMINATOR;
@@ -303,9 +303,10 @@ uint32_t halTxUSBSendCmd(struct GLUE_INFO *prGlueInfo, uint8_t ucTc,
 			dump_len = MAX_DUMP_CMD_LEN;
 		else
 			dump_len = prBufCtrl->u4WrIdx;
-		DBGLOG(HAL, DEBUG, "Dump CMD TXD: (total length: %d)\n",
+		DBGLOG(HAL, INFO, "Dump CMD TXD: (total length: %d)\n",
 		       prBufCtrl->u4WrIdx);
-		dumpMemory8(prBufCtrl->pucBuf, dump_len);
+		if (au2DebugModule[DBG_NAN_IDX] & DBG_CLASS_INFO)
+			dumpMemory8(prBufCtrl->pucBuf, dump_len);
 	}
 
 	prUsbReq->prPriv = (void *) prCmdInfo;
@@ -372,7 +373,7 @@ void halTxUSBProcessCmdComplete(struct ADAPTER *prAdapter,
 		/* TODO: handle error */
 	}
 
-	DBGLOG(HAL, DEBUG, "TX CMD DONE: URB[0x%p]\n", urb);
+	DBGLOG(HAL, INFO, "TX CMD DONE: URB[0x%p]\n", urb);
 
 	glUsbEnqueueReq(prHifInfo, &prHifInfo->rTxCmdFreeQ, prUsbReq, &prHifInfo->rTxCmdQLock, FALSE);
 
@@ -467,14 +468,14 @@ uint32_t halToggleWfsysRst(struct ADAPTER *prAdapter)
 		prBusInfo->asicUsbEpctlRstOpt(prAdapter, FALSE);
 
 	HAL_UHW_RD(prAdapter, CONN_SEMA00_M0_OWN_STA, &u4CrVal, &fgStatus);
-	DBGLOG(HAL, DEBUG, "Read CONN_SEMA00_M0_OWN_STA: 0x%x\n", u4CrVal);
+	DBGLOG(HAL, INFO, "Read CONN_SEMA00_M0_OWN_STA: 0x%x\n", u4CrVal);
 
 	/* assert WF L0.5 reset */
 	if (prChipInfo->asicWfsysRst)
 		prChipInfo->asicWfsysRst(prAdapter, TRUE);
 
 	/* wait 2 ticks of 32K */
-	kalMsleep(20);
+	kalMdelay(1);
 
 	/* de-assert WF L0.5 reset */
 	if (prChipInfo->asicWfsysRst)
@@ -489,7 +490,7 @@ uint32_t halToggleWfsysRst(struct ADAPTER *prAdapter)
 
 	HAL_UHW_RD(prAdapter, CONN_SEMA_OWN_BY_M0_STA_REP_1,
 		&u4CrVal, &fgStatus);
-	DBGLOG(HAL, DEBUG, "Read CONN_SEMA_OWN_BY_M0_STA_REP_1: 0x%x\n",
+	DBGLOG(HAL, INFO, "Read CONN_SEMA_OWN_BY_M0_STA_REP_1: 0x%x\n",
 		u4CrVal);
 
 	return WLAN_STATUS_SUCCESS;
@@ -566,7 +567,7 @@ static uint8_t halUsbDetermineTc(struct mt66xx_chip_info *prChipInfo,
 	if (ucGrpIdx < USB_DMASHDL_DATA_GROUP_NUM) {
 		ucDmashdlTc = arDmashdlGrpToTc[ucGrpIdx];
 		if (ucTc != ucDmashdlTc) {
-			DBGLOG(HAL, DEBUG, "ucTc mismatch! (%d != %d)\n", ucTc,
+			DBGLOG(HAL, INFO, "ucTc mismatch! (%d != %d)\n", ucTc,
 			       ucDmashdlTc);
 
 			return ucDmashdlTc;
@@ -671,9 +672,10 @@ uint32_t halTxUSBSendData(struct GLUE_INFO *prGlueInfo,
 			dump_len = MAX_DUMP_DATA_LEN;
 		else
 			dump_len = u4Length;
-		DBGLOG(HAL, DEBUG, "Dump DATA TXD: (total length: %d)\n",
+		DBGLOG(HAL, INFO, "Dump DATA TXD: (total length: %d)\n",
 		       u4Length);
-		dumpMemory8(pucBuf, dump_len);
+		if (au2DebugModule[DBG_NAN_IDX] & DBG_CLASS_INFO)
+			dumpMemory8(pucBuf, dump_len);
 	}
 
 	if (!prMsduInfo->pfTxDoneHandler)
@@ -882,23 +884,10 @@ uint32_t halRxUSBEnqueueRFB(
 			if (HAL_IS_RX_DIRECT(prAdapter)) {
 				switch (prSwRfb->ucPacketType) {
 				case RX_PKT_TYPE_RX_DATA:
-#if CFG_SUPPORT_RX_NAPI
-					if (prGlueInfo->prRxDirectNapi &&
-						KAL_FIFO_IN(&prGlueInfo
-							->rRxKfifoQ, prSwRfb)) {
-						kalNapiSchedule(prAdapter);
-					} else
-#endif
-					{
-						spin_lock_bh(&prGlueInfo
-							->rSpinLock
-							[SPIN_LOCK_RX_DIRECT]);
-						nicRxProcessDataPacket(
+					spin_lock_bh(&prGlueInfo->rSpinLock[SPIN_LOCK_RX_DIRECT]);
+					nicRxProcessDataPacket(
 							prAdapter, prSwRfb);
-						spin_unlock_bh(&prGlueInfo
-							->rSpinLock
-							[SPIN_LOCK_RX_DIRECT]);
-					}
+					spin_unlock_bh(&prGlueInfo->rSpinLock[SPIN_LOCK_RX_DIRECT]);
 					break;
 				default:
 					KAL_ACQUIRE_SPIN_LOCK(prAdapter,
@@ -949,10 +938,6 @@ uint32_t halRxUSBReceiveEvent(struct ADAPTER *prAdapter, u_int8_t fgFillUrb)
 	int ret;
 
 	while (1) {
-		if (prAdapter == NULL ||
-		    GLUE_GET_REF_CNT(prAdapter->fgIsIntEnable) == 0)
-			break;
-
 		prUsbReq = glUsbDequeueReq(prHifInfo, &prHifInfo->rRxEventFreeQ, &prHifInfo->rRxEventQLock);
 		if (prUsbReq == NULL)
 			return WLAN_STATUS_RESOURCES;
@@ -1052,10 +1037,6 @@ uint32_t halRxUSBReceiveWdt(struct ADAPTER *prAdapter)
 	int ret;
 
 	while (1) {
-		if (prAdapter == NULL ||
-		    GLUE_GET_REF_CNT(prAdapter->fgIsIntEnable) == 0)
-			break;
-
 		prUsbReq = glUsbDequeueReq(prHifInfo, &prHifInfo->rRxWdtFreeQ,
 					   &prHifInfo->rRxWdtQLock);
 		if (prUsbReq == NULL)
@@ -1103,14 +1084,6 @@ void halRxUSBReceiveWdtComplete(struct urb *urb)
 	prChipInfo = prGlueInfo->prAdapter->chip_info;
 	prBusInfo = prChipInfo->bus_info;
 
-	if (!(prHifInfo->state == USB_STATE_LINK_UP ||
-			prHifInfo->state == USB_STATE_PRE_RESUME ||
-			prHifInfo->state == USB_STATE_PRE_SUSPEND)) {
-		glUsbEnqueueReq(prHifInfo, &prHifInfo->rRxWdtFreeQ, prUsbReq,
-						&prHifInfo->rRxWdtQLock, FALSE);
-		return;
-	}
-
 	if (urb->status == -ESHUTDOWN || urb->status == -ENOENT) {
 		glUsbEnqueueReq(prHifInfo, &prHifInfo->rRxWdtFreeQ, prUsbReq,
 						&prHifInfo->rRxWdtQLock, FALSE);
@@ -1155,10 +1128,6 @@ uint32_t halRxUSBReceiveData(struct ADAPTER *prAdapter)
 	prHifInfo = &prGlueInfo->rHifInfo;
 
 	while (1) {
-		if (prAdapter == NULL ||
-		    GLUE_GET_REF_CNT(prAdapter->fgIsIntEnable) == 0)
-			break;
-
 		prUsbReq = glUsbDequeueReq(prHifInfo, &prHifInfo->rRxDataFreeQ, &prHifInfo->rRxDataQLock);
 		if (prUsbReq == NULL)
 			return WLAN_STATUS_RESOURCES;
@@ -1423,8 +1392,6 @@ void halEnableInterrupt(struct ADAPTER *prAdapter)
 	prGlueInfo = prAdapter->prGlueInfo;
 	prHifInfo = &prGlueInfo->rHifInfo;
 
-	GLUE_SET_REF_CNT(1, prAdapter->fgIsIntEnable);
-
 	halRxUSBReceiveData(prAdapter);
 	if (prHifInfo->eEventEpType != EVENT_EP_TYPE_DATA_EP)
 		halRxUSBReceiveEvent(prAdapter, TRUE);
@@ -1436,6 +1403,8 @@ void halEnableInterrupt(struct ADAPTER *prAdapter)
 #endif
 
 	glUdmaRxAggEnable(prGlueInfo, TRUE);
+
+	GLUE_SET_REF_CNT(1, prAdapter->fgIsIntEnable);
 } /* end of halEnableInterrupt() */
 
 /*----------------------------------------------------------------------------*/
@@ -1456,8 +1425,6 @@ void halDisableInterrupt(struct ADAPTER *prAdapter)
 	prGlueInfo = prAdapter->prGlueInfo;
 	prHifInfo = &prGlueInfo->rHifInfo;
 
-	GLUE_SET_REF_CNT(0, prAdapter->fgIsIntEnable);
-
 	usb_kill_anchored_urbs(&prHifInfo->rRxDataAnchor);
 	usb_kill_anchored_urbs(&prHifInfo->rRxEventAnchor);
 #if CFG_CHIP_RESET_SUPPORT
@@ -1468,6 +1435,8 @@ void halDisableInterrupt(struct ADAPTER *prAdapter)
 
 	if (!wlanIsChipNoAck(prAdapter))
 		glUdmaRxAggEnable(prGlueInfo, FALSE);
+
+	GLUE_SET_REF_CNT(0, prAdapter->fgIsIntEnable);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -1479,9 +1448,9 @@ void halDisableInterrupt(struct ADAPTER *prAdapter)
 * \return (none)
 */
 /*----------------------------------------------------------------------------*/
-uint32_t halSetDriverOwn(struct ADAPTER *prAdapter)
+u_int8_t halSetDriverOwn(struct ADAPTER *prAdapter)
 {
-	return WLAN_STATUS_SUCCESS;
+	return TRUE;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -1506,7 +1475,7 @@ void halWakeUpWiFi(struct ADAPTER *prAdapter)
 	uint8_t ucCount = 0;
 	uint32_t u4Value;
 
-	DBGLOG(INIT, DEBUG, "Power on Wi-Fi....\n");
+	DBGLOG(INIT, INFO, "Power on Wi-Fi....\n");
 
 	prHifInfo = &prAdapter->prGlueInfo->rHifInfo;
 	prChipInfo = prAdapter->chip_info;
@@ -1732,13 +1701,13 @@ void halUpdateTxMaxQuota(struct ADAPTER *prAdapter)
 							(uint16_t)ucWmmIndex,
 							u4Quota);
 			} else {
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"updateTxRingMaxQuota not implemented\n");
 				u4Ret = WLAN_STATUS_NOT_ACCEPTED;
 			}
 		}
 
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"WmmQuota,Run,%u,Wmm,%u,Quota,0x%x,ret=0x%x\n",
 			fgRun, ucWmmIndex, u4Quota, u4Ret);
 		if (u4Ret != WLAN_STATUS_PENDING) {
@@ -1925,11 +1894,7 @@ void halSerHifReset(struct ADAPTER *prAdapter)
 
 void halProcessRxInterrupt(struct ADAPTER *prAdapter)
 {
-	struct GL_HIF_INFO *prHifInfo;
-
-	if (prAdapter == NULL || prAdapter->prGlueInfo == NULL)
-		return;
-	prHifInfo = &prAdapter->prGlueInfo->rHifInfo;
+	struct GL_HIF_INFO *prHifInfo = &prAdapter->prGlueInfo->rHifInfo;
 
 	/* Process complete data */
 	halRxUSBProcessEventDataComplete(prAdapter, &prHifInfo->rRxDataCompleteQ,
@@ -2187,8 +2152,7 @@ void halProcessSoftwareInterrupt(struct ADAPTER *prAdapter)
 
 void halDeAggRxPktWorker(struct work_struct *work)
 {
-	struct GLUE_INFO *prGlueInfo = CONTAINER_OF(work, struct GLUE_INFO,
-						    rRxPktDeAggWork.work);
+	struct GLUE_INFO *prGlueInfo = ENTRY_OF(work, struct GLUE_INFO, rRxPktDeAggWork);
 
 	tasklet_schedule(&prGlueInfo->rRxTask);
 }
@@ -2219,7 +2183,7 @@ uint32_t halHifPowerOffWifi(struct ADAPTER *prAdapter)
 {
 	uint32_t rStatus = WLAN_STATUS_SUCCESS;
 
-	DBGLOG(INIT, DEBUG, "Power off Wi-Fi!\n");
+	DBGLOG(INIT, INFO, "Power off Wi-Fi!\n");
 
 	/* Power off Wi-Fi */
 	wlanSendNicPowerCtrlCmd(prAdapter, TRUE);
@@ -2268,13 +2232,6 @@ void halPrintHifDbgInfo(struct ADAPTER *prAdapter)
 		if (prDbgOps && prDbgOps->dumpMacInfo)
 			prDbgOps->dumpMacInfo(prAdapter);
 
-#if (CFG_SUPPORT_DEBUG_SOP == 1)
-	if (prAdapter->u4HifDbgFlag & (DEG_HIF_ALL | DEG_HIF_PLATFORM_DBG)) {
-		if (prDbgOps && prDbgOps->show_debug_sop_info)
-			prDbgOps->show_debug_sop_info(prAdapter,
-				SLAVENORESP);
-	}
-#endif
 	prAdapter->u4HifDbgFlag = 0;
 }
 
@@ -2323,7 +2280,7 @@ uint32_t halSerGetMcuEvent(struct ADAPTER *prAdapter, u_int8_t fgClear)
 	}
 
 	if (u4SerAction && fgClear) {
-		DBGLOG(NIC, DEBUG, "u4SerAction=0x%08X\n", u4SerAction);
+		DBGLOG(NIC, INFO, "u4SerAction=0x%08X\n", u4SerAction);
 
 		/* clear MCU SER event */
 		kalDevRegWrite(prGlueInfo,
@@ -2371,7 +2328,7 @@ void halSerSyncTimerHandler(struct ADAPTER *prAdapter)
 			if (prChipInfo->asicDumpSerDummyCR)
 				prChipInfo->asicDumpSerDummyCR(prAdapter);
 
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 				"SER(E) Host stop HIF tx/rx operation\n");
 
 			/* change SER FSM to SER_STOP_HOST_TX_RX */
@@ -2381,7 +2338,7 @@ void halSerSyncTimerHandler(struct ADAPTER *prAdapter)
 			/* stop RX BULK IN URB */
 			halDisableInterrupt(prAdapter);
 
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 			"SER(F) Host ACK HIF tx/rx stop operation done\n");
 
 			/* Send Host stops TX/RX done response to mcu */
@@ -2396,13 +2353,13 @@ void halSerSyncTimerHandler(struct ADAPTER *prAdapter)
 
 	case ERR_RECOV_STOP_PDMA0:
 		if (u4SerAction == ERROR_DETECT_RESET_DONE) {
-			DBGLOG(HAL, DEBUG, "SER(L) Host re-initialize WFDMA\n");
-			DBGLOG(HAL, DEBUG, "SER(M) Host enable WFDMA\n");
+			DBGLOG(HAL, INFO, "SER(L) Host re-initialize WFDMA\n");
+			DBGLOG(HAL, INFO, "SER(M) Host enable WFDMA\n");
 
 			if (prChipInfo->asicUsbInit)
 				prChipInfo->asicUsbInit(prAdapter, prChipInfo);
 
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 				"SER(N) Host ACK WFDMA init done\n");
 			/* Send Host stops TX/RX done response to mcu */
 			kalDevRegWrite(prAdapter->prGlueInfo,
@@ -2419,7 +2376,7 @@ void halSerSyncTimerHandler(struct ADAPTER *prAdapter)
 			if (prBusInfo->DmaShdlInit)
 				prBusInfo->DmaShdlInit(prAdapter);
 
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 				"SER(Q) Host ACK MCU SER handle done\n");
 			/* Send Host stops TX/RX done response to mcu */
 			kalDevRegWrite(prAdapter->prGlueInfo,
@@ -2435,10 +2392,10 @@ void halSerSyncTimerHandler(struct ADAPTER *prAdapter)
 		if (u4SerAction == ERROR_DETECT_MCU_NORMAL_STATE) {
 #if (CFG_SUPPORT_ADHOC) || (CFG_ENABLE_WIFI_DIRECT)
 			/* update Beacon frame if operating in AP mode. */
-			DBGLOG(HAL, DEBUG, "SER(T) Host re-initialize BCN\n");
+			DBGLOG(HAL, INFO, "SER(T) Host re-initialize BCN\n");
 			nicSerReInitBeaconFrame(prAdapter);
 #endif
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 				"SER(U) Host reset TX/RX endpoint\n");
 
 			/* It's surprising that the toggle bit or sequence

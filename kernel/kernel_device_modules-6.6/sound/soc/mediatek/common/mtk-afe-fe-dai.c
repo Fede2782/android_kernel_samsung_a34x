@@ -1225,8 +1225,13 @@ int mtk_memif_set_channel(struct mtk_base_afe *afe,
 				       channel, memif->data->ch_num_shift);
 	}
 
-	/* save channel value for cm get*/
-	g_channel = channel;
+	if (!strcmp(memif->data->name, "VUL8") ||
+	    !strcmp(memif->data->name, "VUL_CM0") ||
+	    !strcmp(memif->data->name, "VUL9") ||
+	    !strcmp(memif->data->name, "VUL_CM1")) {
+		/* save channel value for cm get*/
+		g_channel = channel;
+	}
 
 	return 0;
 }

@@ -28,6 +28,15 @@ config MTK_CLKMGR_DEBUG
 	  and clock driver debug feature. Trigger by clock
 	  debug cmd.
 
+config MTK_CLKMGR_DEBUG_REG_RW
+	bool "Clock Manager Debug Support for clk register Read/Write"
+	help
+	  Enable this option to allow direct register read and write
+	  access for MediaTek clock manager drivers. This is intended
+	  for debugging purposes and provides nodes or interfaces
+	  to read or write clock registers via debug commands.
+	  Do not enable for production use due to potential system risks.
+
 config COMMON_CLK_MT6761
 	tristate "Clock driver for MediaTek MT6761"
 	depends on ARM64 || ARM || COMPILE_TEST

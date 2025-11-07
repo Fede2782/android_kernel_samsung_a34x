@@ -127,12 +127,12 @@ static void boe_panel_init(struct boe_panel *ctx)
 	usleep_range(52000, 55000);
 
 	boe_dcs_write_seq_static(ctx, 0x11);
-	msleep(20);
+	usleep_range(20000, 21000);
 	boe_dcs_write_seq_static(ctx, 0x50, 0x5a, 0x0c);
 	boe_dcs_write_seq_static(ctx, 0x80, 0xfd);
-	msleep(120);
+	usleep_range(120000, 121000);
 	boe_dcs_write_seq_static(ctx, 0x29);
-	msleep(20);
+	usleep_range(20000, 21000);
 	boe_dcs_write_seq_static(ctx, 0x50);
 
 	pr_info("%s -\n", __func__);
@@ -147,10 +147,9 @@ static int boe_panel_unprepare(struct drm_panel *panel)
 		return 0;
 
 	boe_dcs_write_seq_static(ctx, MIPI_DCS_SET_DISPLAY_OFF);
-	msleep(20);
+	usleep_range(20000, 21000);
 	boe_dcs_write_seq_static(ctx, MIPI_DCS_ENTER_SLEEP_MODE);
-	msleep(120);
-
+	usleep_range(120000, 121000);
 	gpiod_set_value(ctx->reset_gpio, 0);
 	usleep_range(1000, 1100);
 	/* Enable AVDD & AVEE discharge when power off */
@@ -213,8 +212,6 @@ static int boe_panel_enable(struct drm_panel *panel)
 
 	if (ctx->enabled)
 		return 0;
-
-	msleep(130);
 
 	if (ctx->backlight) {
 		ctx->backlight->props.state &= ~BL_CORE_FBBLANK;

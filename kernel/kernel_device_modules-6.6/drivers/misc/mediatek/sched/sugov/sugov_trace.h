@@ -12,12 +12,16 @@
 #include <linux/tracepoint.h>
 
 TRACE_EVENT(sched_runnable_boost,
-	TP_PROTO(bool is_runnable_boost_enable, int boost, unsigned long rq_util_avg,
-		unsigned long rq_util_est, unsigned long rq_load, unsigned long cpu_util_next),
-	TP_ARGS(is_runnable_boost_enable, boost, rq_util_avg, rq_util_est, rq_load, cpu_util_next),
+	TP_PROTO(bool is_runnable_boost_enable, int boost, bool runnable_boost_all_cpus,
+		bool cpu_in_cpumask,unsigned long rq_util_avg, unsigned long rq_util_est,
+		unsigned long rq_load, unsigned long cpu_util_next),
+	TP_ARGS(is_runnable_boost_enable, boost, runnable_boost_all_cpus, cpu_in_cpumask, rq_util_avg,
+		rq_util_est, rq_load, cpu_util_next),
 	TP_STRUCT__entry(
 		__field(bool, is_runnable_boost_enable)
 		__field(int, boost)
+		__field(int, runnable_boost_all_cpus)
+		__field(int, cpu_in_cpumask)
 		__field(unsigned long, rq_util_avg)
 		__field(unsigned long, rq_util_est)
 		__field(unsigned long, rq_load)
@@ -26,14 +30,18 @@ TRACE_EVENT(sched_runnable_boost,
 	TP_fast_assign(
 		__entry->is_runnable_boost_enable = is_runnable_boost_enable;
 		__entry->boost = boost;
+		__entry->runnable_boost_all_cpus = runnable_boost_all_cpus;
+		__entry->cpu_in_cpumask = cpu_in_cpumask;
 		__entry->rq_util_avg = rq_util_avg;
 		__entry->rq_util_est = rq_util_est;
 		__entry->rq_load = rq_load;
 		__entry->cpu_util_next = cpu_util_next;
 	),
-	TP_printk("is_runnable_boost_enable=%d boost=%d rq_util_avg=%lu rq_util_est=%lu rq_load=%lu cpu_util_next=%lu",
+	TP_printk("is_runnable_boost_enable=%d boost=%d runnable_boost_all_cpus=%d cpu_in_cpumask=%d rq_util_avg=%lu rq_util_est=%lu rq_load=%lu cpu_util_next=%lu",
 		__entry->is_runnable_boost_enable,
 		__entry->boost,
+		__entry->runnable_boost_all_cpus,
+		__entry->cpu_in_cpumask,
 		__entry->rq_util_avg,
 		__entry->rq_util_est,
 		__entry->rq_load,
@@ -333,8 +341,8 @@ TRACE_EVENT(sugov_ext_tar,
 TRACE_EVENT(sugov_ext_group_dvfs,
 	TP_PROTO(int gearid, unsigned long util, unsigned long pelt_util_with_margin,
 		unsigned long flt_util, unsigned long pelt_util, unsigned long pelt_margin,
-		unsigned long freq),
-	TP_ARGS(gearid, util, pelt_util_with_margin, flt_util, pelt_util, pelt_margin, freq),
+		unsigned long freq,bool is_set_adaptive),
+	TP_ARGS(gearid, util, pelt_util_with_margin, flt_util, pelt_util, pelt_margin, freq,is_set_adaptive),
 	TP_STRUCT__entry(
 		__field(int, gearid)
 		__field(unsigned long, util)
@@ -343,6 +351,7 @@ TRACE_EVENT(sugov_ext_group_dvfs,
 		__field(unsigned long, pelt_util)
 		__field(unsigned long, pelt_margin)
 		__field(unsigned long, freq)
+		__field(bool, is_set_adaptive)
 	),
 	TP_fast_assign(
 		__entry->gearid = gearid;
@@ -352,22 +361,25 @@ TRACE_EVENT(sugov_ext_group_dvfs,
 		__entry->pelt_util = pelt_util;
 		__entry->pelt_margin = pelt_margin;
 		__entry->freq = freq;
+		__entry->is_set_adaptive = is_set_adaptive;
 	),
 	TP_printk(
-		"gearid=%d ret=%lu pelt_with_margin=%lu tar=%lu pelt=%lu pelt_margin=%lu freq=%lu",
+		"gearid=%d ret=%lu pelt_with_margin=%lu tar=%lu pelt=%lu pelt_margin=%lu freq=%lu adaptive_on=%d",
 		__entry->gearid,
 		__entry->util,
 		__entry->pelt_util_with_margin,
 		__entry->flt_util,
 		__entry->pelt_util,
 		__entry->pelt_margin,
-		__entry->freq)
+		__entry->freq,
+		__entry->is_set_adaptive)
 );
 
 TRACE_EVENT(sugov_ext_turn_point_margin,
 	TP_PROTO(unsigned int cpu, unsigned int orig_util, unsigned int margin_util,
-	unsigned int turn_point, unsigned int target_margin, unsigned int target_margin_low),
-	TP_ARGS(cpu, orig_util, margin_util, turn_point, target_margin, target_margin_low),
+	unsigned int turn_point, unsigned int target_margin, unsigned int target_margin_low,unsigned long freq,
+	bool is_set_adaptive),
+	TP_ARGS(cpu, orig_util, margin_util, turn_point, target_margin, target_margin_low,freq,is_set_adaptive),
 	TP_STRUCT__entry(
 		__field(unsigned int, cpu)
 		__field(unsigned int, orig_util)
@@ -375,6 +387,8 @@ TRACE_EVENT(sugov_ext_turn_point_margin,
 		__field(unsigned int, turn_point)
 		__field(unsigned int, target_margin)
 		__field(unsigned int, target_margin_low)
+		__field(unsigned long, freq)
+		__field(bool, is_set_adaptive)
 	),
 	TP_fast_assign(
 		__entry->cpu = cpu;
@@ -383,15 +397,19 @@ TRACE_EVENT(sugov_ext_turn_point_margin,
 		__entry->turn_point = turn_point;
 		__entry->target_margin = target_margin;
 		__entry->target_margin_low = target_margin_low;
+		__entry->freq = freq;
+		__entry->is_set_adaptive = is_set_adaptive;
 	),
 	TP_printk(
-		"cpu=%u orig_util=%u margin_util=%u turn_point=%d target_margin=%d target_margin_low=%d",
+		"cpu=%u orig_util=%u margin_util=%u turn_point=%d target_margin=%d target_margin_low=%d freq=%lu adaptive_on=%d",
 		__entry->cpu,
 		__entry->orig_util,
 		__entry->margin_util,
 		__entry->turn_point,
 		__entry->target_margin,
-		__entry->target_margin_low)
+		__entry->target_margin_low,
+		__entry->freq,
+		__entry->is_set_adaptive)
 );
 
 TRACE_EVENT(collab_type_0_ret_function,

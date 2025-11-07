@@ -89,7 +89,7 @@ uint8_t p2pDevFsmInit(IN struct ADAPTER *prAdapter)
 
 		cnmTimerInitTimer(prAdapter,
 			&(prP2pDevFsmInfo->rP2pFsmTimeoutTimer),
-			(PFN_MGMT_TIMEOUT_FUNC) p2pDevFsmRunEventTimeout,
+			p2pDevFsmRunEventTimeout,
 			(unsigned long) prP2pDevFsmInfo);
 
 		prP2pBssInfo =
@@ -190,7 +190,7 @@ uint8_t p2pDevFsmInit(IN struct ADAPTER *prAdapter)
 
 		cnmTimerInitTimer(prAdapter,
 			&(prP2pFsmInfo->rP2pFsmTimeoutTimer),
-			(PFN_MGMT_TIMEOUT_FUNC) p2pFsmRunEventFsmTimeout,
+			p2pFsmRunEventFsmTimeout,
 			(unsigned long) prP2pFsmInfo);
 
 		/* 4 <2> Initiate BSS_INFO_T - common part */

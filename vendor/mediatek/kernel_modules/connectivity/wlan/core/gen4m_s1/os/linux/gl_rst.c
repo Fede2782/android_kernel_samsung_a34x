@@ -372,7 +372,7 @@ static void glWlanGetTraces(uint8_t *pucTraces, uint32_t u4MaxLen)
 	for (i = 0; i < u4EntryNum; i++) {
 		u4Offset += kalScnprintf(pucTraces + u4Offset,
 			u4MaxLen - u4Offset,
-			"%ps\n", au4Stacks[i]);
+			"%ps\n", (void *) au4Stacks[i]);
 	}
 #else
 	DBGLOG(INIT, INFO, "Kernel stack trace not support\n");

@@ -214,9 +214,12 @@ struct DlptCsramCtrlBlock {
 	int gpu_scaling_factor_l1; /*9*/
 	int gpu_scaling_factor_l2; /*10*/
 	int sf_deglitch_time_ms; /*11*/
+	int cpub_scaling_factor_force; /*12*/
+	int cpum_scaling_factor_force; /*13*/
+	int gpu_scaling_factor_force; /*14*/
 
 	/*reserved*/
-	int reserved[33-11-1];
+	int reserved[33-14-1];
 
 	/* mode 0:CG no peak at same time 1:peak power budget 2:OFF*/
 	int peak_power_budget_mode; /* 33*/

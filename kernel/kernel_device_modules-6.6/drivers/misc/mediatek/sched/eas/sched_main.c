@@ -386,11 +386,13 @@ static void mtk_set_cpus_allowed_ptr(void *data, struct task_struct *p,
 	struct affinity_context *ctx, bool *skip_user_ptr)
 {
 	struct cpumask *kernel_allowed_mask = &((struct mtk_task *) p->android_vendor_data1)->kernel_allowed_mask;
-	struct rq *rq = task_rq(p);
+	struct rq_flags rf;
+	struct rq *rq = task_rq_lock(p, &rf);
 	cpumask_t new_mask;
 
 	// not set or invalid cpu mask
 	if (cpumask_empty(kernel_allowed_mask)){
+		task_rq_unlock(rq, p, &rf);
 		return;
 	}
 
@@ -405,6 +407,7 @@ static void mtk_set_cpus_allowed_ptr(void *data, struct task_struct *p,
 		cpumask_copy(&new_mask, ctx->new_mask);
 		trace_sched_skip_user(p, *skip_user_ptr, p->user_cpus_ptr, kernel_allowed_mask, &new_mask);
 	}
+	task_rq_unlock(rq, p, &rf);
 }
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
@@ -757,17 +760,17 @@ static long eas_ioctl_impl(struct file *filp,
 	case EAS_TURN_POINT_UTIL_C0:
 		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
 			return -1;
-		set_turn_point_freq(0, val);
+		set_turn_point_freq_with_wl(0, val, DEFAULE_WL_TYPE);
 		break;
 	case EAS_TURN_POINT_UTIL_C1:
 		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
 			return -1;
-		set_turn_point_freq(1, val);
+		set_turn_point_freq_with_wl(1, val, DEFAULE_WL_TYPE);
 		break;
 	case EAS_TURN_POINT_UTIL_C2:
 		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
 			return -1;
-		set_turn_point_freq(2, val);
+		set_turn_point_freq_with_wl(2, val, DEFAULE_WL_TYPE);
 		break;
 	case EAS_TARGET_MARGIN_C0:
 		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
@@ -857,6 +860,36 @@ static long eas_ioctl_impl(struct file *filp,
 		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
 			return -1;
 		unset_runnable_boost_enable();
+		break;
+	case EAS_SET_ADAPTIVE_LOW_FREQ_C0:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_adaptive_freq(0,val,ADAPTIVE_LOW);
+		break;
+	case EAS_SET_ADAPTIVE_HIGH_FREQ_C0:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_adaptive_freq(0,val,ADAPTIVE_HIGH);
+		break;
+	case EAS_SET_ADAPTIVE_LOW_FREQ_C1:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_adaptive_freq(1,val,ADAPTIVE_LOW);
+		break;
+	case EAS_SET_ADAPTIVE_HIGH_FREQ_C1:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_adaptive_freq(1,val,ADAPTIVE_HIGH);
+		break;
+	case EAS_SET_ADAPTIVE_LOW_FREQ_C2:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_adaptive_freq(2,val,ADAPTIVE_LOW);
+		break;
+	case EAS_SET_ADAPTIVE_HIGH_FREQ_C2:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_adaptive_freq(2,val,ADAPTIVE_HIGH);
 		break;
 	default:
 		pr_debug(TAG "%s %d: unknown cmd %x\n",

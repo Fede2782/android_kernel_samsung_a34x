@@ -38,7 +38,7 @@
 #define FIELD_HE_6G_CAP_RDR     0
 #endif
 
-#if (CFG_SUPPORT_SMALL_PKT == 1)
+#if (CFG_SUPPORT_CONNAC3X_SMALL_PKT == 1)
 #define HE_6G_CAP_INFO_DEFAULT_VAL \
 	(HE_6G_CAP_INFO_MSS_1_US | \
 	HE_6G_CAP_INFO_MAX_AMPDU_LEN_1024K | \
@@ -52,7 +52,7 @@
 	HE_6G_CAP_INFO_MAX_MPDU_LEN_3K | \
 	HE_6G_CAP_INFO_SM_POWER_SAVE | \
 	FIELD_HE_6G_CAP_RDR)
-#endif /* CFG_SUPPORT_SMALL_PKT */
+#endif /* CFG_SUPPORT_CONNAC3X_SMALL_PKT */
 
 #endif /* CFG_SUPPORT_WIFI_6G */
 
@@ -122,10 +122,6 @@ struct HE_A_CTRL_OM_T {
 extern uint8_t  g_fgHTSMPSEnabled;
 #endif
 
- /* To indocate if WFA test bed */
-extern uint8_t g_IsWfaTestBed;
-extern uint8_t g_IsTwtLogo;
-
 /******************************************************************************
  *                           P R I V A T E   D A T A
  ******************************************************************************
@@ -166,12 +162,6 @@ void heRlmRecHeOperation(
 	struct ADAPTER *prAdapter,
 	struct BSS_INFO *prBssInfo,
 	const uint8_t *pucIE);
-#if (CFG_SUPPORT_UPDATE_HE_BSS_COLOR_FROM_BEACON == 1)
-void heRlmRecBssColorChangeAnnouncement(
-	struct ADAPTER *prAdapter,
-	struct BSS_INFO *prBssInfo,
-	const uint8_t *pucIE);
-#endif /* CFG_SUPPORT_UPDATE_HE_BSS_COLOR_FROM_BEACON */
 u_int8_t heRlmRecHeSRParams(
 	struct ADAPTER *prAdapter,
 	struct BSS_INFO *prBssInfo,

@@ -8,10 +8,13 @@
 
 #include <linux/types.h>
 
+#ifndef JOB_STATUS_QOS
+#define JOB_STATUS_QOS
 struct job_status_qos {
 	phys_addr_t phyaddr;
 	size_t size;
 };
+#endif
 
 #define SYSRAM_LOG_SIZE sizeof(int)
 

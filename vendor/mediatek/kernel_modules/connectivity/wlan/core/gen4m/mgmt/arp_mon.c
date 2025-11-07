@@ -21,6 +21,21 @@ static void arpMonIncTxCnt(struct ADAPTER *ad, uint8_t ucBssIdx)
 	ad->arArpMonitor[ucBssIdx].arpMoniter++;
 }
 
+static uint16_t arpMonGetGatewayRxCnt(struct ADAPTER *ad, uint8_t ucBssIdx)
+{
+	return ad->arArpMonitor[ucBssIdx].u4GatewayRxCnt;
+}
+
+static void arpMonResetGatewayRxCnt(struct ADAPTER *ad, uint8_t ucBssIdx)
+{
+	ad->arArpMonitor[ucBssIdx].u4GatewayRxCnt = 0;
+}
+
+static void arpMonIncGatewayRxCnt(struct ADAPTER *ad, uint8_t ucBssIdx)
+{
+	ad->arArpMonitor[ucBssIdx].u4GatewayRxCnt++;
+}
+
 static uint8_t arpMonGetCriticalThres(struct ADAPTER *ad, uint8_t ucBssIdx)
 {
 	return ad->arArpMonitor[ucBssIdx].arpIsCriticalThres;
@@ -550,10 +565,21 @@ void arpMonHandleRxDhcpPkt(struct ADAPTER *ad,
 	       "can't find the dhcp option 255?, need to check the net log\n");
 }
 
+void arpMonHandleNudBTO(struct ADAPTER *prAdapter,
+	struct ARP_MON_PKT_INFO *prArpMonPktInfo)
+{
+#if CFG_QM_ARP_MONITOR_MSG
+	arpMonSetBTOEvent(prAdapter, prArpMonPktInfo->ucBssIdx);
+#else /* CFG_QM_ARP_MONITOR_MSG */
+	arpMonSetLegacyBTOEvent(prAdapter, prArpMonPktInfo->ucBssIdx);
+#endif /* CFG_QM_ARP_MONITOR_MSG */
+}
+
 const struct ARP_MON_HANDLER arArpMonHandler[ARP_MON_TYPE_MAX] = {
 	{ARP_MON_TYPE_TX_ARP, arpMonHandleTxArpPkt},
 	{ARP_MON_TYPE_RX_ARP, arpMonHandleRxArpPkt},
 	{ARP_MON_TYPE_RX_DHCP, arpMonHandleRxDhcpPkt},
+	{ARP_MON_TYPE_NUD_BTO, arpMonHandleNudBTO},
 };
 
 void arpMonHandlePkt(struct ADAPTER *ad, enum ENUM_ARP_MON_TYPE eType,
@@ -796,6 +822,79 @@ static void arpMonHandleRxDhcpPacket(struct ADAPTER *ad, struct SW_RFB *prSwRfb)
 #endif /* CFG_QM_ARP_MONITOR_MSG */
 }
 
+static void arpMonHandleNudBTOMsg(struct ADAPTER *prAdapter, uint8_t ucBssIdx)
+{
+	struct ARP_MON_PKT_INFO rArpMonPktInfo = {0};
+
+	if (!prAdapter)
+		return;
+
+	if (ucBssIdx >= MAX_BSSID_NUM)
+		return;
+
+	rArpMonPktInfo.ucBssIdx = ucBssIdx;
+	rArpMonPktInfo.u2PacketLen = 0;
+	rArpMonPktInfo.pucData = NULL;
+
+#if CFG_QM_ARP_MONITOR_MSG
+	arpMonSendMsg(prAdapter, ARP_MON_TYPE_NUD_BTO, &rArpMonPktInfo);
+#else /* CFG_QM_ARP_MONITOR_MSG */
+	arpMonHandlePkt(prAdapter, ARP_MON_TYPE_NUD_BTO, &rArpMonPktInfo);
+#endif /* CFG_QM_ARP_MONITOR_MSG */
+}
+
+void arpMonHandleNudState(struct ADAPTER *prAdapter, uint64_t state,
+	uint8_t ucBssIndex)
+{
+	if (prAdapter->rWifiVar.fgArpMonitorNudDetectEn == 0)
+		return;
+
+	switch (state) {
+	case NUD_INCOMPLETE:
+		DBGLOG(AM, TRACE,
+			"State[INCOMPLETE] BssIdx[%u] NUD Gateway Tx:%lu Rx:%lu\n",
+			ucBssIndex,
+			arpMonGetTxCnt(prAdapter, ucBssIndex),
+			arpMonGetGatewayRxCnt(prAdapter, ucBssIndex));
+		arpMonResetGatewayRxCnt(prAdapter, ucBssIndex);
+		break;
+	case NUD_PROBE:
+		DBGLOG(AM, TRACE,
+			"State[PROBE] BssIdx[%u] NUD Gateway Tx:%lu Rx:%lu\n",
+			ucBssIndex,
+			arpMonGetTxCnt(prAdapter, ucBssIndex),
+			arpMonGetGatewayRxCnt(prAdapter, ucBssIndex));
+		arpMonResetGatewayRxCnt(prAdapter, ucBssIndex);
+		break;
+	case NUD_REACHABLE:
+		DBGLOG(AM, TRACE,
+			"State[REACHABLE] BssIdx[%u], reset RX Cnt\n",
+			ucBssIndex);
+		arpMonResetGatewayRxCnt(prAdapter, ucBssIndex);
+		break;
+	case NUD_FAILED:
+		DBGLOG(AM, INFO,
+			"State[FAILED] BssIdx[%u] NUD Gateway Tx:%lu Rx:%lu\n",
+			ucBssIndex,
+			arpMonGetTxCnt(prAdapter, ucBssIndex),
+			arpMonGetGatewayRxCnt(prAdapter, ucBssIndex));
+		if (arpMonGetTxCnt(prAdapter, ucBssIndex) >
+			prAdapter->rWifiVar.u4NudMonitorTxNumber &&
+			arpMonGetGatewayRxCnt(prAdapter, ucBssIndex) == 0) {
+			DBGLOG(AM, WARN, "IOT issue, arp no resp!\n");
+			arpMonHandleNudBTOMsg(prAdapter, ucBssIndex);
+		}
+		break;
+	case NUD_STALE:
+	case NUD_DELAY:
+	case NUD_NOARP:
+	case NUD_PERMANENT:
+	case NUD_NONE:
+	default:
+		break;
+	}
+}
+
 static void arpMonGetUnicastPktTime(struct ADAPTER *ad, struct SW_RFB *prSwRfb)
 {
 	struct WIFI_VAR *prWifiVar = NULL;
@@ -849,6 +948,8 @@ static void arpMonGetUnicastPktTime(struct ADAPTER *ad, struct SW_RFB *prSwRfb)
 	u4LastUnicastRxTime = prRxCtrl->u4LastUnicastRxTime[ucBssIdx];
 	if (!arpMonEqualGatewayMac(ad, ucBssIdx, rSrcMacAddr))
 		return;
+
+	arpMonIncGatewayRxCnt(ad, ucBssIdx);
 
 	GET_BOOT_SYSTIME(&prRxCtrl->u4LastUnicastRxTime[ucBssIdx]);
 	DBGLOG(AM, LOUD,

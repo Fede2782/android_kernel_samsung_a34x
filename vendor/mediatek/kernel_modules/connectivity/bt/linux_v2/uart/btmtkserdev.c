@@ -1,6 +1,15 @@
-/* SPDX-License-Identifier: BSD-2-Clause */
+//  SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021 MediaTek Inc.
+ *  Copyright (c) 2018 MediaTek Inc.
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *  See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #include "btmtk_define.h"
@@ -65,7 +74,7 @@ static int btmtk_uart_read_register(struct btmtk_dev *bdev, u32 reg, u32 *val)
 	memcpy(&cmd[MCU_ADDRESS_OFFSET_CMD], &reg, sizeof(reg));
 
 	ret = btmtk_main_send_cmd(bdev, cmd, READ_REGISTER_CMD_LEN, event, READ_REGISTER_EVT_HDR_LEN, DELAY_TIMES,
-			RETRY_TIMES, BTMTK_TX_CMD_FROM_DRV, CMD_NO_NEED_FILTER);
+			RETRY_TIMES, BTMTK_TX_CMD_FROM_DRV);
 
 	memcpy(val, bdev->io_buf + MCU_ADDRESS_OFFSET_EVT - HCI_TYPE_SIZE, sizeof(u32));
 	*val = le32_to_cpu(*val);
@@ -121,18 +130,17 @@ static int btmtk_uart_close(struct hci_dev *hdev)
 }
 
 int btmtk_uart_send_cmd(struct btmtk_dev *bdev, struct sk_buff *skb,
-		int delay, int retry, int pkt_type, bool flag)
+		int delay, int retry, int pkt_type)
 {
 
 	return 0;
 }
 
-#if 0
 static int btmtk_cif_recv_evt(struct btmtk_dev *bdev)
 {
+
 	return 0;
 }
-#endif
 
 int btmtk_uart_event_filter(struct btmtk_dev *bdev, struct sk_buff *skb)
 {
@@ -164,17 +172,10 @@ int btmtk_uart_event_filter(struct btmtk_dev *bdev, struct sk_buff *skb)
 			BTMTK_INFO_RAW(event_need_compare, event_need_compare_len,
 				"%s: event_need_compare:", __func__);
 			BTMTK_INFO_RAW(skb->data, skb->len, "%s: skb->data:", __func__);
-
-			if (btmtk_vendor_cmd_filter(bdev, skb))
-				return 1;
-
 			return 0;
 		}
 
 		return 1;
-	} else {
-		if (btmtk_vendor_cmd_filter(bdev, skb))
-			return 1;
 	}
 
 	return 0;
@@ -183,7 +184,7 @@ int btmtk_uart_event_filter(struct btmtk_dev *bdev, struct sk_buff *skb)
 int btmtk_uart_send_and_recv(struct btmtk_dev *bdev,
 		struct sk_buff *skb,
 		const uint8_t *event, const int event_len,
-		int delay, int retry, int pkt_type , bool flag)
+		int delay, int retry, int pkt_type)
 {
 	unsigned long comp_event_timo = 0, start_time = 0;
 	int ret = -1;
@@ -212,7 +213,7 @@ int btmtk_uart_send_and_recv(struct btmtk_dev *bdev,
 
 	BTMTK_DBG_RAW(skb->data, skb->len, "%s, send, len = %d", __func__, skb->len);
 
-	ret = btmtk_uart_send_cmd(bdev, skb, delay, retry, pkt_type, flag);
+	ret = btmtk_uart_send_cmd(bdev, skb, delay, retry, pkt_type);
 	if (ret < 0) {
 		BTMTK_ERR("%s btmtk_uart_send_cmd failed!!", __func__);
 		goto fw_assert;
@@ -236,7 +237,7 @@ exit:
 }
 
 static int btmtk_uart_load_fw_patch_using_dma(struct btmtk_dev *bdev, u8 *image,
-		u8 *fwbuf, int section_dl_size, int section_offset, int patch_flag)
+		u8 *fwbuf, int section_dl_size, int section_offset)
 {
 	return 0;
 }
@@ -291,26 +292,25 @@ static int btmtk_uart_probe(struct serdev_device *serdev)
 
 	err = btmtk_load_rom_patch(bdev);
 	if (err < 0) {
-		BTMTK_ERR("btmtk load rom patch failed!");
+		BT_ERR("btmtk load rom patch failed!");
 		goto deinit;
 	}
 
-	err = btmtk_woble_initialize(bdev, &cif_dev->bt_woble);
+	err = btmtk_main_woble_initialize(bdev);
 	if (err < 0) {
-		BTMTK_ERR("btmtk_main_woble_initialize failed, do chip reset!!!");
+		BT_ERR("btmtk_main_woble_initialize failed!");
 		goto free_setting;
 	}
 
 	err = btmtk_register_hci_device(bdev);
 	if (err < 0) {
-		BTMTK_ERR("btmtk_register_hci_device failed!");
+		BT_ERR("btmtk_register_hci_device failed!");
 		goto free_setting;
 	}
 
 	goto end;
 
 free_setting:
-	btmtk_woble_uninitialize(&cif_dev->bt_woble);
 	btmtk_free_setting_file(bdev);
 deinit:
 	btmtk_main_cif_uninitialize(bdev, HCI_USB);
@@ -327,15 +327,11 @@ end:
 static void btmtk_uart_disconnect(struct serdev_device *serdev)
 {
 	struct btmtk_dev *bdev = serdev_device_get_drvdata(serdev);
-	struct btmtk_uart_dev *cif_dev = NULL;
 
 	if (!bdev)
 		return;
 
-	cif_dev = (struct btmtk_uart_dev *)bdev->cif_dev;
-
-	btmtk_woble_uninitialize(&cif_dev->bt_woble);
-	btmtk_cif_free_memory(cif_dev);
+	btmtk_cif_free_memory(bdev->cif_dev);
 	//btmtk_uart_unregister_dev(bdev->cif_dev);
 
 	btmtk_main_cif_disconnect_notify(bdev, HCI_UART);
@@ -417,10 +413,9 @@ static int btmtk_cif_suspend(struct device *dev)
 	int ret = 0;
 	int cif_event = 0;
 	struct btmtk_cif_state *cif_state = NULL;
-	int state = BTMTK_STATE_UNKNOWN;
+	int state = BTMTK_STATE_INIT;
 	struct btmtk_dev *bdev = NULL;
 	struct btmtk_uart_dev *cif_dev = NULL;
-	struct btmtk_woble *bt_woble = NULL;
 	struct serdev_device *serdev = NULL;
 
 	BTMTK_INFO("%s, enter", __func__);
@@ -435,7 +430,6 @@ static int btmtk_cif_suspend(struct device *dev)
 		return 0;
 
 	cif_dev = (struct btmtk_uart_dev *)bdev->cif_dev;
-	bt_woble = &cif_dev->bt_woble;
 
 	state = btmtk_get_chip_state(bdev);
 	/* Retrieve current HIF event state */
@@ -454,10 +448,21 @@ static int btmtk_cif_suspend(struct device *dev)
 #if CFG_SUPPORT_DVT
 	BTMTK_INFO("%s: SKIP Driver woble_suspend flow", __func__);
 #else
-	ret = btmtk_woble_suspend(bt_woble);
+	ret = btmtk_woble_suspend(bdev);
 	if (ret < 0)
 		BTMTK_ERR("%s: btmtk_woble_suspend return fail %d", __func__, ret);
 #endif
+
+	if (bdev->bt_cfg.support_woble_by_eint) {
+		if (bdev->wobt_irq != 0 && atomic_read(&(bdev->irq_enable_count)) == 0) {
+			BTMTK_INFO("enable BT IRQ:%d", bdev->wobt_irq);
+			irq_set_irq_wake(bdev->wobt_irq, 1);
+			enable_irq(bdev->wobt_irq);
+			atomic_inc(&(bdev->irq_enable_count));
+		} else {
+			BTMTK_INFO("irq_enable count:%d", atomic_read(&(bdev->irq_enable_count)));
+		}
+	}
 
 	/* Set End/Error state */
 	if (ret == 0)
@@ -475,7 +480,6 @@ static int btmtk_cif_resume(struct device *dev)
 	struct btmtk_dev *bdev = NULL;
 	struct btmtk_uart_dev *cif_dev = NULL;
 	struct btmtk_cif_state *cif_state = NULL;
-	struct btmtk_woble *bt_woble = NULL;
 	struct serdev_device *serdev = NULL;
 
 	BTMTK_INFO("%s, enter", __func__);
@@ -497,8 +501,17 @@ static int btmtk_cif_resume(struct device *dev)
 		return 0;
 	}
 
+	if (bdev->bt_cfg.support_woble_by_eint) {
+		if (bdev->wobt_irq != 0 && atomic_read(&(bdev->irq_enable_count)) == 1) {
+			BTMTK_INFO("disable BT IRQ:%d", bdev->wobt_irq);
+			atomic_dec(&(bdev->irq_enable_count));
+			disable_irq_nosync(bdev->wobt_irq);
+		} else {
+			BTMTK_INFO("irq_enable count:%d", atomic_read(&(bdev->irq_enable_count)));
+		}
+	}
+
 	cif_state = &bdev->cif_state[HIF_EVENT_RESUME];
-	bt_woble = &cif_dev->bt_woble;
 
 	/* Set Entering state */
 	btmtk_set_chip_state((void *)bdev, cif_state->ops_enter);
@@ -506,7 +519,7 @@ static int btmtk_cif_resume(struct device *dev)
 #if CFG_SUPPORT_DVT
 	BTMTK_INFO("%s: SKIP Driver woble_resume flow", __func__);
 #else
-	ret = btmtk_woble_resume(bt_woble);
+	ret = btmtk_woble_resume(bdev);
 	if (ret < 0)
 		BTMTK_ERR("%s: btmtk_woble_resume return fail %d", __func__, ret);
 #endif
@@ -599,9 +612,9 @@ int btmtk_cif_register(void)
 
 int btmtk_cif_deregister(void)
 {
-	BTMTK_INFO("%s", __func__);
+	BT_INFO("%s", __func__);
 	uart_deregister();
-	BTMTK_INFO("%s: Done", __func__);
+	BT_INFO("%s: Done", __func__);
 	return 0;
 }
 

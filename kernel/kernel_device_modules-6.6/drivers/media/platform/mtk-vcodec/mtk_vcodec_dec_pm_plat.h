@@ -12,6 +12,7 @@
 #define DEC_DVFS	1
 #define DEC_EMI_BW	1
 #define MTK_VDEC_CHECK_ACTIVE_INTERVAL 2000 // ms
+#define VDEC_LAYOUT_MODE_UFO_ON (1U << 0)
 
 #ifdef DEC_DVFS
 #define VDEC_CHECK_ALIVE 1 /* vdec check alive have to enable DEC_DVFS first */

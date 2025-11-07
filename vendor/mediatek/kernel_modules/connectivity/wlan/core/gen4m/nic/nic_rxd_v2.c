@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -172,46 +172,29 @@ void nic_rxd_v2_fill_rfb(
 			((uint8_t *) prRxStatus + u2RxStatusOffset);
 		u2RxStatusOffset += sizeof(struct HW_MAC_RX_STS_GROUP_4);
 
-		NIC_DUMP_RXD_HEADER(prAdapter, "****** RXD GROUP 4 ******\n");
-		NIC_DUMP_RXD(prAdapter, (uint32_t *) prSwRfb->prRxStatusGroup4,
-			     sizeof(struct HW_MAC_RX_STS_GROUP_4));
 	}
 	if (prSwRfb->ucGroupVLD & BIT(RX_GROUP_VLD_1)) {
 		prSwRfb->prRxStatusGroup1 = (struct HW_MAC_RX_STS_GROUP_1 *)
 			((uint8_t *) prRxStatus + u2RxStatusOffset);
 		u2RxStatusOffset += sizeof(struct HW_MAC_RX_STS_GROUP_1);
 
-		NIC_DUMP_RXD_HEADER(prAdapter, "****** RXD GROUP 1 ******\n");
-		NIC_DUMP_RXD(prAdapter, (uint32_t *) prSwRfb->prRxStatusGroup1,
-			     sizeof(struct HW_MAC_RX_STS_GROUP_1));
 	}
 	if (prSwRfb->ucGroupVLD & BIT(RX_GROUP_VLD_2)) {
 		prSwRfb->prRxStatusGroup2 = (struct HW_MAC_RX_STS_GROUP_2 *)
 			((uint8_t *) prRxStatus + u2RxStatusOffset);
 		u2RxStatusOffset += sizeof(struct HW_MAC_RX_STS_GROUP_2);
 
-		NIC_DUMP_RXD_HEADER(prAdapter, "****** RXD GROUP 2 ******\n");
-		NIC_DUMP_RXD(prAdapter, (uint32_t *) prSwRfb->prRxStatusGroup2,
-			     sizeof(struct HW_MAC_RX_STS_GROUP_2));
 	}
 	if (prSwRfb->ucGroupVLD & BIT(RX_GROUP_VLD_3)) {
 		prSwRfb->prRxStatusGroup3 = (void *)
 			((uint8_t *) prRxStatus + u2RxStatusOffset);
 		u2RxStatusOffset += sizeof(struct HW_MAC_RX_STS_GROUP_3_V2);
-
-		NIC_DUMP_RXD_HEADER(prAdapter, "****** RXD GROUP 3 ******\n");
-		NIC_DUMP_RXD(prAdapter, (uint32_t *) prSwRfb->prRxStatusGroup3,
-			     sizeof(struct HW_MAC_RX_STS_GROUP_3_V2));
 	}
 
 	if (prSwRfb->ucGroupVLD & BIT(RX_GROUP_VLD_5)) {
 		prSwRfb->prRxStatusGroup5 = (struct HW_MAC_RX_STS_GROUP_5 *)
 			((uint8_t *) prRxStatus + u2RxStatusOffset);
 		u2RxStatusOffset += prChipInfo->group5_size;
-
-		NIC_DUMP_RXD_HEADER(prAdapter, "****** RXD GROUP 5 ******\n");
-		NIC_DUMP_RXD(prAdapter, (uint32_t *) prSwRfb->prRxStatusGroup5,
-			     prChipInfo->group5_size);
 	}
 
 
@@ -254,8 +237,6 @@ void nic_rxd_v2_fill_rfb(
 	ucHwChnlNum = HAL_MAC_CONNAC2X_RX_STATUS_GET_CHNL_NUM(prRxStatus);
 	prSwRfb->ucHwBandIdx =
 		HAL_MAC_CONNAC2X_RX_STATUS_GET_BAND_IDX(prRxStatus);
-	prSwRfb->ucHwBssIdx =
-		HAL_MAC_CONNAC2X_RX_STATUS_GET_BSSID(prRxStatus);
 	prSwRfb->eRfBand =
 		HAL_MAC_CONNAC2X_RX_STATUS_GET_RF_BAND(prRxStatus);
 	prSwRfb->ucChnlNum = nicRxdChNumTranslate(prSwRfb->eRfBand,
@@ -379,7 +360,7 @@ u_int8_t nic_rxd_v2_sanity_check(
 				"Don't drop NAN MC pkt for sec\n");
 #endif
 		} else {
-			nicRxParseDropPkt(prAdapter, prSwRfb);
+			nicRxParseDropPkt(prSwRfb);
 			RX_INC_CNT(prRxCtrl, RX_CIPHER_MISMATCH_DROP_COUNT);
 			fgDrop = TRUE;
 			DBGLOG(RSN, TEMP,
@@ -445,7 +426,9 @@ void nic_rxd_v2_check_wakeup_reason(
 	struct HW_MAC_CONNAC2X_RX_DESC *prRxStatus;
 	uint16_t u2PktLen = 0;
 	uint32_t u4HeaderOffset;
-	u_int8_t fgDrop = FALSE;
+#if CFG_TC10_FEATURE
+	struct sk_buff *skb = (struct sk_buff *)prSwRfb->pvPacket;
+#endif
 
 	prChipInfo = prAdapter->chip_info;
 
@@ -453,20 +436,17 @@ void nic_rxd_v2_check_wakeup_reason(
 	if (!prRxStatus)
 		return;
 
-	fgDrop = nic_rxd_v2_sanity_check(prAdapter, prSwRfb);
-	if (fgDrop) {
-		DBGLOG(RX, WARN,
-			"%s: sanity check failed. drop!\n", __func__);
-		return;
-	}
-
 	prSwRfb->ucGroupVLD =
 		(uint8_t) HAL_MAC_CONNAC2X_RX_STATUS_GET_GROUP_VLD(prRxStatus);
 
 	switch (prSwRfb->ucPacketType) {
 	case RX_PKT_TYPE_SW_DEFINED:
+
+	prSwRfb->fgHdrTran = nic_rxd_v2_get_HdrTrans(prRxStatus);
+	prSwRfb->ucOFLD = nic_rxd_v2_get_ofld(prRxStatus);
+
 	if (prSwRfb->ucOFLD || prSwRfb->fgHdrTran) {
-		DBGLOG(RX, DEBUG, "Need to treat as data frame.\n");
+		DBGLOG(RX, INFO, "Need to treat as data frame.\n");
 		/*
 		 * In order to jump to case RX_PKT_TYPE_RX_DATA,
 		 * DO NOT ADD break here!!!
@@ -483,7 +463,7 @@ void nic_rxd_v2_check_wakeup_reason(
 			nicUpdateWakeupStatistics(prAdapter, RX_EVENT_INT);
 			prAdapter->wake_event_count[prEvent->ucEID]++;
 #endif
-			DBGLOG(RX, DEBUG, "Event 0x%02x wakeup host\n",
+			DBGLOG(RX, INFO, "Event 0x%02x wakeup host\n",
 				prEvent->ucEID);
 			break;
 		} else if ((NIC_RX_GET_U2_SW_PKT_TYPE(prSwRfb->prRxStatus) &
@@ -528,10 +508,10 @@ void nic_rxd_v2_check_wakeup_reason(
 			ucSubtype = (prWlanMgmtHeader->u2FrameCtrl &
 				MASK_FC_SUBTYPE) >> OFFSET_OF_FC_SUBTYPE;
 
-			DBGLOG(RX, DEBUG,
+			DBGLOG(RX, INFO,
 				" frame subtype:%d, SeqCtrl %d wakeup host\n",
 				ucSubtype, prWlanMgmtHeader->u2SeqCtrl);
-			DBGLOG_MEM8(RX, DEBUG,
+			DBGLOG_MEM8(RX, INFO,
 					pvHeader, u2PktLen > 50 ? 50:u2PktLen);
 		} else {
 			DBGLOG(RX, ERROR,
@@ -550,6 +530,9 @@ void nic_rxd_v2_check_wakeup_reason(
 #if CFG_SUPPORT_WAKEUP_STATISTICS
 		nicUpdateWakeupStatistics(prAdapter, RX_DATA_INT);
 #endif /* fos_change end */
+#if CFG_TC10_FEATURE
+		skb->mark |= 0x80000000;
+#endif
 
 		u2PktLen =
 			HAL_MAC_CONNAC2X_RX_STATUS_GET_RX_BYTE_CNT(prRxStatus);
@@ -578,7 +561,7 @@ void nic_rxd_v2_check_wakeup_reason(
 
 			if ((prWlanMacHeader->u2FrameCtrl & MASK_FRAME_TYPE) ==
 				MAC_FRAME_BLOCK_ACK_REQ) {
-				DBGLOG(RX, DEBUG,
+				DBGLOG(RX, INFO,
 					"BAR frame[SSN:%d,TID:%d] wakeup host\n"
 					, prSwRfb->u2SSN, prSwRfb->ucTid);
 				break;
@@ -590,18 +573,17 @@ void nic_rxd_v2_check_wakeup_reason(
 		switch (u2Temp) {
 		case ETH_P_IPV4:
 			u2Temp = *(uint16_t *) &pvHeader[ETH_HLEN + 4];
-			DBGLOG(RX, DEBUG,
+			DBGLOG(RX, INFO,
 				"IP Packet from:%d.%d.%d.%d,\n",
 				pvHeader[ETH_HLEN + 12],
 				pvHeader[ETH_HLEN + 13],
 				pvHeader[ETH_HLEN + 14],
 				pvHeader[ETH_HLEN + 15]);
-			DBGLOG(RX, DEBUG,
+			DBGLOG(RX, INFO,
 				" IP ID 0x%04x wakeup host\n",
 				u2Temp);
 			break;
 		case ETH_P_ARP:
-			break;
 		case ETH_P_1X:
 		case ETH_P_PRE_1X:
 #if CFG_SUPPORT_WAPI
@@ -612,7 +594,7 @@ void nic_rxd_v2_check_wakeup_reason(
 		case ETH_P_IPX:
 		case ETH_P_VLAN:
 		case ETH_PRO_TDLS:
-			DBGLOG(RX, DEBUG,
+			DBGLOG(RX, INFO,
 				"Data Packet, EthType 0x%04x wakeup host\n",
 				u2Temp);
 			break;
@@ -620,15 +602,15 @@ void nic_rxd_v2_check_wakeup_reason(
 			if (HAL_MAC_CONNAC2X_RX_STATUS_IS_LLC_MIS(prRxStatus)) {
 				DBGLOG(RX, WARN,
 					"abnormal packet, Header translate fail\n");
-				DBGLOG_MEM8(RX, DEBUG,
+				DBGLOG_MEM8(RX, INFO,
 					(uint8_t *)prSwRfb->prRxStatus,
 					prChipInfo->rxd_size);
-				DBGLOG_MEM8(RX, DEBUG, pvHeader, u2PktLen);
+				DBGLOG_MEM8(RX, INFO, pvHeader, u2PktLen);
 			} else {
 				DBGLOG(RX, WARN,
 					"abnormal packet, EthType 0x%04x wakeup host\n",
 					u2Temp);
-				DBGLOG_MEM8(RX, DEBUG,
+				DBGLOG_MEM8(RX, INFO,
 					pvHeader, u2PktLen > 50 ? 50:u2PktLen);
 			}
 			break;
@@ -708,8 +690,6 @@ uint8_t nic_rxd_v2_fill_radiotap(
 
 	prSwRfb->ucHwBandIdx =
 		HAL_MAC_CONNAC2X_RX_STATUS_GET_BAND_IDX(prRxStatus);
-	prSwRfb->ucHwBssIdx =
-		HAL_MAC_CONNAC2X_RX_STATUS_GET_BSSID(prRxStatus);
 
 	if (HAL_MAC_CONNAC2X_RX_STATUS_GET_RXV_SEQ_NO(prRxStatus) != 0)
 		prGlueInfo->u4AmpduRefNum[prSwRfb->ucHwBandIdx] += 1;

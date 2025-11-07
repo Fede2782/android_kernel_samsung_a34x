@@ -1,23 +1,32 @@
-/* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (c) 2021 MediaTek Inc.
+ *  Copyright (c) 2016,2017 MediaTek Inc.
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *  See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #ifndef _BTMTK_SDIO_H_
 #define _BTMTK_SDIO_H_
 /* It's for reset procedure */
+#include <linux/mmc/sdio_ids.h>
 #include <linux/module.h>
 
 #include <linux/of_gpio.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
 #include <linux/mmc/sdio.h>
-#include <linux/mmc/sdio_ids.h>
 #include <linux/mmc/sdio_func.h>
 
 #include "btmtk_define.h"
 #include "btmtk_main.h"
 #include "btmtk_woble.h"
+#include "btmtk_buffer_mode.h"
 #include "btmtk_chip_reset.h"
 
 #ifndef BTMTK_SDIO_DEBUG
@@ -100,7 +109,7 @@ typedef int (*set_gpio_high)(u8 gpio);
  */
 #define HCI_EV_VENDOR			0xff
 #define SDIO_BLOCK_SIZE                 512
-#define SDIO_RW_RETRY_COUNT 20
+#define SDIO_RW_RETRY_COUNT 500
 #define MTK_SDIO_PACKET_HEADER_SIZE 4
 
 /* Driver & FW own related */
@@ -123,11 +132,6 @@ typedef int (*set_gpio_high)(u8 gpio);
 
 #define LD_PATCH_CMD_LEN 10
 #define LD_PATCH_EVT_LEN 8
-
-#define BTMTK_SDIO_THREAD_STOP	(1 << 0)
-#define BTMTK_SDIO_THREAD_TX		(1 << 1)
-#define BTMTK_SDIO_THREAD_RX		(1 << 2)
-#define BTMTK_SDIO_THREAD_FW_OWN	(1 << 3)
 
 #define CHECK_THREAD_RETRY_TIMES 50
 
@@ -165,19 +169,13 @@ struct btmtk_sdio_dev {
 	struct sk_buff_head tx_queue;
 	struct btmtk_sdio_thread sdio_thread;
 	struct btmtk_woble bt_woble;
+	struct btmtk_buffer_mode_struct *buffer_mode;
 
 	struct timer_list fw_own_timer;
 	atomic_t fw_own_timer_flag;
-
-	struct wakeup_source *main_ws;	//for main thread
-	struct wakeup_source *irq_ws;	//for irq handler
-	struct wakeup_source *device_ws;	//for probe and disconnect procedure
 };
 
 int btmtk_sdio_read_bt_mcu_pc(u32 *val);
 int btmtk_sdio_read_conn_infra_pc(u32 *val);
-int btmtk_sdio_set_driver_own_for_subsys_reset(int enable);
-int btmtk_sdio_whole_reset(struct btmtk_dev *bdev);
-int btmtk_sdio_read_wifi_mcu_pc(u8 PcLogSel, u32 *val);
 
 #endif

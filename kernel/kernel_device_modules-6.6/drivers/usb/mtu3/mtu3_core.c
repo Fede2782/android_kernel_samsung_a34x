@@ -23,6 +23,14 @@
 #include "mtu3_trace.h"
 
 #include <linux/usb/typec.h>
+#if IS_ENABLED(CONFIG_USB_CONFIGFS_F_SS_MON_GADGET)
+#include <../ss_function/f_ss_mon_gadget.h>
+#endif
+#if IS_ENABLED(CONFIG_PDIC_SM5714B) && IS_ENABLED(CONFIG_TYPEC)
+#include <linux/usb/typec/sm/sm5714b/sm5714b_pd.h>
+#include <linux/usb/typec/sm/sm5714b/sm5714b_typec.h>
+#endif
+
 #include "class.h"
 
 static int ep_fifo_alloc(struct mtu3_ep *mep, u32 seg_size)
@@ -118,6 +126,32 @@ skip:
 
 static struct typec_port *mtu3_get_typec_port(struct mtu3 *mtu)
 {
+#if IS_ENABLED(CONFIG_PDIC_SM5714B) && IS_ENABLED(CONFIG_TYPEC)
+	struct device_node *np;
+	struct typec_port *port = NULL;
+	struct device *dev;
+	struct sm5714b_usbpd_data *pd_data;
+	struct sm5714b_phydrv_data *pdic_data;
+
+	np = of_find_node_by_name(NULL, mtu->typec_name);
+	if (!np) {
+		dev_err(mtu->dev, "cant find device_node\n");
+		return NULL;
+	}
+
+	dev = get_dev_from_fwnode(&np->fwnode);
+	of_node_put(np);
+	if (!dev)
+		return NULL;
+
+	pd_data = dev_get_drvdata(dev);
+	pdic_data = pd_data->phy_driver_data;
+	port = pdic_data->port;
+
+	put_device(dev);
+
+	return port;
+#else
 	struct device_node *np;
 	struct platform_device *pdev;
 	struct device *child;
@@ -142,15 +176,20 @@ static struct typec_port *mtu3_get_typec_port(struct mtu3 *mtu)
 	put_device(child);
 
 	return port;
+#endif
 }
 
 int mtu3_is_usb_pd(struct mtu3 *mtu)
 {
 	int usb_pd = -EOPNOTSUPP;
 
+#if IS_ENABLED(CONFIG_PDIC_SM5714B) && IS_ENABLED(CONFIG_TYPEC)
+	if (!mtu->typec_name)
+		goto skip;
+#else
 	if (!mtu->typec_name || !mtu->typec_port_name)
 		goto skip;
-
+#endif
 	if (!mtu->typec_port) {
 		mtu->typec_port = mtu3_get_typec_port(mtu);
 		if (!mtu->typec_port) {
@@ -215,6 +254,8 @@ static inline void mtu3_hs_softconn_set(struct mtu3 *mtu, bool enable)
 	} else {
 		mtu3_clrbits(mtu->mac_base, U3D_POWER_MANAGEMENT,
 			SOFT_CONN | SUSPENDM_ENABLE);
+		/* Delay for eUSB2 port reset signal */
+		mdelay(4);
 	}
 	dev_dbg(mtu->dev, "SOFTCONN = %d\n", !!enable);
 }
@@ -302,6 +343,8 @@ static void mtu3_dev_power_on(struct mtu3 *mtu)
 static void mtu3_dev_power_down(struct mtu3 *mtu)
 {
 	void __iomem *ibase = mtu->ippc_base;
+
+	ssusb_wait_power_state(mtu->ssusb, MTU3_STATE_POWER_OFF);
 
 	if (mtu->u3_capable)
 		mtu3_setbits(ibase, SSUSB_U3_CTRL(0), SSUSB_U3_PORT_PDN);
@@ -598,8 +641,12 @@ void mtu3_start(struct mtu3 *mtu)
 
 	if (mtu->softconnect)
 		mtu3_dev_on_off(mtu, 1);
-	else if (!mtu->is_gadget_ready)
+	else if (!mtu->is_gadget_ready && !mtu->bypass_manual_pu)
 		ssusb_phy_dp_pullup(mtu->ssusb);
+
+#if IS_ENABLED(CONFIG_USB_CONFIGFS_F_SS_MON_GADGET)
+	vbus_session_notify(&mtu->g, true, 0);
+#endif
 
 	/* set vbus limit*/
 	mtu3_gadget_vbus_draw(&mtu->g, USB_SELF_POWER_VBUS_MAX_DRAW);
@@ -618,6 +665,10 @@ void mtu3_stop(struct mtu3 *mtu)
 
 	mtu->is_active = 0;
 	mtu3_dev_power_down(mtu);
+
+#if IS_ENABLED(CONFIG_USB_CONFIGFS_F_SS_MON_GADGET)
+	vbus_session_notify(&mtu->g, false, 0);
+#endif	
 }
 
 static void mtu3_dev_suspend(struct mtu3 *mtu)
@@ -959,7 +1010,7 @@ static irqreturn_t mtu3_link_isr(struct mtu3 *mtu)
 		pm_runtime_get(mtu->dev);
 		mtu3_ep0_setup(mtu);
 
-		if (udev_speed >= MTU3_SPEED_SUPER)
+		if (udev_speed >= MTU3_SPEED_SUPER && !mtu->bypass_manual_pu)
 			ssusb_phy_dp_pullup(mtu->ssusb);
 	}
 
@@ -1267,6 +1318,8 @@ int ssusb_gadget_init(struct ssusb_mtk *ssusb)
 
 	dev_info(dev, "max_speed_host: %s\n", usb_speed_string(mtu->max_speed_host));
 
+	mtu->bypass_manual_pu = of_property_read_bool(dev->of_node, "mediatek,bypass-manual-pu");
+	dev_info(dev, "bypass_manual_pu: %d\n", mtu->bypass_manual_pu);
 
 	ret = mtu3_set_dma_mask(mtu);
 	if (ret) {

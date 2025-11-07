@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -180,7 +180,7 @@ uint32_t wlanbowHandleCommand(struct ADAPTER *prAdapter,
 
 	ASSERT(prAdapter);
 
-	for (i = 0; i < ARRAY_SIZE(arBowCmdTable); i++) {
+	for (i = 0; i < sizeof(arBowCmdTable) / sizeof(struct BOW_CMD); i++) {
 		if ((arBowCmdTable[i].uCmdID == prCmd->rHeader.ucCommandId) && arBowCmdTable[i].pfCmdHandle) {
 			retval = arBowCmdTable[i].pfCmdHandle(prAdapter, prCmd);
 			break;
@@ -1358,7 +1358,7 @@ uint8_t bowInit(struct ADAPTER *prAdapter)
 	ASSERT(prAdapter);
 
 	prBowBssInfo = cnmGetBssInfoAndInit(prAdapter,
-		NETWORK_TYPE_BOW, TRUE, INVALID_OMAC_IDX);
+		NETWORK_TYPE_BOW, TRUE);
 
 	/*Initiate BSS_INFO_T - common part -move from bowstarting */
 	BSS_INFO_INIT(prAdapter, prBowBssInfo);
@@ -2278,8 +2278,7 @@ bowIndicationOfMediaStateToHost(struct ADAPTER *prAdapter,
 		/* NOTE: Only delay the Indication of Disconnect Event */
 		ASSERT(eConnectionState == MEDIA_STATE_DISCONNECTED);
 
-		DBGLOG(BOW, DEBUG,
-		       "Postpone the indication of Disconnect for %d seconds\n",
+		DBGLOG(BOW, INFO, "Postpone the indication of Disconnect for %d seconds\n",
 		       prConnSettings->ucDelayTimeOfDisconnectEvent);
 
 		cnmTimerStartTimer(prAdapter,
@@ -2621,7 +2620,7 @@ bowValidateAuth(struct ADAPTER *prAdapter,
 	/* TODO(Kevin): Call BoW functions to check ..
 	 *  1. Check we are BoW now.
 	 *  2. Check we can accept connection from thsi peer
-	 *  3. Check Block List here.
+	 *  3. Check Black List here.
 	 */
 
 	prBowFsmInfo = &(prAdapter->rWifiVar.rBowFsmInfo);

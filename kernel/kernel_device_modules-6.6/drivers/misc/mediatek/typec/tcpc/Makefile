@@ -7,6 +7,7 @@ obj-$(CONFIG_TCPC_MT6370)		+= tcpc_mt6370.o
 obj-$(CONFIG_TCPC_MT6375)		+= tcpc_mt6375.o
 obj-$(CONFIG_TCPC_MT6379)		+= tcpc_mt6379.o
 obj-$(CONFIG_TCPC_RT1711H)		+= tcpc_rt1711h.o
+obj-$(CONFIG_TCPC_RT1718S)		+= tcpc_rt1718s.o
 
 tcpc_class-objs := tcpci_core.o tcpci_typec.o tcpci_timer.o tcpm.o tcpci.o tcpci_alert.o rt-regmap.o
 

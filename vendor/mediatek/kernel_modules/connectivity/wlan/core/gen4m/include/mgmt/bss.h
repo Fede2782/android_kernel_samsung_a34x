@@ -48,6 +48,9 @@ extern const uint8_t *apucNetworkType[NETWORK_TYPE_NUM];
 #define BSS_PROBE_RESP_USE_P2P_DEV_ADDR             BIT(0)
 #define BSS_PROBE_RESP_INCLUDE_P2P_IE               BIT(1)
 
+#define MAX_BSS_INDEX           HW_BSSID_NUM
+#define P2P_DEV_BSS_INDEX       MAX_BSS_INDEX
+
 #define IS_BSS_ALIVE(_prAdapter, _prBssInfo) \
 	(_prBssInfo && \
 	_prBssInfo->fgIsInUse && \
@@ -83,8 +86,6 @@ extern const uint8_t *apucNetworkType[NETWORK_TYPE_NUM];
  *                                 M A C R O S
  *******************************************************************************
  */
-#define IS_BSS_INDEX_VALID(_ucBssIndex)     ((_ucBssIndex) <= MAX_BSSID_NUM)
-
 #define GET_BSS_INFO_BY_INDEX(_prAdapter, _ucBssIndex) \
 	(IS_BSS_INDEX_VALID(_ucBssIndex) ? \
 		(_prAdapter)->aprBssInfo[(_ucBssIndex)] : NULL)
@@ -96,6 +97,8 @@ extern const uint8_t *apucNetworkType[NETWORK_TYPE_NUM];
 /*----------------------------------------------------------------------------*/
 /* Routines for all Operation Modes                                           */
 /*----------------------------------------------------------------------------*/
+u_int8_t IS_BSS_INDEX_VALID(uint8_t ucBssIndex);
+
 uint32_t bssInfoConnType(struct ADAPTER *ad, struct BSS_INFO *bssinfo);
 
 struct STA_RECORD *
@@ -121,6 +124,9 @@ bssSendQoSNullFrame(struct ADAPTER *prAdapter,
 		    struct STA_RECORD *prStaRec, uint8_t ucUP,
 		    PFN_TX_DONE_HANDLER pfTxDoneHandler);
 
+const char *bssGetRoleTypeString(struct ADAPTER *prAdapter,
+				 struct BSS_INFO *bss);
+
 void bssDumpBssInfo(struct ADAPTER *prAdapter,
 		    uint8_t ucBssIndex);
 
@@ -138,23 +144,9 @@ int8_t bssGetHeRxNss(struct BSS_DESC *prBssDesc);
 int8_t bssGetEhtRxNss(struct BSS_DESC *prBssDesc);
 int8_t bssGetRxNss(struct BSS_DESC *prBssDesc);
 
-#if CFG_SUPPORT_IOT_AP_BLOCKLIST
+#if CFG_SUPPORT_IOT_AP_BLACKLIST
 uint32_t bssGetIotApAction(struct ADAPTER *prAdapter,
 	struct BSS_DESC *prBssDesc);
-bool bssIsIotAp(struct ADAPTER *prAdapter,
-	struct BSS_DESC *prBssDesc, enum ENUM_WLAN_IOT_ACTION eAction);
-#endif
-
-const char *bssOpBw2Str(struct BSS_INFO *prBssInfo);
-
-uint32_t bssGetAliveBssByBand(struct ADAPTER *prAdapter,
-		enum ENUM_BAND eBand, struct BSS_INFO **prBssList);
-
-const char *bssGetRoleTypeString(struct ADAPTER *prAdapter,
-				 struct BSS_INFO *bss);
-
-#if CFG_ENABLE_WIFI_DIRECT
-void bssGetAliveBssHwBitmap(struct ADAPTER *prAdapter, uint32_t *pau4Bitmap);
 #endif
 
 #if CFG_SUPPORT_ADHOC || CFG_ENABLE_WIFI_DIRECT

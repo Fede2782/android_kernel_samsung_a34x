@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2020-2025 Samsung Electronics Co., Ltd. All Rights Reserved
  *
@@ -324,8 +324,8 @@ static void dtm_engine_enforce_test(struct kunit *test)
 				 "svc xpower stayon true",
 				 (const char *)NULL),
 		  DTM_DENY); /* mismatch, "svc power" x "svc xpower" */
-	KUNIT_EXPECT_EQ(test, test_ctx(ctx, "/system/bin/init", "/vendor/bin/sh",
-				 CHR, "/vendor/bin/sh", "/vendor/bin/init.qti.kernel.early_debug.sh",
+	KUNIT_EXPECT_EQ(test, test_ctx(ctx, "/system/bin/init", "/vendor/bin/sh", CHR,
+				 "/vendor/bin/sh", "/vendor/bin/init.qti.kernel.early_debug.sh",
 				 (const char *)NULL),
 		  DTM_ALLOW);
 

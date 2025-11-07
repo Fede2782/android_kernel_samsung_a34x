@@ -102,6 +102,9 @@ int exfat_write_inode(struct inode *inode, struct writeback_control *wbc)
 {
 	int ret;
 
+	if (unlikely(exfat_forced_shutdown(inode->i_sb)))
+		return -EIO;
+
 	mutex_lock(&EXFAT_SB(inode->i_sb)->s_lock);
 	ret = __exfat_write_inode(inode, wbc->sync_mode == WB_SYNC_ALL);
 	mutex_unlock(&EXFAT_SB(inode->i_sb)->s_lock);
@@ -312,7 +315,7 @@ static int exfat_get_block(struct inode *inode, sector_t iblock,
 	 *  3. direct_read (!bh_result->b_folio)
 	 *     -> the unwritten part will be zeroed in exfat_direct_IO()
 	 *
-	 * Otherwise, in the case of bufferred read, it is necessary to take
+	 * Otherwise, in the case of buffered read, it is necessary to take
 	 * care the last nested block if valid_size is not equal to i_size.
 	 */
 	if (i_size == ei->valid_size || create || !bh_result->b_folio)
@@ -426,6 +429,9 @@ static void exfat_readahead(struct readahead_control *rac)
 static int exfat_writepages(struct address_space *mapping,
 		struct writeback_control *wbc)
 {
+	if (unlikely(exfat_forced_shutdown(mapping->host->i_sb)))
+		return -EIO;
+
 	return mpage_writepages(mapping, wbc, exfat_get_block);
 }
 
@@ -446,7 +452,11 @@ static int exfat_write_begin(struct file *file, struct address_space *mapping,
 {
 	int ret;
 
+	if (unlikely(exfat_forced_shutdown(mapping->host->i_sb)))
+		return -EIO;
+
 	*pagep = NULL;
+
 	ret = block_write_begin(mapping, pos, len, pagep, exfat_get_block);
 
 	if (ret < 0)
@@ -464,7 +474,6 @@ static int exfat_write_end(struct file *file, struct address_space *mapping,
 	int err;
 
 	err = generic_write_end(file, mapping, pos, len, copied, pagep, fsdata);
-
 	if (err < len)
 		exfat_write_failed(mapping, pos+len);
 

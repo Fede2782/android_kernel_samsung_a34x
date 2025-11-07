@@ -278,7 +278,7 @@ static UINT32 stp_dbg_core_dump_header_init(P_WCN_CORE_DUMP_T dmp)
 		dmp->p_head = osal_malloc(MAX_DUMP_HEAD_LEN);
 		if (dmp->p_head == NULL) {
 			STP_DBG_PR_ERR("alloc memory for head information failed\n");
-			return -1;
+			return 1;
 		}
 	}
 	if (dmp->p_head != NULL)

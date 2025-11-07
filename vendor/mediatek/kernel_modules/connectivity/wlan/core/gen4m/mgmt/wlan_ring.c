@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -49,10 +49,11 @@ unsigned int wlan_ring_read_prepare(unsigned int sz,
 {
 	unsigned int wt = ring->write;
 	unsigned int rd = ring->read;
+	int diff = wt - rd;
 
 	memset(seg, 0, sizeof(struct wlan_ring_segment));
-	if (sz > wt - rd)
-		sz = wt - rd;
+	if (diff > 0 && sz > diff)
+		sz = diff;
 	seg->remain = sz;
 	/* wlan_ring_dump(__func__, ring); */
 	/* wlan_ring_dump_segment(__func__, seg); */
@@ -69,10 +70,11 @@ unsigned int wlan_ring_write_prepare(unsigned int sz,
 {
 	unsigned int wt = ring->write;
 	unsigned int rd = ring->read;
+	int diff = wt - rd;
 
 	memset(seg, 0, sizeof(struct wlan_ring_segment));
-	if (sz > ring->max_size - (wt - rd))
-		sz = ring->max_size - (wt - rd);
+	if (diff > 0 && ring->max_size > diff && sz > ring->max_size - diff)
+		sz = ring->max_size - diff;
 	seg->remain = sz;
 	/* wlan_ring_dump(__func__, ring); */
 	/* wlan_ring_dump_segment(__func__, seg); */

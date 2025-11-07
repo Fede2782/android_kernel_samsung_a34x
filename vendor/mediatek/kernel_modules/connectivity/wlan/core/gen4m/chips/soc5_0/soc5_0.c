@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -21,6 +21,8 @@
 #include "coda/soc5_0/wf_wfdma_mcu_dma0.h"
 #include "coda/soc5_0/wf_pse_top.h"
 #include "hal_dmashdl_soc5_0.h"
+#include <linux/mfd/mt6359p/registers.h>
+#include <linux/regmap.h>
 
 #define CFG_SUPPORT_VCODE_VDFS 0
 
@@ -81,8 +83,8 @@ static void soc5_0asicConnac2xWpdmaConfig(struct GLUE_INFO *prGlueInfo,
 static void soc5_0_triggerInt(struct GLUE_INFO *prGlueInfo);
 static void soc5_0_getIntSta(struct GLUE_INFO *prGlueInfo,  uint32_t *pu4Sta);
 
-static int soc5_0_CheckBusNoAck(void *adapter, uint8_t ucWfResetEnable);
-static void soc5_0_DumpBusStatus(struct ADAPTER *prAdapter);
+static int soc5_0_CheckBusHang(void *adapter, uint8_t ucWfResetEnable);
+static void soc5_0_DumpBusHangCr(struct ADAPTER *prAdapter);
 static u_int8_t soc5_0_get_sw_interrupt_status(struct ADAPTER *prAdapter,
 	uint32_t *status);
 static uint32_t soc5_0_SetupRomEmi(struct ADAPTER *prAdapter);
@@ -93,9 +95,6 @@ static int wf_pwr_on_consys_mcu(struct ADAPTER *prAdapter);
 static int wf_pwr_off_consys_mcu(struct ADAPTER *prAdapter);
 static uint32_t soc5_0_McuInit(struct ADAPTER *prAdapter);
 static void soc5_0_McuDeInit(struct ADAPTER *prAdapter);
-static void soc5_0clearEvtRingTillCmdRingEmpty(
-	struct ADAPTER *prAdapter);
-
 
 /*******************************************************************************
 *                              F U N C T I O N S
@@ -436,8 +435,6 @@ struct BUS_INFO soc5_0_bus_info = {
 	.DmaShdlReInit = NULL,
 	.setRxRingHwAddr = soc5_0SetRxRingHwAddr,
 	.wfdmaAllocRxRing = soc5_0WfdmaAllocRxRing,
-	.clearEvtRingTillCmdRingEmpty =
-		soc5_0clearEvtRingTillCmdRingEmpty,
 
 #if CFG_MTK_WIFI_SW_WFDMA
 	.rSwWfdmaInfo = {
@@ -536,7 +533,7 @@ struct CHIP_DBG_OPS soc5_0_DebugOps = {
 	.get_rx_link_stats = soc5_0_get_rx_link_stats,
 #endif
 	.show_mcu_debug_info = NULL,
-	.dumpBusStatus = soc5_0_DumpBusStatus,
+	.dumpBusHangCr = soc5_0_DumpBusHangCr,
 };
 
 #if CFG_SUPPORT_QA_TOOL
@@ -583,7 +580,6 @@ struct mt66xx_chip_info mt66xx_chip_info_soc5_0 = {
 	.patch_addr = SOC5_0_PATCH_START_ADDR,
 	.is_support_cr4 = FALSE,
 	.is_support_wacpu = FALSE,
-	.sw_sync_emi_info = NULL,
 	.txd_append_size = SOC5_0_TX_DESC_APPEND_LENGTH,
 	.rxd_size = SOC5_0_RX_DESC_LENGTH,
 	.init_evt_rxd_size = SOC5_0_RX_DESC_LENGTH,
@@ -621,7 +617,7 @@ struct mt66xx_chip_info mt66xx_chip_info_soc5_0 = {
 	.get_sw_interrupt_status = soc5_0_get_sw_interrupt_status,
 	.chip_capability = BIT(CHIP_CAPA_FW_LOG_TIME_SYNC),
 #endif
-	.checkbusNoAck = soc5_0_CheckBusNoAck,
+	.checkbushang = soc5_0_CheckBusHang,
 #if (CFG_SUPPORT_PRE_ON_PHY_ACTION == 1)
 	.calDebugCmd = wlanCalDebugCmd,
 #endif
@@ -883,15 +879,6 @@ static void soc5_0asicConnac2xProcessTxInterrupt(
 	}
 }
 
-static uint8_t soc5_0acisConnac2xIsRxRingNotEmpty(
-	struct GLUE_INFO *prGlueInfo, uint8_t ucRingNum)
-{
-	if (halWpdmaGetRxDmaDoneCnt(prGlueInfo, ucRingNum) > 0)
-		return TRUE;
-	else
-		return FALSE;
-}
-
 static void soc5_0asicConnac2xProcessRxInterrupt(
 	struct ADAPTER *prAdapter)
 {
@@ -900,33 +887,23 @@ static void soc5_0asicConnac2xProcessRxInterrupt(
 
 	rIntrStatus = (union WPDMA_INT_STA_STRUCT)prHifInfo->u4IntStatus;
 	if (rIntrStatus.field_conn2x_single.wfdma0_rx_done_0 ||
-	    (KAL_TEST_BIT(RX_RING_EVT, prAdapter->ulNoMoreRfb)) ||
-	    soc5_0acisConnac2xIsRxRingNotEmpty(prAdapter->prGlueInfo,
-			RX_RING_EVT))
+	    (KAL_TEST_BIT(RX_RING_EVT, prAdapter->ulNoMoreRfb)))
 		halRxReceiveRFBs(prAdapter, RX_RING_EVT, FALSE);
 
 	if (rIntrStatus.field_conn2x_single.wfdma0_rx_done_2 ||
-	    (KAL_TEST_BIT(RX_RING_DATA0, prAdapter->ulNoMoreRfb)) ||
-	    soc5_0acisConnac2xIsRxRingNotEmpty(prAdapter->prGlueInfo,
-			RX_RING_DATA0))
+	    (KAL_TEST_BIT(RX_RING_DATA0, prAdapter->ulNoMoreRfb)))
 		halRxReceiveRFBs(prAdapter, RX_RING_DATA0, TRUE);
 
 	if (rIntrStatus.field_conn2x_single.wfdma0_rx_done_3 ||
-	    (KAL_TEST_BIT(RX_RING_DATA1, prAdapter->ulNoMoreRfb)) ||
-	    soc5_0acisConnac2xIsRxRingNotEmpty(prAdapter->prGlueInfo,
-			RX_RING_DATA1))
+	    (KAL_TEST_BIT(RX_RING_DATA1, prAdapter->ulNoMoreRfb)))
 		halRxReceiveRFBs(prAdapter, RX_RING_DATA1, TRUE);
 
 	if (rIntrStatus.field_conn2x_single.wfdma0_rx_done_4 ||
-	    (KAL_TEST_BIT(RX_RING_TXDONE0, prAdapter->ulNoMoreRfb)) ||
-	    soc5_0acisConnac2xIsRxRingNotEmpty(prAdapter->prGlueInfo,
-			RX_RING_TXDONE0))
+	    (KAL_TEST_BIT(RX_RING_TXDONE0, prAdapter->ulNoMoreRfb)))
 		halRxReceiveRFBs(prAdapter, RX_RING_TXDONE0, TRUE);
 
 	if (rIntrStatus.field_conn2x_single.wfdma0_rx_done_5 ||
-	    (KAL_TEST_BIT(RX_RING_TXDONE1, prAdapter->ulNoMoreRfb)) ||
-	    soc5_0acisConnac2xIsRxRingNotEmpty(prAdapter->prGlueInfo,
-			RX_RING_TXDONE1))
+	    (KAL_TEST_BIT(RX_RING_TXDONE1, prAdapter->ulNoMoreRfb)))
 		halRxReceiveRFBs(prAdapter, RX_RING_TXDONE1, TRUE);
 }
 
@@ -1112,39 +1089,6 @@ static void configWfdmaRxRingThreshold(struct ADAPTER *prAdapter)
 			u4NewVal);
 }
 
-static void soc5_0clearEvtRingTillCmdRingEmpty(
-	struct ADAPTER *prAdapter)
-{
-	struct GL_HIF_INFO *prHifInfo = NULL;
-	struct BUS_INFO *prBusInfo = NULL;
-	uint32_t u4Retry = 0;
-	struct RTMP_TX_RING *prTxRing;
-	uint32_t u4CpuIdx = 0, u4DmaIdx = 0, u4Addr = 0;
-
-	prHifInfo = &prAdapter->prGlueInfo->rHifInfo;
-	prBusInfo = prAdapter->chip_info->bus_info;
-
-	u4Retry = 0;
-	prTxRing = &prHifInfo->TxRing[TX_RING_CMD];
-	kalDevRegRead(prAdapter->prGlueInfo, prTxRing->hw_desc_base, &u4Addr);
-	kalDevRegRead(prAdapter->prGlueInfo, prTxRing->hw_cidx_addr, &u4CpuIdx);
-	kalDevRegRead(prAdapter->prGlueInfo, prTxRing->hw_didx_addr, &u4DmaIdx);
-	while (u4CpuIdx != u4DmaIdx) {
-		if (u4Retry >= HIF_CMD_POWER_OFF_RETRY_COUNT || u4Addr == 0)
-			break;
-		kalMsleep(HIF_CMD_POWER_OFF_RETRY_TIME);
-		u4Retry++;
-		nicProcessISTWithSpecifiedCount(prAdapter, 1);
-		DBGLOG_LIMITED(INIT, DEBUG,
-		       "cmd ring cidx[%lu] != didx[%lu] try to clear event ring, retry: %lu\n",
-		       u4CpuIdx, u4DmaIdx, u4Retry);
-		kalDevRegRead(prAdapter->prGlueInfo,
-			      prTxRing->hw_didx_addr, &u4DmaIdx);
-		kalDevRegRead(prAdapter->prGlueInfo,
-			      prTxRing->hw_desc_base, &u4Addr);
-	}
-}
-
 static void soc5_0asicConnac2xWpdmaConfig(struct GLUE_INFO *prGlueInfo,
 		u_int8_t enable, bool fgResetHif)
 {
@@ -1176,12 +1120,12 @@ int soc5_0_Trigger_fw_assert(struct ADAPTER *prAdapter)
 	int ret = 0;
 	int value = 0;
 
-	if (g_IsWfsysBusNoAck == TRUE) {
-		DBGLOG(HAL, DEBUG,
+	if (g_IsWfsysBusHang == TRUE) {
+		DBGLOG(HAL, INFO,
 			"Already trigger conninfra whole chip reset.\n");
 		return -EBUSY;
 	}
-	DBGLOG(HAL, DEBUG, "Trigger fw assert start.\n");
+	DBGLOG(HAL, INFO, "Trigger fw assert start.\n");
 	wf_ioremap_read(WF_TRIGGER_AP2CONN_EINT, &value);
 	value &= 0xFFFFFF7F;
 	wf_ioremap_write(WF_TRIGGER_AP2CONN_EINT, value);
@@ -1202,7 +1146,7 @@ static int wf_pwr_on_consys_mcu(struct ADAPTER *prAdapter)
 	int ret = 0;
 	unsigned int polling_count;
 
-	DBGLOG(INIT, DEBUG, "wmmcu power-on start.\n");
+	DBGLOG(INIT, INFO, "wmmcu power-on start.\n");
 	/* Wakeup conn_infra off write 0x180601A4[0] = 1'b1 */
 	wf_ioremap_read(CONN_INFRA_WAKEUP_WF_ADDR, &value);
 	value |= 0x00000001;
@@ -1516,7 +1460,7 @@ static int wf_pwr_on_consys_mcu(struct ADAPTER *prAdapter)
 	wf_ioremap_read(CONN_INFRA_WAKEUP_WF_ADDR, &value);
 	value &= 0xFFFFFFFE;
 	wf_ioremap_write(CONN_INFRA_WAKEUP_WF_ADDR, value);
-	DBGLOG(INIT, DEBUG, "wmmcu power-on done.\n");
+	DBGLOG(INIT, INFO, "wmmcu power-on done.\n");
 	return ret;
 }
 
@@ -1546,7 +1490,7 @@ static int wf_pwr_off_consys_mcu(struct ADAPTER *prAdapter)
 	}
 #endif
 
-	DBGLOG(INIT, DEBUG, "wmmcu power-off start.\n");
+	DBGLOG(INIT, INFO, "wmmcu power-off start.\n");
 	/* Wakeup conn_infra off write 0x180601A4[0] = 1'b1 */
 	wf_ioremap_read(CONN_INFRA_WAKEUP_WF_ADDR, &value);
 	value |= 0x00000001;
@@ -1737,19 +1681,19 @@ static int wf_pwr_off_consys_mcu(struct ADAPTER *prAdapter)
 
 	udelay(50);
 	wf_ioremap_read(0x18005120, &value);
-	DBGLOG(INIT, DEBUG, "0x18005120=[%x]\n", value);
+	DBGLOG(INIT, INFO, "0x18005120=[%x]\n", value);
 	wf_ioremap_read(0x18005124, &value);
-	DBGLOG(INIT, DEBUG, "0x18005124=[%x]\n", value);
+	DBGLOG(INIT, INFO, "0x18005124=[%x]\n", value);
 	wf_ioremap_read(0x18005128, &value);
-	DBGLOG(INIT, DEBUG, "0x18005128=[%x]\n", value);
+	DBGLOG(INIT, INFO, "0x18005128=[%x]\n", value);
 	wf_ioremap_read(0x1800512C, &value);
-	DBGLOG(INIT, DEBUG, "0x1800512C=[%x]\n", value);
+	DBGLOG(INIT, INFO, "0x1800512C=[%x]\n", value);
 	wf_ioremap_read(0x18005130, &value);
-	DBGLOG(INIT, DEBUG, "0x18005130=[%x]\n", value);
+	DBGLOG(INIT, INFO, "0x18005130=[%x]\n", value);
 	wf_ioremap_read(0x18005134, &value);
-	DBGLOG(INIT, DEBUG, "0x18005134=[%x]\n", value);
+	DBGLOG(INIT, INFO, "0x18005134=[%x]\n", value);
 	wf_ioremap_read(0x180050A8, &value);
-	DBGLOG(INIT, DEBUG, "0x180050A8=[%x]\n", value);
+	DBGLOG(INIT, INFO, "0x180050A8=[%x]\n", value);
 
 	/* Disable conn_infra off domain force on 0x180601A4[0] = 1'b0 */
 	wf_ioremap_read(CONN_INFRA_WAKEUP_WF_ADDR, &value);
@@ -1765,10 +1709,10 @@ static uint32_t soc5_0_McuInit(struct ADAPTER *prAdapter)
 
 	ret = wf_pwr_on_consys_mcu(prAdapter);
 	if (ret) {
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 			"wf_pwr_on_consys_mcu failed, ret=%d\n",
 			ret);
-		soc5_0_DumpBusStatus(prAdapter);
+		soc5_0_DumpBusHangCr(prAdapter);
 		goto exit;
 	}
 
@@ -1777,7 +1721,7 @@ static uint32_t soc5_0_McuInit(struct ADAPTER *prAdapter)
 	 */
 	HAL_LP_OWN_RD(prAdapter, &result);
 	if (result) {
-		DBGLOG(INIT, DEBUG, "set fw own after mcu idle loop.\n");
+		DBGLOG(INIT, INFO, "set fw own after mcu idle loop.\n");
 		HAL_LP_OWN_SET(prAdapter, &result);
 	}
 
@@ -1803,10 +1747,10 @@ static void soc5_0_McuDeInit(struct ADAPTER *prAdapter)
 
 	ret = wf_pwr_off_consys_mcu(prAdapter);
 	if (ret) {
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 			"wf_pwr_off_consys_mcu failed, ret=%d\n",
 			ret);
-		soc5_0_DumpBusStatus(prAdapter);
+		soc5_0_DumpBusHangCr(prAdapter);
 	}
 }
 
@@ -1816,7 +1760,7 @@ void wlanCoAntVFE28En(struct ADAPTER *prAdapter)
 	u_int8_t fgCoAnt;
 
 	if (g_NvramFsm != NVRAM_STATE_READY) {
-		DBGLOG(INIT, DEBUG, "CoAntVFE28 NVRAM Not ready\n");
+		DBGLOG(INIT, INFO, "CoAntVFE28 NVRAM Not ready\n");
 		return;
 	}
 
@@ -1828,25 +1772,27 @@ void wlanCoAntVFE28En(struct ADAPTER *prAdapter)
 
 	if (fgCoAnt) {
 		if (gCoAntVFE28En == FALSE) {
-			kalPmicCtrl(TRUE);
-			DBGLOG(INIT, DEBUG, "CoAntVFE28 PMIC Enable\n");
+			KERNEL_pmic_ldo_vfe28_lp(8, 0, 1, 0);
+
+			DBGLOG(INIT, INFO, "CoAntVFE28 PMIC Enable\n");
 			gCoAntVFE28En = TRUE;
 		} else {
-			DBGLOG(INIT, DEBUG, "CoAntVFE28 PMIC Already Enable\n");
+			DBGLOG(INIT, INFO, "CoAntVFE28 PMIC Already Enable\n");
 		}
 	} else {
-		DBGLOG(INIT, DEBUG, "Not Support CoAnt Enable\n");
+		DBGLOG(INIT, INFO, "Not Support CoAnt Enable\n");
 	}
 }
 
 void wlanCoAntVFE28Dis(void)
 {
 	if (gCoAntVFE28En == TRUE) {
-		kalPmicCtrl(FALSE);
-		DBGLOG(INIT, DEBUG, "CoAntVFE28 PMIC Disable\n");
+		KERNEL_pmic_ldo_vfe28_lp(8, 0, 0, 0);
+
+		DBGLOG(INIT, INFO, "CoAntVFE28 PMIC Disable\n");
 		gCoAntVFE28En = FALSE;
 	} else {
-		DBGLOG(INIT, DEBUG, "CoAntVFE28 PMIC Already Disable\n");
+		DBGLOG(INIT, INFO, "CoAntVFE28 PMIC Already Disable\n");
 	}
 }
 
@@ -1934,7 +1880,7 @@ static uint32_t soc5_0_SetupRomEmi(struct ADAPTER *prAdapter)
 
 exit:
 	if (u4Status != WLAN_STATUS_SUCCESS)
-		DBGLOG(INIT, DEBUG, "u4Status = %u\n", u4Status);
+		DBGLOG(INIT, INFO, "u4Status = %u\n", u4Status);
 
 	return u4Status;
 }
@@ -2149,17 +2095,17 @@ static void soc5_0_DumpOtherCr(struct ADAPTER *prAdapter)
 #define	HANG_OTHER_LOG_NUM		2
 	uint32_t u4WrVal = 0, u4Val = 0, u4Idx;
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"Host_CSR - mailbox and other CRs");
 
 	connac2x_DbgCrRead(NULL, 0x18060010, &u4Val);
-	DBGLOG(INIT, DEBUG, "0x18060010=[0x%08x]\n", u4Val);
+	DBGLOG(INIT, INFO, "0x18060010=[0x%08x]\n", u4Val);
 	connac2x_DbgCrRead(NULL, 0x180600f0, &u4Val);
-	DBGLOG(INIT, DEBUG, "0x180600f0=[0x%08x]\n", u4Val);
+	DBGLOG(INIT, INFO, "0x180600f0=[0x%08x]\n", u4Val);
 
 	connac2x_DbgCrRead(NULL,
 		CONNAC2X_MAILBOX_DBG_ADDR, &u4Val);
-	DBGLOG(INIT, DEBUG, "0x%08x=[0x%08x]\n",
+	DBGLOG(INIT, INFO, "0x%08x=[0x%08x]\n",
 		CONNAC2X_MAILBOX_DBG_ADDR, u4Val);
 
 	connac2x_DumpCrRange(NULL, 0x18060260, HANG_OTHER_LOG_NUM,
@@ -2275,11 +2221,11 @@ static void soc5_0_DumpOtherCr(struct ADAPTER *prAdapter)
 	 * Read 0x1000_6E04[4] should be 1’b0 (conn_clk_dis)
 	 */
 	connac2x_DbgCrRead(NULL, 0x10006178, &u4Val);
-	DBGLOG(INIT, DEBUG, "0x10006178=[%x]\n", u4Val);
+	DBGLOG(INIT, INFO, "0x10006178=[%x]\n", u4Val);
 	connac2x_DbgCrRead(NULL, 0x10006EF4, &u4Val);
-	DBGLOG(INIT, DEBUG, "0x10006EF4=[%x]\n", u4Val);
+	DBGLOG(INIT, INFO, "0x10006EF4=[%x]\n", u4Val);
 	connac2x_DbgCrRead(NULL, 0x10006E04, &u4Val);
-	DBGLOG(INIT, DEBUG, "0x10006E04=[%x]\n", u4Val);
+	DBGLOG(INIT, INFO, "0x10006E04=[%x]\n", u4Val);
 
 	/* Connsys reset status
 	 * a. Read 0x1000_7200[9] should be 1’b0
@@ -2287,26 +2233,26 @@ static void soc5_0_DumpOtherCr(struct ADAPTER *prAdapter)
 	 * b. Read 0x1000_6E04[0] should be 1’b1 (ap_sw_rst_b)
 	 */
 	connac2x_DbgCrRead(NULL, 0x10007200, &u4Val);
-	DBGLOG(INIT, DEBUG, "0x10007200=[%x]\n", u4Val);
+	DBGLOG(INIT, INFO, "0x10007200=[%x]\n", u4Val);
 
 	/* Sleep protect status
 	 * a. Read 0x1000_1228[19] should be 1’b0 (ap2conn_slpprot_rx_rdy)
 	 * b. Read 0x1000_1228[13] should be 1’b0 (ap2conn_slpprot_tx_rdy)
 	 */
 	connac2x_DbgCrRead(NULL, 0x10001228, &u4Val);
-	DBGLOG(INIT, DEBUG, "0x10001228=[%x]\n", u4Val);
+	DBGLOG(INIT, INFO, "0x10001228=[%x]\n", u4Val);
 
 	/* Infra bus hang status
 	 * a. Read 0x1002_3000 ([8] should be 1’b0) (infra bus timeout irq)
 	 * b. Read 0x1002_3408 ~ 0x1002_3474
 	 */
 	connac2x_DbgCrRead(NULL, 0x10023000, &u4Val);
-	DBGLOG(INIT, DEBUG, "0x10023000=[%x]\n", u4Val);
+	DBGLOG(INIT, INFO, "0x10023000=[%x]\n", u4Val);
 	connac2x_DumpCrRange(NULL, 0x10023408, 27, "Infra bus hang status");
 
 	/* MCIF_MD_STATUS_CR */
 	connac2x_DbgCrRead(NULL, 0x10003200, &u4Val);
-	DBGLOG(INIT, DEBUG, "MCIF_MD_STATUS 0x10003200=[%x]\n", u4Val);
+	DBGLOG(INIT, INFO, "MCIF_MD_STATUS 0x10003200=[%x]\n", u4Val);
 }
 
 /* need to dump AXI Master related CR 0x1802750C ~ 0x18027530*/
@@ -2331,14 +2277,6 @@ static void soc5_0_DumpAXIMasterDebugCr(struct ADAPTER *prAdapter)
 
 } /* soc5_0_DumpAXIMasterDebugCr */
 
-void soc5_0_DumpWFUMACCr(struct ADAPTER *prAdapter)
-{
-	connac2xDumpPPDebugCr(prAdapter);
-	connac2x_show_ple_info(prAdapter, FALSE);
-	connac2x_show_pse_info(prAdapter);
-	connac2x_show_dmashdl_info(prAdapter);
-}
-
 /* Dump Flow :
  *	1) dump WFDMA / AXI Master CR
  */
@@ -2357,16 +2295,15 @@ static void soc5_0_DumpHostCr(struct ADAPTER *prAdapter)
 	soc5_0_DumpN10CoreReg(prAdapter);
 	soc5_0_DumpOtherCr(prAdapter);
 	soc5_0_DumpWFDMACr(prAdapter);
-	soc5_0_DumpWFUMACCr(prAdapter);
 }
 
-static void soc5_0_DumpBusStatus(struct ADAPTER *prAdapter)
+static void soc5_0_DumpBusHangCr(struct ADAPTER *prAdapter)
 {
 	conninfra_is_bus_hang();
 	soc5_0_DumpHostCr(prAdapter);
 }
 
-static int soc5_0_CheckBusNoAck(void *adapter, uint8_t ucWfResetEnable)
+static int soc5_0_CheckBusHang(void *adapter, uint8_t ucWfResetEnable)
 {
 	struct ADAPTER *prAdapter = (struct ADAPTER *) adapter;
 	int ret = 1;
@@ -2376,7 +2313,7 @@ static int soc5_0_CheckBusNoAck(void *adapter, uint8_t ucWfResetEnable)
 	uint32_t u4Value = 0;
 
 	if (prAdapter == NULL)
-		DBGLOG(HAL, DEBUG, "prAdapter NULL\n");
+		DBGLOG(HAL, INFO, "prAdapter NULL\n");
 	do {
 /*
  * 1. Check "AP2CONN_INFRA ON step is ok"
@@ -2450,10 +2387,10 @@ static int soc5_0_CheckBusNoAck(void *adapter, uint8_t ucWfResetEnable)
 			soc5_0_DumpHostCr(prAdapter);
 
 		if (conninfra_reset) {
-			g_IsWfsysBusNoAck = TRUE;
+			g_IsWfsysBusHang = TRUE;
 			glResetWholeChipResetTrigger("bus hang");
 		} else if (ucWfResetEnable) {
-			g_IsWfsysBusNoAck = TRUE;
+			g_IsWfsysBusHang = TRUE;
 			glResetWholeChipResetTrigger("wifi bus hang");
 		}
 	}

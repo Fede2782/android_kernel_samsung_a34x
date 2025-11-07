@@ -36,6 +36,12 @@
 #include <linux/user_namespace.h>
 #include <linux/statfs.h>
 
+#ifdef CONFIG_FUSE_SUPPORT_STLOG
+#include <linux/fslog.h>
+#else
+#define ST_LOG(fmt, ...)
+#endif
+
 #define FUSE_SUPER_MAGIC 0x65735546
 
 /** Default max number of pages that can be used in a single read request */
@@ -965,6 +971,10 @@ struct fuse_conn {
 
 	/** Protects passthrough_req */
 	spinlock_t passthrough_req_lock;
+
+#ifdef CONFIG_FUSE_WATCHDOG
+	struct task_struct *watchdog_thread;
+#endif
 };
 
 /*
@@ -2122,5 +2132,36 @@ static inline int fuse_bpf_run(struct bpf_prog *prog, struct fuse_bpf_args *fba)
 })
 
 #endif /* CONFIG_FUSE_BPF */
+
+#ifdef CONFIG_FUSE_FREEZABLE_WAIT
+#define fuse_wait_event(wq, condition)					\
+	wait_event_state(wq, condition, (TASK_UNINTERRUPTIBLE|TASK_FREEZABLE))
+
+#define fuse_wait_event_killable(wq, condition)				\
+	wait_event_state(wq, condition, (TASK_KILLABLE|TASK_FREEZABLE))
+
+#define fuse_wait_event_killable_exclusive(wq, condition)		\
+({									\
+	int ___ret = 0;							\
+	might_sleep();							\
+	if (!(condition))						\
+		___ret = ___wait_event(wq, condition,			\
+				(TASK_KILLABLE|TASK_FREEZABLE), 1, 0,	\
+				schedule());				\
+	___ret;								\
+})
+#else /* !CONFIG_FUSE_FREEZABLE_WAIT */
+#define fuse_wait_event				wait_event
+#define fuse_wait_event_killable		wait_event_killable
+#define fuse_wait_event_killable_exclusive	wait_event_killable_exclusive
+#endif /* CONFIG_FUSE_FREEZABLE_WAIT */
+
+#ifdef CONFIG_FUSE_WATCHDOG
+void fuse_daemon_watchdog_start(struct fuse_conn *fc);
+void fuse_daemon_watchdog_stop(struct fuse_conn *fc);
+#else
+static inline void fuse_daemon_watchdog_start(struct fuse_conn *fc) {}
+static inline void fuse_daemon_watchdog_stop(struct fuse_conn *fc) {}
+#endif
 
 #endif /* _FS_FUSE_I_H */

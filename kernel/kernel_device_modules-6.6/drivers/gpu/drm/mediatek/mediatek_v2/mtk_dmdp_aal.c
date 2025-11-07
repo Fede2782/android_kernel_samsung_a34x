@@ -43,6 +43,7 @@
 #define DMDP_AAL_DRE_ROI_01			(0x524)
 
 #define DMDP_AAL_MISC_CTRL			(0x600)
+#define OFFSET(m, n) ((m > n) ? (m - n) : 0)
 
 struct mtk_dmdp_aal_data {
 	bool support_shadow;
@@ -197,7 +198,11 @@ static void disp_mdp_aal_config(struct mtk_ddp_comp *comp,
 
 	if (comp->mtk_crtc->is_dual_pipe && cfg->tile_overhead.is_support) {
 		width = data->tile_overhead.width;
-		out_width = width - data->tile_overhead.comp_overhead;
+		if (width >= data->tile_overhead.comp_overhead)
+			out_width = OFFSET(width, data->tile_overhead.comp_overhead);
+		else
+			DDPDBG("%s %d compute to negative value error! (%x - %x)",
+				__func__, __LINE__, width, data->tile_overhead.comp_overhead);
 		if (data->is_right_pipe)
 			out_hoffset = data->tile_overhead.comp_overhead;
 	} else {

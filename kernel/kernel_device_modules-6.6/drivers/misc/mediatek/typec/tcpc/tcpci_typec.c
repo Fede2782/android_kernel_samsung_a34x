@@ -13,13 +13,13 @@
 #include "inc/tcpci_timer.h"
 #include "inc/std_tcpci_v10.h"
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_PDIC_NOTIFIER) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK) && IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 #include <linux/usb/typec/common/pdic_notifier.h>
 extern struct pdic_notifier_struct pd_noti;
 #endif
 #if IS_ENABLED(CONFIG_BATTERY_NOTIFIER)
 #include <linux/battery/battery_notifier.h>
-#elif IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#elif defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #include <linux/battery/sec_pd.h>
 #endif
 
@@ -476,7 +476,8 @@ static inline void typec_unattached_cc_entry(struct tcpc_device *tcpc)
 	if (tcpc->tcpc_flags & TCPC_FLAGS_CABLE_TYPE_DETECTION)
 		tcpc_typec_handle_ctd(tcpc, TCPC_CABLE_TYPE_NONE);
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
-		tcpci_set_cc_hidet(tcpc, false);
+
+	tcpci_set_cc_hidet(tcpc, false);
 	if (tcpc->tcpc_flags & TCPC_FLAGS_VBUS_SHORT_CC)
 		tcpci_set_vbus_short_cc(tcpc, false, false);
 	tcpci_set_auto_dischg_discnt(tcpc, false);
@@ -646,7 +647,7 @@ static inline void typec_source_attached_entry(struct tcpc_device *tcpc)
 
 static inline void typec_sink_attached_entry(struct tcpc_device *tcpc)
 {
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_PDIC_NOTIFIER) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK) && IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 	PD_NOTI_TYPEDEF pdic_noti;
 	u8 rp_currentlvl = 0;
 #endif
@@ -669,7 +670,7 @@ static inline void typec_sink_attached_entry(struct tcpc_device *tcpc)
 					!!tcpc->typec_polarity);
 	tcpc->typec_remote_rp_level = typec_get_cc_res();
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_PDIC_NOTIFIER) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK) && IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 		switch (tcpc->typec_remote_rp_level) {
 		case TYPEC_CC_VOLT_SNK_1_5:
 			rp_currentlvl = RP_CURRENT_LEVEL2;
@@ -1086,7 +1087,7 @@ static inline bool typec_attached_snk_cc_change(struct tcpc_device *tcpc)
 {
 	uint8_t cc_res = typec_get_cc_res();
 	bool changed = false;
-#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY) || (IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_PDIC_NOTIFIER))
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY) || (defined(CONFIG_BATTERY_SAMSUNG_MTK) && IS_ENABLED(CONFIG_PDIC_NOTIFIER))
 	struct pd_port *pd_port = &tcpc->pd_port;
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
@@ -1094,7 +1095,7 @@ static inline bool typec_attached_snk_cc_change(struct tcpc_device *tcpc)
 		TYPEC_DBG("RpLvl Change\n");
 		tcpc->typec_remote_rp_level = cc_res;
 		changed = true;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_PDIC_NOTIFIER) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK) && IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 		if (!pd_port->pe_data.pd_prev_connected && !pd_port->pe_data.explicit_contract) {
 			PD_NOTI_TYPEDEF pdic_noti;
 			u8 rp_currentlvl = 0;
@@ -1132,9 +1133,9 @@ static inline bool typec_attached_snk_cc_change(struct tcpc_device *tcpc)
 	}
 
 #if CONFIG_USB_PD_REV30
-		if (pd_port->pe_data.pd_connected && pd_check_rev30(pd_port) &&
-		    cc_res == TYPEC_CC_VOLT_SNK_3_0)
-			pd_put_sink_tx_event(tcpc, cc_res);
+	if (pd_port->pe_data.pd_connected && pd_check_rev30(pd_port) &&
+	    cc_res == TYPEC_CC_VOLT_SNK_3_0)
+		pd_put_sink_tx_event(tcpc, cc_res);
 #endif	/* CONFIG_USB_PD_REV30 */
 
 	if (changed)
@@ -1536,7 +1537,7 @@ int tcpc_typec_handle_cc_change(struct tcpc_device *tcpc)
 		typec_disable_low_power_mode(tcpc);
 		typec_attach_wait_entry(tcpc);
 #if IS_ENABLED(CONFIG_SEC_FACTORY)
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_PDIC_NOTIFIER) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK) && IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 	if (typec_get_cc1() & (0x1 << 2))
 		pdic_uevent_work(PDIC_NOTIFY_ID_CC_PIN_STATUS,
 			PDIC_NOTIFY_PIN_STATUS_CC1_ACTIVE);
@@ -1548,7 +1549,7 @@ int tcpc_typec_handle_cc_change(struct tcpc_device *tcpc)
 	} else {
 		typec_detach_wait_entry(tcpc);
 #if IS_ENABLED(CONFIG_SEC_FACTORY)
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_PDIC_NOTIFIER) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK) && IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 			pdic_uevent_work(PDIC_NOTIFY_ID_CC_PIN_STATUS,
 				PDIC_NOTIFY_PIN_STATUS_NO_DETERMINATION);
 #endif
@@ -1687,9 +1688,9 @@ static inline int typec_handle_src_reach_vsafe0v(struct tcpc_device *tcpc)
 
 int tcpc_typec_handle_timeout(struct tcpc_device *tcpc, uint32_t timer_id)
 {
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_PDIC_NOTIFIER) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK) && IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 	PD_NOTI_TYPEDEF pdic_noti;
-#endif /* CONFIG_BATTERY_SAMSUNG && CONFIG_PDIC_NOTIFIER */
+#endif /* CONFIG_BATTERY_SAMSUNG_MTK && CONFIG_PDIC_NOTIFIER */
 
 	int ret = 0;
 
@@ -1788,7 +1789,7 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc, uint32_t timer_id)
 #if CONFIG_WATER_DETECTION
 	case TYPEC_RT_TIMER_WD_IN_KPOC:
 		if (tcpc->wd_in_kpoc) {
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_PDIC_NOTIFIER) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK) && IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 			pdic_noti.src = PDIC_NOTIFY_DEV_PDIC;
 			pdic_noti.dest = PDIC_NOTIFY_DEV_BATT;
 			pdic_noti.id = PDIC_NOTIFY_ID_WATER;
@@ -2198,9 +2199,9 @@ int tcpc_typec_handle_wd(struct tcpc_device **tcpcs, size_t nr, bool wd)
 	uint8_t typec_state = typec_disabled;
 	bool modal_operation = false;
 	bool hreset = false;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_PDIC_NOTIFIER) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK) && IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 	PD_NOTI_TYPEDEF pdic_noti;
-#endif /* CONFIG_BATTERY_SAMSUNG && CONFIG_PDIC_NOTIFIER */
+#endif /* CONFIG_BATTERY_SAMSUNG_MTK && CONFIG_PDIC_NOTIFIER */
 
 	if (nr < 1)
 		return ret;
@@ -2267,7 +2268,7 @@ out:
 	if (++i < nr)
 		goto repeat;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_PDIC_NOTIFIER) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK) && IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 	if (!tcpc->wd_in_kpoc) {
 		pdic_noti.src = PDIC_NOTIFY_DEV_PDIC;
 		pdic_noti.dest = PDIC_NOTIFY_DEV_BATT;

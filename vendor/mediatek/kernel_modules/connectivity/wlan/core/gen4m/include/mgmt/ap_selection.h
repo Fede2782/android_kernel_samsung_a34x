@@ -38,12 +38,3 @@ struct BSS_DESC *apsSearchBssDescByScore(struct ADAPTER *prAdapter,
 
 #endif
 
-static const char * const apucBandStr[BAND_NUM] = {
-	"NULL",
-	"2.4G",
-	"5G",
-#if (CFG_SUPPORT_WIFI_6G == 1)
-	"6G",
-#endif
-};
-

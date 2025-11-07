@@ -24,6 +24,9 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
 #include <linux/usb/role.h>
+#if IS_ENABLED(CONFIG_IF_CB_MANAGER)
+#include <linux/usb/typec/manager/if_cb_manager.h>
+#endif
 
 struct mtu3;
 struct mtu3_ep;
@@ -165,7 +168,8 @@ enum mtu3_power_state {
 	MTU3_STATE_POWER_ON,
 	MTU3_STATE_SUSPEND,
 	MTU3_STATE_RESUME,
-	MTU3_STATE_OFFLOAD,
+	MTU3_STATE_OFFLOAD, /* afe sram mode */
+	MTU3_STATE_OFFLOAD_IDLE, /* afe sram mode + dram hw */
 };
 
 enum mtu3_u2_lpm_mode {
@@ -371,6 +375,8 @@ struct ssusb_mtk {
 	/* clkgate */
 	struct regmap *clkgate;
 	u32 clkgate_oft;
+	/* usb bus related address */
+	struct regmap *usb_mbist;
 	/* usb power domain */
 	struct device *genpd_u2;
 	struct device *genpd_u3;
@@ -388,6 +394,11 @@ struct ssusb_mtk {
 	bool ls_slp_quirk;
 	bool ldm_resp_delay;
 	int ls_slp_bypass;
+	bool force_vcore;
+#if IS_ENABLED(CONFIG_IF_CB_MANAGER)
+	struct usb_dev usb_d;
+	struct if_cb_manager *man;
+#endif
 };
 
 /**
@@ -508,6 +519,8 @@ struct mtu3 {
 	const char *typec_name;
 	const char *typec_port_name;
 	struct typec_port *typec_port;
+
+	unsigned bypass_manual_pu:1;
 };
 
 /* struct ssusb_offload */
@@ -576,6 +589,7 @@ int ssusb_clks_enable(struct ssusb_mtk *ssusb);
 void ssusb_clks_disable(struct ssusb_mtk *ssusb);
 void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb);
 void ssusb_set_power_state(struct ssusb_mtk *ssusb, enum mtu3_power_state);
+int ssusb_wait_power_state(struct ssusb_mtk *ssusb, enum mtu3_power_state);
 void ssusb_set_ux_exit_lfps(struct ssusb_mtk *ssusb);
 void ssusb_set_polling_scdlfps_time(struct ssusb_mtk *ssusb);
 void ssusb_set_txdeemph(struct ssusb_mtk *ssusb);
@@ -619,5 +633,9 @@ extern const struct usb_ep_ops mtu3_ep0_ops;
 
 int get_dp_switch_status(struct ssusb_mtk *ssusb);
 void ssusb_parse_toggle_vbus(struct ssusb_mtk *ssusb, struct device_node *nd);
+
+void ssusb_offload_set_power_state(struct ssusb_offload *offload, enum mtu3_power_state state);
+int ssusb_offload_register(struct ssusb_offload *offload);
+int ssusb_offload_unregister(struct ssusb_offload *offload);
 
 #endif

@@ -36,6 +36,7 @@
 static void __iomem *g_gpueb_gpr_base;
 static void __iomem *g_gpueb_cfgreg_base;
 static void __iomem *g_gpueb_intc_base;
+static void __iomem *g_gpueb_dma_base;
 static void __iomem *g_gpueb_mbox_ipi;
 static void __iomem *g_gpueb_mbox_sw_int;
 
@@ -70,6 +71,8 @@ void gpueb_dump_status(char *log_buf, int *log_len, int log_size)
 			"GPUEB_CFGREG_DBG_APB_LR: 0x%08x", readl(GPUEB_CFGREG_DBG_APB_LR));
 		gpueb_pr_logbuf(GPUEB_TAG, log_buf, log_len, log_size,
 			"GPUEB_CFGREG_DBG_APB_SP: 0x%08x", readl(GPUEB_CFGREG_DBG_APB_SP));
+		gpueb_pr_logbuf(GPUEB_TAG, log_buf, log_len, log_size,
+			"GPUEB_CFGREG_SW_RSTN: 0x%08x", readl(GPUEB_CFGREG_SW_RSTN));
 	} else {
 		gpueb_log_i(GPUEB_TAG, "skip null g_gpueb_cfgreg_base");
 	}
@@ -83,6 +86,15 @@ void gpueb_dump_status(char *log_buf, int *log_len, int log_size)
 			"GPUEB_INTC_IRQ_RAW_STA_L: 0x%08x", readl(GPUEB_INTC_IRQ_RAW_STA_L));
 	} else {
 		gpueb_log_i(GPUEB_TAG, "skip null g_gpueb_intc_base");
+	}
+
+	if (g_gpueb_dma_base) {
+		gpueb_pr_logbuf(GPUEB_TAG, log_buf, log_len, log_size,
+			"GPUEB_DMA_STATE_CH0: 0x%08x", readl(GPUEB_DMA_STATE_CH0));
+		gpueb_pr_logbuf(GPUEB_TAG, log_buf, log_len, log_size,
+			"GPUEB_DMA_STATE_CH1: 0x%08x", readl(GPUEB_DMA_STATE_CH1));
+	} else {
+		gpueb_log_i(GPUEB_TAG, "skip null g_gpueb_dma_base");
 	}
 
 	if (g_gpueb_gpr_base) {
@@ -158,6 +170,8 @@ static int gpueb_status_proc_show(struct seq_file *m, void *v)
 			readl(GPUEB_CFGREG_DBG_APB_LR));
 		seq_printf(m, "@%s: GPUEB_CFGREG_DBG_APB_SP: 0x%08x\n", __func__,
 			readl(GPUEB_CFGREG_DBG_APB_SP));
+		seq_printf(m, "@%s: GPUEB_CFGREG_SW_RSTN: 0x%08x\n", __func__,
+			readl(GPUEB_CFGREG_SW_RSTN));
 	} else
 		seq_printf(m, "@%s: skip null g_gpueb_cfgreg_base\n", __func__);
 
@@ -170,6 +184,14 @@ static int gpueb_status_proc_show(struct seq_file *m, void *v)
 			readl(GPUEB_INTC_IRQ_RAW_STA_L));
 	} else
 		seq_printf(m, "@%s: skip null g_gpueb_intc_base\n", __func__);
+
+	if (g_gpueb_dma_base) {
+		seq_printf(m, "@%s: GPUEB_DMA_STATE_CH0: 0x%08x\n", __func__,
+			readl(GPUEB_DMA_STATE_CH0));
+		seq_printf(m, "@%s: GPUEB_DMA_STATE_CH1: 0x%08x\n", __func__,
+			readl(GPUEB_DMA_STATE_CH1));
+	} else
+		seq_printf(m, "@%s: skip null g_gpueb_dma_base\n", __func__);
 
 	if (g_gpueb_gpr_base) {
 		seq_printf(m, "@%s: GPUEB_LP_FOOTPRINT_GPR: 0x%08x\n", __func__,
@@ -385,6 +407,17 @@ void gpueb_debug_init(struct platform_device *pdev)
 	g_gpueb_intc_base = devm_ioremap(gpueb_dev, res->start, resource_size(res));
 	if (unlikely(!g_gpueb_intc_base)) {
 		gpueb_log_e(GPUEB_TAG, "fail to ioremap intc base: 0x%llx", (u64) res->start);
+		return;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "gpueb_dma_base");
+	if (unlikely(!res)) {
+		gpueb_log_e(GPUEB_TAG, "fail to get resource GPUEB_DMA_BASE");
+		return;
+	}
+	g_gpueb_dma_base = devm_ioremap(gpueb_dev, res->start, resource_size(res));
+	if (unlikely(!g_gpueb_dma_base)) {
+		gpueb_log_e(GPUEB_TAG, "fail to ioremap dma base: 0x%llx", (u64) res->start);
 		return;
 	}
 

@@ -18,7 +18,9 @@
 #include "mtk_cam-seninf-utils.h"
 #include "mtk_cam-seninf-sentest-ctrl.h"
 #include "imgsensor-user.h"
-
+#if IS_ENABLED(CONFIG_IMGSENSOR_SYSFS_V2)
+#include "kd_imgsensor_sysfs_adapter_v2.h"
+#endif
 
 #define PORTING_FIXME 0
 
@@ -618,6 +620,9 @@ void mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param)
 	struct mtk_seninf_work *seninf_work = NULL;
 	struct v4l2_ctrl *ctrl;
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+#if IS_ENABLED(CONFIG_IMGSENSOR_SYSFS_V2)
+	int cdr_delay = -1;
+#endif
 
 	if (ctx->is_test_model) {
 		seninf_logi(ctx, "test model mode, skip sof notify\n");
@@ -632,9 +637,7 @@ void mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param)
 		return;
 	}
 
-//	seninf_logi(ctx, "sof %s cnt %d\n",
-//		sensor_sd->name,
-//		param->sof_cnt);
+	//seninf_logi(ctx, "sof %s cnt %d\n", sensor_sd->name, param->sof_cnt);
 	v4l2_ctrl_s_ctrl(ctrl, param->sof_cnt);
 
 	if (ctx->streaming) {
@@ -648,6 +651,45 @@ void mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param)
 			kthread_queue_work(&ctx->core->seninf_worker,
 					&seninf_work->work);
 		}
+
+#if IS_ENABLED(CONFIG_IMGSENSOR_SYSFS_V2)
+		cdr_delay = get_cam_cdr_value();
+
+		/* delay: 15 frame(about 500ms) */
+		if (param->sof_cnt == 15 && (cdr_delay != -1)) {
+			dev_info(ctx->dev, "[D/D][%s] sof cnt:%d, cdr_delay: %#x(%d)\n", __func__, param->sof_cnt, cdr_delay, cdr_delay);
+
+			if (mtk_cam_seninf_en_cdr_delay() < 0)
+				dev_err(ctx->dev, "[D/D][%s] mtk_cam_seninf_en_cdr_delay failed\n", __func__);
+
+			if (mtk_cam_seninf_s_cdr_delay(cdr_delay) < 0)
+				dev_err(ctx->dev, "[D/D][%s] mtk_cam_seninf_s_cdr_delay failed\n", __func__);
+
+			/* reset cdr_delay */
+			set_cam_cdr_value(-1);
+		}
+#endif
+	}
+}
+
+#define DEBUG_OPS_SHOW_LOG_SIZE 1024
+static char debug_ops_show_log[DEBUG_OPS_SHOW_LOG_SIZE];
+
+void mtk_cam_seninf_frame_done_notify(struct mtk_seninf_frame_done_notify_param *param)
+{
+	struct v4l2_subdev *sd = param->sd;
+	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+
+	// g_seninf_ops->_seninf_dump_mipi_err(ctx->core, &vsync_info);
+
+	if (ctx->core->cdr_delay_new != ctx->core->cdr_delay){
+		dev_info(ctx->dev, "%s: port %d cdr_delay 0x%x -> 0x%x\n",
+					__func__, ctx->port, ctx->core->cdr_delay, ctx->core->cdr_delay_new);
+		mutex_lock(&ctx->core->mutex);
+		g_seninf_ops->_eye_scan(ctx, EYE_SCAN_KEYS_CDR_DELAY, ctx->core->cdr_delay_new,
+					debug_ops_show_log, (int)DEBUG_OPS_SHOW_LOG_SIZE );
+		mutex_unlock(&ctx->core->mutex);
+
 	}
 }
 

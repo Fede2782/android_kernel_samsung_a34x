@@ -3651,6 +3651,45 @@ static ssize_t gpuinfo_show(struct device *dev, struct device_attribute *attr, c
 }
 static DEVICE_ATTR_RO(gpuinfo);
 
+
+#if IS_ENABLED(CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG)
+static ssize_t upf_counter_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct kbase_device *kbdev;
+
+	CSTD_UNUSED(attr);
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	return scnprintf(buf, PAGE_SIZE, "upf_counter = %lld\n", mtk_common_upf_counter_get());
+}
+static ssize_t upf_counter_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct kbase_device *kbdev = dev_get_drvdata(dev);
+	u32 reset_value;
+
+	CSTD_UNUSED(attr);
+
+	if (!kbdev) {
+		pr_info("[KBASE] Bad kbdev!\n");
+		return -ENODEV;
+	}
+
+	if (kstrtouint(buf, 0, &reset_value))
+		return -EINVAL;
+
+	if (reset_value == 0) {
+		mtk_common_upf_counter_reset();
+	}
+
+	return count;
+}
+static DEVICE_ATTR_RW(upf_counter);
+#endif /* CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG */
+
+
 /**
  * dvfs_period_store - Store callback for the dvfs_period sysfs file.
  * @dev:   The device with sysfs file is for
@@ -6298,6 +6337,9 @@ static struct attribute *kbase_attrs[] = {
 #if IS_ENABLED(CONFIG_MALI_MTK_ACP_FORCE_SYNC_DEBUG)
 	&dev_attr_force_cache_sync.attr,
 #endif /* CONFIG_MALI_MTK_ACP_FORCE_SYNC_DEBUG */
+#if IS_ENABLED(CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG)
+	&dev_attr_upf_counter.attr,
+#endif /* CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG */
 	NULL
 };
 

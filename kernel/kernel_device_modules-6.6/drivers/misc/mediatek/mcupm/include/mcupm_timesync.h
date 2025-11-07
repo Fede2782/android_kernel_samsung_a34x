@@ -30,5 +30,5 @@
 
 void mcupm_timesync_suspend(void);
 void mcupm_timesync_resume(void);
-unsigned int mcupm_timesync_init(void);
+int mcupm_timesync_init(void);
 #endif // _MCUM_TIMESYNC_H_

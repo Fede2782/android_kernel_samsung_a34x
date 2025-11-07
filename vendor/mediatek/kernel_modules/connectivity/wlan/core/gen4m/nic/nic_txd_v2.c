@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -241,50 +241,111 @@ void nic_txd_v2_fill_by_pkt_option(
 
 }
 
-static u_int8_t needUpdateTargetQueueWithWmmSet(struct MSDU_INFO *prMsduInfo,
-						uint8_t ucTarPort)
+/*----------------------------------------------------------------------------*/
+/*!
+* @brief In this function, we'll compose the Tx descriptor of the MSDU.
+*
+* @param prAdapter              Pointer to the Adapter structure.
+* @param prMsduInfo             Pointer to the Msdu info
+* @param prTxDesc               Pointer to the Tx descriptor buffer
+*
+* @retval VOID
+*/
+/*----------------------------------------------------------------------------*/
+void nic_txd_v2_compose(
+	struct ADAPTER *prAdapter,
+	struct MSDU_INFO *prMsduInfo,
+	u_int32_t u4TxDescLength,
+	u_int8_t fgIsTemplate,
+	u_int8_t *prTxDescBuffer)
 {
-#if (CFG_TX_RSRC_WMM_ENHANCE == 1)
-	/* Note for SDIO resource ctrl
-	 * There are cases for TargetQ update
-	 * 1. ResV1 + TC <= TC4 : WmmSet may greater than 0, go to update
-	 * 2. ResV2 + TC <= TC4 : WmmSet always 0
-	 * 3. ResV2 + TC >  TC4 : TargetQ prepared in nicTxGetTxDestQIdxByTc()
-	 */
-	return (ucTarPort == PORT_INDEX_LMAC && prMsduInfo->ucTC <= TC4_INDEX);
-#else
-	return (ucTarPort == PORT_INDEX_LMAC);
+	struct HW_MAC_CONNAC2X_TX_DESC *prTxDesc;
+	struct STA_RECORD *prStaRec;
+	struct BSS_INFO *prBssInfo;
+	uint8_t ucEtherTypeOffsetInWord;
+	u_int32_t u4TxDescAndPaddingLength;
+	uint8_t ucWmmQueSet = 0, ucTarQueue, ucTarPort;
+#if ((CFG_SISO_SW_DEVELOP == 1) || (CFG_SUPPORT_SPE_IDX_CONTROL == 1))
+	enum ENUM_WF_PATH_FAVOR_T eWfPathFavor;
 #endif
-}
+	struct WLAN_MAC_HEADER *prWlanHeader = NULL;
+#if CFG_SUPPORT_TX_MGMT_USE_DATAQ
+	uint8_t *pucBuff = NULL;
+	uint32_t u4TxHeadRoomSize;
+#endif
 
-static uint8_t  nicConnac2TxGetTxDestQueue(struct ADAPTER *prAdapter,
-					   struct MSDU_INFO *prMsduInfo,
-					   struct BSS_INFO *prBssInfo)
-{
-	uint8_t ucTarPort;
-	uint8_t ucTarQueue;
-	uint8_t ucWmmQueSet = 0;
-	uint8_t ucControlFlag = prMsduInfo->ucControlFlag;
+	prTxDesc = (struct HW_MAC_CONNAC2X_TX_DESC *) prTxDescBuffer;
+	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prMsduInfo->ucBssIndex);
+	prStaRec = cnmGetStaRecByIndex(prAdapter, prMsduInfo->ucStaRecIndex);
 
-	if (likely(prBssInfo))
-		ucWmmQueSet = prBssInfo->ucWmmQueSet;
-	else
-		DBGLOG(TX, ERROR, "prBssInfo is NULL\n");
+	u4TxDescAndPaddingLength = u4TxDescLength + NIC_TX_DESC_PADDING_LENGTH;
+
+	kalMemZero(prTxDesc, u4TxDescAndPaddingLength);
+
+	nicTxForceAmsduForCert(prAdapter, (uint8_t *)prTxDesc);
+
+	/* Ether-type offset */
+	if (prMsduInfo->fgIs802_11) {
+		ucEtherTypeOffsetInWord =
+			(prAdapter->chip_info->pse_header_length
+				+ prMsduInfo->ucMacHeaderLength
+				+ prMsduInfo->ucLlcLength) >> 1;
+	} else {
+		ucEtherTypeOffsetInWord =
+			((ETHER_HEADER_LEN - ETHER_TYPE_LEN)
+				+ prAdapter->chip_info->pse_header_length) >> 1;
+	}
+	HAL_MAC_CONNAC2X_TXD_SET_ETHER_TYPE_OFFSET(prTxDesc,
+		ucEtherTypeOffsetInWord);
 
 	ucTarPort = nicTxGetTxDestPortIdxByTc(prMsduInfo->ucTC);
-	ucTarQueue = nicTxGetTxDestQIdxByTc(prMsduInfo->ucTC);
-
 	if (ucTarPort == PORT_INDEX_MCU) {
-		ucTarQueue = MCU_Q0_INDEX;
-		/**
-		 * Unlike Connac3, which accept 17 for always TX.
-		 * Connac2 only handle 16 (MAC_TXQ_ALTX_0_INDEX) for always TX.
-		 */
-		if (ucControlFlag & MSDU_CONTROL_FLAG_FORCE_TX)
+		ucTarQueue = nicTxGetTxDestQIdxByTc(prMsduInfo->ucTC);
+		if (prMsduInfo->ucControlFlag & MSDU_CONTROL_FLAG_FORCE_TX) {
+#if (CFG_SUPPORT_FORCE_ALTX == 1)
+			ucTarQueue = MAC_TXQ_ALTX_0_INDEX;
+#else
 			ucTarQueue |= MAC_TXQ_ALTX_0_INDEX;
-	} else { /* ucTarPort == PORT_INDEX_LMAC */
-		if (needUpdateTargetQueueWithWmmSet(prMsduInfo, ucTarPort))
-			ucTarQueue += ucWmmQueSet * WMM_AC_INDEX_NUM;
+#endif
+		}
+	} else {
+		if (prBssInfo) {
+			ucWmmQueSet = prBssInfo->ucWmmQueSet;
+#if CFG_SUPPORT_DROP_INVALID_MSDUINFO
+			if (fgIsTemplate != TRUE &&
+				prMsduInfo->ucPacketType == TX_PACKET_TYPE_DATA
+				&& ucWmmQueSet != prMsduInfo->ucWmmQueSet) {
+				prMsduInfo->fgDrop = TRUE;
+				DBGLOG(RSN, ERROR,
+					"WmmQueSet mismatch[%u,%u,%u,%u]\n",
+					prMsduInfo->ucBssIndex,
+					prMsduInfo->ucStaRecIndex,
+					ucWmmQueSet,
+					prMsduInfo->ucWmmQueSet);
+			}
+#endif /* CFG_SUPPORT_DROP_INVALID_MSDUINFO */
+		} else
+			DBGLOG(TX, ERROR, "prBssInfo is NULL\n");
+
+		ucTarQueue = nicTxGetTxDestQIdxByTc(prMsduInfo->ucTC);
+#if (CFG_TX_RSRC_WMM_ENHANCE == 1)
+/* Note for SDIO resource ctrl
+* There are cases for TargetQ update
+* 1. ResV1 + TC <= TC4 : WmmSet may greater than 0, go to update
+* 2. ResV2 + TC <= TC4 : WmmSet always 0
+* 3. ResV2 + TC >	TC4 : TargetQ prepared in nicTxGetTxDestQIdxByTc()
+*/
+		if ((ucTarPort == PORT_INDEX_LMAC) &&
+			(prMsduInfo->ucTC <= TC4_INDEX))
+#else
+		if (ucTarPort == PORT_INDEX_LMAC)
+#endif
+		{
+			if (prBssInfo) {
+				ucTarQueue +=
+				  (prBssInfo->ucWmmQueSet * WMM_AC_INDEX_NUM);
+			}
+		}
 	}
 
 #if (CFG_SUPPORT_DMASHDL_SYSDVT)
@@ -304,71 +365,6 @@ static uint8_t  nicConnac2TxGetTxDestQueue(struct ADAPTER *prAdapter,
 	}
 #endif
 
-	return ucTarQueue;
-}
-
-/*----------------------------------------------------------------------------*/
-/*!
-* @brief In this function, we'll compose the Tx descriptor of the MSDU.
-*
-* @param prAdapter              Pointer to the Adapter structure.
-* @param prMsduInfo             Pointer to the Msdu info
-* @param prTxDesc               Pointer to the Tx descriptor buffer
-*
-* @retval VOID
-*/
-/*----------------------------------------------------------------------------*/
-void nic_txd_v2_compose(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
-			u_int32_t u4TxDescLength, u_int8_t fgIsTemplate,
-			u_int8_t *prTxDescBuffer)
-{
-	struct HW_MAC_CONNAC2X_TX_DESC *prTxDesc;
-	struct STA_RECORD *prStaRec;
-	struct BSS_INFO *prBssInfo;
-	uint8_t ucEtherTypeOffsetInWord;
-	u_int32_t u4TxDescAndPaddingLength;
-	uint8_t ucTarQueue;
-#if ((CFG_SISO_SW_DEVELOP == 1) || (CFG_SUPPORT_SPE_IDX_CONTROL == 1))
-	enum ENUM_WF_PATH_FAVOR_T eWfPathFavor;
-#endif
-	struct WLAN_MAC_HEADER *prWlanHeader = NULL;
-#if CFG_SUPPORT_TX_MGMT_USE_DATAQ
-	uint8_t *pucBuff = NULL;
-	uint32_t u4TxHeadRoomSize;
-#endif
-
-	prTxDesc = (struct HW_MAC_CONNAC2X_TX_DESC *) prTxDescBuffer;
-	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prMsduInfo->ucBssIndex);
-	prStaRec = cnmGetStaRecByIndex(prAdapter, prMsduInfo->ucStaRecIndex);
-
-	u4TxDescAndPaddingLength = u4TxDescLength + NIC_TX_DESC_PADDING_LENGTH;
-
-	kalMemZero(prTxDesc, u4TxDescAndPaddingLength);
-
-#if (CFG_SUPPORT_802_11AX == 1)
-	if (fgEfuseCtrlAxOn == 1) {
-		if (prAdapter->rWifiVar.ucHeAmsduInAmpduTx &&
-		    prAdapter->rWifiVar.ucHeCertForceAmsdu)
-			HAL_MAC_CONNAC2X_TXD_SET_HW_AMSDU(prTxDesc);
-	}
-#endif
-
-	/* Ether-type offset */
-	if (prMsduInfo->fgIs802_11) {
-		ucEtherTypeOffsetInWord =
-			(prAdapter->chip_info->pse_header_length
-				+ prMsduInfo->ucMacHeaderLength
-				+ prMsduInfo->ucLlcLength) >> 1;
-	} else {
-		ucEtherTypeOffsetInWord =
-			((ETHER_HEADER_LEN - ETHER_TYPE_LEN)
-				+ prAdapter->chip_info->pse_header_length) >> 1;
-	}
-	HAL_MAC_CONNAC2X_TXD_SET_ETHER_TYPE_OFFSET(prTxDesc,
-		ucEtherTypeOffsetInWord);
-
-	ucTarQueue = nicConnac2TxGetTxDestQueue(prAdapter, prMsduInfo,
-						prBssInfo);
 	HAL_MAC_CONNAC2X_TXD_SET_QUEUE_INDEX(prTxDesc, ucTarQueue);
 
 	/* BMC packet */
@@ -378,11 +374,6 @@ void nic_txd_v2_compose(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
 		/* Must set No ACK to mask retry bit in FC */
 		HAL_MAC_CONNAC2X_TXD_SET_NO_ACK(prTxDesc);
 	}
-
-	/* HW AMSDU CAP */
-	if (prMsduInfo->ucPacketType == TX_PACKET_TYPE_MGMT)
-		HAL_MAC_CONNAC2X_TXD_UNSET_HW_AMSDU(prTxDesc);
-
 	/* WLAN index */
 	prMsduInfo->ucWlanIndex = nicTxGetWlanIdx(prAdapter,
 		prMsduInfo->ucBssIndex, prMsduInfo->ucStaRecIndex);
@@ -510,7 +501,7 @@ void nic_txd_v2_compose(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
 		prMsduInfo->ucPID = nicTxAssignPID(prAdapter,
 				prMsduInfo->ucWlanIndex,
 				prMsduInfo->ucPacketType); /* 0/1: data/mgmt */
-		DBGLOG(TX, DEBUG, "TX[%s] WIDX[%u] PID[%u]\n",
+		DBGLOG(TX, INFO, "TX[%s] WIDX[%u] PID[%u]\n",
 			TXS_PACKET_TYPE[prMsduInfo->ucPktType],
 			prMsduInfo->ucWlanIndex, prMsduInfo->ucPID);
 		HAL_MAC_CONNAC2X_TXD_SET_PID(prTxDesc, prMsduInfo->ucPID);
@@ -750,7 +741,7 @@ void nic_txd_v2_set_hw_amsdu_template(
 {
 	struct HW_MAC_CONNAC2X_TX_DESC *prTxDesc;
 
-	DBGLOG(QM, DEBUG,
+	DBGLOG(QM, INFO,
 		"Update HW Amsdu field of TXD template for STA[%u] Tid[%u]\n",
 		prStaRec->ucIndex, ucTid);
 

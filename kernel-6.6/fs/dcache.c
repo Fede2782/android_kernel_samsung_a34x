@@ -2622,11 +2622,19 @@ static inline void end_dir_add(struct inode *dir, unsigned int n,
 
 static void d_wait_lookup(struct dentry *dentry)
 {
+	unsigned long state = TASK_UNINTERRUPTIBLE;
+
 	if (d_in_lookup(dentry)) {
 		DECLARE_WAITQUEUE(wait, current);
+
+#ifdef CONFIG_FREEZABLE_IN_LOOKUP
+		if (dentry->d_sb->s_iflags & SB_I_FREEZABLE_IN_LOOKUP)
+			state |= TASK_FREEZABLE;
+#endif
+
 		add_wait_queue(dentry->d_wait, &wait);
 		do {
-			set_current_state(TASK_UNINTERRUPTIBLE);
+			set_current_state(state);
 			spin_unlock(&dentry->d_lock);
 			schedule();
 			spin_lock(&dentry->d_lock);

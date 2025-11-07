@@ -137,7 +137,7 @@ void nanSetEhtModeCtrl(struct ADAPTER *prAdapter, uint8_t mode)
 			"NanSched set %d %d",
 			0x0b0b,
 			bw);
-	DBGLOG(NAN, DEBUG,
+	DBGLOG(NAN, INFO,
 		"EHT VSIE Notify FW %s, strlen=%d\n",
 		cmd, strLen);
 
@@ -151,8 +151,7 @@ void nanSetEhtModeCtrl(struct ADAPTER *prAdapter, uint8_t mode)
 static void freePendingEhtCmd(struct ADAPTER *prAdapter,
 			   struct IE_NAN_EHT_PENDING_CMD *prPendingCmd)
 {
-	DBGLOG(NAN, DEBUG, "Enter %s, free pending request %u\n",
-	       __func__,
+	DBGLOG(NAN, INFO, "free pending request %u\n",
 	       ((struct IE_NAN_EHT_CMD *)(prPendingCmd->cmd))->ucRequestId);
 
 	kalMemZero(prPendingCmd, sizeof(struct IE_NAN_EHT_PENDING_CMD));
@@ -164,7 +163,7 @@ static uint32_t savePendingEhtCmd(struct ADAPTER *prAdapter,
 {
 	struct IE_NAN_EHT_PENDING_CMD *prPendingCmd = &g_nanEhtPendingCmd;
 
-	DBGLOG(NAN, DEBUG,
+	DBGLOG(NAN, INFO,
 	       "req=%u, %u %u\n",
 	       cmd->ucRequestId,
 	       cmd->type,
@@ -187,9 +186,8 @@ uint32_t nanComposeEHTResponse(struct ADAPTER *prAdapter,
 	struct IE_NAN_EHT_EVENT *prResponse;
 	uint32_t rStatus = WLAN_STATUS_SUCCESS;
 
-	DBGLOG(NAN, DEBUG,
-		"Enter %s, request=%u type=%u reason=%u mode=%u\n",
-		__func__, ucRequestId, type, reason, mode);
+	DBGLOG(NAN, INFO, "request=%u type=%u reason=%u mode=%u\n",
+		ucRequestId, type, reason, mode);
 
 	prResponse = cnmMemAlloc(prAdapter, RAM_TYPE_BUF,
 				 NAN_MAX_EXT_DATA_SIZE);
@@ -202,11 +200,11 @@ uint32_t nanComposeEHTResponse(struct ADAPTER *prAdapter,
 	prResponse->u2Length = sizeof(struct IE_NAN_EHT_EVENT) -
 				EHT_EVENT_HDR_LEN;
 
-	DBGLOG(NAN, TRACE,
-		"u2Length = %u (%zu-%u)\n",
+	DBGLOG(NAN, TRACE, "u2Length = %u (%zu-%zu+%zu)\n",
 		prResponse->u2Length,
-		sizeof(struct IE_NAN_EHT_EVENT),
-		EHT_EVENT_HDR_LEN);
+		sizeof(struct IE_NAN_ADSDC_EVENT),
+		EHT_EVENT_HDR_LEN,
+		EHT_CMD_BODY_SIZE(cmd));
 
 	/* Larger than allocated buffer size */
 	if (EXT_MSG_SIZE(prResponse) > NAN_MAX_EXT_DATA_SIZE) {
@@ -233,7 +231,7 @@ uint32_t nanComposeEHTResponse(struct ADAPTER *prAdapter,
 	       prResponse->type, eht_type_str(prResponse->type));
 	DBGLOG(NAN, TRACE, "Reason: %d\n",
 	       prResponse->reason);
-	DBGLOG(NAN, DEBUG, "Mode: %d (%s)\n",
+	DBGLOG(NAN, INFO, "Mode: %d (%s)\n",
 	       prResponse->mode, eht_mode_str(prResponse->mode));
 
 	/* Reuse the buffer from passed in from HAL */
@@ -275,58 +273,45 @@ void nanClearEhtStaRec(struct STA_RECORD *s)
 #endif
 }
 
-void nanSetCxtEhtMode(
-	struct ADAPTER *ad,
+void nanSetCxtEhtMode(struct ADAPTER *prAdapter,
 	struct _NAN_NDL_INSTANCE_T *prNDL,
 	struct _NAN_NDP_CONTEXT_T *prNdpCxt,
 	uint8_t enable)
 {
 #if (CFG_SUPPORT_NAN_6G == 1)
 #if (CFG_SUPPORT_NAN_11BE == 1)
-	struct STA_RECORD *s =
-		(struct STA_RECORD *)NULL;
-	struct BSS_INFO *b =
-		(struct BSS_INFO *)NULL;
+	struct STA_RECORD *prStaRec;
+	struct BSS_INFO *prBssInfo;
 	uint32_t i = 0;
 
-	for (i = 0;
-		i < ad->rWifiVar.ucNanMldLinkMax;
-		i++) {
-		s = nanGetLinkStaRec(prNdpCxt, i);
-		if (!s) {
+	for (i = 0; i < prAdapter->rWifiVar.ucNanMldLinkMax; i++) {
+		prStaRec = nanGetLinkStaRec(prNdpCxt, i);
+		if (!prStaRec)
 			continue;
-		}
 
-		b = GET_BSS_INFO_BY_INDEX(
-			ad,
-			s->ucBssIndex);
+		prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
+						  prStaRec->ucBssIndex);
+		if (!prBssInfo)
+			continue;
 
 		if (enable) {
 			prNDL->ucPhyTypeSet |= PHY_TYPE_BIT_EHT;
-			ehtRlmNANFillCapIE(
-				ad, b,
-				prNDL->aucIeEhtCap);
+			ehtRlmNANFillCapIE(prAdapter, prBssInfo,
+					   prNDL->aucIeEhtCap);
 		} else {
 			prNDL->ucPhyTypeSet &= ~PHY_TYPE_BIT_EHT;
 			kalMemZero(&(prNDL->aucIeEhtCap),
 				sizeof(prNDL->aucIeEhtCap));
-			nanClearEhtStaRec(s);
+			nanClearEhtStaRec(prStaRec);
 		}
 
-		nanDataEngineSetupStaRec(ad,
-			prNDL,
-			s);
+		nanDataEngineSetupStaRec(prAdapter, prNDL, prStaRec);
 
-		cnmStaRecChangeState(ad,
-			s,
-			STA_STATE_3);
+		cnmStaRecChangeState(prAdapter, prStaRec, STA_STATE_3);
 
-		DBGLOG(NAN, INFO,
-			"Mode[%u] s[%u %u] b[%u]\n",
-			enable,
-			s->ucIndex,
-			s->ucWlanIndex,
-			s->ucBssIndex);
+		DBGLOG(NAN, INFO, "Mode[%u] s[%u %u] b[%u]\n",
+			enable, prStaRec->ucIndex, prStaRec->ucWlanIndex,
+			prStaRec->ucBssIndex);
 	}
 #endif
 #endif
@@ -349,7 +334,7 @@ void nanEnablePeerEhtMode(
 	uint32_t i, j;
 
 	if (!nanIsEhtSupport(ad)) {
-		DBGLOG(NAN, DEBUG,
+		DBGLOG(NAN, INFO,
 			"Not support eht mode\n");
 		return;
 	}
@@ -367,7 +352,7 @@ void nanEnablePeerEhtMode(
 			if (!prNDP || prNDP->fgNDPValid == FALSE)
 				continue;
 
-			DBGLOG(NAN, DEBUG,
+			DBGLOG(NAN, INFO,
 				"Peer NDL[" MACSTR "], NDP[" MACSTR "]\n",
 				MAC2STR(prNDL->aucPeerMacAddr),
 				MAC2STR(prNDP->aucPeerNDIAddr));
@@ -418,10 +403,32 @@ void nanSet6gConfig(struct ADAPTER *ad)
 	struct _NAN_SCHEDULER_T *s =
 		nanGetScheduler(ad);
 
-	if (!ad || !g_ucNanIsOn)
+	if (!ad)
 		return;
 
-	DBGLOG(NAN, DEBUG,
+	if (!g_ucNanIsOn) {
+		struct PARAM_CUSTOM_CHIP_CONFIG_STRUCT rInfo = {0};
+		uint8_t cmd[30] = {0};
+		uint8_t strLen = 0;
+		uint32_t strOutLen = 0;
+
+		strLen = kalSnprintf(cmd, sizeof(cmd),
+				"NanSched set %d %d",
+				0x0c0c,
+				ad->rWifiVar.ucNanEnable6g);
+		DBGLOG(NAN, INFO,
+			"6G Notify FW %s, strlen=%d\n",
+			cmd, strLen);
+
+		rInfo.ucType = CHIP_CONFIG_TYPE_ASCII;
+		rInfo.u2MsgSize = strLen;
+		kalStrnCpy(rInfo.aucCmd, cmd, strLen);
+		wlanSetChipConfig(ad, &rInfo,
+				sizeof(rInfo), &strOutLen, FALSE);
+		return;
+	}
+
+	DBGLOG(NAN, INFO,
 		"NanEnable6g: %u, fgEn6g: %u \n",
 		ad->rWifiVar.ucNanEnable6g,
 		s->fgEn6g);
@@ -448,14 +455,14 @@ void nanEnableEhtMode(
 		return;
 
 	if (eht_mode == mode) {
-		DBGLOG(NAN, DEBUG,
+		DBGLOG(NAN, INFO,
 			"Already in mode: %d\n",
 			mode);
 		return;
 	}
 
 	if (!nanIsEhtSupport(ad)) {
-		DBGLOG(NAN, DEBUG,
+		DBGLOG(NAN, INFO,
 			"Not support eht mode\n");
 		return;
 	}
@@ -544,8 +551,8 @@ uint32_t nanProcessEhtModeCommand(
 	uint32_t r = WLAN_STATUS_SUCCESS;
 	struct IE_NAN_EHT_CMD *c = (struct IE_NAN_EHT_CMD *)buf;
 
-	DBGLOG(NAN, TRACE, "Enter %s, consuming %zu bytes\n",
-		   __func__, sizeof(struct IE_NAN_EHT_CMD));
+	DBGLOG(NAN, TRACE, "Consuming %zu bytes\n",
+		   sizeof(struct IE_NAN_EHT_CMD));
 
 	DBGLOG_HEX(NAN, TRACE, buf, sizeof(struct IE_NAN_EHT_CMD));
 
@@ -556,10 +563,10 @@ uint32_t nanProcessEhtModeCommand(
 	DBGLOG(NAN, TRACE, "ReqId: %d\n", c->ucRequestId);
 	DBGLOG(NAN, TRACE, "Type: %d (%s)\n",
 		c->type, eht_type_str(c->type));
-	DBGLOG(NAN, DEBUG, "Mode: %d\n", c->mode);
+	DBGLOG(NAN, INFO, "Mode: %d\n", c->mode);
 
 	if (g_ucNanIsOn) {
-		DBGLOG(NAN, DEBUG, "Proceed to send command\n");
+		DBGLOG(NAN, INFO, "Proceed to send command\n");
 #if (CFG_SUPPORT_NAN_6G == 1)
 		if (c->mode == NAN_EHT_MODE_LEGACY) {
 			nanEnableEht(prAdapter, FALSE);
@@ -571,7 +578,7 @@ uint32_t nanProcessEhtModeCommand(
 #endif
 #endif
 	} else { /* used later for sending response */
-		DBGLOG(NAN, DEBUG, "Save command to pending list\n");
+		DBGLOG(NAN, INFO, "Save command to pending list\n");
 
 		r = savePendingEhtCmd(prAdapter, c);
 		if (r != WLAN_STATUS_SUCCESS)

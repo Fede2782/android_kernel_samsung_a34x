@@ -60,3 +60,33 @@ config FUSE_BPF
 	help
 	  Extends FUSE by adding BPF to prefilter calls and potentially pass to a
 	  backing file system
+
+config FUSE_FREEZABLE_WAIT
+	bool "Freezable wait for request completion"
+	default y
+	depends on FUSE_FS
+	help
+	  This allows an application to wait for the request completion
+	  in freezable state.
+
+	  If you want to allow an application to wait for the request completion
+	  in freezable, answer Y.
+
+config FUSE_SUPPORT_STLOG
+	bool "Enable storage logging to fuse"
+	default y
+	depends on FUSE_FS && PROC_STLOG
+	help
+	  This records important events into the storage log buffer for
+	  debugging.
+
+	  If you want to record major events into the storage log buffer,
+	  answer Y.
+
+config FUSE_WATCHDOG
+	bool "fuse watchdog"
+	default y
+	depends on FUSE_FS
+	help
+	  Run fuse watchdog to prepare for the case of the fuse daemon process
+	  getting stuck.

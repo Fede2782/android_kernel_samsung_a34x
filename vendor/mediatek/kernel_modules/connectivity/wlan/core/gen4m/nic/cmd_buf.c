@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -50,7 +50,7 @@
  *                           P R I V A T E   D A T A
  *******************************************************************************
  */
-
+u_int8_t fgCmdDumpIsDone = FALSE;
 /*******************************************************************************
  *                                 M A C R O S
  *******************************************************************************
@@ -106,7 +106,7 @@ void cmdBufDumpCmdQueue(struct QUE *prQueue,
 	uint8_t i = 1, pos = 0;
 	char buf[500] = {0};
 
-	DBGLOG(NIC, DEBUG, "Dump CMD info for %s, Elem number:%u\n",
+	DBGLOG(NIC, INFO, "Dump CMD info for %s, Elem number:%u\n",
 			queName, prQueue->u4NumElem);
 	kalMemZero(buf, sizeof(buf));
 	while (prCmdInfo) {
@@ -120,7 +120,7 @@ void cmdBufDumpCmdQueue(struct QUE *prQueue,
 				prCmdInfo->eCmdType,
 				fgEndLine ? "\n" : "; ");
 		if (fgEndLine) {
-			DBGLOG(NIC, DEBUG, "%s", buf);
+			DBGLOG(NIC, INFO, "%s", buf);
 			kalMemZero(buf, sizeof(buf));
 			pos = 0;
 		}
@@ -149,7 +149,6 @@ struct CMD_INFO *cmdBufAllocateCmdInfo(struct ADAPTER
 				       *prAdapter, uint32_t u4Length)
 #endif
 {
-	struct GLUE_INFO *prGlueInfo = NULL;
 	struct CMD_INFO *prCmdInfo = NULL;
 
 	KAL_SPIN_LOCK_DECLARATION();
@@ -160,8 +159,6 @@ struct CMD_INFO *cmdBufAllocateCmdInfo(struct ADAPTER
 	QUEUE_REMOVE_HEAD(&prAdapter->rFreeCmdList, prCmdInfo,
 			  struct CMD_INFO *);
 	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_CMD_RESOURCE);
-
-	prGlueInfo = prAdapter->prGlueInfo;
 
 	if (prCmdInfo) {
 		kalMemZero(prCmdInfo, sizeof(struct CMD_INFO));
@@ -196,8 +193,9 @@ struct CMD_INFO *cmdBufAllocateCmdInfo(struct ADAPTER
 		} else {
 			prCmdInfo->pucInfoBuffer = NULL;
 		}
-		prGlueInfo->fgCmdDumpIsDone = FALSE;
-	} else if (!prGlueInfo->fgCmdDumpIsDone) {
+		fgCmdDumpIsDone = FALSE;
+	} else if (!fgCmdDumpIsDone) {
+		struct GLUE_INFO *prGlueInfo = prAdapter->prGlueInfo;
 		struct QUE *prCmdQue = &prGlueInfo->rCmdQueue;
 		struct QUE *prPendingCmdQue = &prAdapter->rPendingCmdQueue;
 #if CFG_SUPPORT_MULTITHREAD
@@ -206,7 +204,7 @@ struct CMD_INFO *cmdBufAllocateCmdInfo(struct ADAPTER
 #endif
 		struct TX_TCQ_STATUS *prTc = &prAdapter->rTxCtrl.rTc;
 
-		prGlueInfo->fgCmdDumpIsDone = TRUE;
+		fgCmdDumpIsDone = TRUE;
 		cmdBufDumpCmdQueue(prCmdQue, "waiting CMD queue");
 		cmdBufDumpCmdQueue(prPendingCmdQue,
 				   "waiting response CMD queue");
@@ -215,12 +213,12 @@ struct CMD_INFO *cmdBufAllocateCmdInfo(struct ADAPTER
 		cmdBufDumpCmdQueue(prTxCmdDoneQueue,
 				   "waiting Tx CMD Done queue");
 #endif
-		DBGLOG(NIC, DEBUG, "Tc4 number:%d\n",
+		DBGLOG(NIC, INFO, "Tc4 number:%d\n",
 		       prTc->au4FreeBufferCount[TC4_INDEX]);
 	}
 
 	if (prCmdInfo) {
-		DBGLOG(MEM, LOUD,
+		DBGLOG(MEM, TRACE,
 		       "CMD[0x%p] allocated! LEN[%04u], Rest[%u]\n",
 		       prCmdInfo, u4Length, prAdapter->rFreeCmdList.u4NumElem);
 

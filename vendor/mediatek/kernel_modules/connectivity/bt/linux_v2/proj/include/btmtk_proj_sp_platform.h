@@ -92,45 +92,6 @@ struct platform_prop MT6989_prop = {
 	}
 };
 
-struct platform_prop MT6991_prop = {
-        ////////// tx_gpio //////////
-        {237,
-         0x1002D000,    // gpio_base    (GPIO_BASE)
-         0x13860000,    // pu_pd_base   (IOCFG_TM3_BASE)
-         0x500,         // remap_len
-         NULL, NULL,    // ioremap
-         {0x04d0, 20},  // aux
-         {0x0070, 13},  // dir
-         {0x0170, 13},  // out
-         {0x0090, 6},   // pu
-         {0x0070, 6}    // pd
-        },
-        ////////// rx_gpio //////////
-        {238,
-         0x1002D000,    // gpio_base    (GPIO_BASE)
-         0x13860000,    // pu_pd_base   (IOCFG_TM3_BASE)
-         0x500,         // remap_len
-         NULL, NULL,    // ioremap
-         {0x04d0, 24},  // aux
-         {0x0070, 14},  // dir
-         {0x0170, 14},  // out
-         {0x0090, 5},   // pu
-         {0x0070, 5}    // pd
-        },
-        ////////// rst_gpio //////////
-        {248,
-         0x1002D000,    // gpio_base    (GPIO_BASE)
-         0x13860000,    // pu_pd_base   (IOCFG_TM3_BASE)
-         0x500,         // remap_len
-         NULL, NULL,    // ioremap
-         {0x04f0, 0},   // aux
-         {0x0070, 24},  // dir
-         {0x0170, 24},  // out
-         {0x0090, 4},   // pu
-         {0x0070, 4}    // pd
-        }
-};
-
 
 #endif
 

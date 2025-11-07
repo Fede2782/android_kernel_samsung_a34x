@@ -118,6 +118,13 @@ typedef void(*remove_card) (void);
 #define __KAL_ATTRIB_ALIGNED_FRONT__(x) /* for OS compatibility not used */
 #define __KAL_ATTRIB_ALIGNED__(x)       __aligned(x)
 
+#define IN          /* volatile */
+#define OUT         /* volatile */
+
+#define __KAL_INLINE__                  inline
+#define __KAL_ATTRIB_PACKED__           __attribute__((__packed__))
+#define __KAL_ATTRIB_ALIGN_4__          __aligned(4)
+
 #ifndef BIT
 #define BIT(n)                          ((uint32_t) 1UL << (n))
 #endif /* BIT */
@@ -155,6 +162,12 @@ typedef void(*remove_card) (void);
  * _type - structure name,
  * _field - field name of the structure
  */
+#ifndef ENTRY_OF
+#define ENTRY_OF(_addrOfField, _type, _field) \
+	((_type *)((int8_t *)(_addrOfField) - \
+	(int8_t *)OFFSET_OF(_type, _field)))
+#endif /* ENTRY_OF */
+
 #ifndef CONTAINER_OF
 #define CONTAINER_OF(_addrOfField, _type, _field) \
 	container_of(_addrOfField, _type, _field)

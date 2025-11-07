@@ -54,7 +54,7 @@ enum WPA3_STATUS_REPORT {
 enum ENUM_CONN_FAIL_REASON {
 	CONN_FAIL_UNKNOWN,
 	CONN_FAIL_DISALLOWED_LIST,
-	CONN_FAIL_FWK_BLACLIST,
+	CONN_FAIL_FWK_BLACKLIST,
 	CONN_FAIL_RSN_MISMATCH,
 	CONN_FAIL_BLACLIST_LIMIT,
 	CONN_FAIL_REASON_NUM
@@ -150,7 +150,8 @@ void rrmReqNeighborReportLog(
 	uint8_t ucBssIndex,
 	uint8_t ucToken,
 	uint8_t *pucSsid,
-	uint8_t ucSSIDLen);
+	uint8_t ucSSIDLen,
+	uint8_t ucSn);
 
 void rrmRespNeighborReportLog(
 	struct ADAPTER *prAdapter,
@@ -167,11 +168,14 @@ void rrmReqBeaconReportLog(
 	uint32_t u4Duration,
 	uint32_t u4Mode);
 
+void rrmRespBeaconReportSave(
+	uint8_t ucToken,
+	uint32_t u4ReportNum);
+
 void rrmRespBeaconReportLog(
 	struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex,
-	uint8_t ucToken,
-	uint32_t u4ReportNum);
+	uint8_t ucSn);
 
 void wnmBTMReqReportLog(
 	struct ADAPTER *prAdapter,
@@ -291,6 +295,18 @@ uint8_t roamingFsmIsDiscovering(
 #endif
 
 #if (CFG_SUPPORT_CONN_LOG == 1)
+void kalBufferWifiLog(
+	struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex,
+	uint8_t *log,
+	uint8_t ucSn);
+
+void kalBufferWifiMngLog(
+	struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex,
+	uint8_t *log,
+	uint8_t ucSn);
+
 void kalReportWifiLog(
 	struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex,
@@ -326,13 +342,12 @@ void connLogEapRx(
 void connLogDhcpRx(
 	struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex,
-	uint32_t u4Xid,
-	uint32_t u4Opt);
+	uint32_t u4Opt,
+	struct DHCP_PROTOCOL *prDhcp);
 
 void connLogDhcpTx(
 	struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex,
-	uint32_t u4Xid,
 	uint32_t u4Opt,
 	uint8_t ucSn);
 
@@ -340,6 +355,11 @@ void connLogPkt(
 	struct ADAPTER *prAdapter,
 	struct MSDU_TOKEN_ENTRY *prTokenEntry,
 	uint32_t u4Stat);
+
+uint32_t connLogMgmtPkt(
+	struct ADAPTER *prAdapter,
+	struct MSDU_INFO *prMsduInfo,
+	enum ENUM_TX_RESULT_CODE rTxDoneStatus);
 
 void connLogStaInfo(
 	struct ADAPTER *prAdapter,
@@ -358,7 +378,8 @@ void connLogConnectFail(
 
 void connLogDisconnect(
 	struct ADAPTER *prAdapter,
-	uint8_t ucBssIndex);
+	uint8_t ucBssIndex,
+	uint8_t ucDisconnectReason);
 
 void connLogMgmtTx(
 	struct ADAPTER *prAdapter,

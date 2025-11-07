@@ -463,6 +463,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	unsigned int crtc_index = 0;
 	char dbg_msg[512] = {0};
 	int written = 0;
+	bool plane_visible = plane->state->visible;
 	struct total_tile_overhead_v to_v_info;
 
 	if (!crtc)
@@ -502,7 +503,12 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	}
 
 	mtk_plane_state->pending.mml_mode = mtk_plane_state->mml_mode;
-	mtk_plane_state->pending.mml_cfg = mtk_plane_state->mml_cfg;
+	if (mtk_plane_state->mml_mode > MML_MODE_UNKNOWN)
+		mtk_plane_state->pending.mml_cfg = mtk_plane_state->mml_cfg;
+	else {
+		if (mtk_plane_state->prop_val[PLANE_PROP_IS_MML])
+			plane_visible = 0;
+	}
 
 	// MML setting display single pipe in here, we set dual pipe
 	// in mtk_drm_layer_dispatch_to_dual_pipe()
@@ -514,7 +520,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 		height = cfg->info.dest[0].crop.r.height;
 		pitch = cfg->info.src.y_stride;
 
-		mtk_plane_state->pending.enable = plane->state->visible;
+		mtk_plane_state->pending.enable = plane_visible;
 		mtk_plane_state->pending.pitch = pitch;
 		mtk_plane_state->pending.format = fb->format->format;
 		mtk_plane_state->pending.addr = (dma_addr_t)(mtk_crtc->mml_ir_sram.data.paddr);
@@ -555,7 +561,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 		height = cfg->info.dest[0].crop.r.height;
 		pitch = cfg->info.src.y_stride;
 
-		mtk_plane_state->pending.enable = plane->state->visible;
+		mtk_plane_state->pending.enable = plane_visible;
 		mtk_plane_state->pending.pitch = pitch;
 		mtk_plane_state->pending.format = fb->format->format;
 		mtk_plane_state->pending.addr = 0;
@@ -572,7 +578,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 		mtk_plane_state->pending.offset = crtc_state->mml_dst_roi.y << 16 |
 						  crtc_state->mml_dst_roi.x;
 	} else {
-		mtk_plane_state->pending.enable = plane->state->visible;
+		mtk_plane_state->pending.enable = plane_visible;
 		mtk_plane_state->pending.pitch = fb->pitches[0];
 		mtk_plane_state->pending.format = fb->format->format;
 		mtk_plane_state->pending.modifier = fb->modifier;
@@ -691,7 +697,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	wmb(); /* Make sure the above parameters are set before update */
 	mtk_plane_state->pending.dirty = true;
 
-	DDPINFO("%s en%d pitch%d fmt:%p4cc addr:0x%llx x%d y%d w%d h%d mml:%d\n", __func__,
+	DDPCUSTINFO("%s en%d pitch%d fmt:%p4cc addr:0x%llx x%d y%d w%d h%d mml:%d\n", __func__,
 		(unsigned int)mtk_plane_state->pending.enable, mtk_plane_state->pending.pitch,
 		&mtk_plane_state->pending.format, mtk_plane_state->pending.addr,
 		mtk_plane_state->pending.dst_x, mtk_plane_state->pending.dst_y,
@@ -704,7 +710,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 			written += scnprintf(dbg_msg + written, 512 - written, "[%d]%d ",
 						i, (unsigned int)mtk_plane_state->pending.prop_val[i]);
 		}
-		DDPINFO("%s\n", dbg_msg);
+		DDPCUSTINFO("%s\n", dbg_msg);
 	}
 
 	DDPFENCE("S+/%sL%d/e%d/id%d/mva0x%08llx/size0x%08lx/S%d\n",
@@ -736,18 +742,11 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	if (skip_update == 0)
 		mtk_drm_crtc_plane_update(crtc, plane, mtk_plane_state);
 
-	if (mtk_plane_state->pending.enable && !mtk_crtc->reset_path)
-		if (mtk_plane_state->comp_state.blender_comp_id != 0) {
-			if (mtk_drm_crtc_check_dual_exdma(mtk_crtc, mtk_plane_state)) {
-				mtk_crtc->last_blender =
-					priv->ddp_comp[mtk_plane_state->comp_state.dual_blender_comp_id];
-			} else {
-				mtk_crtc->last_blender =
-					priv->ddp_comp[mtk_plane_state->comp_state.blender_comp_id];
-			}
-			DDPINFO("%s, mtk_crtc->last_blender %s\n", __func__,
-				mtk_dump_comp_str_id(mtk_crtc->last_blender->id));
-		}
+
+	if (mtk_crtc->last_blender)
+		DDPCUSTINFO("%s, mtk_crtc->last_blender %s\n", __func__,
+			mtk_dump_comp_str_id(mtk_crtc->last_blender->id));
+
 }
 
 

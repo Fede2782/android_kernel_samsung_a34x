@@ -1486,7 +1486,6 @@ static int __ref kernel_init(void *unused)
 #endif
 #ifdef CONFIG_KDP
 	kdp_init();
-	kdp_enable = true;
 #endif
 #endif
 	mark_readonly();

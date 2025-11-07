@@ -72,13 +72,13 @@ int mtk_logbuffer_procfs_init(struct kbase_device *kbdev, struct proc_dir_entry 
 		return -1;
 
 	if (kbdev->logbuf_regular.entries)
-		proc_create(kbdev->logbuf_regular.name, 0440, parent, &mtk_logbuffer_regular_proc_ops);
+		proc_create(kbdev->logbuf_regular.name, 0444, parent, &mtk_logbuffer_regular_proc_ops);
 
 	if (kbdev->logbuf_critical.entries)
-		proc_create(kbdev->logbuf_critical.name, 0440, parent, &mtk_logbuffer_critical_proc_ops);
+		proc_create(kbdev->logbuf_critical.name, 0444, parent, &mtk_logbuffer_critical_proc_ops);
 
 	if (kbdev->logbuf_exception.entries)
-		proc_create(kbdev->logbuf_exception.name, 0440, parent, &mtk_logbuffer_exception_proc_ops);
+		proc_create(kbdev->logbuf_exception.name, 0444, parent, &mtk_logbuffer_exception_proc_ops);
 
 	return 0;
 }
@@ -234,6 +234,7 @@ void mtk_logbuffer_dump_to_dev_and_clear(struct kbase_device *const kbdev, uint3
 {
 	unsigned long flags;
 	char *temp_entries = NULL;
+	char *temp_entries_orig = NULL;
 	struct mtk_logbuffer_info *logbuf;
 
 	if (logType & MTK_LOGBUFFER_TYPE_DEFERRED)
@@ -245,14 +246,20 @@ void mtk_logbuffer_dump_to_dev_and_clear(struct kbase_device *const kbdev, uint3
 		return;
 
 	/* Allocate and init temp memory for copy from logbuffer */
-	temp_entries = kcalloc(1, logbuf->size, GFP_KERNEL);
+	temp_entries = vzalloc(logbuf->size);
 	if (temp_entries == NULL) {
 		dev_info(kbdev->dev, "null temp log memory, bypass dump");
 		return;
 	}
+
+	/* To avoid the following strsep changes the pointer address
+	   then the memleak will be detected, we need a backup ptr used for free*/
+	temp_entries_orig = temp_entries;
+
 	memset(temp_entries, 0x0, logbuf->size);
 
 	spin_lock_irqsave(&logbuf->access_lock, flags);
+
 	/* Copy the entries from the logbuffer to temp memory */
 	memcpy(temp_entries, logbuf->entries, logbuf->size);
 
@@ -273,7 +280,7 @@ void mtk_logbuffer_dump_to_dev_and_clear(struct kbase_device *const kbdev, uint3
 	dev_info(kbdev->dev, "End deferred dump\n");
 
 	/* Free the temp memory */
-	kfree(temp_entries);
+	vfree(temp_entries_orig);
 }
 #endif /* CONFIG_MALI_MTK_DEFERRED_LOGGING */
 

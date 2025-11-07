@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -8,19 +8,20 @@
 #if CFG_ENABLE_WIFI_DIRECT
 
 #if 1
-static const char * const apucDebugP2pDevState[P2P_DEV_STATE_NUM] = {
-	"P2P_DEV_STATE_IDLE",
-	"P2P_DEV_STATE_SCAN",
-	"P2P_DEV_STATE_REQING_CHANNEL",
-	"P2P_DEV_STATE_CHNL_ON_HAND",
-	"P2P_DEV_STATE_OFF_CHNL_TX",
-	"P2P_DEV_STATE_LISTEN_OFFLOAD",
+/*lint -save -e64 Type mismatch */
+static uint8_t *apucDebugP2pDevState[P2P_DEV_STATE_NUM] = {
+	(uint8_t *) DISP_STRING("P2P_DEV_STATE_IDLE"),
+	(uint8_t *) DISP_STRING("P2P_DEV_STATE_SCAN"),
+	(uint8_t *) DISP_STRING("P2P_DEV_STATE_REQING_CHANNEL"),
+	(uint8_t *) DISP_STRING("P2P_DEV_STATE_CHNL_ON_HAND"),
+	(uint8_t *) DISP_STRING("P2P_DEV_STATE_OFF_CHNL_TX"),
+	(uint8_t *) DISP_STRING("P2P_DEV_STATE_LISTEN_OFFLOAD")
 };
 
 /*lint -restore */
 #endif /* DBG */
 
-uint8_t p2pDevFsmInit(struct ADAPTER *prAdapter, uint8_t aucIntfMac[])
+uint8_t p2pDevFsmInit(struct ADAPTER *prAdapter)
 {
 	struct P2P_DEV_FSM_INFO *prP2pDevFsmInfo =
 		(struct P2P_DEV_FSM_INFO *) NULL;
@@ -36,14 +37,6 @@ uint8_t p2pDevFsmInit(struct ADAPTER *prAdapter, uint8_t aucIntfMac[])
 		prP2pDevFsmInfo = prAdapter->rWifiVar.prP2pDevFsmInfo;
 
 		ASSERT_BREAK(prP2pDevFsmInfo != NULL);
-		if (prP2pDevFsmInfo->fgInitialied == TRUE) {
-			DBGLOG(P2P, WARN,
-				"p2p dev %u already initialized.\n",
-				prP2pDevFsmInfo->ucBssIndex);
-			prP2pBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
-				prP2pDevFsmInfo->ucBssIndex);
-			break;
-		}
 
 		kalMemZero(prP2pDevFsmInfo, sizeof(struct P2P_DEV_FSM_INFO));
 
@@ -62,21 +55,14 @@ uint8_t p2pDevFsmInit(struct ADAPTER *prAdapter, uint8_t aucIntfMac[])
 			(uintptr_t) prP2pDevFsmInfo);
 #endif
 		prP2pBssInfo = cnmGetBssInfoAndInit(prAdapter,
-			NETWORK_TYPE_P2P, TRUE, INVALID_OMAC_IDX);
+			NETWORK_TYPE_P2P, TRUE);
 
 		if (prP2pBssInfo != NULL) {
 			BSS_INFO_INIT(prAdapter, prP2pBssInfo);
-#if (CFG_TC10_FEATURE == 1)
 			COPY_MAC_ADDR(prP2pBssInfo->aucOwnMacAddr,
-				      prAdapter->rWifiVar.aucP2pDeviceAddress[0]
-				      );
+				      prAdapter->rWifiVar.aucP2pDevAddr[0]);
 			COPY_MAC_ADDR(prP2pBssInfo->aucBSSID,
-				      prAdapter->rWifiVar.aucP2pDeviceAddress[0]
-				      );
-#else
-			COPY_MAC_ADDR(prP2pBssInfo->aucOwnMacAddr, aucIntfMac);
-			COPY_MAC_ADDR(prP2pBssInfo->aucBSSID, aucIntfMac);
-#endif
+				      prAdapter->rWifiVar.aucP2pDevAddr[0]);
 			DBGLOG(INIT, TRACE, "Set p2p dev mac to " MACSTR "\n",
 					MAC2STR(prP2pBssInfo->aucOwnMacAddr));
 
@@ -135,13 +121,95 @@ uint8_t p2pDevFsmInit(struct ADAPTER *prAdapter, uint8_t aucIntfMac[])
 		p2pDevFsmStateTransition(prAdapter,
 			prP2pDevFsmInfo,
 			P2P_DEV_STATE_IDLE);
-		prP2pDevFsmInfo->fgInitialied = TRUE;
 	} while (FALSE);
 
 	if (prP2pBssInfo)
 		return prP2pBssInfo->ucBssIndex;
 	else
-		return MAX_BSSID_NUM + 1;
+		return P2P_DEV_BSS_INDEX + 1;
+
+#if 0
+	do {
+		ASSERT_BREAK(prAdapter != NULL);
+
+		prP2pFsmInfo = prAdapter->rWifiVar.prP2pFsmInfo;
+		prP2pBssInfo =
+		&(prAdapter->rWifiVar.arBssInfo[NETWORK_TYPE_P2P_INDEX]);
+
+		ASSERT_BREAK(prP2pFsmInfo != NULL);
+
+		LINK_INITIALIZE(&(prP2pFsmInfo->rMsgEventQueue));
+
+		prP2pFsmInfo->eCurrentState =
+			prP2pFsmInfo->ePreviousState = P2P_STATE_IDLE;
+
+		prP2pFsmInfo->prTargetBss = NULL;
+
+		cnmTimerInitTimer(prAdapter,
+			&(prP2pFsmInfo->rP2pFsmTimeoutTimer),
+			(PFN_MGMT_TIMEOUT_FUNC) p2pFsmRunEventFsmTimeout,
+			(uintptr_t) prP2pFsmInfo);
+
+		/* 4 <2> Initiate BSS_INFO_T - common part */
+		BSS_INFO_INIT(prAdapter, NETWORK_TYPE_P2P_INDEX);
+
+		/* 4 <2.1> Initiate BSS_INFO_T - Setup HW ID */
+		prP2pBssInfo->ucConfigAdHocAPMode = AP_MODE_11G_P2P;
+		prP2pBssInfo->ucHwDefaultFixedRateCode = RATE_OFDM_6M;
+
+		prP2pBssInfo->ucNonHTBasicPhyType = (uint8_t)
+		    rNonHTApModeAttributes[prP2pBssInfo->ucConfigAdHocAPMode]
+			.ePhyTypeIndex;
+
+		prP2pBssInfo->u2BSSBasicRateSet =
+		    rNonHTApModeAttributes[prP2pBssInfo->ucConfigAdHocAPMode]
+			.u2BSSBasicRateSet;
+
+		prP2pBssInfo->u2OperationalRateSet =
+		    rNonHTPhyAttributes[prP2pBssInfo->ucNonHTBasicPhyType]
+			.u2SupportedRateSet;
+
+		rateGetDataRatesFromRateSet(prP2pBssInfo->u2OperationalRateSet,
+			prP2pBssInfo->u2BSSBasicRateSet,
+			prP2pBssInfo->aucAllSupportedRates,
+			&prP2pBssInfo->ucAllSupportedRatesLen);
+
+		prP2pBssInfo->prBeacon = cnmMgtPktAlloc(prAdapter,
+			OFFSET_OF(struct WLAN_BEACON_FRAME, aucInfoElem[0]) +
+			MAX_IE_LENGTH);
+
+		if (prP2pBssInfo->prBeacon) {
+			prP2pBssInfo->prBeacon->eSrc = TX_PACKET_MGMT;
+			/* NULL STA_REC */
+			prP2pBssInfo->prBeacon->ucStaRecIndex = 0xFF;
+			prP2pBssInfo->prBeacon->ucNetworkType =
+				NETWORK_TYPE_P2P_INDEX;
+		} else {
+			/* Out of memory. */
+			ASSERT(FALSE);
+		}
+
+		prP2pBssInfo->eCurrentOPMode = OP_MODE_NUM;
+
+		prP2pBssInfo->rPmProfSetupInfo.ucBmpDeliveryAC = PM_UAPSD_ALL;
+		prP2pBssInfo->rPmProfSetupInfo.ucBmpTriggerAC = PM_UAPSD_ALL;
+		prP2pBssInfo->rPmProfSetupInfo.ucUapsdSp = WMM_MAX_SP_LENGTH_2;
+		prP2pBssInfo->ucPrimaryChannel = P2P_DEFAULT_LISTEN_CHANNEL;
+		prP2pBssInfo->eBand = BAND_2G4;
+		prP2pBssInfo->eBssSCO = CHNL_EXT_SCN;
+
+		if (IS_FEATURE_ENABLED(prAdapter->rWifiVar.ucQoS))
+			prP2pBssInfo->fgIsQBSS = TRUE;
+		else
+			prP2pBssInfo->fgIsQBSS = FALSE;
+
+		SET_NET_PWR_STATE_IDLE(prAdapter, NETWORK_TYPE_P2P_INDEX);
+
+		p2pFsmStateTransition(prAdapter, prP2pFsmInfo, P2P_STATE_IDLE);
+	} while (FALSE);
+
+	return;
+#endif
 }				/* p2pDevFsmInit */
 
 void p2pDevFsmUninit(struct ADAPTER *prAdapter)
@@ -154,7 +222,6 @@ void p2pDevFsmUninit(struct ADAPTER *prAdapter)
 		ASSERT_BREAK(prAdapter != NULL);
 
 		prP2pDevFsmInfo = prAdapter->rWifiVar.prP2pDevFsmInfo;
-		prP2pDevFsmInfo->fgInitialied = FALSE;
 
 		ASSERT_BREAK(prP2pDevFsmInfo != NULL);
 
@@ -184,6 +251,8 @@ void p2pDevFsmUninit(struct ADAPTER *prAdapter)
 
 		/* Clear CmdQue */
 		kalClearMgmtFramesByBssIdx(prAdapter->prGlueInfo,
+			prP2pBssInfo->ucBssIndex);
+		kalClearCmdDataFramesByBssIdx(prAdapter->prGlueInfo,
 			prP2pBssInfo->ucBssIndex);
 		/* Clear PendingCmdQue */
 		wlanReleasePendingCMDbyBssIdx(prAdapter,
@@ -264,6 +333,7 @@ p2pDevFsmStateTransition(struct ADAPTER *prAdapter,
 		return;
 	}
 
+	ASSERT(prP2pDevFsmInfo->ucBssIndex == prAdapter->ucP2PDevBssIdx);
 	if (prP2pDevFsmInfo->ucBssIndex != prAdapter->ucP2PDevBssIdx) {
 		log_dbg(P2P, ERROR,
 			"prP2pDevFsmInfo->ucBssIndex %d should be prAdapter->ucP2PDevBssIdx(%d)!\n",
@@ -879,8 +949,6 @@ p2pDevFsmRunEventChnlGrant(struct ADAPTER *prAdapter,
 		ASSERT(prMsgChGrant->eReqType
 			== prChnlReqInfo->eChnlReqType);
 
-		prChnlReqInfo->u4MaxInterval = prMsgChGrant->u4GrantInterval;
-
 		if (prMsgChGrant->eReqType == CH_REQ_TYPE_ROC) {
 			p2pDevFsmStateTransition(prAdapter,
 				prP2pDevFsmInfo,
@@ -1164,17 +1232,16 @@ p2pDevNeedOffchnlTx(struct ADAPTER *prAdapter,
 	if ((prWlanHdr->u2FrameCtrl & MASK_FRAME_TYPE) == MAC_FRAME_PROBE_RSP)
 		return FALSE;
 
-	if ((prP2pDevFsmInfo->eCurrentState == P2P_DEV_STATE_CHNL_ON_HAND ||
-	     prP2pDevFsmInfo->eCurrentState == P2P_DEV_STATE_OFF_CHNL_TX) &&
+	if (prP2pDevFsmInfo->eCurrentState == P2P_DEV_STATE_CHNL_ON_HAND &&
 			p2pFuncCheckOnRocChnl(&(prMgmtTxMsg->rChannelInfo),
 					prChnlReqInfo))
 		return FALSE;
 
 	pu8GlCookie =
-		(uint64_t *) ((uintptr_t)
-			prMgmtTxMsg->prMgmtMsduInfo->prPacket +
-			(uintptr_t)
-			prMgmtTxMsg->prMgmtMsduInfo->u2FrameLength +
+		(uint64_t *) ((uintptr_t) prMgmtTxMsg->
+			prMgmtMsduInfo->prPacket +
+			(uintptr_t) prMgmtTxMsg->prMgmtMsduInfo
+			->u2FrameLength +
 			MAC_TX_RESERVED_FIELD);
 
 	eCNNState = p2pFuncTagMgmtFrame(prMgmtTxMsg->prMgmtMsduInfo,
@@ -1186,8 +1253,7 @@ p2pDevNeedOffchnlTx(struct ADAPTER *prAdapter,
 	 * resp in autoGO scenario
 	 */
 	for (i = 0; i < KAL_P2P_NUM; i++) {
-		if ((eCNNState != P2P_CNN_NORMAL) &&
-			((eCNNState - 1) != P2P_PROV_DISC_RESP))
+		if (eCNNState != P2P_CNN_PROV_DISC_RESP)
 			break;
 		prP2pRoleFsmInfo =
 			P2P_ROLE_INDEX_2_ROLE_FSM_INFO(prAdapter, i);
@@ -1261,12 +1327,12 @@ p2pDevFsmRunEventMgmtFrameTxDone(struct ADAPTER *prAdapter,
 				MAC_TX_RESERVED_FIELD);
 
 		if (rTxDoneStatus != TX_RESULT_SUCCESS) {
-			DBGLOG(P2P, INFO,
+			DBGLOG(P2P, INFO2,
 				"Mgmt Frame TX Fail, Status: %d. cookie: 0x%llx\n",
 				rTxDoneStatus, *pu8GlCookie);
 		} else {
 			fgIsSuccess = TRUE;
-			DBGLOG(P2P, INFO,
+			DBGLOG(P2P, INFO2,
 				"Mgmt Frame TX Done. cookie: 0x%llx\n",
 				*pu8GlCookie);
 		}
@@ -1516,7 +1582,7 @@ void p2pDevListenOffloadStopHandler(
 }
 
 void p2pDevFsmNotifyGoState(struct ADAPTER *prAdapter,
-	uint8_t ucBssIndex, u_int8_t fgIsGoStarted)
+	uint8_t ucBssIndex, uint8_t fgIsGoStarted)
 {
 	struct P2P_DEV_FSM_INFO *prP2pDevFsmInfo = NULL;
 
@@ -1529,7 +1595,7 @@ void p2pDevFsmNotifyGoState(struct ADAPTER *prAdapter,
 	/* Since P2P Device has to received PROVISION
 	 * DISCOVERY frame from GO's operating channel,
 	 * DEV need re-activate after GO started to
-	 * make sure DEV OMAC set on the same band with GO.
+	 * make sure DEV OMAC in the same band with GO.
 	 */
 	if (fgIsGoStarted == TRUE) {
 		if (prP2pDevFsmInfo->eCurrentState !=

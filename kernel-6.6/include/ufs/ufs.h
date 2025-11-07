@@ -386,8 +386,8 @@ enum {
 
 /* Possible values for dExtendedUFSFeaturesSupport */
 enum {
-	UFS_DEV_LOW_TEMP_NOTIF		= BIT(4),
-	UFS_DEV_HIGH_TEMP_NOTIF		= BIT(5),
+	UFS_DEV_HIGH_TEMP_NOTIF		= BIT(4),
+	UFS_DEV_LOW_TEMP_NOTIF		= BIT(5),
 	UFS_DEV_EXT_TEMP_NOTIF		= BIT(6),
 	UFS_DEV_HPB_SUPPORT		= BIT(7),
 	UFS_DEV_WRITE_BOOSTER_SUP	= BIT(8),
@@ -589,7 +589,7 @@ struct ufs_dev_info {
  * This enum is used in string mapping in include/trace/events/ufs.h.
  */
 enum ufs_trace_str_t {
-	UFS_CMD_SEND, UFS_CMD_COMP, UFS_CMD_ERR, UFS_DEV_COMP,
+	UFS_CMD_SEND, UFS_CMD_COMP, UFS_DEV_COMP,
 	UFS_QUERY_SEND, UFS_QUERY_COMP, UFS_QUERY_ERR,
 	UFS_TM_SEND, UFS_TM_COMP, UFS_TM_ERR
 };

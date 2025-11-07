@@ -1385,11 +1385,15 @@ void mtk_drm_idlemgr_kick(const char *source, struct drm_crtc *crtc,
 			local_clock() - idlemgr_ctx->enter_idle_ts);
 		if (mtk_crtc->esd_ctx)
 			atomic_set(&mtk_crtc->esd_ctx->target_time, 0);
-		if (mtk_crtc->enabled && need_lock)
-			mtk_vidle_user_power_keep(DISP_VIDLE_USER_HSIDLE);
+
+		if (mtk_crtc->enabled)
+			mtk_vidle_user_power_keep(DISP_VIDLE_USER_HSIDLE);	/* no polling for this user */
+
 		mtk_drm_idlemgr_leave_idle_nolock(crtc);
-		if (mtk_crtc->enabled && need_lock)
+
+		if (mtk_crtc->enabled)
 			mtk_vidle_user_power_release(DISP_VIDLE_USER_HSIDLE);
+
 		idlemgr_ctx->is_idle = 0;
 		/* wake up idlemgr process to monitor next idle state */
 		wake_up_interruptible(&idlemgr->idlemgr_wq);
@@ -1747,7 +1751,7 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 			/* enter idle state */
 			if (!vblank || atomic_read(&vblank->refcount) == 0) {
 				DDPINFO("[LP] enter idle\n");
-				mtk_vidle_user_power_keep(DISP_VIDLE_USER_HSIDLE);
+				mtk_vidle_user_power_keep(DISP_VIDLE_USER_HSIDLE);	/* no polling for this user */
 				mtk_drm_idlemgr_enter_idle_nolock(crtc);
 				mtk_vidle_user_power_release(DISP_VIDLE_USER_HSIDLE);
 				idlemgr_ctx->is_idle = 1;
@@ -2059,7 +2063,7 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 					"power_off", 14, perf_string, false);
 		/* 8. power off MTCMOS */
 		DDPFENCE("%s:%d power_state = false\n", __func__, __LINE__);
-		mtk_drm_top_clk_disable_unprepare(crtc->dev);
+		mtk_drm_top_clk_disable_unprepare(crtc);
 	}
 
 	if (idlemgr_ctx->priv.vblank_async == true &&
@@ -2463,7 +2467,7 @@ static unsigned int mtk_drm_idlemgr_wb_alloc_fb(struct mtk_drm_crtc *mtk_crtc,
 			DDPPR_ERR("%s, failed to create gem\n", __func__);
 			return MTK_MAX_WB_FB_COUNT;
 		}
-		DDPMSG("%s,[IWB] create buf:0x%lx,dual:%d,roi(%u/%u,%u/%u),nr:%u,size:%u(%u,%u)\n",
+		DDPMSG("%s,[IWB] create buf:0x%lx,dual:%d,roi(%u/%u,%u/%u),nr:%u,size:%zu(%zu,%zu)\n",
 			__func__, (unsigned long)mtk_gem->dma_addr, dual, width, w,
 			height, h, subblock_nr, size_total, size_header, size_body);
 
@@ -2474,9 +2478,9 @@ static unsigned int mtk_drm_idlemgr_wb_alloc_fb(struct mtk_drm_crtc *mtk_crtc,
 			DDPPR_ERR("%s, failed to create fb\n", __func__);
 			return MTK_MAX_WB_FB_COUNT;
 		}
-		DDPMSG("%s,[IWB] create fb:%u, dual:%d,roi(%u,%u),fmt:0x%x,pitches:%u\n",
+		DDPMSG("%s,[IWB] create fb:%u, dual:%d,roi(%u,%u),fmt:%u,pitches:%u\n",
 			__func__, ret, dual, wb_fb[ret]->width, wb_fb[ret]->height,
-			wb_fb[ret]->format, wb_fb[ret]->pitches[0]);
+			wb_fb[ret]->format ? wb_fb[ret]->format->format : 0, wb_fb[ret]->pitches[0]);
 	}
 
 	if (dual) {
@@ -2488,7 +2492,7 @@ static unsigned int mtk_drm_idlemgr_wb_alloc_fb(struct mtk_drm_crtc *mtk_crtc,
 	} else {
 		mtk_crtc->idlemgr->fb_index = ret;
 		mtk_crtc->idlemgr->wb_buffer_iova = mtk_fb_get_dma(wb_fb[ret]);
-		DDPMSG("%s,[IWB] switch to fb:%u(%u,%u),fmt:0x%lx,buf:0x%lx\n",
+		DDPMSG("%s,[IWB] switch to fb:%u(%u,%u),fmt:0x%x,buf:0x%lx\n",
 			__func__, mtk_crtc->idlemgr->fb_index, width, height, fmt,
 			(unsigned long)mtk_crtc->idlemgr->wb_buffer_iova);
 	}

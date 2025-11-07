@@ -49,9 +49,6 @@ enum ssusb_hwrscs_vers {
 	SSUSB_HWRECS_V3 = 3,
 };
 
-struct regmap *usb_mbist;
-struct regmap *usb_cfg_ao;
-
 /* protect vs voter state */
 static DEFINE_MUTEX(vsv_mutex);
 static unsigned int vsv_use_count;
@@ -145,7 +142,6 @@ static void ssusb_hwrscs_req_v2_v3(struct ssusb_mtk *ssusb,
 	if (vcore_req_support)
 		spm_msk |= SSUSB_SPM_VCORE_EN;
 
-
 	/* Clear FORCE HW Request which is default on since MT6989 */
 	spm_ctrl &= ~SSUSB_SPM_FORCE_HW_REQ_MSK;
 
@@ -158,12 +154,20 @@ static void ssusb_hwrscs_req_v2_v3(struct ssusb_mtk *ssusb,
 		break;
 	case MTU3_STATE_OFFLOAD:
 		/* Clear req for offload scenario */
+		spm_ctrl |= SSUSB_SPM_REQ_OFFLOAD_MSK;
 		spm_ctrl &= ~(SSUSB_SPM_REQ_OFFLOAD_MSK ^ spm_msk);
 
 		/* set apsrc=0 and ddren=1, inform peri not to protect bus */
 		if (of_device_is_compatible(ssusb->dev->of_node, "mediatek,mt6899-mtu3"))
 			spm_ctrl |= SSUSB_SPM_DDR_EN;
 
+		break;
+	case MTU3_STATE_OFFLOAD_IDLE:
+		/* set apsrc, ddren and emi to hw mode */
+		spm_ctrl |= SSUSB_SPM_REQ_OFFLOAD_IDLE_MSK;
+		spm_ctrl &= ~(SSUSB_SPM_REQ_OFFLOAD_IDLE_MSK ^ (spm_msk | SSUSB_SPM_FORCE_HW_REQ_MSK));
+		/* ignore the corresponding ack bit when switching to hw mode */
+		spm_msk &= spm_ctrl;
 		break;
 	case MTU3_STATE_RESUME:
 		spm_ctrl |= spm_msk;
@@ -192,10 +196,18 @@ static void ssusb_hwrscs_req_v2_v3(struct ssusb_mtk *ssusb,
 	/* wait 2ms */
 	mdelay(2);
 
-	/* send smc request */
-	if (smc_req != -1)
-		arm_smccc_smc(MTK_SIP_KERNEL_USB_CONTROL,
-			smc_req, 0, 0, 0, 0, 0, 0, &res);
+	if (of_device_is_compatible(ssusb->dev->of_node, "mediatek,mt6991-mtu3")) {
+		dev_info(ssusb->dev, "%s vcore setting = %d\n", __func__, ssusb->force_vcore);
+		if (ssusb->force_vcore == 1 && smc_req != -1) {
+			arm_smccc_smc(MTK_SIP_KERNEL_USB_CONTROL,
+				smc_req, 0, 0, 0, 0, 0, 0, &res);
+		}
+	} else {
+		/* send smc request */
+		if (smc_req != -1)
+			arm_smccc_smc(MTK_SIP_KERNEL_USB_CONTROL,
+				smc_req, 0, 0, 0, 0, 0, 0, &res);
+	}
 }
 
 static void ssusb_smc_request(struct ssusb_mtk *ssusb,
@@ -562,91 +574,75 @@ void ssusb_parse_toggle_vbus(struct ssusb_mtk *ssusb,
 	}
 }
 
-static int ssusb_ao_cfg_of_property_parse(struct device_node *dn)
+static int ssusb_ao_cfg_of_property_parse(struct ssusb_mtk *ssusb,
+						struct device_node *dn)
 {
 	struct of_phandle_args args;
 	struct platform_device *pdev;
 	int ret;
 
-	usb_mbist = NULL;
-	usb_cfg_ao = NULL;
-
-	/* usb mbist */
+	/* usb mbist is optional */
 	if (!of_property_read_bool(dn, "mediatek,usb-mbist"))
-		goto usb_aocfg;
+		return 0;
 
 	ret = of_parse_phandle_with_fixed_args(dn,
 		"mediatek,usb-mbist", 0, 0, &args);
 
 	if (ret)
-		goto usb_aocfg;
+		return ret;
 
 	pdev = of_find_device_by_node(args.np);
 	if (!pdev)
-		goto usb_aocfg;
+		return -ENODEV;
 
-	usb_mbist = device_node_to_regmap(args.np);
+	ssusb->usb_mbist = device_node_to_regmap(args.np);
 
-usb_aocfg:
+	if (!ssusb->usb_mbist)
+		return -ENODEV;
 
-	/* usb ao cfg */
-	if (!of_property_read_bool(dn, "mediatek,usb-ao-cfg"))
-		return 0;
+	return PTR_ERR_OR_ZERO(ssusb->usb_mbist);
+}
 
-	ret = of_parse_phandle_with_fixed_args(dn,
-		"mediatek,usb-ao-cfg", 0, 0, &args);
+int ssusb_wait_power_state(struct ssusb_mtk *ssusb,
+	enum mtu3_power_state state)
+{
+	unsigned long timeout;
+	u32 val1 = 0;
+	u32 val2 = 0;
+	u32 val3 = 0;
 
-	if (ret)
-		return 0;
+	if (IS_ERR_OR_NULL(ssusb->usb_mbist))
+		return -1;
 
-	pdev = of_find_device_by_node(args.np);
-	if (!pdev)
-		return 0;
+	timeout = jiffies + HZ*3; /* 3 seconds timeout */
 
-	usb_cfg_ao = device_node_to_regmap(args.np);
+	while (time_before(jiffies, timeout)) {
+		if (of_device_is_compatible(ssusb->dev->of_node, "mediatek,mt6991-mtu3")) {
+			regmap_read(ssusb->usb_mbist, 0x34, &val1);
+			if ((val1 & BIT(0)) == 0x1)
+				return 0;
 
+			dev_info(ssusb->dev, "[WARNING] USB bus not idle, usb-mbist: %x\n", val1);
+			mdelay(100);
+		} else if (of_device_is_compatible(ssusb->dev->of_node, "mediatek,mt6993-mtu3")) {
+			regmap_read(ssusb->usb_mbist, 0x48, &val1);
+			regmap_read(ssusb->usb_mbist, 0x4c, &val2);
+			regmap_read(ssusb->usb_mbist, 0x50, &val3);
+			if ((val1 & BIT(0)) == 0x1 && (val2 & 0x3) == 0  && (val3 & 0x3) == 0)
+				return 0;
+
+			dev_info(ssusb->dev, "[WARNING] USB bus not idle, usb-mbist: 0x48: %x, 0x4c: %x, 0x50: %x\n",
+					val1, val2, val3);
+			mdelay(100);
+		} else {
+			dev_info(ssusb->dev, "[WARNING] No compatible bus idle setting?\n");
+			return 0;
+		}
+	}
+
+	dev_info(ssusb->dev, "[WARNING] USB bus not idle, wait timeout\n");
 	return 0;
 }
-
-void mtu3_ao_rg_dump(void)
-{
-	u32 val = 0;
-
-	if (!IS_ERR_OR_NULL(usb_mbist)) {
-		regmap_read(usb_mbist, 0x54, &val);
-		pr_notice("[MTU3] debug dump usb-mbist: %x\n", val);
-	}
-
-	if (!IS_ERR_OR_NULL(usb_cfg_ao)) {
-		regmap_read(usb_cfg_ao, 0x284, &val);
-		pr_notice("[MTU3] debug dump usb-cfg-ao: %x\n", val);
-
-	}
-}
-
-static int ssusb_pd_event(struct notifier_block *nb,
-				  unsigned long flags , void *data)
-{
-	switch (flags) {
-	case GENPD_NOTIFY_ON:
-		pr_notice("%s() mtu3 pwr on\n", __func__);
-		mtu3_ao_rg_dump();
-		break;
-	case GENPD_NOTIFY_PRE_OFF:
-		pr_notice("%s() mtu3 pwr pre off\n", __func__);
-		mtu3_ao_rg_dump();
-		break;
-	default:
-		break;
-	}
-
-	return NOTIFY_OK;
-}
-
-struct notifier_block ssusb_pd_notifier_block = {
-	.notifier_call = ssusb_pd_event,
-	.priority = 0,
-};
 
 static int ssusb_offload_get_mode(struct ssusb_offload *offload)
 {
@@ -655,6 +651,16 @@ static int ssusb_offload_get_mode(struct ssusb_offload *offload)
 	else
 		return SSUSB_OFFLOAD_MODE_NONE;
 }
+
+void ssusb_offload_set_power_state(struct ssusb_offload *offload,
+		enum mtu3_power_state state)
+{
+	if (!offload || !offload->ssusb)
+		return;
+
+	ssusb_set_power_state(offload->ssusb, state);
+}
+EXPORT_SYMBOL_GPL(ssusb_offload_set_power_state);
 
 int ssusb_offload_register(struct ssusb_offload *offload)
 {
@@ -1155,7 +1161,9 @@ get_phy:
 	if (ret)
 		dev_info(dev, "failed to parse dp_switch property\n");
 
-	ssusb_ao_cfg_of_property_parse(node);
+	ret = ssusb_ao_cfg_of_property_parse(ssusb, node);
+	if (ret)
+		dev_info(dev, "failed to parse usb ao cfg\n");
 
 	ssusb->wakeup_irq = platform_get_irq_byname_optional(pdev, "wakeup");
 	if (ssusb->wakeup_irq == -EPROBE_DEFER)
@@ -1236,7 +1244,6 @@ static int ssusb_genpd_init(struct device *dev,
 {
 	int genpd_num = 0;
 	int err = 0;
-	int ret = 0;
 
 	ssusb->use_multi_genpd = false;
 	genpd_num = of_count_phandle_with_args(dev->of_node,
@@ -1288,10 +1295,6 @@ static int ssusb_genpd_init(struct device *dev,
 		dev_info(dev, "failed to add usb genpd u3 link\n");
 		return -ENODEV;
 	}
-
-	ret = dev_pm_genpd_add_notifier(ssusb->genpd_u2, &ssusb_pd_notifier_block);
-	if (ret)
-		dev_info(dev, "failed to register genpd notify %d\n", ret);
 
 	return 0;
 }

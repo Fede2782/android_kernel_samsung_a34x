@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -172,12 +172,12 @@ void dumpQueue(struct ADAPTER *prAdapter)
 	prGlueInfo = prAdapter->prGlueInfo;
 #if QM_ADAPTIVE_TC_RESOURCE_CTRL
 	for (i = TC0_INDEX; i < TC_NUM; i++) {
-		DBGLOG(SW4, DEBUG, "TC %u\n", i);
-		DBGLOG(SW4, DEBUG, "Max %u Free %u\n",
+		DBGLOG(SW4, INFO, "TC %u\n", i);
+		DBGLOG(SW4, INFO, "Max %u Free %u\n",
 		       prTxCtrl->rTc.au4MaxNumOfBuffer[i],
 		       prTxCtrl->rTc.au4FreeBufferCount[i]);
 
-		DBGLOG(SW4, DEBUG,
+		DBGLOG(SW4, INFO,
 		       "Average %u minReserved %u CurrentTcResource %u GuaranteedTcResource %u\n",
 		       QM_GET_TX_QUEUE_LEN(prAdapter, i),
 		       prQM->au4MinReservedTcResource[i],
@@ -189,36 +189,38 @@ void dumpQueue(struct ADAPTER *prAdapter)
 
 #if QM_FORWARDING_FAIRNESS
 	for (i = 0; i < NUM_OF_PER_STA_TX_QUEUES; i++) {
-		DBGLOG(SW4, DEBUG,
+		DBGLOG(SW4, INFO,
 		       "TC %u HeadStaIdx %u ForwardCount %u\n", i,
 		       prQM->au4HeadStaRecIndex[i],
 		       prQM->au4ResourceUsedCount[i]);
 	}
 #endif
 
-	DBGLOG(SW4, DEBUG, "BMC or unknown TxQueue Len %u\n",
+	DBGLOG(SW4, INFO, "BMC or unknown TxQueue Len %u\n",
 	       prQM->arTxQueue[0].u4NumElem);
-	DBGLOG(SW4, DEBUG, "Pending %d\n",
+	DBGLOG(SW4, INFO, "Pending %d\n",
 	       prGlueInfo->i4TxPendingFrameNum);
+	DBGLOG(SW4, INFO, "Pending CmdData %d\n",
+	       prGlueInfo->i4TxPendingCmdDataFrameNum);
 #if defined(LINUX)
 	for (i = 0; i < 4; i++) {
 		for (j = 0; j < CFG_MAX_TXQ_NUM; j++) {
-			DBGLOG(SW4, DEBUG,
+			DBGLOG(SW4, INFO,
 			       "Pending Q[%u][%u] %d\n", i, j,
 			       prGlueInfo->ai4TxPendingFrameNumPerQueue[i][j]);
 		}
 	}
 #endif
 
-	DBGLOG(SW4, DEBUG, " rFreeSwRfbList %u\n",
+	DBGLOG(SW4, INFO, " rFreeSwRfbList %u\n",
 		RX_GET_FREE_RFB_CNT(&prAdapter->rRxCtrl));
-	DBGLOG(SW4, DEBUG, " rReceivedRfbList %u\n",
+	DBGLOG(SW4, INFO, " rReceivedRfbList %u\n",
 		RX_GET_RECEIVED_RFB_CNT(&prAdapter->rRxCtrl));
-	DBGLOG(SW4, DEBUG, " rIndicatedRfbList %u\n",
+	DBGLOG(SW4, INFO, " rIndicatedRfbList %u\n",
 		RX_GET_INDICATED_RFB_CNT(&prAdapter->rRxCtrl));
-	DBGLOG(SW4, DEBUG, " ucNumIndPacket %u\n",
+	DBGLOG(SW4, INFO, " ucNumIndPacket %u\n",
 	       prAdapter->rRxCtrl.ucNumIndPacket);
-	DBGLOG(SW4, DEBUG, " ucNumRetainedPacket %u\n",
+	DBGLOG(SW4, INFO, " ucNumRetainedPacket %u\n",
 	       prAdapter->rRxCtrl.ucNumRetainedPacket);
 
 }
@@ -235,16 +237,16 @@ void dumpSTA(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec)
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prStaRec->ucBssIndex);
 	ASSERT(prBssInfo);
 
-	DBGLOG(SW4, DEBUG, "Mac address: " MACSTR " Rcpi %u\n",
+	DBGLOG(SW4, INFO, "Mac address: " MACSTR " Rcpi %u\n",
 	       MAC2STR(prStaRec->aucMacAddr), prStaRec->ucRCPI);
 
-	DBGLOG(SW4, DEBUG,
+	DBGLOG(SW4, INFO,
 	       "Idx %u Wtbl %u Used %u State %u Bss Phy 0x%x Sta DesiredPhy 0x%x\n",
 	       prStaRec->ucIndex, ucWTEntry,
 	       prStaRec->fgIsInUse, prStaRec->ucStaState,
 	       prBssInfo->ucPhyTypeSet, prStaRec->ucDesiredPhyTypeSet);
 
-	DBGLOG(SW4, DEBUG,
+	DBGLOG(SW4, INFO,
 	       "Sta Operation 0x%x  DesiredNontHtRateSet  0x%x Mcs 0x%x u2HtCapInfo 0x%x\n",
 	       prStaRec->u2OperationalRateSet,
 	       prStaRec->u2DesiredNonHTRateSet, prStaRec->ucMcsSet,
@@ -252,59 +254,59 @@ void dumpSTA(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec)
 
 	for (i = 0; i < NUM_OF_PER_STA_TX_QUEUES; i++)
 		if (prStaRec->aprTargetQueue[i])
-			DBGLOG(SW4, DEBUG, "TC %u Queue Len %u\n", i,
+			DBGLOG(SW4, INFO, "TC %u Queue Len %u\n", i,
 			       prStaRec->aprTargetQueue[i]->u4NumElem);
 
-	DBGLOG(SW4, DEBUG, "BmpDeliveryAC %x\n",
+	DBGLOG(SW4, INFO, "BmpDeliveryAC %x\n",
 	       prStaRec->ucBmpDeliveryAC);
-	DBGLOG(SW4, DEBUG, "BmpTriggerAC  %x\n",
+	DBGLOG(SW4, INFO, "BmpTriggerAC  %x\n",
 	       prStaRec->ucBmpTriggerAC);
-	DBGLOG(SW4, DEBUG, "UapsdSpSupproted  %u\n",
+	DBGLOG(SW4, INFO, "UapsdSpSupproted  %u\n",
 	       prStaRec->fgIsUapsdSupported);
-	DBGLOG(SW4, DEBUG, "IsQoS  %u\n", prStaRec->fgIsQoS);
-	DBGLOG(SW4, DEBUG, "AssocId %u\n", prStaRec->u2AssocId);
+	DBGLOG(SW4, INFO, "IsQoS  %u\n", prStaRec->fgIsQoS);
+	DBGLOG(SW4, INFO, "AssocId %u\n", prStaRec->u2AssocId);
 
-	DBGLOG(SW4, DEBUG, "fgIsInPS %u\n", prStaRec->fgIsInPS);
-	DBGLOG(SW4, DEBUG, "ucFreeQuota %u\n",
+	DBGLOG(SW4, INFO, "fgIsInPS %u\n", prStaRec->fgIsInPS);
+	DBGLOG(SW4, INFO, "ucFreeQuota %u\n",
 	       prStaRec->ucFreeQuota);
-	DBGLOG(SW4, DEBUG, "ucFreeQuotaForDelivery %u\n",
+	DBGLOG(SW4, INFO, "ucFreeQuotaForDelivery %u\n",
 	       prStaRec->ucFreeQuotaForDelivery);
-	DBGLOG(SW4, DEBUG, "ucFreeQuotaForNonDelivery %u\n",
+	DBGLOG(SW4, INFO, "ucFreeQuotaForNonDelivery %u\n",
 	       prStaRec->ucFreeQuotaForNonDelivery);
 
 #if 0
-	DBGLOG(SW4, DEBUG, "IsQmmSup  %u\n",
+	DBGLOG(SW4, INFO, "IsQmmSup  %u\n",
 	       prStaRec->fgIsWmmSupported);
-	DBGLOG(SW4, DEBUG, "IsUapsdSup  %u\n",
+	DBGLOG(SW4, INFO, "IsUapsdSup  %u\n",
 	       prStaRec->fgIsUapsdSupported);
-	DBGLOG(SW4, DEBUG, "AvailabaleDeliverPkts  %u\n",
+	DBGLOG(SW4, INFO, "AvailabaleDeliverPkts  %u\n",
 	       prStaRec->ucAvailableDeliverPkts);
-	DBGLOG(SW4, DEBUG, "BmpDeliverPktsAC  %u\n",
+	DBGLOG(SW4, INFO, "BmpDeliverPktsAC  %u\n",
 	       prStaRec->u4BmpDeliverPktsAC);
-	DBGLOG(SW4, DEBUG, "BmpBufferAC  %u\n",
+	DBGLOG(SW4, INFO, "BmpBufferAC  %u\n",
 	       prStaRec->u4BmpBufferAC);
-	DBGLOG(SW4, DEBUG, "BmpNonDeliverPktsAC  %u\n",
+	DBGLOG(SW4, INFO, "BmpNonDeliverPktsAC  %u\n",
 	       prStaRec->u4BmpNonDeliverPktsAC);
 #endif
 
 	for (i = 0; i < CFG_RX_MAX_BA_TID_NUM; i++) {
 		if (prStaRec->aprRxReorderParamRefTbl[i]) {
-			DBGLOG(SW4, DEBUG, "RxReorder fgIsValid: %u\n",
+			DBGLOG(SW4, INFO, "RxReorder fgIsValid: %u\n",
 				prStaRec->aprRxReorderParamRefTbl[i]->
 				fgIsValid);
-			DBGLOG(SW4, DEBUG, "RxReorder Tid: %u\n",
+			DBGLOG(SW4, INFO, "RxReorder Tid: %u\n",
 				prStaRec->aprRxReorderParamRefTbl[i]->ucTid);
-			DBGLOG(SW4, DEBUG,
+			DBGLOG(SW4, INFO,
 				"RxReorder rReOrderQue Len: %u\n",
 				prStaRec->aprRxReorderParamRefTbl[i]->
 				rReOrderQue.u4NumElem);
-			DBGLOG(SW4, DEBUG, "RxReorder WinStart: %u\n",
+			DBGLOG(SW4, INFO, "RxReorder WinStart: %u\n",
 				prStaRec->aprRxReorderParamRefTbl[i]->
 				u2WinStart);
-			DBGLOG(SW4, DEBUG, "RxReorder WinEnd: %u\n",
+			DBGLOG(SW4, INFO, "RxReorder WinEnd: %u\n",
 				 prStaRec->aprRxReorderParamRefTbl[i]->
 				 u2WinEnd);
-			DBGLOG(SW4, DEBUG, "RxReorder WinSize: %u\n",
+			DBGLOG(SW4, INFO, "RxReorder WinSize: %u\n",
 				prStaRec->aprRxReorderParamRefTbl[i]->
 				u2WinSize);
 		}
@@ -316,75 +318,75 @@ void dumpBss(struct ADAPTER *prAdapter,
 	     struct BSS_INFO *prBssInfo)
 {
 
-	DBGLOG(SW4, DEBUG, "SSID %s\n", HIDE(prBssInfo->aucSSID));
-	DBGLOG(SW4, DEBUG, "OWN " MACSTR "\n",
+	DBGLOG(SW4, INFO, "SSID %s\n", HIDE(prBssInfo->aucSSID));
+	DBGLOG(SW4, INFO, "OWN " MACSTR "\n",
 	       MAC2STR(prBssInfo->aucOwnMacAddr));
-	DBGLOG(SW4, DEBUG, "BSSID " MACSTR "\n",
+	DBGLOG(SW4, INFO, "BSSID " MACSTR "\n",
 	       MAC2STR(prBssInfo->aucBSSID));
-	DBGLOG(SW4, DEBUG, "eNetworkType %u\n",
+	DBGLOG(SW4, INFO, "eNetworkType %u\n",
 	       prBssInfo->eNetworkType);
-	DBGLOG(SW4, DEBUG, "ucBssIndex %u\n", prBssInfo->ucBssIndex);
-	DBGLOG(SW4, DEBUG, "eConnectionState %u\n",
+	DBGLOG(SW4, INFO, "ucBssIndex %u\n", prBssInfo->ucBssIndex);
+	DBGLOG(SW4, INFO, "eConnectionState %u\n",
 	       prBssInfo->eConnectionState);
-	DBGLOG(SW4, DEBUG, "eCurrentOPMode %u\n",
+	DBGLOG(SW4, INFO, "eCurrentOPMode %u\n",
 	       prBssInfo->eCurrentOPMode);
-	DBGLOG(SW4, DEBUG, "fgIsQBSS %u\n", prBssInfo->fgIsQBSS);
-	DBGLOG(SW4, DEBUG, "fgIsShortPreambleAllowed %u\n",
+	DBGLOG(SW4, INFO, "fgIsQBSS %u\n", prBssInfo->fgIsQBSS);
+	DBGLOG(SW4, INFO, "fgIsShortPreambleAllowed %u\n",
 	       prBssInfo->fgIsShortPreambleAllowed);
-	DBGLOG(SW4, DEBUG, "fgUseShortPreamble %u\n",
+	DBGLOG(SW4, INFO, "fgUseShortPreamble %u\n",
 	       prBssInfo->fgUseShortPreamble);
-	DBGLOG(SW4, DEBUG, "fgUseShortSlotTime %u\n",
+	DBGLOG(SW4, INFO, "fgUseShortSlotTime %u\n",
 	       prBssInfo->fgUseShortSlotTime);
-	DBGLOG(SW4, DEBUG, "ucNonHTBasicPhyType %x\n",
+	DBGLOG(SW4, INFO, "ucNonHTBasicPhyType %x\n",
 	       prBssInfo->ucNonHTBasicPhyType);
-	DBGLOG(SW4, DEBUG, "u2OperationalRateSet %x\n",
+	DBGLOG(SW4, INFO, "u2OperationalRateSet %x\n",
 	       prBssInfo->u2OperationalRateSet);
-	DBGLOG(SW4, DEBUG, "u2BSSBasicRateSet %x\n",
+	DBGLOG(SW4, INFO, "u2BSSBasicRateSet %x\n",
 	       prBssInfo->u2BSSBasicRateSet);
-	DBGLOG(SW4, DEBUG, "ucPhyTypeSet %x\n",
+	DBGLOG(SW4, INFO, "ucPhyTypeSet %x\n",
 	       prBssInfo->ucPhyTypeSet);
-	DBGLOG(SW4, DEBUG, "rStaRecOfClientList %d\n",
+	DBGLOG(SW4, INFO, "rStaRecOfClientList %d\n",
 	       prBssInfo->rStaRecOfClientList.u4NumElem);
-	DBGLOG(SW4, DEBUG, "u2CapInfo %x\n", prBssInfo->u2CapInfo);
-	DBGLOG(SW4, DEBUG, "u2ATIMWindow %x\n",
+	DBGLOG(SW4, INFO, "u2CapInfo %x\n", prBssInfo->u2CapInfo);
+	DBGLOG(SW4, INFO, "u2ATIMWindow %x\n",
 	       prBssInfo->u2ATIMWindow);
-	DBGLOG(SW4, DEBUG, "u2AssocId %x\n", prBssInfo->u2AssocId);
-	DBGLOG(SW4, DEBUG, "ucDTIMPeriod %x\n",
+	DBGLOG(SW4, INFO, "u2AssocId %x\n", prBssInfo->u2AssocId);
+	DBGLOG(SW4, INFO, "ucDTIMPeriod %x\n",
 	       prBssInfo->ucDTIMPeriod);
-	DBGLOG(SW4, DEBUG, "ucDTIMCount %x\n",
+	DBGLOG(SW4, INFO, "ucDTIMCount %x\n",
 	       prBssInfo->ucDTIMCount);
-	DBGLOG(SW4, DEBUG, "fgIsNetAbsent %x\n",
+	DBGLOG(SW4, INFO, "fgIsNetAbsent %x\n",
 	       prBssInfo->fgIsNetAbsent);
-	DBGLOG(SW4, DEBUG, "eBand %d\n", prBssInfo->eBand);
-	DBGLOG(SW4, DEBUG, "ucPrimaryChannel %d\n",
+	DBGLOG(SW4, INFO, "eBand %d\n", prBssInfo->eBand);
+	DBGLOG(SW4, INFO, "ucPrimaryChannel %d\n",
 	       prBssInfo->ucPrimaryChannel);
-	DBGLOG(SW4, DEBUG, "ucHtOpInfo1 %d\n",
+	DBGLOG(SW4, INFO, "ucHtOpInfo1 %d\n",
 	       prBssInfo->ucHtOpInfo1);
-	DBGLOG(SW4, DEBUG, "ucHtOpInfo2 %d\n",
+	DBGLOG(SW4, INFO, "ucHtOpInfo2 %d\n",
 	       prBssInfo->u2HtOpInfo2);
-	DBGLOG(SW4, DEBUG, "ucHtOpInfo3 %d\n",
+	DBGLOG(SW4, INFO, "ucHtOpInfo3 %d\n",
 	       prBssInfo->u2HtOpInfo3);
-	DBGLOG(SW4, DEBUG, "fgErpProtectMode %d\n",
+	DBGLOG(SW4, INFO, "fgErpProtectMode %d\n",
 	       prBssInfo->fgErpProtectMode);
-	DBGLOG(SW4, DEBUG, "eHtProtectMode %d\n",
+	DBGLOG(SW4, INFO, "eHtProtectMode %d\n",
 	       prBssInfo->eHtProtectMode);
-	DBGLOG(SW4, DEBUG, "eGfOperationMode %d\n",
+	DBGLOG(SW4, INFO, "eGfOperationMode %d\n",
 	       prBssInfo->eGfOperationMode);
-	DBGLOG(SW4, DEBUG, "eRifsOperationMode %d\n",
+	DBGLOG(SW4, INFO, "eRifsOperationMode %d\n",
 	       prBssInfo->eRifsOperationMode);
-	DBGLOG(SW4, DEBUG, "fgObssErpProtectMode %d\n",
+	DBGLOG(SW4, INFO, "fgObssErpProtectMode %d\n",
 	       prBssInfo->fgObssErpProtectMode);
-	DBGLOG(SW4, DEBUG, "eObssHtProtectMode %d\n",
+	DBGLOG(SW4, INFO, "eObssHtProtectMode %d\n",
 	       prBssInfo->eObssHtProtectMode);
-	DBGLOG(SW4, DEBUG, "eObssGfProtectMode %d\n",
+	DBGLOG(SW4, INFO, "eObssGfProtectMode %d\n",
 	       prBssInfo->eObssGfOperationMode);
-	DBGLOG(SW4, DEBUG, "fgObssRifsOperationMode %d\n",
+	DBGLOG(SW4, INFO, "fgObssRifsOperationMode %d\n",
 	       prBssInfo->fgObssRifsOperationMode);
-	DBGLOG(SW4, DEBUG, "fgAssoc40mBwAllowed %d\n",
+	DBGLOG(SW4, INFO, "fgAssoc40mBwAllowed %d\n",
 	       prBssInfo->fgAssoc40mBwAllowed);
-	DBGLOG(SW4, DEBUG, "fg40mBwAllowed %d\n",
+	DBGLOG(SW4, INFO, "fg40mBwAllowed %d\n",
 	       prBssInfo->fg40mBwAllowed);
-	DBGLOG(SW4, DEBUG, "eBssSCO %d\n", prBssInfo->eBssSCO);
+	DBGLOG(SW4, INFO, "eBssSCO %d\n", prBssInfo->eBssSCO);
 
 }
 
@@ -419,6 +421,11 @@ void swCtrlCmdCategory0(struct ADAPTER *prAdapter,
 			prAdapter->rQM.au4QmDebugCounters[ucOpt0] =
 				g_au4SwCr[1];
 
+			break;
+#endif
+#if CFG_RX_PKTS_DUMP
+		case SWCTRL_RX_PKTS_DUMP:
+			prAdapter->rRxCtrl.u4RxPktsDumpTypeMask = g_au4SwCr[1];
 			break;
 #endif
 		case SWCTRL_RX_FILTER: {
@@ -470,7 +477,7 @@ void swCtrlCmdCategory0(struct ADAPTER *prAdapter,
 						prAdapter, &rSetRxPacketFilter,
 						FALSE, NULL, 0);
 			}
-			/* DBGLOG(SW4, DEBUG,("SWCTRL_RX_FILTER:
+			/* DBGLOG(SW4, INFO,("SWCTRL_RX_FILTER:
 			 * g_u4RXFilter %x ucOpt0 %x ucOpt1 %x fgUpdate %x
 			 *  u4rxfilter %x, rStatus %x\n",
 			 * g_u4RXFilter, ucOpt0, ucOpt1,
@@ -523,8 +530,7 @@ void swCtrlCmdCategory0(struct ADAPTER *prAdapter,
 			} else if (ucOpt1 == 0) {
 				u4NumIPv4 = u4NumIPv6 = 0;
 			}
-			DBGLOG(INIT, DEBUG,
-			       "u4Len:%d bufSize:%d u4NumIPv4:%d\n",
+			DBGLOG(INIT, INFO, "u4Len:%d bufSize:%d u4NumIPv4:%d\n",
 			       u4Len, bufSize, u4NumIPv4);
 
 			prParamNetAddrList->u4AddressCount =
@@ -595,7 +601,7 @@ void swCtrlCmdCategory0(struct ADAPTER *prAdapter,
 				u4Len, &u4SetInfoLen);
 
 			if (rStatus != WLAN_STATUS_SUCCESS)
-				DBGLOG(INIT, DEBUG,
+				DBGLOG(INIT, INFO,
 					"set HW packet filter fail 0x%1x\n",
 				  rStatus);
 
@@ -709,7 +715,7 @@ void swCtrlCmdCategory0(struct ADAPTER *prAdapter,
 #if QM_DEBUG_COUNTER
 		case SWCTRL_DUMP_QM_DBG_CNT:
 			for (i = 0; i < QM_DBG_CNT_NUM; i++)
-				DBGLOG(SW4, DEBUG, "QM:DBG %u %u\n", i,
+				DBGLOG(SW4, INFO, "QM:DBG %u %u\n", i,
 				       prAdapter->rQM.au4QmDebugCounters[i]);
 			break;
 
@@ -849,7 +855,7 @@ void testPsSetupBss(struct ADAPTER *prAdapter,
 	struct BSS_INFO *prBssInfo;
 	uint8_t _aucZeroMacAddr[] = NULL_MAC_ADDR;
 
-	DBGLOG(SW4, DEBUG, "index %d\n", ucBssIndex);
+	DBGLOG(SW4, INFO, "index %d\n", ucBssIndex);
 
 	if (!IS_BSS_INDEX_VALID(ucBssIndex)) {
 		DBGLOG(RLM, ERROR,
@@ -924,7 +930,7 @@ void testPsSetupBss(struct ADAPTER *prAdapter,
 		prBssInfo->prBeacon->eSrc = TX_PACKET_MGMT;
 		prBssInfo->prBeacon->ucBssIndex = ucBssIndex;
 	} else {
-		DBGLOG(SW4, DEBUG, "prBeacon allocation fail\n");
+		DBGLOG(SW4, INFO, "prBeacon allocation fail\n");
 	}
 
 #if 0
@@ -948,7 +954,7 @@ void testPsSetupBss(struct ADAPTER *prAdapter,
 		prBssInfo->arACQueParms[eAci].u2CWmin = 7;
 		prBssInfo->arACQueParms[eAci].u2CWmax = 31;
 		prBssInfo->arACQueParms[eAci].u2TxopLimit = eAci + 1;
-		DBGLOG(SW4, DEBUG,
+		DBGLOG(SW4, INFO,
 		       "MQM: eAci = %d, ACM = %d, Aifsn = %d, CWmin = %d, CWmax = %d, TxopLimit = %d\n",
 		       eAci, prBssInfo->arACQueParms[eAci].ucIsACMSet,
 		       prBssInfo->arACQueParms[eAci].u2Aifsn,
@@ -959,7 +965,7 @@ void testPsSetupBss(struct ADAPTER *prAdapter,
 	}
 #endif
 
-	DBGLOG(SW4, DEBUG,
+	DBGLOG(SW4, INFO,
 	       "[2] ucBmpDeliveryAC:0x%x, ucBmpTriggerAC:0x%x, ucUapsdSp:0x%x",
 	       prBssInfo->rPmProfSetupInfo.ucBmpDeliveryAC,
 	       prBssInfo->rPmProfSetupInfo.ucBmpTriggerAC,
@@ -1055,7 +1061,7 @@ void testPsCmdCategory1(struct ADAPTER *prAdapter,
 	prStaRec = cnmGetStaRecByIndex(prAdapter, ucOpt0);
 
 	if (!prStaRec) {
-		DBGLOG(SW4, DEBUG, "prStaRec is NULL, ucOpt0:%d\n", ucOpt0);
+		DBGLOG(SW4, INFO, "prStaRec is NULL, ucOpt0:%d\n", ucOpt0);
 		return;
 	}
 
@@ -1098,7 +1104,7 @@ void testWNMCmdCategory0(struct ADAPTER *prAdapter,
 
 	SWCR_GET_RW_INDEX(ucAction, ucRead, ucIndex);
 
-	DBGLOG(SW4, DEBUG, "Read %u Index %u\n", ucRead, ucIndex);
+	DBGLOG(SW4, INFO, "Read %u Index %u\n", ucRead, ucIndex);
 
 	if (ucIndex >= TEST_WNM_CATA0_INDEX_NUM)
 		return;
@@ -1181,6 +1187,9 @@ void swCrFrameCheckEnable(struct ADAPTER *prAdapter,
 			  uint32_t u4DumpType)
 {
 	g_u4SwcrDebugFrameDumpType = u4DumpType;
+#if CFG_RX_PKTS_DUMP
+	prAdapter->rRxCtrl.u4RxPktsDumpTypeMask = u4DumpType;
+#endif
 }
 
 void swCrDebugInit(struct ADAPTER *prAdapter)
@@ -1239,7 +1248,7 @@ void swCrDebugCheck(struct ADAPTER *prAdapter,
 		if (prCmdSwCtrl->u4Data == SWCR_DBG_TYPE_ALL) {
 
 			/* TX Counter from fw */
-			DBGLOG(SW4, DEBUG, "TX0\n"
+			DBGLOG(SW4, INFO, "TX0\n"
 				"%08x %08x %08x %08x\n"
 				"%08x %08x %08x %08x\n",
 				prCmdSwCtrl->u4DebugCnt[
@@ -1260,7 +1269,7 @@ void swCrDebugCheck(struct ADAPTER *prAdapter,
 				SWCR_DBG_ALL_TX_ERROR_CNT]);
 #if 1
 			/* TX Counter from drv */
-			DBGLOG(SW4, DEBUG, "TX1\n"
+			DBGLOG(SW4, INFO, "TX1\n"
 				"%08x %08x %08x %08x\n",
 				(uint32_t) TX_GET_CNT(prTxCtrl,
 				TX_INACTIVE_BSS_DROP),
@@ -1273,7 +1282,7 @@ void swCrDebugCheck(struct ADAPTER *prAdapter,
 #endif
 
 			/* RX Counter */
-			DBGLOG(SW4, DEBUG, "RX0\n"
+			DBGLOG(SW4, INFO, "RX0\n"
 				"%08x %08x %08x %08x\n"
 				"%08x %08x %08x %08x\n"
 				"%08x %08x %08x %08x\n"
@@ -1311,7 +1320,7 @@ void swCrDebugCheck(struct ADAPTER *prAdapter,
 				prCmdSwCtrl->u4DebugCnt[
 				SWCR_DBG_ALL_RX_PFDROP_CNT]);
 
-			DBGLOG(SW4, DEBUG, "RX1\n"
+			DBGLOG(SW4, INFO, "RX1\n"
 				"%08x %08x %08x %08x\n"
 				"%08x %08x %08x %08x %08x\n",
 				(uint32_t) RX_GET_CNT(prRxCtrl,
@@ -1333,7 +1342,7 @@ void swCrDebugCheck(struct ADAPTER *prAdapter,
 				(uint32_t) RX_GET_CNT(prRxCtrl,
 				RX_DST_NULL_DROP_COUNT));
 
-			DBGLOG(SW4, DEBUG, "PWR\n"
+			DBGLOG(SW4, INFO, "PWR\n"
 				"%08x %08x %08x %08x\n"
 				"%08x %08x %08x %08x\n",
 				prCmdSwCtrl->u4DebugCnt[
@@ -1353,7 +1362,7 @@ void swCrDebugCheck(struct ADAPTER *prAdapter,
 				prCmdSwCtrl->u4DebugCnt[
 				SWCR_DBG_ALL_PWR_CUR_PS_PROF1]);
 
-			DBGLOG(SW4, DEBUG, "ARM\n"
+			DBGLOG(SW4, INFO, "ARM\n"
 				"%08x %08x %08x %08x\n"
 				"%08x %08x\n",
 				prCmdSwCtrl->u4DebugCnt[
@@ -1369,7 +1378,7 @@ void swCrDebugCheck(struct ADAPTER *prAdapter,
 				prCmdSwCtrl->u4DebugCnt[
 				SWCR_DBG_ALL_ROAMING_INT_CNT]);
 
-			DBGLOG(SW4, DEBUG, "BB\n"
+			DBGLOG(SW4, INFO, "BB\n"
 				"%08x %08x %08x %08x\n"
 				"%08x %08x %08x %08x\n",
 				prCmdSwCtrl->u4DebugCnt[

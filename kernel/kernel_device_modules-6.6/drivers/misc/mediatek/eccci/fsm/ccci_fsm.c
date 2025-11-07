@@ -32,7 +32,7 @@ struct ccci_fsm_ctl *ccci_fsm_entries;
 struct md_wdt_record md_wdt_rec;
 
 static int needforcestop;
-static int hs2_done;
+static unsigned int hs2_done;
 
 struct kern_md_state_cb {
 	unsigned char host_id;

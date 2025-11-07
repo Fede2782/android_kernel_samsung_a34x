@@ -15,11 +15,11 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/task_integrity.h>
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include "five_porting.h"
+#include "task_integrity.h"
 
 static struct kmem_cache *task_integrity_cache;
 
@@ -56,6 +56,7 @@ struct task_integrity *task_integrity_alloc(void)
 
 	return tint;
 }
+EXPORT_SYMBOL_GPL(task_integrity_alloc);
 
 void task_integrity_free(struct task_integrity *tint)
 {
@@ -85,6 +86,9 @@ void task_integrity_free(struct task_integrity *tint)
 
 void task_integrity_clear(struct task_integrity *tint)
 {
+	if (!tint)
+		return;
+
 	task_integrity_set(tint, INTEGRITY_NONE);
 	spin_lock(&tint->value_lock);
 	kfree(tint->label);
@@ -102,6 +106,9 @@ static int copy_label(struct task_integrity *from, struct task_integrity *to)
 {
 	int ret = 0;
 	struct integrity_label *l = NULL;
+
+	if (!from || !to)
+		return -EINVAL;
 
 	if (task_integrity_read(from) && from->label)
 		l = from->label;
@@ -127,7 +134,12 @@ exit:
 int task_integrity_copy(struct task_integrity *from, struct task_integrity *to)
 {
 	int rc = -EPERM;
-	enum task_integrity_value value = task_integrity_read(from);
+	enum task_integrity_value value;
+
+	if (!from || !to)
+		return -EINVAL;
+
+	value = task_integrity_read(from);
 
 	task_integrity_set(to, value);
 
@@ -145,6 +157,8 @@ int task_integrity_copy(struct task_integrity *from, struct task_integrity *to)
 	return rc;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-qualifiers"
 char const * const tint_reset_cause_to_string(
 	enum task_integrity_reset_cause cause)
 {
@@ -176,6 +190,7 @@ char const * const tint_reset_cause_to_string(
 
 	return tint_cause2str[cause];
 }
+#pragma GCC diagnostic pop
 
 /*
  * task_integrity_set_reset_reason
@@ -186,7 +201,7 @@ char const * const tint_reset_cause_to_string(
 void task_integrity_set_reset_reason(struct task_integrity *tint,
 	enum task_integrity_reset_cause cause, struct file *file)
 {
-	if (tint->reset_cause != CAUSE_UNSET)
+	if (!tint || tint->reset_cause != CAUSE_UNSET)
 		return;
 
 	tint->reset_cause = cause;

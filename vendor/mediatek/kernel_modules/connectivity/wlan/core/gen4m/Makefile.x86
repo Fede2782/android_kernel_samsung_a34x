@@ -52,8 +52,6 @@ export CONFIG_MTK_WIFI_DOWNLOAD_DYN_MEMORY_MAP=$(wifi_dl_dyn_mem_map)
 export CONFIG_MTK_WIFI_ROM_PATCH_NO_SEM_CTRL=$(wifi_rom_patch_no_sem_ctrl)
 #need to support these 3 CONFIG_ in Android.mk::End
 
-# 1: Enable ioctl/cfg Debug cmd
-export CONFIG_MTK_WIFI_DEBUG=y
 ##############################################################
 # Compile options
 ##############################################################
@@ -85,6 +83,10 @@ CFG_USB_REQ_TX_DATA_FFA_CNT=10
 CFG_USB_REQ_TX_DATA_CNT=2
 
 CFG_USB_REQ_RX_DATA_CNT=2
+
+CFG_SYS_DVT_SUPPORT=0
+
+CFG_SYS_DVT_DMASCHDL_SUPPORT=0
 
 #CFG_SUPPORT_DFS_MASTER=1
 
@@ -175,6 +177,19 @@ ifeq ($(CFG_DRIVER_INF_NAME_CHANGE), y)
 PLATFORM_FLAGS += -DCFG_DRIVER_INF_NAME_CHANGE
 endif
 
+ifneq ($(CFG_SYS_DVT_SUPPORT),)
+ifeq ($(CFG_SYS_DVT_SUPPORT), 0)
+# Check dependency
+CFG_SYS_DVT_DMASCHDL_SUPPORT=0
+endif
+PLATFORM_FLAGS += -DCFG_SUPPORT_WIFI_SYSDVT=$(CFG_SYS_DVT_SUPPORT)
+export CFG_SUPPORT_WIFI_SYSDVT=$(CFG_SYS_DVT_SUPPORT)
+ifneq ($(CFG_SYS_DVT_DMASCHDL_SUPPORT),)
+PLATFORM_FLAGS += -DCFG_SUPPORT_DMASHDL_SYSDVT=$(CFG_SYS_DVT_DMASCHDL_SUPPORT)
+export CFG_SUPPORT_DMASHDL_SYSDVT=$(CFG_SYS_DVT_DMASCHDL_SUPPORT)
+endif
+endif
+
 ifneq ($(CFG_P2P_SCAN_REPORT_ALL_BSS),)
 PLATFORM_FLAGS += -DCFG_P2P_SCAN_REPORT_ALL_BSS=$(CFG_P2P_SCAN_REPORT_ALL_BSS)
 endif
@@ -195,12 +210,6 @@ endif
 ifeq ($(CONFIG_MTK_COMBO_SLT), golden)
 PLATFORM_FLAGS += -DCFG_COMBO_SLT_GOLDEN
 slt_postfix = _mc
-else ifeq ($(CONFIG_MTK_COMBO_SLT), dut)
-PLATFORM_FLAGS += -DCFG_COMBO_SLT_DUT
-endif
-
-ifeq ($(USB_AUTO_SUSPEND), y)
-PLATFORM_FLAGS += -DCFG_USB_AUTO_SUSPEND
 endif
 
 all: driver

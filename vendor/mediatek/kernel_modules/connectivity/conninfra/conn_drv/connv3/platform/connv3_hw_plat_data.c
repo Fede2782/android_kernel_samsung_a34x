@@ -22,6 +22,7 @@ struct connv3_plat_data __weak g_connv3_mt6989_plat_data = {.chip_id=0xff};
 struct connv3_plat_data __weak g_connv3_mt6989_mt6653_plat_data = {.chip_id=0xff};
 struct connv3_plat_data __weak g_connv3_mt6989_mt6653_fpga_plat_data = {.chip_id=0xff};
 struct connv3_plat_data __weak g_connv3_mt6991_plat_data = {.chip_id=0xff};
+struct connv3_plat_data __weak g_connv3_mt6991_mt6639_plat_data = {.chip_id=0xff};
 
 #ifdef CONFIG_OF
 const struct of_device_id connv3_of_ids[] = {
@@ -59,6 +60,12 @@ const struct of_device_id connv3_of_ids[] = {
 		.compatible = "mediatek,mt6991-connv3",
 	#if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6991)
 		.data = (void*)&g_connv3_mt6991_plat_data,
+	#endif
+	},
+	{
+		.compatible = "mediatek,mt6991-mt6639-connv3",
+	#if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6991)
+		.data = (void*)&g_connv3_mt6991_mt6639_plat_data,
 	#endif
 	},
 	{}

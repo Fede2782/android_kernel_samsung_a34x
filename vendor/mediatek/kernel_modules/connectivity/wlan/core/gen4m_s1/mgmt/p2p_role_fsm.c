@@ -140,25 +140,24 @@ uint8_t p2pRoleFsmInit(IN struct ADAPTER *prAdapter,
 
 		cnmTimerInitTimer(prAdapter,
 			&(prP2pRoleFsmInfo->rP2pRoleFsmTimeoutTimer),
-			(PFN_MGMT_TIMEOUT_FUNC) p2pRoleFsmRunEventTimeout,
+			p2pRoleFsmRunEventTimeout,
 			(unsigned long) prP2pRoleFsmInfo);
 
 		cnmTimerInitTimer(prAdapter,
 			&(prP2pRoleFsmInfo->rP2pCsaDoneTimer),
-			(PFN_MGMT_TIMEOUT_FUNC) p2pFsmRunEventCsaDoneTimeOut,
+			p2pFsmRunEventCsaDoneTimeOut,
 			(uintptr_t)prP2pRoleFsmInfo);
 
 #if CFG_ENABLE_PER_STA_STATISTICS_LOG
 		cnmTimerInitTimer(prAdapter,
 			&(prP2pRoleFsmInfo->rP2pRoleFsmGetStatisticsTimer),
-			(PFN_MGMT_TIMEOUT_FUNC) p2pRoleFsmGetStaStatistics,
+			p2pRoleFsmGetStaStatistics,
 			(unsigned long) prP2pRoleFsmInfo);
 #endif
 
 #if (CFG_SUPPORT_DFS_MASTER == 1)
 		cnmTimerInitTimer(prAdapter,
 			&(prP2pRoleFsmInfo->rDfsShutDownTimer),
-			(PFN_MGMT_TIMEOUT_FUNC)
 			p2pRoleFsmRunEventDfsShutDownTimeout,
 			(unsigned long) prP2pRoleFsmInfo);
 #endif
@@ -1709,7 +1708,6 @@ SKIP_END_RDD:
 				&(prCurrStaRec->rDeauthTxDoneTimer))) {
 				cnmTimerInitTimer(prAdapter,
 					&(prCurrStaRec->rDeauthTxDoneTimer),
-					(PFN_MGMT_TIMEOUT_FUNC)
 					p2pRoleFsmDeauthTimeout,
 					(unsigned long) prCurrStaRec);
 
@@ -2449,7 +2447,7 @@ void p2pRoleFsmRunEventConnectionAbort(IN struct ADAPTER *prAdapter,
 
 			cnmTimerInitTimer(prAdapter,
 				&(prStaRec->rDeauthTxDoneTimer),
-				(PFN_MGMT_TIMEOUT_FUNC) p2pRoleFsmDeauthTimeout,
+				p2pRoleFsmDeauthTimeout,
 				(unsigned long) prStaRec);
 
 			cnmTimerStartTimer(prAdapter,
@@ -2511,7 +2509,6 @@ void p2pRoleFsmRunEventConnectionAbort(IN struct ADAPTER *prAdapter,
 
 				cnmTimerInitTimer(prAdapter,
 					&(prCurrStaRec->rDeauthTxDoneTimer),
-					(PFN_MGMT_TIMEOUT_FUNC)
 					p2pRoleFsmDeauthTimeout,
 					(unsigned long) prCurrStaRec);
 

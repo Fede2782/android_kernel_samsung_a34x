@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -39,13 +39,13 @@
  *                           P R I V A T E   D A T A
  *******************************************************************************
  */
-static const char * const apucDebugT2LMState[T2LM_STATE_NUM] = {
-	"T2LM_IDLE",
-	"T2LM_ADV_SWITCH",
-	"T2LM_ADV_DURATION",
-	"T2LM_REQ_PENDING",
-	"T2LM_REQ_SWITCH",
-	"T2LM_REQ_DURATION",
+static uint8_t *apucDebugT2LMState[T2LM_STATE_NUM] = {
+	(uint8_t *) DISP_STRING("T2LM_IDLE"),
+	(uint8_t *) DISP_STRING("T2LM_ADV_SWITCH"),
+	(uint8_t *) DISP_STRING("T2LM_ADV_DURATION"),
+	(uint8_t *) DISP_STRING("T2LM_REQ_PENDING"),
+	(uint8_t *) DISP_STRING("T2LM_REQ_SWITCH"),
+	(uint8_t *) DISP_STRING("T2LM_REQ_DURATION")
 };
 
 /*******************************************************************************
@@ -96,8 +96,6 @@ void t2lmFsmSteps(struct ADAPTER *prAdapter,
 	if (u4T2LMState == eNextState)
 		return;
 
-	cnmTimerStopTimer(prAdapter, &prMldStaRec->rT2LMFsmTimer);
-
 	if ((u4T2LMState < T2LM_STATE_NUM)
 			&& ((uint32_t) eNextState < T2LM_STATE_NUM)) {
 		DBGLOG(ML, INFO, "[T2LM]TRANSITION: [%s] -> [%s]\n",
@@ -115,7 +113,7 @@ void t2lmFsmSteps(struct ADAPTER *prAdapter,
 		break;
 	case T2LM_STATE_ADV_SWITCH:
 		DBGLOG(ML, INFO,
-			"MLD_STA[idx=%d, grpMldId=%d] start t2lm adv switch delay = %d MS(switch=0x%x)\n",
+			"MLD_STA[idx=%d, grpMldId=%d] start switch delay = %d MS(switch=0x%x)\n",
 			prMldStaRec->ucIdx, prMldStaRec->ucGroupMldId,
 			prT2LMParams->u4SwitchDelayMs,
 			prT2LMParams->u2MappingSwitchTime);
@@ -128,7 +126,7 @@ void t2lmFsmSteps(struct ADAPTER *prAdapter,
 		break;
 	case T2LM_STATE_ADV_DURATION:
 		DBGLOG(ML, INFO,
-			"MLD_STA[idx=%d, grpMldId=%d] start t2lm adv duration = %dMS(expected=0x%x)\n",
+			"MLD_STA[idx=%d, grpMldId=%d] start t2lm duration = %dMS(expected=0x%x)\n",
 			prMldStaRec->ucIdx, prMldStaRec->ucGroupMldId,
 			prT2LMParams->u4T2lmDurationMs,
 			prT2LMParams->u4ExpectedDuration);
@@ -143,27 +141,15 @@ void t2lmFsmSteps(struct ADAPTER *prAdapter,
 		break;
 	case T2LM_STATE_REQ_PENDING:
 		t2lmMldStaRecUpdate(prAdapter, prMldStaRec, FALSE);
-		prMldStaRec->eT2LMNextState = T2LM_STATE_IDLE;
-		cnmTimerStartTimer(prAdapter, &prMldStaRec->rT2LMFsmTimer,
-			T2LM_REQ_TX_TIMEOUT);
 		break;
 	case T2LM_STATE_REQ_SWITCH:
-		DBGLOG(ML, TRACE,
-			"MLD_STA[idx=%d, grpMldId=%d] start t2lm req switch = %dMS(expected=0x%x)\n",
-			prMldStaRec->ucIdx, prMldStaRec->ucGroupMldId,
-			prT2LMParams->u4SwitchDelayMs,
-			prT2LMParams->u2MappingSwitchTime);
-		cnmTimerStopTimer(prAdapter, &prMldStaRec->rT2LMTimer);
-		cnmTimerStartTimer(prAdapter, &prMldStaRec->rT2LMTimer,
+		cnmTimerStopTimer(prAdapter,
+			&prMldStaRec->rT2LMTimer);
+		cnmTimerStartTimer(prAdapter,
+			&prMldStaRec->rT2LMTimer,
 			prT2LMParams->u4SwitchDelayMs);
 		break;
 	case T2LM_STATE_REQ_DURATION:
-		DBGLOG(ML, INFO,
-			"MLD_STA[idx=%d, grpMldId=%d] start t2lm req duration = %dMS(expected=0x%x)\n",
-			prMldStaRec->ucIdx, prMldStaRec->ucGroupMldId,
-			prT2LMParams->u4T2lmDurationMs,
-			prT2LMParams->u4ExpectedDuration);
-
 		t2lmMldStaRecUpdate(prAdapter, prMldStaRec, TRUE);
 
 		cnmTimerStopTimer(prAdapter,
@@ -192,9 +178,6 @@ uint32_t t2lmReqTxDoneCb(struct ADAPTER *prAdapter,
 	if (!prMsduInfo)
 		return WLAN_STATUS_FAILURE;
 
-	if (!prMsduInfo->prPacket)
-		return WLAN_STATUS_FAILURE;
-
 	prTxFrame = prMsduInfo->prPacket;
 	prTxDone = prMsduInfo->prTxDone;
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prMsduInfo->ucStaRecIndex);
@@ -210,7 +193,7 @@ uint32_t t2lmReqTxDoneCb(struct ADAPTER *prAdapter,
 	if (!prBssInfo)
 		return WLAN_STATUS_FAILURE;
 
-	DBGLOG(TX, DEBUG,
+	DBGLOG(TX, INFO,
 		"T2LM TX DONE, BN:WIDX:PID:SN[%u:%u:%u:%u] Status[%u], SeqNo: %d\n",
 		prBssInfo->eBand, prMsduInfo->ucWlanIndex, prMsduInfo->ucPID,
 		prTxDone->u2SequenceNumber, rTxDoneStatus,
@@ -222,14 +205,13 @@ uint32_t t2lmReqTxDoneCb(struct ADAPTER *prAdapter,
 #endif
 
 	if (rTxDoneStatus != TX_RESULT_SUCCESS &&
-			prAdapter->ucT2LMReqRetryCnt >
-				prAdapter->rWifiVar.u4T2LMRetryLimit) {
+			prAdapter->ucT2LMReqRetryCnt > T2LM_RETRY_LIMIT) {
 		prAdapter->ucT2LMReqRetryCnt = 0;
 		return WLAN_STATUS_FAILURE;
 	} else if (rTxDoneStatus != TX_RESULT_SUCCESS) {
 		prAdapter->ucT2LMReqRetryCnt++;
-		t2lmSend(prAdapter, TID2LINK_REQUEST,
-				prStaRec, &prMldStaRec->rT2LMParams);
+		t2lmSend(prAdapter, TID2LINK_RESPONSE,
+				prBssInfo, &prMldStaRec->rT2LMParams);
 	} else {
 		t2lmFsmSteps(prAdapter, prMldStaRec, T2LM_STATE_REQ_PENDING);
 	}
@@ -250,9 +232,6 @@ uint32_t t2lmRspTxDoneCb(struct ADAPTER *prAdapter,
 	if (!prMsduInfo)
 		return WLAN_STATUS_FAILURE;
 
-	if (!prMsduInfo->prPacket)
-		return WLAN_STATUS_FAILURE;
-
 	prTxFrame = prMsduInfo->prPacket;
 	prTxDone = prMsduInfo->prTxDone;
 
@@ -268,7 +247,7 @@ uint32_t t2lmRspTxDoneCb(struct ADAPTER *prAdapter,
 	if (!prBssInfo)
 		return WLAN_STATUS_FAILURE;
 
-	DBGLOG(TX, DEBUG,
+	DBGLOG(TX, INFO,
 		"T2LM TX DONE, BN:WIDX:PID:SN[%u:%u:%u:%u] Status[%u], SeqNo: %d\n",
 		prBssInfo->eBand, prMsduInfo->ucWlanIndex, prMsduInfo->ucPID,
 		prTxDone->u2SequenceNumber, rTxDoneStatus,
@@ -280,18 +259,6 @@ uint32_t t2lmRspTxDoneCb(struct ADAPTER *prAdapter,
 		prTxFrame->ucDialogToken,
 		rTxDoneStatus);
 #endif
-
-	if (rTxDoneStatus == TX_RESULT_SUCCESS &&
-	    prMldStaRec->eT2LMState == T2LM_STATE_REQ_PENDING) {
-		if (prMldStaRec->rT2LMParams.u4SwitchDelayMs == 0)
-			t2lmFsmSteps(prAdapter, prMldStaRec,
-					T2LM_STATE_ADV_DURATION);
-		else
-			t2lmFsmSteps(prAdapter, prMldStaRec,
-					T2LM_STATE_ADV_SWITCH);
-	} else {
-		t2lmFsmSteps(prAdapter, prMldStaRec, T2LM_STATE_IDLE);
-	}
 
 	return WLAN_STATUS_SUCCESS;
 }
@@ -318,7 +285,7 @@ uint32_t t2lmTeardownTxDoneCb(struct ADAPTER *prAdapter,
 	if (!prBssInfo)
 		return WLAN_STATUS_FAILURE;
 
-	DBGLOG(TX, DEBUG,
+	DBGLOG(TX, INFO,
 		"T2LM TX DONE, BN:WIDX:PID:SN[%u:%u:%u:%u] Status[%u], SeqNo: %d\n",
 		prBssInfo->eBand, prMsduInfo->ucWlanIndex, prMsduInfo->ucPID,
 		prTxDone->u2SequenceNumber, rTxDoneStatus,
@@ -351,7 +318,7 @@ void t2lmParseT2LMIE(struct ADAPTER *prAdapter,
 	int i;
 
 	if (prAdapter->rWifiVar.ucT2LMNegotiationSupport == T2LM_NO_SUPPORT) {
-		DBGLOG(ML, WARN,
+		DBGLOG(ML, ERROR,
 			"Parse T2LM IE Fail, NegotiationSupport set to 0\n");
 		return;
 	} else if (prStaRec->ucStaState != STA_STATE_3) {
@@ -458,10 +425,10 @@ void t2lmParseT2LMIE(struct ADAPTER *prAdapter,
 		ucDLTidBitmap = prCurrStarec->ucDLTidBitmap;
 		ucULTidBitmap = prCurrStarec->ucULTidBitmap;
 
-		if (prCurrStarec->ucLinkId > 14) {
+		if (prCurrStarec->ucLinkIndex > 14) {
 			DBGLOG(ML, ERROR,
 				"Linkid = %d, sta idx %d is invalid\n",
-				prCurrStarec->ucLinkId,
+				prCurrStarec->ucLinkIndex,
 				prCurrStarec->ucIndex);
 			continue;
 		}
@@ -481,7 +448,7 @@ void t2lmParseT2LMIE(struct ADAPTER *prAdapter,
 
 					if (ucTidLinkMapping
 						& BIT(prCurrStarec
-							->ucLinkId)) {
+							->ucLinkIndex)) {
 						ucDLTidBitmap |= BIT(i);
 						ucULTidBitmap |= BIT(i);
 					} else {
@@ -506,7 +473,7 @@ void t2lmParseT2LMIE(struct ADAPTER *prAdapter,
 
 					if (u2TidLinkMapping
 						& BIT(prCurrStarec
-							->ucLinkId)) {
+							->ucLinkIndex)) {
 						ucDLTidBitmap |= BIT(i);
 						ucULTidBitmap |= BIT(i);
 					} else {
@@ -520,7 +487,7 @@ void t2lmParseT2LMIE(struct ADAPTER *prAdapter,
 
 		DBGLOG(ML, TRACE,
 			"Linkid = %d, ucTidBitmap(UL:DL) = 0x%02x:0x%02x\n",
-			prCurrStarec->ucLinkId,
+			prCurrStarec->ucLinkIndex,
 			ucDLTidBitmap,
 			ucULTidBitmap);
 
@@ -599,22 +566,6 @@ void t2lmTimeout(struct ADAPTER *prAdapter, uintptr_t ulParamPtr)
 		}
 	}
 }
-
-void t2lmFsmTimeout(struct ADAPTER *prAdapter, uintptr_t ulParamPtr)
-{
-	struct MLD_STA_RECORD *prMldStaRec;
-
-	prMldStaRec = (struct MLD_STA_RECORD *) ulParamPtr;
-
-	if (!prMldStaRec->fgIsInUse) {
-		DBGLOG(ML, WARN, "mld starec is not in use\n",
-			prMldStaRec->eT2LMState);
-		return;
-	}
-
-	t2lmFsmSteps(prAdapter, prMldStaRec, prMldStaRec->eT2LMNextState);
-}
-
 
 void t2lmFillT2LMIE(uint8_t *prT2LMBuf,
 	struct T2LM_INFO *prT2LMParams)
@@ -745,11 +696,11 @@ void t2lmComposeRsp(struct MSDU_INFO *prMsduInfo, uint8_t ucDialogToken,
  */
 /*---------------------------------------------------------------------------*/
 uint32_t t2lmSend(struct ADAPTER *prAdapter, enum PROTECTED_EHT_ACTION eAction,
-		struct STA_RECORD *prStaRec, struct T2LM_INFO *prT2LMParams)
+		struct BSS_INFO *prBssInfo, struct T2LM_INFO *prT2LMParams)
 {
 	struct MSDU_INFO *prMsduInfo;
 	struct WLAN_ACTION_FRAME *prTxFrame;
-	struct BSS_INFO *prBssInfo;
+	struct STA_RECORD *prStaRec;
 	struct MLD_STA_RECORD *prMldStaRec;
 	struct MLD_BSS_INFO *prMldBssInfo;
 	uint16_t u2EstimatedFrameLen;
@@ -764,11 +715,11 @@ uint32_t t2lmSend(struct ADAPTER *prAdapter, enum PROTECTED_EHT_ACTION eAction,
 		return WLAN_STATUS_FAILURE;
 	}
 
-	if (!prStaRec)
+	if (!prBssInfo)
 		return WLAN_STATUS_FAILURE;
 
-	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prStaRec->ucBssIndex);
-	if (!prBssInfo)
+	prStaRec = aisGetStaRecOfAP(prAdapter, prBssInfo->ucBssIndex);
+	if (!prStaRec)
 		return WLAN_STATUS_FAILURE;
 
 	prMldStaRec = mldStarecGetByStarec(prAdapter, prStaRec);
@@ -813,11 +764,6 @@ uint32_t t2lmSend(struct ADAPTER *prAdapter, enum PROTECTED_EHT_ACTION eAction,
 
 	switch (eAction) {
 	case TID2LINK_REQUEST:
-		if (prMldStaRec->eT2LMState == T2LM_STATE_REQ_PENDING) {
-			DBGLOG(TX, WARN,
-				"Current state is [REQ_PENDING], skip T2LM Request.\n");
-			break;
-		}
 		prAdapter->ucT2LMTxDialogToken++;
 		t2lmComposeReq(prMsduInfo, prAdapter->ucT2LMTxDialogToken,
 				prT2LMParams);
@@ -832,12 +778,8 @@ uint32_t t2lmSend(struct ADAPTER *prAdapter, enum PROTECTED_EHT_ACTION eAction,
 		u2FrameLen += OFFSET_OF(struct ACTION_T2LM_RSP_FRAME, aucT2LM);
 		break;
 	case TID2LINK_TEARDOWN:
-		/* Teardone frame doesn't need to compose */
-		u2FrameLen += sizeof(struct ACTION_T2LM_TEARDOWN_FRAME);
-		break;
 	default:
 		DBGLOG(TX, ERROR, "action invalid %u\n", eAction);
-		cnmMgtPktFree(prAdapter, prMsduInfo);
 		return WLAN_STATUS_FAILURE;
 	}
 
@@ -873,9 +815,8 @@ uint32_t t2lmProcessReq(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb,
 		OFFSET_OF(struct ACTION_T2LM_REQ_FRAME, aucT2LM);
 	IE_FOR_EACH(pucIE, u2IELength, u2Offset) {
 		if (IE_ID(pucIE) == ELEM_ID_RESERVED &&
-		    IE_ID_EXT(pucIE) == ELEM_EXT_ID_TID2LNK_MAP) {
+			IE_ID_EXT(pucIE) == ELEM_EXT_ID_TID2LNK_MAP) {
 			DBGLOG(RX, LOUD, "[T2LM] Req Frame\n");
-			t2lmParseT2LMIE(prAdapter, prSwRfb->prStaRec, pucIE);
 		}
 	}
 
@@ -920,7 +861,6 @@ uint32_t t2lmProcessRsp(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb,
 	}
 
 	if (prMldStaRec->eT2LMState == T2LM_STATE_REQ_PENDING) {
-		cnmTimerStopTimer(prAdapter, &prMldStaRec->rT2LMFsmTimer);
 		if (prT2LMParams->u4SwitchDelayMs == 0) {
 			t2lmFsmSteps(prAdapter, prMldStaRec,
 				T2LM_STATE_REQ_DURATION);
@@ -959,7 +899,7 @@ uint32_t t2lmProcessTeardown(struct ADAPTER *prAdapter,
 
 /*----------------------------------------------------------------------------*/
 /*!
- * @brief This routine is called to process the T2LM action frame.
+ * @brief This routine is called to process the EPCS action frame.
  *        Called by: Handle Rx mgmt request
  * @param     prAdapter      Pointer to the Adapter structure.
  * @param     prSwRfb        Pointer to processing action frame
@@ -1006,7 +946,7 @@ void t2lmProcessAction(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 
 	prRxFrame = (struct WLAN_ACTION_FRAME *)prSwRfb->pvHeader;
 
-	DBGLOG(RX, DEBUG, "Received T2LM action:%u\n", prRxFrame->ucAction);
+	DBGLOG(RX, INFO, "Received T2LM action:%u\n", prRxFrame->ucAction);
 
 	prT2LMParams = kalMemZAlloc(sizeof(*prT2LMParams), VIR_MEM_TYPE);
 	if (prT2LMParams == NULL)
@@ -1014,22 +954,12 @@ void t2lmProcessAction(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 
 	switch (prRxFrame->ucAction) {
 	case TID2LINK_REQUEST:
-		if (prMldStaRec->eT2LMState == T2LM_STATE_REQ_PENDING) {
-			DBGLOG(RX, WARN,
-				"Received T2LM [REQ], T2LM state:[PENDING], Skip REQ\n");
-			break;
-		}
-
-		t2lmFsmSteps(prAdapter, prMldStaRec, T2LM_STATE_REQ_PENDING);
 		rStatus = t2lmProcessReq(prAdapter, prSwRfb,
 				prMldStaRec, prMldBssInfo);
 		if (rStatus == WLAN_STATUS_SUCCESS) {
 			prAdapter->ucT2LMReqRetryCnt = 0;
 			t2lmSend(prAdapter, TID2LINK_RESPONSE,
-				prStaRec, prT2LMParams);
-		} else {
-			t2lmFsmSteps(prAdapter, prMldStaRec,
-				T2LM_STATE_IDLE);
+				prBssInfo, prT2LMParams);
 		}
 		break;
 	case TID2LINK_RESPONSE:
@@ -1066,10 +996,10 @@ void t2lmMldStaRecBackup(struct ADAPTER *prAdapter,
 		    struct STA_RECORD) {
 		ucTidBitmap = 0xff;
 
-		if (prCurrStarec->ucLinkId > 14) {
+		if (prCurrStarec->ucLinkIndex > 14) {
 			DBGLOG(TX, ERROR,
 				"Linkid = %d, sta idx %d is invalid\n",
-				prCurrStarec->ucLinkId,
+				prCurrStarec->ucLinkIndex,
 				prCurrStarec->ucIndex);
 			continue;
 		}
@@ -1081,7 +1011,7 @@ void t2lmMldStaRecBackup(struct ADAPTER *prAdapter,
 				if (prT2LMParams->ucLMIndicator & BIT(i)) {
 					if (prT2LMParams->au2LMTid[i]
 						& BIT(prCurrStarec
-							->ucLinkId))
+							->ucLinkIndex))
 						ucTidBitmap |= BIT(i);
 					else
 						ucTidBitmap &= ~(BIT(i));
@@ -1094,7 +1024,7 @@ void t2lmMldStaRecBackup(struct ADAPTER *prAdapter,
 				if (prT2LMParams->ucLMIndicator & BIT(i)) {
 					if (prT2LMParams->au2LMTid[i]
 						& BIT(prCurrStarec
-							->ucLinkId))
+							->ucLinkIndex))
 						ucTidBitmap |= BIT(i);
 					else
 						ucTidBitmap &= ~(BIT(i));
@@ -1103,7 +1033,7 @@ void t2lmMldStaRecBackup(struct ADAPTER *prAdapter,
 		}
 
 		DBGLOG(TX, TRACE, "Linkid = %d, ucTidBitmap = 0x%02x\n",
-			prCurrStarec->ucLinkId,
+			prCurrStarec->ucLinkIndex,
 			ucTidBitmap);
 		switch (prMldStaRec->rT2LMParams.ucDirection) {
 		case T2LM_DIRECTION_DL:

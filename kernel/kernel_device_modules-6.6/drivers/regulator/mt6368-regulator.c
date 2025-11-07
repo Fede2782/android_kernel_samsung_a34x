@@ -227,7 +227,7 @@ static unsigned int mt6368_regulator_get_mode(struct regulator_dev *rdev)
 	ret = regmap_read(rdev->regmap, info->modeset_reg, &val);
 	if (ret) {
 		dev_err(&rdev->dev, "Failed to get mt6368 mode: %d\n", ret);
-		return ret;
+		return 0;
 	}
 
 	if (val & info->modeset_mask)
@@ -237,7 +237,7 @@ static unsigned int mt6368_regulator_get_mode(struct regulator_dev *rdev)
 	if (ret) {
 		dev_err(&rdev->dev,
 			"Failed to get mt6368 lp mode: %d\n", ret);
-		return ret;
+		return 0;
 	}
 
 	if (val & info->lp_mode_mask)
@@ -258,7 +258,7 @@ static int mt6368_regulator_set_mode(struct regulator_dev *rdev,
 {
 	struct mt6368_regulator_info *info = rdev_get_drvdata(rdev);
 	int ret = 0;
-	int curr_mode;
+	unsigned int curr_mode;
 
 	curr_mode = mt6368_regulator_get_mode(rdev);
 	switch (mode) {

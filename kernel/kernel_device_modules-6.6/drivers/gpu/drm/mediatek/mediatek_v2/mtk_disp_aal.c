@@ -301,6 +301,7 @@ static bool debug_irq_log;
 #define AAL_DRE_GAIN_POINT16_START	(512)
 
 #define aal_min(a, b)			(((a) < (b)) ? (a) : (b))
+#define DISP_AAL_THD_NAME_SIZE  (20)
 
 enum AAL_USER_CMD {
 	FLIP_SRAM,
@@ -3070,9 +3071,10 @@ static void disp_aal_primary_data_init(struct mtk_ddp_comp *comp)
 {
 	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
 	struct mtk_disp_aal *companion_aal_data = comp_to_aal(aal_data->companion);
-	char thread_name[20] = "aal_sof_0";
+	char thread_name[DISP_AAL_THD_NAME_SIZE] = "aal_sof_0";
 	struct sched_param param = {.sched_priority = 85 };
 	struct cpumask mask;
+	int ret;
 
 	if (aal_data->is_right_pipe) {
 		kfree(aal_data->primary_data);
@@ -3151,7 +3153,12 @@ static void disp_aal_primary_data_init(struct mtk_ddp_comp *comp)
 	INIT_WORK(&aal_data->primary_data->refresh_task.task, disp_aal_refresh_trigger);
 
 	// start thread for aal sof
-	sprintf(thread_name, "aal_sof_%d", comp->id);
+	ret = snprintf(thread_name, DISP_AAL_THD_NAME_SIZE, "aal_sof_%d", comp->id);
+	if (ret < 0)
+		AALFLOW_LOG("%s print failed %d\n", __func__, ret);
+	else if (ret >= DISP_AAL_THD_NAME_SIZE)
+		AALFLOW_LOG("%s print result was truncated %d\n", __func__, ret);
+
 	aal_data->primary_data->sof_irq_event_task = kthread_create(disp_aal_sof_kthread, comp, thread_name);
 
 	cpumask_setall(&mask);

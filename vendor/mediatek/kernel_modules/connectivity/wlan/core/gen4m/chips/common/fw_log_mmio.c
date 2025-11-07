@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -190,8 +190,8 @@ static void fwLogCtrlSubHandler(struct ADAPTER *prAdapter,
 
 		prDebugOps = prAdapter->chip_info->prDebugOps;
 
-		if (prDebugOps && prDebugOps->dumpBusStatus)
-			prDebugOps->dumpBusStatus(prAdapter);
+		if (prDebugOps && prDebugOps->dumpBusHangCr)
+			prDebugOps->dumpBusHangCr(prAdapter);
 
 		WARN_ON_ONCE(TRUE);
 
@@ -215,7 +215,7 @@ static void fwLogCtrlSubHandler(struct ADAPTER *prAdapter,
 			u4Rp,
 			u4Size);
 
-		HAL_RMCR_RD_RANGE(prAdapter,
+		kalDevRegReadRange(prAdapter->prGlueInfo,
 			prSubCtrl->buf_base_addr + u4Rp,
 			prSubCtrl->buffer + u4Offset,
 			u4Size);
@@ -253,18 +253,12 @@ static int32_t __fwLogMmioHandler(u_int8_t fgForceRead)
 	KAL_WAKE_LOCK(prAdapter, prCtrl->prWakeLock);
 #endif
 	KAL_ACQUIRE_MUTEX(prAdapter, MUTEX_FW_LOG);
-
-	ACQUIRE_POWER_CONTROL_FROM_PM(prAdapter,
-		DRV_OWN_SRC_FW_LOG_MMIO_HANDLER);
-
+	ACQUIRE_POWER_CONTROL_FROM_PM(prAdapter);
 	if (prAdapter->fgIsFwOwn == TRUE) {
 		DBGLOG(INIT, WARN,
 			"Skip due to driver own failed.\n");
 		prStats->skipped++;
-
-		RECLAIM_POWER_CONTROL_TO_PM(prAdapter, FALSE,
-			DRV_OWN_SRC_FW_LOG_MMIO_HANDLER);
-
+		RECLAIM_POWER_CONTROL_TO_PM(prAdapter, FALSE);
 		KAL_RELEASE_MUTEX(prAdapter, MUTEX_FW_LOG);
 #if CFG_ENABLE_WAKE_LOCK
 		KAL_WAKE_UNLOCK(prAdapter, prCtrl->prWakeLock);
@@ -278,9 +272,7 @@ static int32_t __fwLogMmioHandler(u_int8_t fgForceRead)
 		fwLogCtrlSubHandler(prAdapter, prCtrl, prSubCtrl,
 				    fgForceRead);
 	}
-
-	RECLAIM_POWER_CONTROL_TO_PM(prAdapter, FALSE,
-		DRV_OWN_SRC_FW_LOG_MMIO_HANDLER);
+	RECLAIM_POWER_CONTROL_TO_PM(prAdapter, FALSE);
 	KAL_RELEASE_MUTEX(prAdapter, MUTEX_FW_LOG);
 #if CFG_ENABLE_WAKE_LOCK
 	KAL_WAKE_UNLOCK(prAdapter, prCtrl->prWakeLock);
@@ -322,7 +314,7 @@ static void fwLogCtrlRefreshCommonHeader(struct ADAPTER *prAdapter,
 	struct FW_LOG_COMMON_HEADER rCommonHeader = {0};
 	uint8_t i = 0;
 
-	HAL_RMCR_RD_RANGE(prAdapter, prCtrl->base_addr,
+	kalDevRegReadRange(prAdapter->prGlueInfo, prCtrl->base_addr,
 			   &rCommonHeader,
 			   sizeof(rCommonHeader));
 
@@ -361,7 +353,7 @@ static void fwLogCtrlRefreshSubHeader(struct ADAPTER *prAdapter,
 {
 	struct FW_LOG_SUB_HEADER rSubHeader = {0};
 
-	HAL_RMCR_RD_RANGE(prAdapter, prSubCtrl->base_addr,
+	kalDevRegReadRange(prAdapter->prGlueInfo, prSubCtrl->base_addr,
 			   &rSubHeader,
 			   sizeof(rSubHeader));
 
@@ -391,7 +383,7 @@ static uint32_t fwLogCtrlInitSubCtrl(struct ADAPTER *prAdapter,
 
 	prSubCtrl->type = eType;
 
-	HAL_RMCR_RD_RANGE(prAdapter, prSubCtrl->base_addr,
+	kalDevRegReadRange(prAdapter->prGlueInfo, prSubCtrl->base_addr,
 			   &rSubHeader,
 			   sizeof(rSubHeader));
 
@@ -566,6 +558,6 @@ static void fwLogMmioStatsDump(struct ADAPTER *prAdapter,
 				       prSubCtrl->wp,
 				       prSubCtrl->iwp);
 	}
-	DBGLOG(INIT, DEBUG, "%s\n", buf);
+	DBGLOG(INIT, INFO, "%s\n", buf);
 }
 

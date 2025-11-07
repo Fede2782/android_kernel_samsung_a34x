@@ -4,6 +4,7 @@
 
 /* Add Samsung configuration over here */
 #include "display_lcd_m53x_common.dtsi"
+#include "../mt6877_wakeup_cpu_allocator.dtsi"
 
 / {
 	fragment@model {
@@ -25,10 +26,6 @@
 			snd-debug-proc {
 				compatible = "samsung,snd-debug-proc";
 				status = "okay";
-			};
-
-			usb_notifier {
-				compatible = "samsung,usb-notifier";
 			};
 		};
 	};

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -181,41 +181,41 @@ void connac2x_dump_tmac_info(
 	struct HW_MAC_CONNAC2X_TX_DESC *txd =
 		(struct HW_MAC_CONNAC2X_TX_DESC *)tmac_info;
 
-	DBGLOG(HAL, DEBUG, "TMAC_TXD Fields:\n");
-	DBGLOG(HAL, DEBUG, "\tTMAC_TXD_0:\n");
+	DBGLOG(HAL, INFO, "TMAC_TXD Fields:\n");
+	DBGLOG(HAL, INFO, "\tTMAC_TXD_0:\n");
 
 	/* DW0 */
 	/* TX Byte Count [15:0]  */
-	DBGLOG(HAL, DEBUG, "\t\tTxByteCnt = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tTxByteCnt = 0x%x\n",
 		(uint16_t)((txd->u4DW0 & CONNAC2X_TX_DESC_TX_BYTE_COUNT_MASK) >>
 		CONNAC2X_TX_DESC_TX_BYTE_COUNT_OFFSET));
 
 	/* Ether-Type Offset: [22:16] */
-	DBGLOG(HAL, DEBUG, "\t\tEtherType_offset = %lu\n",
+	DBGLOG(HAL, INFO, "\t\tEtherType_offset = %lu\n",
 	((txd->u4DW0 & CONNAC2X_TX_DESC_ETHER_TYPE_OFFSET_MASK) >>
 		CONNAC2X_TX_DESC_ETHER_TYPE_OFFSET_OFFSET));
 
 	/* PKT_FT: Packet Format [24:23] */
-	DBGLOG(HAL, DEBUG, "\t\tpkt_ft = 0x%x(%s)\n",
+	DBGLOG(HAL, INFO, "\t\tpkt_ft = 0x%x(%s)\n",
 	(uint8_t)((txd->u4DW0 & CONNAC2X_TX_DESC_PACKET_FORMAT_MASK) >>
 		CONNAC2X_TX_DESC_PACKET_FORMAT_OFFSET),
 	pkt_ft_str[((txd->u4DW0 & CONNAC2X_TX_DESC_PACKET_FORMAT_MASK) >>
 		CONNAC2X_TX_DESC_PACKET_FORMAT_OFFSET)]);
 
 	/* Q_IDX [31:25]  */
-	DBGLOG(HAL, DEBUG, "\t\tQueID = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tQueID = 0x%x\n",
 		(uint8_t)((txd->u4DW0 & CONNAC2X_TX_DESC_QUEUE_INDEX_MASK) >>
 		CONNAC2X_TX_DESC_QUEUE_INDEX_OFFSET));
 
-	DBGLOG(HAL, DEBUG, "\tTMAC_TXD_1:\n");
+	DBGLOG(HAL, INFO, "\tTMAC_TXD_1:\n");
 	/* DW1 */
 	/* WLAN Indec [9:0] */
-	DBGLOG(HAL, DEBUG, "\t\tWlan Index = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tWlan Index = 0x%x\n",
 		(uint16_t)((txd->u4DW1 & CONNAC2X_TX_DESC_WLAN_INDEX_MASK) >>
 		CONNAC2X_TX_DESC_WLAN_INDEX_OFFSET));
 
 	/* HF: Header Format [17:16] */
-	DBGLOG(HAL, DEBUG, "\t\tHdrFmt = 0x%x(%s)\n",
+	DBGLOG(HAL, INFO, "\t\tHdrFmt = 0x%x(%s)\n",
 	(uint8_t)((txd->u4DW1 & CONNAC2X_TX_DESC_HEADER_FORMAT_MASK) >>
 		CONNAC2X_TX_DESC_HEADER_FORMAT_OFFSET),
 	hdr_fmt_str[((txd->u4DW1 & CONNAC2X_TX_DESC_HEADER_FORMAT_MASK) >>
@@ -225,7 +225,7 @@ void connac2x_dump_tmac_info(
 		CONNAC2X_TX_DESC_HEADER_FORMAT_OFFSET) {
 	case TMI_HDR_FT_NON_80211:
 		/* MRD [11], EOSP [12], RMVL [13], VLAN [14], ETYPE [15] */
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 		"\t\t\tMRD = %d, EOSP = %d, RMVL = %d, VLAN = %d, ETYP = %d\n",
 		(txd->u4DW1 & CONNAC2X_TX_DESC_NON_802_11_MORE_DATA) ? 1 : 0,
 		(txd->u4DW1 & CONNAC2X_TX_DESC_NON_802_11_EOSP) ? 1 : 0,
@@ -236,7 +236,7 @@ void connac2x_dump_tmac_info(
 
 	case TMI_HDR_FT_NOR_80211:
 		/* HEADER_LENGTH [15:11] */
-		DBGLOG(HAL, DEBUG, "\t\t\tHeader Len = 0x%x(WORD)\n",
+		DBGLOG(HAL, INFO, "\t\t\tHeader Len = 0x%x(WORD)\n",
 		(uint8_t)((txd->u4DW1
 			& CONNAC2X_TX_DESC_NOR_802_11_HEADER_LENGTH_MASK)
 			>> CONNAC2X_TX_DESC_NOR_802_11_HEADER_LENGTH_OFFSET));
@@ -244,300 +244,300 @@ void connac2x_dump_tmac_info(
 
 	case TMI_HDR_FT_ENH_80211:
 		/* EOSP [12], AMS [13]	*/
-		DBGLOG(HAL, DEBUG, "\t\t\tEOSP = %d, AMS = %d\n",
+		DBGLOG(HAL, INFO, "\t\t\tEOSP = %d, AMS = %d\n",
 		(txd->u4DW1 & CONNAC2X_TX_DESC_ENH_802_11_EOSP) ? 1 : 0,
 		(txd->u4DW1 & CONNAC2X_TX_DESC_ENH_802_11_AMSDU) ? 1 : 0);
 		break;
 	}
 
 	/* Header Padding [19:18] */
-	DBGLOG(HAL, DEBUG, "\t\tHdrPad Mode = %d\n",
+	DBGLOG(HAL, INFO, "\t\tHdrPad Mode = %d\n",
 		(txd->u4DW1 & CONNAC2X_TX_DESC_HEADER_PADDING_MODE) ? 1 : 0);
-	DBGLOG(HAL, DEBUG, "\t\tHdrPad Len = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tHdrPad Len = 0x%x\n",
 		(uint8_t)((txd->u4DW1
 			& CONNAC2X_TX_DESC_HEADER_PADDING_LENGTH_MASK) >>
 		CONNAC2X_TX_DESC_HEADER_PADDING_LENGTH_OFFSET));
 
 	/* TID [22:20] */
-	DBGLOG(HAL, DEBUG, "\t\tTID = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tTID = 0x%x\n",
 		(uint8_t)((txd->u4DW1 & CONNAC2X_TX_DESC_TID_MASK) >>
 		CONNAC2X_TX_DESC_TID_OFFSET));
 
 	/* UtxB/AMSDU_C/AMSDU [23] */
-	DBGLOG(HAL, DEBUG, "\t\tamsdu = %d\n",
+	DBGLOG(HAL, INFO, "\t\tamsdu = %d\n",
 		((txd->u4DW1 & CONNAC2X_TX_DESC_TXD_UTXB_AMSDU_MASK) ? 1 : 0));
 
 	/* OM [29:24] */
-	DBGLOG(HAL, DEBUG, "\t\town_mac = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\town_mac = 0x%x\n",
 		(uint8_t)((txd->u4DW1 & CONNAC2X_TX_DESC_OWN_MAC_MASK) >>
 		CONNAC2X_TX_DESC_OWN_MAC_OFFSET));
 
 	/* FT [31] */
-	DBGLOG(HAL, DEBUG, "\t\tTxDFormatType = %d\n",
+	DBGLOG(HAL, INFO, "\t\tTxDFormatType = %d\n",
 		(txd->u4DW1 & CONNAC2X_TX_DESC_FORMAT) ? 1 : 0);
 
-	DBGLOG(HAL, DEBUG, "\tTMAC_TXD_2:\n");
+	DBGLOG(HAL, INFO, "\tTMAC_TXD_2:\n");
 	/* DW2 */
 	/* Subtype [3:0] */
-	DBGLOG(HAL, DEBUG, "\t\tsub_type = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tsub_type = 0x%x\n",
 		(uint8_t)((txd->u4DW2 & CONNAC2X_TX_DESC_SUB_TYPE_MASK) >>
 		CONNAC2X_TX_DESC_SUB_TYPE_OFFSET));
 
 	/* Type[5:4] */
-	DBGLOG(HAL, DEBUG, "\t\tfrm_type = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tfrm_type = 0x%x\n",
 		(uint8_t)((txd->u4DW2 & CONNAC2X_TX_DESC_TYPE_MASK) >>
 		CONNAC2X_TX_DESC_TYPE_OFFSET));
 
 	/* NDP [6] */
-	DBGLOG(HAL, DEBUG, "\t\tNDP = %d\n",
+	DBGLOG(HAL, INFO, "\t\tNDP = %d\n",
 		((txd->u4DW2 & CONNAC2X_TX_DESC_NDP) ? 1 : 0));
 
 	/* NDPA [7] */
-	DBGLOG(HAL, DEBUG, "\t\tNDPA = %d\n",
+	DBGLOG(HAL, INFO, "\t\tNDPA = %d\n",
 		((txd->u4DW2 & CONNAC2X_TX_DESC_NDPA) ? 1 : 0));
 
 	/* SD [8] */
-	DBGLOG(HAL, DEBUG, "\t\tSounding = %d\n",
+	DBGLOG(HAL, INFO, "\t\tSounding = %d\n",
 		((txd->u4DW2 & CONNAC2X_TX_DESC_SOUNDING) ? 1 : 0));
 
 	/* RTS [9] */
-	DBGLOG(HAL, DEBUG, "\t\tRTS = %d\n",
+	DBGLOG(HAL, INFO, "\t\tRTS = %d\n",
 		((txd->u4DW2 & CONNAC2X_TX_DESC_FORCE_RTS_CTS) ? 1 : 0));
 
 	/* BM [10] */
-	DBGLOG(HAL, DEBUG, "\t\tbc_mc_pkt = %d\n",
+	DBGLOG(HAL, INFO, "\t\tbc_mc_pkt = %d\n",
 		((txd->u4DW2 & CONNAC2X_TX_DESC_BROADCAST_MULTICAST) ? 1 : 0));
 
 	/* B [11]  */
-	DBGLOG(HAL, DEBUG, "\t\tBIP = %d\n",
+	DBGLOG(HAL, INFO, "\t\tBIP = %d\n",
 		((txd->u4DW2 & CONNAC2X_TX_DESC_BIP_PROTECTED) ? 1 : 0));
 
 	/* DU [12] */
-	DBGLOG(HAL, DEBUG, "\t\tDuration = %d\n",
+	DBGLOG(HAL, INFO, "\t\tDuration = %d\n",
 	((txd->u4DW2 & CONNAC2X_TX_DESC_DURATION_FIELD_CONTROL) ? 1 : 0));
 
 	/* HE [13] */
-	DBGLOG(HAL, DEBUG, "\t\tHE(HTC Exist) = %d\n",
+	DBGLOG(HAL, INFO, "\t\tHE(HTC Exist) = %d\n",
 		((txd->u4DW2 & CONNAC2X_TX_DESC_HTC_EXISTS) ? 1 : 0));
 
 	/* FRAG [15:14] */
-	DBGLOG(HAL, DEBUG, "\t\tFRAG = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tFRAG = 0x%x\n",
 		(uint8_t)((txd->u4DW2 & CONNAC2X_TX_DESC_FRAGMENT_MASK) >>
 		CONNAC2X_TX_DESC_FRAGMENT_OFFSET));
 
 	/* Remaining Life Time [23:16]*/
-	DBGLOG(HAL, DEBUG, "\t\tReamingLife/MaxTx time = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tReamingLife/MaxTx time = 0x%x\n",
 		(uint16_t)((txd->u4DW2
 			& CONNAC2X_TX_DESC_REMAINING_MAX_TX_TIME_MASK) >>
 		CONNAC2X_TX_DESC_REMAINING_MAX_TX_TIME_OFFSET));
 
 	/* Power Offset [29:24] */
-	DBGLOG(HAL, DEBUG, "\t\tpwr_offset = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tpwr_offset = 0x%x\n",
 		(uint8_t)((txd->u4DW2 & CONNAC2X_TX_DESC_POWER_OFFSET_MASK) >>
 		CONNAC2X_TX_DESC_POWER_OFFSET_OFFSET));
 
 	/* FRM [30] */
-	DBGLOG(HAL, DEBUG, "\t\tfix rate mode = %d\n",
+	DBGLOG(HAL, INFO, "\t\tfix rate mode = %d\n",
 		(txd->u4DW2 & CONNAC2X_TX_DESC_FIXED_RATE_MODE) ? 1 : 0);
 
 	/* FR[31] */
-	DBGLOG(HAL, DEBUG, "\t\tfix rate = %d\n",
+	DBGLOG(HAL, INFO, "\t\tfix rate = %d\n",
 		(txd->u4DW2 & CONNAC2X_TX_DESC_FIXED_RATE) ? 1 : 0);
 
-	DBGLOG(HAL, DEBUG, "\tTMAC_TXD_3:\n");
+	DBGLOG(HAL, INFO, "\tTMAC_TXD_3:\n");
 	/* DW3 */
 	/* NA [0] */
-	DBGLOG(HAL, DEBUG, "\t\tNoAck = %d\n",
+	DBGLOG(HAL, INFO, "\t\tNoAck = %d\n",
 		(txd->u4DW3 & CONNAC2X_TX_DESC_NO_ACK) ? 1 : 0);
 
 	/* PF [1] */
-	DBGLOG(HAL, DEBUG, "\t\tPF = %d\n",
+	DBGLOG(HAL, INFO, "\t\tPF = %d\n",
 		(txd->u4DW3 & CONNAC2X_TX_DESC_PROTECTED_FRAME) ? 1 : 0);
 
 	/* EMRD [2] */
-	DBGLOG(HAL, DEBUG, "\t\tEMRD = %d\n",
+	DBGLOG(HAL, INFO, "\t\tEMRD = %d\n",
 		(txd->u4DW3 & CONNAC2X_TX_DESC_EXTEND_MORE_DATA) ? 1 : 0);
 
 	/* EEOSP [3] */
-	DBGLOG(HAL, DEBUG, "\t\tEEOSP = %d\n",
+	DBGLOG(HAL, INFO, "\t\tEEOSP = %d\n",
 		(txd->u4DW3 & CONNAC2X_TX_DESC_EXTEND_EOSP) ? 1 : 0);
 
 	/* DAS [4] */
-	DBGLOG(HAL, DEBUG, "\t\tda_select = %d\n",
+	DBGLOG(HAL, INFO, "\t\tda_select = %d\n",
 		(txd->u4DW3 & CONNAC2X_TX_DESC_DA_SOURCE) ? 1 : 0);
 
 	/* TM [5] */
-	DBGLOG(HAL, DEBUG, "\t\ttm = %d\n",
+	DBGLOG(HAL, INFO, "\t\ttm = %d\n",
 		(txd->u4DW3 & CONNAC2X_TX_DESC_TIMING_MEASUREMENT) ? 1 : 0);
 
 	/* TX Count [10:6] */
-	DBGLOG(HAL, DEBUG, "\t\ttx_cnt = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\ttx_cnt = 0x%x\n",
 		(uint8_t)((txd->u4DW3 & CONNAC2X_TX_DESC_TX_COUNT_MASK) >>
 		CONNAC2X_TX_DESC_TX_COUNT_OFFSET));
 
 	/* Remaining TX Count [15:11] */
-	DBGLOG(HAL, DEBUG, "\t\tremain_tx_cnt = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tremain_tx_cnt = 0x%x\n",
 		(uint8_t)((txd->u4DW3
 			& CONNAC2X_TX_DESC_REMAINING_TX_COUNT_MASK) >>
 		CONNAC2X_TX_DESC_REMAINING_TX_COUNT_OFFSET));
 
 	/* SN [27:16] */
-	DBGLOG(HAL, DEBUG, "\t\tsn = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tsn = 0x%x\n",
 		(uint16_t)((txd->u4DW3
 			& CONNAC2X_TX_DESC_SEQUENCE_NUMBER_MASK) >>
 		CONNAC2X_TX_DESC_SEQUENCE_NUMBER_MASK_OFFSET));
 
 	/* BA_DIS [28] */
-	DBGLOG(HAL, DEBUG, "\t\tba dis = %d\n",
+	DBGLOG(HAL, INFO, "\t\tba dis = %d\n",
 		(txd->u4DW3 & CONNAC2X_TX_DESC_BA_DISABLE) ? 1 : 0);
 
 	/* Power Management [29] */
-	DBGLOG(HAL, DEBUG, "\t\tpwr_mgmt = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tpwr_mgmt = 0x%x\n",
 	(txd->u4DW3 & CONNAC2X_TX_DESC_POWER_MANAGEMENT_CONTROL) ? 1 : 0);
 
 	/* PN_VLD [30] */
-	DBGLOG(HAL, DEBUG, "\t\tpn_vld = %d\n",
+	DBGLOG(HAL, INFO, "\t\tpn_vld = %d\n",
 		(txd->u4DW3 & CONNAC2X_TX_DESC_PN_IS_VALID) ? 1 : 0);
 
 	/* SN_VLD [31] */
-	DBGLOG(HAL, DEBUG, "\t\tsn_vld = %d\n",
+	DBGLOG(HAL, INFO, "\t\tsn_vld = %d\n",
 		(txd->u4DW3 & CONNAC2X_TX_DESC_SN_IS_VALID) ? 1 : 0);
 
 	/* DW4 */
-	DBGLOG(HAL, DEBUG, "\tTMAC_TXD_4:\n");
+	DBGLOG(HAL, INFO, "\tTMAC_TXD_4:\n");
 
 	/* PN_LOW [31:0] */
-	DBGLOG(HAL, DEBUG, "\t\tpn_low = 0x%x\n", txd->u4PN1);
+	DBGLOG(HAL, INFO, "\t\tpn_low = 0x%x\n", txd->u4PN1);
 
 	/* DW5 */
-	DBGLOG(HAL, DEBUG, "\tTMAC_TXD_5:\n");
+	DBGLOG(HAL, INFO, "\tTMAC_TXD_5:\n");
 
 	/* PN_HIGH [31:16]  */
-	DBGLOG(HAL, DEBUG, "\t\tpn_high = 0x%x\n", txd->u2PN2);
+	DBGLOG(HAL, INFO, "\t\tpn_high = 0x%x\n", txd->u2PN2);
 
 	/* PID [7:0] */
-	DBGLOG(HAL, DEBUG, "\t\tpid = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tpid = 0x%x\n",
 		(uint16_t)(txd->u2DW5_0 & CONNAC2X_TX_DESC_PACKET_ID_MASK) >>
 			CONNAC2X_TX_DESC_PACKET_ID_OFFSET);
 
 	/* TXSFM [8] */
-	DBGLOG(HAL, DEBUG, "\t\ttx_status_fmt = %d\n",
+	DBGLOG(HAL, INFO, "\t\ttx_status_fmt = %d\n",
 		(txd->u2DW5_0 & CONNAC2X_TX_DESC_TX_STATUS_FORMAT) ? 1 : 0);
 
 	/* TXS2M [9] */
-	DBGLOG(HAL, DEBUG, "\t\ttx_status_2_mcu = %d\n",
+	DBGLOG(HAL, INFO, "\t\ttx_status_2_mcu = %d\n",
 		(txd->u2DW5_0 & CONNAC2X_TX_DESC_TX_STATUS_TO_MCU) ? 1 : 0);
 
 	/* TXS2H [10] */
-	DBGLOG(HAL, DEBUG, "\t\ttx_status_2_host = %d\n",
+	DBGLOG(HAL, INFO, "\t\ttx_status_2_host = %d\n",
 		(txd->u2DW5_0 & CONNAC2X_TX_DESC_TX_STATUS_TO_HOST) ? 1 : 0);
 
 	/* DW6 */
-	DBGLOG(HAL, DEBUG, "\tTMAC_TXD_6:\n");
+	DBGLOG(HAL, INFO, "\tTMAC_TXD_6:\n");
 	if (txd->u4DW2 & CONNAC2X_TX_DESC_FIXED_RATE) {
 		/* Fixed BandWidth mode [2:0] */
-		DBGLOG(HAL, DEBUG, "\t\tbw = 0x%x\n",
+		DBGLOG(HAL, INFO, "\t\tbw = 0x%x\n",
 			(uint8_t)(txd->u4DW6
 				& CONNAC2X_TX_DESC_BANDWIDTH_MASK) >>
 				CONNAC2X_TX_DESC_BANDWIDTH_OFFSET);
 
 		/* DYN_BW [3] */
-		DBGLOG(HAL, DEBUG, "\t\tdyn_bw = 0x%x\n",
+		DBGLOG(HAL, INFO, "\t\tdyn_bw = 0x%x\n",
 		(uint8_t)(txd->u4DW6 & CONNAC2X_TX_DESC_DYNAMIC_BANDWIDTH)
 				? 1 : 0);
 
 		/* ANT_ID [7:4] */
-		DBGLOG(HAL, DEBUG, "\t\tant_id = 0x%x\n",
+		DBGLOG(HAL, INFO, "\t\tant_id = 0x%x\n",
 			(uint8_t)(txd->u4DW6
 			& CONNAC2X_TX_DESC_ANTENNA_INDEX_MASK) >>
 			CONNAC2X_TX_DESC_ANTENNA_INDEX_OFFSET);
 
 		/* SPE_IDX_SEL [10] */
-		DBGLOG(HAL, DEBUG, "\t\tspe idx sel = %d\n",
+		DBGLOG(HAL, INFO, "\t\tspe idx sel = %d\n",
 			(txd->u4DW6 & CONNAC2X_TX_DESC_SPE_IDX_SEL) ? 1 : 0);
 
 		/* LDPC [11] */
-		DBGLOG(HAL, DEBUG, "\t\tldpc = %d\n",
+		DBGLOG(HAL, INFO, "\t\tldpc = %d\n",
 			(txd->u4DW6 & CONNAC2X_TX_DESC_LDPC) ? 1 : 0);
 
 		/* HELTF Type[13:12] */
-		DBGLOG(HAL, DEBUG, "\t\tHELTF Type = 0x%x\n",
+		DBGLOG(HAL, INFO, "\t\tHELTF Type = 0x%x\n",
 			(uint8_t)(txd->u4DW6 & CONNAC2X_TX_DESC_HE_LTF_MASK) >>
 				CONNAC2X_TX_DESC_HE_LTF_OFFSET);
 
 		/* GI Type [15:14] */
-		DBGLOG(HAL, DEBUG, "\t\tGI = 0x%x\n",
+		DBGLOG(HAL, INFO, "\t\tGI = 0x%x\n",
 			(uint8_t)(txd->u4DW6 & CONNAC2X_TX_DESC_GI_TYPE) >>
 				CONNAC2X_TX_DESC_GI_TYPE_OFFSET);
 
 		/* Rate to be Fixed [29:16] */
-		DBGLOG(HAL, DEBUG, "\t\ttx_rate = 0x%x\n",
+		DBGLOG(HAL, INFO, "\t\ttx_rate = 0x%x\n",
 			(uint16_t)(txd->u4DW6
 				& CONNAC2X_TX_DESC_FIXDE_RATE_MASK) >>
 				CONNAC2X_TX_DESC_FIXDE_RATE_OFFSET);
 	}
 
 	/* TXEBF [30] */
-	DBGLOG(HAL, DEBUG, "\t\ttxebf = %d\n",
+	DBGLOG(HAL, INFO, "\t\ttxebf = %d\n",
 		(txd->u4DW6 & CONNAC2X_TX_DESC_TXE_BF)  ? 1 : 0);
 
 	/* TXIBF [31] */
-	DBGLOG(HAL, DEBUG, "\t\ttxibf = %d\n",
+	DBGLOG(HAL, INFO, "\t\ttxibf = %d\n",
 		(txd->u4DW6 & CONNAC2X_TX_DESC_TXI_BF) ? 1 : 0);
 
 	/* DW7 */
-	DBGLOG(HAL, DEBUG, "\tTMAC_TXD_7:\n");
+	DBGLOG(HAL, INFO, "\tTMAC_TXD_7:\n");
 
 	/* TXD Arrival Time [9:0] */
-	DBGLOG(HAL, DEBUG, "\t\tarrival time = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tarrival time = 0x%x\n",
 		(uint16_t)(txd->u4DW7
 				& CONNAC2X_TX_DESC_TXD_ARRIVAL_TIME_MASK));
 
 	/* HW_AMSDU_CAP [10] */
-	DBGLOG(HAL, DEBUG, "\t\thw amsdu cap = %d\n",
+	DBGLOG(HAL, INFO, "\t\thw amsdu cap = %d\n",
 		(txd->u4DW7 & CONNAC2X_TX_DESC_HW_AMSDU) ? 1 : 0);
 
 	/* SPE_IDX [15:11] */
 	if (txd->u4DW2 & CONNAC2X_TX_DESC_FIXED_RATE)
-		DBGLOG(HAL, DEBUG, "\t\tspe_idx = 0x%x\n",
+		DBGLOG(HAL, INFO, "\t\tspe_idx = 0x%x\n",
 			(uint8_t)((txd->u4DW7
 				& CONNAC2X_TX_DESC_SPE_EXT_IDX_MASK) >>
 			CONNAC2X_TX_DESC_SPE_EXT_IDX_OFFSET));
 
 	/* PSE_FID [27:16], Indicate frame ID in PSE for this TXD */
-	DBGLOG(HAL, DEBUG, "\t\tpse_fid = 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tpse_fid = 0x%x\n",
 		(uint16_t)((txd->u4DW7 & CONNAC2X_TX_DESC_PSE_FID_MASK) >>
 		CONNAC2X_TX_DESC_PSE_FID_OFFSET));
 
 	/* Subtype [19:16], HW reserved, PP use only */
-	DBGLOG(HAL, DEBUG, "\t\tpp_sub_type=0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tpp_sub_type=0x%x\n",
 		(uint8_t)((txd->u4DW7 & CONNAC2X_TX_DESC7_SUB_TYPE_MASK) >>
 		CONNAC2X_TX_DESC7_SUB_TYPE_OFFSET));
 
 	/* Type [21:20], HW reserved, PP use only */
-	DBGLOG(HAL, DEBUG, "\t\tpp_type=0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tpp_type=0x%x\n",
 		(uint8_t)((txd->u4DW7 & CONNAC2X_TX_DESC7_TYPE_MASK) >>
 		CONNAC2X_TX_DESC7_TYPE_OFFSET));
 
 	/* CTXD_CNT [25:23], overwritten with PSE_FID by PP */
-	DBGLOG(HAL, DEBUG, "\t\tctxd cnt=0x%x\n",
+	DBGLOG(HAL, INFO, "\t\tctxd cnt=0x%x\n",
 		(uint8_t)((txd->u4DW7 & CONNAC2X_TX_DESC_CTXD_CNT_MASK) >>
 		CONNAC2X_TX_DESC_CTXD_CNT_OFFSET));
 
 	/* CTXD [26], overwritten with PSE_FID by PP */
-	DBGLOG(HAL, DEBUG, "\t\tctxd = %d\n",
+	DBGLOG(HAL, INFO, "\t\tctxd = %d\n",
 		(txd->u4DW7 & CONNAC2X_TX_DESC_CTXD) ? 1 : 0);
 
 	/* I [28]  */
-	DBGLOG(HAL, DEBUG, "\t\ti = %d\n",
+	DBGLOG(HAL, INFO, "\t\ti = %d\n",
 		(txd->u4DW7 & CONNAC2X_TX_DESC_IP_CHKSUM_OFFLOAD) ? 1 : 0);
 
 	/* UT [29] */
-	DBGLOG(HAL, DEBUG, "\t\tUT = %d\n",
+	DBGLOG(HAL, INFO, "\t\tUT = %d\n",
 		(txd->u4DW7 & CONNAC2X_TX_DESC_TCP_UDP_CHKSUM_OFFLOAD) ? 1 : 0);
 
 	/* TXDLEN [31:30] */
-	DBGLOG(HAL, DEBUG, "\t\ttxd len= 0x%x\n",
+	DBGLOG(HAL, INFO, "\t\ttxd len= 0x%x\n",
 		(uint8_t)((txd->u4DW7 & CONNAC2X_TX_DESC_TXD_LENGTH_MASK) >>
 		CONNAC2X_TX_DESC_TXD_LENGTH_OFFSET));
 }
@@ -560,7 +560,7 @@ static void connac2x_event_dump_txd_mem(
 	prEventDumpMem = (struct EXT_CMD_EVENT_DUMP_MEM_T *)(pucEventBuf);
 	kalMemCopy(data, prEventDumpMem->ucData, sizeof(data));
 	for (i = 0; i < DUMP_MEM_SIZE; i = i + 4)
-		DBGLOG(HAL, DEBUG, "DW%02d: 0x%02x%02x%02x%02x\n",
+		DBGLOG(HAL, INFO, "DW%02d: 0x%02x%02x%02x%02x\n",
 		i / 4,
 		data[i + 3],
 		data[i + 2],
@@ -578,7 +578,7 @@ void connac2x_show_txd_Info(
 	uint32_t Addr = 0;
 	uint32_t rWlanStatus = WLAN_STATUS_SUCCESS;
 
-	DBGLOG(HAL, DEBUG, "inShowTXDINFO fid=%d 0x%x\n", fid, fid);
+	DBGLOG(HAL, INFO, "inShowTXDINFO fid=%d 0x%x\n", fid, fid);
 
 	if (fid >= UMAC_FID_FAULT)
 		return;
@@ -1555,9 +1555,9 @@ void connac2x_get_rssi_from_wtbl(
 
 	prGlueInfo = prAdapter->prGlueInfo;
 	prChipInfo = prAdapter->chip_info;
-	DBGLOG(REQ, DEBUG, "WTBL : index = %d\n", u4Index);
+	DBGLOG(REQ, INFO, "WTBL : index = %d\n", u4Index);
 
-	if (WTBL_VER < 3 && wlanGetEcoVersion(prAdapter) < ECO_VER_2)
+	if (wlanGetEcoVersion(prAdapter) < ECO_VER_2)
 		u1Dw30Rssi = 0;
 
 	if (u1Dw30Rssi > 0) {
@@ -1615,7 +1615,7 @@ int32_t connac2x_show_wtbl_info(
 	int32_t i4BytesWritten = 0;
 
 	prChipInfo = prAdapter->chip_info;
-	DBGLOG(REQ, DEBUG, "WTBL : index = %d\n", u4Index);
+	DBGLOG(REQ, INFO, "WTBL : index = %d\n", u4Index);
 
 	wtbl_raw_dw = (unsigned char *)kalMemAlloc(
 		sizeof(struct fwtbl_lmac_struct), VIR_MEM_TYPE);
@@ -1631,7 +1631,7 @@ int32_t connac2x_show_wtbl_info(
 	HAL_MCR_RD(prAdapter, prChipInfo->u4LmacWtblDUAddr,
 				&u4Value);
 
-	DBGLOG(REQ, DEBUG, "LMAC WTBL Addr: group: 0x%x=0x%x addr: 0x%x\n",
+	DBGLOG(REQ, INFO, "LMAC WTBL Addr: group: 0x%x=0x%x addr: 0x%x\n",
 		prChipInfo->u4LmacWtblDUAddr,
 		u4Value,
 		wtbl_lmac_baseaddr);
@@ -2001,15 +2001,16 @@ int32_t connac2x_show_stat_info(
 	int16_t i2Wf0AvgPwr = 0, i2Wf1AvgPwr = 0;
 #endif
 	uint32_t u4BufLen = 0;
-	uint8_t ucRaTableNum = ARRAY_SIZE(RATE_TBLE);
-	uint8_t ucRaStatusNum = ARRAY_SIZE(RA_STATUS_TBLE);
+	uint8_t ucRaTableNum = sizeof(RATE_TBLE) / sizeof(char *);
+	uint8_t ucRaStatusNum = sizeof(RA_STATUS_TBLE) / sizeof(char *);
 	uint8_t ucBssIndex;
 	struct PARAM_LINK_SPEED_EX rLinkSpeed = {0};
 
 #if 0
-	uint8_t ucRaLtModeNum = ARRAY_SIZE(LT_MODE_TBLE);
-	uint8_t ucRaSgiUnSpStateNum = ARRAY_SIZE(SGI_UNSP_STATE_TBLE);
-	uint8_t ucRaBwStateNum = ARRAY_SIZE(BW_STATE_TBLE);
+	uint8_t ucRaLtModeNum = sizeof(LT_MODE_TBLE) / sizeof(char *);
+	uint8_t ucRaSgiUnSpStateNum = sizeof(SGI_UNSP_STATE_TBLE) /
+								sizeof(char *);
+	uint8_t ucRaBwStateNum = sizeof(BW_STATE_TBLE) / sizeof(char *);
 #endif
 	uint8_t aucAggRange[AGG_RANGE_SEL_NUM];
 	uint32_t au4RangeCtrl[AGG_RANGE_SEL_4BYTE_NUM];
@@ -2268,7 +2269,7 @@ int32_t connac2x_show_stat_info(
 		if (rStatus != WLAN_STATUS_SUCCESS)
 			DBGLOG(REQ, WARN, "unable to retrieve rssi\n");
 
-		if (ucBssIndex < MAX_BSSID_NUM)
+		if (ucBssIndex < BSSID_NUM)
 			rRssi = rLinkSpeed.rLq[ucBssIndex].cRssi;
 
 #if CFG_SUPPORT_ADVANCE_CONTROL
@@ -2892,7 +2893,7 @@ static void connac2x_show_wfdma_axi_debug_log(
 			pos += kalSnprintf(buf + pos, u4BufferSize - pos, "\n");
 	}
 
-	DBGLOG(HAL, DEBUG, "%s", buf);
+	DBGLOG(HAL, INFO, "%s", buf);
 	kalMemFree(buf, VIR_MEM_TYPE, u4BufferSize);
 }
 
@@ -2907,7 +2908,7 @@ void connac2x_show_wfdma_interrupt_info(
 	uint32_t u4RegValue = 0;
 
 	/* Dump Interrupt Status info */
-	DBGLOG(HAL, DEBUG, "Interrupt Status:\n");
+	DBGLOG(HAL, INFO, "Interrupt Status:\n");
 
 	/* Dump Global Status CR */
 	u4hostBaseCrAddr = WFDMA_TYPE_HOST ?
@@ -2918,7 +2919,7 @@ void connac2x_show_wfdma_interrupt_info(
 
 	HAL_MCR_RD(prAdapter, u4DmaCfgCrAddr, &u4RegValue);
 
-	DBGLOG(INIT, DEBUG, "\t Global INT STA(0x%08x): 0x%08x\n",
+	DBGLOG(INIT, INFO, "\t Global INT STA(0x%08x): 0x%08x\n",
 		u4DmaCfgCrAddr, u4RegValue);
 
 	/* Dump PDMA Status CR */
@@ -2936,12 +2937,12 @@ void connac2x_show_wfdma_interrupt_info(
 
 		HAL_MCR_RD(prAdapter, u4DmaCfgCrAddr, &u4RegValue);
 
-		DBGLOG(HAL, DEBUG, "\t WFDMA DMA %d INT STA(0x%08x): 0x%08x\n",
+		DBGLOG(HAL, INFO, "\t WFDMA DMA %d INT STA(0x%08x): 0x%08x\n",
 				idx, u4DmaCfgCrAddr, u4RegValue);
 	}
 
 	/* Dump Interrupt Enable Info */
-	DBGLOG(HAL, DEBUG, "Interrupt Enable:\n");
+	DBGLOG(HAL, INFO, "Interrupt Enable:\n");
 
 	/* Dump Global Enable CR */
 	u4hostBaseCrAddr = WFDMA_TYPE_HOST ?
@@ -2952,7 +2953,7 @@ void connac2x_show_wfdma_interrupt_info(
 
 	HAL_MCR_RD(prAdapter, u4DmaCfgCrAddr, &u4RegValue);
 
-	DBGLOG(INIT, DEBUG, "\t Global INT ENA(0x%08x): 0x%08x\n",
+	DBGLOG(INIT, INFO, "\t Global INT ENA(0x%08x): 0x%08x\n",
 		u4DmaCfgCrAddr, u4RegValue);
 
 	/* Dump PDMA Enable CR */
@@ -2970,7 +2971,7 @@ void connac2x_show_wfdma_interrupt_info(
 
 		HAL_MCR_RD(prAdapter, u4DmaCfgCrAddr, &u4RegValue);
 
-		DBGLOG(HAL, DEBUG, "\t WFDMA DMA %d INT ENA(0x%08x): 0x%08x\n",
+		DBGLOG(HAL, INFO, "\t WFDMA DMA %d INT ENA(0x%08x): 0x%08x\n",
 			idx, u4DmaCfgCrAddr, u4RegValue);
 	}
 }
@@ -3000,10 +3001,10 @@ void connac2x_show_wfdma_glo_info(
 		HAL_MCR_RD(prAdapter, u4DmaCfgCrAddr,
 			   &GloCfgValue.word);
 
-		DBGLOG(HAL, DEBUG, "WFDMA DMA (%d) GLO Config Info:\n", idx);
-		DBGLOG(INIT, DEBUG, "\t GLO Control (0x%08x): 0x%08x\n",
+		DBGLOG(HAL, INFO, "WFDMA DMA (%d) GLO Config Info:\n", idx);
+		DBGLOG(INIT, INFO, "\t GLO Control (0x%08x): 0x%08x\n",
 			u4DmaCfgCrAddr, GloCfgValue.word);
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 			"\t GLO Control EN T/R bit=(%d/%d), Busy T/R bit=(%d/%d)\n",
 			GloCfgValue.field_conn2x.tx_dma_en,
 			GloCfgValue.field_conn2x.rx_dma_en,
@@ -3037,8 +3038,8 @@ void connac2x_show_wfdma_ring_info(
 	prBusInfo = prChipInfo->bus_info;
 
 	/* Dump All Ring Info */
-	DBGLOG(HAL, DEBUG, "TX Ring Configuration\n");
-	DBGLOG(HAL, DEBUG, "%4s %20s %8s %10s %6s %6s %6s %6s\n",
+	DBGLOG(HAL, INFO, "TX Ring Configuration\n");
+	DBGLOG(HAL, INFO, "%4s %20s %8s %10s %6s %6s %6s %6s\n",
 		"Idx", "Attr", "Reg", "Base", "Cnt", "CIDX", "DIDX", "QCnt");
 
 	/* Dump TX Ring */
@@ -3072,7 +3073,7 @@ void connac2x_show_wfdma_ring_info(
 			(u4_hw_cidx_value - u4_hw_didx_value) :
 			(u4_hw_cidx_value - u4_hw_didx_value + u4_hw_cnt_value);
 
-		DBGLOG(HAL, DEBUG, "%4d %20s %8x %10lx %6x %6x %6x %6x\n",
+		DBGLOG(HAL, INFO, "%4d %20s %8x %10lx %6x %6x %6x %6x\n",
 			idx,
 			group->name,
 			u4DmaCfgCrAddr, u8_hw_desc_base_value,
@@ -3081,8 +3082,8 @@ void connac2x_show_wfdma_ring_info(
 
 	}
 
-	DBGLOG(HAL, DEBUG, "RX Ring Configuration\n");
-	DBGLOG(HAL, DEBUG, "%4s %20s %8s %10s %6s %6s %6s %6s\n",
+	DBGLOG(HAL, INFO, "RX Ring Configuration\n");
+	DBGLOG(HAL, INFO, "%4s %20s %8s %10s %6s %6s %6s %6s\n",
 		"Idx", "Attr", "Reg", "Base", "Cnt", "CIDX", "DIDX", "QCnt");
 
 	/* Dump RX Ring */
@@ -3117,7 +3118,7 @@ void connac2x_show_wfdma_ring_info(
 			(u4_hw_didx_value - u4_hw_cidx_value
 			+ u4_hw_cnt_value - 1);
 
-		DBGLOG(HAL, DEBUG, "%4d %20s 0x%9x %10lx %6x %6x %6x %6x\n",
+		DBGLOG(HAL, INFO, "%4d %20s 0x%9x %10lx %6x %6x %6x %6x\n",
 			idx,
 			group->name,
 			u4DmaCfgCrAddr, u8_hw_desc_base_value,
@@ -3136,7 +3137,6 @@ void connac2x_show_wfdma_desc(struct ADAPTER *prAdapter)
 	struct RTMP_RX_RING *prRxRing;
 	struct wfdma_group_info *prGroup;
 	uint32_t i, j, k, u4SwIdx, u4Didx[WFDMA_DUMP_RX_RING_CNT];
-	uint32_t u4Cidx[WFDMA_DUMP_RX_RING_CNT];
 	u_int8_t fgSkip = FALSE;
 
 	if (!prAdapter)
@@ -3151,7 +3151,7 @@ void connac2x_show_wfdma_desc(struct ADAPTER *prAdapter)
 		if (!prGroup->dump_ring_content)
 			continue;
 
-		DBGLOG(HAL, DEBUG, "Dump WFDMA Tx Ring[%s]\n", prGroup->name);
+		DBGLOG(HAL, INFO, "Dump WFDMA Tx Ring[%s]\n", prGroup->name);
 		prTxRing = &prHifInfo->TxRing[i];
 		/* dump didx + (-2, -1, 0) */
 		u4SwIdx = prGroup->didx;
@@ -3167,7 +3167,7 @@ void connac2x_show_wfdma_desc(struct ADAPTER *prAdapter)
 		if (!prGroup->dump_ring_content)
 			continue;
 
-		DBGLOG(HAL, DEBUG, "Dump WFDMA Rx Ring[%s]\n", prGroup->name);
+		DBGLOG(HAL, INFO, "Dump WFDMA Rx Ring[%s]\n", prGroup->name);
 		prRxRing = &prHifInfo->RxRing[i];
 		/* dump didx + (-1, 0) */
 		u4SwIdx = prGroup->didx;
@@ -3192,28 +3192,12 @@ void connac2x_show_wfdma_desc(struct ADAPTER *prAdapter)
 			if (!fgSkip)
 				kalDumpRxRing(prAdapter->prGlueInfo,
 					      prRxRing, u4SwIdx, true);
-			u4Cidx[j] = u4SwIdx;
 			INC_RING_INDEX(u4SwIdx, prGroup->cnt);
-		}
-
-		/* dump idx (0, 1) */
-		for (j = 0; j < WFDMA_DUMP_RX_RING_CNT; j++) {
-			/* skip dumped cell */
-			fgSkip = FALSE;
-			for (k = 0; k < WFDMA_DUMP_RX_RING_CNT; k++) {
-				if (j == u4Didx[k] || j == u4Cidx[k]) {
-					fgSkip = TRUE;
-					break;
-				}
-			}
-			if (!fgSkip)
-				kalDumpRxRing(prAdapter->prGlueInfo,
-					      prRxRing, j, true);
 		}
 	}
 }
 
-void connac2xDumpPPDebugCr(struct ADAPTER *prAdapter)
+static void connac2xDumpPPDebugCr(struct ADAPTER *prAdapter)
 {
 	struct BUS_INFO *prBusInfo;
 	struct PP_TOP_CR *prCr;
@@ -3222,7 +3206,7 @@ void connac2xDumpPPDebugCr(struct ADAPTER *prAdapter)
 	if (!prAdapter)
 		return;
 
-	DBGLOG(HAL, DEBUG, "PP info:\n");
+	DBGLOG(HAL, INFO, "PP info:\n");
 
 	prBusInfo = prAdapter->chip_info->bus_info;
 	prCr = prBusInfo->prPpTopCr;
@@ -3238,7 +3222,7 @@ void connac2xDumpPPDebugCr(struct ADAPTER *prAdapter)
 	if (prCr->rDbgCs5.u4Addr != 0)
 		HAL_MCR_RD(prAdapter, prCr->rDbgCs5.u4Addr, &u4Value[6]);
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"PP[0x%08x]=0x%08x,[0x%08x]=0x%08x,[0x%08x]=0x%08x,[0x%08x]=0x%08x,",
 		prCr->rDbgCtrl.u4Addr, u4Value[0],
 		prCr->rDbgCs0.u4Addr, u4Value[1],
@@ -3246,7 +3230,7 @@ void connac2xDumpPPDebugCr(struct ADAPTER *prAdapter)
 		prCr->rDbgCs2.u4Addr, u4Value[3]);
 
 	if (prCr->rDbgCs3.u4Addr != 0)
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 		"PP[0x%08x]=0x%08x,[0x%08x]=0x%08x,[0x%08x]=0x%08x,",
 			prCr->rDbgCs3.u4Addr, u4Value[4],
 			prCr->rDbgCs4.u4Addr, u4Value[5],
@@ -3299,7 +3283,7 @@ static void connac2x_dump_wfdma_dbg_value(
 			get_debug_value,
 			set_debug_flag_value == 0x112 ? "\n" : "; ");
 	}
-	DBGLOG(HAL, DEBUG, "%s", buf);
+	DBGLOG(HAL, INFO, "%s", buf);
 
 	pos = 0;
 	pos += kalSnprintf(buf + pos, BUF_SIZE - pos,
@@ -3315,7 +3299,7 @@ static void connac2x_dump_wfdma_dbg_value(
 			get_debug_value,
 			set_debug_flag_value == 0x125 ? "\n" : "; ");
 	}
-	DBGLOG(HAL, DEBUG, "%s", buf);
+	DBGLOG(HAL, INFO, "%s", buf);
 
 	pos = 0;
 	pos += kalSnprintf(buf + pos, BUF_SIZE - pos,
@@ -3331,7 +3315,7 @@ static void connac2x_dump_wfdma_dbg_value(
 			get_debug_value,
 			set_debug_flag_value == 0x131 ? "\n" : "; ");
 	}
-	DBGLOG(HAL, DEBUG, "%s", buf);
+	DBGLOG(HAL, INFO, "%s", buf);
 
 	pos = 0;
 	pos += kalSnprintf(buf + pos, BUF_SIZE - pos,
@@ -3347,7 +3331,7 @@ static void connac2x_dump_wfdma_dbg_value(
 			get_debug_value,
 			set_debug_flag_value == 0x154 ? "\n" : "; ");
 	}
-	DBGLOG(HAL, DEBUG, "%s", buf);
+	DBGLOG(HAL, INFO, "%s", buf);
 
 	kalMemFree(buf, VIR_MEM_TYPE, BUF_SIZE);
 }
@@ -3375,10 +3359,10 @@ void connac2x_show_wfdma_info_by_type(
 		prDbgOps = prAdapter->chip_info->prDebugOps;
 
 	/* Dump WFMDA info */
-	DBGLOG(HAL, DEBUG, "==============================\n");
-	DBGLOG(HAL, DEBUG, "%s WFMDA Configuration:\n",
+	DBGLOG(HAL, INFO, "==============================\n");
+	DBGLOG(HAL, INFO, "%s WFMDA Configuration:\n",
 	       enum_wfdma_type == WFDMA_TYPE_HOST ? "HOST" : "WM");
-	DBGLOG(HAL, DEBUG, "==============================\n");
+	DBGLOG(HAL, INFO, "==============================\n");
 	connac2x_show_wfdma_interrupt_info(
 		prAdapter, enum_wfdma_type, u4DmaNum);
 	connac2x_show_wfdma_glo_info(
@@ -3442,7 +3426,7 @@ void connac2x_show_dmashdl_info(struct ADAPTER *prAdapter)
 	uint32_t ple_upg_hif;
 	uint8_t is_mismatch = FALSE;
 
-	DBGLOG(HAL, DEBUG, "DMASHDL info:\n");
+	DBGLOG(HAL, INFO, "DMASHDL info:\n");
 
 	prBusInfo = prAdapter->chip_info->bus_info;
 	prCfg = prBusInfo->prDmashdlCfg;
@@ -3451,7 +3435,7 @@ void connac2x_show_dmashdl_info(struct ADAPTER *prAdapter)
 	asicConnac2xDmashdlGetPktMaxPage(prAdapter);
 
 	HAL_MCR_RD(prAdapter, prCfg->rErrorFlagCtrl.u4Addr, &value);
-	DBGLOG(HAL, DEBUG, "DMASHDL ERR FLAG CTRL(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "DMASHDL ERR FLAG CTRL(0x%08x): 0x%08x\n",
 	       prCfg->rErrorFlagCtrl.u4Addr, value);
 
 	/* Dump Group 0~14 info */
@@ -3459,7 +3443,7 @@ void connac2x_show_dmashdl_info(struct ADAPTER *prAdapter)
 		if (prCfg->afgRefillEn[idx] == 0)
 			continue;
 
-		DBGLOG(HAL, DEBUG, "Group %d info:\n", idx);
+		DBGLOG(HAL, INFO, "Group %d info:\n", idx);
 		asicConnac2xDmashdlGetGroupControl(prAdapter, idx);
 		rsv_cnt = asicConnac2xDmashdlGetRsvCount(prAdapter, idx);
 		src_cnt = asicConnac2xDmashdlGetSrcCount(prAdapter, idx);
@@ -3470,7 +3454,7 @@ void connac2x_show_dmashdl_info(struct ADAPTER *prAdapter)
 
 	/* Dump Group 15 info */
 	idx = ENUM_DMASHDL_GROUP_15;
-	DBGLOG(HAL, DEBUG, "Group %d info:\n", idx);
+	DBGLOG(HAL, INFO, "Group %d info:\n", idx);
 	asicConnac2xDmashdlGetGroupControl(prAdapter, idx);
 	asicConnac2xDmashdlGetRsvCount(prAdapter, idx);
 	asicConnac2xDmashdlGetSrcCount(prAdapter, idx);
@@ -3481,54 +3465,54 @@ void connac2x_show_dmashdl_info(struct ADAPTER *prAdapter)
 		prCfg->rStatusRdFfaCnt.u4Shift;
 	free_pg_cnt = (value & prCfg->rStatusRdFreePageCnt.u4Mask) >>
 		prCfg->rStatusRdFreePageCnt.u4Shift;
-	DBGLOG(HAL, DEBUG, "\tDMASHDL Status_RD(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tDMASHDL Status_RD(0x%08x): 0x%08x\n",
 		prCfg->rStatusRdFreePageCnt.u4Addr, value);
-	DBGLOG(HAL, DEBUG, "\tfree page cnt = 0x%03x, ffa cnt = 0x%03x\n",
+	DBGLOG(HAL, INFO, "\tfree page cnt = 0x%03x, ffa cnt = 0x%03x\n",
 		free_pg_cnt, ffa_cnt);
 
-	DBGLOG(HAL, DEBUG, "\nDMASHDL Counter Check:\n");
+	DBGLOG(HAL, INFO, "\nDMASHDL Counter Check:\n");
 	HAL_MCR_RD(prAdapter, prCfg->rHifPgInfoHifRsvCnt.u4Addr, &value);
 	ple_rpg_hif = (value & prCfg->rHifPgInfoHifRsvCnt.u4Mask) >>
 		  prCfg->rHifPgInfoHifRsvCnt.u4Shift;
 	ple_upg_hif = (value & prCfg->rHifPgInfoHifSrcCnt.u4Mask) >>
 		prCfg->rHifPgInfoHifSrcCnt.u4Shift;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tPLE:The used/reserved pages of PLE HIF group=0x%03x/0x%03x\n",
 		 ple_upg_hif, ple_rpg_hif);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tDMASHDL:The total used pages of group0~14=0x%03x\n",
 		total_src_cnt);
 
 	if (ple_upg_hif != total_src_cnt) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"\tPLE used pages & total used pages mismatch!\n");
 		is_mismatch = TRUE;
 	}
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tThe total reserved pages of group0~14=0x%03x\n",
 		total_rsv_cnt);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tThe total ffa pages of group0~14=0x%03x\n",
 		ffa_cnt);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tThe total free pages of group0~14=0x%03x\n",
 		free_pg_cnt);
 
 	if (free_pg_cnt != total_rsv_cnt + ffa_cnt) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"\tmismatch(total_rsv_cnt + ffa_cnt in DMASHDL)\n");
 		is_mismatch = TRUE;
 	}
 
 	if (free_pg_cnt != ple_rpg_hif) {
-		DBGLOG(HAL, DEBUG, "\tmismatch(reserved pages in PLE)\n");
+		DBGLOG(HAL, INFO, "\tmismatch(reserved pages in PLE)\n");
 		is_mismatch = TRUE;
 	}
 
 
 	if (!is_mismatch)
-		DBGLOG(HAL, DEBUG, "DMASHDL: no counter mismatch\n");
+		DBGLOG(HAL, INFO, "DMASHDL: no counter mismatch\n");
 }
 
 
@@ -3594,11 +3578,6 @@ void connac2x_show_ple_info(struct ADAPTER *prAdapter, u_int8_t fgDumpTxd)
 	uint32_t buf_size = 1024, pos = 0;
 	char *buf;
 
-	if (!prAdapter) {
-		DBGLOG(HAL, ERROR, "prAdapter NULL\n");
-		return;
-	}
-
 	prBusInfo = prAdapter->chip_info->bus_info;
 	prCr = prBusInfo->prPleTopCr;
 
@@ -3652,13 +3631,13 @@ void connac2x_show_ple_info(struct ADAPTER *prAdapter, u_int8_t fgDumpTxd)
 	HAL_MCR_RD(prAdapter, prCr->rFsmPeekCr11.u4Addr, &ple_peek[11]);
 
 	/* Error Status Info */
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"PLE Error Status(0x%08x):0x%08x,Error Status1(0x%08x):0x%08x\n",
 			prCr->rIntN9ErrSts.u4Addr, int_n9_err,
 			prCr->rIntN9ErrSts1.u4Addr, int_n9_err1);
 
 	/* FSM PEEK CR */
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"00(0x%08x):0x%08x,01(0x%08x):0x%08x,02(0x%08x):0x%08x,03(0x%08x):0x%08x,04(0x%08x):0x%08x,05(0x%08x):0x%08x,",
 			prCr->rFsmPeekCr00.u4Addr, ple_peek[0],
 			prCr->rFsmPeekCr01.u4Addr, ple_peek[1],
@@ -3667,7 +3646,7 @@ void connac2x_show_ple_info(struct ADAPTER *prAdapter, u_int8_t fgDumpTxd)
 			prCr->rFsmPeekCr04.u4Addr, ple_peek[4],
 			prCr->rFsmPeekCr05.u4Addr, ple_peek[5]);
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"06(0x%08x):0x%08x,07(0x%08x):0x%08x,08(0x%08x):0x%08x,09(0x%08x):0x%08x,10(0x%08x):0x%08x,11(0x%08x):0x%08x\n",
 			prCr->rFsmPeekCr06.u4Addr, ple_peek[6],
 			prCr->rFsmPeekCr07.u4Addr, ple_peek[7],
@@ -3683,7 +3662,7 @@ void connac2x_show_ple_info(struct ADAPTER *prAdapter, u_int8_t fgDumpTxd)
 	pg_num = (ple_buf_ctrl & prCr->rPbufCtrlTotalPageNum.u4Mask) >>
 			 prCr->rPbufCtrlTotalPageNum.u4Shift;
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"Buffer Control(0x%08x):0x%08x,Page Size=%d, Page Offset=%d, Total Page=%d\n",
 		prCr->rPbufCtrl.u4Addr,
 		ple_buf_ctrl,
@@ -3698,7 +3677,7 @@ void connac2x_show_ple_info(struct ADAPTER *prAdapter, u_int8_t fgDumpTxd)
 	ffa_cnt = (pg_flow_ctrl[0] & prCr->rFreepgCntFfaCnt.u4Mask) >>
 		  prCr->rFreepgCntFfaCnt.u4Shift;
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"Free page counter(0x%08x):0x%08x,The toal page number of free=0x%03x,The free page numbers of free for all=0x%03x\n",
 		prCr->rFreepgCnt.u4Addr,
 		pg_flow_ctrl[0], fpg_cnt, ffa_cnt);
@@ -3710,13 +3689,13 @@ void connac2x_show_ple_info(struct ADAPTER *prAdapter, u_int8_t fgDumpTxd)
 	fpg_tail = (pg_flow_ctrl[1] &
 		    prCr->rFreepgHeadTailFreepgTail.u4Mask) >>
 		   prCr->rFreepgHeadTailFreepgTail.u4Shift;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"Free page tail/head FID(0x%08x):0x%08x,The tail/head page of free page list=0x%03x/0x%03x\n",
 		prCr->rFreepgHeadTail.u4Addr,
 		pg_flow_ctrl[1], fpg_tail, fpg_head);
 
 	/* Flow-Control: Show PLE HIF Group information */
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"Reserved page counter of HIF group(0x%08x):0x%08x,status(0x%08x):0x%08x\n",
 		prCr->rPgHifGroup.u4Addr, pg_flow_ctrl[2],
 		prCr->rHifPgInfo.u4Addr, pg_flow_ctrl[3]);
@@ -3739,7 +3718,7 @@ void connac2x_show_ple_info(struct ADAPTER *prAdapter, u_int8_t fgDumpTxd)
 	       upg_hif, rpg_hif);
 
 	/* Flow-Control: Show PLE CPU Group information */
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"Reserved page counter of CPU group(0x%08x):0x%08x,status(0x%08x):0x%08x\n",
 		prCr->rPgCpuGroup.u4Addr, pg_flow_ctrl[4],
 		prCr->rCpuPgInfo.u4Addr, pg_flow_ctrl[5]);
@@ -3762,7 +3741,7 @@ void connac2x_show_ple_info(struct ADAPTER *prAdapter, u_int8_t fgDumpTxd)
 	       upg_cpu, rpg_cpu);
 
 	/* Flow-Control: Show PLE WMTXD Group information */
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"Reserved page counter of HIF_WMTXD group(0x%08x):0x%08x,status(0x%08x):0x%08x\n",
 	prCr->rPgHifWmtxdGroup.u4Addr, pg_flow_ctrl[8],
 	prCr->rHifWmtxdPgInfo.u4Addr, pg_flow_ctrl[9]);
@@ -3786,7 +3765,7 @@ void connac2x_show_ple_info(struct ADAPTER *prAdapter, u_int8_t fgDumpTxd)
 	       upg_cpu, rpg_cpu);
 
 	/* Flow-Control: Show PLE TXCMD Group information */
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"Reserved page counter of HIF_TXCMD group(0x%08x):0x%08x,status(0x%08x):0x%08x\n",
 	prCr->rPgHifTxcmdGroup.u4Addr, pg_flow_ctrl[6],
 	prCr->rHifTxcmdPgInfo.u4Addr, pg_flow_ctrl[7]);
@@ -3831,24 +3810,24 @@ void connac2x_show_ple_info(struct ADAPTER *prAdapter, u_int8_t fgDumpTxd)
 						i + (j % 6) * 32);
 				}
 			}
-			DBGLOG(HAL, DEBUG, "%s\n", buf);
+			DBGLOG(HAL, INFO, "%s\n", buf);
 		}
-		DBGLOG(HAL, DEBUG, ", ");
+		DBGLOG(HAL, INFO, ", ");
 	}
 
 	/* Queue Empty Status */
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"QUEUE_EMPTY(0x%08x):0x%08xTXD QUEUE_EMPTY(0x%08x):0x%08x\n",
 			prCr->rQueueEmpty.u4Addr, ple_empty,
 			prCr->rTxdQueueEmpty.u4Addr, ple_txd_empty);
 
 	/* Nonempty Queue Status */
-	DBGLOG(HAL, DEBUG, "Nonempty Q info:");
+	DBGLOG(HAL, INFO, "Nonempty Q info:");
 
 	for (i = 0; i < 31; i++) {
 		if (((ple_stat[0] & (0x1 << i)) >> i) == 0) {
 			if (ple_queue_empty_info[i].QueueName != NULL)
-				DBGLOG(HAL, DEBUG, "\t%s: ",
+				DBGLOG(HAL, INFO, "\t%s: ",
 					ple_queue_empty_info[i].QueueName);
 		}
 	}
@@ -3865,7 +3844,7 @@ void connac2x_show_ple_info(struct ADAPTER *prAdapter, u_int8_t fgDumpTxd)
 				if (((dis_sta_map[j % 6] & 0x1 << i) >> i) == 1)
 					ctrl = 1;
 
-				DBGLOG(HAL, DEBUG, "\tSTA%d AC%d: ctrl = %s",
+				DBGLOG(HAL, INFO, "\tSTA%d AC%d: ctrl = %s",
 				       sta_num, ac_num, sta_ctrl_reg[ctrl]);
 			}
 		}
@@ -3925,13 +3904,13 @@ void connac2x_show_pse_info(struct ADAPTER *prAdapter)
 	HAL_MCR_RD(prAdapter, prCr->rFsmPeekCr09.u4Addr, &pse_peek[9]);
 
 	/* Status Info */
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"PSE Int Status(0x%08x):0x%08x, PSE Error Status(0x%08x):0x%08x, PSE Error 1 Status(0x%08x):0x%08x\n",
 		prCr->rIntN9Sts.u4Addr, int_n9_sta,
 		prCr->rIntN9ErrSts.u4Addr, int_n9_err,
 		prCr->rIntN9Err1Sts.u4Addr, int_n9_err1);
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"00(0x%08x):0x%08x, 01(0x%08x):0x%08x, 02(0x%08x):0x%08x, 03(0x%08x):0x%08x, 04(0x%08x):0x%08x\n",
 		prCr->rFsmPeekCr00.u4Addr, pse_peek[0],
 		prCr->rFsmPeekCr01.u4Addr, pse_peek[1],
@@ -3939,7 +3918,7 @@ void connac2x_show_pse_info(struct ADAPTER *prAdapter)
 		prCr->rFsmPeekCr03.u4Addr, pse_peek[3],
 		prCr->rFsmPeekCr04.u4Addr, pse_peek[4]);
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"05(0x%08x):0x%08x, 06(0x%08x):0x%08x, 07(0x%08x):0x%08x, 08(0x%08x):0x%08x, 09(0x%08x):0x%08x\n",
 		prCr->rFsmPeekCr05.u4Addr, pse_peek[5],
 		prCr->rFsmPeekCr06.u4Addr, pse_peek[6],
@@ -3953,7 +3932,7 @@ void connac2x_show_pse_info(struct ADAPTER *prAdapter)
 	pg_num = (pse_buf_ctrl & prCr->rPbufCtrlTotalPageNum.u4Mask) >>
 		 prCr->rPbufCtrlTotalPageNum.u4Shift;
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"Packet Buffer Control(0x%08x): 0x%08x,Page Size=%d, Page Offset=%d, Total page=%d\n",
 		prCr->rPbufCtrl.u4Addr,
 		pse_buf_ctrl, pg_sz,
@@ -3969,7 +3948,7 @@ void connac2x_show_pse_info(struct ADAPTER *prAdapter)
 		prCr->rFreepgCntFfaCnt.u4Shift;
 
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"Free page counter(0x%08x): 0x%08x,The toal page number of free=0x%03x,The free page numbers of free for all=0x%03x\n",
 		prCr->rFreepgCnt.u4Addr, freepg_cnt,
 		fpg_cnt, ffa_cnt);
@@ -3982,7 +3961,7 @@ void connac2x_show_pse_info(struct ADAPTER *prAdapter)
 		prCr->rFreepgHeadTailFreepgTail.u4Mask) >>
 		prCr->rFreepgHeadTailFreepgTail.u4Shift;
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"Free page tail/head(0x%08x): 0x%08x,The tail/head page of free page list=0x%03x/0x%03x\n",
 		prCr->rFreepgHeadTail.u4Addr, freepg_head_tail,
 		fpg_tail, fpg_head);
@@ -3993,7 +3972,7 @@ void connac2x_show_pse_info(struct ADAPTER *prAdapter)
 		HAL_MCR_RD(prAdapter, group->quota_addr, &group_quota);
 		HAL_MCR_RD(prAdapter, group->pg_info_addr, &group_info);
 
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 		"Reserved page counter of %s group(0x%08x):0x%08x,status(0x%08x):0x%08x\n",
 		       group->name, group->quota_addr, group_quota,
 		       group->pg_info_addr, group_info);
@@ -4018,7 +3997,7 @@ void connac2x_show_pse_info(struct ADAPTER *prAdapter)
 	}
 
 	/* Queue Empty Status */
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"QUEUE_EMPTY(0x%08x):0x%08x,QUEUE_EMPTY_MASK(0x%08x):0x%08x\n",
 		prCr->rQueueEmpty.u4Addr, pse_stat,
 		prCr->rQueueEmpty.u4Mask, pse_stat_mask);
@@ -4101,11 +4080,11 @@ void connac2x_show_pse_info(struct ADAPTER *prAdapter)
 		prCr->rQueueEmptyRlsQEmtpy.u4Shift));
 
 	/* Nonempty Queue Status */
-	DBGLOG(HAL, DEBUG, "Nonempty Q info:");
+	DBGLOG(HAL, INFO, "Nonempty Q info:");
 	for (i = 0; i < 31; i++) {
 		if (((pse_stat & (0x1 << i)) >> i) == 0) {
 			if (pse_queue_empty_info[i].QueueName != NULL)
-				DBGLOG(HAL, DEBUG, "\t%s: ",
+				DBGLOG(HAL, INFO, "\t%s: ",
 				       pse_queue_empty_info[i].QueueName);
 		}
 	}
@@ -4145,14 +4124,14 @@ void connac2x_DumpWfsyscpupcr(struct ADAPTER *prAdapter)
 			    var_lp);
 	}
 
-	DBGLOG(HAL, DEBUG, "wm pc=%s%s%s%s%s\n",
+	DBGLOG(HAL, INFO, "wm pc=%s%s%s%s%s\n",
 	       log_buf_pc[0],
 	       log_buf_pc[1],
 	       log_buf_pc[2],
 	       log_buf_pc[3],
 	       log_buf_pc[4]);
 
-	DBGLOG(HAL, DEBUG, "wm lp=%s%s%s%s%s\n",
+	DBGLOG(HAL, INFO, "wm lp=%s%s%s%s%s\n",
 	       log_buf_lp[0],
 	       log_buf_lp[1],
 	       log_buf_lp[2],

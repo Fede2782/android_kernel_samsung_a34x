@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -258,55 +258,55 @@ void mt7915DumpSerDummyCR(
 {
 	uint32_t u4MacVal;
 
-	TRACE_FUNC(HAL, DEBUG, "%s\n");
+	DBGLOG(HAL, INFO, "%s\n", __func__);
 
-	DBGLOG(HAL, DEBUG, "=====Dump Start====\n");
+	DBGLOG(HAL, INFO, "=====Dump Start====\n");
 
 	HAL_MCR_RD(prAdapter, WF_SW_DEF_CR_SER_STATUS_ADDR, &u4MacVal);
-	DBGLOG(HAL, DEBUG, "SER STATUS[0x%08x]: 0x%08x\n",
+	DBGLOG(HAL, INFO, "SER STATUS[0x%08x]: 0x%08x\n",
 		WF_SW_DEF_CR_SER_STATUS_ADDR, u4MacVal);
 
 	HAL_MCR_RD(prAdapter, WF_SW_DEF_CR_PLE_STATUS_ADDR, &u4MacVal);
-	DBGLOG(HAL, DEBUG, "PLE STATUS[0x%08x]: 0x%08x\n",
+	DBGLOG(HAL, INFO, "PLE STATUS[0x%08x]: 0x%08x\n",
 		WF_SW_DEF_CR_PLE_STATUS_ADDR, u4MacVal);
 
 	HAL_MCR_RD(prAdapter, WF_SW_DEF_CR_PLE1_STATUS_ADDR, &u4MacVal);
-	DBGLOG(HAL, DEBUG, "PLE1 STATUS[0x%08x]: 0x%08x\n",
+	DBGLOG(HAL, INFO, "PLE1 STATUS[0x%08x]: 0x%08x\n",
 		WF_SW_DEF_CR_PLE1_STATUS_ADDR, u4MacVal);
 
 	HAL_MCR_RD(prAdapter, WF_SW_DEF_CR_PLE_AMSDU_STATUS_ADDR, &u4MacVal);
-	DBGLOG(HAL, DEBUG, "PLE AMSDU STATUS[0x%08x]: 0x%08x\n",
+	DBGLOG(HAL, INFO, "PLE AMSDU STATUS[0x%08x]: 0x%08x\n",
 		WF_SW_DEF_CR_PLE_AMSDU_STATUS_ADDR, u4MacVal);
 
 	HAL_MCR_RD(prAdapter, WF_SW_DEF_CR_PSE_STATUS_ADDR, &u4MacVal);
-	DBGLOG(HAL, DEBUG, "PSE STATUS[0x%08x]: 0x%08x\n",
+	DBGLOG(HAL, INFO, "PSE STATUS[0x%08x]: 0x%08x\n",
 		WF_SW_DEF_CR_PSE_STATUS_ADDR, u4MacVal);
 
 	HAL_MCR_RD(prAdapter, WF_SW_DEF_CR_PSE1_STATUS_ADDR, &u4MacVal);
-	DBGLOG(HAL, DEBUG, "PSE1 STATUS[0x%08x]: 0x%08x\n",
+	DBGLOG(HAL, INFO, "PSE1 STATUS[0x%08x]: 0x%08x\n",
 		WF_SW_DEF_CR_PSE1_STATUS_ADDR, u4MacVal);
 
 	HAL_MCR_RD(prAdapter, WF_SW_DEF_CR_LAMC_WISR6_BN0_STATUS_ADDR,
 			&u4MacVal);
-	DBGLOG(HAL, DEBUG, "LMAC WISR6 BN0 STATUS[0x%08x]: 0x%08x\n",
+	DBGLOG(HAL, INFO, "LMAC WISR6 BN0 STATUS[0x%08x]: 0x%08x\n",
 		WF_SW_DEF_CR_LAMC_WISR6_BN0_STATUS_ADDR, u4MacVal);
 
 	HAL_MCR_RD(prAdapter, WF_SW_DEF_CR_LAMC_WISR6_BN1_STATUS_ADDR,
 			&u4MacVal);
-	DBGLOG(HAL, DEBUG, "LMAC WISR6 BN1 STATUS[0x%08x]: 0x%08x\n",
+	DBGLOG(HAL, INFO, "LMAC WISR6 BN1 STATUS[0x%08x]: 0x%08x\n",
 		WF_SW_DEF_CR_LAMC_WISR6_BN1_STATUS_ADDR, u4MacVal);
 
 	HAL_MCR_RD(prAdapter, WF_SW_DEF_CR_LAMC_WISR7_BN0_STATUS_ADDR,
 			&u4MacVal);
-	DBGLOG(HAL, DEBUG, "LMAC WISR7 BN0 STATUS[0x%08x]: 0x%08x\n",
+	DBGLOG(HAL, INFO, "LMAC WISR7 BN0 STATUS[0x%08x]: 0x%08x\n",
 		WF_SW_DEF_CR_LAMC_WISR7_BN0_STATUS_ADDR, u4MacVal);
 
 	HAL_MCR_RD(prAdapter, WF_SW_DEF_CR_LAMC_WISR7_BN1_STATUS_ADDR,
 			&u4MacVal);
-	DBGLOG(HAL, DEBUG, "LMAC WISR7 BN1 STATUS[0x%08x]: 0x%08x\n",
+	DBGLOG(HAL, INFO, "LMAC WISR7 BN1 STATUS[0x%08x]: 0x%08x\n",
 		WF_SW_DEF_CR_LAMC_WISR7_BN1_STATUS_ADDR, u4MacVal);
 
-	DBGLOG(HAL, DEBUG, "=====Dump End====\n");
+	DBGLOG(HAL, INFO, "=====Dump End====\n");
 
 }
 
@@ -545,7 +545,6 @@ struct mt66xx_chip_info mt66xx_chip_info_mt7915 = {
 	.patch_addr = MT7915_PATCH_START_ADDR,
 	.is_support_cr4 = FALSE,
 	.is_support_wacpu = TRUE,
-	.sw_sync_emi_info = NULL,
 	.txd_append_size = MT7915_TX_DESC_APPEND_LENGTH,
 	.rxd_size = MT7915_RX_DESC_LENGTH,
 	.init_evt_rxd_size = MT7915_RX_DESC_LENGTH,

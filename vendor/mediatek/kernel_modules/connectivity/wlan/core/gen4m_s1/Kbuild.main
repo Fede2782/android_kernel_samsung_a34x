@@ -212,6 +212,9 @@ ifneq ($(findstring tb8791tp1_64_titan_javan_tiger, $(CONFIG_ARCH_MTK_PROJECT)),
 ccflags-y += -DCONFIG_MTK_WIFI_HE80
 $(info enable HE80 for $(CONFIG_ARCH_MTK_PROJECT))
 endif
+ifneq ($(filter m53%, $(PROJECT_NAME)),)
+ccflags-y += -DCONFIG_MTK_N22_DOMAIN_CH
+endif
 ifneq ($(findstring k6877ttv1_64_titan_black_tiger, $(CONFIG_ARCH_MTK_PROJECT)),)
 ccflags-y += -DCONFIG_MTK_LATEST_DOMAIN_CH
 else ifneq ($(findstring tb8791tp1_64_titan_javan_tiger, $(CONFIG_ARCH_MTK_PROJECT)),)

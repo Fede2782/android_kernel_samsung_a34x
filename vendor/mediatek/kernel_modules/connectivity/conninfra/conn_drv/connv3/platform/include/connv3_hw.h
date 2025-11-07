@@ -114,9 +114,12 @@ unsigned int connv3_hw_get_adie_chipid(void);
  */
 unsigned int connv3_hw_get_reset_type_support(void);
 
-unsigned int connv3_hw_get_connsys_ic_info(uint8_t *buf, u32 buf_sz);
-unsigned int connv3_hw_get_pmic_ic_info(uint8_t *buf, u32 buf_sz);
-unsigned int connv3_hw_get_connsys_adie_ic_info(uint8_t *buf, u32 buf_sz);
+/* Get IC info
+ */
+int connv3_hw_get_connsys_ic_info(uint8_t *buf, u32 buf_sz);
+int connv3_hw_get_pmic_ic_info(uint8_t *buf, u32 buf_sz);
+int connv3_hw_get_connsys_adie_ic_info(uint8_t *buf, u32 buf_sz);
+
 unsigned int connv3_hw_pre_cal_blocking_enable(void);
 
 int connv3_hw_bus_dump(enum connv3_drv_type drv_type, struct connv3_cr_cb *cb);

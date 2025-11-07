@@ -26,10 +26,6 @@
 #include "coda/mt6653/conn_rgu_on.h"
 #include "coda/mt6653/conn_wt_slp_ctl_reg.h"
 
-
-#define MAX_REG_DUMP_NUM		48
-#define REG_DUMP_ARRAY_SIZE		(MAX_REG_DUMP_NUM*9+16)
-
 struct dump_cr_set {
 	u_int8_t read;
 	uint32_t addr;

@@ -16,6 +16,7 @@
 #include <linux/types.h>
 #include <linux/list.h>
 #include <linux/clk.h>
+#include <linux/cpufreq.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
@@ -1012,6 +1013,8 @@ struct mtk_vcodec_dev {
 	unsigned int iommu_domain_swtich;
 	enum venc_lock enc_hw_locked[MTK_VENC_HW_NUM];
 	unsigned int svp_mtee;
+
+	struct freq_qos_request *freq_min_request;
 };
 
 static inline struct mtk_vcodec_ctx *fh_to_ctx(struct v4l2_fh *fh)

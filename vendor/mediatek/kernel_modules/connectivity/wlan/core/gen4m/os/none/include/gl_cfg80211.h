@@ -442,16 +442,6 @@ int mtk_cfg_change_iface(struct wiphy *wiphy,
 			 enum nl80211_iftype type, u32 *flags,
 			 struct vif_params *params);
 #endif
-
-#if (KERNEL_VERSION(6, 0, 0) <= CFG80211_VERSION_CODE) && \
-	(CFG_SUPPORT_802_11BE_MLO == 1)
-int mtk_cfg_add_intf_link(struct wiphy *wiphy,
-	struct wireless_dev *wdev, unsigned int link_id);
-
-void mtk_cfg_del_intf_link(struct wiphy *wiphy,
-	struct wireless_dev *wdev, unsigned int link_id);
-#endif
-
 int mtk_cfg_add_key(struct wiphy *wiphy,
 		    struct net_device *ndev, u8 key_index,
 		    bool pairwise, const u8 *mac_addr,

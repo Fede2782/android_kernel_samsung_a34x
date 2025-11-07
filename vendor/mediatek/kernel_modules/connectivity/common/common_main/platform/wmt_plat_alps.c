@@ -1720,7 +1720,7 @@ INT32 wmt_plat_set_host_dump_state(ENUM_HOST_DUMP_STATE state)
 	return 0;
 }
 
-UINT32 wmt_plat_force_trigger_assert(ENUM_FORCE_TRG_ASSERT_T type)
+INT32 wmt_plat_force_trigger_assert(ENUM_FORCE_TRG_ASSERT_T type)
 {
 	PUINT8 p_virtual_addr = NULL;
 

@@ -25,6 +25,15 @@
 
 
 #include <linux/interrupt.h>
+#if IS_ENABLED(CONFIG_MALI_MTK_GPU_FREQUENCY_TRACE)
+#ifdef CONFIG_TRACE_POWER_GPU_FREQUENCY
+#include <trace/events/power_gpu_frequency.h>
+#else
+#include "mali_power_gpu_frequency_trace.h"
+#endif
+
+#include <mtk_gpufreq.h>
+#endif /* CONFIG_MALI_MTK_GPU_FREQUENCY_TRACE */
 
 #if IS_ENABLED(CONFIG_MALI_REAL_HW)
 static void *kbase_tag(void *ptr, u32 tag)
@@ -148,6 +157,19 @@ static irqreturn_t kbase_gpuonly_irq_handler(int irq, void *data)
 static irqreturn_t kbase_gpu_irq_handler(int irq, void *data)
 {
 	irqreturn_t irq_state = kbase_gpuonly_irq_handler(irq, data);
+#if IS_ENABLED(CONFIG_MALI_MTK_GPU_FREQUENCY_TRACE)
+	{
+		static unsigned int last_gpufreq = 0;
+		unsigned int cur_gpufreq = 0;
+
+		cur_gpufreq = gpufreq_get_cur_freq(TARGET_DEFAULT);
+		if (cur_gpufreq != last_gpufreq) {
+			last_gpufreq = cur_gpufreq;
+			trace_gpu_frequency(cur_gpufreq, 0);
+		}
+	}
+#endif /* CONFIG_MALI_MTK_GPU_FREQUENCY_TRACE*/
+
 	return irq_state;
 }
 

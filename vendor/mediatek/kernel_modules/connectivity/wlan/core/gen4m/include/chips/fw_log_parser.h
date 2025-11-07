@@ -13,12 +13,6 @@
 #define VER_TYPE_CTRL		1
 #define VER_TYPE_TXT_LOG	2
 
-enum ENUM_FW_IDX_LOG_SAVE_CFG {
-	FW_IDX_LOG_SAVE_DISABLE = 0,
-	FW_IDX_LOG_SAVE_ONLY,
-	FW_IDX_LOG_SAVE_WITH_PRINT
-};
-
 struct FW_LOG_IDX_DATA {
 	/* FW Log Info Bin Data */
 	void *prFwBuffer;

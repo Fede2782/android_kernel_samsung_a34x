@@ -96,8 +96,8 @@ endif
 WM_RAM ?= ce
 
 # Define maximum different channels supported for ieee80211_iface_combination setting.
-#CFG_NUM_DIFFERENT_CHANNELS_STA=1
-#CFG_NUM_DIFFERENT_CHANNELS_P2P=1
+CFG_NUM_DIFFERENT_CHANNELS_STA=1
+CFG_NUM_DIFFERENT_CHANNELS_P2P=1
 
 # Define initial driver running mode.
 # 0=RUNNING_P2P_MODE, 1=RUNNING_AP_MODE, 2=RUNNING_DUAL_AP_MODE, 3=RUNNING_P2P_AP_MODE

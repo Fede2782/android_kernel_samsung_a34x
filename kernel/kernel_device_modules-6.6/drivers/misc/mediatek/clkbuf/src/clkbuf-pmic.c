@@ -520,36 +520,44 @@ FAIL2:
 
 }
 
-static int set_capid_pre1(void *data)
+static int set_capid_pre1(void *data, int aac)
 {
 	struct plat_xodata *pd;
-	struct common_regs *com_regs;
 	struct clkbuf_hw hw;
 	struct reg_t reg;
 	int ret = 0;
+	int val = 0;
 
 	pd = (struct plat_xodata *)data;
-	if (!pd)
-		return -EREG_NOT_SUPPORT;
-
-	com_regs = pd->common_regs;
-	if (!com_regs)
+	if (!pd || !pd->common_regs)
 		return -EREG_NOT_SUPPORT;
 
 	hw = pd->hw;
-	reg = com_regs->_aac_fpm_swen;
+	reg = pd->common_regs->_aac_fpm_swen;
 
-	ret |= pmic_write(&hw, &reg, 0);
-	mdelay(1);
-	ret |= pmic_write(&hw, &reg, 1);
-	if (ret) {
-		CLKBUF_DBG("set aac fpm swen failed\n");
-		return ret;
+	if (aac) {
+		ret |= pmic_read(&hw, &reg, &val);
+		val &= ~0x1F;
+		val |= aac;
+		ret |= pmic_write(&hw, &reg, val);
+		mdelay(1);
+		val |= (1 << 5);
+		ret |= pmic_write(&hw, &reg, val);
+	} else {
+		val &= ~(1 << 6);
+		ret |= pmic_write(&hw, &reg, val);
+		mdelay(1);
+		val |= (1 << 6);
+		ret |= pmic_write(&hw, &reg, val);
+		mdelay(5);
 	}
-	mdelay(5);
+
+	if (ret)
+		CLKBUF_DBG("set aac fpm swen failed(capid:%d)\n", aac);
 
 	return ret;
 }
+
 
 static int set_capid_pre2(void *data, int capid)
 {
@@ -615,6 +623,37 @@ static int set_capid_lv1(void *data, int capid)
 	return ret;
 }
 
+static int get_aac(void *data, u32 *acc)
+{
+	int ret = 0;
+	int val = 0;
+	struct plat_xodata *pd;
+	struct clkbuf_hw hw;
+	struct reg_t reg;
+
+	pd = (struct plat_xodata *)data;
+	if (!pd || !pd->common_regs)
+		return -EREG_NOT_SUPPORT;
+
+	hw = pd->hw;
+	reg = pd->common_regs->_static_aux_sel;
+
+	ret |= pmic_read(&hw, &reg, &val);
+	val &= ~0x7F;
+	val |= 5;
+	ret |= pmic_write(&hw, &reg, val);
+
+	reg = pd->common_regs->_xo_en_auxout;
+	ret |= pmic_read(&hw, &reg, acc);
+	*acc &= 0x1F;
+	if (!ret)
+		CLKBUF_DBG("get aac 0x%x\n", *acc);
+	else
+		CLKBUF_ERR("get aac failed\n");
+
+	return ret;
+}
+
 static int get_capid(void *data, u32 *capid)
 {
 	int ret = 0;
@@ -643,46 +682,39 @@ static int get_capid(void *data, u32 *capid)
 	return ret;
 }
 
-static int set_heater(void *data, int on)
+static int set_heater(void *data, unsigned int level)
 {
 	int ret = 0;
+	int val = 0;
 	struct plat_xodata *pd;
-	struct common_regs *com_regs;
 	struct clkbuf_hw hw;
 	struct reg_t reg;
 
-	pd = (struct plat_xodata *)data;
-	if (!pd)
-		return -EREG_NOT_SUPPORT;
+	if (level > 3)
+		return -1;
 
-	com_regs = pd->common_regs;
-	if (!com_regs)
+	pd = (struct plat_xodata *)data;
+	if (!pd || !pd->common_regs)
 		return -EREG_NOT_SUPPORT;
 
 	hw = pd->hw;
-	reg = com_regs->_heater_sel;
+	reg = pd->common_regs->_heater_sel;
 
+	pmic_read(&hw, &reg, &val);
 
-	if (on) {
-		ret = pmic_write(&hw, &reg, 2);
-		if (ret) {
-			CLKBUF_DBG("switch on heater failed\n");
-			return ret;
-		}
-	} else {
-		ret = pmic_write(&hw, &reg, 0);
-		if (ret) {
-			CLKBUF_DBG("switch off heater failed\n");
-			return ret;
-		}
-	}
+	val &= ~0x3;
+	val |= level;
+
+	ret = pmic_write(&hw, &reg, val);
+
+	if (ret)
+		CLKBUF_DBG("switch heater failed(0x%x)\n", level);
 
 	return ret;
 }
 
-static int get_heater(void *data, u32 *on)
+static int get_heater(void *data, u32 *level)
 {
-	u32 heat_sel;
 	int ret = 0;
 	struct plat_xodata *pd;
 	struct common_regs *com_regs;
@@ -700,16 +732,12 @@ static int get_heater(void *data, u32 *on)
 	hw = pd->hw;
 	reg = com_regs->_heater_sel;
 
-	ret = pmic_read(&hw, &reg, &heat_sel);
+	ret = pmic_read(&hw, &reg, level);
 	if (ret) {
 		CLKBUF_DBG("get heat sel failed\n");
 		return ret;
 	}
-	CLKBUF_DBG("get heat sel 0x%x\n", heat_sel);
-	if (!heat_sel)
-		*on = false;
-	else
-		*on = true;
+	CLKBUF_DBG("get heat sel 0x%x\n", *level);
 
 	return ret;
 }
@@ -999,8 +1027,14 @@ WRITE_FAIL:
 
 static int __get_pmic_common_hdlr(void *data, char *buf, int len)
 {
-	u32 out;
+	u32 out = 0;
 	int ret = 0;
+
+	/****AAC****/
+	ret = get_aac(data, &out);
+	if (ret)
+		return len;
+	len += snprintf(buf + len, PAGE_SIZE - len, "aac: <%d>\n", out);
 
 	/****CAPID****/
 	ret = get_capid(data, &out);
@@ -1026,7 +1060,7 @@ static int __set_pmic_common_hdlr(void *data, int cmd, int arg, int perms)
 	CLKBUF_DBG("cmd: %x, arg: %x\n", cmd, arg);
 	switch (cmd) {
 	case SET_CAPID_PRE_1: // = 0x1000,
-		ret = set_capid_pre1(data);
+		ret |= set_capid_pre1(data, arg);
 		if (ret)
 			goto WRITE_FAIL;
 		break;
@@ -1043,7 +1077,7 @@ static int __set_pmic_common_hdlr(void *data, int cmd, int arg, int perms)
 		break;
 
 	case SET_CAPID: // = 0x4000,
-		ret |= set_capid_pre1(data);
+		ret |= set_capid_pre1(data, 0);
 		ret |= set_capid_pre2(data, arg);
 		if (ret)
 			goto WRITE_FAIL;

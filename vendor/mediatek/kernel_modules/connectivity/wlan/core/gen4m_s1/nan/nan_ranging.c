@@ -189,7 +189,7 @@ nanRangingInstanceInit(struct ADAPTER *prAdapter,
 
 	cnmTimerInitTimer(prAdapter,
 			  &(prRanging->ranging_ctrl.rRangingSessionTimer),
-			  (PFN_MGMT_TIMEOUT_FUNC)nanRangingSessionTimeout,
+			  nanRangingSessionTimeout,
 			  (uintptr_t)prRanging);
 
 	nanRangingFsmStep(prAdapter, prRanging, RANGING_STATE_INIT);

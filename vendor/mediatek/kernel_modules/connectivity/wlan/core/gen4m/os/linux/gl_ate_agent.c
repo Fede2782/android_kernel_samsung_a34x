@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -163,7 +163,7 @@ int Set_ResetStatCounter_Proc(struct net_device *prNetDev,
 {
 	int32_t i4Status;
 
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 	       "ATE_AGENT iwpriv Set_ResetStatCounter_Proc\n");
 
 	i4Status = MT_ATEResetTXRXCounter(prNetDev);
@@ -191,36 +191,34 @@ int SetATE(struct net_device *prNetDev, uint8_t *prInBuf)
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv %s\n", __func__);
+	DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetATE\n");
 
 	if (!strcmp(prInBuf, "ATESTART")) {
-		DBGLOG(REQ, DEBUG,
-		       "ATE_AGENT iwpriv %s - ATESTART\n", __func__);
+		DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetATE - ATESTART\n");
 		i4Status = MT_ATEStart(prNetDev, prInBuf);
 	} else if (!strcmp(prInBuf, "ICAPSTART")) {
-		DBGLOG(REQ, DEBUG,
-		       "ATE_AGENT iwpriv %s - ICAPSTART\n", __func__);
+		DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetATE - ICAPSTART\n");
 		i4Status = MT_ICAPStart(prNetDev, prInBuf);
 	} else if (prInBuf[0] == '1' || prInBuf[0] == '2'
 		   || prInBuf[0] == '3' || prInBuf[0] == '4'
 		   || prInBuf[0] == '5' || prInBuf[0] == '6') {
-		DBGLOG(REQ, DEBUG,
+		DBGLOG(REQ, INFO,
 		       "ATE_AGENT iwpriv SetATE - ICAP COMMAND\n");
 		i4Status = MT_ICAPCommand(prNetDev, prInBuf);
 	} else if (!strcmp(prInBuf, "ATESTOP")) {
-		DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv %s - ATESTOP\n", __func__);
+		DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetATE - ATESTOP\n");
 		i4Status = MT_ATEStop(prNetDev, prInBuf);
 	} else if (!strcmp(prInBuf, "TXFRAME")) {
-		DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv %s - TXFRAME\n", __func__);
+		DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetATE - TXFRAME\n");
 		i4Status = MT_ATEStartTX(prNetDev, prInBuf);
 	} else if (!strcmp(prInBuf, "TXSTOP")) {
-		DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv %s - TXSTOP\n", __func__);
+		DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetATE - TXSTOP\n");
 		i4Status = MT_ATEStopTX(prNetDev, prInBuf);
 	} else if (!strcmp(prInBuf, "RXFRAME")) {
-		DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv %s - RXFRAME\n", __func__);
+		DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetATE - RXFRAME\n");
 		i4Status = MT_ATEStartRX(prNetDev, prInBuf);
 	} else if (!strcmp(prInBuf, "RXSTOP")) {
-		DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv %s - RXSTOP\n", __func__);
+		DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetATE - RXSTOP\n");
 		i4Status = MT_ATEStopRX(prNetDev, prInBuf);
 	} else {
 		return -EINVAL;
@@ -343,7 +341,7 @@ int SetATEChannel(struct net_device *prNetDev,
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv SetChannel\n");
+	DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetChannel\n");
 
 	rv = kstrtoint(prInBuf, 0, &i4SetChan);
 	if (rv == 0) {
@@ -377,7 +375,7 @@ int SetATETxPower0(struct net_device *prNetDev,
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv SetTxPower0\n");
+	DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetTxPower0\n");
 
 	rv = kstrtoint(prInBuf, 0, &i4SetTxPower0);
 	if (rv == 0)
@@ -410,7 +408,7 @@ int SetATETxGi(struct net_device *prNetDev,
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv SetTxGi\n");
+	DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetTxGi\n");
 
 	rv = kstrtoint(prInBuf, 0, &i4SetTxGi);
 	if (rv == 0)
@@ -443,7 +441,7 @@ int SetATETxBw(struct net_device *prNetDev,
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv SetSystemBW\n");
+	DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetSystemBW\n");
 
 	rv = kstrtoint(prInBuf, 0, &i4SetSystemBW);
 	if (rv == 0)
@@ -476,7 +474,7 @@ int SetATETxMode(struct net_device *prNetDev,
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv SetTxMode\n");
+	DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetTxMode\n");
 
 	rv = kstrtoint(prInBuf, 0, &i4SetTxMode);
 	if (rv == 0)
@@ -509,7 +507,7 @@ int SetATETxLength(struct net_device *prNetDev,
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv SetTxLength\n");
+	DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetTxLength\n");
 
 	rv = kstrtoint(prInBuf, 0, &i4SetTxLength);
 	if (rv == 0)
@@ -543,7 +541,7 @@ int SetATETxCount(struct net_device *prNetDev,
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv SetTxCount\n");
+	DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetTxCount\n");
 
 	rv = kstrtoint(prInBuf, 0, &i4SetTxCount);
 	if (rv == 0)
@@ -579,7 +577,7 @@ int SetATETxMcs(struct net_device *prNetDev,
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv SetTxMcs\n");
+	DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetTxMcs\n");
 
 	rv = kstrtoint(prInBuf, 0, &i4SetTxMcs);
 	if (rv == 0)
@@ -611,7 +609,7 @@ int SetATEIpg(struct net_device *prNetDev, uint8_t *prInBuf)
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv SetIpg\n");
+	DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetIpg\n");
 
 	rv = kstrtoint(prInBuf, 0, &i4SetTxIPG);
 	if (rv == 0)
@@ -643,7 +641,7 @@ int SetATETxVhtNss(struct net_device *prNetDev, uint8_t *prInBuf)
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv %s\n", __func__);
+	DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetATETxVhtNss\n");
 
 	rv = kstrtoint(prInBuf, 0, &i4SetTVhtNSS);
 	if (rv == 0)
@@ -676,7 +674,7 @@ int SetATETxPath(struct net_device *prNetDev, uint8_t *prInBuf)
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv %s\n", __func__);
+	DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetATETxPath\n");
 
 	rv = kstrtoint(prInBuf, 0, &i4TxPath);
 	if (rv == 0)
@@ -708,7 +706,7 @@ int SetATERxPath(struct net_device *prNetDev, uint8_t *prInBuf)
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv %s\n", __func__);
+	DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetATERxPath\n");
 
 	rv = kstrtoint(prInBuf, 0, &i4RxPath);
 	if (rv == 0)
@@ -741,11 +739,11 @@ int SetATEAntSwp(struct net_device *prNetDev, uint8_t *prInBuf)
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv SetAntSwp\n");
+	DBGLOG(REQ, INFO, "ATE_AGENT iwpriv SetAntSwp\n");
 
 	rv = kstrtoint(prInBuf, 0, &i4SetAntSwp);
 	if (rv == 0) {
-		DBGLOG(REQ, DEBUG, "i4SetAntSwp = %d\n", i4SetAntSwp);
+		DBGLOG(REQ, INFO, "i4SetAntSwp = %d\n", i4SetAntSwp);
 		i4Status = MT_ATESetAntSwap(prNetDev, i4SetAntSwp);
 	} else
 		return -EINVAL;
@@ -1269,11 +1267,11 @@ int Set_TxBfProfileTagPartialBw(struct net_device *prNetDev,
 	int32_t i4Status = 0;
 	int32_t rv;
 
-	TRACE_FUNC(RFTEST, DEBUG, "%s\n");
+	DBGLOG(RFTEST, INFO, "Set_TxBfProfileTagPartialBw\n");
 
 	rv = sscanf(prInBuf, "%x:%x", &uBitmap, &uResolution);
 	if (rv == 2) {
-		DBGLOG(RFTEST, DEBUG,
+		DBGLOG(RFTEST, INFO,
 		       "Set_TxBfProfileTagPartialBw prInBuf = %s, u4Bitmap = %d, u4Resolution = %d\n",
 		       prInBuf, uBitmap, uResolution);
 		i4Status = TxBfProfileTagPartialBw(prNetDev, &g_rPfmuTag1,
@@ -1292,11 +1290,11 @@ int Set_TxBfProfileTag_BandIdx(struct net_device *prNetDev,
 	int32_t i4Status = 0;
 	int32_t rv;
 
-	TRACE_FUNC(RFTEST, DEBUG, "%s\n");
+	DBGLOG(RFTEST, INFO, "Set_TxBfProfileTag_BandIdx\n");
 
 	rv = kstrtoint(prInBuf, 0, &uBandIdx);
 	if (rv == 0) {
-		DBGLOG(RFTEST, DEBUG,
+		DBGLOG(RFTEST, INFO,
 		       "Set_TxBfProfileTag_BandIdx prInBuf = %s, uBandIdx = %d\n",
 		       prInBuf, uBandIdx);
 		i4Status = TxBfProfileTag_BandIdx(prNetDev, uBandIdx);
@@ -1908,7 +1906,7 @@ int Set_StaRecBfRead(struct net_device *prNetDev,
 	int32_t i4Status = 0;
 	uint32_t u4BufLen = 0;
 
-	TRACE_FUNC(RFTEST, DEBUG, "%s\n");
+	DBGLOG(RFTEST, INFO, "Set_StaRecBfRead\n");
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
 	rv = sscanf(prInBuf, "%x", &u2WlanId);
@@ -2736,12 +2734,12 @@ int WriteEfuse(struct net_device *prNetDev,
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv %s, buf: %s\n", __func__,
+	DBGLOG(REQ, INFO, "ATE_AGENT iwpriv WriteEfuse, buf: %s\n",
 	       prInBuf);
 
 	rv = sscanf(prInBuf, "%x:%x", &addr[0], &addr[1]);
 
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 	       "ATE_AGENT iwpriv WriteEfuse, prInBuf: %s\n", prInBuf);
 	DBGLOG(INIT, ERROR,
 	       "ATE_AGENT iwpriv WriteEfuse :%02x:%02x\n", addr[0],
@@ -2779,7 +2777,7 @@ int SetTxTargetPower(struct net_device *prNetDev,
 	int addr;
 	uint8_t addr2;
 
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 	       "ATE_AGENT iwpriv Set Tx Target Power, buf: %s\n", prInBuf);
 
 	if (prInBuf == NULL)
@@ -2788,7 +2786,7 @@ int SetTxTargetPower(struct net_device *prNetDev,
 	/* rv = sscanf(prInBuf, "%u", &addr);*/
 	rv = kstrtoint(prInBuf, 0, &addr);
 
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 	       "ATE_AGENT iwpriv Set Tx Target Power, prInBuf: %s\n",
 	       prInBuf);
 	DBGLOG(INIT, ERROR,
@@ -2828,13 +2826,13 @@ int SetRddReport(struct net_device *prNetDev,
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 	       "ATE_AGENT iwpriv Set RDD Report, buf: %s\n", prInBuf);
 
 	/* rv = sscanf(prInBuf, "%u", &addr);*/
 	rv = kstrtoint(prInBuf, 0, &dbdcIdx);
 
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 	       "ATE_AGENT iwpriv Set RDD Report, prInBuf: %s\n", prInBuf);
 	DBGLOG(INIT, ERROR,
 	       "ATE_AGENT iwpriv Set RDD Report : Band %d\n", dbdcIdx);
@@ -2886,12 +2884,12 @@ int SetByPassCac(struct net_device *prNetDev,
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 	       "ATE_AGENT iwpriv Set By Pass Cac, buf: %s\n", prInBuf);
 
 	rv = kstrtoint(prInBuf, 0, &i4ByPassCacTime);
 
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 	       "ATE_AGENT iwpriv Set By Pass Cac, prInBuf: %s\n", prInBuf);
 	DBGLOG(INIT, ERROR,
 	       "ATE_AGENT iwpriv Set By Pass Cac : %dsec\n",
@@ -2937,13 +2935,13 @@ int SetRadarDetectMode(struct net_device *prNetDev,
 	if (prInBuf == NULL)
 		return -EINVAL;
 
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 	       "ATE_AGENT iwpriv Set Radar Detect Mode, buf: %s\n",
 	       prInBuf);
 
 	rv = kstrtoint(prInBuf, 0, &radarDetectMode);
 
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 	       "ATE_AGENT iwpriv Set Radar Detect Mode, prInBuf: %s\n",
 	       prInBuf);
 	DBGLOG(INIT, ERROR,
@@ -3005,14 +3003,14 @@ int AteCmdSetHandle(struct net_device *prNetDev,
 			continue;
 		DBGLOG(RFTEST, ERROR, "ATE_AGENT iwpriv this_char = %s\n",
 		       this_char);
-		DBGLOG(RFTEST, DEBUG, "ATE_AGENT iwpriv this_char = %s\n",
+		DBGLOG(RFTEST, INFO, "ATE_AGENT iwpriv this_char = %s\n",
 		       this_char);
 
 		value = strchr(this_char, '=');
 		if (value != NULL)
 			*value++ = 0;
 
-		DBGLOG(REQ, DEBUG, "ATE_AGENT iwpriv cmd = %s, value = %s\n",
+		DBGLOG(REQ, INFO, "ATE_AGENT iwpriv cmd = %s, value = %s\n",
 		       this_char, value);
 
 		for (prAtePrivCmd = rAtePrivCmdTable; prAtePrivCmd->name;

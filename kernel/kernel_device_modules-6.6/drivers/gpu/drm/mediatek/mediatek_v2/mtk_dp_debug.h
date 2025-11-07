@@ -15,6 +15,34 @@ int mtk_dp_debugfs_init(void);
 void mtk_dp_debugfs_deinit(void);
 #endif
 
+#if IS_ENABLED(CONFIG_SEC_DISPLAYPORT) && IS_ENABLED(CONFIG_SEC_DISPLAYPORT_LOGGER)
+extern void mtk_dp_logger_print(const char *fmt, ...);
+
+#define DPTXFUNC(fmt, arg...)		\
+	pr_info("[DPTX][%s line:%d]"pr_fmt(fmt), __func__, __LINE__, ##arg)
+
+#define DPTXDBG(fmt, arg...)              \
+	do {                                 \
+		if (mtk_dp_debug_get()) {                 \
+			pr_info("[DPTX]"pr_fmt(fmt), ##arg);     \
+			mtk_dp_logger_print(fmt, ##arg);	\
+		}	\
+	} while (0)
+
+#define DPTXMSG(fmt, arg...)                                  \
+	do {                                 \
+		pr_info("[DPTX]"pr_fmt(fmt), ##arg);	\
+		mtk_dp_logger_print(fmt, ##arg);	\
+	} while (0)
+
+#define DPTXERR(fmt, arg...)                                   \
+	do {                                 \
+		pr_err("[DPTX][ERROR]"pr_fmt(fmt), ##arg);	\
+		mtk_dp_logger_print(fmt, ##arg);	\
+	} while (0)
+
+#else //CONFIG_SEC_DISPLAYPORT_LOGGER
+
 #define DPTXFUNC(fmt, arg...)		\
 	pr_info("[DPTX][%s line:%d]"pr_fmt(fmt), __func__, __LINE__, ##arg)
 
@@ -29,7 +57,7 @@ void mtk_dp_debugfs_deinit(void);
 
 #define DPTXERR(fmt, arg...)                                   \
 		pr_err("[DPTX][ERROR]"pr_fmt(fmt), ##arg)
-
+#endif
 
 #endif
 

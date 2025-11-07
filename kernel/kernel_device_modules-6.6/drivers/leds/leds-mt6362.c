@@ -876,6 +876,8 @@ static ssize_t mt6362_strobe_store(struct flashlight_arg arg)
 	struct led_classdev_flash *flcdev;
 	struct led_classdev *lcdev;
 
+	if (arg.channel < 0 || arg.channel >= MT6362_FLASH_LEDMAX)
+		return -EINVAL;
 	flcdev = mt6362_flash_class[arg.channel];
 	lcdev = &flcdev->led_cdev;
 	mt6362_fled_brightness_set(lcdev, 1);

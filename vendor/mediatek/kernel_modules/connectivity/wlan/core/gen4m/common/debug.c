@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -6,6 +6,38 @@
 #include "precomp.h"
 
 #if (CFG_SUPPORT_STATISTICS == 1)
+
+#define WAKE_MAX_CMD_EVENT_NUM		20
+#define WAKE_STR_BUFFER_LEN	(60 + 20 * WAKE_MAX_CMD_EVENT_NUM)
+
+struct WAKE_CMD_T {
+	uint8_t ucCmdId;
+	uint8_t ucFlagIsUesd;
+	uint16_t u2Cnt;
+};
+
+struct WAKE_EVENT_T {
+	uint8_t ucEventId;
+	uint8_t ucFlagIsUesd;
+	uint16_t u2Cnt;
+};
+
+struct WAKE_INFO_T {
+	struct WAKE_CMD_T arCmd[WAKE_MAX_CMD_EVENT_NUM];
+	uint8_t ucCmdCnt;
+	uint32_t u4TotalCmd;
+
+	struct WAKE_EVENT_T arEvent[WAKE_MAX_CMD_EVENT_NUM];
+	uint8_t ucEventCnt;
+	uint32_t u4TotalEvent;
+
+	uint32_t au4TxDataCnt[WLAN_WAKE_MAX_NUM];
+	uint32_t u4TxCnt;
+	uint32_t au4RxDataCnt[WLAN_WAKE_MAX_NUM];
+	uint32_t u4RxCnt;
+};
+
+static struct WAKE_INFO_T *gprWakeInfoStatics;
 static uint8_t aucStr[WAKE_STR_BUFFER_LEN];
 #endif
 
@@ -212,51 +244,38 @@ void wlanDumpTcResAndTxedCmd(uint8_t *pucBuf,
 
 #if (CFG_SUPPORT_STATISTICS == 1)
 
-void wlanWakeStaticsInit(struct GLUE_INFO *prGlueInfo)
+void wlanWakeStaticsInit(void)
 {
-	if (!prGlueInfo)
-		return;
-
-	prGlueInfo->prWakeInfoStatics =
+	gprWakeInfoStatics =
 		kalMemAlloc(WAKE_MAX_CMD_EVENT_NUM * sizeof(
 				    struct WAKE_INFO_T), PHY_MEM_TYPE);
-	if (prGlueInfo->prWakeInfoStatics != NULL)
-		kalMemZero(prGlueInfo->prWakeInfoStatics,
+	if (gprWakeInfoStatics != NULL)
+		kalMemZero(gprWakeInfoStatics,
 		   WAKE_MAX_CMD_EVENT_NUM * sizeof(struct
 				   WAKE_INFO_T));
 }
 
-void wlanWakeStaticsUninit(struct GLUE_INFO *prGlueInfo)
+void wlanWakeStaticsUninit(void)
 {
-	if (!prGlueInfo)
-		return;
-
-	if (prGlueInfo->prWakeInfoStatics != NULL)
-		kalMemFree(prGlueInfo->prWakeInfoStatics, PHY_MEM_TYPE,
+	if (gprWakeInfoStatics != NULL)
+		kalMemFree(gprWakeInfoStatics, PHY_MEM_TYPE,
 		WAKE_MAX_CMD_EVENT_NUM * sizeof(struct WAKE_INFO_T));
-	prGlueInfo->prWakeInfoStatics = NULL;
 }
 
-uint32_t wlanWakeLogCmd(struct GLUE_INFO *prGlueInfo, uint8_t ucCmdId)
+uint32_t wlanWakeLogCmd(uint8_t ucCmdId)
 {
-	struct WAKE_INFO_T *prWakeInfoStatics = NULL;
 	int i = 0;
 	int j = 0;
 
-	if (prGlueInfo == NULL)
-		return 1;
-
-	prWakeInfoStatics = prGlueInfo->prWakeInfoStatics;
-
-	if ((prWakeInfoStatics == NULL) || (wlan_fb_power_down != TRUE))
+	if ((gprWakeInfoStatics == NULL) || (wlan_fb_power_down != TRUE))
 		return 1;
 
 	for (i = 0; i < WAKE_MAX_CMD_EVENT_NUM; i++) {
-		if ((prWakeInfoStatics->arCmd[i].ucFlagIsUesd == TRUE)
-			&& (prWakeInfoStatics->arCmd[i].ucCmdId == ucCmdId)) {
+		if ((gprWakeInfoStatics->arCmd[i].ucFlagIsUesd == TRUE)
+			&& (gprWakeInfoStatics->arCmd[i].ucCmdId == ucCmdId)) {
 			/*old item ++*/
-			prWakeInfoStatics->arCmd[i].u2Cnt++;
-			prWakeInfoStatics->u4TotalCmd++;
+			gprWakeInfoStatics->arCmd[i].u2Cnt++;
+			gprWakeInfoStatics->u4TotalCmd++;
 			break;
 		}
 	}
@@ -264,12 +283,12 @@ uint32_t wlanWakeLogCmd(struct GLUE_INFO *prGlueInfo, uint8_t ucCmdId)
 	if (i >= WAKE_MAX_CMD_EVENT_NUM) {
 		/*add new item*/
 		for (j = 0; j < WAKE_MAX_CMD_EVENT_NUM; j++) {
-			if (prWakeInfoStatics->arCmd[j].ucFlagIsUesd != TRUE) {
-				prWakeInfoStatics->ucCmdCnt++;
-				prWakeInfoStatics->arCmd[j].ucCmdId = ucCmdId;
-				prWakeInfoStatics->arCmd[j].u2Cnt++;
-				prWakeInfoStatics->u4TotalCmd++;
-				prWakeInfoStatics->arCmd[j].ucFlagIsUesd
+			if (gprWakeInfoStatics->arCmd[j].ucFlagIsUesd != TRUE) {
+				gprWakeInfoStatics->ucCmdCnt++;
+				gprWakeInfoStatics->arCmd[j].ucCmdId = ucCmdId;
+				gprWakeInfoStatics->arCmd[j].u2Cnt++;
+				gprWakeInfoStatics->u4TotalCmd++;
+				gprWakeInfoStatics->arCmd[j].ucFlagIsUesd
 					= TRUE;
 				break;
 			}
@@ -284,27 +303,21 @@ uint32_t wlanWakeLogCmd(struct GLUE_INFO *prGlueInfo, uint8_t ucCmdId)
 	return 0;
 }
 
-uint32_t wlanWakeLogEvent(struct GLUE_INFO *prGlueInfo, uint8_t ucEventId)
+uint32_t wlanWakeLogEvent(uint8_t ucEventId)
 {
-	struct WAKE_INFO_T *prWakeInfoStatics = NULL;
 	int i = 0;
 	int j = 0;
 
-	if (prGlueInfo == NULL)
-		return 1;
-
-	prWakeInfoStatics = prGlueInfo->prWakeInfoStatics;
-
-	if ((prWakeInfoStatics == NULL) || (wlan_fb_power_down != TRUE))
+	if ((gprWakeInfoStatics == NULL) || (wlan_fb_power_down != TRUE))
 		return 1;
 
 	for (i = 0; i < WAKE_MAX_CMD_EVENT_NUM; i++) {
-		if ((prWakeInfoStatics->arEvent[i].ucFlagIsUesd == TRUE)
+		if ((gprWakeInfoStatics->arEvent[i].ucFlagIsUesd == TRUE)
 		&&
-		(prWakeInfoStatics->arEvent[i].ucEventId == ucEventId)) {
+		(gprWakeInfoStatics->arEvent[i].ucEventId == ucEventId)) {
 			/*old item ++*/
-			prWakeInfoStatics->arEvent[i].u2Cnt++;
-			prWakeInfoStatics->u4TotalEvent++;
+			gprWakeInfoStatics->arEvent[i].u2Cnt++;
+			gprWakeInfoStatics->u4TotalEvent++;
 			break;
 		}
 	}
@@ -312,14 +325,14 @@ uint32_t wlanWakeLogEvent(struct GLUE_INFO *prGlueInfo, uint8_t ucEventId)
 	if (i >= WAKE_MAX_CMD_EVENT_NUM) {
 		/*add new item*/
 		for (j = 0; j < WAKE_MAX_CMD_EVENT_NUM; j++) {
-			if (prWakeInfoStatics->arEvent[j].ucFlagIsUesd
+			if (gprWakeInfoStatics->arEvent[j].ucFlagIsUesd
 				!= TRUE) {
-				prWakeInfoStatics->ucEventCnt++;
-				prWakeInfoStatics->arEvent[j].ucEventId
+				gprWakeInfoStatics->ucEventCnt++;
+				gprWakeInfoStatics->arEvent[j].ucEventId
 					= ucEventId;
-				prWakeInfoStatics->arEvent[j].u2Cnt++;
-				prWakeInfoStatics->u4TotalEvent++;
-				prWakeInfoStatics->arEvent[j].ucFlagIsUesd
+				gprWakeInfoStatics->arEvent[j].u2Cnt++;
+				gprWakeInfoStatics->u4TotalEvent++;
+				gprWakeInfoStatics->arEvent[j].ucFlagIsUesd
 					= TRUE;
 				break;
 			}
@@ -334,69 +347,42 @@ uint32_t wlanWakeLogEvent(struct GLUE_INFO *prGlueInfo, uint8_t ucEventId)
 	return 0;
 }
 
-void wlanLogTxData(struct GLUE_INFO *prGlueInfo, enum WAKE_DATA_TYPE dataType)
+void wlanLogTxData(enum WAKE_DATA_TYPE dataType)
 {
-	struct WAKE_INFO_T *prWakeInfoStatics = NULL;
-
-	if (prGlueInfo == NULL)
-		return;
-
-	prWakeInfoStatics = prGlueInfo->prWakeInfoStatics;
-
-	if ((prWakeInfoStatics != NULL) && (wlan_fb_power_down == TRUE)) {
-		prWakeInfoStatics->au4TxDataCnt[dataType]++;
-		prWakeInfoStatics->u4TxCnt++;
+	if ((gprWakeInfoStatics != NULL) && (wlan_fb_power_down == TRUE)) {
+		gprWakeInfoStatics->au4TxDataCnt[dataType]++;
+		gprWakeInfoStatics->u4TxCnt++;
 	}
 }
 
-void wlanLogRxData(struct GLUE_INFO *prGlueInfo, enum WAKE_DATA_TYPE dataType)
+void wlanLogRxData(enum WAKE_DATA_TYPE dataType)
 {
-	struct WAKE_INFO_T *prWakeInfoStatics = NULL;
-
-	if (prGlueInfo == NULL)
-		return;
-
-	prWakeInfoStatics = prGlueInfo->prWakeInfoStatics;
-
-	if ((prWakeInfoStatics != NULL) && (wlan_fb_power_down == TRUE)) {
-		prWakeInfoStatics->au4RxDataCnt[dataType]++;
-		prWakeInfoStatics->u4RxCnt++;
+	if ((gprWakeInfoStatics != NULL) && (wlan_fb_power_down == TRUE)) {
+		gprWakeInfoStatics->au4RxDataCnt[dataType]++;
+		gprWakeInfoStatics->u4RxCnt++;
 	}
 }
 
-static void wlanWakeStaticsClear(struct GLUE_INFO *prGlueInfo)
+static void wlanWakeStaticsClear(void)
 {
-	struct WAKE_INFO_T *prWakeInfoStatics = NULL;
-
-	if (prGlueInfo == NULL)
-		return;
-
-	prWakeInfoStatics = prGlueInfo->prWakeInfoStatics;
-
-	if (prWakeInfoStatics != NULL) {
-		kalMemZero(prWakeInfoStatics,
+	if (gprWakeInfoStatics != NULL) {
+		kalMemZero(gprWakeInfoStatics,
 			WAKE_MAX_CMD_EVENT_NUM * sizeof(struct
 				   WAKE_INFO_T));
 	}
 }
 
-uint32_t wlanWakeDumpRes(struct GLUE_INFO *prGlueInfo)
+uint32_t wlanWakeDumpRes(void)
 {
-	struct WAKE_INFO_T *prWakeInfoStatics = NULL;
 	uint8_t i = 0;
 	uint8_t flag = 0;
 	char *pos = NULL;
 	char *end = NULL;
 	int ret = 0;
 
-	if (prGlueInfo == NULL)
-		return 1;
-
-	prWakeInfoStatics = prGlueInfo->prWakeInfoStatics;
-
-	if ((prWakeInfoStatics == NULL)
+	if ((gprWakeInfoStatics == NULL)
 	|| (wlan_fb_power_down != TRUE)) {
-		wlanWakeStaticsClear(prGlueInfo);
+		wlanWakeStaticsClear();
 		return 1;
 	}
 
@@ -406,169 +392,169 @@ uint32_t wlanWakeDumpRes(struct GLUE_INFO *prGlueInfo)
 	pos = &aucStr[0];
 	end = &aucStr[0] + WAKE_STR_BUFFER_LEN - 1;
 
-	if (prWakeInfoStatics->ucCmdCnt > 0) {
+	if (gprWakeInfoStatics->ucCmdCnt > 0) {
 		flag = 1;
 		ret = snprintf(pos, (end - pos + 1), "CMD(%u:%u)= ",
-			prWakeInfoStatics->ucCmdCnt,
-			prWakeInfoStatics->u4TotalCmd);
+			gprWakeInfoStatics->ucCmdCnt,
+			gprWakeInfoStatics->u4TotalCmd);
 		if (ret < 0 || ret >= (end - pos + 1))
 			return 1;
 		pos += ret;
 
-		for (i = 0; i < prWakeInfoStatics->ucCmdCnt; i++) {
+		for (i = 0; i < gprWakeInfoStatics->ucCmdCnt; i++) {
 			ret = snprintf(pos, (end - pos + 1), "0x%02x-%d ",
-				prWakeInfoStatics->arCmd[i].ucCmdId,
-				prWakeInfoStatics->arCmd[i].u2Cnt);
+				gprWakeInfoStatics->arCmd[i].ucCmdId,
+				gprWakeInfoStatics->arCmd[i].u2Cnt);
 			if (ret < 0 || ret >= (end - pos + 1))
 				return 1;
 			pos += ret;
 		}
 	}
 
-	if (prWakeInfoStatics->ucEventCnt > 0) {
+	if (gprWakeInfoStatics->ucEventCnt > 0) {
 		flag = 1;
 		ret = snprintf(pos, (end - pos + 1), "EVENT(%u:%u)= ",
-			prWakeInfoStatics->ucEventCnt,
-			prWakeInfoStatics->u4TotalEvent);
+			gprWakeInfoStatics->ucEventCnt,
+			gprWakeInfoStatics->u4TotalEvent);
 		if (ret < 0 || ret >= (end - pos + 1))
 			return 1;
 		pos += ret;
 
-		for (i = 0; i < prWakeInfoStatics->ucEventCnt; i++) {
+		for (i = 0; i < gprWakeInfoStatics->ucEventCnt; i++) {
 			ret = snprintf(pos, (end - pos + 1), "0x%02x-%d ",
-				prWakeInfoStatics->arEvent[i].ucEventId,
-				prWakeInfoStatics->arEvent[i].u2Cnt);
+				gprWakeInfoStatics->arEvent[i].ucEventId,
+				gprWakeInfoStatics->arEvent[i].u2Cnt);
 			if (ret < 0 || ret >= (end - pos + 1))
 				return 1;
 			pos += ret;
 		}
 	}
 
-	if (prWakeInfoStatics->u4TxCnt > 0) {
+	if (gprWakeInfoStatics->u4TxCnt > 0) {
 		flag = 1;
 		ret = snprintf(pos, (end - pos + 1),
 			"TX(%u)=%u-%u-%u-%u-%u-%u ",
-			prWakeInfoStatics->u4TxCnt,
-			prWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_ARP],
-			prWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_IPV4],
-			prWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_IPV6],
-			prWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_1X],
-			prWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_TDLS],
-			prWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_OTHER]);
+			gprWakeInfoStatics->u4TxCnt,
+			gprWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_ARP],
+			gprWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_IPV4],
+			gprWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_IPV6],
+			gprWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_1X],
+			gprWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_TDLS],
+			gprWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_OTHER]);
 
 		if (ret < 0 || ret >= (end - pos + 1))
 			return 1;
 		pos += ret;
 	}
 
-	if (prWakeInfoStatics->u4RxCnt > 0) {
+	if (gprWakeInfoStatics->u4RxCnt > 0) {
 		flag = 1;
 		ret = snprintf(pos, (end - pos + 1),
 			"RX(%u)=%u-%u-%u-%u-%u-%u ",
-			prWakeInfoStatics->u4RxCnt,
-			prWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_ARP],
-			prWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_IPV4],
-			prWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_IPV6],
-			prWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_1X],
-			prWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_TDLS],
-			prWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_OTHER]);
+			gprWakeInfoStatics->u4RxCnt,
+			gprWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_ARP],
+			gprWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_IPV4],
+			gprWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_IPV6],
+			gprWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_1X],
+			gprWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_TDLS],
+			gprWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_OTHER]);
 		if (ret < 0 || ret >= (end - pos + 1))
 			return 1;
 		pos += ret;
 	}
 
 	if (flag != 0)
-		DBGLOG(OID, DEBUG, "[WLAN-LP] %s\n", (char *)&aucStr[0]);
+		DBGLOG(OID, INFO, "[WLAN-LP] %s\n", (char *)&aucStr[0]);
 #else
 	/*1.dump cmd*/
-	if (prWakeInfoStatics->ucCmdCnt > 0) {
+	if (gprWakeInfoStatics->ucCmdCnt > 0) {
 		kalMemZero(&aucStr[0], sizeof(uint8_t)*WAKE_STR_BUFFER_LEN);
 		pos = &aucStr[0];
 		end = &aucStr[0] + WAKE_STR_BUFFER_LEN - 1;
-		for (i = 0; i < prWakeInfoStatics->ucCmdCnt; i++) {
+		for (i = 0; i < gprWakeInfoStatics->ucCmdCnt; i++) {
 
 			ret = snprintf(pos, end - pos, " 0x%02x ",
-			prWakeInfoStatics->arCmd[i].ucCmdId);
+			gprWakeInfoStatics->arCmd[i].ucCmdId);
 			if (ret < 0 || ret >= end - pos)
 				return 1;
 			pos += ret;
 		}
-		DBGLOG(OID, DEBUG, "[LP-CMD-ID-%u][%s]\n",
-			prWakeInfoStatics->ucCmdCnt, (char *)&aucStr[0]);
+		DBGLOG(OID, INFO, "[LP-CMD-ID-%u][%s]\n",
+			gprWakeInfoStatics->ucCmdCnt, (char *)&aucStr[0]);
 
 		kalMemZero(&aucStr[0], sizeof(uint8_t)*WAKE_STR_BUFFER_LEN);
 		pos = &aucStr[0];
 		end = &aucStr[0] + WAKE_STR_BUFFER_LEN - 1;
-		for (i = 0; i < prWakeInfoStatics->ucCmdCnt; i++) {
+		for (i = 0; i < gprWakeInfoStatics->ucCmdCnt; i++) {
 
 			ret = snprintf(pos, end - pos, " %u ",
-				prWakeInfoStatics->arCmd[i].u2Cnt);
+				gprWakeInfoStatics->arCmd[i].u2Cnt);
 			if (ret < 0 || ret >= end - pos)
 				return 1;
 			pos += ret;
 		}
-		DBGLOG(OID, DEBUG, "[LP-CMD-CNT-%u][%s]\n",
-			prWakeInfoStatics->u4TotalCmd, (char *)&aucStr[0]);
+		DBGLOG(OID, INFO, "[LP-CMD-CNT-%u][%s]\n",
+			gprWakeInfoStatics->u4TotalCmd, (char *)&aucStr[0]);
 	}
 
 	/*2.dump event*/
-	if (prWakeInfoStatics->ucCmdCnt > 0) {
+	if (gprWakeInfoStatics->ucCmdCnt > 0) {
 
 		kalMemZero(&aucStr[0], sizeof(uint8_t)*WAKE_STR_BUFFER_LEN);
 		pos = &aucStr[0];
 		end = &aucStr[0] + WAKE_STR_BUFFER_LEN - 1;
-		for (i = 0; i < prWakeInfoStatics->ucEventCnt; i++) {
+		for (i = 0; i < gprWakeInfoStatics->ucEventCnt; i++) {
 
 			ret = snprintf(pos, end - pos, " 0x%02x ",
-				prWakeInfoStatics->arEvent[i].ucEventId);
+				gprWakeInfoStatics->arEvent[i].ucEventId);
 			if (ret < 0 || ret >= end - pos)
 				return 1;
 			pos += ret;
 		}
-		DBGLOG(OID, DEBUG, "[LP-EVENT-ID-%u][%s]\n",
-			prWakeInfoStatics->ucEventCnt, (char *)&aucStr[0]);
+		DBGLOG(OID, INFO, "[LP-EVENT-ID-%u][%s]\n",
+			gprWakeInfoStatics->ucEventCnt, (char *)&aucStr[0]);
 
 		kalMemZero(&aucStr[0], sizeof(uint8_t)*WAKE_STR_BUFFER_LEN);
 		pos = &aucStr[0];
 		end = &aucStr[0] + WAKE_STR_BUFFER_LEN - 1;
-		for (i = 0; i < prWakeInfoStatics->ucEventCnt; i++) {
+		for (i = 0; i < gprWakeInfoStatics->ucEventCnt; i++) {
 
 			ret = snprintf(pos, end - pos, " %u ",
-				prWakeInfoStatics->arEvent[i].u2Cnt);
+				gprWakeInfoStatics->arEvent[i].u2Cnt);
 			if (ret < 0 || ret >= end - pos) {
 				end[-1] = '\0';
 				return 1;
 			}
 			pos += ret;
 		}
-		DBGLOG(OID, DEBUG, "[LP-EVENT-CNT-%u][%s]\n",
-			prWakeInfoStatics->u4TotalEvent, (char *)&aucStr[0]);
+		DBGLOG(OID, INFO, "[LP-EVENT-CNT-%u][%s]\n",
+			gprWakeInfoStatics->u4TotalEvent, (char *)&aucStr[0]);
 	}
 
 	/*3.dump tx/rx data*/
-	if (prWakeInfoStatics->u4TxCnt > 0) {
-		DBGLOG(OID, DEBUG, "[LP-EVENT-TX-%u][%u-%u-%u-%u-%u-%u]\n",
-			prWakeInfoStatics->u4TxCnt,
-			prWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_ARP],
-			prWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_IPV4],
-			prWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_IPV6],
-			prWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_1X],
-			prWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_TDLS],
-			prWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_OTHER]);
+	if (gprWakeInfoStatics->u4TxCnt > 0) {
+		DBGLOG(OID, INFO, "[LP-EVENT-TX-%u][%u-%u-%u-%u-%u-%u]\n",
+			gprWakeInfoStatics->u4TxCnt,
+			gprWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_ARP],
+			gprWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_IPV4],
+			gprWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_IPV6],
+			gprWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_1X],
+			gprWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_TDLS],
+			gprWakeInfoStatics->au4TxDataCnt[WLAN_WAKE_OTHER]);
 	}
 
-	if (prWakeInfoStatics->u4RxCnt > 0) {
-		DBGLOG(OID, DEBUG, "[LP-EVENT-RX-%u][%u-%u-%u-%u-%u-%u]\n",
-			prWakeInfoStatics->u4RxCnt,
-			prWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_ARP],
-			prWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_IPV4],
-			prWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_IPV6],
-			prWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_1X],
-			prWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_TDLS],
-			prWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_OTHER]);
+	if (gprWakeInfoStatics->u4RxCnt > 0) {
+		DBGLOG(OID, INFO, "[LP-EVENT-RX-%u][%u-%u-%u-%u-%u-%u]\n",
+			gprWakeInfoStatics->u4RxCnt,
+			gprWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_ARP],
+			gprWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_IPV4],
+			gprWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_IPV6],
+			gprWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_1X],
+			gprWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_TDLS],
+			gprWakeInfoStatics->au4RxDataCnt[WLAN_WAKE_OTHER]);
 	}
 #endif
-	wlanWakeStaticsClear(prGlueInfo);
+	wlanWakeStaticsClear();
 	return 0;
 }
 
@@ -578,18 +564,54 @@ uint32_t wlanSetDriverDbgLevel(uint32_t u4DbgIdx, uint32_t u4DbgMask)
 {
 	uint32_t u4Idx;
 	uint32_t fgStatus = WLAN_STATUS_SUCCESS;
+	uint32_t u4DriverLevel = ENUM_WIFI_LOG_LEVEL_DEFAULT;
+	uint32_t u4FwLevel = ENUM_WIFI_LOG_LEVEL_DEFAULT;
+	/* Voc Info White List */
+	uint16_t u2WhiteListCnt = 0;
+	uint32_t u4VocInfoWhiteList[] =	{
+		DBG_AIS_IDX,
+		DBG_RLM_IDX,
+		DBG_CNM_IDX,
+		DBG_RSN_IDX,
+		DBG_BSS_IDX,
+		DBG_SCN_IDX,
+		DBG_AAA_IDX,
+		DBG_SAA_IDX,
+		DBG_SEC_IDX,
+		DBG_ROAMING_IDX,
+		DBG_WNM_IDX,
+		DBG_ML_IDX,
+		DBG_APS_IDX,
+		DBG_FILS_IDX
+	};
 
 	if (u4DbgIdx == DBG_ALL_MODULE_IDX) {
 		for (u4Idx = 0; u4Idx < DBG_MODULE_NUM; u4Idx++)
 			au2DebugModule[u4Idx] = (uint16_t) u4DbgMask;
-		LOG_FUNC("Set ALL DBG module log level to [0x%03x]\n",
+		DBGLOG(INIT, VOC, "Set ALL DBG module log level to [0x%03x]\n",
 				u4DbgMask);
 	} else if (u4DbgIdx < DBG_MODULE_NUM) {
 		au2DebugModule[u4DbgIdx] = (uint16_t) u4DbgMask;
-		LOG_FUNC("Set DBG module[%u] log level to [0x%03x]\n",
+		DBGLOG(INIT, VOC, "Set DBG module[%u] log level to [0x%03x]\n",
 				u4DbgIdx, u4DbgMask);
 	} else {
 		fgStatus = WLAN_STATUS_FAILURE;
+	}
+
+	wlanDbgGetGlobalLogLevel(ENUM_WIFI_LOG_MODULE_DRIVER, &u4DriverLevel);
+	wlanDbgGetGlobalLogLevel(ENUM_WIFI_LOG_MODULE_FW, &u4FwLevel);
+	DBGLOG(INIT, VOC, "Get Driver/FW Log Level[%d/%d] LogLevelCache[%d]\n",
+		u4DriverLevel, u4FwLevel, getFWLogLevel());
+
+	if (wlanDbgIsVocLogTestMode()
+		|| u4DriverLevel == ENUM_WIFI_LOG_LEVEL_VOC) {
+		u2WhiteListCnt = sizeof(u4VocInfoWhiteList) /
+			sizeof(u4VocInfoWhiteList[0]);
+		/* Set INFO to log module based on Voc Info White List */
+		for (u4Idx = 0; u4Idx < u2WhiteListCnt; u4Idx++)
+			au2DebugModule[u4VocInfoWhiteList[u4Idx]] |=
+				DBG_CLASS_INFO;
+		DBGLOG(INIT, VOC, "Set INFO white list [%d]\n", u2WhiteListCnt);
 	}
 
 	if (fgStatus == WLAN_STATUS_SUCCESS)
@@ -670,25 +692,16 @@ void wlanDbgSetLogLevel(struct ADAPTER *prAdapter,
 		switch (u4Module) {
 		case ENUM_WIFI_LOG_MODULE_DRIVER:
 		{
-			uint32_t u4DriverLogMask;
+			uint32_t u4DriverLogMask = DBG_LOG_LEVEL_DEFAULT_VOC;
 
-			switch (u4level) {
-			case ENUM_WIFI_LOG_LEVEL_DEFAULT:
-				u4DriverLogMask = DBG_LOG_LEVEL_DEFAULT;
-				break;
-			case ENUM_WIFI_LOG_LEVEL_MORE:
-				u4DriverLogMask = DBG_LOG_LEVEL_MORE;
-				break;
-			case ENUM_WIFI_LOG_LEVEL_EXTREME:
-				u4DriverLogMask = DBG_LOG_LEVEL_EXTREME;
-				break;
-			case ENUM_WIFI_LOG_LEVEL_UV:
-				u4DriverLogMask = DBG_LOG_LEVEL_UV;
-				break;
-			default:
-				u4DriverLogMask = DBG_LOG_LEVEL_DEFAULT;
-				break;
-			}
+			if (u4level == ENUM_WIFI_LOG_LEVEL_DEFAULT)
+				u4DriverLogMask = DBG_LOG_LEVEL_DEFAULT_VOC;
+			else if (u4level == ENUM_WIFI_LOG_LEVEL_MORE)
+				u4DriverLogMask = DBG_LOG_LEVEL_MORE_VOC;
+			else if (u4level == ENUM_WIFI_LOG_LEVEL_EXTREME)
+				u4DriverLogMask = DBG_LOG_LEVEL_EXTREME_VOC;
+			else if (u4level == ENUM_WIFI_LOG_LEVEL_VOC)
+				u4DriverLogMask = DBG_LOG_LEVEL_VOC;
 
 			wlanSetDriverDbgLevel(DBG_ALL_MODULE_IDX,
 					(u4DriverLogMask & DBG_CLASS_MASK));
@@ -729,8 +742,7 @@ void wlanDbgSetLogLevel(struct ADAPTER *prAdapter,
 			if (rStatus != WLAN_STATUS_FAILURE)
 				prAdapter->fgSetLogLevel = true;
 			else
-				DBGLOG(INIT, DEBUG,
-				       "Log level setting fail!\n");
+				DBGLOG(INIT, INFO, "Log level setting fail!\n");
 		}
 			break;
 		default:
@@ -745,8 +757,8 @@ void wlanDbgSetLogLevel(struct ADAPTER *prAdapter,
 	wlanDbgGetGlobalLogLevel(ENUM_WIFI_LOG_MODULE_FW, &u4FwLevel);
 	kalSetLogTooMuch(u4DriverLevel, u4FwLevel);
 
-	DBGLOG(INIT, DEBUG,
-		"version=%d module=%d u4level=%d result[D:%d|F:%d]\n",
+	DBGLOG(INIT, VOC,
+		"wlanDbgSetLogLevel version=%d modlue=%d u4level=%d result[D:%d|F:%d]\n",
 		u4Version, u4Module, u4level, u4DriverLevel, u4FwLevel);
 
 }
@@ -781,17 +793,48 @@ void wlanDriverDbgLevelSync(void)
 	for (i = 0; i < DBG_MODULE_NUM; i++)
 		u4Mask &= au2DebugModule[i];
 
-	if ((u4Mask & DBG_LOG_LEVEL_EXTREME) == DBG_LOG_LEVEL_EXTREME)
+	if ((u4Mask & DBG_LOG_LEVEL_EXTREME_VOC) == DBG_LOG_LEVEL_EXTREME_VOC)
 		u4DriverLogLevel = ENUM_WIFI_LOG_LEVEL_EXTREME;
-	else if ((u4Mask & DBG_LOG_LEVEL_MORE) == DBG_LOG_LEVEL_MORE)
+	else if ((u4Mask & DBG_LOG_LEVEL_MORE_VOC) == DBG_LOG_LEVEL_MORE_VOC)
 		u4DriverLogLevel = ENUM_WIFI_LOG_LEVEL_MORE;
-	else if ((u4Mask & DBG_LOG_LEVEL_DEFAULT) == DBG_LOG_LEVEL_DEFAULT)
+	else if ((u4Mask & DBG_LOG_LEVEL_DEFAULT_VOC) ==
+		 DBG_LOG_LEVEL_DEFAULT_VOC)
 		u4DriverLogLevel = ENUM_WIFI_LOG_LEVEL_DEFAULT;
+	else if ((u4Mask & DBG_LOG_LEVEL_VOC) == DBG_LOG_LEVEL_VOC)
+		u4DriverLogLevel = ENUM_WIFI_LOG_LEVEL_VOC;
 	else
-		u4DriverLogLevel = ENUM_WIFI_LOG_LEVEL_UV;
+		u4DriverLogLevel = ENUM_WIFI_LOG_LEVEL_DEFAULT;
 
-	DBGLOG(INIT, DEBUG, "u4DriverLogLevel=%d\n", u4DriverLogLevel);
+	DBGLOG(INIT, VOC, "u4DriverLogLevel=%d\n", u4DriverLogLevel);
 	wlanDbgSetGlobalLogLevel(ENUM_WIFI_LOG_MODULE_DRIVER, u4DriverLogLevel);
+}
+
+static u_int8_t gIsVocLogTestMode = FALSE;
+static u_int8_t gIsVocChecked = FALSE;
+u_int8_t wlanDbgIsVocLogTestMode(void)
+{
+	uint8_t *pucConfigBuf = NULL;
+	uint32_t u4ConfigReadLen = 0;
+	void *pvDev = NULL;
+
+	if (!gIsVocChecked) {
+		kalGetPlatDev(&pvDev);
+		if (pvDev == NULL)
+			DBGLOG(INIT, INFO, "glGetPlatDev failed\n");
+
+		/* push voc_enable_test_mode.cfg to enable voc test mode */
+		if (kalRequestFirmware("voc_enable_test_mode.cfg",
+			&pucConfigBuf, &u4ConfigReadLen, TRUE,
+			pvDev) == 0) {
+			DBGLOG(INIT, VOC, "Enable VOC Test Mode\n");
+			gIsVocLogTestMode = TRUE;
+		}
+		gIsVocChecked = TRUE;
+		if (pucConfigBuf)
+			kalMemFree(pucConfigBuf, VIR_MEM_TYPE, u4ConfigReadLen);
+	}
+
+	return gIsVocLogTestMode;
 }
 
 static void
@@ -812,7 +855,7 @@ firmwareHexDump(const uint8_t *pucPreFix,
 		i4RowSize = 16;
 
 	for (i = 0; i < len; i += i4RowSize) {
-		i4LineLen = kal_min_t(int32_t, i4Remaining, i4RowSize);
+		i4LineLen = KAL_MIN(i4Remaining, i4RowSize);
 		i4Remaining -= i4RowSize;
 
 		KAL_HEX_DUMP_TO_BUFFER(pucPtr + i, i4LineLen, i4RowSize,
@@ -959,14 +1002,71 @@ void wlanPrintFwLog(uint8_t *pucLogContent,
 #undef OLD_LOG_FUNC
 }
 
-#if (CFG_SUPPORT_WF_DUMP_BT_COREDUMP == 1)
-u_int8_t wlanBtCoreDumpInfo(u_int8_t fgIsSet, u_int8_t fgval)
+/* Begin: Functions used to breakdown packet jitter, for test case VoE 5.7 */
+static void wlanSetBE32(uint32_t u4Val, uint8_t *pucBuf)
 {
-	static u_int8_t fgIsBtDump = FALSE;
+	uint8_t *littleEn = (uint8_t *)&u4Val;
 
-	if (fgIsSet == TRUE)
-		fgIsBtDump = fgval;
-
-	return fgIsBtDump;
+	pucBuf[0] = littleEn[3];
+	pucBuf[1] = littleEn[2];
+	pucBuf[2] = littleEn[1];
+	pucBuf[3] = littleEn[0];
 }
-#endif /* CFG_SUPPORT_WF_DUMP_BT_COREDUMP */
+
+void wlanFillTimestamp(struct ADAPTER *prAdapter, void *pvPacket,
+		       uint8_t ucPhase)
+{
+	uint16_t u2EtherType = 0, u2Offset = 0;
+	struct REAL_TIME rTm = {0};
+	uint32_t u4Timestamp[2] = {0};
+	uint32_t u4Length = 0;
+	uint8_t *pucEth = NULL;
+	uint8_t *pucUdp = NULL;
+
+	if (!prAdapter || !prAdapter->rDebugInfo.fgVoE5_7Test
+			|| !pvPacket)
+		return;
+
+	kalGetPacketBuf(pvPacket, &pucEth);
+	u4Length = kalQueryPacketLength(pvPacket);
+	u2EtherType =
+		(pucEth[ETH_TYPE_LEN_OFFSET] << 8) |
+	     (pucEth[ETH_TYPE_LEN_OFFSET + 1]);
+
+	if (u4Length < 200 || u2EtherType != ETH_P_IPV4)
+		return;
+	if (pucEth[ETH_HLEN+9]  != IP_PRO_UDP)
+		return;
+
+	pucUdp = &pucEth[ETH_HLEN+28];
+	if (kalStrnCmp(pucUdp, "1345678", 7))
+		return;
+
+	kalGetRealTime(&rTm);
+
+	switch (ucPhase) {
+	case PHASE_XMIT_RCV: /* xmit */
+		u2Offset = 20;
+		break;
+	case PHASE_ENQ_QM: /* enq */
+		u2Offset = 28;
+		break;
+	case PHASE_HIF_TX: /* tx */
+		u2Offset = 36;
+		break;
+	}
+
+	u4Timestamp[0] = rTm.u4TvValSec;
+	u4Timestamp[1] = rTm.u4TvValUsec;
+
+
+	kalUpdatePacketIPv4UDPPayload(pvPacket,
+			u2Offset,
+			&(u4Timestamp[0]),
+			sizeof(uint32_t));
+	kalUpdatePacketIPv4UDPPayload(pvPacket,
+			u2Offset + 4,
+			&(u4Timestamp[1]),
+			sizeof(uint32_t));
+}
+/* End: Functions used to breakdown packet jitter, for test case VoE 5.7 */

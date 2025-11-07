@@ -6,6 +6,8 @@
 
 #include "adaptor-subdrv.h"
 
+#define PREFIX "[D/D]"
+
 #define DRV_LOG(ctx, format, args...) do { \
 	struct v4l2_subdev *_sd = NULL; \
 	struct adaptor_ctx *_adaptor_ctx = NULL; \
@@ -17,7 +19,7 @@
 		_adaptor_ctx = to_ctx(_sd); \
 	if (_adaptor_ctx && (_adaptor_ctx)->subdrv \
 		&& unlikely(*((_adaptor_ctx)->sensor_debug_flag))) { \
-		dev_info(_adaptor_ctx->dev, "[%s][%s] " format, \
+		dev_info(_adaptor_ctx->dev, PREFIX "[%s][%s] " format, \
 			(_adaptor_ctx)->subdrv->name, __func__, ##args); \
 	} \
 } while (0)
@@ -32,7 +34,7 @@
 	if (_sd) \
 		_adaptor_ctx = to_ctx(_sd); \
 	if (_adaptor_ctx && (_adaptor_ctx)->subdrv) { \
-		dev_info(_adaptor_ctx->dev, "[%s][%s] ERROR: " format, \
+		dev_info(_adaptor_ctx->dev, PREFIX "[%s][%s] ERROR: " format, \
 			(_adaptor_ctx)->subdrv->name, __func__, ##args); \
 	} \
 } while (0)
@@ -47,7 +49,7 @@
 	if (_sd) \
 		_adaptor_ctx = to_ctx(_sd); \
 	if (_adaptor_ctx && (_adaptor_ctx)->subdrv) { \
-		dev_info(_adaptor_ctx->dev, "[%s][%s] " format, \
+		dev_info(_adaptor_ctx->dev, PREFIX "[%s][%s] " format, \
 			(_adaptor_ctx)->subdrv->name, __func__, ##args); \
 	} \
 } while (0)
@@ -63,7 +65,7 @@
 		_adaptor_ctx = to_ctx(_sd); \
 	if (_adaptor_ctx && (_adaptor_ctx)->subdrv \
 		&& unlikely(*((_adaptor_ctx)->sensor_debug_flag)==2)) { \
-		dev_info(_adaptor_ctx->dev, "[%s][%s] " format, \
+		dev_info(_adaptor_ctx->dev, PREFIX "[%s][%s] " format, \
 			(_adaptor_ctx)->subdrv->name, __func__, ##args); \
 	} \
 } while (0)
@@ -160,7 +162,7 @@ void get_sensor_hdr_capacity(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *hdr_mode);
 void get_frame_ctrl_info_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *margin);
-void get_feature_get_4cell_data(struct subdrv_ctx *ctx, u16 type, char *data);
+void get_feature_get_4cell_data(struct subdrv_ctx *ctx, u16 type, char *data, u16 size);
 void get_stagger_max_exp_time(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 		enum VC_FEATURE vc, u64 *exposure_max);
@@ -240,6 +242,7 @@ void common_get_prsh_length_lines_by_time(struct subdrv_ctx *ctx,
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 	int time_ms);
 
-extern int read_cam_cal(unsigned int sensor_id, unsigned char *buf,
-	unsigned int offset, unsigned int size);
+/* This function is not used in SS Flow for reading caliberation data*/
+// extern int read_cam_cal(unsigned int sensor_id, unsigned char *buf,
+// 	unsigned int offset, unsigned int size);
 #endif

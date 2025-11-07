@@ -87,6 +87,7 @@ int dtm_get_fd_mode_bit(int fd)
 {
 	struct kstat stat;
 	struct fd sf;
+	struct file *f;
 	int error;
 
 	if (fd < 0)
@@ -96,10 +97,15 @@ int dtm_get_fd_mode_bit(int fd)
 	return DTM_FD_MODE_CHR;
 #else
 	sf = fdget_raw(fd);
-	if (unlikely(!sf.file))
+#if KERNEL_VER_LESS(6, 12, 0)
+	f = sf.file;
+#else
+	f = fd_file(sf);
+#endif
+	if (unlikely(!f))
 		return DTM_FD_MODE_CLOSED;
 
-	error = dtm_get_file_attr(&sf.file->f_path, &stat);
+	error = dtm_get_file_attr(&f->f_path, &stat);
 	fdput(sf);
 	if (unlikely(error < 0))
 		return DTM_FD_MODE_ERROR;

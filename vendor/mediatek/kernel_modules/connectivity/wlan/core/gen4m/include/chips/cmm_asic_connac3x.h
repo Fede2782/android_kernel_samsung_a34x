@@ -7,10 +7,6 @@
 *    \brief This file contains the info of cmm_asic_connac3x
 */
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
-#include "connv3.h"
-#endif
-
 #ifndef _CMM_ASIC_CONNAC3X_H
 #define _CMM_ASIC_CONNAC3X_H
 
@@ -19,6 +15,12 @@
 #define CONN_INFRA_REMAPPING_OFFSET                    0x64000000
 #define CONNAC3X_WFDMA_DISP_MAX_CNT_MASK               0x000000FF
 #define CONNAC3X_WFDMA_DISP_BASE_PTR_MASK               0xFFFF0000
+
+#define CONNAC3X_MCU_WPDMA_0_BASE                      0x54000000
+#define CONNAC3X_MCU_WPDMA_1_BASE                      0x55000000
+#define CONNAC3X_HOST_WPDMA_0_BASE                     0x7c024000
+#define CONNAC3X_HOST_WPDMA_1_BASE                     0x7c025000
+#define CONNAC3X_HOST_DMASHDL                          0x7c026000
 
 #define CONNAC3X_WPDMA_GLO_CFG(__BASE)                ((__BASE) + 0x0208)
 #define CONNAC3X_WPDMA_GLO_CFG_EXT0(__BASE)           ((__BASE) + 0x02B0)
@@ -53,14 +55,20 @@
 #define CONNAC3X_NIC_TX_PSE_HEADER_LENGTH			16
 #define CONNAC3X_RX_INIT_EVENT_LENGTH                           8
 
-#define CONNAC3X_MCU_WPDMA_0_BASE                      0x54000000
 #define CONNAC3X_WFDMA_DUMMY_CR		(CONNAC3X_MCU_WPDMA_0_BASE + 0x120)
 #define CONNAC3X_WFDMA_NEED_REINIT_BIT	BIT(1)
 
+#define Connac3x_CONN_CFG_ON_BASE	0x7C060000
+#define Connac3x_CONN_CFG_ON_CONN_ON_MISC_ADDR \
+	(Connac3x_CONN_CFG_ON_BASE + 0xF0)
 #define Connac3x_CONN_CFG_ON_CONN_ON_MISC_DRV_FM_STAT_SYNC_SHFT         0
+
+#define WFSYS_CPUPCR_ADDR (Connac3x_CONN_CFG_ON_BASE + 0x0204)
+#define WFSYS_LP_ADDR (Connac3x_CONN_CFG_ON_BASE + 0x0208)
 
 #if defined(_HIF_PCIE) || defined(_HIF_AXI)
 #define CONNAC3X_CONN_HIF_ON_ADDR_REMAP23              0x7010
+#define CONNAC3X_HOST_EXT_CONN_HIF_WRAP                0x7c027000
 #define CONNAC3X_MCU_INT_CONN_HIF_WRAP                 0x57000000
 #define CONNAC3X_MAX_WFDMA_COUNT                       2
 
@@ -151,10 +159,12 @@
 #define CONNAC3X_EXT_WFDMA1_RX_DONE_INT1         BIT(1)
 #define CONNAC3X_EXT_WFDMA1_RX_DONE_INT0         BIT(0)
 
+
 #define CONNAC3X_HOST_CSR_TOP_BASE     (0x7c060000)
 #define CONNAC3X_BN0_LPCTL_ADDR        (CONNAC3X_HOST_CSR_TOP_BASE + 0x10)
 #define CONNAC3X_BN0_IRQ_STAT_ADDR     (CONNAC3X_HOST_CSR_TOP_BASE + 0x14)
 #define CONNAC3X_BN0_IRQ_ENA_ADDR      (CONNAC3X_HOST_CSR_TOP_BASE + 0x18)
+#define CONNAC3X_BN0_LPCTL_MD_ADDR     (CONNAC3X_HOST_CSR_TOP_BASE + 0x50)
 #define CONNAC3X_MAILBOX_DBG_ADDR      (0x18060260)
 
 #endif /* _HIF_PCIE || _HIF_AXI */
@@ -197,28 +207,15 @@
 #define CONNAC3X_U3D_RX9CSR0 (0x74011290)
 #define CONNAC3X_U3D_RX_FIFOEMPTY (0x1<<17)
 
-#ifdef MT7935
-#define WF_WFDMA_HOST_DMA0_WPDMA_GLO_CFG_EXT2_CSR_TX_DROP_MODE_TEST_ADDR \
-	(0x200242B8)
-#else
 #define WF_WFDMA_HOST_DMA0_WPDMA_GLO_CFG_EXT2_CSR_TX_DROP_MODE_TEST_ADDR \
 	(0x7C0242B8)
-#endif
 #define WF_WFDMA_HOST_DMA0_WPDMA_GLO_CFG_EXT2_CSR_TX_DROP_MODE_TEST_MASK \
 	(0x00030000)
 
-/* TODO: use CODA "WF_WFDMA_EXT_WRAP_CSR_WFDMA_HIF_MISC_HIF_BUSY_..." */
-#ifdef MT7935
-#define CONNAC3X_WFDMA_HIF_MISC_HIF_BUSY_ADDR \
-	(0x20027044)
-#else
-#define CONNAC3X_WFDMA_HIF_MISC_HIF_BUSY_ADDR \
-	(0x7C027044)
-#endif
+#define WF_WFDMA_EXT_WRAP_CSR_WFDMA_HIF_MISC_HIF_BUSY_ADDR (0x7C027044)
+#define WF_WFDMA_EXT_WRAP_CSR_WFDMA_HIF_MISC_HIF_BUSY_MASK (0x00000001)
 
-#define CONNAC3X_WFDMA_HIF_MISC_HIF_BUSY_MASK \
-	(0x00000001)
-
+#define CONNAC3X_WFDMA_HOST_CONFIG_ADDR                 (0x7c027030)
 /*
  * 0: command packet forward to TX ring 17 (WMCPU)
  * 1: forward to TX ring 20 (WACPU)
@@ -374,9 +371,6 @@
 	((((_prHwRxVector)->u4Rcpi) & CONNAC3X_RX_VT_RCPI3_MASK) >> \
 	CONNAC3X_RX_VT_RCPI3_OFFSET)
 
-#define CONNAC3X_HAL_RX_VECTOR_GET_RX_MODE(_prHwRxVector) \
-	((((_prHwRxVector)->u2RxInfo) & CONNAC3X_RX_VT_RX_MODE_MASK) >> \
-	CONNAC3X_RX_VT_RX_MODE_OFFSET)
 /*------------------------------------------------------------------------------
  * MACRO for CONNAC3X info from adapter
  *------------------------------------------------------------------------------
@@ -564,96 +558,6 @@ enum WTBL_LMAC_CIPHER_SUIT {
 	WTBL_CIPHER_GCMP_WPI_128 = 13,
 };
 
-#ifdef MT6653
-union WTBL_LMAC_DW2 {
-	struct {
-		uint32_t aid12:12;
-		uint32_t gid_su:1;
-		uint32_t dual_ptec_en:1;
-		uint32_t dual_cts_cap:1;
-		uint32_t rsvd:1;
-		uint32_t cipher_suit_pgkt:5;
-		uint32_t fd:1;
-		uint32_t td:1;
-		uint32_t sw:1;
-		uint32_t ul:1;
-		uint32_t tx_ps:1;
-		uint32_t qos:1;
-		uint32_t ht:1;
-		uint32_t vht:1;
-		uint32_t he:1;
-		uint32_t eht:1;
-		uint32_t mesh:1;
-	} field;
-	uint32_t word;
-};
-
-union WTBL_LMAC_DW3 {
-	struct {
-		uint32_t wmm_q:2;
-		uint32_t eht_sig_mcs:2;
-		uint32_t hdrt_mode:1;
-		uint32_t beam_chg:1;
-		uint32_t eht_ltf_sym_num_opt:2;
-		uint32_t pfmu_index:8;
-		uint32_t ulpf_index:8;
-		uint32_t ribf:1;
-		uint32_t ulpf:1;
-		uint32_t bypass_txSMM:1;
-		uint32_t tbf_ht:1;
-		uint32_t tbf_vht:1;
-		uint32_t tbf_he:1;
-		uint32_t tbf_eht:1;
-		uint32_t ign_fbk:1;
-	} field;
-	uint32_t word;
-};
-
-union WTBL_LMAC_DW4 {
-	struct {
-		uint32_t nego_winsize0:3;
-		uint32_t nego_winsize1:3;
-		uint32_t nego_winsize2:3;
-		uint32_t nego_winsize3:3;
-		uint32_t nego_winsize4:3;
-		uint32_t nego_winsize5:3;
-		uint32_t nego_winsize6:3;
-		uint32_t nego_winsize7:3;
-		uint32_t pe:2;
-		uint32_t dis_rhtr:1;
-		uint32_t ldpc_ht:1;
-		uint32_t ldpc_vht:1;
-		uint32_t ldpc_he:1;
-		uint32_t ldpc_eht:1;
-		uint32_t ba_mode:1;
-	} field;
-	uint32_t word;
-};
-
-union WTBL_LMAC_DW5 {
-	struct {
-		uint32_t af:4;
-		uint32_t bsa_en:1;
-		uint32_t rts:1;
-		uint32_t smps:1;
-		uint32_t dyn_bw:1;
-		uint32_t mmss:3;
-		uint32_t usr:1;
-		uint32_t sr_r:3;
-		uint32_t sr_abort:1;
-		uint32_t tx_power_offset:6;
-		uint32_t ltf_eht:2;
-		uint32_t gi_eht:2;
-		uint32_t doppl:1;
-		uint32_t txop_ps_cap:1;
-		uint32_t du_i_psm:1;
-		uint32_t i_psm:1;
-		uint32_t psm:1;
-		uint32_t skip_tx:1;
-	} field;
-	uint32_t word;
-};
-#else
 union WTBL_LMAC_DW2 {
 	struct {
 		uint32_t aid12:12;
@@ -742,7 +646,6 @@ union WTBL_LMAC_DW5 {
 	} field;
 	uint32_t word;
 };
-#endif
 
 union WTBL_LMAC_DW6 {
 	struct {
@@ -795,23 +698,6 @@ union WTBL_LMAC_DW8 {
 	uint32_t word;
 };
 
-#ifdef MT6653
-union WTBL_LMAC_DW9 {
-	struct {
-		uint32_t rx_avg_mpdu_size:14;
-		uint32_t pritx_sw_mode:1;
-		uint32_t pritx_ersu:1;
-		uint32_t pritx_plr:2;
-		uint32_t pritx_dcm:1;
-		uint32_t pritx_er106t:1;
-		uint32_t fcap:3;
-		uint32_t mpdu_fail_cnt:3;
-		uint32_t mpdu_ok_cnt:3;
-		uint32_t rate_idx:3;
-	} field;
-	uint32_t word;
-};
-#else
 union WTBL_LMAC_DW9 {
 	struct {
 		uint32_t rx_avg_mpdu_size:14;
@@ -828,7 +714,6 @@ union WTBL_LMAC_DW9 {
 	} field;
 	uint32_t word;
 };
-#endif
 
 union WTBL_LMAC_DW10 {
 	struct {
@@ -870,23 +755,6 @@ union WTBL_LMAC_DW13 {
 	uint32_t word;
 };
 
-#ifdef MT6653
-union WTBL_LMAC_DW14 {
-	struct {
-		uint32_t rate_1_tx_cnt:16;
-		uint32_t rate_1_fail_cnt:16;
-	} field;
-
-	struct {
-		uint32_t pad:8;
-		uint32_t cipher_suit_igtk:3;
-		uint32_t pad1:1;
-		uint32_t cipher_suit_bigtk:3;
-		uint32_t pad2:17;
-	} field_v2;
-	uint32_t word;
-};
-#else
 union WTBL_LMAC_DW14 {
 	struct {
 		uint32_t rate_1_tx_cnt:16;
@@ -901,7 +769,6 @@ union WTBL_LMAC_DW14 {
 	} field_v2;
 	uint32_t word;
 };
-#endif
 
 union WTBL_LMAC_DW15 {
 	struct {
@@ -1009,42 +876,7 @@ union WTBL_LMAC_DW29 {
 	} field;
 	uint32_t word;
 };
-#ifdef MT6653
-union WTBL_LMAC_DW30 {
-	struct {
-		uint32_t dispatch_order:7;
-		uint32_t dispatch_ratio:7;
-		uint32_t emlsr_trans_dly_idx:2;
-		uint32_t link_mgf:16;
-	} field;
-	uint32_t word;
-};
 
-union WTBL_LMAC_DW31 {
-	struct {
-		uint32_t pad:23;
-		uint32_t bftx_tb:1;
-		uint32_t drop:1;
-		uint32_t cascad:1;
-		uint32_t all_ack:1;
-		uint32_t mpdu_size:2;
-		uint32_t rxd_dup_mode:2;
-		uint32_t ack_en:1;
-	} field;
-	uint32_t word;
-};
-
-union WTBL_LMAC_DW32 {
-	struct {
-		uint32_t om_info:12;
-		uint32_t om_info_eht:4;
-		uint32_t rxd_dup_from_om_chg:1;
-		uint32_t rxd_dup_white_list:12;
-		uint32_t pad:3;
-	} field;
-	uint32_t word;
-};
-#else
 union WTBL_LMAC_DW30 {
 	struct {
 		uint32_t dispatch_order:7;
@@ -1085,7 +917,6 @@ union WTBL_LMAC_DW32 {
 	} field;
 	uint32_t word;
 };
-#endif
 
 union WTBL_LMAC_DW33 {
 	struct {
@@ -1110,17 +941,6 @@ union WTBL_LMAC_DW34 {
 	uint32_t word;
 };
 
-#ifdef MT6653
-union WTBL_LMAC_DW35 {
-	struct {
-		uint32_t snr_rx0:8;
-		uint32_t snr_rx1:8;
-		uint32_t snr_rx2:8;
-		uint32_t snr_rx3:8;
-	} field;
-	uint32_t word;
-};
-#else
 union WTBL_LMAC_DW35 {
 	struct {
 		uint32_t snr_rx0:6;
@@ -1131,7 +951,6 @@ union WTBL_LMAC_DW35 {
 	} field;
 	uint32_t word;
 };
-#endif
 
 struct wtbl_rx_stat {
 	union WTBL_LMAC_DW33 wtbl_d33;
@@ -1296,29 +1115,6 @@ union WTBL_UMAC_DW7 {
 	uint32_t word;
 };
 
-#ifdef MT6653
-union WTBL_UMAC_DW8 {
-	struct {
-		/* hw_amsdu_cfg */
-		uint32_t amsdu_len:6;
-		uint32_t amsdu_num:5;
-		uint32_t amsdu_en:1;
-		uint32_t pad:8;
-		uint32_t sec_addr_mode:2;
-		uint32_t spp_en:1;
-		uint32_t wpi_even:1;
-		uint32_t aad_om:1;
-		uint32_t wmm_q:2;
-		uint32_t qos:1;
-		uint32_t ht:1;
-		uint32_t hdrt_mode:1;
-		uint32_t bypass_rro:1;
-		uint32_t pad2:1;
-	} field;
-	uint32_t word;
-};
-
-#else
 union WTBL_UMAC_DW8 {
 	struct {
 		/* hw_amsdu_cfg */
@@ -1334,7 +1130,6 @@ union WTBL_UMAC_DW8 {
 	} field;
 	uint32_t word;
 };
-#endif
 
 union WTBL_UMAC_DW9 {
 	struct {
@@ -1374,7 +1169,7 @@ struct bwtbl_umac_struct {
 };
 
 extern u_int8_t fgIsDrvTriggerWholeChipReset;
-extern u_int8_t g_IsWfsysBusNoAck;
+extern u_int8_t g_IsWfsysBusHang;
 
 /*******************************************************************************
 *                  F U N C T I O N   D E C L A R A T I O N S
@@ -1423,13 +1218,11 @@ uint8_t asicConnac3xWfdmaWaitIdle(
 void asicConnac3xWfdmaTxRingBasePtrExtCtrl(
 	struct GLUE_INFO *prGlueInfo,
 	struct RTMP_TX_RING *tx_ring,
-	u_int32_t index,
-	u_int32_t u4DefVal);
+	u_int32_t index);
 void asicConnac3xWfdmaRxRingBasePtrExtCtrl(
 	struct GLUE_INFO *prGlueInfo,
 	struct RTMP_RX_RING *rx_ring,
-	u_int32_t index,
-	u_int32_t u4DefVal);
+	u_int32_t index);
 void asicConnac3xWfdmaTxRingExtCtrl(
 	struct GLUE_INFO *prGlueInfo,
 	struct RTMP_TX_RING *tx_ring,
@@ -1438,11 +1231,6 @@ void asicConnac3xWfdmaRxRingExtCtrl(
 	struct GLUE_INFO *prGlueInfo,
 	struct RTMP_RX_RING *rx_ring,
 	uint32_t index);
-#if CFG_MTK_WIFI_WFDMA_WB
-void asicConnac3xAllocWfdmaWbBuffer(struct GLUE_INFO *prGlueInfo,
-				    bool fgAllocMem);
-void asicConnac3xFreeWfdmaWbBuffer(struct GLUE_INFO *prGlueInfo);
-#endif
 void asicConnac3xEnablePlatformIRQ(
 	struct ADAPTER *prAdapter);
 void asicConnac3xDisablePlatformIRQ(
@@ -1517,7 +1305,6 @@ void asicConnac3xRxProcessRxvforMSP(struct ADAPTER *prAdapter,
 uint8_t asicConnac3xRxGetRcpiValueFromRxv(
 	uint8_t ucRcpiMode,
 	struct SW_RFB *prSwRfb);
-uint8_t asicConnac3xRxGetRxModeValueFromRxv(struct SW_RFB *prSwRfb);
 #if (CFG_SUPPORT_PERF_IND == 1)
 void asicConnac3xRxPerfIndProcessRXV(struct ADAPTER *prAdapter,
 	struct SW_RFB *prSwRfb,
@@ -1533,7 +1320,7 @@ u_int8_t conn2_rst_L0_notify_step2(void);
 #endif
 
 #if CFG_MTK_ANDROID_WMT
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 u_int8_t is_pwr_on_notify_processing(void);
 #endif
 #endif
@@ -1583,12 +1370,6 @@ void asicConnac3xWfdmaControl(
 	u_int8_t ucDmaIdx,
 	u_int8_t enable);
 
-#if defined(_HIF_PCIE) || defined(_HIF_AXI) || defined(_HIF_USB)
-void asicConnac3xDmashdlLiteSetTotalPlePsePageSize(
-	struct ADAPTER *prAdapter,
-	uint16_t u2PlePageSize, uint16_t u2PsePageSize);
-void asicConnac3xDmashdlLiteSetQueueMapping(
-	struct ADAPTER *prAdapter, uint8_t ucQueue, uint8_t ucGroup);
 void asicConnac3xDmashdlSetPlePsePktMaxPage(
 	struct ADAPTER *prAdapter,
 	uint16_t u2MaxPlePage, uint16_t u2MaxPsePage);
@@ -1601,34 +1382,31 @@ void asicConnac3xDmashdlSetMinMaxQuota(
 	uint16_t u2MinQuota, uint16_t u2MaxQuota);
 void asicConnac3xDmashdlSetQueueMapping(
 	struct ADAPTER *prAdapter, uint8_t ucQueue, uint8_t ucGroup);
+void asicConnac3xDmashdlGetPktMaxPage(struct ADAPTER *prAdapter);
+void asicConnac3xDmashdlGetRefill(struct ADAPTER *prAdapter);
+void asicConnac3xDmashdlGetGroupControl(
+	struct ADAPTER *prAdapter,
+	uint8_t ucGroup);
 void asicConnac3xDmashdlSetSlotArbiter(
 	struct ADAPTER *prAdapter, u_int8_t fgEnable, uint32_t u4DefVal);
 void asicConnac3xDmashdlSetUserDefinedPriority(
 	struct ADAPTER *prAdapter,
 	uint8_t ucPriority,
 	uint8_t ucGroup);
+uint32_t asicConnac3xDmashdlGetRsvCount(
+	struct ADAPTER *prAdapter,
+	uint8_t ucGroup);
+uint32_t asicConnac3xDmashdlGetSrcCount(
+	struct ADAPTER *prAdapter,
+	uint8_t ucGroup);
+void asicConnac3xDmashdlGetPKTCount(
+	struct ADAPTER *prAdapter,
+	uint8_t ucGroup);
 void asicConnac3xDmashdlSetOptionalControl(
 	struct ADAPTER *prAdapter,
 	uint16_t u2HifAckCntTh, uint16_t u2HifGupActMap, uint32_t u4DefVal);
-#if (CFG_DYNAMIC_DMASHDL_MAX_QUOTA == 1)
-uint32_t asicConnac3xDynamicDmashdlGetInUsedMaxQuota(
-	struct ADAPTER *prAdapter,
-	uint32_t u4GroupIdx,
-	uint32_t u4DefMaxQuota);
-uint32_t asicConnac3xUpdateDynamicDmashdlQuota(
-	struct ADAPTER *prAdapter,
-	uint8_t ucWmmIndex,
-	uint32_t u4MaxQuota);
-uint32_t asicConnac3xDynamicDmashdlQuotaDecision(
-	struct ADAPTER *prAdapter,
-	uint8_t ucWmmIndex);
-#endif /* CFG_DYNAMIC_DMASHDL_MAX_QUOTA == 1 */
-#endif /* #if defined(_HIF_PCIE) || defined(_HIF_AXI) || defined(_HIF_USB) */
 u_int8_t asicConnac3xSwIntHandler(struct ADAPTER *prAdapter);
 uint32_t asicConnac3xQueryPmicInfo(struct ADAPTER *prAdapter);
-uint32_t asicConnac3xQueryDFDInfo(
-	struct ADAPTER *prAdapter, uint32_t u4InfoIdx, uint32_t u4Offset,
-	uint32_t u4Length, uint8_t *pBuf);
 uint32_t asicConnac3xGetFwVer(struct ADAPTER *prAdapter);
 
 #if defined(_HIF_USB)
@@ -1656,17 +1434,6 @@ uint16_t asicConnac3xUsbRxByteCount(
 	struct BUS_INFO *prBusInfo,
 	uint8_t *pRXD);
 #endif /* _HIF_USB */
-
-#if CFG_NEW_HIF_DEV_REG_IF
-u_int8_t connac3xIsValidMmioReadReason(
-	struct mt66xx_chip_info *prChipInfo, enum HIF_DEV_REG_REASON eReason);
-u_int8_t connac3xIsNoMmioReadReason(
-	struct mt66xx_chip_info *prChipInfo, enum HIF_DEV_REG_REASON eReason);
-#endif /* CFG_NEW_HIF_DEV_REG_IF */
-
-#if defined(_HIF_PCIE) || defined(_HIF_AXI)
-void connac3xClearEvtRingTillCmdRingEmpty(struct ADAPTER *prAdapter);
-#endif /*_HIF_PCIE || _HIF_AXI */
 
 #endif /* CFG_SUPPORT_CONNAC3X == 1 */
 #endif /* _CMM_ASIC_CONNAC3X_H */

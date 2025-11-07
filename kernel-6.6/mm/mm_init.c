@@ -2433,7 +2433,7 @@ bool __init deferred_grow_zone(struct zone *zone, unsigned int order)
 #endif /* CONFIG_DEFERRED_STRUCT_PAGE_INIT */
 
 #ifdef CONFIG_CMA
-void __init init_cma_reserved_pageblock(struct page *page)
+void init_cma_reserved_pageblock(struct page *page)
 {
 	unsigned i = pageblock_nr_pages;
 	struct page *p = page;

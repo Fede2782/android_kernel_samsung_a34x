@@ -33,26 +33,6 @@ extern uint8_t  g_fgSigmaCMDHt;
 extern uint8_t  g_ucHtSMPSCapValue;
 #endif
 
-static const char * const apucOpBw[MAX_BW_UNKNOWN+1] = {
-	[MAX_BW_20MHZ] = "MAX_BW_20MHZ",
-	[MAX_BW_40MHZ] = "MAX_BW_40MHZ",
-	[MAX_BW_80MHZ] = "MAX_BW_80MHZ",
-	[MAX_BW_160MHZ] = "MAX_BW_160MHZ",
-	[MAX_BW_80_80_MHZ] = "MAX_BW_80_80_MHZ",
-	[MAX_BW_320_1MHZ] = "MAX_BW_320_1MHZ",
-	[MAX_BW_320_2MHZ] = "MAX_BW_320_2MHZ",
-	[MAX_BW_UNKNOWN] = "MAX_BW_UNKNOWN",
-};
-
-static const char * const apucVhtOpBw[CW_NUM] = {
-	[CW_20_40MHZ] = "CW_20_40MHZ",
-	[CW_80MHZ] = "CW_80MHZ",
-	[CW_160MHZ] = "CW_160MHZ",
-	[CW_80P80MHZ] = "CW_80P80MHZ",
-	[CW_320_1MHZ] = "CW_320_1MHZ",
-	[CW_320_2MHZ] = "CW_320_2MHZ",
-};
-
 /*******************************************************************************
  *                              C O N S T A N T S
  *******************************************************************************
@@ -84,7 +64,7 @@ static const char * const apucVhtOpBw[CW_NUM] = {
 	(HT_CAP_INFO_SUP_CHNL_WIDTH | HT_CAP_INFO_DSSS_CCK_IN_40M \
 		| HT_CAP_INFO_SM_POWER_SAVE)
 
-#if (CFG_SUPPORT_SMALL_PKT == 1)
+#if (CFG_SUPPORT_CONNAC3X_SMALL_PKT == 1)
 #define AMPDU_PARAM_DEFAULT_VAL \
 	(AMPDU_PARAM_MAX_AMPDU_LEN_64K | AMPDU_PARAM_MSS_1_US)
 #else
@@ -189,66 +169,13 @@ static const char * const apucVhtOpBw[CW_NUM] = {
 
 #endif
 
-#if (CFG_SUPPORT_FACT_CAL == 1)
-#define FACT_CAL_CMD_EVENT_WAITTIME_MS (1000) /* uint: msec */
-#define FACT_CAL_GET_TIMEOUT_TH (10) /* uint: sec */
-
-/* Define for fact cal result to 4 byte-align */
-#define FACT_CAL_COM_CAL_RESULT_LEN 600
-#define FACT_CAL_GRP_CAL_RESUL_LEN  4500
-#define FACT_CAL_CH_CAL_RESULT_LEN  700
-
-#define FACT_CAL_DATA_BUF_NUM_MAX (4) /* Maximum of channel cache num */
-#define FACT_CAL_CH_NUM_2G (14)	/* ARRAY_SIZE g_au1ChList2G */
-#define FACT_CAL_CH_NUM_5G (68) /* ARRAY_SIZE g_au1ChList5G */
-#define FACT_CAL_CH_NUM_6G (109) /* ARRAY_SIZE g_au1ChList6G */
-#define FACT_CAL_CH_NUM_ALL ((FACT_CAL_CH_NUM_2G) + (FACT_CAL_CH_NUM_5G)+ \
-					+ (FACT_CAL_CH_NUM_6G))
-#define FACT_CAL_CH_PATH_ALL \
-	((FACT_CAL_CH_NUM_ALL)*(FACT_CAL_DATA_BUF_NUM_MAX))
-
-#define FACT_CAL_DATA_BUF_CFG_U32_LEN (4)
-#define FACT_CAL_DATA_BUF_CFG_U8_LEN (16)
-/* buffer format [address, u4Length, others 1, others 2] = 4*4 = 16bytes */
-/* Total BUF_NUM_MAX buf = 16 * BUF_NUM_MAX */
-#define FACT_CAL_DATA_MAX_BUF_LEN \
-	((FACT_CAL_DATA_BUF_NUM_MAX)*(FACT_CAL_DATA_BUF_CFG_U32_LEN))
-#define FACT_CAL_DATA_BUF_LEN (1400)
-#define FACT_CAL_BUF_LEN_COM (FACT_CAL_COM_CAL_RESULT_LEN)
-#define FACT_CAL_BUF_LEN_GRP (FACT_CAL_GRP_CAL_RESUL_LEN)
-#define FACT_CAL_BUF_LEN_CH \
-	((FACT_CAL_CH_CAL_RESULT_LEN)*(FACT_CAL_DATA_BUF_NUM_MAX))
-
-#define FACT_CAL_2G_GROUP_NUM (1)
-#define FACT_CAL_5G_GROUP_NUM (8)
-#define FACT_CAL_6G_GROUP_NUM (15)
-#define FACT_CAL_6G_160M_GROUP_NUM (11)
-#define FACT_CAL_GROUP_NUM ((FACT_CAL_2G_GROUP_NUM) + (FACT_CAL_5G_GROUP_NUM) \
-+ (FACT_CAL_6G_GROUP_NUM) + (FACT_CAL_6G_160M_GROUP_NUM))
-
-// Use common as input param
-#define FACT_CAL_PARAM_COMMON_MASK                        BITS(0, 7)
-
-// Use group as input param
-#define FACT_CAL_PARAM_GROUP_MASK                         BITS(0, 7)
-
-// Use central channel as input param
-#define FACT_CAL_CENT_CH_PARAM_CHAN_MASK                  BITS(0, 11)
-#define FACT_CAL_CENT_CH_PARAM_CHAN_OFFSET                (0)
-#define FACT_CAL_CENT_CH_PARAM_RF_BAND_MASK               BITS(12, 15)
-#define FACT_CAL_CENT_CH_PARAM_RF_BAND_OFFSET             (12)
-
-#define BAND_TO_FACT_BAND(_ucBand) ((_ucBand) - 1)
-#define FACT_CAL_DATA_INVALID_IDX 0xFFFFFFFF
-
-#endif //#if CFG_SUPPORT_FACT_CAL
-
 #if (CFG_SUPPORT_TX_PWR_ENV == 1)
 #define TX_PWR_ENV_LMT_MIN                0 /* LSB = 0.5dBm */
 #define TX_PWR_ENV_BW_SHIFT_BW20          0
 #define TX_PWR_ENV_BW_SHIFT_BW40          2
 #define TX_PWR_ENV_BW_SHIFT_BW80          6
 #define TX_PWR_ENV_BW_SHIFT_BW160        14
+#define TX_PWR_ENV_BW_SHIFT_BW320        30
 
 /* PSD to Power dBm transfer func : 10*log(BW) * 2 */
 #define TX_PWR_ENV_PSD_TRANS_DBM_BW20    26 /* 10*log( 20) * 2  = 26, 0.5dBm */
@@ -268,239 +195,6 @@ static const char * const apucVhtOpBw[CW_NUM] = {
  *                             D A T A   T Y P E S
  *******************************************************************************
  */
-
-enum ENUM_OP_NOTIFY_STATE_T {
-	OP_NOTIFY_STATE_KEEP = 0, /* Won't change OP mode */
-	OP_NOTIFY_STATE_SENDING,  /* Sending OP notification frame */
-	OP_NOTIFY_STATE_SUCCESS,  /* OP notification Tx success */
-	OP_NOTIFY_STATE_FAIL,     /* OP notification Tx fail(over retry limit)*/
-	OP_NOTIFY_STATE_ROLLBACK, /* OP notification rollback */
-	OP_NOTIFY_STATE_NUM
-};
-
-#if (CFG_SUPPORT_FACT_CAL == 1)
-
-enum FACT_CAL_ACTION {
-	FACT_CAL_ACTION_GET = 0,
-	FACT_CAL_ACTION_SET = 1,
-	FACT_CAL_ACTION_TRIGGER = 2,
-	FACT_CAL_ACTION_UPDATE_FLAG = 3,
-	FACT_CAL_ACTION_DUMP = 4,
-	FACT_CAL_ACTION_LOAD_FILE = 5,
-	FACT_CAL_ACTION_SAVE_FILE = 6,
-	FACT_CAL_ACTION_NUM
-};
-
-enum FACT_CAL_TYPE {
-	FACT_CAL_TYPE_COMMON = 0,
-	FACT_CAL_TYPE_GROUP = 1,
-	FACT_CAL_TYPE_CHANNEL = 2,
-	FACT_CAL_TYPE_ALL = 3,
-	FACT_CAL_TYPE_FORCE = 4,
-	FACT_CAL_TYPE_NUM
-};
-
-enum FACT_CAL_TYPE_CE {
-	FACT_CAL_TYPE_POWERON = 0,
-	FACT_CAL_TYPE_SETCHANNEL = 1,
-	FACT_CAL_TYPE_BAND = 2,
-	FACT_CAL_TYPE_GET_ALL = 3,
-	FACT_CAL_TYPE_MAPPING_TBL = 4
-};
-
-enum FACT_CAL_COMMON_BAND {
-	FACT_CAL_COMMON_BAND_G = 0,
-	FACT_CAL_COMMON_BAND_A = 1,
-	FACT_CAL_COMMON_BAND_NUM
-};
-
-/*
- * Mapping to halPhyFactCal()
- * ENUM_BAND: NULL=0, 2G=1, 5G=2, 6G=3
- * FACT_CAL_BAND: 2G=0, 5G=1, 6G=2
- */
-enum FACT_CAL_BAND {
-	FACT_CAL_BAND_2G = 0,
-	FACT_CAL_BAND_5G = 1,
-#if (CFG_SUPPORT_WIFI_6G == 1)
-	FACT_CAL_BAND_6G = 2,
-#endif
-	FACT_CAL_BAND_NUM
-};
-
-struct FACT_CAL_GROUP_DEF_ENTRY {
-	uint8_t ucGroupIdx;
-	uint16_t ucFreqStart;
-	uint16_t ucFreqEnd;
-};
-
-struct FACT_CAL_BUF_INFO {
-	/* Caltype : enum FACT_CAL_TYPE */
-	uint32_t ucCalType;
-
-	/* Input data for halPhyFactCal()
-	 * If Cal type == Common
-	 *	 Bit[0:7]: (2G : 0 / 5G : 1 / 6G : 2)
-	 *	 Bit[8:31]: reserved for future use
-	 * If Cal type == Group
-	 *	 Bit[0:7]: group id (0~34)
-	 *	 Bit[8:31]: reserved for future use
-	 * If Cal type == Channel
-	 *   Bit[0:11]: central channel
-	 *     E.g. CH6 set to 6
-	 *   Bit[12:15]: Channel Band (2G : 0 / 5G : 1 / 6G : 2)
-	 *   BIT[16:31]: reserved
-	 */
-	uint32_t u4CalParam;
-
-	/*
-	 * u4BufSeqNum
-	 * bit[0:31]: Current buf seq in this type cal
-	 */
-	uint32_t u4BufSeqNum;
-
-	/*
-	 * u4TotalBufNum
-	 * bit[0:31]: Total buf number in this type cal
-	 */
-	uint32_t u4TotalBufNum;
-
-	/*
-	 * u4BufDataLength
-	 * bit[0:31] : len of cal data length
-	 */
-	uint32_t u4BufDataLength;
-
-	/*
-	 * fgValid
-	 * Valid or not : (1: valid, 0: invalid)
-	 */
-	uint8_t fgValid;
-
-	/* Done or not */
-	uint8_t ucDone;
-
-	/* each memory buf set is consisted of 4 uint32 of
-	 * [address, u4Length, others 1, others 2]
-	 */
-	uint32_t au4BufCfgInfo[FACT_CAL_DATA_MAX_BUF_LEN];
-};
-
-
-/* Unit of CMD/EVENT cal data */
-struct FACT_CAL_DATA_BUF {
-	uint8_t fgValid;
-	uint8_t ucCalType;
-	uint32_t u4CalParam;
-	uint32_t u4BufNum;
-	uint32_t u4BufSeqNum;
-	uint8_t *pBuf;
-	uint32_t u4BufLen;
-	uint32_t *pBufCfg;
-	uint32_t u4BufCfgLen;
-};
-
-/* Uint of cal data saved in host mem */
-struct FACT_CAL_COM {
-	struct FACT_CAL_BUF_INFO rFactCalBufInfo;
-	uint8_t aucCalData[FACT_CAL_BUF_LEN_COM];
-};
-
-/* Uint of cal data saved in host mem */
-struct FACT_CAL_GRP {
-	struct FACT_CAL_BUF_INFO rFactCalBufInfo;
-	uint8_t aucCalData[FACT_CAL_BUF_LEN_GRP];
-};
-
-/* Uint of cal data saved in host mem */
-struct FACT_CAL_CH {
-	struct FACT_CAL_BUF_INFO rFactCalBufInfo;
-	uint8_t aucCalData[FACT_CAL_BUF_LEN_CH];
-};
-
-enum FACT_CAL_STORE_ACTION {
-	FACT_CAL_STORE_DATA_HEAD = 0,
-	FACT_CAL_STORE_DATA = 1,
-	FACT_CAL_STORE_DATA_DONE = 2,
-	FACT_CAL_STORE_ACTION_NUM
-};
-
-struct FACT_CAL_COMMON_LOOKUP_TABLE {
-    /* Common Cal for each A band and G band */
-	struct FACT_CAL_COM rComCalData[FACT_CAL_COMMON_BAND_NUM];
-};
-struct FACT_CAL_GROUP_LOOKUP_TABLE {
-    /* 2G : Group0 with 2 SX paths */
-	/* 5G : Group1 ~ 8 with 2 SX paths */
-	/* 6G : Group9 ~ 23 with 2 SX paths */
-	/* 5G 160M: Group 24 ~ 27 with 2SX paths */
-	/* 6G 160M: Group 28 ~ 34 with 2SX paths */
-	struct FACT_CAL_GRP rGrpCalData[FACT_CAL_GROUP_NUM];
-};
-struct FACT_CAL_CHANNEL_LOOKUP_TABLE {
-    /* Channel Cal for 2G, 5G, 6G channels */
-	struct FACT_CAL_CH rChCalData[FACT_CAL_CH_NUM_ALL];
-};
-struct FACT_CAL_BASE_LOOKUP_TABLE {
-	struct FACT_CAL_COMMON_LOOKUP_TABLE *common_t;
-	struct FACT_CAL_GROUP_LOOKUP_TABLE *group_t;
-	struct FACT_CAL_CHANNEL_LOOKUP_TABLE *channel_t;
-#if (CFG_SUPPORT_FACT_CAL_AXIDMA_MAPPING_TBL == 1)
-	dma_addr_t Group_pa;
-	dma_addr_t Common_pa;
-	dma_addr_t Channel_pa;
-#endif /* CFG_SUPPORT_FACT_CAL_AXIDMA_MAPPING_TBL */
-};
-
-#if (CFG_SUPPORT_FACT_CAL_AXIDMA_MAPPING_TBL == 1)
-#define GROUP_1 1  // Aband Group Start
-#define GROUP_24 24 // Aband BW160 Group Start
-
-struct FACT_CAL_COMMON_MAPPING_TABLE {
-	uint32_t u4PhyAddr_H;
-	uint32_t u4PhyAddr_L;
-	uint32_t u4Offset;
-	uint8_t ucBand[FACT_CAL_COMMON_BAND_NUM];
-	uint8_t aucReserved[2];
-};
-struct FACT_CAL_GROUP_MAPPING_TABLE {
-	uint32_t u4PhyAddr_H;
-	uint32_t u4PhyAddr_L;
-	uint32_t u4Offset;
-	uint8_t u1Group[FACT_CAL_GROUP_NUM];
-	uint8_t aucReserved;
-};
-
-/*
- * u4CacheMark made 32-bits mark, in format:
- * BIT[31]:     channel is bw160 or not
- * BITS[30:28]: cal path, from input ucCalPath
- * BITS[27:24]: antenna position, from input ucAntPos
- * BITS[23:00]: channel, from input u4DpdCalCh
- */
-struct FACT_CAL_CHANNEL_MAPPING_TABLE {
-	uint32_t u4PhyAddr_H;
-	uint32_t u4PhyAddr_L;
-	uint32_t u4Offset;
-	uint32_t u4CenterCh[FACT_CAL_CH_NUM_ALL];
-	uint32_t u4TotalBufNum[FACT_CAL_CH_NUM_ALL];
-	uint32_t u4CacheMark[FACT_CAL_CH_PATH_ALL];
-	int8_t cTemperature[FACT_CAL_CH_PATH_ALL];
-};
-
-struct FACT_CAL_MAPPING_TABLE {
-	struct FACT_CAL_COMMON_MAPPING_TABLE CommMap_t;
-	struct FACT_CAL_GROUP_MAPPING_TABLE GrpMap_t;
-	struct FACT_CAL_CHANNEL_MAPPING_TABLE ChMap_t;
-	uint32_t u4ComLen;
-	uint32_t u4GrpALen;
-	uint32_t u4GrpABW160Len;
-	uint32_t u4ChLen;
-};
-#endif /* CFG_SUPPORT_FACT_CAL_AXIDMA_MAPPING_TBL */
-
-#endif
-
 typedef void (*PFN_OPMODE_NOTIFY_DONE_FUNC)(
 	struct ADAPTER *, uint8_t, bool);
 
@@ -508,7 +202,6 @@ enum ENUM_OP_NOTIFY_TYPE_T {
 	OP_NOTIFY_TYPE_VHT_NSS_BW = 0,
 	OP_NOTIFY_TYPE_HT_NSS,
 	OP_NOTIFY_TYPE_HT_BW,
-	OP_NOTIFY_TYPE_OMI_NSS_BW,
 	OP_NOTIFY_TYPE_NUM
 };
 
@@ -521,16 +214,6 @@ enum ENUM_OP_CHANGE_STATUS_T {
 	/* wait next INT to call callback */
 	OP_CHANGE_STATUS_VALID_CHANGE_CALLBACK_WAIT,
 	OP_CHANGE_STATUS_NUM
-};
-
-enum ENUM_OP_CHANGE_SEND_ACT_T {
-	/* Do not send action frame */
-	OP_CHANGE_SEND_ACT_DISABLE = 0,
-	/* Send action frame if change */
-	OP_CHANGE_SEND_ACT_DEFAULT = 1,
-	/* Send action frame w/wo change */
-	OP_CHANGE_SEND_ACT_FORCE = 2,
-	OP_CHANGE_SEND_ACT_NUM
 };
 
 struct SUB_ELEMENT_LIST {
@@ -559,7 +242,7 @@ struct SWITCH_CH_AND_BAND_PARAMS {
 	enum ENUM_CHNL_SWITCH_MODE ucCsaMode;
 	uint32_t u4MaxSwitchTime;
 };
-#endif /* CFG_SUPPORT_DFS */
+#endif
 
 /*******************************************************************************
  *                            P U B L I C   D A T A
@@ -659,16 +342,25 @@ uint8_t rlmCheckMtkOuiChipCap(uint8_t *pucIe, uint64_t u8ChipCap);
 
 uint32_t rlmCalculateMTKOuiIELen(struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex, struct STA_RECORD *prStaRec);
+uint32_t rlmCalculateCustomer1OuiIELen(struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex, struct STA_RECORD *prStaRec);
+uint32_t rlmCalculateCustomer2OuiIELen(struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex, struct STA_RECORD *prStaRec);
 
 void rlmGenerateMTKOuiIE(struct ADAPTER *prAdapter,
 			 struct MSDU_INFO *prMsduInfo);
+void rlmGenerateCustomer1OuiIE(struct ADAPTER *prAdapter,
+			 struct MSDU_INFO *prMsduInfo);
+void rlmGenerateCustomer2OuiIE(struct ADAPTER *prAdapter,
+			 struct MSDU_INFO *prMsduInfo);
+
 uint16_t rlmGenerateMTKChipCapIE(uint8_t *pucBuf, uint16_t u2FrameLength,
 	uint8_t fgNeedOui, uint64_t u8ChipCap);
 
 u_int8_t rlmParseCheckMTKOuiIE(struct ADAPTER *prAdapter,
 			const uint8_t *pucBuf,  struct STA_RECORD *prStaRec);
 
-#if CFG_SUPPORT_RXSMM_ALLOWLIST
+#if CFG_SUPPORT_RXSMM_WHITELIST
 u_int8_t rlmParseCheckRxsmmOuiIE(struct ADAPTER *prAdapter,
 		const uint8_t *pucBuf, u_int8_t *pfgRxsmmEnable);
 #endif
@@ -800,13 +492,6 @@ uint32_t rlmUpdateMrcSetting(struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex, uint8_t enable);
 
 uint32_t
-rlmSendOpModeFrameByType(struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	uint8_t ucOpChangeType,
-	uint8_t ucChannelWidth,
-	uint8_t ucRxNss, uint8_t ucTxNss);
-
-uint32_t
 rlmSendOpModeNotificationFrame(struct ADAPTER *prAdapter,
 			       struct STA_RECORD *prStaRec,
 			       uint8_t ucChannelWidth, uint8_t ucNss);
@@ -814,25 +499,6 @@ rlmSendOpModeNotificationFrame(struct ADAPTER *prAdapter,
 uint32_t
 rlmSendSmPowerSaveFrame(struct ADAPTER *prAdapter,
 			struct STA_RECORD *prStaRec, uint8_t ucNss);
-
-uint32_t
-rlmSendNotifyChannelWidthFrame(
-		struct ADAPTER *prAdapter,
-		struct STA_RECORD *prStaRec,
-		uint8_t ucChannelWidth);
-
-#if (CFG_SUPPORT_802_11AX == 1) || (CFG_SUPPORT_802_11BE == 1)
-uint32_t
-rlmSendOMIDataFrame(struct ADAPTER *prAdapter,
-		    struct STA_RECORD *prStaRec,
-		    uint8_t ucChannelWidth,
-		    uint8_t ucOpRxNss,
-		    uint8_t ucOpTxNss,
-		    PFN_TX_DONE_HANDLER pfTxDoneHandler);
-#endif
-
-void rlmReqGenerateOMIIE(struct ADAPTER *prAdapter,
-		struct BSS_INFO *prBssInfo);
 
 void
 rlmSendChannelSwitchFrame(struct ADAPTER *prAdapter,
@@ -845,16 +511,6 @@ uint32_t
 rlmNotifyVhtOpModeTxDone(struct ADAPTER *prAdapter,
 			 struct MSDU_INFO *prMsduInfo,
 			 enum ENUM_TX_RESULT_CODE rTxDoneStatus);
-
-uint32_t
-rlmNotifyOMIOpModeTxDone(struct ADAPTER *prAdapter,
-			 struct MSDU_INFO *prMsduInfo,
-			 enum ENUM_TX_RESULT_CODE rTxDoneStatus);
-
-uint32_t
-rlmNotifyApGoOmiOpModeTxDone(struct ADAPTER *prAdapter,
-			     struct MSDU_INFO *prMsduInfo,
-			     enum ENUM_TX_RESULT_CODE rTxDoneStatus);
 
 uint32_t
 rlmSmPowerSaveTxDone(struct ADAPTER *prAdapter,
@@ -892,7 +548,7 @@ rlmChangeOperationMode(
 	uint8_t ucChannelWidth,
 	uint8_t ucOpRxNss,
 	uint8_t ucOpTxNss,
-	enum ENUM_OP_CHANGE_SEND_ACT_T ucSendAct,
+	uint8_t ucSendAct,
 	PFN_OPMODE_NOTIFY_DONE_FUNC pfOpChangeHandler
 );
 
@@ -917,51 +573,6 @@ bool
 rlmClientSupportsHtETxBF(struct STA_RECORD *prStaRec);
 #endif
 
-#if (CFG_SUPPORT_FACT_CAL == 1)
-int rlmGetCenterCh(enum ENUM_BAND eBand, uint8_t ucCh,
-		enum ENUM_CHANNEL_WIDTH eBw, enum ENUM_CHNL_EXT eSco);
-
-uint32_t rlmFactCalStart(struct ADAPTER *prAdapter);
-
-void rlmFactCalStop(struct ADAPTER *prAdapter);
-
-void rlmFactCalDump(struct ADAPTER *prAdapter, enum FACT_CAL_TYPE eType);
-
-uint32_t rlmFactCalHandler(struct ADAPTER *prAdapter,
-		uint32_t u4Action, uint32_t u4CalType, uint32_t u4CalParam);
-
-uint32_t rlmFactCalUpdateStruct(struct ADAPTER *prAdapter,
-		enum FACT_CAL_STORE_ACTION eAction,
-		struct UNI_EVENT_FACT_CAL_RAPID_GET_DATA *prCalData);
-
-uint32_t rlmFactCalGetBufInfo(struct ADAPTER *prAdapter,
-		struct FACT_CAL_DATA_BUF *prCalData, uint32_t u4CalDataIdx);
-
-uint32_t rlmFactCalGet(struct ADAPTER *prAdapter,
-			uint32_t u4CalType, uint8_t u4Band, uint32_t u4Channel);
-
-uint32_t rlmFactCalSet(struct ADAPTER *prAdapter,
-			uint32_t u4CalType, uint8_t u1Band, uint32_t u4Channel);
-
-uint32_t rlmFactCalSetCalDataForSend(struct ADAPTER *prAdapter,
-			uint32_t u4CalType, uint8_t u1Band,
-			uint32_t u4Channel,
-			uint32_t u4CalDataIdx);
-
-uint32_t rlmFactCalSetByPassCal(struct ADAPTER *prAdapter, uint32_t u4Enable);
-
-uint32_t rlmFactCalSetGrpAndCh(struct ADAPTER *prAdapter,
-			enum FACT_CAL_BAND eBand, uint8_t ucCenterCh);
-
-uint32_t rlmFactCalFileHandler(struct ADAPTER *prAdapter, uint32_t u4CalType,
-			uint8_t fgWrite);
-
-uint32_t rlmFactCalSetDefaultComAndGrp(struct ADAPTER *prAdapter);
-#if (CFG_SUPPORT_FACT_CAL_AXIDMA_MAPPING_TBL == 1)
-uint32_t rlmFactCalSetMappingTable(struct ADAPTER *prAdapter);
-#endif /* CFG_SUPPORT_FACT_CAL_AXIDMA_MAPPING_TBL */
-#endif /* CFG_SUPPORT_FACT_CAL */
-
 void rlmModifyVhtBwPara(uint8_t *pucVhtChannelFrequencyS1,
 			uint8_t *pucVhtChannelFrequencyS2,
 			uint8_t ucHtChannelFrequencyS3,
@@ -975,11 +586,10 @@ void rlmTransferHe6gOpInfor(uint8_t ucChannelNum,
 	uint8_t *pucCenterFreqS2,
 	enum ENUM_CHNL_EXT *peSco);
 
-void rlmModifyHE6GBwPara(uint8_t ucBw,
+void rlmModifyHE6GBwPara(uint8_t ucHe6gChannelWidth,
 	uint8_t ucHe6gPrimaryChannel,
 	uint8_t *pucHe6gChannelFrequencyS1,
-	uint8_t *pucHe6gChannelFrequencyS2,
-	enum ENUM_CHNL_EXT *peSco);
+	uint8_t *pucHe6gChannelFrequencyS2);
 #endif
 
 void rlmReviseMaxBw(
@@ -1113,10 +723,6 @@ uint32_t rlmCalculateTpeIELen(struct ADAPTER *prAdapter,
 void rlmGenerateTpeIE(struct ADAPTER *prAdapter,
 		      struct MSDU_INFO *prMsduInfo);
 
-enum ENUM_MAX_BANDWIDTH_SETTING
-rlmVhtBw2OpBw(uint8_t ucVhtBw, enum ENUM_CHNL_EXT eSco);
-
-#if CFG_SUPPORT_GEN_OP_CLASS
 uint32_t rlmCalculateSupportedOpClassIELen(
 	struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex,
@@ -1125,7 +731,7 @@ uint32_t rlmCalculateSupportedOpClassIELen(
 void rlmGenerateSupportedOpClassIE(
 	struct ADAPTER *prAdapter,
 	struct MSDU_INFO *prMsduInfo);
-#endif
+
 /*******************************************************************************
  *                              F U N C T I O N S
  *******************************************************************************

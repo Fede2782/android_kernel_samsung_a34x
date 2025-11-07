@@ -8,6 +8,7 @@ config DEVICE_MODULES_DRM_MEDIATEK
 	depends on OF
 	depends on DEVICE_MODULES_MTK_MMSYS
 	select DRM_DISPLAY_DP_HELPER
+	select DRM_DISPLAY_HDMI_HELPER
 	select DRM_DISPLAY_HELPER
 	select DRM_GEM_DMA_HELPER
 	select DRM_KMS_HELPER
@@ -45,6 +46,7 @@ config DRM_MEDIATEK_HDMI
 	depends on DEVICE_MODULES_DRM_MEDIATEK
 	select SND_SOC_HDMI_CODEC if SND_SOC
 	select DRM_MEDIATEK_CEC
+	select DRM_DISPLAY_HDMI_HELPER
 	help
 	  DRM/KMS HDMI driver for Mediatek SoCs.
 	  Choose this option if you want to enable

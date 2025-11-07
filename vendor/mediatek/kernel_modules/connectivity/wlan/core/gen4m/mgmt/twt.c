@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -155,13 +155,6 @@ uint32_t twtSendSetupFrame(
 			sizeof(struct _ACTION_TWT_SETUP_FRAME),
 			pfTxDoneHandler, MSDU_RATE_MODE_AUTO);
 
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-	nicTxConfigPktControlFlag(prMsduInfo,
-			MSDU_CONTROL_FLAG_FORCE_LINK |
-			MSDU_CONTROL_FLAG_DIS_MAT,
-			TRUE);
-#endif /* CFG_SUPPORT_802_11BE_MLO */
-
 	/* Enqueue the frame to send this action frame */
 	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
 
@@ -240,13 +233,6 @@ uint32_t twtSendTeardownFrame(
 			WLAN_MAC_MGMT_HEADER_LEN,
 			sizeof(struct _ACTION_TWT_TEARDOWN_FRAME),
 			pfTxDoneHandler, MSDU_RATE_MODE_AUTO);
-
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-	nicTxConfigPktControlFlag(prMsduInfo,
-			MSDU_CONTROL_FLAG_FORCE_LINK |
-			MSDU_CONTROL_FLAG_DIS_MAT,
-			TRUE);
-#endif /* CFG_SUPPORT_802_11BE_MLO */
 
 	/* Enqueue the frame to send this action frame */
 	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
@@ -387,13 +373,6 @@ uint32_t twtSendInfoFrame(
 					prNextTWTInfo->ucNextTWTSize)),
 			pfTxDoneHandler, MSDU_RATE_MODE_AUTO);
 
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-	nicTxConfigPktControlFlag(prMsduInfo,
-			MSDU_CONTROL_FLAG_FORCE_LINK |
-			MSDU_CONTROL_FLAG_DIS_MAT,
-			TRUE);
-#endif /* CFG_SUPPORT_802_11BE_MLO */
-
 	/* Enqueue the frame to send this action frame */
 	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
 
@@ -488,16 +467,6 @@ static void btwtParseTWTElement(
 		prBTWTIE->u2TWT);
 
 	u8TargetWakeTime = prTWTParams->u8TWT;
-
-	/* see Draft P802.11ax_D7.0.pdf, p421 */
-	u8TargetWakeTime &= 0xFFFFFFFFFFFFFC00;
-	u8TargetWakeTime |= (uint32_t)(prBTWTIE->u2TWT << 10);
-
-	DBGLOG(TWT_REQUESTER, WARN,
-		"BTWT cur TSF sync with AP %x %x\n",
-		(uint32_t)(u8TargetWakeTime & 0x00000000FFFFFFFF),
-		(uint32_t)((u8TargetWakeTime & 0xFFFFFFFF00000000) >> 32));
-
 	u8twt_interval = (((u_int64_t)prTWTParams->u2WakeIntvalMantiss)
 		<< prTWTParams->ucWakeIntvalExponent);
 	u8Temp = u8TargetWakeTime + u8twt_interval;
@@ -527,6 +496,20 @@ uint8_t btwtGetTxSetupFlowId(
 	ucFlowId = GET_BTWT_ID(prTxFrame->rTWT.u2BTWTInfo);
 
 	return ucFlowId;
+}
+
+static void btwtFlagOnOff(
+	struct _TWT_FLOW_T *prBtwtFlow,
+	uint8_t ucBtwtOnOff)
+{
+	if (!prBtwtFlow) {
+		DBGLOG(TWT_REQUESTER, ERROR,
+			"invalid prBtwtFlow\n");
+
+		return;
+	}
+
+	prBtwtFlow->fgIsBTWT = ucBtwtOnOff;
 }
 #endif
 
@@ -650,11 +633,6 @@ void twtProcessS1GAction(
 	uint8_t ucTWTFlowId = 0;
 	uint32_t u4Offset;
 	uint16_t u2ReqType;
-#if (CFG_SUPPORT_BTWT == 1)
-	uint8_t ucRecommendation = 0;
-#endif
-	struct _TWT_FLOW_T *prTWTFlow = NULL;
-	enum _ENUM_TWT_TYPE_T eTwtType = ENUM_TWT_TYPE_DEFAULT;
 
 	if (!prAdapter) {
 		DBGLOG(TWT_REQUESTER, ERROR,
@@ -925,7 +903,7 @@ void twtProcessS1GAction(
 			DBGLOG(RLM, WARN, "BTWT params here\n");
 
 			if ((ucTWTFlowId == TWT_INCORRECT_FLOW_ID) ||
-				(ucTWTFlowId >= RTWT_MAX_FLOW_NUM)) {
+				(ucTWTFlowId >= TWT_MAX_FLOW_NUM)) {
 				DBGLOG(TWT_REQUESTER, ERROR,
 					"TWT_INCORRECT_FLOW_ID %d\n",
 					ucTWTFlowId);
@@ -933,8 +911,8 @@ void twtProcessS1GAction(
 				return;
 			}
 
-			DBGLOG(TWT_REQUESTER, WARN,
-				"Rx BTWT params: %x %x %x %x %x\n",
+	DBGLOG(TWT_REQUESTER, WARN,
+		"Rx BTWT params:\nReqType=%x\nTWT=%x\nMinWakeDur=%x\nWakeIntMantissa=%x\nBTWTInfo=%x\n",
 		((struct _IE_BTWT_T *)&(prRxSetupFrame->rTWT))->u2ReqType,
 		((struct _IE_BTWT_T *)&(prRxSetupFrame->rTWT))->u2TWT,
 		((struct _IE_BTWT_T *)&(prRxSetupFrame->rTWT))->ucMinWakeDur,
@@ -942,46 +920,12 @@ void twtProcessS1GAction(
 			(prRxSetupFrame->rTWT))->u2WakeIntvalMantiss,
 		((struct _IE_BTWT_T *)&(prRxSetupFrame->rTWT))->u2BTWTInfo);
 
-			ucRecommendation = GET_BTWT_RECOMMENDATION(
-				((struct _IE_BTWT_T *)
-				&(prRxSetupFrame->rTWT))->u2ReqType);
+			btwtParseTWTElement(
+				((struct _IE_BTWT_T *)&(prRxSetupFrame->rTWT)),
+			&(prStaRec->arTWTFlow[ucTWTFlowId].rTWTPeerParams));
 
-			prTWTFlow = twtPlannerFlowFindById(
-					prStaRec, ucTWTFlowId,
-					(ucRecommendation == 0) ?
-						ENUM_TWT_TYPE_BTWT
-						: ENUM_TWT_TYPE_RTWT);
-
-			if (prTWTFlow == NULL) {
-				DBGLOG(TWT_REQUESTER, ERROR,
-					"NULL TWT flow %d recom %d\n",
-					ucTWTFlowId, ucRecommendation);
-
-				return;
-			}
-
-			if (ucRecommendation == 0) {
-				btwtParseTWTElement(
-					((struct _IE_BTWT_T *)
-						&(prRxSetupFrame->rTWT)),
-					&(prTWTFlow->rTWTPeerParams));
-
-				prTWTFlow->eTwtType = ENUM_TWT_TYPE_BTWT;
-
-				eTwtType = ENUM_TWT_TYPE_BTWT;
-			}
-#if (CFG_SUPPORT_RTWT == 1)
-			else if (ucRecommendation == 4) {
-				rtwtParseTWTElement(
-					((struct _IE_RTWT_T *)
-						&(prRxSetupFrame->rTWT)),
-					&(prTWTFlow->rTWTPeerParams));
-
-				prTWTFlow->eTwtType = ENUM_TWT_TYPE_RTWT;
-
-				eTwtType = ENUM_TWT_TYPE_RTWT;
-			}
-#endif
+			btwtFlagOnOff(&(prStaRec->arTWTFlow[ucTWTFlowId]),
+				TRUE);
 		} else {
 #endif
 
@@ -1022,28 +966,15 @@ void twtProcessS1GAction(
 					return;
 				}
 
-				prTWTFlow = twtPlannerFlowFindById(
-						prStaRec, ucTWTFlowId,
-						ENUM_TWT_TYPE_ITWT);
-
-				if (prTWTFlow == NULL) {
-					DBGLOG(TWT_REQUESTER, ERROR,
-						"NULL TWT flow %d type %d\n",
-						ucTWTFlowId,
-						ENUM_TWT_TYPE_ITWT);
-
-					return;
-				}
-
 				twtParseTWTElement(
 					&(prRxSetupFrame->rTWT),
-					&(prTWTFlow->rTWTPeerParams));
-
-				prTWTFlow->eTwtType = ENUM_TWT_TYPE_ITWT;
-
-				eTwtType = ENUM_TWT_TYPE_ITWT;
+					&(prStaRec->arTWTFlow[ucTWTFlowId]
+						.rTWTPeerParams));
 
 #if (CFG_SUPPORT_BTWT == 1)
+				btwtFlagOnOff(
+					&(prStaRec->arTWTFlow[ucTWTFlowId]),
+					FALSE);
 			}
 #endif
 
@@ -1068,11 +999,10 @@ void twtProcessS1GAction(
 					sizeof(
 		struct _ACTION_ML_TWT_SETUP_FRAME_PER_LINK_DISTINCT));
 			} else {
-			/* For i-TWT/BTWT/RTWT single TWT flow ID handling */
+				/* For i-TWT/BTWT single TWT flow ID handling */
 #endif
 			twtReqFsmRunEventRxSetup(prAdapter,
-				prSwRfb, prStaRec, ucTWTFlowId,
-				eTwtType);
+				prSwRfb, prStaRec, ucTWTFlowId);
 #if (CFG_SUPPORT_802_11BE_ML_TWT == 1)
 			}
 #endif
@@ -1232,7 +1162,8 @@ twtHotspotGetFreeFlowId(
 		return;
 	}
 
-	if (IS_BSS_AP(prAdapter, prBssInfo)) {
+	if (p2pFuncIsAPMode(prAdapter->rWifiVar
+		.prP2PConnSettings[prBssInfo->u4PrivateData])) {
 		for (i = 0; i < TWT_MAX_FLOW_NUM; i++) {
 			if ((prBssInfo->twt_flow_id_bitmap & (1 << i)) == 0) {
 				*p_ucTWTFlowId = i;
@@ -1287,7 +1218,8 @@ twtHotspotReturnFlowId(
 		return;
 	}
 
-	if (IS_BSS_AP(prAdapter, prBssInfo)) {
+	if (p2pFuncIsAPMode(prAdapter->rWifiVar
+		.prP2PConnSettings[prBssInfo->u4PrivateData])) {
 		i = prBssInfo->twt_flow_id_bitmap;
 		prBssInfo->twt_flow_id_bitmap &= (~(1 << ucTWTFlowId));
 
@@ -1325,7 +1257,8 @@ twtHotspotGetStaRecIndexByFlowId(
 		return;
 	}
 
-	if (IS_BSS_AP(prAdapter, prBssInfo)) {
+	if (p2pFuncIsAPMode(prAdapter->rWifiVar
+		.prP2PConnSettings[prBssInfo->u4PrivateData])) {
 		for (i = 0; i < TWT_MAX_FLOW_NUM; i++) {
 			if ((prBssInfo->arTWTSta[i].used == 1) &&
 				(prBssInfo->arTWTSta[i].flow_id ==
@@ -1367,7 +1300,8 @@ twtHotspotGetStaRecByFlowId(
 		return;
 	}
 
-	if (IS_BSS_AP(prAdapter, prBssInfo)) {
+	if (p2pFuncIsAPMode(prAdapter->rWifiVar
+		.prP2PConnSettings[prBssInfo->u4PrivateData])) {
 		for (i = 0; i < TWT_MAX_FLOW_NUM; i++) {
 			if ((prBssInfo->arTWTSta[i].used == 1) &&
 				(prBssInfo->arTWTSta[i].flow_id ==
@@ -1414,7 +1348,9 @@ twtHotspotGetFreeStaNodeIndex(
 		return;
 	}
 
-	if (IS_BSS_AP(prAdapter, prBssInfo)) {
+	if (p2pFuncIsAPMode(prAdapter->rWifiVar
+		.prP2PConnSettings[prBssInfo->u4PrivateData])) {
+
 		for (i = 0; i < TWT_MAX_FLOW_NUM; i++) {
 			if (prBssInfo->arTWTSta[i].used == 0) {
 				prBssInfo->arTWTSta[i].used = 1;
@@ -1469,7 +1405,9 @@ twtHotspotGetFreeStaNode(
 		return;
 	}
 
-	if (IS_BSS_AP(prAdapter, prBssInfo)) {
+	if (p2pFuncIsAPMode(prAdapter->rWifiVar
+		.prP2PConnSettings[prBssInfo->u4PrivateData])) {
+
 		for (i = 0; i < TWT_MAX_FLOW_NUM; i++) {
 			if (prBssInfo->arTWTSta[i].used == 0) {
 				prBssInfo->arTWTSta[i].used = 1;
@@ -1551,7 +1489,8 @@ twtHotspotResetStaNode(
 	}
 
 
-	if (IS_BSS_AP(prAdapter, prBssInfo)) {
+	if (p2pFuncIsAPMode(prAdapter->rWifiVar
+		.prP2PConnSettings[prBssInfo->u4PrivateData])) {
 		/* Reset hotspot sta node */
 		prTWTHotspotStaNode->used = 0;
 
@@ -1645,7 +1584,9 @@ twtHotspotGetNearestTargetTSF(
 					"[TWT_RESP]NULL node\n");
 		return;
 	}
-	if (IS_BSS_AP(prAdapter, prBssInfo)) {
+	if (p2pFuncIsAPMode(prAdapter->rWifiVar
+		.prP2PConnSettings[prBssInfo->u4PrivateData])) {
+
 		p_twt_sch_link = &prBssInfo->twt_sch_link;
 
 		/* Build the whole schedule from
@@ -1944,8 +1885,8 @@ void btwtFillTWTElement(
 
 	prTWTBuf->ucCtrl |= SET_BTWT_CTRL_NEGO(3);
 	prTWTBuf->u2BTWTInfo |= SET_BTWT_ID(ucTWTFlowId);
-	prTWTBuf->u2TWT =
-		CPU_TO_LE16((uint16_t)((prTWTParams->u8TWT >> 10) & 0xFFFF));
+
+	prTWTBuf->u2TWT = CPU_TO_LE16((uint16_t)prTWTParams->u8TWT);
 	prTWTBuf->ucMinWakeDur = prTWTParams->ucMinWakeDur;
 	prTWTBuf->u2WakeIntvalMantiss =
 		CPU_TO_LE16(prTWTParams->u2WakeIntvalMantiss);
@@ -2051,13 +1992,6 @@ uint32_t btwtSendSetupFrame(
 			sizeof(struct _ACTION_BTWT_SETUP_FRAME),
 			pfTxDoneHandler, MSDU_RATE_MODE_AUTO);
 
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-	nicTxConfigPktControlFlag(prMsduInfo,
-			MSDU_CONTROL_FLAG_FORCE_LINK |
-			MSDU_CONTROL_FLAG_DIS_MAT,
-			TRUE);
-#endif /* CFG_SUPPORT_802_11BE_MLO */
-
 	/* Enqueue the frame to send this action frame */
 	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
 	DBGLOG(TWT_REQUESTER, WARN,
@@ -2140,426 +2074,11 @@ uint32_t btwtSendTeardownFrame(
 			sizeof(struct _ACTION_TWT_TEARDOWN_FRAME),
 			pfTxDoneHandler, MSDU_RATE_MODE_AUTO);
 
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-	nicTxConfigPktControlFlag(prMsduInfo,
-			MSDU_CONTROL_FLAG_FORCE_LINK |
-			MSDU_CONTROL_FLAG_DIS_MAT,
-			TRUE);
-#endif /* CFG_SUPPORT_802_11BE_MLO */
-
 	/* Enqueue the frame to send this action frame */
 	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
 
 	return WLAN_STATUS_SUCCESS;
 
-}
-#endif
-
-#if (CFG_SUPPORT_RTWT == 1)
-void rtwtFillTWTElement(
-	struct _IE_RTWT_T *prTWTBuf,
-	uint8_t ucTWTFlowId,
-	struct _TWT_PARAMS_T *prTWTParams,
-	uint8_t ucSetupFrameByteLength)
-{
-	if (!prTWTBuf) {
-		DBGLOG(TWT_REQUESTER, ERROR,
-			"invalid prTWTBuf\n");
-
-		return;
-	}
-
-	if (!prTWTParams) {
-		DBGLOG(TWT_REQUESTER, ERROR,
-			"invalid prTWTParams\n");
-
-		return;
-	}
-
-	if (ucSetupFrameByteLength <= ELEM_HDR_LEN) {
-		DBGLOG(TWT_REQUESTER, ERROR,
-			"invalid setup frame length %d\n",
-			ucSetupFrameByteLength);
-
-		return;
-	}
-
-	/* Add TWT element */
-	prTWTBuf->ucId = ELEM_ID_TWT;
-	prTWTBuf->ucLength = ucSetupFrameByteLength - ELEM_HDR_LEN;
-
-	/* Request Type */
-	prTWTBuf->u2ReqType |= SET_TWT_RT_REQUEST(prTWTParams->fgReq) |
-		SET_TWT_RT_SETUP_CMD(prTWTParams->ucSetupCmd) |
-		SET_TWT_RT_TRIGGER(prTWTParams->fgTrigger) |
-		BTWT_REQ_TYPE_LAST_BCAST_PARAM |
-		SET_TWT_RT_FLOW_TYPE(prTWTParams->fgUnannounced) |
-		SET_BTWT_RECOMMENDATION(4) |
-		SET_TWT_RT_WAKE_INTVAL_EXP(prTWTParams->ucWakeIntvalExponent) |
-		SET_BTWT_RESERVED(0);
-
-	/* Control field */
-	prTWTBuf->ucCtrl |= SET_BTWT_CTRL_NEGO(3);
-
-	/* BTWT Info field */
-	prTWTBuf->u2BTWTInfo |= SET_BTWT_ID(ucTWTFlowId) |
-				SET_BTWT_PERSISTENCE(255);
-
-	if (prTWTParams->ucTrafficInfoPresent != 0) {
-		prTWTBuf->u2BTWTInfo |=	SET_BTWT_RTWT_TRAFFIC_INFO_PRESENT(1);
-
-		/* RTWT traffic info field, 0~3 bytes */
-		prTWTBuf->uc_arRTWTTrafficInfo[0] = prTWTParams->ucDlUlBmpValid;
-
-		DBGLOG(TWT_REQUESTER, WARN,
-			"rtwt Setup Frame traffic info[0] %x\n",
-			prTWTBuf->uc_arRTWTTrafficInfo[0]);
-
-		if (prTWTParams->ucDlUlBmpValid != 0) {
-			prTWTBuf->uc_arRTWTTrafficInfo[1] =
-						prTWTParams->ucDlBmp;
-			prTWTBuf->uc_arRTWTTrafficInfo[2] =
-						prTWTParams->ucUlBmp;
-
-			DBGLOG(TWT_REQUESTER, WARN,
-				"rtwt Setup Frame traffic info[1|2] %x %x\n",
-				prTWTBuf->uc_arRTWTTrafficInfo[1],
-				prTWTBuf->uc_arRTWTTrafficInfo[2]);
-		}
-	}
-
-	prTWTBuf->u2TWT = prTWTParams->u2TWT;
-	prTWTBuf->ucMinWakeDur = prTWTParams->ucMinWakeDur;
-	prTWTBuf->u2WakeIntvalMantiss =
-		CPU_TO_LE16(prTWTParams->u2WakeIntvalMantiss);
-	DBGLOG(TWT_REQUESTER, WARN,
-		"rtwt Setup Frame %x, %x, %x, %x, %x, %x, %x, %x\n",
-		prTWTBuf->ucId,
-		prTWTBuf->ucLength,
-		prTWTBuf->ucCtrl,
-		prTWTBuf->u2ReqType,
-		prTWTBuf->u2TWT,
-		prTWTBuf->ucMinWakeDur,
-		prTWTBuf->u2WakeIntvalMantiss,
-		prTWTBuf->u2BTWTInfo);
-}
-
-uint32_t rtwtSendSetupFrame(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	u_int8_t ucTWTFlowId,
-	struct _TWT_PARAMS_T *prTWTParams,
-	PFN_TX_DONE_HANDLER pfTxDoneHandler)
-{
-	struct MSDU_INFO *prMsduInfo;
-	struct _ACTION_RTWT_SETUP_FRAME *prTxFrame;
-	struct BSS_INFO *prBssInfo;
-	uint16_t u2EstimatedFrameLen;
-	struct _IE_RTWT_T *prRTWTBuf;
-	uint8_t ucSetupFrameByteLength;
-
-	if (!prAdapter) {
-		DBGLOG(TWT_REQUESTER, ERROR,
-			"invalid prAdapter\n");
-
-		return WLAN_STATUS_INVALID_DATA;
-	}
-
-	if (!prStaRec) {
-		DBGLOG(TWT_REQUESTER, ERROR,
-			"invalid prStaRec\n");
-
-		return WLAN_STATUS_INVALID_DATA;
-	}
-
-	if (!prTWTParams) {
-		DBGLOG(TWT_REQUESTER, ERROR,
-			"invalid prTWTParams\n");
-
-		return WLAN_STATUS_INVALID_DATA;
-	}
-
-	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prStaRec->ucBssIndex);
-
-	if (!prBssInfo) {
-		DBGLOG(TWT_REQUESTER, ERROR,
-			"invalid prBssInfo\n");
-
-		return WLAN_STATUS_INVALID_DATA;
-	}
-
-	if (prTWTParams->ucTrafficInfoPresent == 0)
-		ucSetupFrameByteLength =
-			sizeof(struct _ACTION_RTWT_SETUP_FRAME);
-	else {
-		if (prTWTParams->ucDlUlBmpValid == 0)
-			ucSetupFrameByteLength =
-				sizeof(struct _ACTION_RTWT_SETUP_FRAME) +
-				RTWT_TRAFFIC_INFO_DL_UL_BMP_VALID_BYTE_LENGTH;
-		else
-			ucSetupFrameByteLength =
-				sizeof(struct _ACTION_RTWT_SETUP_FRAME) +
-				RTWT_TRAFFIC_INFO_DL_UL_BMP_VALID_BYTE_LENGTH +
-				RTWT_TRAFFIC_INFO_DL_TID_BMP_BYTE_LENGTH +
-				RTWT_TRAFFIC_INFO_UL_TID_BMP_BYTE_LENGTH;
-	}
-
-	/* Calculate MSDU buffer length */
-	u2EstimatedFrameLen = MAC_TX_RESERVED_FIELD + ucSetupFrameByteLength;
-
-	/* Alloc MSDU_INFO */
-	prMsduInfo = (struct MSDU_INFO *)
-			cnmMgtPktAlloc(prAdapter, u2EstimatedFrameLen);
-
-	if (!prMsduInfo) {
-		DBGLOG(TWT_REQUESTER, WARN,
-			"No MSDU_INFO_T for sending TWT Setup Frame.\n");
-		return WLAN_STATUS_RESOURCES;
-	}
-
-	kalMemZero(prMsduInfo->prPacket, u2EstimatedFrameLen);
-
-	prTxFrame = prMsduInfo->prPacket;
-
-	/* Fill frame ctrl */
-	prTxFrame->u2FrameCtrl = MAC_FRAME_ACTION;
-
-	COPY_MAC_ADDR(prTxFrame->aucDestAddr, prStaRec->aucMacAddr);
-	COPY_MAC_ADDR(prTxFrame->aucSrcAddr, prBssInfo->aucOwnMacAddr);
-	COPY_MAC_ADDR(prTxFrame->aucBSSID, prBssInfo->aucBSSID);
-
-	/* Compose the frame body's frame */
-	prTxFrame->ucCategory = CATEGORY_S1G_ACTION;
-	prTxFrame->ucAction = ACTION_S1G_TWT_SETUP;
-
-	prRTWTBuf = &(prTxFrame->rTWT);
-	rtwtFillTWTElement(prRTWTBuf,
-			ucTWTFlowId, prTWTParams,
-			ucSetupFrameByteLength);
-
-	DBGLOG(TWT_REQUESTER, WARN,
-		"RTWT flowid %d\n", ucTWTFlowId);
-
-	/* Update information of MSDU_INFO_T */
-	TX_SET_MMPDU(prAdapter,
-			prMsduInfo,
-			prBssInfo->ucBssIndex,
-			prStaRec->ucIndex,
-			WLAN_MAC_MGMT_HEADER_LEN,
-			ucSetupFrameByteLength,
-			pfTxDoneHandler, MSDU_RATE_MODE_AUTO);
-
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-	nicTxConfigPktControlFlag(prMsduInfo,
-			MSDU_CONTROL_FLAG_FORCE_LINK |
-			MSDU_CONTROL_FLAG_DIS_MAT,
-			TRUE);
-#endif /* CFG_SUPPORT_802_11BE_MLO */
-
-	/* Enqueue the frame to send this action frame */
-	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
-
-	return WLAN_STATUS_SUCCESS;
-}
-
-uint32_t rtwtSendTeardownFrame(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	u_int8_t ucTWTFlowId,
-	u_int8_t fgTeardownAll,
-	PFN_TX_DONE_HANDLER pfTxDoneHandler)
-{
-	struct MSDU_INFO *prMsduInfo;
-	struct _ACTION_TWT_TEARDOWN_FRAME *prTxFrame;
-	struct BSS_INFO *prBssInfo;
-	uint16_t u2EstimatedFrameLen;
-
-	if (!prAdapter) {
-		DBGLOG(TWT_REQUESTER, ERROR,
-			"invalid prAdapter\n");
-
-		return WLAN_STATUS_INVALID_DATA;
-	}
-
-	if (!prStaRec) {
-		DBGLOG(TWT_REQUESTER, ERROR,
-			"invalid prStaRec\n");
-
-		return WLAN_STATUS_INVALID_DATA;
-	}
-
-	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prStaRec->ucBssIndex);
-
-	if (!prBssInfo) {
-		DBGLOG(TWT_REQUESTER, ERROR,
-			"invalid prBssInfo\n");
-
-		return WLAN_STATUS_INVALID_DATA;
-	}
-
-	/* Calculate MSDU buffer length */
-	u2EstimatedFrameLen = MAC_TX_RESERVED_FIELD +
-		sizeof(struct _ACTION_TWT_TEARDOWN_FRAME);
-
-	/* Alloc MSDU_INFO */
-	prMsduInfo = (struct MSDU_INFO *) cnmMgtPktAlloc(
-		prAdapter, u2EstimatedFrameLen);
-
-	if (!prMsduInfo) {
-		DBGLOG(TWT_REQUESTER, WARN,
-			"No MSDU_INFO_T for sending TWT Teardown Frame.\n");
-		return WLAN_STATUS_RESOURCES;
-	}
-
-	kalMemZero(prMsduInfo->prPacket, u2EstimatedFrameLen);
-
-	prTxFrame = prMsduInfo->prPacket;
-
-	/* Fill frame ctrl */
-	prTxFrame->u2FrameCtrl = MAC_FRAME_ACTION;
-
-	COPY_MAC_ADDR(prTxFrame->aucDestAddr, prStaRec->aucMacAddr);
-	COPY_MAC_ADDR(prTxFrame->aucSrcAddr, prBssInfo->aucOwnMacAddr);
-	COPY_MAC_ADDR(prTxFrame->aucBSSID, prBssInfo->aucBSSID);
-
-	/* Compose the frame body's frame */
-	prTxFrame->ucCategory = CATEGORY_S1G_ACTION;
-	prTxFrame->ucAction = ACTION_S1G_TWT_TEARDOWN;
-	prTxFrame->ucTWTFlow = ucTWTFlowId;
-	prTxFrame->ucTWTFlow |= SET_TWT_TEARDOWN_NEGO(3);
-
-	if (fgTeardownAll != 0)
-		prTxFrame->ucTWTFlow |= TWT_TEARDOWN_ALL;
-
-	/* Update information of MSDU_INFO_T */
-	TX_SET_MMPDU(prAdapter,
-			prMsduInfo,
-			prBssInfo->ucBssIndex,
-			prStaRec->ucIndex,
-			WLAN_MAC_MGMT_HEADER_LEN,
-			sizeof(struct _ACTION_TWT_TEARDOWN_FRAME),
-			pfTxDoneHandler, MSDU_RATE_MODE_AUTO);
-
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-	nicTxConfigPktControlFlag(prMsduInfo,
-			MSDU_CONTROL_FLAG_FORCE_LINK |
-			MSDU_CONTROL_FLAG_DIS_MAT,
-			TRUE);
-#endif /* CFG_SUPPORT_802_11BE_MLO */
-
-	/* Enqueue the frame to send this action frame */
-	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
-
-	return WLAN_STATUS_SUCCESS;
-}
-
-uint8_t rtwtGetTxSetupFlowId(
-	struct MSDU_INFO *prMsduInfo)
-{
-	uint8_t ucFlowId;
-	struct _ACTION_RTWT_SETUP_FRAME *prTxFrame;
-
-	if (!prMsduInfo) {
-		DBGLOG(TWT_REQUESTER, ERROR,
-			"invalid prMsduInfo\n");
-
-		return TWT_INCORRECT_FLOW_ID;
-	}
-
-	prTxFrame = (struct _ACTION_RTWT_SETUP_FRAME *)(prMsduInfo->prPacket);
-	ucFlowId = GET_BTWT_ID(prTxFrame->rTWT.u2BTWTInfo);
-
-	return ucFlowId;
-}
-
-void rtwtParseTWTElement(
-	struct _IE_RTWT_T *prRTWTIE,
-	struct _TWT_PARAMS_T *prTWTParams)
-{
-	uint16_t u2ReqType;
-	uint64_t u8TargetWakeTime;
-	uint64_t u8twt_interval = 0;
-	uint64_t u8Mod = 0;
-	uint64_t u8Temp;
-
-	if (!prRTWTIE) {
-		DBGLOG(TWT_REQUESTER, ERROR,
-			"invalid prBTWTIE\n");
-
-		return;
-	}
-
-	if (!prTWTParams) {
-		DBGLOG(TWT_REQUESTER, ERROR,
-			"invalid prTWTParams\n");
-
-		return;
-	}
-
-	if (prRTWTIE->u2WakeIntvalMantiss == 0)	{
-		/* For coverity check */
-		return;
-	}
-
-	u2ReqType = LE16_TO_CPU(prRTWTIE->u2ReqType);
-	prTWTParams->fgReq = GET_TWT_RT_REQUEST(u2ReqType);
-	prTWTParams->ucSetupCmd = GET_TWT_RT_SETUP_CMD(u2ReqType);
-	prTWTParams->fgTrigger = GET_TWT_RT_TRIGGER(u2ReqType);
-	prTWTParams->fgUnannounced = GET_TWT_RT_FLOW_TYPE(u2ReqType);
-	prTWTParams->ucWakeIntvalExponent =
-		GET_TWT_RT_WAKE_INTVAL_EXP(u2ReqType);
-
-	prTWTParams->ucMinWakeDur = prRTWTIE->ucMinWakeDur;
-	prTWTParams->u2WakeIntvalMantiss =
-		LE16_TO_CPU(prRTWTIE->u2WakeIntvalMantiss);
-
-	DBGLOG(TWT_REQUESTER, WARN,
-		"RTWT cur TSF %x %x\nAP resp TWT %x\n",
-		(uint32_t)(prTWTParams->u8TWT & 0x00000000FFFFFFFF),
-		(uint32_t)((prTWTParams->u8TWT & 0xFFFFFFFF00000000) >> 32),
-		prRTWTIE->u2TWT);
-
-	u8TargetWakeTime = prTWTParams->u8TWT;
-
-	/* see Draft P802.11ax_D7.0.pdf, p421 */
-	u8TargetWakeTime &= 0xFFFFFFFFFFFFFC00;
-	u8TargetWakeTime |= (uint32_t)(prRTWTIE->u2TWT << 10);
-
-	DBGLOG(TWT_REQUESTER, WARN,
-		"RTWT cur TSF sync with AP %x %x\n",
-		(uint32_t)(u8TargetWakeTime & 0x00000000FFFFFFFF),
-		(uint32_t)((u8TargetWakeTime & 0xFFFFFFFF00000000) >> 32));
-
-	u8twt_interval = (((u_int64_t)prTWTParams->u2WakeIntvalMantiss)
-		<< prTWTParams->ucWakeIntvalExponent);
-	u8Temp = u8TargetWakeTime + u8twt_interval;
-	u8Mod = kal_mod64(u8Temp, u8twt_interval);
-	prTWTParams->u8TWT = u8TargetWakeTime + (u8twt_interval - u8Mod);
-
-	DBGLOG(TWT_REQUESTER, WARN,
-		"RTWT twt %x %x\n",
-		(uint32_t)(prTWTParams->u8TWT & 0x00000000FFFFFFFF),
-		(uint32_t)((prTWTParams->u8TWT & 0xFFFFFFFF00000000) >> 32));
-
-	/* Evaluate if the RTWT setup resp frame contains traffic info */
-	if (GET_BTWT_RTWT_TRAFFIC_INFO_PRESENT(prRTWTIE->u2BTWTInfo) != 0) {
-		prTWTParams->ucTrafficInfoPresent = 1;
-		prTWTParams->ucDlUlBmpValid = prRTWTIE->uc_arRTWTTrafficInfo[0];
-		prTWTParams->ucDlBmp = prRTWTIE->uc_arRTWTTrafficInfo[1];
-		prTWTParams->ucUlBmp = prRTWTIE->uc_arRTWTTrafficInfo[2];
-	} else {
-		prTWTParams->ucTrafficInfoPresent = 0;
-		prTWTParams->ucDlUlBmpValid = 0;
-		prTWTParams->ucDlBmp = 0;
-		prTWTParams->ucUlBmp = 0;
-	}
-
-	DBGLOG(TWT_REQUESTER, WARN,
-		"RTWT traffic info(%x) %x %x %x\n",
-		prTWTParams->ucTrafficInfoPresent,
-		prTWTParams->ucDlUlBmpValid,
-		prTWTParams->ucDlBmp,
-		prTWTParams->ucUlBmp);
 }
 #endif
 
@@ -2678,8 +2197,11 @@ uint32_t mltwtParseTWTElement(
 
 				prStaRecOfAP->arTWTFlow[ucTWTFlowId].fgIsMLTWT = TRUE;
 
-				prStaRecOfAP->arTWTFlow[ucTWTFlowId].eTwtType =
-					ENUM_TWT_TYPE_MLTWT;
+#if (CFG_SUPPORT_BTWT == 1)
+				btwtFlagOnOff(
+					&(prStaRecOfAP->arTWTFlow[ucTWTFlowId]),
+					FALSE);
+#endif
 			}
 		}
 
@@ -2700,7 +2222,7 @@ uint32_t mltwtParseTWTElement(
 		*/
     } else {
 		/*
-		* The frame contains TWT element combinatory with
+		* The frame contains TWT element combinatory with 
 		* multiple TWT parameters,
 		* ex.
 		* {tag|length|CTRL|TWT param[0]|TWT param[1]|TWT param[2]}
@@ -2797,7 +2319,7 @@ uint32_t mltwtFillTWTElementAllInOne(
 		if (!prStaRecOfAP)
 			break;
 
-		prMLTWTBuf->u2LinkIdBitmap |= BIT(prStaRecOfAP->ucLinkId);
+		prMLTWTBuf->u2LinkIdBitmap |= BIT(prStaRecOfAP->ucLinkIndex);
 	}
 
 	DBGLOG(TWT_REQUESTER, WARN,
@@ -2910,7 +2432,7 @@ uint32_t mltwtSendSetupFrameAllInOne(
 	return WLAN_STATUS_SUCCESS;
 }
 
-uint8_t mltwtGetLinkCount(
+uint32_t mltwtGetLinkCount(
 	struct ADAPTER *prAdapter,
 	struct BSS_INFO *prBssInfo,
 	uint8_t ucTWTFlowId)
@@ -2925,14 +2447,14 @@ uint8_t mltwtGetLinkCount(
 		DBGLOG(TWT_REQUESTER, ERROR,
 			"MLTWT invalid prAdapter\n");
 
-		return 0;
+		return WLAN_STATUS_INVALID_DATA;
 	}
 
 	if (!prBssInfo) {
 		DBGLOG(TWT_REQUESTER, ERROR,
 			"MLTWT invalid prBssInfo\n");
 
-		return 0;
+		return WLAN_STATUS_INVALID_DATA;
 	}
 
 	prMldBssInfo = mldBssGetByBss(prAdapter, prBssInfo);
@@ -3056,8 +2578,7 @@ uint32_t mltwtFillTWTElementPerLinkDistinct(
 				CPU_TO_LE16(prTWTParams->u2WakeIntvalMantiss);
 
 			/* Link ID bitmap manipulation */
-			prMLTWTBuf->u2LinkIdBitmap =
-				BIT(prStaRecOfAP->ucLinkId);
+			prMLTWTBuf->u2LinkIdBitmap = BIT(prStaRecOfAP->ucLinkIndex);
 
 			/* Accumutate offset in the unit of (struct IE_ML_TWT_T) */
 			u2Offset += sizeof(struct IE_ML_TWT_T);

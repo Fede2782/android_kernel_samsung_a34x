@@ -64,10 +64,16 @@ static void ssg_blkcg_cpd_free(struct blkcg_policy_data *cpd)
 static void ssg_blkg_set_shallow_depth(struct blkcg_gq *blkg,
 		struct blk_mq_tags *tags)
 {
-	unsigned int depth = tags->bitmap_tags.sb.depth;
-	unsigned int map_nr = tags->bitmap_tags.sb.map_nr;
+	unsigned int depth;
+	unsigned int map_nr;
 	struct ssg_blkg *ssg_blkg;
 	struct ssg_blkcg *ssg_blkcg;
+
+	if (!tags)
+		return;
+
+	depth = tags->bitmap_tags.sb.depth;
+	map_nr = tags->bitmap_tags.sb.map_nr;
 
 	if (depth < MIN_SCHED_TAGS)
 		return;

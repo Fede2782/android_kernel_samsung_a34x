@@ -68,6 +68,14 @@ config CAMERA_AAW_V34X
 	bool "camera aaw_v34x"
 	help
 	  For AAW V34X camera set
+config CAMERA_STY_V11
+	bool "Camera sty _v11"
+	help
+	  For STY_V11 camera set
+config CAMERA_STY_V11U
+	bool "Camera sty _v11u"
+	help
+	  For STY_V11U camera set
 endchoice
 
 config CAMERA_SAMSUNG_MODEL_NAME

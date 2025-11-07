@@ -2594,7 +2594,7 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 			/* switch to ulposc clk*/
 			aov_switch_mclk_ulposc(ctx, 1);
 			/* seninf/sensor streaming on */
-			v4l2_subdev_call(&ctx->subdev, video, s_stream, 1);
+			seninf_s_stream(&ctx->subdev, 1);
 			break;
 		case INIT_NORMAL:
 		default:

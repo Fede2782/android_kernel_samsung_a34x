@@ -4737,7 +4737,7 @@ static kal_uint32 set_test_pattern_data(struct subdrv_ctx *ctx, struct mtk_test_
 static kal_uint32 get_sensor_temperature(struct subdrv_ctx *ctx)
 {
 	UINT8 temperature;
-	INT32 temperature_convert;
+	UINT32 temperature_convert;
 
 	temperature = read_cmos_sensor_8(ctx, 0x013a);
 
@@ -4746,14 +4746,14 @@ static kal_uint32 get_sensor_temperature(struct subdrv_ctx *ctx)
 	else if (temperature >= 0x50 && temperature <= 0x7F)
 		temperature_convert = 80;
 	else if (temperature >= 0x80 && temperature <= 0xEC)
-		temperature_convert = -20;
+		temperature_convert = 0;
 	else
 		temperature_convert = (INT8) temperature;
 
 	/* LOG_INF("temp_c(%d), read_reg(%d)\n", */
 	/* temperature_convert, temperature); */
 
-	return temperature_convert;
+	return (unsigned int)temperature_convert;
 }
 
 static int feature_control(

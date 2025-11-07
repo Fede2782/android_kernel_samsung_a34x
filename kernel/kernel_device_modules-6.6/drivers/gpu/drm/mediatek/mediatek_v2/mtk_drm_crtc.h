@@ -136,6 +136,15 @@ enum DISP_VBLANK_REC_JOB_TYPE {
 	DISP_REC_JOB_TYPE_MAX
 };
 
+enum EVENT_TRIGGER_PT {
+	WFE_CABC_START = 1,
+	WFE_CABC_END,
+	SET_CABC_START,
+	SET_CABC_END,
+	SET_STREAM_EOF_END,
+	EVENT_PT_MAX
+};
+
 #define IGNORE_MODULE_IRQ
 
 #define DISP_SLOT_CUR_CONFIG_FENCE_BASE 0x0000
@@ -166,7 +175,10 @@ enum DISP_VBLANK_REC_JOB_TYPE {
 #define DISP_SLOT_CUR_INTERFACE_FENCE (DISP_SLOT_CUR_OUTPUT_FENCE + 0x4)
 #define DISP_SLOT_OVL_STATUS						       \
 	((DISP_SLOT_CUR_INTERFACE_FENCE + 0x4))
-#define DISP_SLOT_READ_DDIC_BASE (DISP_SLOT_OVL_STATUS + 0x4)
+#define DISP_SLOT_PU_NEED_WAIT (DISP_SLOT_OVL_STATUS + 0x4)
+#define DISP_SLOT_TRIG_STATUS (DISP_SLOT_PU_NEED_WAIT + 0x4)
+#define DISP_SLOT_PU_STATUS (DISP_SLOT_TRIG_STATUS + 0x4)
+#define DISP_SLOT_READ_DDIC_BASE (DISP_SLOT_PU_STATUS + 0x4)
 #define DISP_SLOT_READ_DDIC_BASE_END		\
 	(DISP_SLOT_READ_DDIC_BASE + READ_DDIC_SLOT_NUM * 0x4)
 #define DISP_SLOT_OVL_DSI_SEQ (DISP_SLOT_READ_DDIC_BASE_END)
@@ -733,6 +745,7 @@ struct mtk_crtc_path_data {
 	bool is_fake_path;
 	bool is_discrete_path;
 	bool is_exdma_dual_layer;
+	bool is_exdma_triple_layer;
 	const enum mtk_ddp_comp_id *ovl_path[DDP_MODE_NR][DDP_PATH_NR];
 	unsigned int ovl_path_len[DDP_MODE_NR][DDP_PATH_NR];
 	const enum mtk_ddp_comp_id *path[DDP_MODE_NR][DDP_PATH_NR];
@@ -912,6 +925,14 @@ enum MSYNC_RECORD_TYPE {
 	FRAME_TIME,
 };
 
+enum OVL_PIPE_NUM {
+	OVL_SINGLE_PIPE = 0,
+	OVL_DUAL_PIPE_LEFT = OVL_SINGLE_PIPE,
+	OVL_DUAL_PIPE_RIGHT = 1,
+	OVL_PIPE_NUM_MAX = 2,
+};
+
+
 struct msync_record {
 	enum MSYNC_RECORD_TYPE type;
 	u64 time;
@@ -1005,6 +1026,7 @@ struct mtk_tui_ovl_stat {
 	unsigned int aid_setting;
 	unsigned int cb_reg;
 	unsigned int mutex_bit;
+	unsigned int blender_id;
 };
 
 /**
@@ -1178,6 +1200,7 @@ struct mtk_drm_crtc {
 	wait_queue_head_t signal_mml_last_job_is_flushed_wq;
 	bool is_mml;
 	bool is_mml_dl;
+	bool is_mml_dl_submit;
 	bool skip_check_trigger;
 	bool is_mml_dc;
 	unsigned int mml_debug;
@@ -1215,6 +1238,7 @@ struct mtk_drm_crtc {
 	bool is_dsc_output_swap;
 
 	bool capturing;
+	bool recovery_flg;
 
 	int dli_relay_1tnp;
 
@@ -1242,7 +1266,7 @@ struct mtk_drm_crtc {
 	wait_queue_head_t esd_notice_wq;
 	atomic_t esd_notice_status;
 
-	struct mtk_tui_ovl_stat tui_ovl_stat;
+	struct mtk_tui_ovl_stat tui_ovl_stat[OVL_PIPE_NUM_MAX];
 
 	bool virtual_path;
 	void *phys_mtk_crtc;
@@ -1274,7 +1298,7 @@ struct mtk_drm_crtc {
 
 	bool cust_skip_frame;
 	bool reset_path;
-
+	bool pre_rpo;
 
 	int config_cnt;
 };
@@ -1313,6 +1337,7 @@ struct mtk_crtc_state {
 	/* property */
 	uint64_t prop_val[CRTC_PROP_MAX];
 	bool doze_changed;
+	bool disp_mode_changed;
 };
 
 struct mtk_cmdq_cb_data {
@@ -1360,6 +1385,7 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 void mtk_drm_crtc_mini_dump(struct drm_crtc *crtc);
 void mtk_drm_crtc_dump(struct drm_crtc *crtc);
 void mtk_drm_crtc_mini_analysis(struct drm_crtc *crtc);
+void mtk_drm_crtc_dump_vr_rg(struct drm_crtc *crtc);
 void mtk_drm_crtc_analysis(struct drm_crtc *crtc);
 void mtk_drm_crtc_diagnose(void);
 bool mtk_crtc_is_frame_trigger_mode(struct drm_crtc *crtc);
@@ -1536,9 +1562,21 @@ void mtk_drm_layer_dispatch_to_dual_pipe(
 	struct mtk_plane_state *plane_state_l,
 	struct mtk_plane_state *plane_state_r,
 	unsigned int w);
+void mtk_drm_layer_dispatch_to_triple_pipe(
+	struct mtk_drm_crtc *mtk_crtc, unsigned int mmsys_id,
+	struct mtk_plane_state *plane_state,
+	struct mtk_plane_state *plane_state_l,
+	struct mtk_plane_state *plane_state_m,
+	struct mtk_plane_state *plane_state_r,
+	unsigned int w);
 bool mtk_drm_crtc_check_dual_exdma(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_plane_state *plane_state);
+bool mtk_drm_crtc_check_triple_exdma(struct mtk_drm_crtc *mtk_crtc,
+	struct mtk_plane_state *plane_state);
 void mtk_crtc_dual_layer_config(struct mtk_drm_crtc *mtk_crtc,
+		struct mtk_ddp_comp *comp, unsigned int idx,
+		struct mtk_plane_state *plane_state, struct cmdq_pkt *cmdq_handle);
+void mtk_crtc_triple_layer_config(struct mtk_drm_crtc *mtk_crtc,
 		struct mtk_ddp_comp *comp, unsigned int idx,
 		struct mtk_plane_state *plane_state, struct cmdq_pkt *cmdq_handle);
 unsigned int dual_pipe_comp_mapping(unsigned int mmsys_id, unsigned int comp_id);

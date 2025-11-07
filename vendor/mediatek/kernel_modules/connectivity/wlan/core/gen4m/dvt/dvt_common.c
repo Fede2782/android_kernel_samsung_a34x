@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -104,26 +104,11 @@ const struct _MDVT_MODULE_T arMdvtModuleTable[] = {
 	{MDVT_MODULE_LIT_WFRMAC,                "lit_rmac"},
 	{MDVT_MODULE_PTA_IDC_COEX,              "pta_idc_coex"},
 	{MDVT_MODULE_MUMIMO,                    "mumimo"},
-	{MDVT_MODULE_PRMBPUNC,                  "prmbpunc"},
-	{MDVT_MODULE_CERT,                      "cert"},
-	{MDVT_MODULE_SR,                        "sr"},
-	{MDVT_MODULE_ARB_COEX,                  "arb_coex"},
-	{MDVT_MODULE_BF,                        "bf"},
-	{MDVT_MODULE_CMD_DECODER,               "cmd_decoder"},
-	{MDVT_MODULE_COSIM,                     "cosim"},
-	{MDVT_MODULE_RLM_CMM,                   "rlm_cmm"},
-	{MDVT_MODULE_WFDMA,                     "wfdma"},
-	{MDVT_MODULE_SDO,                       "sdo"},
-	{MDVT_MODULE_RRO,                       "rro"},
-	{MDVT_MODULE_AIRTIME,                   "airtime"},
-	{MDVT_MODULE_BFTXD,                     "bftxd"},
-	{MDVT_MODULE_PRMBPUNC_TXD,              "prmbpunc_txd"},
-	{MDVT_MODULE_UMAC_CFG,                  "umac_cfg"},
-	{MDVT_MODULE_FDD_COEX,                  "fdd_coex"},
 	{MDVT_MODULE_MAX,                       "all"}
 };
 
-uint32_t u4MdvtTableSize = ARRAY_SIZE(arMdvtModuleTable);
+uint32_t u4MdvtTableSize =
+	sizeof(arMdvtModuleTable) / sizeof(struct _MDVT_MODULE_T);
 
 
 #endif /*CFG_SUPPORT_WIFI_SYSDVT*/
@@ -409,7 +394,7 @@ int SendRTS(
 
 	/* Enqueue the frame to send this control frame */
 	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
-	DBGLOG(REQ, DEBUG, "RTS - Send RTS\n");
+	DBGLOG(REQ, INFO, "RTS - Send RTS\n");
 	return WLAN_STATUS_SUCCESS;
 }
 
@@ -473,7 +458,7 @@ int SendBA(
 
 	/* Enqueue the frame to send this control frame */
 	nicTxEnqueueMsdu(prAdapter, prMsduInfo);
-	DBGLOG(REQ, DEBUG, "BA - Send BA\n");
+	DBGLOG(REQ, INFO, "BA - Send BA\n");
 	return WLAN_STATUS_SUCCESS;
 }
 
@@ -561,6 +546,237 @@ bool receive_del_txs_queue(
 }
 
 /*
+* This routine is used to test TXS function.
+* Send specific type of packet and check if TXS is back
+*/
+int priv_driver_txs_test(
+	struct net_device *prNetDev,
+	char *pcCommand,
+	int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	struct ADAPTER *prAdapter = NULL;
+	struct STA_RECORD *prStaRec = NULL;
+	uint32_t u4WCID;
+	uint8_t ucStaIdx;
+	int32_t i4BytesWritten = 0;
+	int32_t i4Argc = 0;
+	int32_t i4Recv = 0;
+	int32_t txs_test_type;
+	int32_t txs_test_format;
+	int8_t *this_char = NULL;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX];
+
+	ASSERT(prNetDev);
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
+		return -1;
+	prGlueInfo = *((struct GLUE_INFO **)netdev_priv(prNetDev));
+	prAdapter = prGlueInfo->prAdapter;
+
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
+
+	this_char = kalStrStr(*apcArgv, "=");
+	if (!this_char)
+		return -1;
+	this_char++;
+
+	DBGLOG(REQ, LOUD, "string = %s\n", this_char);
+
+	i4Recv = sscanf(this_char, "%d-%d-%d",
+		&(txs_test_type), &(txs_test_format), &(u4WCID));
+
+	DBGLOG(REQ, LOUD, "txs_test_type=%d, txs_test_format=%d, u4WCID=%d\n",
+		txs_test_type, txs_test_format, u4WCID);
+
+	if (!AutomationInit(prAdapter, TXS)) {
+		LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+			"AutomationInit Fail!\n");
+		return i4BytesWritten;
+	}
+
+	automation_dvt.txs.duplicate_txs = FALSE;
+
+	switch (txs_test_type) {
+	case TXS_INIT:
+		TxsExit();
+		break;
+
+	case TXS_COUNT_TEST:
+		automation_dvt.txs.stop_send_test = FALSE;
+		automation_dvt.txs.test_type = TXS_COUNT_TEST;
+		automation_dvt.txs.format = txs_test_format;
+		break;
+
+	case TXS_BAR_TEST:
+		automation_dvt.txs.stop_send_test = FALSE;
+		automation_dvt.txs.test_type = TXS_BAR_TEST;
+		automation_dvt.txs.format = txs_test_format;
+		/* SendRefreshBAR(pAd, pEntry); */
+		break;
+
+	case TXS_DEAUTH_TEST:
+		automation_dvt.txs.stop_send_test = FALSE;
+		automation_dvt.txs.test_type = TXS_DEAUTH_TEST;
+		automation_dvt.txs.format = txs_test_format;
+		/* aisFsmSteps(prAdapter, AIS_STATE_DISCONNECTING); */
+		authSendDeauthFrame(prAdapter,
+			prAdapter->aprBssInfo[0],
+			prAdapter->aprBssInfo[0]->prStaRecOfAP,
+			(struct SW_RFB *) NULL,
+			REASON_CODE_DEAUTH_LEAVING_BSS,
+			aisDeauthXmitComplete);
+		break;
+
+	case TXS_RTS_TEST:
+		automation_dvt.txs.stop_send_test = FALSE;
+		automation_dvt.txs.test_type = TXS_RTS_TEST;
+		automation_dvt.txs.format = txs_test_format;
+		if (wlanGetStaIdxByWlanIdx(prAdapter, u4WCID, &ucStaIdx) ==
+		WLAN_STATUS_SUCCESS) {
+		prStaRec = &prAdapter->arStaRec[ucStaIdx];
+		} else {
+			DBGLOG(REQ, LOUD,
+				"automation wlanGetStaIdxByWlanIdx failed\n");
+		}
+		SendRTS(prAdapter, prStaRec, AutomationTxDone);
+		break;
+
+	case TXS_BA_TEST:
+		automation_dvt.txs.stop_send_test = FALSE;
+		automation_dvt.txs.test_type = TXS_BA_TEST;
+		automation_dvt.txs.format = txs_test_format;
+
+		if (wlanGetStaIdxByWlanIdx(prAdapter, u4WCID, &ucStaIdx) ==
+		WLAN_STATUS_SUCCESS) {
+		prStaRec = &prAdapter->arStaRec[ucStaIdx];
+		} else {
+			DBGLOG(REQ, LOUD,
+				"Automation wlanGetStaIdxByWlanIdx failed\n");
+		}
+
+		SendBA(prAdapter, prStaRec, AutomationTxDone);
+		break;
+
+	case TXS_DUMP_DATA:
+		LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+			"automation_dvt.txs.test_type=%u\n",
+			automation_dvt.txs.test_type);
+		LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+			"automation_dvt.txs.format=%u\n",
+			automation_dvt.txs.format);
+		break;
+	}
+
+	return i4BytesWritten;
+}
+
+/*
+* This routine is used to test TXS function.
+* Check TXS test result
+*/
+int priv_driver_txs_test_result(
+	struct net_device *prNetDev,
+	char *pcCommand,
+	int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	struct ADAPTER *prAdapter = NULL;
+	uint32_t txs_test_result = 0, wait_cnt = 0;
+	int32_t i4BytesWritten = 0;
+	int32_t i4Argc = 0;
+	int32_t i4Recv = 0;
+	int8_t *this_char = NULL;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX];
+	struct TXS_LIST *list = NULL;
+
+
+	list = &automation_dvt.txs.txs_list;
+
+	ASSERT(prNetDev);
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
+		return -1;
+	prGlueInfo = *((struct GLUE_INFO **)netdev_priv(prNetDev));
+	prAdapter = prGlueInfo->prAdapter;
+
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
+
+	this_char = kalStrStr(*apcArgv, "=");
+	if (!this_char)
+		return -1;
+	this_char++;
+
+	DBGLOG(REQ, LOUD, "string = %s\n", this_char);
+
+	i4Recv = kalkStrtos32(this_char, 0, &(txs_test_result));
+	DBGLOG(REQ, LOUD, "txs_test_result = %d\n", txs_test_result);
+
+	if (!AutomationInit(prAdapter, TXS)) {
+		DBGLOG(REQ, LOUD, "AutomationInit Fail!\n");
+		return FALSE;
+	}
+
+	automation_dvt.txs.stop_send_test = TRUE;
+	DBGLOG(REQ, LOUD, "wait entry to be deleted txs.total_req/rsp=%d %d\n",
+		automation_dvt.txs.total_req, automation_dvt.txs.total_rsp);
+
+	if (txs_test_result == 1) {
+		while (automation_dvt.txs.total_req !=
+			automation_dvt.txs.total_rsp) {
+			kalMsleep(100);/* OS_WAIT(10); */
+			wait_cnt++;
+			if (wait_cnt > 100)
+				break;
+		}
+		LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+			"txs.total_req %u\n", automation_dvt.txs.total_req);
+		LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+			"txs.total_rsp %u\n", automation_dvt.txs.total_rsp);
+
+		if (automation_dvt.txs.total_req == automation_dvt.txs.total_rsp
+			 && (automation_dvt.txs.total_req != 0)) {
+			LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+				"TXS_COUNT_TEST------> PASS\n");
+		} else {
+			LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+				"TXS_COUNT_TEST------> ERROR\n");
+		}
+	} else if (txs_test_result == 2) {
+		while (list->Num > 0) {
+			DBGLOG(REQ, LOUD, "wait entry to be deleted\n");
+			kalMsleep(100);/* OS_WAIT(10);*/
+			wait_cnt++;
+			if (wait_cnt > 100)
+				break;
+		}
+
+		LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+			"txs.total_req %u\n", automation_dvt.txs.total_req);
+		LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+			"txs.total_rsp %u\n", automation_dvt.txs.total_rsp);
+
+		if (list->Num == 0) {
+			if ((automation_dvt.txs.duplicate_txs == FALSE) &&
+				(automation_dvt.txs.total_req != 0)) {
+				LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+					"Correct Frame Test------> PASS\n");
+			} else {
+				LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+					"Correct Frame Test------> FAIL duplicate txs");
+			}
+		} else {
+			LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+				"Correct Frame Test------> FAIL  txs_q->Num = (%d)\n",
+				list->Num);
+		}
+	}
+	return i4BytesWritten;
+}
+
+/*
 * return 0 : No Need Test
 * 1: Check Data frame
 * 2: Check management and control frame
@@ -598,6 +814,152 @@ uint32_t AutomationTxDone(struct ADAPTER *prAdapter,
 			rTxDoneStatus, prMsduInfo->ucTxSeqNum,
 			kalGetTimeTick());
 	return WLAN_STATUS_SUCCESS;
+}
+
+
+/*
+* This routine is used to test RXV function.
+* step1. AP fixed rate and ping to STA
+* step2. STA iwpriv cmd with RXV_TEST=enable-TxMode-BW-MCS-SGI-STBC-LDPC
+* step3. STA RXV_RESULT=1, check whether RX packets received from AP
+*        matched with specific rate
+*/
+int priv_driver_rxv_test(
+	struct net_device *prNetDev,
+	char *pcCommand,
+	int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	struct ADAPTER *prAdapter = NULL;
+	int32_t i4BytesWritten = 0;
+	int32_t i4Argc = 0;
+	int32_t i4Recv = 0;
+	uint32_t u4Enable = 0;
+	int8_t *this_char = NULL;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX];
+	uint32_t u4Mode = 0, u4Bw = 0, u4Mcs = 0;
+	uint32_t u4SGI = 0, u4STBC = 0, u4LDPC = 0;
+
+	ASSERT(prNetDev);
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
+		return -1;
+	prGlueInfo = *((struct GLUE_INFO **)netdev_priv(prNetDev));
+	prAdapter = prGlueInfo->prAdapter;
+
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
+
+	this_char = kalStrStr(*apcArgv, "=");
+	if (!this_char)
+		return -1;
+	this_char++;
+
+	DBGLOG(REQ, LOUD, "string = %s\n", this_char);
+
+	i4Recv = sscanf(this_char, "%d-%d-%d-%d-%d-%d-%d", &(u4Enable),
+				&(u4Mode), &(u4Bw), &(u4Mcs),
+				&(u4SGI), &(u4STBC), &(u4LDPC));
+	DBGLOG(RX, LOUD,
+		"%s():Enable = %d, Mode = %d, BW = %d, MCS = %d\n"
+		"\t\t\t\tSGI = %d, STBC = %d, LDPC = %d\n",
+		__func__, u4Enable, u4Mode, u4Bw, u4Mcs,
+		u4SGI, u4STBC, u4LDPC);
+
+	if (!AutomationInit(prAdapter, RXV)) {
+		LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+			"AutomationInit Fail!\n");
+		return i4BytesWritten;
+	}
+
+	if (u4Mode == TX_RATE_MODE_OFDM) {
+		switch (u4Mcs) {
+		case 0:
+			u4Mcs = 11;
+			break;
+		case 1:
+			u4Mcs = 15;
+			break;
+		case 2:
+			u4Mcs = 10;
+			break;
+		case 3:
+			u4Mcs = 14;
+			break;
+		case 4:
+			u4Mcs = 9;
+			break;
+		case 5:
+			u4Mcs = 13;
+			break;
+		case 6:
+			u4Mcs = 8;
+			break;
+		case 7:
+			u4Mcs = 12;
+			break;
+		default:
+			DBGLOG(RX, ERROR,
+				"[%s]OFDM mode but wrong MCS!\n", __func__);
+			break;
+		}
+	}
+
+	automation_dvt.rxv.rxv_test_result = TRUE;
+	automation_dvt.rxv.enable = u4Enable;
+	automation_dvt.rxv.rx_count = 0;
+
+	/* expected packets */
+	automation_dvt.rxv.rx_mode = u4Mode;
+	automation_dvt.rxv.rx_bw = u4Bw;
+	automation_dvt.rxv.rx_rate = u4Mcs;
+	automation_dvt.rxv.rx_sgi = u4SGI;
+	automation_dvt.rxv.rx_stbc = u4STBC;
+	automation_dvt.rxv.rx_ldpc = u4LDPC;
+
+	return i4BytesWritten;
+}
+
+/*
+* This routine is used to judge result of RXV DVT.
+*/
+int priv_driver_rxv_test_result(
+	struct net_device *prNetDev,
+	char *pcCommand,
+	int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	struct ADAPTER *prAdapter = NULL;
+	int32_t i4BytesWritten = 0;
+	int32_t i4Argc = 0;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX];
+
+	ASSERT(prNetDev);
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
+		return -1;
+	prGlueInfo = *((struct GLUE_INFO **)netdev_priv(prNetDev));
+	prAdapter = prGlueInfo->prAdapter;
+
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
+
+	LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+			"RXV Test------> rx_count(%d)\n",
+			automation_dvt.rxv.rx_count);
+
+	if (automation_dvt.rxv.rxv_test_result == TRUE &&
+		automation_dvt.rxv.rx_count != 0) {
+		LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+			"RXV Test------> PASS\n");
+	} else {
+		LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+			"RXV Test------> FAIL\n");
+	}
+
+	automation_dvt.rxv.enable = 0;
+
+	return i4BytesWritten;
 }
 
 #if (CFG_SUPPORT_CONNAC2X == 1)
@@ -665,9 +1027,202 @@ void connac2x_rxv_correct_test(
 		__func__, ldpc, automation_dvt.rxv.rx_ldpc);
 	}
 
-	DBGLOG(RX, DEBUG,
+	DBGLOG(RX, INFO,
 	"\n================ RXV Automation end ================\n");
 }
 #endif
+
+#if CFG_TCP_IP_CHKSUM_OFFLOAD
+/*
+* This routine is used to test CSO function.
+* Set 0xffff at checksum filed when cso_ctrl is enabled(15 for all TX case)
+* Checksum should be recalculated by HW CSO function.
+* step1. iwpriv cmd with CSO_TEST=15 (set CRC of tx packet to 0xffff)
+* step2. run TX traffic
+* step3. Passed if throughput is normal
+*/
+int priv_driver_cso_test(
+	struct net_device *prNetDev,
+	char *pcCommand,
+	int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	struct ADAPTER *prAdapter = NULL;
+	int32_t i4BytesWritten = 0;
+	int32_t i4Argc = 0;
+	int32_t i4Recv = 0;
+	uint8_t ucCsoCtrl = 0;
+	int8_t *this_char = NULL;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX];
+
+	ASSERT(prNetDev);
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
+		return -1;
+	prGlueInfo = *((struct GLUE_INFO **)netdev_priv(prNetDev));
+	prAdapter = prGlueInfo->prAdapter;
+
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
+
+	this_char = kalStrStr(*apcArgv, "=");
+	if (!this_char)
+		return -1;
+	this_char++;
+
+	DBGLOG(REQ, LOUD, "string = %s\n", this_char);
+
+	i4Recv = kalkStrtou8(this_char, 0, &(ucCsoCtrl));
+	DBGLOG(RX, LOUD, "cso_ctrl = %u\n", ucCsoCtrl);
+
+	if (!AutomationInit(prAdapter, CSO)) {
+		LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+			"AutomationInit Fail!\n");
+		return i4BytesWritten;
+	}
+
+	/* CSO_TEST=15 for all TX test case                  */
+	/* CSO_TX_IPV4 = BIT(0),                             */
+	/* CSO_TX_IPV6 = BIT(1),                             */
+	/* CSO_TX_TCP = BIT(2),                              */
+	/* CSO_TX_UDP = BIT(3),                              */
+	automation_dvt.cso_ctrl = ucCsoCtrl;
+
+	return i4BytesWritten;
+}
+#endif /* CFG_TCP_IP_CHKSUM_OFFLOAD */
+
+/*
+* This routine is used to test HW feature
+* Set a value to allow how many packets be transmitting
+*/
+int priv_driver_set_tx_test(
+			struct net_device *prNetDev, char *pcCommand,
+			int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	int32_t i4BytesWritten = 0;
+	int32_t i4Argc = 0;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX];
+	uint32_t u4Ret, u4Parse;
+	struct ADAPTER *prAdapter = NULL;
+
+	ASSERT(prNetDev);
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
+		return -1;
+	prGlueInfo = *((struct GLUE_INFO **)netdev_priv(prNetDev));
+	prAdapter = prGlueInfo->prAdapter;
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
+
+	if (i4Argc == 2) {
+		u4Ret = kalkStrtou32(apcArgv[1], 0, &u4Parse);
+		if (u4Ret)
+			DBGLOG(REQ, LOUD, "parse apcArgv error u4Ret=%d\n",
+			       u4Ret);
+
+		prAdapter->u2TxTest = (uint16_t) u4Parse;
+		DBGLOG(REQ, LOUD, "prAdapter->u2TxTest = %d\n",
+			prAdapter->u2TxTest);
+	} else {
+		DBGLOG(REQ, ERROR, "iwpriv wlanXX driver TX_TEST xxxx\n");
+	}
+
+	prAdapter->u2TxTestCount = 0;
+	return i4BytesWritten;
+}
+
+/*
+* This routine is used to test HE Trigger Data
+* Assign specific AC of Data to verify HW behavior when receive Trigger frame
+*/
+int priv_driver_set_tx_test_ac(
+			struct net_device *prNetDev, char *pcCommand,
+			int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	int32_t i4BytesWritten = 0;
+	int32_t i4Argc = 0;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX];
+	uint32_t u4Ret, u4Parse;
+	struct ADAPTER *prAdapter = NULL;
+
+	ASSERT(prNetDev);
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
+		return -1;
+	prGlueInfo = *((struct GLUE_INFO **)netdev_priv(prNetDev));
+	prAdapter = prGlueInfo->prAdapter;
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
+
+	if (i4Argc == 2) {
+		u4Ret = kalkStrtou32(apcArgv[1], 0, &u4Parse);
+		if (u4Ret)
+			DBGLOG(REQ, LOUD, "parse apcArgv error u4Ret=%d\n",
+			       u4Ret);
+
+		prAdapter->ucTxTestUP = (uint8_t) u4Parse;
+		DBGLOG(REQ, LOUD, "prAdapter->ucTxTestUP = %d\n",
+			prAdapter->ucTxTestUP);
+	} else {
+		DBGLOG(REQ, ERROR, "iwpriv wlanXX driver TX_TEST_AC xx\n");
+	}
+
+	return i4BytesWritten;
+}
+
+/*
+* This routine is used to skip legal channel sanity check.
+* During FPGA stage, could get wrong frequency information
+* from RXD. Ignore this error
+*/
+int priv_driver_skip_legal_ch_check(
+	struct net_device *prNetDev,
+	char *pcCommand,
+	int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	struct ADAPTER *prAdapter = NULL;
+	int32_t i4BytesWritten = 0;
+	int32_t i4Argc = 0;
+	int32_t i4Recv = 0;
+	uint32_t u4Enable = 0;
+	int8_t *this_char = NULL;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX];
+
+	ASSERT(prNetDev);
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
+		return -1;
+	prGlueInfo = *((struct GLUE_INFO **)netdev_priv(prNetDev));
+	prAdapter = prGlueInfo->prAdapter;
+
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
+
+	this_char = kalStrStr(*apcArgv, "=");
+	if (!this_char)
+		return -1;
+	this_char++;
+
+	DBGLOG(REQ, LOUD, "string = %s\n", this_char);
+
+	i4Recv = kalkStrtos32(this_char, 0, &(u4Enable));
+	DBGLOG(RX, LOUD, "skip_legal_ch_enable = %d\n", u4Enable);
+
+	if (!AutomationInit(prAdapter, SKIP_CH)) {
+		LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+			"AutomationInit Fail!\n");
+		return i4BytesWritten;
+	}
+
+	automation_dvt.skip_legal_ch_enable = u4Enable;
+	LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+				"skip_legal_ch_enable = %d\n", u4Enable);
+	return i4BytesWritten;
+}
+
 #endif /* CFG_SUPPORT_WIFI_SYSDVT */
 

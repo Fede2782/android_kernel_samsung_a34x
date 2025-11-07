@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -124,7 +124,7 @@ static struct test_data_rate_map he_su_mode_map_bw20[] = {
 	{34,	73},	/* MCS1 DCM */
 };
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 static struct test_data_rate_map he_su_mode_map_bw40[] = {
 	/*index, nss1{0.8gi, 1.6gi, 3.2gi}, nss2{0.8gi, 1.6gi, 3.2gi},
 	 *nss3{0.8gi, 1.6gi, 3.2gi}, nss4{0.8gi, 1.6gi, 3.2gi}
@@ -187,7 +187,7 @@ static struct test_data_rate_map he_su_mode_map_bw80[] = {
 	{34,	306},	/* MCS1 DCM */
 };
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 static struct test_data_rate_map he_su_mode_map_bw160[] = {
 	/*index, nss1{0.8gi, 1.6gi, 3.2gi}, nss2{0.8gi, 1.6gi, 3.2gi},
 	 *nss3{0.8gi, 1.6gi, 3.2gi}, nss4{0.8gi, 1.6gi, 3.2gi}
@@ -288,7 +288,7 @@ static u_int8 test_he_t_pe_x5[] = {
 	0, 20, 40, 60, 80		/* 0us, 4us, 8us, 12us, 16us */
 };
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 static struct test_he_ru_const test_ru_const[] = {
 
 	{37, 24, 12, 6, 2},
@@ -584,7 +584,7 @@ static s_int32 mt_engine_calc_duty_cycle(struct test_configuration *configs)
 	return ret;
 }
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 static s_int32 mt_engine_map_subcarriers(
 	u_int8 ru_index, u_int8 dcm, u_int8 rate)
 {
@@ -907,7 +907,7 @@ static u_int32 mt_engine_calc_txlen(
 		ru_info = &configs->ru_info_list[0];
 		mcs = (ru_info->rate & 0xf);
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 		ds = mt_engine_map_subcarriers(ru_info->ru_index >> 1,
 						(ru_info->rate & BIT(4)),
 						(ru_info->rate & ~BIT(4)));
@@ -917,7 +917,7 @@ static u_int32 mt_engine_calc_txlen(
 #endif
 
 		if (ds) {
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 			dss = mt_engine_map_subcarriers_short(
 				ru_info->ru_index >> 1,
 				(ru_info->rate & BIT(4)),
@@ -1657,7 +1657,7 @@ static s_int32 mt_engine_calc_symbol_by_bytes(
 	u_int32 rate = 0;
 	s_int32 ds = 0, dss = 0;
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	ds = mt_engine_map_subcarriers(ru_info->ru_index >> 1,
 					(ru_info->rate & BIT(4)),
 					(ru_info->rate & ~BIT(4)));
@@ -1667,7 +1667,7 @@ static s_int32 mt_engine_calc_symbol_by_bytes(
 #endif
 
 	if (ds)
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 		dss = mt_engine_map_subcarriers_short(ru_info->ru_index >> 1,
 						   (ru_info->rate & BIT(4)),
 						   (ru_info->rate & ~BIT(4)));
@@ -1684,7 +1684,7 @@ static s_int32 mt_engine_calc_symbol_by_bytes(
 		goto err_out;
 	}
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	rate = ru_info->rate & (~BIT(4));
 #else
 	rate = ru_info->rate & (~BIT(5));
@@ -1881,7 +1881,7 @@ static s_int32 mt_engine_recalc_phy_info(
 	s_int32 shrt = 0;
 	u_int32 cw = 0, l_ldpc = 0;
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	rd = test_he_rate_density[ru_info->rate & ~BIT(4)];
 #else
 	rd = test_he_rate_density[ru_info->rate & ~BIT(5)];
@@ -1935,7 +1935,7 @@ s_int32 mt_engine_calc_phy(
 {
 	u_char rate_den = 0;
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	rate_den = test_he_rate_density[ru_info->rate & ~BIT(4)];
 #else
 	rate_den = test_he_rate_density[ru_info->rate & ~BIT(5)];

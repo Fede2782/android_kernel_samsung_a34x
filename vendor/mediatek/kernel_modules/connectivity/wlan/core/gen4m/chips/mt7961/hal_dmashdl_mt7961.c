@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -364,7 +364,7 @@ uint32_t mt7961UpdateDmashdlQuota(struct ADAPTER *prAdapter,
 		}
 
 		if (u2MaxQuotaFinal) {
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 				"ucWmmIndex,%u,ucGroupIdx,%u,u2MaxQuotaFinal,0x%x\n",
 				ucWmmIndex, ucGroupIdx, u2MaxQuotaFinal);
 			asicConnac2xDmashdlSetMaxQuota(prAdapter,
@@ -387,7 +387,7 @@ uint32_t mt7961dmashdlQuotaDecision(struct ADAPTER *prAdapter,
 	enum ENUM_BAND eTargetBand = BAND_NULL;
 
 	for (ucBssIndex = 0;
-		ucBssIndex < prAdapter->ucSwBssIdNum; ucBssIndex++) {
+		ucBssIndex < prAdapter->ucHwBssIdNum; ucBssIndex++) {
 
 		prBssInfo = prAdapter->aprBssInfo[ucBssIndex];
 

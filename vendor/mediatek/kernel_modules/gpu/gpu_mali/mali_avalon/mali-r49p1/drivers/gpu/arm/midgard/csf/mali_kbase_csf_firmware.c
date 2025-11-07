@@ -1636,6 +1636,12 @@ static void handle_internal_firmware_fatal(struct kbase_device *const kbdev)
 	mtk_common_debug(MTK_COMMON_DBG_CSF_DUMP_ITER_HWIF, NULL, MTK_DBG_HOOK_NA);
 #endif /* CONFIG_MALI_MTK_DEBUG_DUMP */
 
+#if IS_ENABLED(CONFIG_MALI_MTK_FW_ERR_DEBUG)
+	kbdev->csf.firmware_unrecoverable = true;
+	wake_up_all(&kbdev->csf.event_wait);
+	wake_up_all(&kbdev->pm.backend.gpu_in_desired_state_wait);
+#endif /* CONFIG_MALI_MTK_FW_ERR_DEBUG */
+
 	for (as = 0; as < kbdev->nr_hw_address_spaces; as++) {
 		unsigned long flags;
 		struct kbase_context *kctx;
@@ -1725,7 +1731,11 @@ static int wait_for_global_request_with_timeout(struct kbase_device *const kbdev
 	long remaining;
 	int err = 0;
 
+#if IS_ENABLED(CONFIG_MALI_MTK_FW_ERR_DEBUG)
+	remaining = wait_event_timeout_on_fw(kbdev, kbdev->csf.event_wait,
+#else
 	remaining = wait_event_timeout(kbdev->csf.event_wait,
+#endif /* CONFIG_MALI_MTK_FW_ERR_DEBUG */
 				       global_request_complete(kbdev, req_mask), wait_timeout);
 
 	if (!remaining) {

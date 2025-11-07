@@ -140,9 +140,9 @@ static void cnmTimerDumpTimer(IN struct ADAPTER *prAdapter)
 		prTimerEntry = LINK_ENTRY(prLinkEntry,
 			struct TIMER, rLinkEntry);
 
-		log_dbg(CNM, INFO, "timer:%p, func:%ps, ExpiredSysTime:%u\n",
+		log_dbg(CNM, INFO, "timer:%p, func:%s, ExpiredSysTime:%u\n",
 			prTimerEntry,
-			prTimerEntry->pfMgmtTimeOutFunc,
+			prTimerEntry->pFuncString,
 			prTimerEntry->rExpiredSysTime);
 	}
 }
@@ -184,8 +184,8 @@ static u_int8_t cnmTimerIsTimerValid(IN struct ADAPTER *prAdapter,
 			return TRUE;
 	}
 
-	log_dbg(CNM, WARN, "invalid pending timer %p func %ps\n",
-			prTimer, prTimer->pfMgmtTimeOutFunc);
+	log_dbg(CNM, WARN, "invalid pending timer %p func %s\n",
+			prTimer, prTimer->pFuncString);
 	return FALSE;
 }
 
@@ -326,7 +326,8 @@ cnmTimerInitTimerOption(IN struct ADAPTER *prAdapter,
 			IN struct TIMER *prTimer,
 			IN PFN_MGMT_TIMEOUT_FUNC pfFunc,
 			IN unsigned long ulDataPtr,
-			IN enum ENUM_TIMER_WAKELOCK_TYPE_T eType)
+			IN enum ENUM_TIMER_WAKELOCK_TYPE_T eType,
+			IN const char *pFuncString)
 {
 	struct LINK *prTimerList;
 	struct LINK_ENTRY *prLinkEntry;
@@ -352,8 +353,8 @@ cnmTimerInitTimerOption(IN struct ADAPTER *prAdapter,
 			struct TIMER, rLinkEntry);
 
 		if (prPendingTimer == prTimer) {
-			log_dbg(CNM, WARN, "re-init timer, timer %p func %ps\n",
-				prTimer, pfFunc);
+			log_dbg(CNM, WARN, "re-init timer, timer %p func %s\n",
+				prTimer, pFuncString);
 
 			if (timerPendingTimer(prTimer)) {
 				/* Remove pending timer to prevent
@@ -371,6 +372,8 @@ cnmTimerInitTimerOption(IN struct ADAPTER *prAdapter,
 	prTimer->pfMgmtTimeOutFunc = pfFunc;
 	prTimer->ulDataPtr = ulDataPtr;
 	prTimer->eType = eType;
+
+	prTimer->pFuncString = pFuncString;
 
 	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_TIMER);
 }
@@ -437,8 +440,8 @@ void cnmTimerStopTimer(IN struct ADAPTER *prAdapter, IN struct TIMER *prTimer)
 	ASSERT(prAdapter);
 	ASSERT(prTimer);
 
-	log_dbg(CNM, TRACE, "stop timer, timer %p func %ps\n",
-		prTimer, prTimer->pfMgmtTimeOutFunc);
+	log_dbg(CNM, TRACE, "stop timer, timer %p func %s\n",
+		prTimer, prTimer->pFuncString);
 
 	cnmTimerStopTimer_impl(prAdapter, prTimer, TRUE);
 }
@@ -466,8 +469,8 @@ void cnmTimerStartTimer(IN struct ADAPTER *prAdapter, IN struct TIMER *prTimer,
 	ASSERT(prAdapter);
 	ASSERT(prTimer);
 
-	log_dbg(CNM, TRACE, "start timer, timer %p func %ps %d ms\n",
-		prTimer, prTimer->pfMgmtTimeOutFunc, u4TimeoutMs);
+	log_dbg(CNM, TRACE, "start timer, timer %p func %s %d ms\n",
+		prTimer, prTimer->pFuncString, u4TimeoutMs);
 
 #if (CFG_SUPPORT_STATISTICS == 1)
 	/* Do not print oid timer to avoid log too much.
@@ -476,10 +479,10 @@ void cnmTimerStartTimer(IN struct ADAPTER *prAdapter, IN struct TIMER *prTimer,
 	if ((prTimer != NULL) && (&(prAdapter->rOidTimeoutTimer) != prTimer)
 		&& (wlan_fb_power_down == TRUE)) {
 		DBGLOG_LIMITED(CNM, INFO,
-			"[WLAN-LP] Start timer %p %u ms -handler(%ps)\n",
+			"[WLAN-LP] Start timer %p %u ms -handler(%s)\n",
 			prTimer,
 			u4TimeoutMs,
-			prTimer->pfMgmtTimeOutFunc);
+			prTimer->pFuncString);
 	}
 #endif
 
@@ -491,8 +494,8 @@ void cnmTimerStartTimer(IN struct ADAPTER *prAdapter, IN struct TIMER *prTimer,
 	if (gDoTimeOut) {
 		/* monitor the timer start in callback */
 		log_dbg(CNM, INFO,
-			"In DoTimeOut, timer %p func %ps %d ms timercount %d\n",
-			prTimer, prTimer->pfMgmtTimeOutFunc,
+			"In DoTimeOut, timer %p func %s %d ms timercount %d\n",
+			prTimer, prTimer->pFuncString,
 			u4TimeoutMs, prTimerList->u4NumElem);
 	}
 
@@ -628,8 +631,8 @@ void cnmTimerDoTimeOutCheck(IN struct ADAPTER *prAdapter)
 						     ulTimeoutDataPtr))
 				#endif
 				log_dbg(CNM, INFO,
-					"timer timeout, timer %p func %ps\n",
-					prTimer, prTimer->pfMgmtTimeOutFunc);
+					"timer timeout, timer %p func %s\n",
+					prTimer, prTimer->pFuncString);
 
 					(pfMgmtTimeOutFunc) (prAdapter,
 						ulTimeoutDataPtr);
@@ -638,8 +641,8 @@ void cnmTimerDoTimeOutCheck(IN struct ADAPTER *prAdapter)
 				}
 			} else {
 				log_dbg(CNM, WARN,
-					"timer re-inited, timer %p func %ps\n",
-					prTimer, prTimer->pfMgmtTimeOutFunc);
+					"timer re-inited, timer %p func %s\n",
+					prTimer, prTimer->pFuncString);
 				break;
 			}
 

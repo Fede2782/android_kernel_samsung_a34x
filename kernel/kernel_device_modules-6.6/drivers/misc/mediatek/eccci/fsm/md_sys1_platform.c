@@ -566,6 +566,7 @@ static void md1_dpsw_pmic_setting_off(void)
 	int ret, idx;
 	int r_value = 0;
 	struct regulator *Vmodem_reg_ref = NULL;
+	unsigned long Vmodem_max_val;
 
 	if (!(md_cd_plat_val_ptr.power_flow_config & (1 << MD_DPSW_SETTING))) {
 		CCCI_NORMAL_LOG(0, TAG,
@@ -593,6 +594,7 @@ static void md1_dpsw_pmic_setting_off(void)
 			/* get Vmodem value */
 			} else if (strcmp(md_reg_table[idx].reg_name, "md-vmodem") == 0) {
 				Vmodem_reg_ref = md_reg_table[idx].reg_ref;
+				Vmodem_max_val = md_reg_table[idx].reg_vol1;
 				CCCI_NORMAL_LOG(-1, TAG,
 					"[POWER OFF]pmic get_voltage %s=%d uV\n",
 					md_reg_table[idx].reg_name,
@@ -603,7 +605,7 @@ static void md1_dpsw_pmic_setting_off(void)
 
 	if (r_value && (Vmodem_reg_ref != NULL)) {
 		/* set Vmodem same as Vsram */
-		ret = regulator_set_voltage(Vmodem_reg_ref, r_value, 750000);
+		ret = regulator_set_voltage(Vmodem_reg_ref, r_value, Vmodem_max_val);
 		if (ret)
 			CCCI_ERROR_LOG(-1, TAG, "set Vsram value to Vmodem fail\n");
 		ret = regulator_sync_voltage(Vmodem_reg_ref);

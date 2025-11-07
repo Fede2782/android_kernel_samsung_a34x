@@ -22,35 +22,7 @@
 #define COREDUMP_WIFI_INF_NAME			"coredump_wifi"
 #define COREDUMP_WIFI_DEV_NUM			1
 
-#if CFG_WIFI_SECURITY_COREDUMP
-/* security coredump */
-#define S2P_CMD_TX_BASE			0x7c02363c
-#define S2P_CMD_RX_BASE			0x7c023640
-
-#define S2P_CMD_WR			0x2 /*2'b10*/
-#define S2P_CMD_RD			0x1 /*2'b01*/
-
-#define S2P_CMD_AES_MAX_LEN		0x00
-#define S2P_CMD_AES_SRC			0x01
-#define S2P_CMD_AES_DST			0x02
-#define S2P_CMD_AES_LEN			0x03 /*in bytes*/
-#define S2P_CMD_AES_DRVOWN_TRIGGER	0x04
-#define S2P_CMD_AES_BUSY		0x05
-
-#define S2P_CMD_SWDEF_AES_DRV_OWN	0x99
-#define S2P_CMD_SWDEF_AES_TRIGGER	0x88
-
-#define S2P_CMD_CLR_WR_BIT		0x00100
-#endif /* #if CFG_WIFI_SECURITY_COREDUMP */
-
-#ifdef MT6653
-#define COREDUMP_EMI2_DUMP_OFFSET	0x1600000
-#else
-#define COREDUMP_EMI2_DUMP_OFFSET	0x0
-#endif
-
-
-typedef int (*busNoAck_chk_func_cb)(void *, uint8_t);
+typedef int (*bushang_chk_func_cb)(void *, uint8_t);
 
 enum COREDUMP_SOURCE_TYPE {
 	COREDUMP_SOURCE_WF_DRIVER,
@@ -79,22 +51,6 @@ enum COREDUMP_STATE {
 	COREDUMP_STATE_PUTTING = 1,
 	COREDUMP_STATE_PUT_DONE = 2,
 	COREDUMP_STATE_NUM
-};
-
-#if CFG_MTK_WIFI_DFD_DUMP_SUPPORT
-enum COREDUMP_DFD_FSM_STATE {
-	COREDUMP_FSM_NOT_START = 0,
-	COREDUMP_FSM_INIT_DONE = 1,
-	COREDUMP_FSM_TRIGGER_CONNV3_DONE = 2,
-	COREDUMP_FSM_NUM
-};
-#endif
-
-enum ENUM_COREDUMP_BY_CHIP_RESET_TYPE_T {
-	ENUM_COREDUMP_BY_CHIP_RST_LEGACY_MODE = 0x0,
-	ENUM_COREDUMP_BY_CHIP_RST_PMIC_FALUT_B,
-	ENUM_COREDUMP_BY_CHIP_RST_DFD_DUMP,
-	ENUM_COREDUMP_BY_CHIP_RESET_TYPE_NUM
 };
 
 struct mem_region {
@@ -148,7 +104,6 @@ struct coredump_mem {
 	struct mem_region *mem_regions;
 	uint32_t mem_region_num;
 	uint32_t mem_region_offset;
-	uint8_t *aee_str_buff;
 };
 
 struct coredump_ctx {
@@ -157,7 +112,7 @@ struct coredump_ctx {
 	u_int8_t initialized;
 	u_int8_t enable;
 	u_int8_t processing;
-	busNoAck_chk_func_cb fn_check_bus_no_ack;
+	bushang_chk_func_cb fn_check_bus_hang;
 	struct coredump_mem mem;
 
 	struct cdev cdev;
@@ -166,30 +121,23 @@ struct coredump_ctx {
 	struct device *class_dev;
 };
 
-#if (CFG_TESTMODE_FWDL_SUPPORT == 1)
-extern u_int8_t fgIsCurrentInTestMode;
-#endif
-
 #if CFG_WIFI_COREDUMP_SUPPORT
 int wifi_coredump_init(void *priv);
 void wifi_coredump_deinit(void);
 void wifi_coredump_start(enum COREDUMP_SOURCE_TYPE source,
 	char *reason,
-	enum ENUM_COREDUMP_BY_CHIP_RESET_TYPE_T type,
 	u_int8_t force_dump);
-#if CFG_MTK_WIFI_DFD_DUMP_SUPPORT
-int wifi_coredump_post_start(void);
-#endif
-void coredump_register_busNoAck_chk_cb(busNoAck_chk_func_cb cb);
-#if CFG_SUPPORT_CONNINFRA || (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+void coredump_get_dump_buff(uint8_t *pucDumpBuf, uint32_t u4MaxLen);
+void coredump_register_bushang_chk_cb(bushang_chk_func_cb cb);
+#if CFG_SUPPORT_CONNINFRA || IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 enum consys_drv_type coredump_src_to_conn_type(enum COREDUMP_SOURCE_TYPE src);
 enum COREDUMP_SOURCE_TYPE coredump_conn_type_to_src(enum consys_drv_type src);
 #endif
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 enum connv3_drv_type coredump_src_to_connv3_type(enum COREDUMP_SOURCE_TYPE src);
 enum COREDUMP_SOURCE_TYPE coredump_connv3_type_to_src(enum connv3_drv_type src);
-#if CFG_TC10_FEATURE
 extern void connv3_coredump_set_memdump_mode(unsigned int mode);
+#if CFG_TC10_FEATURE
 void wifi_coredump_get_save_emi(phys_addr_t *base, size_t *size);
 extern uint32_t g_u4Memdump;
 #endif
@@ -202,9 +150,10 @@ static inline int wifi_coredump_init(void *priv)
 static inline void wifi_coredump_deinit(void) {}
 static inline void wifi_coredump_start(enum COREDUMP_SOURCE_TYPE source,
 	char *reason,
-	enum ENUM_COREDUMP_BY_CHIP_RESET_TYPE_T type,
 	u_int8_t force_dump) {}
-static inline void coredump_register_busNoAck_chk_cb(busNoAck_chk_func_cb cb) {}
+static inline void coredump_get_dump_buff(uint8_t *pucDumpBuf,
+	uint32_t u4MaxLen) {}
+static inline void coredump_register_bushang_chk_cb(bushang_chk_func_cb cb) {}
 static inline void wifi_coredump_set_enable(u_int8_t enable) {}
 static inline u_int8_t is_wifi_coredump_processing(void) { return FALSE; }
 #endif

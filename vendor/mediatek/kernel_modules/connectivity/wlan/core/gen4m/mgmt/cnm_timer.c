@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -83,7 +83,7 @@ static void cnmTimerDumpTimer(struct ADAPTER *prAdapter)
 	prRootTimer = &prAdapter->rRootTimer;
 	prTimerList = &prRootTimer->rLinkHead;
 
-	log_dbg(CNM, INFO, "Current time:%u\n", kalGetTimeTick());
+	log_dbg(CNM, VOC, "Current time:%u\n", kalGetTimeTick());
 
 	LINK_FOR_EACH(prLinkEntry, prTimerList) {
 		if (prLinkEntry == NULL)
@@ -100,7 +100,7 @@ static void cnmTimerDumpTimer(struct ADAPTER *prAdapter)
 		prTimerEntry = LINK_ENTRY(prLinkEntry,
 			struct TIMER, rLinkEntry);
 
-		log_dbg(CNM, INFO, "timer:%p, func:%ps, ExpiredSysTime:%u\n",
+		log_dbg(CNM, VOC, "timer:%p, func:%ps, ExpiredSysTime:%u\n",
 			prTimerEntry,
 			prTimerEntry->pfMgmtTimeOutFunc,
 			prTimerEntry->rExpiredSysTime);
@@ -169,10 +169,6 @@ static u_int8_t cnmTimerSetTimer(struct ADAPTER *prAdapter,
 
 	ASSERT(prAdapter);
 
-	/* CNM timeout is 20s, we use 19s as threshold */
-	if ((uint32_t)(rTimeout) > (uint32_t)(19 * MSEC_PER_SEC))
-		DBGLOG_LIMITED(CNM, INFO, "timer > 19s\n");
-
 	prRootTimer = &prAdapter->rRootTimer;
 
 	kalSetTimer(prAdapter->prGlueInfo, rTimeout);
@@ -240,12 +236,6 @@ void cnmTimerInitialize(struct ADAPTER *prAdapter)
 
 	KAL_WAKE_LOCK_INIT(prAdapter, prRootTimer->rWakeLock, "WLAN Timer");
 	prRootTimer->fgWakeLocked = FALSE;
-
-#if CFG_SUPPORT_HRTIMER
-	KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_HRTIMER_LIST);
-	LINK_INITIALIZE(&prAdapter->rHrtimerList);
-	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_HRTIMER_LIST);
-#endif
 }
 
 /*----------------------------------------------------------------------------*/
@@ -261,15 +251,11 @@ void cnmTimerInitialize(struct ADAPTER *prAdapter)
 void cnmTimerDestroy(struct ADAPTER *prAdapter)
 {
 	struct ROOT_TIMER *prRootTimer;
-#if CFG_SUPPORT_HRTIMER
-	struct TIMER *curr, *temp;
-#endif
 
 	KAL_SPIN_LOCK_DECLARATION();
 
 	ASSERT(prAdapter);
 
-	/* Legacy timer */
 	prRootTimer = &prAdapter->rRootTimer;
 
 	if (prRootTimer->fgWakeLocked) {
@@ -281,15 +267,6 @@ void cnmTimerDestroy(struct ADAPTER *prAdapter)
 	KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_TIMER);
 	LINK_INITIALIZE(&prRootTimer->rLinkHead);
 	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_TIMER);
-
-#if CFG_SUPPORT_HRTIMER
-	/* Hrtimer */
-	KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_HRTIMER_LIST);
-	LINK_FOR_EACH_ENTRY_SAFE(curr, temp, &prAdapter->rHrtimerList,
-				 rLinkEntry, struct TIMER)
-		cnmTimerStopTimer(prAdapter, curr);
-	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_HRTIMER_LIST);
-#endif
 
 	/* Note: glue layer will be responsible for timer destruction */
 }
@@ -369,26 +346,6 @@ cnmTimerInitTimerOption(struct ADAPTER *prAdapter,
 	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_TIMER);
 }
 
-#if CFG_SUPPORT_HRTIMER
-void
-cnmTimerInitHrtimerImpl(struct ADAPTER *prAdapter,
-			struct TIMER *prTimer,
-			PFN_MGMT_TIMEOUT_FUNC pfFunc,
-			uintptr_t ulDataPtr)
-{
-	KAL_SPIN_LOCK_DECLARATION();
-
-	kalHrtimerInit(&prTimer->rHrtimer);
-	prTimer->pfHrtimeoutFunc = pfFunc;
-	prTimer->prHrFuncPara = ulDataPtr;
-	prTimer->prHrAdapter = prAdapter;
-
-	KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_HRTIMER_LIST);
-	LINK_ENTRY_INITIALIZE(&prTimer->rLinkEntry);
-	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_HRTIMER_LIST);
-}
-#endif
-
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief This routines is called to stop a timer.
@@ -437,23 +394,6 @@ static void cnmTimerStopTimer_impl(struct ADAPTER *prAdapter,
 		KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_TIMER);
 }
 
-#if CFG_SUPPORT_HRTIMER
-static void cnmTimerStopHrtimer_impl(struct ADAPTER *prAdapter,
-				     struct TIMER *prTimer)
-{
-	KAL_SPIN_LOCK_DECLARATION();
-
-	if (!timerPendingTimer(prTimer))
-		return;
-
-	kalHrtimerCancel(&prTimer->rHrtimer);
-
-	KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_HRTIMER_LIST);
-	LINK_REMOVE_KNOWN_ENTRY(&prAdapter->rHrtimerList, &prTimer->rLinkEntry);
-	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_HRTIMER_LIST);
-}
-#endif
-
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief This routines is called to stop a timer.
@@ -468,19 +408,10 @@ void cnmTimerStopTimer(struct ADAPTER *prAdapter, struct TIMER *prTimer)
 	ASSERT(prAdapter);
 	ASSERT(prTimer);
 
-	switch (prTimer->eTimerType) {
-#if CFG_SUPPORT_HRTIMER
-	case TIMER_HRTIMER:
-		cnmTimerStopHrtimer_impl(prAdapter, prTimer);
-		break;
-#endif
-	default:
-		DBGLOG_LIMITED(CNM, TRACE, "stop timer, timer %p func %ps\n",
-			prTimer, prTimer->pfMgmtTimeOutFunc);
+	DBGLOG_LIMITED(CNM, TRACE, "stop timer, timer %p func %ps\n",
+		prTimer, prTimer->pfMgmtTimeOutFunc);
 
-		cnmTimerStopTimer_impl(prAdapter, prTimer, TRUE);
-		break;
-	}
+	cnmTimerStopTimer_impl(prAdapter, prTimer, TRUE);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -494,7 +425,7 @@ void cnmTimerStopTimer(struct ADAPTER *prAdapter, struct TIMER *prTimer)
  * \return (none)
  */
 /*----------------------------------------------------------------------------*/
-void cnmTimerStartTimerList(struct ADAPTER *prAdapter, struct TIMER *prTimer,
+void cnmTimerStartTimer(struct ADAPTER *prAdapter, struct TIMER *prTimer,
 	uint32_t u4TimeoutMs)
 {
 	struct ROOT_TIMER *prRootTimer;
@@ -509,7 +440,7 @@ void cnmTimerStartTimerList(struct ADAPTER *prAdapter, struct TIMER *prTimer,
 	ASSERT(prTimer);
 
 	if (!prTimer->pfMgmtTimeOutFunc)
-		DBGLOG_LIMITED(CNM, WARN,
+		log_dbg(CNM, WARN,
 			"start timer, timer %p func is NULL %d ms\n",
 			prTimer, u4TimeoutMs);
 	else
@@ -529,10 +460,6 @@ void cnmTimerStartTimerList(struct ADAPTER *prAdapter, struct TIMER *prTimer,
 			prTimer, prTimer->pfMgmtTimeOutFunc,
 			u4TimeoutMs, prTimerList->u4NumElem);
 	}
-
-	if (u4TimeoutMs > (19 * MSEC_PER_SEC))
-		DBGLOG_LIMITED(CNM, INFO,
-			"start timer > 19s, timer %d ms\n", u4TimeoutMs);
 
 	/* If timeout interval is larger than 1 minute, the mod value is set
 	 * to the timeout value first, then per minutue.
@@ -599,35 +526,6 @@ void cnmTimerStartTimerList(struct ADAPTER *prAdapter, struct TIMER *prTimer,
 		DBGLOG_LIMITED(CNM, WARN,
 			"Invalid NextExpiredSysTime: %u, currentSysTime: %u\n",
 			rInvalidNextExpiredSysTime, rCurSysTime);
-	}
-}
-
-#if CFG_SUPPORT_HRTIMER
-void cnmTimerStartHrtimer(struct ADAPTER *prAdapter, struct TIMER *prTimer,
-	uint32_t u4TimeoutMs)
-{
-	KAL_SPIN_LOCK_DECLARATION();
-
-	kalHrtimerStart(&prTimer->rHrtimer, u4TimeoutMs);
-
-	KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_HRTIMER_LIST);
-	LINK_INSERT_TAIL(&prAdapter->rHrtimerList, &prTimer->rLinkEntry);
-	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_HRTIMER_LIST);
-}
-#endif
-
-void cnmTimerStartTimer(struct ADAPTER *prAdapter, struct TIMER *prTimer,
-	uint32_t u4TimeoutMs)
-{
-	switch (prTimer->eTimerType) {
-#if CFG_SUPPORT_HRTIMER
-	case TIMER_HRTIMER:
-		cnmTimerStartHrtimer(prAdapter, prTimer, u4TimeoutMs);
-		break;
-#endif
-	default:
-		cnmTimerStartTimerList(prAdapter, prTimer, u4TimeoutMs);
-		break;
 	}
 }
 
@@ -700,9 +598,7 @@ void cnmTimerDoTimeOutCheck(struct ADAPTER *prAdapter)
 				if (prTimer->u2Minutes > 0) {
 					prTimer->u2Minutes--;
 					prTimer->rExpiredSysTime = rCurSysTime +
-						MSEC_TO_SYSTIME(MSEC_PER_MIN) -
-						(rCurSysTime -
-						prTimer->rExpiredSysTime);
+						MSEC_TO_SYSTIME(MSEC_PER_MIN);
 					LINK_INSERT_TAIL(prTimerList,
 						&prTimer->rLinkEntry);
 				} else if (pfMgmtTimeOutFunc) {

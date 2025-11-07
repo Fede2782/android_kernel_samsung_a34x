@@ -58,6 +58,7 @@
 enum mtk_enc_dtsi_reg_idx {
 	VENC_SYS,
 	VENC_GCON,
+	VENC_LARB,
 	NUM_MAX_VENC_REG_BASE
 };
 /**
@@ -151,6 +152,7 @@ struct mtk_jpeg_dev {
 	struct video_device	*vdev;
 	void __iomem		*reg_base;
 	void __iomem		*gcon_base;
+	void __iomem		*larb_base;
 	struct device		*larb[MTK_JPEG_MAX_LARB_COUNT];
 	struct delayed_work job_timeout_work;
 	const struct mtk_jpeg_variant *variant;
@@ -166,6 +168,7 @@ struct mtk_jpeg_dev {
 	unsigned long freqs[MTK_JPEG_MAX_FREQ];
 	enum mtk_jpeg_support_34bits support_34bits;
 	struct device *smmu_dev;
+	u32 axdomain;
 };
 
 /**

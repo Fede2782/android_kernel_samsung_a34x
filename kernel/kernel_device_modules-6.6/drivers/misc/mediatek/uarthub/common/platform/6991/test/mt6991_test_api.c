@@ -35,7 +35,7 @@ struct uarthub_ut_test_ops_struct mt6991_plat_ut_test_data = {
 		uarthub_config_uartip_rx_fifo_trig_thr_mt6991,
 	.uarthub_plat_inband_irq_handle = uarthub_inband_irq_handle_mt6991,
 };
-
+unsigned char verify_inband_esc_sta;
 
 int uarthub_is_ut_testing_mt6991(void)
 {
@@ -1023,7 +1023,7 @@ int uarthub_init_default_apuart_config_mt6991(void)
 
 	for (i = 1; i < 4; i++) {
 		uarthub_dev_base = apuart_base_map_mt6991[i];
-		uarthub_config_baud_rate_m6991(uarthub_dev_base, baud_rate);
+		uarthub_config_baud_rate_mt6991(uarthub_dev_base, baud_rate);
 
 		/* 0x0c = 0x3,  byte length: 8 bit*/
 		UARTHUB_REG_WRITE(LCR_ADDR(uarthub_dev_base), 0x3);
@@ -1074,7 +1074,7 @@ int uarthub_clear_all_ut_irq_sta_mt6991(void)
 
 int uarthub_inband_irq_handle_mt6991(void)
 {
-	verify_inband_esc_sta = uarthub_inband_get_esc_sta_mt6991();
+	verify_inband_esc_sta = uarthub_inband_get_received_sta_mt6991();
 	pr_info("[%s] verify_inband_esc_sta=[0x%x]\n", __func__, verify_inband_esc_sta);
 	return 0;
 }

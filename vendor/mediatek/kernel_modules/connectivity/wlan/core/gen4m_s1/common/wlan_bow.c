@@ -177,6 +177,7 @@ wlanoidSendSetQueryBowCmd(IN struct ADAPTER *prAdapter,
 	prCmdInfo->eCmdType = COMMAND_TYPE_NETWORK_IOCTL;
 	prCmdInfo->u2InfoBufLen = cmd_size;
 	prCmdInfo->pfCmdDoneHandler = pfCmdDoneHandler;
+	prCmdInfo->pCmdDoneHandlerStr = pCmdDoneHandlerStr;
 	prCmdInfo->pfCmdTimeoutHandler = pfCmdTimeoutHandler;
 	prCmdInfo->fgIsOid = FALSE;
 	prCmdInfo->ucCID = ucCID;
@@ -522,11 +523,11 @@ uint32_t bowCmdSetupConnection(IN struct ADAPTER *prAdapter, IN struct BT_OVER_W
 
 		cnmTimerInitTimer(prAdapter,
 				  &prBowFsmInfo->rStartingBeaconTimer,
-				  (PFN_MGMT_TIMEOUT_FUNC) bowSendBeacon, (unsigned long) NULL);
+				  bowSendBeacon, (unsigned long) NULL);
 
 		cnmTimerInitTimer(prAdapter,
 				  &prBowFsmInfo->rChGrantedTimer,
-				  (PFN_MGMT_TIMEOUT_FUNC) bowChGrantedTimeout, (unsigned long) NULL);
+				  bowChGrantedTimeout, (unsigned long) NULL);
 
 		/* Reset Global Variable */
 		g_u4Beaconing = 0;

@@ -113,11 +113,14 @@ static void m2m_param_remove(struct mml_m2m_ctx *ctx)
 	mutex_unlock(&ctx->param_mutex);
 }
 
-static void mml_m2m_process_done(struct mml_m2m_ctx *mctx, enum vb2_buffer_state vb_state)
+static void m2m_task_submit_done(struct mml_task *task)
 {
+	struct mml_ctx *ctx = task->ctx;
+	struct mml_m2m_ctx *mctx = container_of(ctx, struct mml_m2m_ctx, ctx);
 	struct vb2_v4l2_buffer *src_buf, *dst_buf;
 	struct mml_v4l2_dev *v4l2_dev = mml_get_v4l2_dev(mctx->ctx.mml);
 
+	mml_trace_ex_begin("%s", __func__);
 	m2m_param_remove(mctx);
 
 	src_buf = v4l2_m2m_src_buf_remove(mctx->m2m_ctx);
@@ -129,10 +132,17 @@ static void mml_m2m_process_done(struct mml_m2m_ctx *mctx, enum vb2_buffer_state
 	src_buf->sequence = mctx->frame_count[MML_M2M_FRAME_SRC]++;
 	dst_buf->sequence = mctx->frame_count[MML_M2M_FRAME_DST]++;
 	v4l2_m2m_buf_copy_metadata(src_buf, dst_buf, true);
-
-	v4l2_m2m_buf_done(src_buf, vb_state);
-	v4l2_m2m_buf_done(dst_buf, vb_state);
 	v4l2_m2m_job_finish(v4l2_dev->m2m_dev, mctx->m2m_ctx);
+	task_submit_done(task);
+	mml_trace_ex_end();
+}
+
+static void mml_m2m_process_done(enum vb2_buffer_state vb_state, struct mml_task *task)
+{
+	v4l2_m2m_buf_done(task->src_buf, vb_state);
+	task->src_buf = NULL;
+	v4l2_m2m_buf_done(task->dst_buf, vb_state);
+	task->dst_buf = NULL;
 }
 
 static void m2m_task_frame_done(struct mml_task *task)
@@ -141,7 +151,6 @@ static void m2m_task_frame_done(struct mml_task *task)
 	struct mml_frame_config *tmp;
 	struct mml_ctx *ctx = task->ctx;
 	struct mml_dev *mml = cfg->mml;
-	enum vb2_buffer_state vb_state = VB2_BUF_STATE_DONE;
 	struct mml_m2m_ctx *mctx = container_of(ctx, struct mml_m2m_ctx, ctx);
 
 	mml_trace_ex_begin("%s", __func__);
@@ -164,7 +173,6 @@ static void m2m_task_frame_done(struct mml_task *task)
 			task->state);
 		task->err = true;
 		cfg->err = true;
-		vb_state = VB2_BUF_STATE_ERROR;
 		mml_record_track(mml, task);
 		kref_put(&task->ref, task_move_to_destroy);
 	} else {
@@ -208,9 +216,6 @@ static void m2m_task_frame_done(struct mml_task *task)
 done:
 	mutex_unlock(&ctx->config_mutex);
 
-	/* notice frame done to v4l2 */
-	mml_m2m_process_done(mctx, vb_state);
-
 	/* kref_get mctx->ref in mml_m2m_device_run */
 	kref_put(&mctx->ref, m2m_ctx_complete);
 
@@ -219,9 +224,24 @@ done:
 	mml_trace_ex_end();
 }
 
+static void m2m_task_signal_irq(struct mml_task *task)
+{
+	struct mml_frame_config *cfg = task->config;
+
+	mml_msg("[m2m]%s signal user done job id %u", __func__, task->job.jobid);
+	mml_trace_ex_begin("%s_%u", __func__, task->job.jobid);
+	if (unlikely(!task->pkts[0] || (cfg->dual && !task->pkts[1])))
+		mml_m2m_process_done(VB2_BUF_STATE_ERROR, task);
+	else
+		mml_m2m_process_done(VB2_BUF_STATE_DONE, task);
+	mml_trace_ex_end();
+	mml_mmp(m2m_sig, MMPROFILE_FLAG_PULSE, task->job.jobid, 0);
+}
+
 static const struct mml_task_ops m2m_task_ops = {
-	.submit_done = task_submit_done,
+	.submit_done = m2m_task_submit_done,
 	.frame_done = m2m_task_frame_done,
+	.signal_irq = m2m_task_signal_irq,
 	.dup_task = task_dup,
 	.get_tile_cache = task_get_tile_cache,
 };
@@ -1779,7 +1799,7 @@ static void mml_m2m_device_run(void *priv)
 	struct mml_ctx *ctx = &mctx->ctx;
 	struct mml_frame_config *cfg;
 	struct mml_task *task = NULL;
-	s32 result;
+	s32 result = 0;
 	u32 i;
 	struct vb2_v4l2_buffer *src_buf, *dst_buf;
 	enum vb2_buffer_state vb_state = VB2_BUF_STATE_ERROR;
@@ -1788,6 +1808,14 @@ static void mml_m2m_device_run(void *priv)
 
 	/* hold mctx to avoid release from v4l2 before call submit_done */
 	kref_get(&mctx->ref);
+
+	src_buf = v4l2_m2m_next_src_buf(mctx->m2m_ctx);
+	dst_buf = v4l2_m2m_next_dst_buf(mctx->m2m_ctx);
+	if (!src_buf || !dst_buf) {
+		mml_err("[m2m]%s get next buf fail src %p dst %p", __func__,
+			src_buf, dst_buf);
+		goto err_buf_exit;
+	}
 
 	result = m2m_set_submit(mctx, submit);
 	if (result < 0)
@@ -1876,15 +1904,8 @@ static void mml_m2m_device_run(void *priv)
 
 	/* copy per-frame info */
 	task->ctx = ctx;
-
-	src_buf = v4l2_m2m_next_src_buf(mctx->m2m_ctx);
-	dst_buf = v4l2_m2m_next_dst_buf(mctx->m2m_ctx);
-	if (!src_buf || !dst_buf) {
-		mml_err("[m2m]%s get next buf fail src %p dst %p", __func__,
-			src_buf, dst_buf);
-		goto err_buf_exit;
-	}
-
+	task->src_buf = src_buf;
+	task->dst_buf = dst_buf;
 	task->adaptor_type = MML_ADAPTOR_M2M;
 	/* update endTime here */
 	task->end_time = ns_to_timespec64(src_buf->vb2_buf.timestamp);
@@ -1966,12 +1987,12 @@ err_buf_exit:
 			mml_log("dec config %p", cfg);
 
 		mutex_unlock(&ctx->config_mutex);
+		mml_m2m_process_done(vb_state, task);
 		kref_put(&task->ref, task_move_to_destroy);
 
 		if (is_init_state)
 			cfg->cfg_ops->put(cfg);
 	}
-	mml_m2m_process_done(mctx, vb_state);
 
 	kref_put(&mctx->ref, m2m_ctx_complete);
 }

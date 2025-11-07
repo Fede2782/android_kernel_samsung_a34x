@@ -94,14 +94,14 @@
 #define WIFI_FEATURE_SET_TX_POWER_LIMIT (0x4000000)
 /* Support Using Body/Head Proximity for SAR */
 #define WIFI_FEATURE_USE_BODY_HEAD_SAR  (0x8000000)
+#if CFG_TC10_FEATURE
+/*Support WIFI Dynamic set mac */
+#define WIFI_FEATURE_DYNAMIC_SET_MAC    (0x10000000)
+#endif
 /* Support Set Latency Mode */
 #define WIFI_FEATURE_SET_LATENCY_MODE  (0x40000000)
 /* Support Random P2P MAC */
 #define WIFI_FEATURE_P2P_RAND_MAC  (0x80000000)
-/* Support TID-To-Link mapping negotiation */
-#define WIFI_FEATURE_T2LM_NEGO  (0x400000000)
-/* Support MLO SoftAp */
-#define WIFI_FEATURE_MLO_SAP  (0x4000000000)
 
 /* note: WIFI_FEATURE_GSCAN be enabled just for ACTS test item: scanner */
 #if CFG_SUPPORT_DYNAMIC_PWR_LIMIT
@@ -181,7 +181,7 @@
 #define WLAN_CFG_ARGV_MAX 20
 #endif
 #define WLAN_CFG_ARGV_MAX_LONG	22	/* for WOW, 2+20 */
-#define WLAN_CFG_ENTRY_NUM_MAX	550	/* max number of wifi.cfg */
+#define WLAN_CFG_ENTRY_NUM_MAX	500	/* max number of wifi.cfg */
 #if CFG_SUPPORT_NCHO
 #define WLAN_CFG_KEY_LEN_MAX	48	/* include \x00  EOL */
 #else
@@ -190,11 +190,7 @@
 #define WLAN_CFG_VALUE_LEN_MAX	128	/* include \x00 EOL */
 #define WLAN_CFG_FLAG_SKIP_CB	BIT(0)
 
-#if (CFG_TC10_FEATURE == 1)
-#define WLAN_CFG_REC_ENTRY_NUM_MAX 650
-#else
 #define WLAN_CFG_REC_ENTRY_NUM_MAX 620
-#endif
 
 #define WLAN_CFG_SET_CHIP_LEN_MAX 10
 #define WLAN_CFG_SET_DEBUG_LEVEL_LEN_MAX 10
@@ -247,7 +243,7 @@
 /* Define concurrent network channel number, using by CNM/CMD */
 #define MAX_OP_CHNL_NUM			3
 
-#if (CFG_SUPPORT_CONNAC2X == 1 || CFG_SUPPORT_CONNAC3X == 1 || CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC2X == 1 || CFG_SUPPORT_CONNAC3X == 1)
 #define AGG_RANGE_SEL_NUM		15
 #else
 #define AGG_RANGE_SEL_NUM		7
@@ -299,8 +295,6 @@ struct TPENHANCE_PKT_MAP {
 #define MAX_CMD_VALUE_LENGTH		1
 #define MAX_CMD_RESERVE_LENGTH		1
 
-#define TEST_RX_INFO_TAG_MAX_NUM 64
-
 #define CMD_FORMAT_V1_LENGTH	\
 	(MAX_CMD_NAME_MAX_LENGTH + MAX_CMD_VALUE_MAX_LENGTH + \
 	MAX_CMD_TYPE_LENGTH + MAX_CMD_STRING_LENGTH + MAX_CMD_VALUE_LENGTH + \
@@ -317,11 +311,6 @@ struct TPENHANCE_PKT_MAP {
 #define ED_ITEMTYPE_SITE	0
 #define ED_STRING_SITE		1
 #define ED_VALUE_SITE		2
-#endif
-
-#if (CFG_MTK_WIFI_DRV_OWN_DEBUG_MODE == 1)
-#define DRV_OWN_LOG_MAX_SIZE	200
-#define FUNC_NAME_LENGTH	30
 #endif
 
 enum CMD_VER {
@@ -359,7 +348,10 @@ enum POWER_ACTION_CATEGORY {
 	TXPOWER_UP_TABLE_CTRL = 0xe,
 	TX_POWER_SET_TARGET_POWER = 0xf,
 	TX_POWER_GET_TARGET_POWER = 0x10,
-	POWER_LIMIT_TX_PWR_ENV_CTRL = 0x11,
+	TX_POWER_SET_PER_PKT_POWER = 0x11,
+	TX_POWER_SET_PER_PKT_MIN_POWER = 0x12,
+	POWER_LIMIT_TX_PWR_ENV_CTRL = 0x13,
+	TX_POWER_COMPOSITION = 0x14,
 	POWER_ACTION_NUM
 };
 
@@ -432,6 +424,17 @@ struct CFG_SETTING {
 	uint8_t ScnStopScan;
 	uint8_t TestStr[80];
 };
+
+#if (CFG_SUPPORT_802_11BE_MLO == 1)
+#define ML_CHNL_COND_MAX_P20_NUM 16
+struct ML_CHNL_COND_RESULT {
+	uint8_t ucBssIdx;
+	uint8_t ucP20Cnt;
+	int8_t cRssi;
+	uint8_t ucReserved;
+	uint32_t au4ccaRatio[ML_CHNL_COND_MAX_P20_NUM];
+};
+#endif
 
 /*******************************************************************************
  *                             D A T A   T Y P E S
@@ -535,14 +538,6 @@ enum ENUM_FEATURE_OPTION {
 	FEATURE_DISABLED,
 	FEATURE_ENABLED,
 	FEATURE_FORCE_ENABLED
-};
-
-/* This enum indicates whether the config accessible in user load */
-enum ENUM_FEATURE_SUPPORT_SCOPE {
-	/* Accessible in user load */
-	FEATURE_TO_CUSTOMER,
-	/* Unaccessible in user load */
-	FEATURE_DEBUG_ONLY
 };
 
 /* This enum is for later added feature options which use command reserved field
@@ -707,159 +702,32 @@ struct WOW_CTRL {
 	uint8_t aucReserved2[3];
 };
 
-#if CFG_DC_USB_WOW_CALLBACK
-enum ENUM_WOW_SCENARIO {
-	WOW_NORMAL = 0,
-	WOW_HOST_STANDBY = 1
-};
-#endif
-
 #if CFG_SUPPORT_MDNS_OFFLOAD
+#define MDNS_RESPONSE_RECORD_MAX_LEN	500
+#define MDNS_QUESTION_NAME_MAX_LEN	102
+#define MAX_MDNS_CACHE_NUM		4
 
-/* Maximum size of the data array is defined as 4KB */
-#define MAX_MDNS_USE_SIZE 4096
-/* Maximum size of the transfer size is  as 1KB */
-#define MAX_MDNS_TRANSFER_SIZE 1024
+#define MDNS_CMD_ENABLE			1
+#define MDNS_CMD_DISABLE		2
+#define MDNS_CMD_ADD_RECORD		3
+#define MDNS_CMD_CLEAR_RECORD		4
+#define MDNS_CMD_DEL_RECORD		5
 
-/* fail of mdns data struct oversize */
-#define FAIL_MDNS_OVERSIZE 65535
-
-/* mdns record max number */
-#define MAX_MDNS_CACHE_NUM	10
-/* mdns passthrough max number */
-#define MAX_MDNS_PASSTHTOUGH_NUM 20
-
-/*
- * DataBlock structure to hold the actual data.
- * The data in 'data' array is organized in a way
- * that it holds a two-byte length and then the data,
- * following this pattern: LENGTH HIGH_BYTE LENGTH LOW_BYTE DATA[LENGTH].
- *
- DataBlock Design
-+----------------------------------------------------------------------------+
-|                                   DataBlock                                |
-| +------------------------------------------------------------------------+ |
-| | length1 H-byte | length1 L-byte | data1[1] | data1[2] |  | data1[length1]|
-| | length2 H-byte | length2 L-byte | data2[1] | data2[2] |  | data2[length2]|
-| |                             ............................               | |
-| | lengthN H-byte | lengthN L-byte | dataN[1] | dataN[2] |  | dataN[lengthN]|
-| +------------------------------------------------------------------------+ |
-| |                                     index                                |
-+----------------------------------------------------------------------------+
- */
-struct MDNS_DATABLOCK_T  {
-    /* An array to mdns record and passthrough payload */
-	uint8_t data[MAX_MDNS_USE_SIZE];
-	/*the used size in data ,max 4096 */
-	uint16_t index;
-};
-
-/*
- * Index structure to hold the indices pointing to locations of specific data
- * (response and name) in the data array within a DataBlock structure.
- *
- * Index Design
- *    +-------------------+     +-------------------+     +-------------------+
- *     |       Index       |     |       Index       |     |       Index       |
- *     | +---------------+ |     | +---------------+ |     | +---------------+ |
- *     | |      type     | |     | |      type     | |     | |      type     | |
- *     | +---------------+ |     | +---------------+ |     | +---------------+ |
- *     | | responseIndex | |     | | responseIndex | |     | | responseIndex | |
- *     | +---------------+ |     | +---------------+ |     | +---------------+ |
- *     | |   nameIndex   | |     | |  nameIndex    | |     | |  nameIndex    | |
- *     | +---------------+ |     | +---------------+ |     | +---------------+ |
- *     +-------------------+     +-------------------+     +-------------------+
- */
-
-struct MDNS_RECORD_T {
-/*
- * Type variable structure:
-	ucquerynumber: 1-4
-	u2querytype: 1 - A, 12 - PTR, 16 - TXT, 33 – SRV and others
- */
-	uint8_t ucquerynumber;
-	uint16_t u2querytype[4];
-/* index of the 'response' data in the data array */
-/* The first two are the length, and the rest is the valid data */
-/*|length1 H-byte | length1 L-byte | data1[1] | data1[2] || data1[length1]*/
-	uint16_t u2responseIndex;
-/* index of the 'name' data in the data array */
-/* The first two are the length, and the rest is the valid data */
-/*|length1 H-byte | length1 L-byte | data1[1] | data1[2] || data1[length1]*/
-	uint16_t u2nameIndex[4];
-};
-
-
-/*
- * Name Index Array structure to hold indices of specific
- * names in the data array
- * It can store up to MAX_MDNS_PASSTHTOUGH_NUM indices
- * For passrthrough
- * Passrthrough
- * +------------------------------------+
- * |            Passrthrough            |
- * | +-------------------------------+  |
- * | |nameIndices[MAX_MDNS_PASSTHTOUGH_NUM]
- * | +-------------------------------+  |
- * | |             count             |  |
- * | +-------------------------------+  |
- * +------------------------------------+
- */
-struct MDNS_PASSTHROUGH_T {
-/* Current number of passthrough stored name indices */
-/*  passthrough number max to MAX_MDNS_PASSTHTOUGH_NUM */
-	uint8_t count;
-/* index of the 'passthroughname' data in the data array */
-/* The first two are the length, and the rest is the valid data */
-/*|length1 H-byte | length1 L-byte | data1[1] | data1[2] || data1[length1]*/
-	uint16_t nameIndices[MAX_MDNS_PASSTHTOUGH_NUM];
-};
-
-/* mdns record max response length */
-#define MDNS_RESPONSE_RECORD_MAX_LEN	1024
-/* mdns record max name length */
-#define MDNS_QUESTION_NAME_MAX_LEN	256
-#define MDNS_QURTRY_NUMBER	4
-
-/* mdns and mdns record cmd */
-#define MDNS_CMD_ENABLE		1
-#define MDNS_CMD_DISABLE	2
-#define MDNS_CMD_ADD_RECORD	3
-#define MDNS_CMD_CLEAR_RECORD	4
-#define MDNS_CMD_DEL_RECORD	5
-
-/* mdns and mdns passthrough cmd */
-#define MDNS_CMD_SET_PASSTHTOUGH	6
-#define MDNS_CMD_ADD_PASSTHTOUGH	7
-#define MDNS_CMD_DEL_PASSTHTOUGH	8
-#define MDNS_CMD_GET_HITCOUNTER		9
-#define MDNS_CMD_GET_MISSCOUNTER	10
-#define MDNS_CMD_RESETALL	11
-#define MDNS_CMD_CLEAR_PASSTHTOUGH	12
-/* IPV6 wake up host*/
-#define MDNS_CMD_SET_IPV6_WAKEUP_FLAG	13
-#define MDNS_CMD_SET_WAKEUP_FLAG	14
-
-/* ucCmd passthrouth Behavior  */
-enum MDNS_PassthroughBehavior {
-	MDNS_PASSTHROUGH_FORWARD_ALL = 1,
-	MDNS_PASSTHROUGH_DROP_ALL = 2,
-	MDNS_PASSTHROUGH_LIST = 3
-};
-
-#define MDNS_PAYLOAD_TYPE_LEN				2
-#define MDNS_PAYLOAD_CLASS_LEN				2
-#define MDNS_PAYLOAD_TTL_LEN				4
-#define MDNS_PAYLOAD_DATALEN_LEN			2
+#define MDNS_PAYLOAD_TYPE_LEN		2
+#define MDNS_PAYLOAD_CLASS_LEN		2
+#define MDNS_PAYLOAD_TTL_LEN		4
+#define MDNS_PAYLOAD_DATALEN_LEN	2
 
 #define MDNS_ELEM_TYPE_PTR		12
 #define MDNS_ELEM_TYPE_SRV		33
 #define MDNS_ELEM_TYPE_TXT		16
 #define MDNS_ELEM_TYPE_A		1
 
+#define MDNS_WAKEUP_BY_NO_MATCH_RECORD	BIT(0)
+#define MDNS_WAKEUP_BY_SUB_REQ		BIT(1)
 
-#define MDNS_WAKEUP_BY_NO_MATCH_RECORD BIT(0)
-#define MDNS_WAKEUP_BY_SUB_REQ	BIT(1)
+#define UDP_HEADER_LENGTH		8
+#define IPV4_HEADER_LENGTH		20
 
 struct WLAN_MAC_HEADER_QoS_T {
 	uint16_t u2FrameCtrl;
@@ -880,135 +748,51 @@ struct WLAN_MDNS_HDR_T {
 	uint16_t usAddtionCnt;
 };
 
-#define UDP_HEADER_LENGTH 8
-#define IPV4_HEADER_LENGTH 20
-
 struct MDNS_TEMPLATE_T {
 	uint8_t name[MDNS_QUESTION_NAME_MAX_LEN];
 	uint8_t name_length;
-	uint8_t ucPadding0; /*padding*/
 	uint16_t class;
 	uint16_t type;
 };
 
 struct MDNS_PARAM_T {
-	struct MDNS_TEMPLATE_T query[MDNS_QURTRY_NUMBER];
+	struct MDNS_TEMPLATE_T query_ptr;
+	struct MDNS_TEMPLATE_T query_srv;
+	struct MDNS_TEMPLATE_T query_txt;
+	struct MDNS_TEMPLATE_T query_a;
 	uint16_t response_len;
-	uint8_t ucPadding0[2]; /*padding*/
 	uint8_t response[MDNS_RESPONSE_RECORD_MAX_LEN];
-};
-
-struct MDNS_PASSTHROUGHLIST_T {
-	uint8_t name[MDNS_QUESTION_NAME_MAX_LEN];
-	uint16_t u2PassthroghLength;
 };
 
 struct MDNS_INFO_UPLAYER_T {
 	uint8_t ucCmd;
 	struct MDNS_PARAM_T mdns_param;
-	uint8_t recordKey;
-	uint8_t name[MDNS_QUESTION_NAME_MAX_LEN];
-	uint8_t passthroughBehavior;
-	uint8_t ucIPV6WakeupFlag;
 };
 
 struct MDNS_PARAM_ENTRY_T {
 	struct LINK_ENTRY rLinkEntry;
 	struct MDNS_PARAM_T mdns_param;
-	uint8_t recordKey;
-};
-
-struct MDNS_PASSTHROUGH_ENTRY_T {
-	struct LINK_ENTRY rLinkEntry;
-	struct MDNS_PASSTHROUGHLIST_T mdns_passthrough;
 };
 
 struct CMD_MDNS_PARAM_T {
-    /* 1 Byte fields, total 8 bytes */
 	uint8_t ucCmd;
-	uint8_t ucRecordId;
+	struct MDNS_PARAM_T mdns_param;
+	uint32_t u4RecordId;
 	uint8_t ucWakeFlag;
-	uint8_t ucPassthrouthId;
-
-	uint8_t ucPassthroughBehavior;
-	uint8_t ucIPV6WakeupFlag;
-	/* mdns total transfer length 0 - 4096 */
-	uint8_t ucPayloadOrder;
-	uint8_t ucPadding;
-
-	/* 26 bytes */
 	struct WLAN_MAC_HEADER_QoS_T aucMdnsMacHdr;
-
-	/* 2 bytes */
-	/* mdns total transfer length 0 - 4096 */
-	uint16_t u2PayloadTotallength;
-
-	/* 20 bytes */
 	uint8_t aucMdnsIPHdr[IPV4_HEADER_LENGTH];
-
-	/* 8 bytes */
 	uint8_t aucMdnsUdpHdr[UDP_HEADER_LENGTH];
-
-	/* 1024 bytes */
-	/* mdns of 1024 per transmission*/
-	uint8_t ucPayload[MAX_MDNS_TRANSFER_SIZE];
-};
-
-struct EVENT_ID_MDNS_RECORD_T {
-/* DWORD_0 */
-	uint8_t ucVersion;
-	uint8_t ucType; /* 0: invalid, 1: Hit 2: Miss */
-	uint16_t u2ControlFlag;
-/* DWORD_1 */
-	uint32_t u4MdnsHitMiss;
-/* DWORD_2 */
-	uint8_t aucReserved2[64];
-};
-
-struct MDNS_SETTING_FLAGS_T {
-/* DWORD_0 */
-	uint8_t ucSetPortFlag;
-	uint8_t ucPassthroughBehavior;
-	uint8_t ucIPV6WakeupFlag;
-	uint8_t ucPadding1[1]; /*padding*/
 };
 
 struct MDNS_INFO_T {
 	struct LINK rMdnsRecordList;
 	struct LINK rMdnsRecordFreeList;
 	struct MDNS_PARAM_ENTRY_T rMdnsEntry[MAX_MDNS_CACHE_NUM];
-	int rMdnsRecordCout;
-	int rMdnsPassthroughCout;
-
-	struct LINK rMdnsPassthroughList;
-	struct LINK rMdnsPassthroughFreeList;
-	struct MDNS_PASSTHROUGH_ENTRY_T
-		rMdnsPassthroughEntry[MAX_MDNS_PASSTHTOUGH_NUM];
-	struct EVENT_ID_MDNS_RECORD_T rMdnsRecordEvent;
-	struct MDNS_SETTING_FLAGS_T rMdnsSaveFlags;
-
-	struct MDNS_RECORD_T rMdnsRecordIndices[MAX_MDNS_CACHE_NUM];
-	uint16_t currentIndex;
-
-	struct MDNS_PASSTHROUGH_T passrthrough;
-	struct MDNS_DATABLOCK_T  dataBlock;
-
 };
-
-#endif /* #if CFG_SUPPORT_MDNS_OFFLOAD */
-
-#endif /* #if CFG_WOW_SUPPORT */
+#endif /* CFG_SUPPORT_MDNS_OFFLOAD */
+#endif
 
 #if (CFG_SUPPORT_TWT == 1)
-enum _ENUM_TWT_TYPE_T {
-	ENUM_TWT_TYPE_DEFAULT = 0, /* for local emu */
-	ENUM_TWT_TYPE_ITWT,
-	ENUM_TWT_TYPE_BTWT,
-	ENUM_TWT_TYPE_MLTWT,
-	ENUM_TWT_TYPE_RTWT,
-	ENUM_TWT_TYPE_NUM
-};
-
 enum _TWT_GET_TSF_REASON {
 	TWT_GET_TSF_FOR_ADD_AGRT_BYPASS = 1,
 	TWT_GET_TSF_FOR_ADD_AGRT = 2,
@@ -1018,8 +802,6 @@ enum _TWT_GET_TSF_REASON {
 	TWT_GET_TSF_FOR_ADD_AGRT_ML_TWT_ONE_BY_ONE = 6,
 	TWT_GET_TSF_FOR_END_AGRT_ML_TWT_ONE_BY_ONE = 7,
 	TWT_GET_TSF_FOR_CNM_TEARDOWN_GRANTED = 8,
-	TWT_GET_TSF_FOR_ADD_AGRT_RTWT = 9,
-	TWT_GET_TSF_FOR_JOIN_AGRT_RTWT = 10,
 	TWT_GET_TSF_REASON_MAX
 };
 
@@ -1040,25 +822,7 @@ struct _TWT_PARAMS_T {
 	uint8_t ucWakeIntvalExponent;
 	uint8_t fgByPassNego;
 	uint16_t u2WakeIntvalMantiss;
-	/* TWT target wake time from iwpriv command parameter */
-	uint16_t u2TWT;
-	/*
-	 * Final target wake time calculation
-	 * u8twt_interval = (u_int64_t)(u2WakeIntvalMantiss
-	 *                              < ucWakeIntvalExponent)
-	 * u8Temp = u8CurTsf + u8twt_interval
-	 * u8Mod = kal_mod64(u8Temp, u8twt_interval)
-	 * u8TWT = u8CurTsf + u8twt_interval - u8Mod
-	 * the u8TWT thus obtained is the final target wakeup time
-	 * on which the underlying F/W + H/W operates
-	 */
 	uint64_t u8TWT;
-#if (CFG_SUPPORT_RTWT == 1)
-	uint8_t ucTrafficInfoPresent;
-	uint8_t ucDlUlBmpValid;
-	uint8_t ucDlBmp;
-	uint8_t ucUlBmp;
-#endif
 #ifdef CFG_SUPPORT_TWT_EXT
 	uint32_t u4DesiredWakeTime;
 	uint32_t u4WakeIntvalMin;
@@ -1080,7 +844,6 @@ struct _TWT_CTRL_T {
 	uint8_t ucMLTWT_Param_Last;
 	struct _TWT_PARAMS_T rTWTParams;
 	struct _NEXT_TWT_INFO_T rNextTWT;
-	u_int8_t fgTeardownAll;
 };
 
 #if (CFG_SUPPORT_TWT_HOTSPOT == 1)
@@ -1124,6 +887,19 @@ struct _TWT_GET_TSF_CONTEXT_T {
 	struct _NEXT_TWT_INFO_T rNextTWT;
 	enum _TWT_STA_CNM_REASON ucTwtStaCnmReason;
 };
+
+#ifdef CFG_SUPPORT_TWT_EXT
+struct SCHED_PM_PARAMS {
+	uint32_t u4Duration;
+	uint32_t u4Interval;
+	uint32_t u4DurationAdd;
+	uint32_t u4IntervalMin;
+	uint32_t u4IntervalMax;
+	uint32_t u4DurationMin;
+	uint32_t u4DurationMax;
+	uint8_t  ucBssIdx;
+};
+#endif
 
 #endif
 
@@ -1252,9 +1028,6 @@ struct REG_INFO {
 
 	uint8_t aucNvram[512];
 	struct WIFI_CFG_PARAM_STRUCT *prNvramSettings;
-#if CFG_SUPPORT_XONVRAM
-	struct XO_CFG_PARAM_STRUCT *prXonvCfg;
-#endif
 };
 
 /* for divided firmware loading */
@@ -1312,7 +1085,7 @@ struct MIB_INFO_STAT {
 	uint32_t u4RxFifoFull;
 	uint32_t u4AmpduTxSfCnt;
 	uint32_t u4AmpduTxAckSfCnt;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	uint32_t au4TxRangeAmpduCnt[AGG_RANGE_SEL_NUM + 1];
 #else
 	uint16_t au2TxRangeAmpduCnt[AGG_RANGE_SEL_NUM + 1];
@@ -1382,9 +1155,6 @@ struct PARAM_GET_STA_STATISTICS {
 	uint32_t u4PhyMode;
 	uint16_t u2LinkSpeed;	/* unit is 0.5 Mbits */
 
-#if (CFG_SUPPORT_REG_STAT_FROM_EMI == 1)
-	uint32_t u4TxDataCount;
-#endif
 	uint32_t u4TxFailCount;
 	uint32_t u4TxLifeTimeoutCount;
 
@@ -1417,12 +1187,12 @@ struct PARAM_GET_STA_STATISTICS {
 	uint32_t u4AggRangeCtrl_0;
 	uint32_t u4AggRangeCtrl_1;
 	uint8_t ucRangeType;
-#if (CFG_SUPPORT_CONNAC2X == 0 && CFG_SUPPORT_CONNAC3X == 0 && CFG_SUPPORT_CONNAC5X == 0)
+#if (CFG_SUPPORT_CONNAC2X == 0 && CFG_SUPPORT_CONNAC3X == 0)
 	uint8_t aucReserved5[24];
 #else
 	uint32_t u4AggRangeCtrl_2;
 	uint32_t u4AggRangeCtrl_3;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	uint32_t u4AggRangeCtrl_4;
 	uint32_t u4AggRangeCtrl_5;
 	uint32_t u4AggRangeCtrl_6;
@@ -1522,6 +1292,30 @@ struct PARAM_GET_BSS_STATISTICS {
 	uint8_t au4Reserved[32];	/* insufficient for LLS?? */
 };
 
+struct PARAM_GET_DRV_STATISTICS {
+	int32_t i4TxPendingFrameNum;
+	int32_t i4TxPendingCmdDataFrameNum;
+	int32_t i4TxPendingCmdNum;
+
+	/* sync i4PendingFwdFrameCount in _TX_CTRL_T */
+	int32_t i4PendingFwdFrameCount;
+
+	/* sync pad->rTxCtrl.rFreeMsduInfoList.u4NumElem */
+	uint32_t u4MsduNumElem;
+
+	/* sync pad->rTxCtrl.rTxMgmtTxingQueue.u4NumElem */
+	uint32_t u4TxMgmtTxringQueueNumElem;
+
+	/* sync pad->prRxCtrl.rFreeSwRfbList.u4NumElem */
+	uint32_t u4RxFreeSwRfbMsduNumElem;
+
+	/* sync pad->prRxCtrl.rReceivedRfbList.u4NumElem */
+	uint32_t u4RxReceivedRfbNumElem;
+
+	/* sync pad->prRxCtrl.rIndicatedRfbList.u4NumElem */
+	uint32_t u4RxIndicatedNumElem;
+};
+
 struct NET_INTERFACE_INFO {
 	uint8_t ucBssIndex;
 	void *pvNetInterface;
@@ -1547,6 +1341,7 @@ enum ENUM_TX_RESULT_CODE {
 struct WLAN_CFG_ENTRY {
 	uint8_t aucKey[WLAN_CFG_KEY_LEN_MAX];
 	uint8_t aucValue[WLAN_CFG_VALUE_LEN_MAX];
+	WLAN_CFG_SET_CB pfSetCb;
 	void *pPrivate;
 	uint32_t u4Flags;
 };
@@ -1573,8 +1368,7 @@ enum ENUM_MAX_BANDWIDTH_SETTING {
 	MAX_BW_80_80_MHZ,
 	MAX_BW_320_1MHZ,
 	MAX_BW_320_2MHZ,
-	MAX_BW_UNKNOWN,
-	MAX_BW_NUM = MAX_BW_UNKNOWN
+	MAX_BW_UNKNOWN
 };
 
 struct TX_PACKET_INFO {
@@ -1598,7 +1392,6 @@ enum ENUM_TX_PROFILING_TAG {
 	TX_PROF_TAG_DRV_ENQUE,
 	TX_PROF_TAG_DRV_DEQUE,
 	TX_PROF_TAG_DRV_TX_DONE,
-	TX_PROF_TAG_ACQR_MSDU_TOK,
 	TX_PROF_TAG_DRV_FREE
 };
 
@@ -1625,21 +1418,20 @@ struct PARAM_GET_CNM_T {
 	uint8_t	ucChBw[ENUM_BAND_NUM][MAX_OP_CHNL_NUM];
 	uint8_t	ucChSco[ENUM_BAND_NUM][MAX_OP_CHNL_NUM];
 	uint8_t	ucChNetNum[ENUM_BAND_NUM][MAX_OP_CHNL_NUM];
-	uint8_t	ucChBssList[ENUM_BAND_NUM][MAX_OP_CHNL_NUM][MAX_BSSID_NUM];
+	uint8_t	ucChBssList[ENUM_BAND_NUM][MAX_OP_CHNL_NUM][BSSID_NUM];
 
-	uint8_t	ucBssInuse[MAX_BSSID_NUM + 1];
-	uint8_t	ucBssActive[MAX_BSSID_NUM + 1];
-	uint8_t	ucBssConnectState[MAX_BSSID_NUM + 1];
+	uint8_t	ucBssInuse[BSSID_NUM + 1];
+	uint8_t	ucBssActive[BSSID_NUM + 1];
+	uint8_t	ucBssConnectState[BSSID_NUM + 1];
 
-	uint8_t	ucBssCh[MAX_BSSID_NUM + 1];
-	uint8_t	ucBssDBDCBand[MAX_BSSID_NUM + 1];
-	uint8_t	ucBssWmmSet[MAX_BSSID_NUM + 1];
-	uint8_t	ucBssWmmDBDCBand[MAX_BSSID_NUM + 1];
-	uint8_t	ucBssOMACSet[MAX_BSSID_NUM + 1];
-	uint8_t	ucBssOMACDBDCBand[MAX_BSSID_NUM + 1];
-	uint8_t	ucBssOpTxNss[MAX_BSSID_NUM + 1];
-	uint8_t	ucBssOpRxNss[MAX_BSSID_NUM + 1];
-	uint8_t	ucBssLinkIdx[MAX_BSSID_NUM + 1];
+	uint8_t	ucBssCh[BSSID_NUM + 1];
+	uint8_t	ucBssDBDCBand[BSSID_NUM + 1];
+	uint8_t	ucBssWmmSet[BSSID_NUM + 1];
+	uint8_t	ucBssWmmDBDCBand[BSSID_NUM + 1];
+	uint8_t	ucBssOMACSet[BSSID_NUM + 1];
+	uint8_t	ucBssOMACDBDCBand[BSSID_NUM + 1];
+	uint8_t	ucBssOpTxNss[BSSID_NUM + 1];
+	uint8_t	ucBssOpRxNss[BSSID_NUM + 1];
 
 	/* Reserved fields */
 	uint8_t	au4Reserved[54]; /*Total 160 byte*/
@@ -1672,11 +1464,10 @@ struct WIFI_LINK_QUALITY_INFO {
 	uint64_t u8LastTxTotalCount;
 	uint64_t u8LastTxFailCount;
 	uint64_t u8LastIdleSlotCount;
-	uint64_t u8LastRxTotalCount;
 };
 #endif /* CFG_SUPPORT_LINK_QUALITY_MONITOR */
 
-#if CFG_SUPPORT_IOT_AP_BLOCKLIST
+#if CFG_SUPPORT_IOT_AP_BLACKLIST
 enum ENUM_WLAN_IOT_AP_FLAG_T {
 	WLAN_IOT_AP_FG_VERSION = 0,
 	WLAN_IOT_AP_FG_OUI,
@@ -1691,7 +1482,7 @@ enum ENUM_WLAN_IOT_AP_FLAG_T {
 	WLAN_IOT_AP_FG_MAX
 };
 
-enum ENUM_WLAN_IOT_ACTION {
+enum ENUM_WLAN_IOT_AP_HANDLE_ACTION {
 	WLAN_IOT_AP_VOID = 0,
 	WLAN_IOT_AP_DBDC_1SS,
 	WLAN_IOT_AP_DIS_SG,
@@ -1700,6 +1491,7 @@ enum ENUM_WLAN_IOT_ACTION {
 	WLAN_IOT_AP_DIS_2GHT40,
 	WLAN_IOT_AP_KEEP_EDCA_PARAM = 6,
 	WLAN_IOT_AP_COEX_DIS_RX_AMPDU,
+	WLAN_IOT_AP_COEX_A2DP_CTS2SELF = 10,
 	WLAN_IOT_AP_ADAPTIVE_BEACON_TIME = 12,
 	WLAN_IOT_AP_OWE_PMK_REMOVE = 13,
 	WLAN_IOT_AP_BA_MISS_TIMEOUT = 15,
@@ -1720,9 +1512,7 @@ struct WLAN_IOT_AP_RULE_T {
 	uint8_t  ucNss;
 	uint8_t  ucHtType;
 	uint8_t  ucBand;
-	/* Byte Alignment*/
-	uint8_t  aReserved[1];
-	uint64_t u8Action;
+	uint8_t  ucAction;
 };
 #endif
 
@@ -1761,21 +1551,6 @@ struct THERMAL_TEMP_DATA {
 	uint32_t u4Temperature;
 };
 
-struct THERMAL_TEMP_DATA_V2 {
-	uint8_t ucType;
-	uint8_t ucIdx;
-	uint8_t *pu1SensorResult;
-};
-
-struct RFTEST_RX_STAT_INFO_TLV {
-	uint16_t u2SeqNum;
-	uint8_t ucDbdcIdx;
-	uint8_t	ucTagNum;
-	uint32_t au4TagInfo[TEST_RX_INFO_TAG_MAX_NUM];
-	uint32_t au4Data[1024];
-	uint32_t u4EvtLen;
-};
-
 /* channel operating width */
 enum WIFI_CHANNEL_WIDTH {
 	WIFI_CHAN_WIDTH_20 = 0,
@@ -1806,6 +1581,7 @@ struct WIFI_RATE {
 	uint32_t bitrate;
 };
 
+
 /* RTT Capabilities */
 struct RTT_CAPABILITIES {
 	/* if 1-sided rtt data collection is supported */
@@ -1834,9 +1610,8 @@ struct RTT_CONFIG {
 	uint8_t eType; /* enum ENUM_RTT_TYPE */
 	uint8_t ePeer; /* enum ENUM_RTT_PEER_TYPE */
 	struct WIFI_CHANNEL_INFO rChannel;
-	uint16_t u2BurstPeriod;
-	uint16_t u2NumBurstExponent;
-	uint16_t u2PreferencePartialTsfTimer;
+	uint8_t ucBurstPeriod;
+	uint8_t ucNumBurst;
 	uint8_t ucNumFramesPerBurst;
 	uint8_t ucNumRetriesPerRttFrame;
 	uint8_t ucNumRetriesPerFtmr;
@@ -1847,33 +1622,10 @@ struct RTT_CONFIG {
 	uint8_t eBw; /* enum ENUM_WIFI_RTT_BW */
 
 	/* bellow are for internal useages */
-	uint8_t eBand; /* enum ENUM_BAND */
-	uint8_t ucPrimaryChannel;
-	uint8_t ucS1;
-	uint8_t ucS2;
-	uint8_t eChannelWidth; /* enum ENUM_CHANNEL_WIDTH */
-	uint8_t ucBssIndex;
-	uint8_t eEventType;  /* enum ENUM_LOC_EVENT_TYPE_T*/
-	uint8_t ucASAP;
-	uint8_t ucFtmMinDeltaTime; //mc: UNIT:100us
-	uint8_t ucReserved; // 4 byte align
-
-	/* 11az */
-	uint64_t u8NtbMinMeasurementTime;
-	uint64_t u8NtbMaxMeasurementTime;
-	uint8_t ucI2rLmrFeedback;
-	uint8_t ucImmeR2iFeedback;
-	uint8_t ucImmeI2rFeedback;
-	uint8_t ucForceReplyI2rLmr;
-
-	/* PASN */
-	uint32_t u4Cipher; /* WPA_CIPHER_* */
-	uint32_t u4ShaType; /* QCA_WLAN_VENDOR_SHA_TYPE */
-	uint8_t ucTkLen;
-	uint8_t ucLtfKeyseedLen;
-	uint8_t aucPaddings[2];
-	uint8_t aucTk[32]; /* WPA_TK_MAX_LEN */
-	uint8_t aucLtfKeyseed[48]; /* WPA_LTF_KEYSEED_MAX_LEN */
+	uint8_t fgASAP;
+	uint8_t ucMinDeltaIn100US;
+	uint64_t u8LocalTSFTime;
+	uint64_t u8PeerTSFTime;
 };
 
 struct RTT_RESULT {
@@ -1913,8 +1665,6 @@ enum ENUM_TX_OVER_LIMIT_DELAY_TYPE {
 
 enum CHAN_FLAGS {
 	CHAN_RADAR,
-	CHAN_NO_HT40PLUS,
-	CHAN_NO_HT40MINUS,
 	CHAN_NO_HT40,
 	CHAN_NO_OFDM,
 	CHAN_NO_80MHZ,
@@ -1928,7 +1678,6 @@ enum CHAN_FLAGS {
 /* Consistent order with delayTypeChar */
 enum ENUM_AVERAGE_TX_DELAY_TYPE {
 	DRIVER_TX_DELAY,
-	DRIVER_HIF_TX_DELAY,
 	CONNSYS_TX_DELAY,
 	MAC_TX_DELAY,
 	AIR_TX_DELAY,
@@ -1936,71 +1685,19 @@ enum ENUM_AVERAGE_TX_DELAY_TYPE {
 	MAX_AVERAGE_TX_DELAY_TYPE,
 };
 
-struct TEST_MODE_XO_CAL {
-	uint32_t u4CalType;
-	uint32_t u4ClkSrc;
-	uint32_t u4Mode;
-	uint32_t u4TargetReq;
-
-	uint32_t u4AxmFreq;
-	uint32_t u4AxmC1Freq;
-	uint32_t u4AxmC2Freq;
-	uint32_t u4AxmC1Comp;
-	uint32_t u4AxmC2Comp;
-
-	uint32_t u4BtmFreq;
-	uint32_t u4BtmC1Freq;
-	uint32_t u4BtmC2Freq;
-	uint32_t u4BtmC1Comp;
-	uint32_t u4BtmC2Comp;
+enum ENUM_TX_PWR_STAT_TAG {
+	TX_PWR_STAT_TAG_PRI_CH,
+	TX_PWR_STAT_TAG_CEN_CH,
+	TX_PWR_STAT_TAG_FMAC,
+	TX_PWR_STAT_TAG_NUM,
 };
 
-/* Align multiate tool */
-#define PLCAL_MAX_CNT	100
-struct TEST_MODE_PL_CAL {
-	uint32_t u4BandIdx;
-	uint32_t u4PLCalId;
-	uint32_t u4Action;
-	uint32_t u4Flags;
-	uint32_t u4InCnt;
-	uint32_t u4InData[PLCAL_MAX_CNT];
-	uint32_t u4OutCnt;
-	uint32_t u4OutData[PLCAL_MAX_CNT];
-};
-
-#define ML_CHNL_COND_MAX_P20_NUM 16
-struct ML_CHNL_COND_RESULT {
-	uint8_t ucBssIdx;
-	uint8_t ucP20Cnt;
-	int8_t cRssi;
-	uint8_t ucReserved;
-	uint32_t au4ccaRatio[ML_CHNL_COND_MAX_P20_NUM];
-};
-#if (CFG_MTK_WIFI_DRV_OWN_DEBUG_MODE == 1)
-struct DRV_OWN_INFO {
-	uint8_t ucLog[DRV_OWN_LOG_MAX_SIZE]; /* Store the debug log */
-	uint8_t ucThrdName[TASK_COMM_LEN];
-	uint8_t ucFuncName[FUNC_NAME_LENGTH];
-	enum ENUM_DRV_OWN_SRC eDrvOwnSrc;
-	u_int8_t fgIsValid;
-	u_int8_t fgStatus; /* TRUE: success FALSE: failed */
-	uint64_t u8StartSec;
-	uint64_t u8StartNSec;
-	uint64_t u8EndSec;
-	uint64_t u8EndNSec;
-	uint64_t u8DiffSec;
-	uint64_t u8DiffNSec;
-	uint32_t u4StartTick;
-	uint32_t u4EndTick;
-	pid_t rThrdPid;
-};
-#endif
-
-struct ECO_INFO {
-	uint8_t ucHwVer;
-	uint8_t ucRomVer;
-	uint8_t ucFactoryVer;
-	uint8_t ucEcoVer;
+enum ENUM_TX_PWR_STAT_METHOD {
+	TX_PWR_STAT_METHOD_LATEST,
+	TX_PWR_STAT_METHOD_LATCH,
+	TX_PWR_STAT_METHOD_MAX,
+	TX_PWR_STAT_METHOD_MIN,
+	TX_PWR_STAT_METHOD_NUM,
 };
 
 /*******************************************************************************
@@ -2160,6 +1857,9 @@ uint32_t wlanSendNicPowerCtrlCmd(struct ADAPTER *prAdapter,
 u_int8_t wlanIsHandlerAllowedInRFTest(PFN_OID_HANDLER_FUNC pfnOidHandler,
 				      u_int8_t fgSetInfo);
 
+uint32_t wlanProcessQueuedSwRfb(struct ADAPTER *prAdapter,
+				struct SW_RFB *prSwRfbListHead);
+
 uint32_t wlanProcessQueuedMsduInfo(struct ADAPTER *prAdapter,
 				   struct MSDU_INFO *prMsduInfoListHead);
 
@@ -2180,8 +1880,6 @@ u_int8_t wlanProcessTxFrame(struct ADAPTER *prAdapter,
 uint32_t wlanGetThreadWakeUp(struct ADAPTER *prAdapter);
 
 uint32_t wlanGetTxdAppendSize(struct ADAPTER *prAdapter);
-
-uint32_t wlanGetTxNeededHeadRoom(struct ADAPTER *prAdapter);
 
 /*----------------------------------------------------------------------------*/
 /* OID/IOCTL Handling                                                         */
@@ -2227,10 +1925,6 @@ uint32_t wlanLoadManufactureData(struct ADAPTER *prAdapter,
 /*----------------------------------------------------------------------------*/
 uint32_t wlanTimerTimeoutCheck(struct ADAPTER *prAdapter);
 
-#if CFG_SUPPORT_HRTIMER
-uint32_t wlanHrtimerTimeout(struct ADAPTER *prAdapter);
-#endif
-
 /*----------------------------------------------------------------------------*/
 /* Mailbox Message Check (for Glue Layer)                                     */
 /*----------------------------------------------------------------------------*/
@@ -2246,6 +1940,13 @@ uint32_t wlanFlushTxPendingPackets(struct ADAPTER *prAdapter);
 
 uint32_t wlanTxPendingPackets(struct ADAPTER *prAdapter,
 			      u_int8_t *pfgHwAccess);
+
+/*----------------------------------------------------------------------------*/
+/* Low Power Acquire/Release (for Glue Layer)                                 */
+/*----------------------------------------------------------------------------*/
+uint32_t wlanAcquirePowerControl(struct ADAPTER *prAdapter);
+
+uint32_t wlanReleasePowerControl(struct ADAPTER *prAdapter);
 
 /*----------------------------------------------------------------------------*/
 /* Pending Packets Number Reporting (for Glue Layer)                          */
@@ -2321,8 +2022,7 @@ uint32_t wlanGetTxRateFromLinkStats(
 uint32_t
 wlanQueryStatsOneCmd(struct ADAPTER *prAdapter,
 		       void *pvQueryBuffer, uint32_t u4QueryBufferLen,
-		       uint32_t *pu4QueryInfoLen, uint8_t fgIsOid,
-			   uint8_t ucBssIndex);
+		       uint32_t *pu4QueryInfoLen, uint8_t fgIsOid);
 #endif
 
 void wlanDumpAllBssStatistics(struct ADAPTER *prAdapter);
@@ -2346,9 +2046,6 @@ uint32_t
 wlanQueryStatistics(struct ADAPTER *prAdapter,
 		       void *pvQueryBuffer, uint32_t u4QueryBufferLen,
 		       uint32_t *pu4QueryInfoLen, uint8_t fgIsOid);
-
-uint32_t wlanQueryRxInfoTlv(struct ADAPTER *ad,
-	struct RFTEST_RX_STAT_INFO_TLV *pstRxInfoSin);
 
 /*----------------------------------------------------------------------------*/
 /* query NIC resource information from chip and reset Tx resource for normal  */
@@ -2396,19 +2093,24 @@ struct WLAN_CFG_ENTRY *wlanCfgGetEntry(struct ADAPTER *prAdapter,
 
 uint32_t
 wlanCfgGet(struct ADAPTER *prAdapter, const int8_t *pucKey, int8_t *pucValue,
-	   int8_t *pucValueDef, uint32_t u4Flags,
-	   enum ENUM_FEATURE_SUPPORT_SCOPE fgIsDebugUsed);
+	   int8_t *pucValueDef, uint32_t u4Flags);
 
 void wlanCfgRecordValue(struct ADAPTER *prAdapter,
 			const int8_t *pucKey, uint32_t u4Value);
 
 uint32_t wlanCfgGetUint32(struct ADAPTER *prAdapter, const int8_t *pucKey,
-			  uint32_t u4ValueDef,
-			  enum ENUM_FEATURE_SUPPORT_SCOPE fgIsDebugUsed);
+			  uint32_t u4ValueDef);
 
 int32_t wlanCfgGetInt32(struct ADAPTER *prAdapter, const int8_t *pucKey,
-			int32_t i4ValueDef,
-			enum ENUM_FEATURE_SUPPORT_SCOPE fgIsDebugUsed);
+			int32_t i4ValueDef);
+
+uint32_t wlanCfgGetUint32Range(struct ADAPTER *prAdapter,
+	const int8_t *pucKey, uint32_t u4ValueDef,
+	uint32_t *pu4MinValue, uint32_t *pu4MaxValue);
+
+int32_t wlanCfgGetInt32Range(struct ADAPTER *prAdapter,
+	const int8_t *pucKey, int32_t i4ValueDef,
+	int32_t *pi4MinValue, int32_t *pi4MaxValue);
 
 uint32_t wlanCfgSetUint32(struct ADAPTER *prAdapter, const int8_t *pucKey,
 			  uint32_t u4Value);
@@ -2416,11 +2118,15 @@ uint32_t wlanCfgSetUint32(struct ADAPTER *prAdapter, const int8_t *pucKey,
 uint32_t wlanCfgSet(struct ADAPTER *prAdapter, const int8_t *pucKey,
 		    int8_t *pucValue, uint32_t u4Flags);
 
+uint32_t wlanCfgSetCb(struct ADAPTER *prAdapter, const int8_t *pucKey,
+		      WLAN_CFG_SET_CB pfSetCb, void *pPrivate,
+		      uint32_t u4Flags);
+
 #if CFG_SUPPORT_EASY_DEBUG
+
 uint32_t wlanCfgParse(struct ADAPTER *prAdapter, uint8_t *pucConfigBuf,
 		      uint32_t u4ConfigBufLen, u_int8_t isFwConfig);
-void wlanFeatureToFw(struct ADAPTER *prAdapter, uint32_t u4Flag,
-	uint8_t *pucKey);
+void wlanFeatureToFw(struct ADAPTER *prAdapter, uint32_t u4Flag);
 #endif
 
 void wlanLoadDefaultCustomerSetting(struct ADAPTER *prAdapter);
@@ -2428,17 +2134,14 @@ void wlanLoadDefaultCustomerSetting(struct ADAPTER *prAdapter);
 uint32_t wlanCfgInit(struct ADAPTER *prAdapter, uint8_t *pucConfigBuf,
 		     uint32_t u4ConfigBufLen, uint32_t u4Flags);
 
-void wlanCfgParseArgument(int8_t *cmdLine, int32_t *argc, int8_t *argv[]);
-
-void wlanCfgParseArgumentWithDelim(int8_t *cmdLine, int32_t *argc,
-				   int8_t *argv[], char delim);
+uint32_t wlanCfgParseArgument(int8_t *cmdLine, int32_t *argc, int8_t *argv[]);
 
 #if CFG_WOW_SUPPORT
 uint32_t wlanCfgParseArgumentLong(int8_t *cmdLine, int32_t *argc,
 				  int8_t *argv[]);
 #endif
 
-#if CFG_SUPPORT_IOT_AP_BLOCKLIST
+#if CFG_SUPPORT_IOT_AP_BLACKLIST
 void wlanCfgLoadIotApRule(struct ADAPTER *prAdapter);
 void wlanCfgDumpIotApRule(struct ADAPTER *prAdapter);
 #endif
@@ -2463,11 +2166,9 @@ u_int8_t wlanIsChipAssert(struct ADAPTER *prAdapter);
 
 void wlanChipRstPreAct(struct ADAPTER *prAdapter);
 
-#if CFG_SUPPORT_TX_LATENCY_STATS
 void wlanCountTxDelayOverLimit(struct ADAPTER *prAdapter,
 		enum ENUM_TX_OVER_LIMIT_DELAY_TYPE type,
 		uint32_t u4Latency);
-#endif
 
 void wlanReportTxDelayOverLimit(struct ADAPTER *prAdapter,
 	enum ENUM_TX_OVER_LIMIT_DELAY_TYPE type, uint32_t delay);
@@ -2543,13 +2244,6 @@ void wlanClearPendingInterrupt(struct ADAPTER *prAdapter);
 extern int32_t mtk_wcn_wmt_wifi_fem_cfg_report(void *pvInfoBuf);
 #endif
 
-#if (CFG_TESTMODE_FWDL_SUPPORT == 1)
-void set_wifi_test_mode_fwdl(const int mode);
-uint8_t get_wifi_test_mode_fwdl(void);
-void set_wifi_in_switch_mode(const int enabled);
-uint8_t get_wifi_in_switch_mode(void);
-#endif
-
 #if ((CFG_SISO_SW_DEVELOP == 1) || (CFG_SUPPORT_SPE_IDX_CONTROL == 1))
 uint8_t wlanGetAntPathType(struct ADAPTER *prAdapter,
 			   enum ENUM_WF_PATH_FAVOR_T eWfPathFavor);
@@ -2560,8 +2254,6 @@ uint8_t wlanGetSpeIdx(struct ADAPTER *prAdapter,
 		      enum ENUM_WF_PATH_FAVOR_T eWfPathFavor);
 
 uint8_t wlanGetSupportNss(struct ADAPTER *prAdapter, uint8_t ucBssIndex);
-
-uint8_t wlanGetSupportRxNss(struct ADAPTER *prAdapter, uint8_t ucBssIndex);
 
 #if CFG_SUPPORT_LOWLATENCY_MODE
 uint32_t wlanAdapterStartForLowLatency(struct ADAPTER *prAdapter);
@@ -2581,6 +2273,11 @@ uint32_t wlanDecimalStr2Hexadecimals(uint8_t *pucDecimalStr, uint16_t *pu2Out);
 
 uint64_t wlanGetSupportedFeatureSet(struct GLUE_INFO *prGlueInfo);
 
+#if CFG_ENABLE_WIFI_DIRECT
+uint32_t
+wlanQueryLteSafeChannel(struct ADAPTER *prAdapter,
+		uint8_t ucRoleIndex);
+#endif
 uint32_t
 wlanCalculateAllChannelDirtiness(struct ADAPTER *prAdapter);
 
@@ -2658,10 +2355,6 @@ uint32_t wlanSetRxBaSize(struct GLUE_INFO *prGlueInfo,
 uint32_t wlanSetTxBaSize(struct GLUE_INFO *prGlueInfo,
 	int8_t i4Type, uint16_t u2BaSize);
 
-uint32_t wlanSetTxAggLimit(struct ADAPTER *prAdapter,
-		void *pvQueryBuffer, uint32_t u4QueryBufferLen,
-		uint32_t *pu4QueryInfoLen, uint8_t fgIsOid);
-
 void
 wlanGetTRXInfo(struct ADAPTER *prAdapter,
 	struct TRX_INFO *prTRxInfo);
@@ -2694,24 +2387,9 @@ void wlanRxMcsInfoMonitor(struct ADAPTER *prAdapter,
 uint32_t wlanQueryThermalTemp(struct ADAPTER *ad,
 	struct THERMAL_TEMP_DATA *data);
 
-uint32_t wlanQueryThermalTempV2(struct ADAPTER *ad,
-	struct THERMAL_TEMP_DATA_V2 *data);
-
-uint32_t wlanSetRFTestModeCMD(struct GLUE_INFO *prGlueInfo, bool fgEn);
-
 int8_t hexDigitToInt(uint8_t ch);
 
 int wlanChipConfigWithType(struct ADAPTER *prAdapter,
 	char *pcCommand, int i4TotalLen, uint8_t type);
-
-#if CFG_SUPPORT_XONVRAM
-uint32_t wlanTestModeXoCal(struct ADAPTER *ad,
-	struct TEST_MODE_XO_CAL *data);
-#endif /* CFG_SUPPORT_XONVRAM */
-
-#if CFG_SUPPORT_PLCAL
-uint32_t wlanTestModePlCal(struct ADAPTER *ad,
-	struct TEST_MODE_PL_CAL *data);
-#endif /* CFG_SUPPORT_PLCAL */
 
 #endif /* _WLAN_LIB_H */

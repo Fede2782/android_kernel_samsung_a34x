@@ -31,6 +31,7 @@
 #include <linux/fs.h>
 #include <linux/shmem_fs.h>
 #include <linux/version.h>
+#include <linux/lsm_hooks.h>
 
 #include "five.h"
 #include "five_audit.h"
@@ -40,6 +41,7 @@
 #include "five_cache.h"
 #include "five_dmverity.h"
 #include "five_testing.h"
+#include "five_iint.h"
 
 /* crash_dump in Android 12 uses this request even if Kernel doesn't
  * support it */
@@ -62,6 +64,10 @@ static inline struct processing_event_list *five_event_create(
 		struct file *file, int function, gfp_t flags);
 static inline void five_event_destroy(
 		const struct processing_event_list *file);
+
+static struct security_hook_list five_lsm_hooks[] __ro_after_init = {
+	LSM_HOOK_INIT(inode_free_security, five_inode_free),
+};
 
 #ifdef CONFIG_FIVE_DEBUG
 static int five_enabled = 1;
@@ -134,7 +140,7 @@ int five_fcntl_debug(struct file *file, void __user *argp)
 {
 	struct inode *inode;
 	struct five_stat stat = {0};
-	struct integrity_iint_cache *iint;
+	struct five_iint_cache *iint;
 
 	if (unlikely(!file || !argp))
 		return -EINVAL;
@@ -142,7 +148,7 @@ int five_fcntl_debug(struct file *file, void __user *argp)
 	inode = file_inode(file);
 
 	inode_lock(inode);
-	iint = integrity_inode_get(inode);
+	iint = five_inode_get(inode);
 	if (unlikely(!iint)) {
 		inode_unlock(inode);
 		return -ENOMEM;
@@ -405,7 +411,7 @@ void task_integrity_delayed_reset(struct task_struct *task,
 	push_reset_event(task, cause, file);
 }
 
-static void five_check_last_writer(struct integrity_iint_cache *iint,
+static void five_check_last_writer(struct five_iint_cache *iint,
 				  struct inode *inode, struct file *file)
 {
 	fmode_t mode = file->f_mode;
@@ -431,12 +437,12 @@ static void five_check_last_writer(struct integrity_iint_cache *iint,
 void five_file_free(struct file *file)
 {
 	struct inode *inode = file_inode(file);
-	struct integrity_iint_cache *iint;
+	struct five_iint_cache *iint;
 
 	if (!S_ISREG(inode->i_mode))
 		return;
 
-	iint = integrity_iint_find(inode);
+	iint = five_iint_find(inode);
 	if (!iint)
 		return;
 
@@ -480,7 +486,7 @@ static void process_file(struct task_struct *task,
 			struct file_verification_result *result)
 {
 	struct inode *inode = d_real_inode(file_dentry(file));
-	struct integrity_iint_cache *iint = NULL;
+	struct five_iint_cache *iint = NULL;
 	int rc = -ENOMEM;
 
 	if (!S_ISREG(inode->i_mode)) {
@@ -488,7 +494,7 @@ static void process_file(struct task_struct *task,
 		goto out;
 	}
 
-	iint = integrity_inode_get(inode);
+	iint = five_inode_get(inode);
 	if (!iint)
 		goto out;
 
@@ -565,7 +571,7 @@ static bool is_memfd_file(struct file *file)
 
 static bool is_dalvik_cache_file(struct file *file)
 {
-	const char dalvik_prefix[] = "/data/dalvik-cache/arm";
+	static const char dalvik_prefix[] = "/data/dalvik-cache/arm";
 
 	const char *pathname = NULL;
 	char *pathbuf = NULL;
@@ -746,6 +752,14 @@ int __init init_five(void)
 		return error;
 
 	error = five_init_dmverity();
+	if (error)
+		return error;
+
+	error = five_iintcache_init();
+	if (error)
+		return error;
+
+	security_add_hooks(five_lsm_hooks, ARRAY_SIZE(five_lsm_hooks), five_lsmid);
 
 	if (!error)
 		is_five_initialized = true;

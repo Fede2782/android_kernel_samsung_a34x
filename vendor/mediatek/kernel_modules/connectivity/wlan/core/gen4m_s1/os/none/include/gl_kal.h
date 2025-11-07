@@ -911,6 +911,10 @@ KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__)
 #define kalTraceEvent(_fmt, ...)
 #define TRACE(_expr, _fmt, ...) _expr
 
+#define WLAN_STATIC_CMD_DONE_HANDLER_CHECK(h)  /* nothing */
+#define WLAN_STATIC_OID_HANDLER_CHECK(h)  /* nothing */
+#define WLAN_STATIC_PWR_LEVEL_HANDLER_CHECK(h)  /* nothing */
+
 /*******************************************************************************
  *                  F U N C T I O N   D E C L A R A T I O N S
  *******************************************************************************

@@ -676,7 +676,9 @@ static u_int8_t scanSanityCheckBssDesc(struct ADAPTER *prAdapter,
 {
 	struct BSS_INFO *prAisBssInfo;
 	struct BSS_DESC *target;
-
+#if (CFG_TC10_FEATURE == 1)
+	struct ROAMING_INFO *prRoam;
+#endif
 #if CFG_SUPPORT_MBO
 	struct PARAM_BSS_DISALLOWED_LIST *disallow;
 	uint32_t i = 0;
@@ -879,6 +881,20 @@ static u_int8_t scanSanityCheckBssDesc(struct ADAPTER *prAdapter,
 			MAC2STR(prBssDesc->aucBSSID));
 		return FALSE;
 	}
+
+#if (CFG_TC10_FEATURE == 1)
+	prRoam = aisGetRoamingInfo(prAdapter, ucBssIndex);
+
+	if ((prRoam->rRoamingDiscoveryUpdateTime > prRoam->rRoamingStartTime) &&
+	    (prBssDesc->rUpdateTime < prRoam->rRoamingStartTime)) {
+		log_dbg(SCN, WARN, "BSS[" MACSTR
+			"] scan missed, updateTime=%u, startTime=%u\n",
+			MAC2STR(prBssDesc->aucBSSID),
+			prBssDesc->rUpdateTime,
+			prRoam->rRoamingStartTime);
+		return FALSE;
+	}
+#endif
 
 	if (!rsnPerformPolicySelection(prAdapter, prBssDesc,
 		ucBssIndex)) {
@@ -2107,7 +2123,8 @@ try_again:
 	prSelectedBssDesc = apSelectionSelectBss(prAdapter, eRoamReason,
 		ucBssIndex, prCandiateLink, fgIsAllAPsHaveEsp);
 result:
-	roamingFsmLogResult(prAdapter, ucBssIndex, prSelectedBssDesc);
+	if (roamingFsmIsDiscovering(prAdapter,  ucBssIndex))
+		roamingFsmLogResult(prAdapter, ucBssIndex, prSelectedBssDesc);
 
 	return prSelectedBssDesc;
 }

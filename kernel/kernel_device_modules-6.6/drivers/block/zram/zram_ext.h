@@ -84,15 +84,17 @@ void init_zram_madvise(struct zram *zram);
 void exit_zram_madvise(void);
 
 /* zram_drv.c -> zram_ext.c */
+extern struct device_attribute dev_attr_error_count;
 void free_block_bdev(struct zram *zram, unsigned long handle);
 ssize_t bd_stat_show(struct device *dev,
 		struct device_attribute *attr, char *buf);
 ssize_t bd_stat_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t len);
 void zram_error_count_store(struct zram *zram, int type);
-ssize_t zram_error_count_show(struct zram *zram, char *buf, ssize_t ret);
 void deinit_zram_ext(struct zram *zram);
 int init_zram_ext(struct zram *zram, unsigned long nr_pages, unsigned int size);
+void zram_register_vendor_hooks(struct zram *zram);
+void zram_unregister_vendor_hooks(struct zram *zram);
 
 /* currently not supported */
 static inline bool force_upload_mode(void)

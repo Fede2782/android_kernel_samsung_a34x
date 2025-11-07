@@ -160,7 +160,7 @@ void get_sensor_hdr_capacity(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *hdr_mode);
 void get_frame_ctrl_info_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *margin);
-void get_feature_get_4cell_data(struct subdrv_ctx *ctx, u16 type, char *data);
+void get_feature_get_4cell_data(struct subdrv_ctx *ctx, u16 type, char *data, u16 size);
 void get_stagger_max_exp_time(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 		enum VC_FEATURE vc, u64 *exposure_max);
@@ -230,6 +230,7 @@ int common_update_sof_cnt(struct subdrv_ctx *ctx, u32 sof_cnt);
 int common_parse_ebd_line(struct subdrv_ctx *ctx, struct mtk_recv_sensor_ebd_line *data,
 	struct mtk_ebd_dump *obj);
 
-extern int read_cam_cal(unsigned int sensor_id, unsigned char *buf,
-	unsigned int offset, unsigned int size);
+/* This function is not used in SS Flow for reading caliberation data*/
+// extern int read_cam_cal(unsigned int sensor_id, unsigned char *buf,
+// 	unsigned int offset, unsigned int size);
 #endif

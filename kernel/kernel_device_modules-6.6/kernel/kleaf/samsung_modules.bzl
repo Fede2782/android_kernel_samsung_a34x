@@ -17,13 +17,15 @@ _device_modules = [
 	"drivers/samsung/sec_bootstat.ko",
 	"drivers/cpufreq/cpufreq_limit.ko",
     "mm/sec_mm/sec_mm.ko",
+    "mm/sec_mm/hpp.ko",
 	"drivers/input/input_booster/input_booster_lkm.ko",
 	"drivers/samsung/pm/sec_pm_debug.ko",
-    "sound/soc/samsung/sec_audio_sysfs.ko",
-    "sound/soc/samsung/snd_debug_proc.ko",
     "drivers/usb/ss_function/usb_f_conn_gadget.ko",
     "drivers/usb/ss_function/usb_f_dm.ko",
     "drivers/usb/ss_function/usb_f_ss_mon_gadget.ko",
+    "sound/soc/samsung/sec_audio_sysfs.ko",
+    "sound/soc/samsung/snd_debug_proc.ko",
+    "drivers/usb/misc/sec_lvstest.ko",
 ]
 
 samsung_device_modules = _device_modules + product_device_modules

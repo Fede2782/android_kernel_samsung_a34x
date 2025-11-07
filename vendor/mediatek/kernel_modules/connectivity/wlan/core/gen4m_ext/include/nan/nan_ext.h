@@ -209,8 +209,6 @@ void nanExtComposeBeaconTrack(struct ADAPTER *prAdapter,
 void nanExtSendAsyncEvent(struct ADAPTER *prAdapter,
 				struct NAN_ASC_ASYNC_EVENT *prAscAsyncEvt);
 void nanExtTerminateApNan(struct ADAPTER *prAdapter, uint8_t ucReason);
-void nanExtTerminateApNanEndPs(struct ADAPTER *prAdapter);
-void nanExtTerminateApNanEndLegacy(struct ADAPTER *prAdapter);
 void nanExtBackToNormal(struct ADAPTER *prAdapter);
 void nanExtClearCustomNdpFaw(uint8_t ucIndex);
 void nanPeerReportEhtEvent(struct ADAPTER *prAdapter,
@@ -228,7 +226,6 @@ u_int8_t nanIsChnlSwitchSlot(struct ADAPTER *prAdapter,
 			     size_t szTimelineIdx,
 			     size_t szSlotIdx);
 
-uint8_t nanExtHoldNdl(struct _NAN_NDL_INSTANCE_T *prNDL);
 void nanExtResetNdlConfig(struct _NAN_NDL_INSTANCE_T *prNDL);
 
 struct _NAN_NDL_INSTANCE_T *
@@ -238,40 +235,6 @@ u32 wlanoidNANExtCmd(struct ADAPTER *prAdapter, void *pvSetBuffer,
 		     uint32_t u4SetBufferLen, uint32_t *pu4SetInfoLen);
 u32 wlanoidNANExtCmdRsp(struct ADAPTER *prAdapter, void *pvSetBuffer,
 			uint32_t u4SetBufferLen, uint32_t *pu4SetInfoLen);
-
-uint32_t nanSchedGetVendorAttr(
-	struct ADAPTER *prAdapter,
-	uint8_t **ppucVendorAttr,
-	uint32_t *pu4VendorAttrLength);
-
-#if (CFG_SUPPORT_NAN_11BE == 1)
-uint32_t nanSchedGetVendorEhtAttr(
-	struct ADAPTER *prAdapter,
-	uint8_t **ppucVendorAttr,
-	uint32_t *pu4VendorAttrLength);
-#endif
-
-uint16_t
-nanDataEngineVendorAttrLength(struct ADAPTER *prAdapter,
-				 struct _NAN_NDL_INSTANCE_T *prNDL,
-				 struct _NAN_NDP_INSTANCE_T *prNDP);
-
-void nanDataEngineVendorAttrAppend(struct ADAPTER *prAdapter,
-				      struct MSDU_INFO *prMsduInfo,
-				      struct _NAN_NDL_INSTANCE_T *prNDL,
-				      struct _NAN_NDP_INSTANCE_T *prNDP);
-
-#if (CFG_SUPPORT_NAN_11BE == 1)
-uint16_t
-nanDataEngineVendorEhtAttrLength(struct ADAPTER *prAdapter,
-				 struct _NAN_NDL_INSTANCE_T *prNDL,
-				 struct _NAN_NDP_INSTANCE_T *prNDP);
-
-void nanDataEngineVendorEhtAttrAppend(struct ADAPTER *prAdapter,
-				      struct MSDU_INFO *prMsduInfo,
-				      struct _NAN_NDL_INSTANCE_T *prNDL,
-				      struct _NAN_NDP_INSTANCE_T *prNDP);
-#endif
 
 #include "nan_ext_ccm.h"
 #include "nan_ext_pa.h"

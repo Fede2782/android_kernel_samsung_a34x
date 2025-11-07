@@ -20,9 +20,6 @@
 #include <asm/system_misc.h>
 #include <linux/power_supply.h>
 #include <linux/sec_debug.h>
-#if IS_ENABLED(CONFIG_SEC_ABC)
-#include <linux/sti/abc_common.h>
-#endif
 
 #define DEBUG	1
 
@@ -139,10 +136,8 @@ static int sec_reboot(struct notifier_block *this,
 			secdbg_set_power_reset_reason(SEC_RESET_REASON_SECURE);
 		else if (!strcmp(cmd, "fwup"))
 			secdbg_set_power_reset_reason(SEC_RESET_REASON_FWUP);
-#if IS_ENABLED(CONFIG_SEC_ABC)
-		else if (!strncmp(cmd, "user_dram_test", 14) && sec_abc_get_enabled())
+		else if (!strncmp(cmd, "user_dram_test", 14))
 			secdbg_set_power_reset_reason(SEC_RESET_REASON_USER_DRAM_TEST);
-#endif
 		else if (!strncmp(cmd, "emergency", 9))
 			secdbg_set_power_reset_reason(SEC_RESET_REASON_EMERGENCY);
 		else if (!strncmp(cmd, "debug", 5)

@@ -98,7 +98,8 @@
 *                   F U N C T I O N   D E C L A R A T I O N S
 ********************************************************************************
 */
-static uint32_t mt7999GetFlavorVer(uint8_t *flavor);
+static uint32_t mt7999GetFlavorVer(struct GLUE_INFO *prGlueInfo,
+	uint8_t *flavor);
 
 static void mt7999_ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 	uint8_t **apucNameTable, uint8_t **apucName,
@@ -107,8 +108,8 @@ static void mt7999_ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 static void mt7999_ConstructPatchName(struct GLUE_INFO *prGlueInfo,
 	uint8_t **apucName, uint8_t *pucNameIdx);
 
-#if CFG_MTK_WIFI_SUPPORT_DSP_FWDL
-static void mt7999_ConstructDspName(struct GLUE_INFO *prGlueInfo,
+#if CFG_MTK_WIFI_SUPPORT_PHY_FWDL
+static void mt7999_ConstructPhyName(struct GLUE_INFO *prGlueInfo,
 	uint8_t **apucName, uint8_t *pucNameIdx);
 #endif
 
@@ -828,9 +829,9 @@ struct FWDL_OPS_T mt7999_fw_dl_ops = {
 #endif
 #endif
 	.getFwVerInfo = wlanParseRamCodeReleaseManifest,
-#if CFG_MTK_WIFI_SUPPORT_DSP_FWDL
-	.constructDspName = mt7999_ConstructDspName,
-	.downloadDspFw = wlanDownloadDspFw,
+#if CFG_MTK_WIFI_SUPPORT_PHY_FWDL
+	.constructPhyName = mt7999_ConstructPhyName,
+	.downloadPhyFw = wlanDownloadPhyFw,
 #endif
 };
 #endif /* CFG_ENABLE_FW_DOWNLOAD */
@@ -1173,9 +1174,6 @@ struct mt66xx_chip_info mt66xx_chip_info_mt7999 = {
 	.isWfdmaRxReady = mt7999IsWfdmaRxReady,
 #endif /* _HIF_PCIE */
 #endif
-#if CFG_SUPPORT_WFDMA_RX_DELAY_INT
-	.updatePrdcInt = mt7999UpdateWfdmaPrdcInt,
-#endif /* CFG_SUPPORT_WFDMA_RX_DELAY_INT */
 	.txd_append_size = MT7999_TX_DESC_APPEND_LENGTH,
 	.hif_txd_append_size = MT7999_HIF_TX_DESC_APPEND_LENGTH,
 	.rxd_size = MT7999_RX_DESC_LENGTH,
@@ -1367,7 +1365,7 @@ static void mt7999_ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 	uint8_t aucTestmode[CFG_FW_FLAVOR_MAX_LEN] = {0};
 
 	kalMemZero(aucFlavor, sizeof(aucFlavor));
-	mt7999GetFlavorVer(&aucFlavor[0]);
+	mt7999GetFlavorVer(prGlueInfo, &aucFlavor[0]);
 
 #if CFG_SUPPORT_SINGLE_FW_BINARY
 	/* Type 0. mt7999_wifi.bin */
@@ -1444,7 +1442,7 @@ static void mt7999_ConstructPatchName(struct GLUE_INFO *prGlueInfo,
 	uint8_t aucFlavor[CFG_FW_FLAVOR_MAX_LEN];
 
 	kalMemZero(aucFlavor, sizeof(aucFlavor));
-	mt7999GetFlavorVer(&aucFlavor[0]);
+	mt7999GetFlavorVer(prGlueInfo, &aucFlavor[0]);
 
 #if CFG_SUPPORT_SINGLE_FW_BINARY
 	/* Type 0. mt7999_wifi.bin */
@@ -1495,15 +1493,15 @@ static void mt7999_ConstructPatchName(struct GLUE_INFO *prGlueInfo,
 			__LINE__, ret);
 }
 
-#if CFG_MTK_WIFI_SUPPORT_DSP_FWDL
-static void mt7999_ConstructDspName(struct GLUE_INFO *prGlueInfo,
+#if CFG_MTK_WIFI_SUPPORT_PHY_FWDL
+static void mt7999_ConstructPhyName(struct GLUE_INFO *prGlueInfo,
 	uint8_t **apucName, uint8_t *pucNameIdx)
 {
 	int ret = 0;
 	uint8_t aucFlavor[CFG_FW_FLAVOR_MAX_LEN];
 
 	kalMemZero(aucFlavor, sizeof(aucFlavor));
-	mt7999GetFlavorVer(&aucFlavor[0]);
+	mt7999GetFlavorVer(prGlueInfo, &aucFlavor[0]);
 
 	/* Type 1. WIFI_MT7999_PHY_RAM_CODE_1_1_hdr.bin */
 	ret = kalSnprintf(apucName[(*pucNameIdx)],
@@ -1528,7 +1526,7 @@ static void mt7999_ConstructIdxLogBinName(struct GLUE_INFO *prGlueInfo,
 	int ret = 0;
 	uint8_t aucFlavor[CFG_FW_FLAVOR_MAX_LEN];
 
-	mt7999GetFlavorVer(&aucFlavor[0]);
+	mt7999GetFlavorVer(prGlueInfo, &aucFlavor[0]);
 
 	/* ex: WIFI_RAM_CODE_MT7999_2_1_idxlog.bin */
 	ret = kalSnprintf(apucName[0],
@@ -2191,6 +2189,7 @@ static void mt7999WfdmaConfigWriteBack(struct GLUE_INFO *prGlueInfo)
 	u4Addr = WF_P0_WFDMA_TRINFO_TOP_TRINFO_WB_PER_INT_CTRL_AP_ADDR;
 	u4WrVal = 100 <<
 		WF_P0_WFDMA_TRINFO_TOP_TRINFO_WB_PER_INT_CTRL_AP_PER_TIME_SHFT;
+	HAL_MCR_WR(prAdapter, u4Addr, u4WrVal);
 
 #if (CFG_SUPPORT_DISABLE_TX_DDONE_INTR == 1)
 	u4Addr = WF_P0_WFDMA_TRINFO_TOP_TRINFO_WB_INT_TX_EN_31_00_ADDR;
@@ -2387,6 +2386,7 @@ static void mt7999TriggerWfdmaTxCidx(struct GLUE_INFO *prGlueInfo,
 	struct mt66xx_chip_info *prChipInfo = prAdapter->chip_info;
 	struct HIF_STATS *prHifStats = &prAdapter->rHifStats;
 	struct WIFI_VAR *prWifiVar = &prAdapter->rWifiVar;
+	uint32_t u4CurDidx = 0;
 
 	if (!prChipInfo->is_support_wfdma_cidx_fetch)
 		return;
@@ -2404,7 +2404,9 @@ static void mt7999TriggerWfdmaTxCidx(struct GLUE_INFO *prGlueInfo,
 		prHifInfo->fgIsNeedCidxFetchFlag = TRUE;
 	}
 
-	if (prTxRing->u4LastCidx == prTxRing->u4LastDidx)
+	HAL_GET_RING_DIDX(HIF_RING, prAdapter, prTxRing, &u4CurDidx);
+	if ((u4CurDidx == prTxRing->u4LastDidx) &&
+	    (u4CurDidx == prTxRing->u4LastCidx))
 		prHifInfo->fgIsNeedCidxFetchFlag = TRUE;
 
 	prHifInfo->fgIsCidxFetchNewTx = TRUE;
@@ -2608,35 +2610,6 @@ static void mt7999ConfigWfdmaRxRingThreshold(
 	}
 }
 
-static void mt7999UpdateWfdmaPrdcInt(
-	struct GLUE_INFO *prGlueInfo, u_int8_t fgForceEn)
-{
-	struct ADAPTER *prAdapter = prGlueInfo->prAdapter;
-	struct WIFI_VAR *prWifiVar = &prAdapter->rWifiVar;
-	uint32_t u4Addr, u4Val, u4Time;
-
-	u4Time = prGlueInfo->fgIsInSuspendMode ?
-		prWifiVar->u4SuspendPrdcIntTime : prWifiVar->u4PrdcIntTime;
-
-	if (!fgForceEn && u4Time == prAdapter->u4CurPrdcIntTime)
-		return;
-
-	prAdapter->u4CurPrdcIntTime = u4Time;
-
-	/* clear before set */
-	u4Addr = WF_P0_WFDMA_HOST_PER_DLY_INT_CFG_ADDR;
-	HAL_MCR_WR(prAdapter, u4Addr, 0);
-
-	/* Enable RX periodic delayed interrupt (unit: 20us) */
-	u4Val = 0x1F00000 | u4Time;
-#if CFG_MTK_MDDP_SUPPORT
-	u4Val |= 0x3E000000;
-#endif
-	HAL_MCR_WR(prAdapter, u4Addr, u4Val);
-
-	DBGLOG(HAL, DEBUG, "prdc int: %uus", u4Time * 20);
-}
-
 static void mt7999WpdmaDlyInt(struct GLUE_INFO *prGlueInfo)
 {
 #if CFG_SUPPORT_WFDMA_RX_DELAY_INT
@@ -2715,8 +2688,6 @@ static void mt7999WpdmaDlyInt(struct GLUE_INFO *prGlueInfo)
 	       prWifiVar->u4DlyIntTime * 20,
 	       prWifiVar->u4DlyIntCnt);
 #endif /* CFG_SUPPORT_WFDMA_RX_DELAY_INT */
-
-	mt7999UpdateWfdmaPrdcInt(prGlueInfo, TRUE);
 }
 
 static void mt7999WfdmaControl(struct ADAPTER *prAdapter, u_int8_t fgEn)
@@ -4172,12 +4143,13 @@ static uint32_t mt7999_wlanDownloadPatch(struct ADAPTER *prAdapter)
 }
 #endif /* _HIF_PCIE */
 
-static uint32_t mt7999GetFlavorVer(uint8_t *flavor)
+static uint32_t mt7999GetFlavorVer(struct GLUE_INFO *prGlueInfo,
+	uint8_t *flavor)
 {
 	uint32_t ret = WLAN_STATUS_FAILURE;
 	uint8_t aucFlavor[CFG_FW_FLAVOR_MAX_LEN] = {0};
 
-	if (kalGetFwFlavor(&aucFlavor[0]) == 1) {
+	if (kalGetFwFlavorByGlue(prGlueInfo, &aucFlavor[0]) == 1) {
 		kalScnprintf(flavor,
 					CFG_FW_FLAVOR_MAX_LEN,
 					"%s", aucFlavor);

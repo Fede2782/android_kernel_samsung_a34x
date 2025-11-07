@@ -68,8 +68,6 @@ export CONFIG_MSCS_FAST_PATH_SUPPORT=y
 
 export CONFIG_BUILD_NONE_STA=y
 
-export CONFIG_WOW_SUPPORT=n
-
 # leverage Makefile for common build option
 KO_CODE_PATH := $(if $(filter /%,$(src)),,$(srctree)/)$(src)
 include Kbuild.main
@@ -167,6 +165,7 @@ ccflags-y += -DCFG_ENABLE_PKT_LIFETIME_PROFILE=0
 ccflags-y += -DCFG_SUPPORT_MTK_SYNERGY=0
 ccflags-y += -DCFG_SUPPORT_QA_TOOL=0
 ccflags-y += -DCFG_SUPPORT_TX_BF=0
+ccflags-y += -DCFG_WOW_SUPPORT=0
 ccflags-y += -DCFG_SUPPORT_IDC_CH_SWITCH=0
 ccflags-y += -DCFG_SUPPORT_DFS_MASTER=0
 ccflags-y += -DCFG_SUPPORT_ROAMING=0

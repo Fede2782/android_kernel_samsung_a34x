@@ -30,8 +30,6 @@
  *                                 M A C R O S
  ******************************************************************************
  */
-#define P2P_MLD_SCAN_DEFAULT_DWELL_TIME			100
-#define P2P_MLD_SCAN_DEFAULT_MIN_DWELL_TIME		42
 
 /******************************************************************************
  *                             D A T A   T Y P E S
@@ -66,9 +64,13 @@ scanP2pProcessBeaconAndProbeResp(struct ADAPTER *prAdapter,
 		struct BSS_DESC *prBssDesc,
 		struct WLAN_BEACON_FRAME *prWlanBeaconFrame);
 
+void scanRemoveAllP2pBssDesc(struct ADAPTER *prAdapter);
+
+void scanRemoveP2pBssDesc(struct ADAPTER *prAdapter,
+		struct BSS_DESC *prBssDesc);
+
 struct BSS_DESC *scanP2pSearchDesc(struct ADAPTER *prAdapter,
-		struct BSS_INFO *prBssInfo,
 		struct P2P_CONNECTION_REQ_INFO *prConnReqInfo,
-		struct P2P_JOIN_INFO *prJoinInfo);
+		struct BSS_DESC_SET *prBssDescSet);
 
 #endif

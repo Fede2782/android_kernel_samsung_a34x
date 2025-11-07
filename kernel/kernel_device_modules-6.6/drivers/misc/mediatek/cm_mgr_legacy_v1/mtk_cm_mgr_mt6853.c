@@ -99,6 +99,11 @@ struct timer_list cm_mgr_perf_timeout_timer;
 static struct delayed_work cm_mgr_timeout_work;
 #define CM_MGR_PERF_TIMEOUT_MS	msecs_to_jiffies(100)
 
+static void cm_mgr_timeout_process(struct work_struct *work)
+{
+	icc_set_bw(cm_mgr_get_bw_path(), 0, 0);
+}
+
 static void cm_mgr_perf_timeout_timer_fn(struct timer_list *timer)
 {
 	if (pm_qos_update_request_status) {
@@ -142,12 +147,12 @@ void cm_mgr_perf_platform_set_status_mt6853(int enable)
 			cm_mgr_dram_opp = 0;
 			cm_mgr_set_dram_opp_base(cm_mgr_get_num_perf());
 			icc_set_bw(cm_mgr_get_bw_path(), 0,
-					cm_mgr_perfs[cm_mgr_dram_opp]);
+					cm_mgr_get_perfs_mt6853(cm_mgr_dram_opp));
 		} else {
 			if (cm_mgr_dram_opp > 0) {
 				cm_mgr_dram_opp--;
 				icc_set_bw(cm_mgr_get_bw_path(), 0,
-						cm_mgr_perfs[cm_mgr_dram_opp]);
+						cm_mgr_get_perfs_mt6853(cm_mgr_dram_opp));
 			}
 		}
 
@@ -178,7 +183,7 @@ void cm_mgr_perf_platform_set_status_mt6853(int enable)
 				debounce_times_perf_down_local_get() /
 				debounce_times_perf_down_get();
 			icc_set_bw(cm_mgr_get_bw_path(), 0,
-					cm_mgr_perfs[cm_mgr_dram_opp]);
+					cm_mgr_get_perfs_mt6853(cm_mgr_dram_opp));
 		} else {
 			cm_mgr_dram_opp = -1;
 			cm_mgr_set_dram_opp_base(cm_mgr_dram_opp);
@@ -218,12 +223,12 @@ static void cm_mgr_perf_platform_set_force_status(int enable)
 		if (cm_mgr_get_dram_opp_base() == -1) {
 			cm_mgr_dram_opp = 0;
 			icc_set_bw(cm_mgr_get_bw_path(), 0,
-					cm_mgr_perfs[cm_mgr_dram_opp]);
+					cm_mgr_get_perfs_mt6853(cm_mgr_dram_opp));
 		} else {
 			if (cm_mgr_dram_opp > 0) {
 				cm_mgr_dram_opp--;
 				icc_set_bw(cm_mgr_get_bw_path(), 0,
-						cm_mgr_perfs[cm_mgr_dram_opp]);
+						cm_mgr_get_perfs_mt6853(cm_mgr_dram_opp));
 			}
 		}
 
@@ -248,12 +253,12 @@ static void cm_mgr_perf_platform_set_force_status(int enable)
 					down_force_local /
 					debounce_times_perf_force_down_get();
 				icc_set_bw(cm_mgr_get_bw_path(), 0,
-						cm_mgr_perfs[cm_mgr_dram_opp]);
+						cm_mgr_get_perfs_mt6853(cm_mgr_dram_opp));
 			} else {
 				cm_mgr_dram_opp = -1;
 				cm_mgr_set_dram_opp_base(cm_mgr_dram_opp);
 				icc_set_bw(cm_mgr_get_bw_path(), 0,
-						cm_mgr_perfs[cm_mgr_dram_opp]);
+						cm_mgr_get_perfs_mt6853(cm_mgr_dram_opp));
 				pm_qos_update_request_status = enable;
 				debounce_times_perf_down_force_local_set(-1);
 			}
@@ -331,6 +336,9 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 	if (IS_ERR(bw_path)) {
 		dev_info(&pdev->dev, "get cm-perf_bw fail\n");
 		cm_mgr_set_bw_path(NULL);
+	} else {
+		/* set bw path */
+		cm_mgr_set_bw_path(bw_path);
 	}
 
 	if (ret > 0) {
@@ -361,6 +369,12 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	if (debounce_times_perf_down_get() != 5) {
+		pr_info("[CM_MGR] debounce time perf down != 5; so set it 5\n");
+		debounce_times_perf_down_set(5);
+	}
+
+	INIT_DELAYED_WORK(&cm_mgr_timeout_work, cm_mgr_timeout_process);
 	timer_setup(&cm_mgr_perf_timeout_timer, cm_mgr_perf_timeout_timer_fn,
 			0);
 

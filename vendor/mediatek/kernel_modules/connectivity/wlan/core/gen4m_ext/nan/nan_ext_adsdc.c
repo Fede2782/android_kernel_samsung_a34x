@@ -172,8 +172,7 @@ static const char *adsdc_role_type_str(uint8_t i)
 static void freePendingAdsdcCmd(struct ADAPTER *prAdapter,
 			   struct IE_NAN_ADSDC_PENDING_CMD *prPendingCmd)
 {
-	DBGLOG(NAN, DEBUG, "Enter %s, free pending request %u\n",
-	       __func__,
+	DBGLOG(NAN, INFO, "free pending request %u\n",
 	       ((struct IE_NAN_ADSDC_CMD *)(prPendingCmd->cmd))->ucRequestId);
 
 	kalMemZero(prPendingCmd, sizeof(struct IE_NAN_ADSDC_PENDING_CMD));
@@ -184,7 +183,7 @@ static uint32_t savePendingAdsdcCmd(struct ADAPTER *prAdapter,
 {
 	struct IE_NAN_ADSDC_PENDING_CMD *prPendingCmd = &g_nanAdsdcPendingCmd;
 
-	DBGLOG(NAN, DEBUG,
+	DBGLOG(NAN, INFO,
 	       "req=%u, %u %u %u %u %u c=0x%08x\n",
 	       cmd->ucRequestId,
 	       cmd->cmd_type,
@@ -213,8 +212,8 @@ uint32_t nanComposeADSDCResponse(struct ADAPTER *prAdapter,
 	uint32_t rStatus = WLAN_STATUS_SUCCESS;
 	u_int8_t update = (status == NAN_ASCC_STATUS_SUCCESS_BUT_CHANGED);
 
-	DBGLOG(NAN, DEBUG, "Enter %s, request=%u type=%u status=%u reason=%u\n",
-	       __func__, cmd->ucRequestId, type, status, reason);
+	DBGLOG(NAN, INFO, "request=%u type=%u status=%u reason=%u\n",
+	       cmd->ucRequestId, type, status, reason);
 
 	prResponse = cnmMemAlloc(prAdapter, RAM_TYPE_BUF,
 				 NAN_MAX_EXT_DATA_SIZE);
@@ -229,7 +228,7 @@ uint32_t nanComposeADSDCResponse(struct ADAPTER *prAdapter,
 				ADSDC_EVENT_HDR_LEN +
 				ADSDC_CMD_BODY_SIZE(cmd);
 
-		DBGLOG(NAN, TRACE, "u2Length = %u (%zu-%u+%u)\n",
+		DBGLOG(NAN, TRACE, "u2Length = %u (%zu-%zu+%zu)\n",
 			prResponse->u2Length,
 			sizeof(struct IE_NAN_ADSDC_EVENT),
 			ADSDC_EVENT_HDR_LEN,
@@ -259,27 +258,27 @@ uint32_t nanComposeADSDCResponse(struct ADAPTER *prAdapter,
 			ADSDC_CMD_BODY_SIZE(cmd));
 	}
 
-	DBGLOG(NAN, DEBUG, "OUI: %d(%02X) (%s)\n",
+	DBGLOG(NAN, INFO, "OUI: %d(%02X) (%s)\n",
 	       prResponse->ucNanOui, prResponse->ucNanOui,
 	       oui_str(prResponse->ucNanOui));
-	DBGLOG(NAN, DEBUG, "Length: %d\n", prResponse->u2Length);
-	DBGLOG(NAN, DEBUG, "v%d.%d\n",
+	DBGLOG(NAN, INFO, "Length: %d\n", prResponse->u2Length);
+	DBGLOG(NAN, INFO, "v%d.%d\n",
 	       prResponse->ucMajorVersion, prResponse->ucMinorVersion);
-	DBGLOG(NAN, DEBUG, "ReqId: %d\n", prResponse->ucRequestId);
-	DBGLOG(NAN, DEBUG, "Type: %d (%s)\n",
+	DBGLOG(NAN, INFO, "ReqId: %d\n", prResponse->ucRequestId);
+	DBGLOG(NAN, INFO, "Type: %d (%s)\n",
 	       prResponse->type, adsdc_type_str(prResponse->type));
-	DBGLOG(NAN, DEBUG, "Status: %d (%s)\n",
+	DBGLOG(NAN, INFO, "Status: %d (%s)\n",
 	       prResponse->status, ascc_status_str(prResponse->status));
-	DBGLOG(NAN, DEBUG, "Reason: %d\n",
+	DBGLOG(NAN, INFO, "Reason: %d\n",
 	       prResponse->reason);
-	DBGLOG(NAN, DEBUG, "Scheduling method: %d (%s)\n",
+	DBGLOG(NAN, INFO, "Scheduling method: %d (%s)\n",
 	       prResponse->scheduling_method,
 	       scheduling_method_str(prResponse->scheduling_method));
 
 	if (!update)
 		goto report;
 
-	DBGLOG(NAN, DEBUG, "Category: 0x%08x (%s)\n", prResponse->u4Category,
+	DBGLOG(NAN, INFO, "Category: 0x%08x (%s)\n", prResponse->u4Category,
 	       schedule_category_included_str(prResponse->u4Category,
 					      category_buf,
 					      sizeof(category_buf)));
@@ -289,7 +288,7 @@ uint32_t nanComposeADSDCResponse(struct ADAPTER *prAdapter,
 
 report:
 	/* Reuse the buffer from passed in from HAL */
-	DBGLOG(NAN, DEBUG, "Copy %zu bytes\n", EXT_MSG_SIZE(prResponse));
+	DBGLOG(NAN, INFO, "Copy %zu bytes\n", EXT_MSG_SIZE(prResponse));
 	kalMemCopy(cmd, prResponse, EXT_MSG_SIZE(prResponse));
 
 done:
@@ -400,25 +399,25 @@ uint32_t nanProcessAdsdcCommand(
 	struct TX_DISCOVERY_BEACON *tx_beacon;
 	uint32_t offset = 0;
 
-	DBGLOG(NAN, DEBUG, "Enter %s, consuming %zu bytes\n",
-		   __func__, sizeof(struct IE_NAN_ADSDC_CMD));
+	DBGLOG(NAN, INFO, "Consuming %zu bytes\n",
+		   sizeof(struct IE_NAN_ADSDC_CMD));
 
 	/* dumpADSDCCommand, begin */
-	DBGLOG_HEX(NAN, DEBUG, buf, sizeof(struct IE_NAN_ADSDC_CMD));
-	DBGLOG(NAN, DEBUG, "OUI: %d(%02X) (%s)\n",
+	DBGLOG_HEX(NAN, INFO, buf, sizeof(struct IE_NAN_ADSDC_CMD));
+	DBGLOG(NAN, INFO, "OUI: %d(%02X) (%s)\n",
 		   c->ucNanOui, c->ucNanOui, oui_str(c->ucNanOui));
-	DBGLOG(NAN, DEBUG, "Length: %d\n", c->u2Length);
-	DBGLOG(NAN, DEBUG, "v%d.%d\n", c->ucMajorVersion, c->ucMinorVersion);
-	DBGLOG(NAN, DEBUG, "ReqId: %d\n", c->ucRequestId);
-	DBGLOG(NAN, DEBUG, "Type: %d (%s)\n",
+	DBGLOG(NAN, INFO, "Length: %d\n", c->u2Length);
+	DBGLOG(NAN, INFO, "v%d.%d\n", c->ucMajorVersion, c->ucMinorVersion);
+	DBGLOG(NAN, INFO, "ReqId: %d\n", c->ucRequestId);
+	DBGLOG(NAN, INFO, "Type: %d (%s)\n",
 		   c->cmd_type, adsdc_type_str(c->cmd_type));
-	DBGLOG(NAN, DEBUG, "CH Type: %d\n",
+	DBGLOG(NAN, INFO, "CH Type: %d\n",
 		   c->ch_type, adsdc_ch_type_str(c->ch_type));
-	DBGLOG(NAN, DEBUG, "Role: %d\n", c->role, adsdc_role_str(c->role));
-	DBGLOG(NAN, DEBUG, "Role Type: %d\n",
+	DBGLOG(NAN, INFO, "Role: %d\n", c->role, adsdc_role_str(c->role));
+	DBGLOG(NAN, INFO, "Role Type: %d\n",
 		   c->role_type, adsdc_role_type_str(c->role_type));
-	DBGLOG(NAN, DEBUG, "ServiceId: %d\n", c->ucServiceId);
-	DBGLOG(NAN, DEBUG, "Category: %08X\n", c->u4Category,
+	DBGLOG(NAN, INFO, "ServiceId: %d\n", c->ucServiceId);
+	DBGLOG(NAN, INFO, "Category: %08X\n", c->u4Category,
 		   schedule_category_included_str(c->u4Category,
 						  category_buf,
 						  sizeof(category_buf)));
@@ -433,15 +432,15 @@ uint32_t nanProcessAdsdcCommand(
 		/* After parsing scheduling entries. */
 		tx_beacon = (struct TX_DISCOVERY_BEACON *)&buf[offset];
 
-		DBGLOG(NAN, DEBUG, "tx_discovery_beacon_2g: %u\n",
+		DBGLOG(NAN, INFO, "tx_discovery_beacon_2g: %u\n",
 			   tx_beacon->tx_discovery_beacon_2g);
-		DBGLOG(NAN, DEBUG, "tx_discovery_beacon_5g: %u\n",
+		DBGLOG(NAN, INFO, "tx_discovery_beacon_5g: %u\n",
 			   tx_beacon->tx_discovery_beacon_5g);
 
 		offset += sizeof(struct TX_DISCOVERY_BEACON);
 	}
 	if (g_ucNanIsOn) {
-		DBGLOG(NAN, DEBUG, "Proceed to send command\n");
+		DBGLOG(NAN, INFO, "Proceed to send command\n");
 		g_nanAdsdcMode = TRUE;
 #if ADSDC_USD_ASCC
 		/* From ASCC */
@@ -455,7 +454,7 @@ uint32_t nanProcessAdsdcCommand(
 			nanExtReconfigureCustFaw(prAdapter);
 #endif
 	} else { /* used later for sending response */
-		DBGLOG(NAN, DEBUG, "Save command to pending list\n");
+		DBGLOG(NAN, INFO, "Save command to pending list\n");
 
 		/* Enable USD mode first */
 		nanExtSetUsdCommand(prAdapter, c);

@@ -156,7 +156,11 @@ static const struct platform_data mt6989_platform_data = {
 static const struct platform_data mt6991_platform_data = {
 	/* MT6989-specific settings */
 	//.default_cg_ppt_mode = 2, /*TODO: OFF*/
+#if IS_ENABLED(CONFIG_MTK_CG_PPT_MODE_OFF)
+	.default_cg_ppt_mode = 0, /* mode 0: PPB Off */
+#else
 	.default_cg_ppt_mode = 12, /*mode 12: CGPPT use vsys_pb + PreOC (DX4 default)*/
+#endif
 	.default_mo_gpu_curr_freq_power_calc = 0, /*change*/
 	.default_mo_onetime_power_table_calc = 1, /*change*/
 	.default_mo_gpu_low_freq_power_calc = 1,  /*change*/
@@ -402,7 +406,7 @@ static void get_sgnl_data(struct sgnlInfo *sgnl_info)
 	 * Power Data
 	 * -----------------------------------------------
 	 */
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 	psy = power_supply_get_by_name("battery");
@@ -1470,7 +1474,9 @@ static struct platform_data *get_platform_data(int seg_id)
 			ret_platform_data.peak_power_combo_table_cpu = peak_power_combo_table_cpu_mt6989_89t;
 		else if (seg_id == 15) //mt6989_89tt
 			ret_platform_data.peak_power_combo_table_cpu = peak_power_combo_table_cpu_mt6989_89tt;
-	}
+	} else if (strncmp(match->compatible, "mediatek,MT6991", sizeof("mediatek,MT6991")) == 0)
+		if (seg_id == 5) //mt6991_91t
+			ret_platform_data.peak_power_combo_table_cpu = peak_power_combo_table_cpu_mt6991_91t;
 
 	return &ret_platform_data;
 

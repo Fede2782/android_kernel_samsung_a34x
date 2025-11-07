@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -302,11 +302,8 @@ uint16_t concurrentQuota[CONCURRENT_TYPE_NUM] = {
 void mt6639DmashdlInit(struct ADAPTER *prAdapter)
 {
 	uint32_t idx, u4DefVal;
-	uint32_t u4MaxQuota = 0;
-#if (CFG_SUPPORT_HOST_OFFLOAD == 1) || (CFG_SUPPORT_WED_PROXY == 1)
-	struct WIFI_VAR *prWifiVar = &prAdapter->rWifiVar;
-#endif
 #if (CFG_SUPPORT_HOST_OFFLOAD == 1)
+	struct WIFI_VAR *prWifiVar = &prAdapter->rWifiVar;
 	uint32_t u4Val = 0, u4Addr = 0;
 #endif
 
@@ -320,21 +317,11 @@ void mt6639DmashdlInit(struct ADAPTER *prAdapter)
 			prAdapter, idx,
 			rMt6639DmashdlCfg.afgRefillEn[idx]);
 
-		u4MaxQuota = rMt6639DmashdlCfg.au2MaxQuota[idx];
-#if (CFG_DYNAMIC_DMASHDL_MAX_QUOTA == 1)
-		u4MaxQuota = asicConnac3xDynamicDmashdlGetInUsedMaxQuota(
-			prAdapter, idx, u4MaxQuota);
-#endif
 		asicConnac3xDmashdlSetMinMaxQuota(
 			prAdapter, idx,
 			rMt6639DmashdlCfg.au2MinQuota[idx],
-			u4MaxQuota);
+			rMt6639DmashdlCfg.au2MaxQuota[idx]);
 	}
-
-#if CFG_SUPPORT_WED_PROXY
-	if (IS_FEATURE_ENABLED(prWifiVar->fgEnableWed))
-		mt6639DmashdlWedQueueMappingUpdate(prAdapter);
-#endif
 
 	for (idx = 0; idx < 32; idx++)
 		asicConnac3xDmashdlSetQueueMapping(
@@ -377,26 +364,6 @@ WF_HIF_DMASHDL_TOP_OPTIONAL_CONTROL_CR_PSEBF_BL_TH2_NOBMIN_RASIGN_ENA_MASK |
 #endif /* CFG_SUPPORT_HOST_OFFLOAD == 1 */
 }
 
-#if CFG_SUPPORT_WED_PROXY
-void mt6639DmashdlWedQueueMappingUpdate(struct ADAPTER *prAdapter)
-{
-	uint8_t acidx, wmmidx, idx;
-
-	for (wmmidx = 0; wmmidx < prAdapter->ucWmmSetNum; wmmidx++) {
-		for (idx = 0; idx < WMM_AC_INDEX_NUM; idx++) {
-			acidx = idx + (wmmidx * WMM_AC_INDEX_NUM);
-			rMt6639DmashdlCfg.aucQueue2Group[acidx] =
-				wmmidx % 2;
-			DBGLOG(HAL, STATE,
-				"wmmidx,%u acidx,%u Queue2Group,%d\n",
-				wmmidx,
-				acidx,
-				rMt6639DmashdlCfg.aucQueue2Group[acidx]);
-		}
-	}
-}
-#endif
-
 #endif /* defined(_HIF_PCIE) || defined(_HIF_AXI) || defined(_HIF_USB) */
 
 
@@ -423,7 +390,7 @@ uint32_t mt6639UpdateDmashdlQuota(struct ADAPTER *prAdapter,
 		}
 
 		if (u2MaxQuotaFinal) {
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 				"ucWmmIndex,%u ucGroupIdx,%u u2MaxQuotaFinal,0x%x\n",
 				ucWmmIndex, ucGroupIdx, u2MaxQuotaFinal);
 			asicConnac3xDmashdlSetMinMaxQuota(prAdapter,
@@ -446,7 +413,7 @@ uint32_t mt6639dmashdlQuotaDecision(struct ADAPTER *prAdapter,
 	enum ENUM_BAND eOtherBand = BAND_NULL;
 
 	for (ucBssIndex = 0;
-		ucBssIndex < prAdapter->ucSwBssIdNum; ucBssIndex++) {
+		ucBssIndex < prAdapter->ucHwBssIdNum; ucBssIndex++) {
 
 		prBssInfo = prAdapter->aprBssInfo[ucBssIndex];
 
@@ -505,7 +472,7 @@ uint32_t mt6639dmashdlQuotaDecision(struct ADAPTER *prAdapter,
 #endif
 	}
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"eTargetBand,%u eOtherBand,%u u2MaxQuota,0x%x\n",
 					eTargetBand, eOtherBand, u2MaxQuota);
 	return u2MaxQuota;

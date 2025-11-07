@@ -6,3 +6,12 @@ config MTK_CG_PEAK_POWER_THROTTLING
 	  Select "y" if you want to enable MTK CPU GPU peak power throttling
 	  feature
 	  Select "n" if unsure.
+
+config MTK_CG_PPT_MODE_OFF
+	tristate "MTK CG PPT default off"
+	default n
+	help
+	  For Setting Mediatek CPU GPU Peak Power throttling mode default off.
+	  Select "y" if you want to set MTK CPU GPU peak power throttling default
+	  mode off
+	  Select "n" if unsure.

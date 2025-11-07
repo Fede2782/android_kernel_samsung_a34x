@@ -22,10 +22,11 @@
 #include "mmup.h"
 #include "vcp.h"
 
-#define VCP_TIMER_TIMEOUT	        (1 * HZ) /* 1 seconds*/
-#define ROUNDUP(a, b)		        (((a) + ((b)-1)) & ~((b)-1))
-#define PLT_LOG_ENABLE              0x504C5402 /*magic*/
-#define VCP_IPI_RETRY_TIMES         (100)
+#define VCP_TIMER_TIMEOUT	         (1 * HZ) /* 1 seconds*/
+#define ROUNDUP(a, b)		         (((a) + ((b)-1)) & ~((b)-1))
+#define PLT_LOG_ENABLE               0x504C5402 /*magic*/
+#define VCP_IPI_RETRY_TIMES          (100)
+#define RUNTIME_LOGGER_FLUSH_ENABLED (0)
 
 /* bit0 = 1, logger is on, else off*/
 #define VCP_LOGGER_ON_BIT       (1<<0)
@@ -254,12 +255,14 @@ ssize_t vcp_A_log_read(char __user *data, size_t len)
 {
 	unsigned int w_pos, r_pos, datalen;
 	char *buf;
+#if RUNTIME_LOGGER_FLUSH_ENABLED
 	unsigned int retrytimes = VCP_IPI_RETRY_TIMES;
 	struct vcp_logger_ctrl_msg msg;
-	char *vsi_buf;
-	unsigned int vsi_len;
 	int ret;
 	int i;
+#endif
+	char *vsi_buf;
+	unsigned int vsi_len;
 
 	if (!driver_init_done || !VCP_A_log_ctl->enable)
 		return 0;
@@ -296,6 +299,7 @@ ssize_t vcp_A_log_read(char __user *data, size_t len)
 		}
 
 		if (!log_ctl_debug) {
+#if RUNTIME_LOGGER_FLUSH_ENABLED
 			i = 0;
 			while (!mutex_trylock(&vcp_pw_clk_mutex)) {
 				i += 5;
@@ -324,6 +328,7 @@ ssize_t vcp_A_log_read(char __user *data, size_t len)
 				mutex_unlock(&vcp_pw_clk_mutex);
 				pr_notice("[VCP] %s not ready\n", __func__);
 			}
+#endif
 			/* dump full logger buffer start from w_pos + 1 */
 			r_pos_debug = (w_pos >= DRAM_LOG_BUF_LEN) ?  0 : (w_pos+1);
 			log_ctl_debug = 1;

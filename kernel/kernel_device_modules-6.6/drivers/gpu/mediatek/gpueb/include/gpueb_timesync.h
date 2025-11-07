@@ -8,7 +8,7 @@
 
 void gpueb_timesync_suspend(void);
 void gpueb_timesync_resume(void);
-unsigned int gpueb_timesync_init(void);
+int gpueb_timesync_init(void);
 void gpueb_timesync_update(void);
 
 #endif // _GPUEB_TIMESYNC_H_

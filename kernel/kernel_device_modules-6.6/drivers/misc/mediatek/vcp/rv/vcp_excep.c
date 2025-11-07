@@ -94,7 +94,7 @@ static uint8_t *get_MDUMP_addr(enum MDUMP_t type)
 	return (uint8_t *)(vcp_dump.ramdump + vcp_dump.prefix[type - 1]);
 }
 
-uint32_t vcp_dump_size_probe(struct platform_device *pdev)
+int32_t vcp_dump_size_probe(struct platform_device *pdev)
 {
 	uint32_t i, ret;
 

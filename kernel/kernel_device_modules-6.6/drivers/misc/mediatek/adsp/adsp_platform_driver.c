@@ -30,17 +30,6 @@ static u32 adsp_pending_cnt;
 static bool resume_first_time = true;
 
 /* adsp operation */
-void adsp_update_c2c_memory_info(struct adsp_priv *pdata)
-{
-	struct adsp_c2c_share_dram_info_t c2c_info;
-
-	c2c_info.share_dram_addr = adsp_get_reserve_mem_phys(ADSP_C2C_MEM_ID);
-	c2c_info.share_dram_size = adsp_get_reserve_mem_size(ADSP_C2C_MEM_ID);
-
-	adsp_copy_to_sharedmem(pdata, ADSP_SHAREDMEM_C2C_BUFINFO,
-		&c2c_info, sizeof(struct adsp_c2c_share_dram_info_t));
-}
-
 int adsp_after_bootup(struct adsp_priv *pdata)
 {
 #ifdef BRINGUP_ADSP
@@ -474,7 +463,7 @@ int adsp_core0_init(struct adsp_priv *pdata)
 
 	ret = adsp_core_common_init(pdata);
 
-	if (adspsys->desc->version == 1 && get_adsp_core_total() > 1)
+	if (get_adsp_core_total() > 1)
 		adsp_update_c2c_memory_info(pdata); /* only 2 core needed */
 
 	return ret;

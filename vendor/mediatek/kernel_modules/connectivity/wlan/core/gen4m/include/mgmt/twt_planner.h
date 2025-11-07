@@ -20,9 +20,7 @@
 *                              C O N S T A N T S
 ********************************************************************************
 */
-#if (CFG_SUPPORT_TWT_STA_CNM == 1)
-#define TWT_CNM_GRANT_DEFAULT_INTERVAL_MS 256
-#endif
+
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************
@@ -40,16 +38,11 @@ struct _TWT_FLOW_T {
 	struct _TWT_PARAMS_T rTWTPeerParams;
 	u_int64_t u8NextTWT;
 #if (CFG_SUPPORT_BTWT == 1)
+	uint8_t fgIsBTWT;
 	enum _ENUM_BTWT_FLOW_STATE_T eBtwtState;
 #endif
 #if (CFG_SUPPORT_802_11BE_ML_TWT == 1)
 	uint8_t fgIsMLTWT;
-#endif
-	enum _ENUM_TWT_TYPE_T eTwtType;
-#if (CFG_SUPPORT_TWT_STA_CNM == 1)
-	enum _ENUM_TWT_CNM_STATE_T eTwtCnmState;
-	struct STA_RECORD *prOwnStaRec;
-	u_int8_t ucTWTFlowId;
 #endif
 };
 
@@ -59,7 +52,6 @@ struct _TWT_AGRT_T {
 	u_int8_t ucBssIdx;
 	u_int8_t ucFlowId;
 	struct _TWT_PARAMS_T rTWTAgrt;
-	enum _ENUM_TWT_TYPE_T eTwtType;
 };
 
 struct _TWT_PLANNER_T {
@@ -102,9 +94,6 @@ enum {
 	TWT_PARAM_ACTION_ENABLE_INF_FRAME = 12,
 	TWT_PARAM_ACTION_ADD_ML_TWT_ALL_LINKS = 13,
 	TWT_PARAM_ACTION_ADD_ML_TWT_ONE_BY_ONE = 14,
-	TWT_PARAM_ACTION_ADD_RTWT = 15,
-	TWT_PARAM_ACTION_JOIN_RTWT = 16,
-	TWT_PARAM_ACTION_ENABLE_RTWT = 17,
 	TWT_PARAM_ACTION_MAX
 };
 
@@ -136,12 +125,6 @@ enum {
 	((ucCtrlAction) == TWT_PARAM_ACTION_ADD_ML_TWT_ALL_LINKS)
 #define IS_TWT_PARAM_ACTION_ADD_ML_TWT_ONE_BY_ONE(ucCtrlAction) \
 	((ucCtrlAction) == TWT_PARAM_ACTION_ADD_ML_TWT_ONE_BY_ONE)
-#define IS_TWT_PARAM_ACTION_ADD_RTWT(ucCtrlAction) \
-	((ucCtrlAction) == TWT_PARAM_ACTION_ADD_RTWT)
-#define IS_TWT_PARAM_ACTION_JOIN_RTWT(ucCtrlAction) \
-	((ucCtrlAction) == TWT_PARAM_ACTION_JOIN_RTWT)
-#define IS_TWT_PARAM_ACTION_ENABLE_RTWT(ucCtrlAction) \
-	((ucCtrlAction) == TWT_PARAM_ACTION_ENABLE_RTWT)
 
 /*******************************************************************************
 *                  F U N C T I O N   D E C L A R A T I O N S
@@ -206,41 +189,11 @@ void twtPlannerGetTsfDone(
 	struct CMD_INFO *prCmdInfo,
 	uint8_t *pucEventBuf);
 
-struct _TWT_FLOW_T *twtPlannerFlowFindById(
-	struct STA_RECORD *prStaRec, uint8_t ucFlowId,
-	enum _ENUM_TWT_TYPE_T eTwtType);
-
-enum _ENUM_TWT_TYPE_T
-twtPlannerDrvAgrtGetTwtTypeByIndex(
-	struct ADAPTER *prAdapter, uint8_t ucAgrtIdx);
-
 #if (CFG_SUPPORT_TWT_STA_CNM == 1)
 void twtPlannerGetCnmGrantedDone(
 	struct ADAPTER *prAdapter,
 	struct CMD_INFO *prCmdInfo,
 	uint8_t *pucEventBuf);
-
-uint32_t twtPlannerAbortCnmGranted(
-	struct ADAPTER *prAdapter,
-	struct BSS_INFO *prBssInfo,
-	struct STA_RECORD *prStaRec,
-	uint8_t ucFlowId, uint8_t fgIsOid,
-	PFN_CMD_DONE_HANDLER pfCmdDoneHandler,
-	PFN_CMD_TIMEOUT_HANDLER pfCmdTimeoutHandler);
-
-void twtGetCurrentTsfTimeoutInit(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	enum _TWT_GET_TSF_REASON ucReason);
-
-void twtGetCurrentTsfTimeoutDeInit(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	enum _TWT_GET_TSF_REASON ucReason);
-
-void twtGetCurrentTsfTimeout(
-	struct ADAPTER *prAdapter,
-	uintptr_t ulParamPtr);
 #endif
 
 #if (CFG_SUPPORT_TWT_HOTSPOT == 1)
@@ -316,45 +269,7 @@ void btwtPlannerDelAgrtTbl(
 	struct BSS_INFO *prBssInfo,
 	struct STA_RECORD *prStaRec,
 	uint8_t ucFlowId);
-#endif
 
-#if (CFG_SUPPORT_RTWT == 1)
-uint32_t rtwtPlannerSendReqStart(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	enum ENUM_MSG_ID eMsgId,
-	uint8_t ucTWTFlowId);
-
-uint32_t rtwtPlannerSendReqTeardown(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	uint8_t ucTWTFlowId,
-	u_int8_t fgTeardownAll);
-
-void rtwtPlannerTearingdown(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	uint8_t ucFlowId);
-
-void rtwtPlannerTeardownDone(
-	struct ADAPTER *prAdapter,
-	struct MSG_HDR *prMsgHdr);
-
-uint32_t rtwtPlannerAddAgrtTbl(
-	struct ADAPTER *prAdapter,
-	struct BSS_INFO *prBssInfo,
-	struct STA_RECORD *prStaRec,
-	struct _TWT_PARAMS_T *prTWTParams,
-	uint8_t ucFlowId,
-	uint8_t fgIsOid,
-	PFN_CMD_DONE_HANDLER pfCmdDoneHandler,
-	PFN_CMD_TIMEOUT_HANDLER pfCmdTimeoutHandler);
-
-void rtwtPlannerDelAgrtTbl(
-	struct ADAPTER *prAdapter,
-	struct BSS_INFO *prBssInfo,
-	struct STA_RECORD *prStaRec,
-	uint8_t ucFlowId);
 #endif
 
 #if (CFG_SUPPORT_802_11BE_ML_TWT == 1)
@@ -398,19 +313,6 @@ twtPlannerGetCurrentTSF(
 	struct BSS_INFO *prBssInfo,
 	void *pvSetBuffer,
 	uint32_t u4SetBufferLen);
-
-uint8_t twtPlannerDrvAgrtFindWithTwtType(
-	struct ADAPTER *prAdapter,
-	uint8_t ucBssIdx,
-	uint8_t ucFlowId,
-	uint8_t fgByPassNego,
-	enum _ENUM_TWT_TYPE_T eTwtType);
-
-uint8_t twtPlannerDrvAgrtGetFlowID(
-	struct ADAPTER *prAdapter,
-	uint8_t ucBssIdx,
-	uint8_t fgByPassNego,
-	enum _ENUM_TWT_TYPE_T eTwtType);
 
 /*******************************************************************************
 *                              F U N C T I O N S

@@ -23,6 +23,12 @@ set -x
   tools/bazel ${KLEAF_OUT} run ${KLEAF_ARGS} //${KERNEL_VERSION}:kernel_aarch64_abi_update
 )
 
+abi_stg_path=${OUT_DIR}/bazel/output_user_root/output_base/execroot/__main__/bazel-out/k8-fastbuild/bin/${KERNEL_VERSION}/kernel_aarch64_abi_dump/abi.stg
+cp ${abi_stg_path} ${OUT_DIR}/OGKI/.
+
+gki_info_path=${OUT_DIR}/dist/${DEVICE_MODULES_DIR}/${PROJECT}_kernel_aarch64_gki_artifacts.${MODE}/gki-info.txt
+cp ${gki_info_path} ${OUT_DIR}/OGKI/.
+
 KLEAF_GKI_CHECKER="no"
 if [[ ${MODE} == "user" && ${KLEAF_GKI_CHECKER} != "no" ]]
 then

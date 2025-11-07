@@ -35,12 +35,15 @@
 #include <linux/shrinker.h>
 #include <linux/ktime.h>
 #include <linux/random.h>
+#include <linux/kthread.h>
+#include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 #include <soc/mediatek/emi.h>
 #define MTK_EMI_DRAM_OFFSET (ARCH_PFN_OFFSET << PAGE_SHIFT)
-#define PREFILL_TARGET (0)
 #define RANK_POOL_LIMIT (SZ_256M >> PAGE_SHIFT)
 #define X_GUARD (SZ_16M >> PAGE_SHIFT)
 #define REFILL_TARGET (X_GUARD << 1)
+#define PREFILL_TARGET (REFILL_TARGET << 1)
 #define NORMAL_MODE (3)
 #define RELAX_MODE (4)
 #define BYPASS_MODE (5)
@@ -139,6 +142,8 @@ struct mgm_groups {
 	size_t szRefillTarget;
 	size_t szSelectTarget;
 	unsigned int lp_alloc;
+	struct kthread_worker *refill_worker;
+	struct kthread_work refill_work;
 #endif /* CONFIG_MALI_MTK_MGMM */
 };
 
@@ -669,7 +674,8 @@ static struct page *__MTKAllocPage(struct mgm_groups *data,
 	struct page* pp = NULL;
 
 	if (data->rank_mode == RELAX_MODE)
-		horder_gfp_mask = ((gfp_mask & ~__GFP_RECLAIM) | __GFP_NORETRY | __GFP_NOWARN);
+		horder_gfp_mask = ((gfp_mask & ~(__GFP_RECLAIM | __GFP_NOFAIL | __GFP_RETRY_MAYFAIL)) |
+			__GFP_NORETRY | __GFP_NOWARN);
 	else
 		horder_gfp_mask = ((gfp_mask & ~__GFP_DIRECT_RECLAIM) | __GFP_NOWARN);
 	/* If kbase really issues to allocate with huge page order */
@@ -806,16 +812,6 @@ void mtk_mgm_pool_flush(struct mgm_groups *data, int order, int rank, size_t tar
 	dev_dbg(data->dev, "Flush %d-pool[%d]: %zu freed, (%zu / %zu) pages wasted\n", order, rank, count, w_count, target_waste);
 }
 
-void mtk_mgm_pool_trim(struct mgm_groups *data, int order, int rank, size_t nr_pages)
-{
-	int o = 0;
-
-	if (order == LP_ORDER)
-		o = 1;
-	while (data->nr_rank[o][rank] > nr_pages)
-			__free_pages(mtk_fetch_page(data, order, rank), order);
-}
-
 static unsigned long mtk_mgm_pool_reclaim_count_objects_local(size_t nr_rank, size_t target)
 {
 	unsigned long ret;
@@ -843,8 +839,8 @@ static unsigned long mtk_mgm_pool_reclaim_count_objects(struct shrinker *s,
 	}
 	ret = 0;
 
-	ret += mtk_mgm_pool_reclaim_count_objects_local(data->nr_rank[0][0], data->szRefillTarget);
-	ret += mtk_mgm_pool_reclaim_count_objects_local(data->nr_rank[0][1], data->szRefillTarget);
+	ret += (data->nr_rank[0][0] < data->szSelectTarget) ? 0 : mtk_mgm_pool_reclaim_count_objects_local(data->nr_rank[0][0], data->szRefillTarget);
+	ret += (data->nr_rank[0][1] < data->szSelectTarget) ? 0 : mtk_mgm_pool_reclaim_count_objects_local(data->nr_rank[0][1], data->szRefillTarget);
 
 	ret += ((mtk_mgm_pool_reclaim_count_objects_local(data->nr_rank[1][0], data->szRefillTarget >> LP_ORDER)) << LP_ORDER);
 	ret += ((mtk_mgm_pool_reclaim_count_objects_local(data->nr_rank[1][1], data->szRefillTarget >> LP_ORDER)) << LP_ORDER);
@@ -868,7 +864,7 @@ static unsigned long mtk_mgm_pool_reclaim_scan_objects(struct shrinker *s,
 		return 0;
 	}
 
-	target = mtk_mgm_pool_reclaim_count_objects_local(data->nr_rank[0][0], data->szRefillTarget);
+	target = (data->nr_rank[0][0] < data->szSelectTarget) ? 0 : mtk_mgm_pool_reclaim_count_objects_local(data->nr_rank[0][0], data->szRefillTarget);
 	for (i = 0; i < target; i++){
 		p = mtk_fetch_page(data, SP_ORDER, 0);
 		if (p) {
@@ -879,7 +875,7 @@ static unsigned long mtk_mgm_pool_reclaim_scan_objects(struct shrinker *s,
 	}
 
 	j = i;
-	target = mtk_mgm_pool_reclaim_count_objects_local(data->nr_rank[0][1], data->szRefillTarget);
+	target = (data->nr_rank[0][1] < data->szSelectTarget) ? 0 : mtk_mgm_pool_reclaim_count_objects_local(data->nr_rank[0][1], data->szRefillTarget);
 
 	for (i = 0; i < target; i++){
 		p = mtk_fetch_page(data, SP_ORDER, 1);
@@ -961,6 +957,39 @@ static unsigned int mtk_need_to_alloc(struct mgm_groups const *data, unsigned in
 
 	return ret;
 }
+
+static void mtk_refill_work_handler(struct kthread_work *pWork)
+{
+	struct mgm_groups *const data = container_of(pWork, struct mgm_groups, refill_work);
+	size_t refill, tmp;
+
+	if ((data->nr_rank[1][0] < (data->szSelectTarget >> LP_ORDER)) &&
+		(data->nr_rank[1][1] < (data->szSelectTarget >> LP_ORDER))) {
+		refill = 0;
+		while (refill < data->szRefillTarget) {
+			tmp = MTKAllocPage(data, data->gfp_mask, LP_ORDER, 0);
+			if (tmp == 0) {
+				dev_dbg(data->dev, "pool refill encounter OOM\n");
+				break;
+			}
+			refill += (tmp << LP_ORDER);
+		}
+		dev_dbg(data->dev, "Refill %d-pool[%d]: (%zu) / (%zu)\n", LP_ORDER, !data->bRank0[1], refill, data->szRefillTarget);
+	}
+	if ((data->nr_rank[0][0] < (data->szSelectTarget >> SP_ORDER)) &&
+		(data->nr_rank[0][1] < (data->szSelectTarget >> SP_ORDER))) {
+		refill = 0;
+		while (refill < data->szRefillTarget) {
+			tmp = MTKAllocPage(data, data->gfp_mask, SP_ORDER, 0);
+			if (tmp == 0) {
+				dev_dbg(data->dev, "pool refill encounter OOM\n");
+				break;
+			}
+			refill += (tmp << SP_ORDER);
+		}
+		dev_dbg(data->dev, "Refill %d-pool[%d]: (%zu) / (%zu)\n", SP_ORDER, !data->bRank0[0], refill, data->szRefillTarget);
+	}
+}
 #endif /* CONFIG_MALI_MTK_MGMM */
 
 static struct page *example_mgm_alloc_page(struct memory_group_manager_device *mgm_dev,
@@ -973,8 +1002,6 @@ static struct page *example_mgm_alloc_page(struct memory_group_manager_device *m
 	bool *pbRank0;
 	int rank, o = 0;
 	static int count = 0;
-	int refill = 0;
-	size_t tmp;
 #endif /* CONFIG_MALI_MTK_MGMM */
 
 	dev_dbg(data->dev, "%s(mgm_dev=%pK, group_id=%u gfp_mask=0x%x order=%u\n", __func__,
@@ -1032,23 +1059,18 @@ static struct page *example_mgm_alloc_page(struct memory_group_manager_device *m
 				}
 				spin_unlock(&data->MGMFree_lst_lk);
 			} else if (data->rank_mode < BYPASS_MODE) { /* production mode */
-				if ((data->nr_rank[o][0] < (data->szSelectTarget >> order)) &&
-					(data->nr_rank[o][1] < (data->szSelectTarget >> order))) {
-					refill = 0;
-					while (refill < data->szRefillTarget) {
-						tmp = MTKAllocPage(data, gfp_mask, order, 0);
-						if (tmp == 0) {
-							dev_dbg(data->dev, "pool refill encounter OOM\n");
-							break;
-						}
-						refill += (tmp << order);
+				if (((data->nr_rank[0][0] < (data->szSelectTarget >> SP_ORDER)) &&
+					 (data->nr_rank[0][1] < (data->szSelectTarget >> SP_ORDER))) ||
+					((data->nr_rank[1][0] < (data->szSelectTarget >> LP_ORDER)) &&
+					 (data->nr_rank[1][1] < (data->szSelectTarget >> LP_ORDER)))) {
+					if (!kthread_queue_work(data->refill_worker, &data->refill_work)) {
+						dev_dbg(data->dev, "Failed to queue refill_work\n");
 					}
-					dev_dbg(data->dev, "Refill %d-pool[%d]: (%d) / (%zu)\n", order, rank, refill, data->szRefillTarget);
 				}
 
 				p = mtk_fetch_page(data, order, rank);
 				if (!p) {
-					if (data->nr_rank[o][!rank]) {
+					if (data->nr_rank[o][!rank] >= (data->szSelectTarget >> order)) {
 						spin_lock(&data->MGMFree_lst_lk);
 						if (!(*pbRank0) == rank) {
 							*pbRank0 = !(*pbRank0);
@@ -1062,14 +1084,21 @@ static struct page *example_mgm_alloc_page(struct memory_group_manager_device *m
 					}
 					if (!p) {
 						if (order == SP_ORDER) {
-							dev_warn(data->dev, "alloc from system directly, nr_rank={%zu,%zu}\n",
+							dev_dbg(data->dev, "alloc from system directly, nr_rank={%zu,%zu}\n",
 								data->nr_rank[o][0], data->nr_rank[o][1]);
 							p = alloc_pages(gfp_mask, order);
 						}
 					}
 				}
-			} else
-				p = alloc_pages(gfp_mask, order);
+			} else {
+				gfp_t horder_gfp_mask;
+				if (order)
+					horder_gfp_mask = ((gfp_mask & ~(__GFP_RECLAIM | __GFP_NOFAIL | __GFP_RETRY_MAYFAIL)) |
+						__GFP_NORETRY | __GFP_NOWARN);
+				else
+					horder_gfp_mask = gfp_mask;
+				p = alloc_pages(horder_gfp_mask, order);
+			}
 		} else
 			p = alloc_pages(gfp_mask, order);
 	}
@@ -1366,6 +1395,7 @@ static int memory_group_manager_probe(struct platform_device *pdev)
 		struct shrinker *reclaim;
 		reclaim = KBASE_INIT_RECLAIM(mgm_data, reclaim, "mali-mGMM");
 		if (!reclaim) {
+			mgm_term_data(mgm_data);
 			kfree(mgm_data);
 			kfree(mgm_dev);
 			return -ENOMEM;
@@ -1380,6 +1410,25 @@ static int memory_group_manager_probe(struct platform_device *pdev)
 	}
 	mgm_data->szSelectTarget = X_GUARD;
 	mgm_data->lp_alloc = MODE_DEFAULT;
+	{
+		int ret;
+		struct sched_param param = { .sched_priority = 2 };
+		mgm_data->refill_worker = kthread_create_worker(0, "mgm_refill_worker");
+		if (IS_ERR(mgm_data->refill_worker)) {
+			dev_err(&pdev->dev, "Failed to create mgm_refill_worker\n");
+			KBASE_UNREGISTER_SHRINKER(mgm_data->reclaim);
+			mgm_term_data(mgm_data);
+			kfree(mgm_data);
+			kfree(mgm_dev);
+			return -ENOMEM;
+		}
+		ret = sched_setscheduler_nocheck(mgm_data->refill_worker->task, SCHED_FIFO, &param);
+		if (ret != 0) {
+			dev_warn(&pdev->dev, "Failed to set priority mgm_refill_worker %d\n", ret);
+		}
+
+		kthread_init_work(&mgm_data->refill_work, mtk_refill_work_handler);
+	}
 
 	/*
 	 * Enable only in multiple rank env
@@ -1390,11 +1439,8 @@ static int memory_group_manager_probe(struct platform_device *pdev)
 		mgm_data->rank_mode = RELAX_MODE;
 		mgm_data->szRefillTarget = REFILL_TARGET;
 
-		mtk_mgm_pool_fill(mgm_data, LP_ORDER, 1, PREFILL_TARGET >> LP_ORDER);
 		mtk_mgm_pool_fill(mgm_data, LP_ORDER, 0, PREFILL_TARGET >> LP_ORDER);
-
-		mtk_mgm_pool_trim(mgm_data, LP_ORDER, 0, PREFILL_TARGET >> LP_ORDER);
-		mtk_mgm_pool_trim(mgm_data, LP_ORDER, 1, PREFILL_TARGET >> LP_ORDER);
+		mtk_mgm_pool_flush(mgm_data, LP_ORDER, 0, PREFILL_TARGET >> LP_ORDER, 0);
 	} else {
 		mgm_data->ui64RankBoundary = MTK_EMI_DRAM_OFFSET;
 		mgm_data->rank_mode = BYPASS_MODE;
@@ -1414,6 +1460,8 @@ static int memory_group_manager_remove(struct platform_device *pdev)
 	struct mgm_groups *mgm_data = mgm_dev->data;
 
 #if IS_ENABLED(CONFIG_MALI_MTK_MGMM)
+	if (mgm_data->refill_worker)
+		kthread_destroy_worker(mgm_data->refill_worker);
 	KBASE_UNREGISTER_SHRINKER(mgm_data->reclaim);
 #endif	/* CONFIG_MALI_MTK_MGMM */
 

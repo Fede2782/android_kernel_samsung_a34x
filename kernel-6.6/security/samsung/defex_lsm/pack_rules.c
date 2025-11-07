@@ -30,11 +30,13 @@ const struct feature_match_entry feature_match[] = {
 	{"feature_ped_exception", feature_ped_exception},
 	{"feature_immutable_path_open", feature_immutable_path_open},
 	{"feature_immutable_path_write", feature_immutable_path_write},
+	{"feature_immutable_root_v2", feature_immutable_root_v2},
 	{"feature_immutable_root", feature_immutable_root},
 	{"feature_immutable_src_exception", feature_immutable_src_exception},
 	{"feature_immutable_dst_exception", feature_immutable_dst_exception},
 	{"feature_umhbin_path", feature_umhbin_path},
 	{"feature_integrity_check", feature_integrity_check},
+	{"feature_immutable_tgt_exception", feature_immutable_tgt_exception},
 };
 
 struct file_list_item {
@@ -302,6 +304,8 @@ void add_rule(const char *part1, const char *part2, unsigned int for_recovery,
 		part2_feature |= feature_immutable_dst_exception;
 	if (feature & feature_immutable_root)
 		part2_feature |= feature_immutable_root;
+	if (feature & feature_immutable_root_v2)
+		part2_feature |= feature_immutable_root_v2;
 
 	if (part1) {
 		item_part1 = add_tree_path(part1, for_recovery);
@@ -320,7 +324,7 @@ void add_rule(const char *part1, const char *part2, unsigned int for_recovery,
 	}
 
 #ifdef DEFEX_INTEGRITY_ENABLE
-	if (integrity && item_part1) {
+	if (integrity && item_part1 && !(item_part1->features & d_tree_item_wildcard)) {
 		if (string_hex_to_bin(integrity + 1, INTEGRITY_LENGTH * 2, tmp_integrity)
 				== INTEGRITY_LENGTH) {
 			index = add_table_item(d_tree_integrity_table, &rules_tree,
@@ -584,8 +588,9 @@ int reduce_rules(const char *source_rules_file, const char *reduced_rules_file,
 				*colon_ptr = 0;
 			found_normal = lookup_file_list(rule_part1, 0);
 			found_recovery = lookup_file_list(rule_part1, 1);
-			if (rule && !found_normal && !found_recovery && !strstr(work_str,
-					"/* DEFAULT */")) {
+			if (rule && !found_normal && !found_recovery
+					&& d_tree_get_wildcard_offset(rule, 0) < 0
+					&& !strstr(work_str, "/* DEFAULT */")) {
 				printf("removed rule: %s\n", rule);
 				continue;
 			}
@@ -694,7 +699,7 @@ int parse_items(struct d_tree_item *base, size_t path_length, int level)
 	struct d_tree_item tmp_item, *child_item;
 	const char *subdir_ptr;
 	unsigned int subdir_size;
-	static char feature_list[128];
+	static char feature_list[128], work_str[PATH_MAX];
 	int err, ret = 0;
 
 	if (level > 8) {
@@ -711,8 +716,14 @@ int parse_items(struct d_tree_item *base, size_t path_length, int level)
 	while (child_item) {
 		subdir_size = 0;
 		subdir_ptr = d_tree_get_subpath(child_item, &subdir_size);
-		if (subdir_ptr)
+		if (subdir_ptr) {
+			if (child_item->features & d_tree_item_wildcard) {
+				subdir_size = d_tree_unpack_wildcard(subdir_ptr, subdir_size,
+					work_str, PATH_MAX);
+				subdir_ptr = work_str;
+			}
 			memcpy(work_path + path_length, subdir_ptr, (size_t)subdir_size);
+		}
 		subdir_size += (unsigned int)path_length;
 		work_path[subdir_size] = 0;
 

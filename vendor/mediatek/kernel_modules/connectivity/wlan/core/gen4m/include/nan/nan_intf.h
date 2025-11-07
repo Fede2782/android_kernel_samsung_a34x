@@ -34,6 +34,8 @@
 #define NAN_AUTH_TOKEN_LEN 16 /*128bit */
 #define NAN_MIC_BUF_SIZE 512
 
+/* NAN IE length for PASN */
+#define NAN_PASN_IE_LEN 150
 
 #define NAN_MAC_ADDR_LEN 6
 #define NAN_MAX_SOCIAL_CHANNELS 3
@@ -44,14 +46,11 @@
 #define NAN_MAX_SERVICE_SPECIFIC_INFO_LEN 255
 #define NAN_MAX_SDEA_LEN 255
 
+#define NAN_FW_MAX_SERVICE_NAME_LEN                64
 #define NAN_FW_MAX_MATCH_FILTER_LEN 255
 #define NAN_FW_MAX_SERVICE_SPECIFIC_INFO_LEN 255
-#if (CFG_SUPPORT_NAN_EXT == 1)
-/* May be extend to 1400 for the future */
-#define NAN_FW_MAX_FOLLOW_UP_SDEA_LEN  255
-#else
-#define NAN_FW_MAX_FOLLOW_UP_SDEA_LEN  255
-#endif
+#define NAN_FW_MAX_TX_FOLLOW_UP_SDEA_LEN  1300
+#define NAN_FW_MAX_FOLLOW_UP_SDEA_LEN  1400
 #define NAN_FW_MAX_SCID_BUF_LEN 128
 #define NAN_FW_MAX_SDEA_SERVICE_SPECIFIC_INFO_LEN 255
 
@@ -74,21 +73,12 @@
 #define NAN_SECURITY_MIN_PASSPHRASE_LEN 8
 #define NAN_SECURITY_MAX_PASSPHRASE_LEN 63
 
-#if (CFG_SUPPORT_NAN_EXT == 1)
 /* Max publish + subscribe numbers 12 */
 #define NAN_MAX_PUBLISH_NUM 6
 #define NAN_MAX_SUBSCRIBE_NUM 6
 #define NAN_MAX_QUEUE_FOLLOW_UP 6
 /* MAX 6 queued follow up messages and 6 solicited publish */
 #define NUM_OF_NAN_POST_PROCESS 12
-#else
-/* Max publish + subscribe numbers 4 */
-#define NAN_MAX_PUBLISH_NUM 2
-#define NAN_MAX_SUBSCRIBE_NUM 2
-#define NAN_MAX_QUEUE_FOLLOW_UP 2
-/* MAX 2 queued follow up messages and 2 solicited publish */
-#define NUM_OF_NAN_POST_PROCESS 4
-#endif
 
 #if (CFG_SUPPORT_NAN_DBDC == 1)
 #define NAN_MAX_NDP_SESSIONS 8
@@ -104,6 +94,14 @@
 #define NAN_CIPHER_SUITE_SHARED_KEY_128_MASK 0x01
 #define NAN_CIPHER_SUITE_SHARED_KEY_256_MASK 0x02
 
+#if CFG_SUPPORT_NAN_R4_PAIRING
+#define NAN_CIPHER_SUITE_PUBLIC_KEY_2WDH_128_MASK      0x04
+#define NAN_CIPHER_SUITE_PUBLIC_KEY_2WDH_256_MASK      0x08
+#define NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_128_MASK      0x40
+#define NAN_CIPHER_SUITE_PUBLIC_KEY_PASN_256_MASK      0x80
+#endif /* CFG_SUPPORT_NAN_R4_PAIRING */
+
+
 /* NAN ranging indication condition MASKS */
 #define NAN_RANGING_INDICATE_CONTINUOUS_MASK 0x01
 #define NAN_RANGING_INDICATE_INGRESS_MET_MASK 0x02
@@ -114,10 +112,31 @@
 #define RX_SYNC_BEACON_MASK 0x02
 #define RX_SERVICE_DISCOVERY_MASK 0x04
 
+/* NAN KDE Data Type */
+/* 0, 10-255 are reserved */
+#define NAN_KDE_GTK				0x01
+#define NAN_KDE_IGTK				0x09
+#define NAN_KDE_BIGTK				0x0E
+#define NAN_KDE_NIK				0x24
+#define NAN_KDE_KEY_LIFETIME			0x25
+
 #define NAN_AM_RANK_SIZE 8
+
+/* NAN PAIRING PASSWORD SIZE */
+#define NAN_PAIRING_MAX_PASSWORD_SIZE 20
+#if CFG_SUPPORT_NAN_R4_PAIRING
+#define NAN_PAIRING_NIRA_CIPHERVERSION1_NONCE_SIZE 8
+#define NAN_PAIRING_NIRA_CIPHERVERSION1_TAG_SIZE 8
+#define NAN_IDENTITY_KEY_LEN	16
+#define NAN_IDENTITY_TAG_LEN	8
+#define NAN_IDENTITY_NONCE_LEN	8
+#define NAN_PAIRING_KEY_ID_LEN	16
+#define NAN_PASN_FRAME_MAX_SIZE 512
+#endif
 
 enum NAN_BSS_ROLE_INDEX {
 	NAN_BSS_INDEX_BAND0 = 0,
+	NAN_BSS_INDEX_MAIN = NAN_BSS_INDEX_BAND0,
 #if (CFG_SUPPORT_NAN_DBDC == 1)
 	NAN_BSS_INDEX_BAND1,
 #endif
@@ -394,6 +413,27 @@ struct NanSecurityKeyInfo {
 	} body;
 } __KAL_ATTRIB_PACKED__;
 
+#if (CFG_SUPPORT_NAN_R4_PAIRING == 1)
+/* pairing request type*/
+enum NanPairingRequestType {
+	NAN_PAIRING_SETUP_REQ_T = 0,
+	NAN_PAIRING_VERIFICATION_REQ_T = 1
+};
+
+/* Nan AKM type */
+enum NanAkm {
+	SAE_AKM_T = 0,
+	PASN_AKM_T = 1
+};
+__KAL_ATTRIB_PACKED_FRONT__
+struct NpkSecurityAssociation {
+	u8 peer_nan_identity_key[NAN_IDENTITY_KEY_LEN];
+	u8 local_nan_identity_key[NAN_IDENTITY_KEY_LEN];
+	struct NanSecurityPmk npk;
+	enum NanAkm akm;
+	u32 cipher_type;
+};
+#endif /* CFG_SUPPORT_NAN_R4_PAIRING */
 /* Structure to set the Service Descriptor Extension
  * Attribute (SDEA) passed as part of NanPublishRequest/
  * NanSubscribeRequest/NanMatchInd.
@@ -1053,15 +1093,6 @@ struct NanEnableRequest {
 	 */
 	uint8_t config_subscribe_sid_beacon;
 	uint32_t subscribe_sid_beacon_val;
-
-	/* Enable/disable NAN slot statistics */
-	uint8_t enable_log_slot_statistics;
-
-
-	/* Instant communication mode */
-	u_int8_t fgNanInstantMode;
-	uint32_t u4NanInstantModeChannel; /* frequency, e.g., 2437 for ch 6 */
-
 } __KAL_ATTRIB_PACKED__ __KAL_ATTRIB_ALIGNED__(4);
 
 /* Enable Unsync Message Structure
@@ -1220,6 +1251,20 @@ struct NanPublishRequest {
 	/* Sequence of values indicating the service specific info in SDEA */
 	uint16_t sdea_service_specific_info_len;
 	uint8_t sdea_service_specific_info[NAN_MAX_SDEA_LEN];
+#if (CFG_SUPPORT_NAN_R4_PAIRING == 1)
+	/* Pairing related attribute*/
+	uint8_t pairing_enable;
+	uint8_t key_caching_enable;
+	uint8_t bootstrap_type;
+	uint16_t bootstrap_method;
+	uint8_t cipher_suite_list[2];
+
+	uint8_t nira_enable;
+	uint64_t tag;
+	uint64_t nonce;
+	uint8_t nik[NAN_IDENTITY_KEY_LEN];
+
+#endif /* CFG_SUPPORT_NAN_R4_PAIRING */
 } __KAL_ATTRIB_PACKED__;
 
 /* Publish Cancel Msg Structure
@@ -1393,6 +1438,15 @@ struct NanSubscribeRequest {
 	/* Sequence of values indicating the service specific info in SDEA */
 	uint16_t sdea_service_specific_info_len;
 	uint8_t sdea_service_specific_info[NAN_MAX_SDEA_LEN];
+#if (CFG_SUPPORT_NAN_R4_PAIRING == 1)
+	/* Pairing related setting */
+	uint8_t pairing_enable;
+	uint8_t key_caching_enable;
+	uint8_t bootstrap_type;
+	uint16_t bootstrap_method;
+
+	uint8_t nira_enable;
+#endif /* CFG_SUPPORT_NAN_R4_PAIRING */
 } __KAL_ATTRIB_PACKED__;
 
 /* NAN Subscribe Cancel Structure
@@ -1439,6 +1493,19 @@ struct NanTransmitFollowupRequest {
 	/* Sequence of values indicating the service specific info in SDEA */
 	uint16_t sdea_service_specific_info_len;
 	uint8_t sdea_service_specific_info[NAN_FW_MAX_FOLLOW_UP_SDEA_LEN];
+#if (CFG_SUPPORT_NAN_R4_PAIRING == 1)
+	/* Pairing related setting */
+	uint8_t bootstrap_type;
+	uint16_t bootstrap_method;
+	uint8_t bootstrap_status;
+	uint8_t comeback_enable;
+	uint16_t comeback_after;
+	uint8_t nan_id_key;
+	/* 0: pairing_setup, 1: pairing_verification */
+	uint8_t pairing_verification;
+	/* 0: Requester, 1: Responder */
+	uint8_t pairing_type;
+#endif /* CFG_SUPPORT_NAN_R4_PAIRING */
 } __KAL_ATTRIB_PACKED__;
 
 /* Stats Request structure
@@ -2450,6 +2517,72 @@ struct NanRangeResponse {
 	struct NanRangingCfg ranging_cfg;
 	/* NAN Ranging response control parameters*/
 	struct NanRangeResponseCtl response_ctl;
+} __KAL_ATTRIB_PACKED__;
+
+/* NAN Pairing Request Structure
+ * The message is used to start NAN pairing as initiator
+ */
+struct NanPairingRequest {
+	/* A handle uniquely identifying pairing */
+	uint8_t peer_addr[NAN_MAC_ADDR_LEN];
+	/* Service name*/
+	uint8_t service_name[NAN_FW_MAX_SERVICE_NAME_LEN];
+	uint8_t service_name_len;
+	/* Indicate Pairing Role
+	 * Requestor or Responder
+	 */
+	uint8_t type;
+	/* Local Instance ID */
+	uint8_t local_instance_id;
+	/* Remote Instance ID */
+	uint8_t remote_instance_id;
+	/* Bootstrapping Method */
+	uint8_t bootstrap_method;
+	/* Verification or not */
+	uint8_t verification;
+} __KAL_ATTRIB_PACKED__;
+
+/* NAN Pairing Bootstrapping Password Structure
+ * The message is used to indicate bootstrapping password
+ */
+struct NanBootstrapPassword {
+	/* Service name*/
+	uint8_t service_name[NAN_MAX_SERVICE_NAME_LEN];
+	uint8_t service_name_len;
+	/* Bootstrapping Method */
+	uint8_t bootstrap_method;
+	/* Bootstrapping password */
+	uint8_t password[NAN_PAIRING_MAX_PASSWORD_SIZE];
+	uint8_t password_len;
+} __KAL_ATTRIB_PACKED__;
+
+struct NanPairingPubReq {
+	uint8_t aucCipherSuiteList[2];
+	uint8_t ucPairingSetupEnabled;
+	uint8_t ucNPKNIKCache;
+	uint8_t ucBootstrapMethod;
+	uint8_t ucNiraEnabled;
+	uint8_t ucPairingType;
+} __KAL_ATTRIB_PACKED__;
+
+struct NanBootstrap {
+	uint8_t ucCipherSuiteId;
+	uint8_t ucBootstrapMethod;
+	uint8_t ucBootstrapType;
+	uint8_t ucBootstrapStatus;
+	uint8_t ucComebackEnabled;
+	uint16_t u2ComebackAfter;
+} __KAL_ATTRIB_PACKED__;
+
+struct NanPairingSetupCmd {
+	uint8_t ucPairingSetup;
+	uint8_t ucPairingVerification;
+	uint8_t ucBootstrapMethod;
+	uint8_t ucPairingType;
+} __KAL_ATTRIB_PACKED__;
+
+struct NanNikExchange {
+	uint8_t ucNanIdKey;
 } __KAL_ATTRIB_PACKED__;
 
 #endif

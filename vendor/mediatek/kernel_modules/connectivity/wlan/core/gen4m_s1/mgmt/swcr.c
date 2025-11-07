@@ -1255,7 +1255,7 @@ void swCrDebugInit(struct ADAPTER *prAdapter)
 	g_fgSwcrDebugTimer = FALSE;
 
 	cnmTimerInitTimer(prAdapter, &g_rSwcrDebugTimer,
-			  (PFN_MGMT_TIMEOUT_FUNC) swCrDebugCheckTimeout,
+			  swCrDebugCheckTimeout,
 			  (unsigned long) NULL);
 
 	if (g_u4SwcrDebugCheckTimeout)

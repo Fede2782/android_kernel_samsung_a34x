@@ -82,6 +82,9 @@ static struct cpufreq_limit_parameter param = {
 	.freq_count				= 0,
 
 	.ltl_cpu_start			= 0,
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+	.mid_cpu_start			= 4,
+#endif
 	.big_cpu_start			= 6,
 
 	/* virt freq */
@@ -123,6 +126,7 @@ static void cpufreq_limit_unify_table(void)
 		param.unified_table[freq_count++] = freq;
 	}
 
+#if (!IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT))
 	/* little cluster table */
 	for (i = 0; cpuftbl_ltl[i].frequency != CPUFREQ_TABLE_END; i++)
 		count = i;
@@ -140,6 +144,7 @@ static void cpufreq_limit_unify_table(void)
 			continue;
 		param.unified_table[freq_count++] = freq;
 	}
+#endif
 
 	last_min_req_val = -1;
 	last_max_req_val = -1;
@@ -153,7 +158,39 @@ static void cpufreq_limit_unify_table(void)
 		pr_err("%s: cannot make unified table\n", __func__);
 	}
 }
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+static int cpufreq_limit_get_mid_boost(int freq)
+{
+	int i;
 
+	for (i = 0; i < param.mid_boost_map_size; i++)
+		if (freq >= param.mid_boost_map[i].in)
+			return param.mid_boost_map[i].out;
+	return freq;
+}
+
+static int cpufreq_limit_get_mid_limit(int freq)
+{
+	int i;
+
+	/* big limit condition */
+	for (i = 0; i < param.mid_limit_map_size; i++)
+		if (freq >= param.mid_limit_map[i].in)
+			return MIN(param.mid_limit_map[i].out, param.m_fmax);
+
+	return freq;
+}
+
+static int cpufreq_limit_get_ltl_boost(int freq)
+{
+	int i;
+
+	for (i = 0; i < param.boost_map_size; i++)
+		if (freq >= param.ltl_boost_map[i].in)
+			return param.ltl_boost_map[i].out;
+	return freq * param.ltl_divider;
+}
+#endif
 #if IS_ENABLED(CONFIG_CPU_FREQ_LTL_LIMIT)
 static int cpufreq_limit_get_ltl_limit(int freq)
 {
@@ -301,6 +338,9 @@ static void cpufreq_limit_update_current_freq(void)
 {
 	struct cpufreq_policy *policy;
 	int l_min = 0, l_max = 0;
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+	int m_min = 0, m_max = 0;
+#endif
 	int b_min = 0, b_max = 0;
 
 	policy = cpufreq_cpu_get(param.ltl_cpu_start);
@@ -309,7 +349,14 @@ static void cpufreq_limit_update_current_freq(void)
 		l_max = cpufreq_limit_freq_qos_read_value(&policy->constraints, FREQ_QOS_MAX);
 		cpufreq_cpu_put(policy);
 	}
-
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+	policy = cpufreq_cpu_get(param.mid_cpu_start);
+	if (policy) {
+		m_min = cpufreq_limit_freq_qos_read_value(&policy->constraints, FREQ_QOS_MIN);
+		m_max = cpufreq_limit_freq_qos_read_value(&policy->constraints, FREQ_QOS_MAX);
+		cpufreq_cpu_put(policy);
+	}
+#endif
 	policy = cpufreq_cpu_get(param.big_cpu_start);
 	if (policy) {
 		b_min = cpufreq_limit_freq_qos_read_value(&policy->constraints, FREQ_QOS_MIN);
@@ -317,13 +364,23 @@ static void cpufreq_limit_update_current_freq(void)
 		cpufreq_cpu_put(policy);
 	}
 
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+	pr_info("%s: current freq: ltl(%d ~ %d), mid(%d ~ %d), big(%d ~ %d)\n",
+				__func__, l_min, l_max, m_min, m_max, b_min, b_max);
+#else
 	pr_info("%s: current freq: ltl(%d ~ %d), big(%d ~ %d)\n",
-			__func__, l_min, l_max, b_min, b_max);
-}
+				__func__, l_min, l_max, b_min, b_max);
+#endif
+
+	}
+
 
 static void cpufreq_limit_process_over_limit(unsigned int id, bool need_update_user_max, int new_user_max)
 {
 	int l_max = param.l_fmax;
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+	int m_max = param.m_fmax;
+#endif
 	int b_max = param.b_fmax;
 
 	if ((freq_input[id].min <= (int)param.ltl_max_freq ||
@@ -348,13 +405,27 @@ static void cpufreq_limit_process_over_limit(unsigned int id, bool need_update_u
 #if IS_ENABLED(CONFIG_CPU_FREQ_LTL_LIMIT)
 		l_max = cpufreq_limit_get_ltl_limit(new_user_max);
 #endif
-		if (new_user_max < param.big_min_freq)
+		if (new_user_max < param.big_min_freq) {
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+			m_max = param.m_fmin;
+#endif
 			b_max = param.b_fmin;
-		else
-			b_max = MIN(new_user_max, param.b_fmax);
 
+		} else {
+			b_max = MIN(new_user_max, param.b_fmax);
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+			m_max = MIN(new_user_max, param.m_fmax);
+#endif
+		}
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+		pr_info("%s: freq_update_request : new userspace max %d %d %d\n", __func__, l_max, m_max, b_max);
+#else
 		pr_info("%s: freq_update_request : new userspace max %d %d\n", __func__, l_max, b_max);
+#endif
 		freq_qos_update_request(&max_req[DVFS_USER_ID][param.ltl_cpu_start], l_max);
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+		freq_qos_update_request(&max_req[DVFS_USER_ID][param.mid_cpu_start], m_max);
+#endif
 		freq_qos_update_request(&max_req[DVFS_USER_ID][param.big_cpu_start], b_max);
 	}
 }
@@ -363,6 +434,9 @@ static void cpufreq_limit_process_min_freq(unsigned int id, int min_freq)
 {
 	int i = 0;
 	int l_min = param.l_fmin;
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+	int m_min = param.m_fmin;
+#endif
 	int b_min = param.b_fmin;
 	bool need_update_user_max = false;
 	int new_user_max = FREQ_QOS_MAX_DEFAULT_VALUE;
@@ -425,7 +499,19 @@ static void cpufreq_limit_process_min_freq(unsigned int id, int min_freq)
 						param.ltl_max_freq);
 			}
 		}
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+		l_min = cpufreq_limit_get_ltl_boost(min_freq);
+		m_min = cpufreq_limit_get_mid_boost(min_freq);
+		if (min_freq > param.ltl_max_freq) {
+			b_min = MIN(min_freq, param.b_fmax);
+		} else {
+			b_min = param.b_fmin;
+		}
 
+		pr_info("%s: little(%u-%u, set:%u), mid(set:%u), big(%u-%u, set:%u)\n", __func__,
+			param.ltl_min_freq * param.ltl_divider, param.ltl_max_freq * param.ltl_divider, l_min, m_min,
+			param.big_min_freq, param.big_max_freq, b_min);
+#else
 		if (min_freq > param.ltl_max_freq) {
 			b_min = MIN(min_freq, param.b_fmax);
 			l_min = param.ltl_min_lock_freq;
@@ -437,8 +523,11 @@ static void cpufreq_limit_process_min_freq(unsigned int id, int min_freq)
 		pr_info("%s: little(%u-%u, set:%u), big(%u-%u, set:%u)\n", __func__,
 				param.ltl_min_freq, param.ltl_max_freq, l_min,
 				param.big_min_freq, param.big_max_freq, b_min);
-
+#endif
 		freq_qos_update_request(&min_req[id][param.ltl_cpu_start], l_min);
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+		freq_qos_update_request(&min_req[id][param.mid_cpu_start], m_min);
+#endif
 		freq_qos_update_request(&min_req[id][param.big_cpu_start], b_min);
 	}
 	cpufreq_limit_process_over_limit(id, need_update_user_max, new_user_max);
@@ -448,6 +537,9 @@ static void cpufreq_limit_process_max_freq(unsigned int id, int max_freq)
 {
 	int i = 0;
 	int l_max = param.l_fmax;
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+	int m_max = param.m_fmax;
+#endif
 	int b_max = param.b_fmax;
 	bool need_update_user_max = false;
 	int new_user_max = FREQ_QOS_MAX_DEFAULT_VALUE;
@@ -490,6 +582,19 @@ static void cpufreq_limit_process_max_freq(unsigned int id, int max_freq)
 #if IS_ENABLED(CONFIG_CPU_FREQ_LTL_LIMIT)
 		l_max = cpufreq_limit_get_ltl_limit(max_freq);
 #endif
+
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+		m_max = cpufreq_limit_get_mid_limit(max_freq);
+		if (max_freq < param.big_min_freq) {
+			b_max = param.b_fmin;
+		} else {
+			b_max = MIN(max_freq, param.b_fmax);
+		}
+
+		pr_info("%s: little(%u-%u, set:%u), mid(set:%u), big(%u-%u, set:%u)\n", __func__,
+						param.ltl_min_freq * param.ltl_divider, param.ltl_max_freq * param.ltl_divider, l_max, m_max,
+						param.big_min_freq, param.big_max_freq, b_max);
+#else
 		if (max_freq < param.big_min_freq)
 			b_max = param.b_fmin;
 		else
@@ -503,8 +608,11 @@ static void cpufreq_limit_process_max_freq(unsigned int id, int max_freq)
 		pr_info("%s: little(%u-%u, set:%u), big(%u-%u, set:%u)\n", __func__,
 						param.ltl_min_freq, param.ltl_max_freq, l_max,
 						param.big_min_freq, param.big_max_freq, b_max);
-
+#endif
 		freq_qos_update_request(&max_req[id][param.ltl_cpu_start], l_max);
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+		freq_qos_update_request(&max_req[id][param.mid_cpu_start], m_max);
+#endif
 		freq_qos_update_request(&max_req[id][param.big_cpu_start], b_max);
 	}
 	cpufreq_limit_process_over_limit(id, need_update_user_max, new_user_max);
@@ -850,7 +958,12 @@ static int cpufreq_limit_add_qos(void)
 			param.l_fmin = policy->cpuinfo.min_freq;
 			param.l_fmax = policy->cpuinfo.max_freq;
 		}
-
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+		if (i == param.mid_cpu_start) {
+			param.m_fmin = policy->cpuinfo.min_freq;
+			param.m_fmax = policy->cpuinfo.max_freq;
+		}
+#endif
 		if (i == param.big_cpu_start) {
 			param.b_fmin = policy->cpuinfo.min_freq;
 			param.b_fmax = policy->cpuinfo.max_freq;
@@ -903,7 +1016,12 @@ static int cpufreq_limit_parse_dt(struct device_node *np)
 	if (ret)
 		return -EINVAL;
 	param.ltl_cpu_start = val;
-
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+	ret = of_property_read_u32(np, "mid_cpu_start", &val);
+	if (ret)
+		return -EINVAL;
+	param.mid_cpu_start = val;
+#endif
 	ret = of_property_read_u32(np, "big_cpu_start", &val);
 	if (ret)
 		return -EINVAL;
@@ -935,6 +1053,34 @@ static int cpufreq_limit_parse_dt(struct device_node *np)
 	pr_info("%s: param: limit map size(%d)\n", __func__, param.limit_map_size);
 #endif
 
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+	of_get_property(np, "ltl_boost_table", &val);
+	if (val) {
+		param.ltl_boost_map = kcalloc(1, val, GFP_KERNEL);
+		of_property_read_u32_array(np, "ltl_boost_table",
+				(u32 *)param.ltl_boost_map, val / sizeof(u32));
+		param.boost_map_size = val / sizeof(*param.ltl_boost_map);
+	}
+	pr_info("%s: param: boost map size(%d)\n", __func__, param.boost_map_size);
+
+	of_get_property(np, "mid_limit_table", &val);
+	if (val) {
+		param.mid_limit_map = kcalloc(1, val, GFP_KERNEL);
+		of_property_read_u32_array(np, "mid_limit_table",
+				(u32 *)param.mid_limit_map, val / sizeof(u32));
+		param.mid_limit_map_size = val / sizeof(*param.mid_limit_map);
+	}
+	pr_info("%s: param: mid limit map size(%d)\n", __func__, param.mid_limit_map_size);
+
+	of_get_property(np, "mid_boost_table", &val);
+	if (val) {
+		param.mid_boost_map = kcalloc(1, val, GFP_KERNEL);
+		of_property_read_u32_array(np, "mid_boost_table",
+				(u32 *)param.mid_boost_map, val / sizeof(u32));
+		param.mid_boost_map_size = val / sizeof(*param.mid_boost_map);
+	}
+	pr_info("%s: param: mid boost map size(%d)\n", __func__, param.mid_boost_map_size);
+#endif
 	return ret;
 }
 #endif
@@ -967,8 +1113,8 @@ int cpufreq_limit_probe(struct platform_device *pdev)
 
 	dev_root = bus_get_dev_root(&cpu_subsys);
 	if (dev_root) {
-	cpufreq_kobj = kobject_create_and_add("cpufreq_limit",
-						&dev_root->kobj);
+		cpufreq_kobj = kobject_create_and_add("cpufreq_limit",
+							&dev_root->kobj);
 	}
 
 	if (!cpufreq_kobj) {
@@ -1028,6 +1174,16 @@ static int cpufreq_limit_remove(struct platform_device *pdev)
 		kfree(min_req[i]);
 		kfree(max_req[i]);
 	}
+
+	/* deallocation memory of Little and Mid limit/boost map */
+#if IS_ENABLED(CONFIG_CPU_FREQ_LTL_LIMIT)
+	kfree(param.ltl_limit_map);
+#endif
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+	kfree(param.ltl_boost_map);
+	kfree(param.mid_limit_map);
+	kfree(param.mid_boost_map);
+#endif
 
 	pr_info("%s: done\n", __func__);
 	return ret;

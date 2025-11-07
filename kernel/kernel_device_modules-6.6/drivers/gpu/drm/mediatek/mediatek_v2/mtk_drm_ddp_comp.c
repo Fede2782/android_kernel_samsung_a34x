@@ -1397,6 +1397,8 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 		goto err_larb;
 
 	for (i = 0; i < count; i++) {
+		bool linked = type != MTK_OVL_EXDMA;
+
 		ret = of_parse_phandle_with_fixed_args(node, "mediatek,larb", 1, i, &larb_args);
 		if (ret) {
 			DDPMSG("%s %s failed to parse\n", __func__, mtk_dump_comp_str(comp));
@@ -1417,7 +1419,8 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 
 		larb_devs[i] = &larb_pdev->dev;
 
-		device_link_add(dev, larb_devs[i], DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+		if (linked)
+			device_link_add(dev, larb_devs[i], DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
 
 		/* MTK_M4U_TO_LARB(M4U_PORT_L21_DISP_OVL0_2L_RDMA1) = 21 */
 		larb_ids[i] = MTK_M4U_TO_LARB(larb_args.args[0]);
@@ -1425,8 +1428,8 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 			res.start + MTK_M4U_TO_PORT(larb_args.args[0]) * 4 + SMI_LARB_NON_SEC_CON;
 
 		DDPMSG("i=%d 0x%pa\n", i, &larb_cons[i]);
-		DDPMSG("%s: %s need larb device, smi-id:%d\n",
-			__func__, mtk_dump_comp_str(comp), larb_ids[i]);
+		DDPMSG("%s: %s need larb device, smi-id:%d linked:%u\n",
+			__func__, mtk_dump_comp_str(comp), larb_ids[i], linked);
 	}
 	comp->larb_devs = larb_devs;
 	comp->larb_ids = larb_ids;
@@ -1454,7 +1457,13 @@ unsigned int mtk_drm_find_possible_crtc_by_comp(struct drm_device *drm,
 	    true) {
 		ret = BIT(0);
 	} else if (mtk_drm_find_comp_in_ddp(
+			ddp_comp, private->data->main_dual_path_data) == true) {
+		ret = BIT(0);
+	} else if (mtk_drm_find_comp_in_ddp(
 			ddp_comp, private->data->ext_path_data) == true) {
+		ret = BIT(1);
+	} else if (mtk_drm_find_comp_in_ddp(
+			ddp_comp, private->data->ext_triple_path_data) == true) {
 		ret = BIT(1);
 	} else if (mtk_drm_find_comp_in_ddp(
 			ddp_comp, private->data->third_path_data) == true) {
@@ -3321,6 +3330,8 @@ void mt6991_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	if (handle == NULL) {
 		if (priv->ovlsys1_regs) {
 			val = 0;
+			SET_VAL_MASK(val, val_mask, 4, OVL_EXDMA4_SEL);
+			SET_VAL_MASK(val, val_mask, 4, OVL_EXDMA5_SEL);
 			SET_VAL_MASK(val, val_mask, 4, OVL_EXDMA6_SEL);
 			SET_VAL_MASK(val, val_mask, 4, OVL_EXDMA7_SEL);
 			writel_relaxed(val, priv->ovlsys1_regs + OVLSYS_EXRDMA_ULTRA_SEL0);
@@ -3335,6 +3346,8 @@ void mt6991_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	} else {
 		if (priv->ovlsys1_regs) {
 			val = 0;
+			SET_VAL_MASK(val, val_mask, 4, OVL_EXDMA4_SEL);
+			SET_VAL_MASK(val, val_mask, 4, OVL_EXDMA5_SEL);
 			SET_VAL_MASK(val, val_mask, 4, OVL_EXDMA6_SEL);
 			SET_VAL_MASK(val, val_mask, 4, OVL_EXDMA7_SEL);
 			cmdq_pkt_write(handle, NULL, priv->ovlsys1_regs_pa +

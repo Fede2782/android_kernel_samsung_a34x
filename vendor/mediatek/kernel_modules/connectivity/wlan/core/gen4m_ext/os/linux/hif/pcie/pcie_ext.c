@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2023 MediaTek Inc.
  */
@@ -66,7 +66,7 @@ static void wlan_eap_tc10_pci_event_cb(struct exynos_pcie_notify *notify)
 		return;
 	}
 
-	DBGLOG(HAL, DEBUG, "event: %d\n", notify->event);
+	DBGLOG(HAL, INFO, "event: %d\n", notify->event);
 
 	switch (notify->event) {
 	case EXYNOS_PCIE_EVENT_CPL_TIMEOUT:
@@ -84,7 +84,7 @@ static int wlan_reg_eap_tc10_pci_event(struct mt66xx_hif_driver_data *data)
 	struct mt66xx_chip_info *chip_info = data->chip_info;
 	int ret = 0;
 
-	DBGLOG(HAL, DEBUG, "\n");
+	DBGLOG(HAL, INFO, "\n");
 
 	data->eap_tc10_pci_event = kalMemAlloc(
 		sizeof(struct exynos_pcie_register_event),
@@ -106,13 +106,13 @@ static int wlan_reg_eap_tc10_pci_event(struct mt66xx_hif_driver_data *data)
 	ret = exynos_pcie_register_event(pci_event);
 
 exit:
-	DBGLOG(HAL, DEBUG, "ret: %d\n", ret);
+	DBGLOG(HAL, INFO, "ret: %d\n", ret);
 	return ret;
 }
 
 static void wlan_dereg_eap_tc10_pci_event(struct mt66xx_hif_driver_data *data)
 {
-	DBGLOG(HAL, DEBUG, "\n");
+	DBGLOG(HAL, INFO, "\n");
 
 	if (!data->eap_tc10_pci_event)
 		return;

@@ -262,7 +262,7 @@ static int pd_get_status(struct adapter_device *dev, struct adapter_status *sta)
 	return to_mtk_adapter_ret(ret);
 }
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 static bool pd_is_src_usb_suspend_support(struct adapter_device *dev)
 {
 	struct mtk_pd_adapter_info *info = adapter_dev_get_drvdata(dev);
@@ -379,7 +379,7 @@ static inline int pd_get_cap_pdo(struct mtk_pd_adapter_info *info,
 			    __func__, pd_cap.nr, pd_cap.selected_cap_idx);
 	cap->selected_cap_idx = pd_cap.selected_cap_idx - 1;
 	for (i = 0, j = 0; i < pd_cap.nr && j < ADAPTER_CAP_MAX_NR; i++) {
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		if (pd_cap.type[i] != (int) TCPM_POWER_CAP_VAL_TYPE_FIXED)
 			continue;
 #endif
@@ -389,7 +389,7 @@ static inline int pd_get_cap_pdo(struct mtk_pd_adapter_info *info,
 		cap->ma[j] = pd_cap.ma[i];
 		cap->maxwatt[j] = pd_cap.max_mv[i] * pd_cap.ma[i];
 		cap->minwatt[j] = pd_cap.min_mv[i] * pd_cap.ma[i];
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		if (pd_cap.type[i] == 0)
 			cap->type[j] = MTK_PD;
 		else if (pd_cap.type[i] == 2)
@@ -657,7 +657,7 @@ static struct adapter_ops adapter_ops = {
 	.set_wdt = pd_set_wdt,
 	.enable_wdt = pd_enable_wdt,
 	.send_hardreset = pd_send_hardreset,
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	.is_src_usb_communication_capable = pd_is_src_usb_communication_capable,
 	.is_src_usb_suspend_support = pd_is_src_usb_suspend_support,
 #endif

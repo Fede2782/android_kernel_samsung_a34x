@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -33,9 +33,6 @@
  *                            P U B L I C   D A T A
  *******************************************************************************
  */
-#if (CFG_TESTMODE_FWDL_SUPPORT == 1)
-u_int8_t g_fgWlanOnOffHoldRtnlLock;
-#endif
 
 /*******************************************************************************
  *                           P R I V A T E   D A T A
@@ -107,7 +104,7 @@ uint32_t asicGetChipID(struct ADAPTER *prAdapter)
 		   ((prChipInfo->u4ChipIpVersion & 0x0000000F) <<  8) |
 		   (prChipInfo->u2ADieChipVersion & 0xFF);
 
-	log_dbg(HAL, DEBUG, "ChipID = [0x%08x]\n", u4ChipID);
+	log_dbg(HAL, INFO, "ChipID = [0x%08x]\n", u4ChipID);
 	return u4ChipID;
 }
 
@@ -146,12 +143,12 @@ void fillTxDescAppendByHostV2(struct ADAPTER *prAdapter,
 	prHwTxDescAppend->CONNAC_APPEND.au2MsduId[u4Idx] =
 		u4MsduId | TXD_MSDU_ID_VLD;
 	prPtrLen = &prHwTxDescAppend->CONNAC_APPEND.arPtrLen[u4Idx >> 1];
-	u2Len = nicTxGetFrameLength(prMsduInfo);
+	u2Len = prMsduInfo->u2FrameLength;
 
 #if (CFG_SUPPORT_TX_SG == 1)
 #if defined(_HIF_PCIE) || defined(_HIF_AXI)
 	if (prToken && prToken->nr_frags)
-		u2Len = nicTxGetFrameLength(prMsduInfo) - prToken->len_frags;
+		u2Len = prMsduInfo->u2FrameLength - prToken->len_frags;
 #endif
 #endif
 	u2Len = (u2Len & TXD_LEN_MASK_V2) |
@@ -213,10 +210,10 @@ void fillTxDescAppendByHostV2(struct ADAPTER *prAdapter,
 
 	NIC_DUMP_TXP_HEADER(prAdapter, "Dump DATA TXP: append=%zu, len=%u\n",
 			sizeof(prHwTxDescAppend->CONNAC_APPEND),
-			nicTxGetFrameLength(prMsduInfo));
+			prMsduInfo->u2FrameLength);
 	NIC_DUMP_TXP(prAdapter, (uint8_t *)prHwTxDescAppend,
 			sizeof(prHwTxDescAppend->CONNAC_APPEND),
-			nicTxGetFrameLength(prMsduInfo));
+			prMsduInfo->u2FrameLength);
 }
 
 static char *q_idx_mcu_str[] = {"RQ0", "RQ1", "RQ2", "RQ3", "Invalid"};
@@ -248,9 +245,9 @@ void halDumpTxdInfo(struct ADAPTER *prAdapter, uint8_t *tmac_info)
 	txd_0 = &txd_s->TxD0;
 	txd_1 = &txd_s->TxD1;
 
-	DBGLOG(HAL, DEBUG, "TMAC_TXD Fields:\n");
-	DBGLOG(HAL, DEBUG, "\tTMAC_TXD_0:\n");
-	DBGLOG(HAL, DEBUG, "\t\tPortID=%d(%s)\n",
+	DBGLOG(HAL, INFO, "TMAC_TXD Fields:\n");
+	DBGLOG(HAL, INFO, "\tTMAC_TXD_0:\n");
+	DBGLOG(HAL, INFO, "\t\tPortID=%d(%s)\n",
 			txd_0->p_idx, p_idx_str[txd_0->p_idx]);
 
 	if (txd_0->p_idx == P_IDX_LMAC)
@@ -259,25 +256,25 @@ void halDumpTxdInfo(struct ADAPTER *prAdapter, uint8_t *tmac_info)
 		q_idx = ((txd_0->q_idx == TxQ_IDX_MCU_PDA) ?
 			txd_0->q_idx : (txd_0->q_idx % 0x4));
 
-	DBGLOG(HAL, DEBUG, "\t\tQueID=0x%x(%s %s)\n", txd_0->q_idx,
+	DBGLOG(HAL, INFO, "\t\tQueID=0x%x(%s %s)\n", txd_0->q_idx,
 			 (txd_0->p_idx == P_IDX_LMAC ? "LMAC" : "MCU"),
 			 txd_0->p_idx == P_IDX_LMAC ?
 				q_idx_lmac_str[q_idx] : q_idx_mcu_str[q_idx]);
-	DBGLOG(HAL, DEBUG, "\t\tTxByteCnt=%d\n", txd_0->TxByteCount);
-	DBGLOG(HAL, DEBUG, "\t\tIpChkSumOffload=%d\n", txd_0->IpChkSumOffload);
-	DBGLOG(HAL, DEBUG, "\t\tUdpTcpChkSumOffload=%d\n",
+	DBGLOG(HAL, INFO, "\t\tTxByteCnt=%d\n", txd_0->TxByteCount);
+	DBGLOG(HAL, INFO, "\t\tIpChkSumOffload=%d\n", txd_0->IpChkSumOffload);
+	DBGLOG(HAL, INFO, "\t\tUdpTcpChkSumOffload=%d\n",
 						txd_0->UdpTcpChkSumOffload);
-	DBGLOG(HAL, DEBUG, "\t\tEthTypeOffset=%d\n", txd_0->EthTypeOffset);
+	DBGLOG(HAL, INFO, "\t\tEthTypeOffset=%d\n", txd_0->EthTypeOffset);
 
-	DBGLOG(HAL, DEBUG, "\tTMAC_TXD_1:\n");
-	DBGLOG(HAL, DEBUG, "\t\twlan_idx=%d\n", txd_1->wlan_idx);
-	DBGLOG(HAL, DEBUG, "\t\tHdrFmt=%d(%s)\n",
+	DBGLOG(HAL, INFO, "\tTMAC_TXD_1:\n");
+	DBGLOG(HAL, INFO, "\t\twlan_idx=%d\n", txd_1->wlan_idx);
+	DBGLOG(HAL, INFO, "\t\tHdrFmt=%d(%s)\n",
 			 txd_1->hdr_format, hdr_fmt_str[txd_1->hdr_format]);
-	DBGLOG(HAL, DEBUG, "\t\tHdrInfo=0x%x\n", txd_1->hdr_info);
+	DBGLOG(HAL, INFO, "\t\tHdrInfo=0x%x\n", txd_1->hdr_info);
 
 	switch (txd_1->hdr_format) {
 	case TMI_HDR_FT_NON_80211:
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"\t\t\tMRD=%d, EOSP=%d, RMVL=%d, VLAN=%d, ETYP=%d\n",
 			txd_1->hdr_info & (1 << TMI_HDR_INFO_0_BIT_MRD),
 			txd_1->hdr_info & (1 << TMI_HDR_INFO_0_BIT_EOSP),
@@ -287,37 +284,37 @@ void halDumpTxdInfo(struct ADAPTER *prAdapter, uint8_t *tmac_info)
 		break;
 
 	case TMI_HDR_FT_CMD:
-		DBGLOG(HAL, DEBUG, "\t\t\tRsvd=0x%x\n", txd_1->hdr_info);
+		DBGLOG(HAL, INFO, "\t\t\tRsvd=0x%x\n", txd_1->hdr_info);
 		break;
 
 	case TMI_HDR_FT_NOR_80211:
-		DBGLOG(HAL, DEBUG, "\t\t\tHeader Len=%d(WORD)\n",
+		DBGLOG(HAL, INFO, "\t\t\tHeader Len=%d(WORD)\n",
 				 txd_1->hdr_info & TMI_HDR_INFO_2_MASK_LEN);
 		break;
 
 	case TMI_HDR_FT_ENH_80211:
-		DBGLOG(HAL, DEBUG, "\t\t\tEOSP=%d, AMS=%d\n",
+		DBGLOG(HAL, INFO, "\t\t\tEOSP=%d, AMS=%d\n",
 			txd_1->hdr_info & (1 << TMI_HDR_INFO_3_BIT_EOSP),
 			txd_1->hdr_info & (1 << TMI_HDR_INFO_3_BIT_AMS));
 		break;
 	}
 
-	DBGLOG(HAL, DEBUG, "\t\tTxDFormatType=%d(%s format)\n", txd_1->ft,
+	DBGLOG(HAL, INFO, "\t\tTxDFormatType=%d(%s format)\n", txd_1->ft,
 		(txd_1->ft == TMI_FT_LONG ?
 		"Long - 8 DWORD" : "Short - 3 DWORD"));
-	DBGLOG(HAL, DEBUG, "\t\ttxd_len=%d page(%d DW)\n",
+	DBGLOG(HAL, INFO, "\t\ttxd_len=%d page(%d DW)\n",
 		txd_1->txd_len == 0 ? 1 : 2, (txd_1->txd_len + 1) * 16);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\t\tHdrPad=%d(Padding Mode: %s, padding bytes: %d)\n",
 		txd_1->hdr_pad,
 		((txd_1->hdr_pad & (TMI_HDR_PAD_MODE_TAIL << 1)) ?
 		"tail" : "head"), (txd_1->hdr_pad & 0x1 ? 2 : 0));
-	DBGLOG(HAL, DEBUG, "\t\tUNxV=%d\n", txd_1->UNxV);
-	DBGLOG(HAL, DEBUG, "\t\tamsdu=%d\n", txd_1->amsdu);
-	DBGLOG(HAL, DEBUG, "\t\tTID=%d\n", txd_1->tid);
-	DBGLOG(HAL, DEBUG, "\t\tpkt_ft=%d(%s)\n",
+	DBGLOG(HAL, INFO, "\t\tUNxV=%d\n", txd_1->UNxV);
+	DBGLOG(HAL, INFO, "\t\tamsdu=%d\n", txd_1->amsdu);
+	DBGLOG(HAL, INFO, "\t\tTID=%d\n", txd_1->tid);
+	DBGLOG(HAL, INFO, "\t\tpkt_ft=%d(%s)\n",
 			 txd_1->pkt_ft, pkt_ft_str[txd_1->pkt_ft]);
-	DBGLOG(HAL, DEBUG, "\t\town_mac=%d\n", txd_1->OwnMacAddr);
+	DBGLOG(HAL, INFO, "\t\town_mac=%d\n", txd_1->OwnMacAddr);
 
 	if (txd_s->TxD1.ft == TMI_FT_LONG) {
 		struct TMAC_TXD_L *txd_l = (struct TMAC_TXD_L *)tmac_info;
@@ -327,68 +324,67 @@ void halDumpTxdInfo(struct ADAPTER *prAdapter, uint8_t *tmac_info)
 		struct TMAC_TXD_5 *txd_5 = &txd_l->TxD5;
 		struct TMAC_TXD_6 *txd_6 = &txd_l->TxD6;
 
-		DBGLOG(HAL, DEBUG, "\tTMAC_TXD_2:\n");
-		DBGLOG(HAL, DEBUG, "\t\tsub_type=%d\n", txd_2->sub_type);
-		DBGLOG(HAL, DEBUG, "\t\tfrm_type=%d\n", txd_2->frm_type);
-		DBGLOG(HAL, DEBUG, "\t\tNDP=%d\n", txd_2->ndp);
-		DBGLOG(HAL, DEBUG, "\t\tNDPA=%d\n", txd_2->ndpa);
-		DBGLOG(HAL, DEBUG, "\t\tSounding=%d\n", txd_2->sounding);
-		DBGLOG(HAL, DEBUG, "\t\tRTS=%d\n", txd_2->rts);
-		DBGLOG(HAL, DEBUG, "\t\tbc_mc_pkt=%d\n", txd_2->bc_mc_pkt);
-		DBGLOG(HAL, DEBUG, "\t\tBIP=%d\n", txd_2->bip);
-		DBGLOG(HAL, DEBUG, "\t\tDuration=%d\n", txd_2->duration);
-		DBGLOG(HAL, DEBUG, "\t\tHE(HTC Exist)=%d\n", txd_2->htc_vld);
-		DBGLOG(HAL, DEBUG, "\t\tFRAG=%d\n", txd_2->frag);
-		DBGLOG(HAL, DEBUG, "\t\tReamingLife/MaxTx time=%d\n",
+		DBGLOG(HAL, INFO, "\tTMAC_TXD_2:\n");
+		DBGLOG(HAL, INFO, "\t\tsub_type=%d\n", txd_2->sub_type);
+		DBGLOG(HAL, INFO, "\t\tfrm_type=%d\n", txd_2->frm_type);
+		DBGLOG(HAL, INFO, "\t\tNDP=%d\n", txd_2->ndp);
+		DBGLOG(HAL, INFO, "\t\tNDPA=%d\n", txd_2->ndpa);
+		DBGLOG(HAL, INFO, "\t\tSounding=%d\n", txd_2->sounding);
+		DBGLOG(HAL, INFO, "\t\tRTS=%d\n", txd_2->rts);
+		DBGLOG(HAL, INFO, "\t\tbc_mc_pkt=%d\n", txd_2->bc_mc_pkt);
+		DBGLOG(HAL, INFO, "\t\tBIP=%d\n", txd_2->bip);
+		DBGLOG(HAL, INFO, "\t\tDuration=%d\n", txd_2->duration);
+		DBGLOG(HAL, INFO, "\t\tHE(HTC Exist)=%d\n", txd_2->htc_vld);
+		DBGLOG(HAL, INFO, "\t\tFRAG=%d\n", txd_2->frag);
+		DBGLOG(HAL, INFO, "\t\tReamingLife/MaxTx time=%d\n",
 			txd_2->max_tx_time);
-		DBGLOG(HAL, DEBUG, "\t\tpwr_offset=%d\n", txd_2->pwr_offset);
-		DBGLOG(HAL, DEBUG, "\t\tba_disable=%d\n", txd_2->ba_disable);
-		DBGLOG(HAL, DEBUG, "\t\ttiming_measure=%d\n",
+		DBGLOG(HAL, INFO, "\t\tpwr_offset=%d\n", txd_2->pwr_offset);
+		DBGLOG(HAL, INFO, "\t\tba_disable=%d\n", txd_2->ba_disable);
+		DBGLOG(HAL, INFO, "\t\ttiming_measure=%d\n",
 			txd_2->timing_measure);
-		DBGLOG(HAL, DEBUG, "\t\tfix_rate=%d\n", txd_2->fix_rate);
-		DBGLOG(HAL, DEBUG, "\tTMAC_TXD_3:\n");
-		DBGLOG(HAL, DEBUG, "\t\tNoAck=%d\n", txd_3->no_ack);
-		DBGLOG(HAL, DEBUG, "\t\tPF=%d\n", txd_3->protect_frm);
-		DBGLOG(HAL, DEBUG, "\t\ttx_cnt=%d\n", txd_3->tx_cnt);
-		DBGLOG(HAL, DEBUG, "\t\tremain_tx_cnt=%d\n",
+		DBGLOG(HAL, INFO, "\t\tfix_rate=%d\n", txd_2->fix_rate);
+		DBGLOG(HAL, INFO, "\tTMAC_TXD_3:\n");
+		DBGLOG(HAL, INFO, "\t\tNoAck=%d\n", txd_3->no_ack);
+		DBGLOG(HAL, INFO, "\t\tPF=%d\n", txd_3->protect_frm);
+		DBGLOG(HAL, INFO, "\t\ttx_cnt=%d\n", txd_3->tx_cnt);
+		DBGLOG(HAL, INFO, "\t\tremain_tx_cnt=%d\n",
 			txd_3->remain_tx_cnt);
-		DBGLOG(HAL, DEBUG, "\t\tsn=%d\n", txd_3->sn);
-		DBGLOG(HAL, DEBUG, "\t\tpn_vld=%d\n", txd_3->pn_vld);
-		DBGLOG(HAL, DEBUG, "\t\tsn_vld=%d\n", txd_3->sn_vld);
-		DBGLOG(HAL, DEBUG, "\tTMAC_TXD_4:\n");
-		DBGLOG(HAL, DEBUG, "\t\tpn_low=0x%x\n", txd_4->pn_low);
-		DBGLOG(HAL, DEBUG, "\tTMAC_TXD_5:\n");
-		DBGLOG(HAL, DEBUG, "\t\ttx_status_2_host=%d\n",
+		DBGLOG(HAL, INFO, "\t\tsn=%d\n", txd_3->sn);
+		DBGLOG(HAL, INFO, "\t\tpn_vld=%d\n", txd_3->pn_vld);
+		DBGLOG(HAL, INFO, "\t\tsn_vld=%d\n", txd_3->sn_vld);
+		DBGLOG(HAL, INFO, "\tTMAC_TXD_4:\n");
+		DBGLOG(HAL, INFO, "\t\tpn_low=0x%x\n", txd_4->pn_low);
+		DBGLOG(HAL, INFO, "\tTMAC_TXD_5:\n");
+		DBGLOG(HAL, INFO, "\t\ttx_status_2_host=%d\n",
 			txd_5->tx_status_2_host);
-		DBGLOG(HAL, DEBUG, "\t\ttx_status_2_mcu=%d\n",
+		DBGLOG(HAL, INFO, "\t\ttx_status_2_mcu=%d\n",
 			txd_5->tx_status_2_mcu);
-		DBGLOG(HAL, DEBUG, "\t\ttx_status_fmt=%d\n",
+		DBGLOG(HAL, INFO, "\t\ttx_status_fmt=%d\n",
 			txd_5->tx_status_fmt);
 
 		if (txd_5->tx_status_2_host || txd_5->tx_status_2_mcu)
-			DBGLOG(HAL, DEBUG, "\t\tpid=%d\n", txd_5->pid);
+			DBGLOG(HAL, INFO, "\t\tpid=%d\n", txd_5->pid);
 
 		if (txd_2->fix_rate)
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 				"\t\tda_select=%d\n", txd_5->da_select);
 
-		DBGLOG(HAL, DEBUG, "\t\tpwr_mgmt=0x%x\n", txd_5->pwr_mgmt);
-		DBGLOG(HAL, DEBUG, "\t\tpn_high=0x%x\n", txd_5->pn_high);
+		DBGLOG(HAL, INFO, "\t\tpwr_mgmt=0x%x\n", txd_5->pwr_mgmt);
+		DBGLOG(HAL, INFO, "\t\tpn_high=0x%x\n", txd_5->pn_high);
 
 		if (txd_2->fix_rate) {
-			DBGLOG(HAL, DEBUG, "\tTMAC_TXD_6:\n");
-			DBGLOG(HAL, DEBUG, "\t\tfix_rate_mode=%d\n",
+			DBGLOG(HAL, INFO, "\tTMAC_TXD_6:\n");
+			DBGLOG(HAL, INFO, "\t\tfix_rate_mode=%d\n",
 				txd_6->fix_rate_mode);
-			DBGLOG(HAL, DEBUG, "\t\tGI=%d(%s)\n", txd_6->gi,
+			DBGLOG(HAL, INFO, "\t\tGI=%d(%s)\n", txd_6->gi,
 				(txd_6->gi == 0 ? "LONG" : "SHORT"));
-			DBGLOG(HAL, DEBUG, "\t\tldpc=%d(%s)\n", txd_6->ldpc,
+			DBGLOG(HAL, INFO, "\t\tldpc=%d(%s)\n", txd_6->ldpc,
 				(txd_6->ldpc == 0 ? "BCC" : "LDPC"));
-			DBGLOG(HAL, DEBUG, "\t\tTxBF=%d\n", txd_6->TxBF);
-			DBGLOG(HAL, DEBUG,
-			       "\t\ttx_rate=0x%x\n", txd_6->tx_rate);
-			DBGLOG(HAL, DEBUG, "\t\tant_id=%d\n", txd_6->ant_id);
-			DBGLOG(HAL, DEBUG, "\t\tdyn_bw=%d\n", txd_6->dyn_bw);
-			DBGLOG(HAL, DEBUG, "\t\tbw=%d\n", txd_6->bw);
+			DBGLOG(HAL, INFO, "\t\tTxBF=%d\n", txd_6->TxBF);
+			DBGLOG(HAL, INFO, "\t\ttx_rate=0x%x\n", txd_6->tx_rate);
+			DBGLOG(HAL, INFO, "\t\tant_id=%d\n", txd_6->ant_id);
+			DBGLOG(HAL, INFO, "\t\tdyn_bw=%d\n", txd_6->dyn_bw);
+			DBGLOG(HAL, INFO, "\t\tbw=%d\n", txd_6->bw);
 		}
 	}
 }
@@ -427,15 +423,11 @@ void fillUsbHifTxDesc(uint8_t **pDest, uint16_t *pInfoBufLen,
 #endif
 
 #if CFG_MTK_ANDROID_WMT
-#if !CFG_SUPPORT_CONNAC1X
+#if !IS_ENABLED(CFG_SUPPORT_CONNAC1X)
 static int wlan_func_on_by_chrdev(void)
 {
-#define WAKE_LOCK_ON_TIMEOUT	15000	/* ms */
 #define MAX_RETRY_COUNT		100
 
-#if CFG_ENABLE_WAKE_LOCK
-	KAL_WAKE_LOCK_T * prWlanOnOffWakeLock;
-#endif
 	int retry = 0;
 	int ret = 0;
 
@@ -456,20 +448,14 @@ static int wlan_func_on_by_chrdev(void)
 		kalMdelay(100);
 	}
 
-#if CFG_ENABLE_WAKE_LOCK
-	KAL_WAKE_LOCK_INIT(NULL,
-		prWlanOnOffWakeLock, "WIFI_on");
-	KAL_WAKE_LOCK_TIMEOUT(NULL, prWlanOnOffWakeLock,
-		MSEC_TO_JIFFIES(WAKE_LOCK_ON_TIMEOUT));
+#if CFG_WIFI_LEROY_MP2
+	rtnl_lock();
 #endif
-
 	wfsys_lock();
 	ret = wlanFuncOn();
 	wfsys_unlock();
-
-#if CFG_ENABLE_WAKE_LOCK
-	KAL_WAKE_UNLOCK(NULL, prWlanOnOffWakeLock);
-	KAL_WAKE_LOCK_DESTROY(NULL, prWlanOnOffWakeLock);
+#if CFG_WIFI_LEROY_MP2
+	rtnl_unlock();
 #endif
 
 exit:
@@ -478,9 +464,15 @@ exit:
 
 static int wlan_func_off_by_chrdev(void)
 {
+#if CFG_WIFI_LEROY_MP2
+	rtnl_lock();
+#endif
 	wfsys_lock();
 	wlanFuncOff();
 	wfsys_unlock();
+#if CFG_WIFI_LEROY_MP2
+	rtnl_unlock();
+#endif
 
 	return 0;
 }
@@ -501,59 +493,3 @@ void register_chrdev_cbs(void)
 }
 #endif
 #endif
-
-int wlan_test_mode_on(bool uIsSwtichTestMode)
-{
-	int32_t ret = 0;
-#if (CFG_TESTMODE_FWDL_SUPPORT == 1)
-	DBGLOG(INIT, DEBUG, "uIsSwtichTestMode: %d\n", uIsSwtichTestMode);
-
-	if (kalIsResetOnEnd() == TRUE) {
-		DBGLOG(INIT, DEBUG, "now is resetting\n");
-		ret = WLAN_STATUS_FAILURE;
-		return ret;
-	}
-
-	if (!wfsys_trylock()) {
-		DBGLOG(INIT, DEBUG, "now is write processing\n");
-		ret = WLAN_STATUS_FAILURE;
-		return ret;
-	}
-
-	set_wifi_in_switch_mode(1);
-	g_fgWlanOnOffHoldRtnlLock = 1;
-
-	wlanFuncOff();
-	if (uIsSwtichTestMode)
-		set_wifi_test_mode_fwdl(1);
-	ret = wlanFuncOn();
-	if (uIsSwtichTestMode)
-		set_wifi_test_mode_fwdl(0);
-
-	g_fgWlanOnOffHoldRtnlLock = 0;
-	set_wifi_in_switch_mode(0);
-	wfsys_unlock();
-#endif
-	return ret;
-}
-#if defined(_HIF_SDIO)
-void fillSdioHifTxDesc(uint8_t **pDest, uint16_t *pInfoBufLen,
-	uint8_t ucPacketType)
-{
-	/* SDIO TX Descriptor (4 bytes)*/
-
-	/* BIT[15:00] - TX Bytes Count
-	 * BIT[17:16] - Packet Type
-	 * BIT[31:18] - Reserved
-	 */
-	struct SDIO_HIF_TX_HEADER sdio_hif_header = {0};
-
-	sdio_hif_header.InfoBufLen = (*pInfoBufLen + SDIO_HIF_TXD_LEN);
-	sdio_hif_header.Type =
-		(ucPacketType & SDIO_HIF_TXD_PKG_TYPE_MASK)
-				<< SDIO_HIF_TXD_PKG_TYPE_SHIFT;
-
-	kalMemZero((void *)*pDest, SDIO_HIF_TXD_LEN);
-	kalMemCopy((void *)*pDest, &sdio_hif_header, SDIO_HIF_TXD_LEN);
-}
-#endif /* _HIF_SDIO */

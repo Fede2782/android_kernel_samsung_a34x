@@ -1245,7 +1245,7 @@ static void mt6379_wd_polling_dwork_handler(struct work_struct *work)
 		if (ret) {
 			if (i != 0)
 				schedule_delayed_work(dwork,
-						   msecs_to_jiffies(10000));
+						      msecs_to_jiffies(10000));
 			return;
 		}
 	}
@@ -1619,12 +1619,12 @@ static int mt6379_get_cc(struct tcpc_device *tcpc, int *cc1, int *cc2)
 			*cc2 = TYPEC_CC_DRP_TOGGLING;
 			return 0;
 		}
-			/* Toggle reg0x1A[6] DRP = 1 and = 0 */
-			mt6379_write8(ddata, TCPC_V10_REG_ROLE_CTRL,
-				      role_ctrl | TCPC_V10_REG_ROLE_CTRL_DRP);
-			mt6379_write8(ddata, TCPC_V10_REG_ROLE_CTRL, role_ctrl);
-			return -EAGAIN;
-		}
+		/* Toggle reg0x1A[6] DRP = 1 and = 0 */
+		mt6379_write8(ddata, TCPC_V10_REG_ROLE_CTRL,
+			      role_ctrl | TCPC_V10_REG_ROLE_CTRL_DRP);
+		mt6379_write8(ddata, TCPC_V10_REG_ROLE_CTRL, role_ctrl);
+		return -EAGAIN;
+	}
 	*cc1 = TCPC_V10_REG_CC_STATUS_CC1(status);
 	*cc2 = TCPC_V10_REG_CC_STATUS_CC2(status);
 
@@ -1740,6 +1740,8 @@ static int mt6379_tcpc_deinit(struct tcpc_device *tcpc)
 	if (cc1 != TYPEC_CC_DRP_TOGGLING &&
 	    (cc1 != TYPEC_CC_VOLT_OPEN || cc2 != TYPEC_CC_VOLT_OPEN)) {
 	mt6379_set_cc(tcpc, TYPEC_CC_OPEN);
+
+	/* Enable i2c reset and set timeout 200ms */
 		usleep_range(20000, 30000);
 	}
 	return 0;
@@ -2140,7 +2142,7 @@ static int mt6379_alert_vendor_defined_handler(struct tcpc_device *tcpc)
 					continue;
 			}
 			mt6379_vend_irq_mapping_tbl[i].hdlr(ddata);
-	}
+		}
 	}
 	return 0;
 }
@@ -2159,7 +2161,7 @@ static int mt6379_set_auto_dischg_discnt(struct tcpc_device *tcpc, bool en)
 		data &= ~TCPC_V10_REG_VBUS_MONITOR;
 		ret = mt6379_write8(ddata, TCPC_V10_REG_POWER_CTRL, data);
 		if (ret < 0)
-		return ret;
+			return ret;
 		data |= TCPC_V10_REG_AUTO_DISCHG_DISCNT;
 		return mt6379_write8(ddata, TCPC_V10_REG_POWER_CTRL, data);
 	}

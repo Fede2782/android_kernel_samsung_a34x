@@ -87,6 +87,7 @@ module_param(debug_postmask_bw, int, 0644);
 #define PAUSE_REGION_FLD_RDMA_PAUSE_END REG_FLD_MSB_LSB(27, 16)
 #define PAUSE_REGION_FLD_RDMA_PAUSE_START REG_FLD_MSB_LSB(11, 0)
 #define DISP_POSTMASK_MEM_ADDR_MSB 0x114
+#define DISP_POSTMASK_BANK_CON 0x128
 #define DISP_POSTMASK_RDMA_GREQ_NUM 0x130
 #define GREQ_FLD_IOBUF_FLUSH_ULTRA REG_FLD_MSB_LSB(31, 31)
 #define GREQ_FLD_IOBUF_FLUSH_PREULTRA REG_FLD_MSB_LSB(30, 30)
@@ -594,6 +595,11 @@ static void mtk_postmask_start(struct mtk_ddp_comp *comp,
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_POSTMASK_EN, 1, ~0);
+
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_POSTMASK_BANK_CON,
+		       BIT(5), BIT(5));
 }
 
 static void mtk_postmask_stop(struct mtk_ddp_comp *comp,
@@ -867,7 +873,7 @@ static int mtk_postmask_set_partial_update(struct mtk_ddp_comp *comp,
 			&& (postmask->roi_y_offset + postmask->roi_height + overhead_v)
 			< full_height - panel_ext->corner_pattern_height_bot) {
 			/*1. No overlapping cases*/
-			DDPINFO("%s, 1. No overlapping cases\n",__func__);
+			DDPDBG("%s, 1. No overlapping cases\n",__func__);
 			DDPDBG("%s, force_relay = 1\n",__func__);
 			force_relay = 1;
 		} else if ((postmask->roi_y_offset - overhead_v) < panel_ext->corner_pattern_height
@@ -877,7 +883,7 @@ static int mtk_postmask_set_partial_update(struct mtk_ddp_comp *comp,
 			tmp_top = postmask->roi_y_offset - overhead_v - 1;
 			size_per_line_top = sum_corner_pattern_per_line(0, tmp_top,
 							panel_ext->corner_pattern_size_per_line);
-			DDPINFO("%s, 2. overlap with top and not overlap with bot\n",__func__);
+			DDPDBG("%s, 2. overlap with top and not overlap with bot\n",__func__);
 			DDPDBG("%s, size_per_line_top: %d, num_start: %d, num_end: %d\n",
 				__func__, size_per_line_top, 0, tmp_top);
 
@@ -919,7 +925,7 @@ static int mtk_postmask_set_partial_update(struct mtk_ddp_comp *comp,
 			tmp_top = panel_ext->corner_pattern_height - 1;
 			size_per_line_top = sum_corner_pattern_per_line(0, tmp_top,
 							panel_ext->corner_pattern_size_per_line);
-			DDPINFO("%s, 3. not overlap with top and overlap with bot\n",__func__);
+			DDPDBG("%s, 3. not overlap with top and overlap with bot\n",__func__);
 			DDPDBG("%s, size_per_line_top: %d, num_start: %d, num_end: %d\n",
 				__func__, size_per_line_top, 0, tmp_top);
 
@@ -971,7 +977,7 @@ static int mtk_postmask_set_partial_update(struct mtk_ddp_comp *comp,
 			tmp_top = postmask->roi_y_offset - overhead_v - 1;
 			size_per_line_top = sum_corner_pattern_per_line(0, tmp_top,
 							panel_ext->corner_pattern_size_per_line);
-			DDPINFO("%s, 4. overlap with top and overlap with bot\n",__func__);
+			DDPDBG("%s, 4. overlap with top and overlap with bot\n",__func__);
 			DDPDBG("%s, size_per_line_top: %d, num_start: %d, num_end: %d\n",
 				__func__, size_per_line_top, 0, tmp_top);
 

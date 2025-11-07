@@ -118,7 +118,7 @@ static int fl_enable(struct flashlight_dev *fdev, int enable)
 #ifdef CONFIG_MTK_FLASHLIGHT_DLPT
 	kicker_pbm_by_flash(enable);
 #endif
-#ifdef CONFIG_MTK_FLASHLIGHT_PT
+#if 0//def CONFIG_MTK_FLASHLIGHT_PT
 	if (pt_is_low(pt_low_vol, pt_low_bat, pt_over_cur) == 2)
 		if (enable) {
 			enable = 0;
@@ -525,7 +525,7 @@ static int flashlight_update_charger_status(struct flashlight_dev *fdev)
 	fl_dev_arg.channel = fdev->dev_id.channel;
 	if (fdev->ops->flashlight_ioctl(FLASH_IOC_IS_CHARGER_READY,
 				(unsigned long)&fl_dev_arg))
-		pr_info("Failed to get charger status\n");
+		pr_debug("Failed to get charger status\n");
 	else
 		fdev->charger_status = fl_dev_arg.arg;
 
@@ -781,7 +781,7 @@ static long _flashlight_ioctl(
 
 	case FLASH_IOC_IS_LOW_POWER:
 		fl_arg.arg = 0;
-#ifdef CONFIG_MTK_FLASHLIGHT_PT
+#if 0//def CONFIG_MTK_FLASHLIGHT_PT
 		fl_arg.arg = pt_is_low(pt_low_vol, pt_low_bat, pt_over_cur);
 		if (fl_arg.arg)
 			pr_debug("Pt status: (%d,%d,%d)\n",

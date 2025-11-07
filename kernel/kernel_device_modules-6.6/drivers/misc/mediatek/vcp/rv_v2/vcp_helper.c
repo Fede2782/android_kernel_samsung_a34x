@@ -817,12 +817,12 @@ unsigned int is_vcp_ready(enum feature_id id)
 
 unsigned int is_vcp_suspending(void)
 {
-	return is_suspending;
+	return is_suspending ? 1U : 0U;
 }
 
 unsigned int is_vcp_ao(void)
 {
-	return 1;
+	return 1U;
 }
 
 /*
@@ -859,8 +859,8 @@ unsigned int vcp_cmd(enum feature_id id, enum vcp_cmd_id cmd_id, char *user)
 
 uint32_t vcp_wait_ready_sync(void)
 {
-	int i = 0;
-	int j = 0;
+	uint32_t i = 0;
+	uint32_t j = 0;
 
 	while (!is_vcp_ready_by_coreid(VCP_CORE_TOTAL)) {
 		i += 5;

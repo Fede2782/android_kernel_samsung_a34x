@@ -3,7 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#define PFX "CAM_CAL"
+#define PFX "CAM_CAL D/D"
 #define pr_fmt(fmt) PFX "[%s] " fmt, __func__
 
 
@@ -19,6 +19,7 @@
 #include <linux/of.h>
 #include "cam_cal.h"
 #include "cam_cal_define.h"
+#include <kd_imgsensor_sysfs_adapter_v2.h>
 #include <linux/dma-mapping.h>
 #ifdef CONFIG_COMPAT
 /* 64 bit */
@@ -88,7 +89,7 @@ static int Read_I2C_CAM_CAL(struct i2c_client *client,
 				EEPROM_I2C_MSG_SIZE_READ);
 
 	if (i4RetValue != EEPROM_I2C_MSG_SIZE_READ) {
-		must_log("I2C read data failed!!\n");
+		must_log("I2C read data failed!! addr: %#x, readCmd: %#x %#x\n", client->addr, puReadCmd[0], puReadCmd[1]);
 		return -1;
 	}
 
@@ -199,8 +200,8 @@ static int iWriteData_CAM_CAL(struct i2c_client *client,
 }
 #endif
 
-unsigned int Common_read_region(struct i2c_client *client, unsigned int addr,
-				unsigned char *data, unsigned int size)
+unsigned int Common_read_region(struct i2c_client *client, struct CAM_CAL_SENSOR_INFO sensor_info,
+				unsigned int addr, unsigned char *data, unsigned int size)
 {
 	unsigned int ret = 0;
 	struct timespec64 t;
@@ -215,8 +216,8 @@ unsigned int Common_read_region(struct i2c_client *client, unsigned int addr,
 	return ret;
 }
 
-unsigned int Common_write_region(struct i2c_client *client, unsigned int addr,
-				unsigned char *data, unsigned int size)
+unsigned int Common_write_region(struct i2c_client *client, struct CAM_CAL_SENSOR_INFO sensor_info,
+				unsigned int addr, unsigned char *data, unsigned int size)
 {
 	unsigned int ret = 0;
 #if EEPROM_WRITE_EN
@@ -235,3 +236,21 @@ unsigned int Common_write_region(struct i2c_client *client, unsigned int addr,
 	return ret;
 }
 
+unsigned int Common_read_otp_cal(struct i2c_client *client, struct CAM_CAL_SENSOR_INFO sensor_info,
+				unsigned int addr, unsigned char *data, unsigned int size)
+{
+	int read_size = 0;
+	struct timespec64 t;
+
+	if (client == NULL) {
+		pr_err("%s, client is NULL\n", __func__);
+		return -1;
+	}
+	must_log("%s, sensor_id = %#06x, i2c_slave_addr = %#06x\n", __func__, sensor_info.sensor_id, client->addr);
+
+	EEPROM_PROFILE_INIT(&t);
+	read_size = IMGSENSOR_READ_OTP_CAL(client, sensor_info.sensor_id, addr, data, size);
+	EEPROM_PROFILE(&t, "otp_read_time");
+
+	return read_size;
+}

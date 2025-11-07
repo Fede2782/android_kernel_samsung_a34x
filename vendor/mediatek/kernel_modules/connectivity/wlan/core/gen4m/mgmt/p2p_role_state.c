@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -14,7 +14,8 @@ p2pRoleStateInit_IDLE(struct ADAPTER *prAdapter,
 {
 	cnmTimerStartTimer(prAdapter,
 		&(prP2pRoleFsmInfo->rP2pRoleFsmTimeoutTimer),
-		IS_BSS_AP(prAdapter, prP2pBssInfo)
+		p2pFuncIsAPMode(prAdapter->rWifiVar.
+		prP2PConnSettings[prP2pRoleFsmInfo->ucRoleIndex])
 		? prAdapter->rWifiVar.u4ApChnlHoldTime
 		: prAdapter->rWifiVar.u4P2pChnlHoldTime);
 }				/* p2pRoleStateInit_IDLE */
@@ -103,18 +104,16 @@ p2pRoleStateInit_REQING_CHANNEL(struct ADAPTER *prAdapter,
 		struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo,
 		struct P2P_CHNL_REQ_INFO *prChnlReqInfo)
 {
+
 	do {
 		ASSERT_BREAK((prAdapter != NULL) && (prChnlReqInfo != NULL));
 
-		if (prChnlReqInfo->eChnlReqType == CH_REQ_TYPE_JOIN) {
-			struct P2P_JOIN_INFO *prJoinInfo;
-
-			prJoinInfo = &prP2pRoleFsmInfo->rJoinInfo;
-			p2pLinkAcquireChJoin(prAdapter, prP2pRoleFsmInfo,
-					     prChnlReqInfo, prJoinInfo);
-		} else {
+		if (prChnlReqInfo->eChnlReqType == CH_REQ_TYPE_JOIN)
+			p2pLinkAcquireChJoin(prAdapter,
+				prP2pRoleFsmInfo,
+				prChnlReqInfo);
+		else
 			p2pFuncAcquireCh(prAdapter, ucBssIdx, prChnlReqInfo);
-		}
 
 	} while (FALSE);
 }				/* p2pRoleStateInit_REQING_CHANNEL */
@@ -125,81 +124,45 @@ p2pRoleStateAbort_REQING_CHANNEL(struct ADAPTER *prAdapter,
 		struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo,
 		enum ENUM_P2P_ROLE_STATE eNextState)
 {
+	struct WIFI_VAR *prWifiVar = NULL;
 	u_int8_t fgIsStartGO = FALSE;
 	uint8_t ucRoleIdx;
+	uint8_t ucBssIdx;
+	struct P2P_CHNL_REQ_INFO *prP2pChnlReqInfo;
 
-	do {
-		ASSERT_BREAK((prAdapter != NULL)
-			&& (prP2pRoleBssInfo != NULL)
-			&& (prP2pRoleFsmInfo != NULL));
+	if (!prAdapter || !prP2pRoleBssInfo || !prP2pRoleFsmInfo) {
+		DBGLOG(P2P, ERROR, "Null ptr\n");
+		return;
+	}
 
-		ucRoleIdx = prP2pRoleFsmInfo->ucRoleIndex;
+	prWifiVar = &prAdapter->rWifiVar;
+	ucRoleIdx = prP2pRoleFsmInfo->ucRoleIndex;
+	ucBssIdx = prP2pRoleFsmInfo->ucBssIndex;
+	prP2pChnlReqInfo = &prP2pRoleFsmInfo->rChnlReqInfo;
 
-		if (eNextState == P2P_ROLE_STATE_IDLE) {
-			if (prP2pRoleBssInfo->eIntendOPMode
-				== OP_MODE_ACCESS_POINT) {
-				struct P2P_CHNL_REQ_INFO *prP2pChnlReqInfo =
-					&(prP2pRoleFsmInfo->rChnlReqInfo);
-#if (CFG_SUPPORT_CE_6G_PWR_REGULATIONS == 1)
-				u_int8_t fgIsAbort;
-
-				if (prP2pChnlReqInfo->eBand == BAND_6G) {
-					if (rlmDomain6GPwrModeSupportChk(
-					prAdapter, PWR_MODE_6G_VLP, NULL,
-					prP2pChnlReqInfo->eBand,
-					prP2pChnlReqInfo->ucReqChnlNum)) {
-						fgIsAbort = FALSE;
-						rlmDomain6GPwrModeUpdate(
-						prAdapter,
-						prP2pRoleFsmInfo->ucBssIndex,
-						PWR_MODE_6G_VLP);
-					} else {
-						fgIsAbort = TRUE;
-						DBGLOG(P2P, ERROR,
-						"GO can't support VLP in 6GHz\n");
-					}
-				} else {
-					fgIsAbort = FALSE;
-					rlmDomain6GPwrModeUpdate(
-						prAdapter,
-						prP2pRoleFsmInfo->ucBssIndex,
-						PWR_MODE_6G_LPI);
-				}
-#endif /* CFG_SUPPORT_CE_6G_PWR_REGULATIONS */
-
-				if (IS_NET_PWR_STATE_ACTIVE(prAdapter,
-					prP2pRoleFsmInfo->ucBssIndex)
-#if (CFG_SUPPORT_CE_6G_PWR_REGULATIONS == 1)
-					&& (fgIsAbort == FALSE)
-#endif /* CFG_SUPPORT_CE_6G_PWR_REGULATIONS */
-					) {
-					p2pFuncStartGO(prAdapter,
-						prP2pRoleBssInfo,
-					&(prP2pRoleFsmInfo->rConnReqInfo),
-					&(prP2pRoleFsmInfo->rChnlReqInfo));
-					fgIsStartGO = TRUE;
-				} else if (prP2pChnlReqInfo->
-						fgIsChannelRequested)
-					p2pFuncReleaseCh(prAdapter,
-						prP2pRoleFsmInfo->ucBssIndex,
-						prP2pChnlReqInfo);
-			} else {
-				p2pFuncReleaseCh(prAdapter,
-					prP2pRoleFsmInfo->ucBssIndex,
-					&(prP2pRoleFsmInfo->rChnlReqInfo));
+	if (eNextState == P2P_ROLE_STATE_IDLE) {
+		if (prP2pRoleBssInfo->eIntendOPMode == OP_MODE_ACCESS_POINT) {
+			if (IS_NET_PWR_STATE_ACTIVE(prAdapter, ucBssIdx)) {
+				p2pFuncStartGO(prAdapter, prP2pRoleBssInfo,
+					       &prP2pRoleFsmInfo->rConnReqInfo,
+					       prP2pChnlReqInfo);
+				fgIsStartGO = TRUE;
+			} else if (prP2pChnlReqInfo->fgIsChannelRequested) {
+				p2pFuncReleaseCh(prAdapter, ucBssIdx,
+						 prP2pChnlReqInfo);
 			}
-		} else if (eNextState == P2P_ROLE_STATE_SCAN) {
-			/* Abort channel anyway */
-			p2pFuncReleaseCh(prAdapter,
-				prP2pRoleFsmInfo->ucBssIndex,
-				&(prP2pRoleFsmInfo->rChnlReqInfo));
+		} else {
+			p2pFuncReleaseCh(prAdapter, ucBssIdx, prP2pChnlReqInfo);
 		}
-	} while (FALSE);
+	} else if (eNextState == P2P_ROLE_STATE_SCAN) {
+		/* Abort channel anyway */
+		p2pFuncReleaseCh(prAdapter, ucBssIdx, prP2pChnlReqInfo);
+	}
 
 #ifndef CFG_AP_GO_DELAY_CARRIER_ON
-	if (fgIsStartGO && IS_BSS_AP(prAdapter, prP2pRoleBssInfo)) {
-		p2pFuncNotifySapStarted(prAdapter,
-			prP2pRoleBssInfo->ucBssIndex);
+	if (fgIsStartGO && prWifiVar &&
+	    p2pFuncIsAPMode(prWifiVar->prP2PConnSettings[ucRoleIdx])) {
+		p2pFuncNotifySapStarted(prAdapter, ucBssIdx);
 	}
 #endif /* CFG_AP_GO_DELAY_CARRIER_ON */
 }				/* p2pRoleStateAbort_REQING_CHANNEL */
@@ -329,8 +292,8 @@ p2pRoleStateAbort_AP_CHNL_DETECTION(struct ADAPTER *prAdapter,
 				prP2pSpecificBssInfo->ucPreferredChannel;
 			prChnlReqInfo->eBand = prP2pSpecificBssInfo->eRfBand;
 			prChnlReqInfo->eChnlSco = prP2pSpecificBssInfo->eRfSco;
-
-			if (IS_BSS_AP(prAdapter, prBssInfo))
+			if (p2pFuncIsAPMode(prAdapter->rWifiVar.
+				prP2PConnSettings[prBssInfo->u4PrivateData]))
 				prChnlReqInfo->u4MaxInterval =
 					prAdapter->rWifiVar.u4ApChnlHoldTime;
 			else
@@ -353,22 +316,27 @@ p2pRoleStateAbort_AP_CHNL_DETECTION(struct ADAPTER *prAdapter,
 
 void
 p2pRoleStateInit_GC_JOIN(struct ADAPTER *prAdapter,
-			 struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo,
-			 struct P2P_JOIN_INFO *prJoinInfo)
+		struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo,
+		struct P2P_CHNL_REQ_INFO *prChnlReqInfo)
 {
+	/* P_MSG_JOIN_REQ_T prJoinReqMsg = (P_MSG_JOIN_REQ_T)NULL; */
+
 	do {
 		ASSERT_BREAK((prAdapter != NULL)
 			&& (prP2pRoleFsmInfo != NULL)
-			&& (prJoinInfo != NULL));
+			&& (prChnlReqInfo != NULL));
 
 		/* Setup a join timer. */
 		DBGLOG(P2P, TRACE, "Start a join init timer\n");
 		cnmTimerStartTimer(prAdapter,
 			&(prP2pRoleFsmInfo->rP2pRoleFsmTimeoutTimer),
-			(P2P_GC_JOIN_CH_REQUEST_INTERVAL
-				- P2P_GC_JOIN_CH_GRANT_THRESHOLD));
+			(prChnlReqInfo->u4MaxInterval
+				- AIS_JOIN_CH_GRANT_THRESHOLD));
 
-		p2pFuncGCJoin(prAdapter, prP2pRoleFsmInfo, prJoinInfo);
+		p2pFuncGCJoin(prAdapter,
+			prP2pRoleFsmInfo,
+			&(prP2pRoleFsmInfo->rJoinInfo));
+
 	} while (FALSE);
 }				/* p2pRoleStateInit_GC_JOIN */
 
@@ -378,18 +346,6 @@ p2pRoleStateAbort_GC_JOIN(struct ADAPTER *prAdapter,
 		struct P2P_JOIN_INFO *prJoinInfo,
 		enum ENUM_P2P_ROLE_STATE eNextState)
 {
-	struct BSS_INFO *prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
-					    prP2pRoleFsmInfo->ucBssIndex);
-	struct P2P_SPECIFIC_BSS_INFO *prP2pSpecificBssInfo;
-
-	if (!prBssInfo) {
-		DBGLOG(P2P, ERROR, "No BssInfo found");
-		return;
-	}
-
-	prP2pSpecificBssInfo = prAdapter->rWifiVar.prP2pSpecificBssInfo[
-					prBssInfo->u4PrivateData];
-
 	if (prJoinInfo->fgIsJoinSuccess != TRUE) {
 		uint8_t i;
 
@@ -425,12 +381,6 @@ p2pRoleStateAbort_GC_JOIN(struct ADAPTER *prAdapter,
 		&(prP2pRoleFsmInfo->rChnlReqInfo));
 
 	prP2pRoleFsmInfo->rJoinInfo.prTargetStaRec = NULL;
-
-#if CFG_SUPPORT_CCM
-	if (prJoinInfo->fgIsJoinSuccess == TRUE &&
-	    prP2pSpecificBssInfo->fgIsGcEapolDone)
-		ccmChannelSwitchProducer(prAdapter, prBssInfo, __func__);
-#endif /* CFG_SUPPORT_CCM */
 }
 
 #if (CFG_SUPPORT_DFS_MASTER == 1)
@@ -466,31 +416,33 @@ p2pRoleStateAbort_DFS_CAC(struct ADAPTER *prAdapter,
 
 void
 p2pRoleStateInit_SWITCH_CHANNEL(struct ADAPTER *prAdapter,
-				struct P2P_CSA_REQ_INFO *prCsaReqInfo,
-				struct P2P_CHNL_REQ_INFO *prChnlReqInfo)
+		uint8_t ucBssIdx,
+		struct P2P_CHNL_REQ_INFO *prChnlReqInfo)
 {
 	struct BSS_INFO *prBssInfo = (struct BSS_INFO *) NULL;
 
+	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIdx);
+	if (!prBssInfo)
+		return;
 	do {
 		ASSERT_BREAK((prAdapter != NULL) && (prChnlReqInfo != NULL));
 
-		prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
-						  prCsaReqInfo->ucBssIdx);
-		if (!prBssInfo)
-			break;
-
 		prBssInfo->fgIsSwitchingChnl = TRUE;
-		p2pFuncAcquireCh(prAdapter, prCsaReqInfo->ucBssIdx,
-				 prChnlReqInfo);
+		p2pFuncAcquireCh(prAdapter, ucBssIdx, prChnlReqInfo);
 	} while (FALSE);
 }				/* p2pRoleStateInit_SWITCH_CHANNEL */
 
 void
 p2pRoleStateAbort_SWITCH_CHANNEL(struct ADAPTER *prAdapter,
-				 struct P2P_CSA_REQ_INFO *prCsaReqInfo,
-				 struct P2P_CHNL_REQ_INFO *prChnlReqInfo)
+		struct BSS_INFO *prP2pRoleBssInfo,
+		struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo,
+		enum ENUM_P2P_ROLE_STATE eNextState)
 {
-	p2pFuncReleaseCh(prAdapter, prCsaReqInfo->ucBssIdx, prChnlReqInfo);
+	do {
+		p2pFuncReleaseCh(prAdapter,
+			prP2pRoleFsmInfo->ucBssIndex,
+			&(prP2pRoleFsmInfo->rChnlReqInfo));
+	} while (FALSE);
 }				/* p2pRoleStateAbort_SWITCH_CHANNEL */
 #endif
 
@@ -538,8 +490,8 @@ p2pRoleStatePrepare_To_REQING_CHANNEL_STATE(struct ADAPTER *prAdapter,
 			prConnReqInfo->rChannelInfo.ucChannelNum;
 		prChnlReqInfo->eBand = prConnReqInfo->rChannelInfo.eBand;
 		prChnlReqInfo->eChnlSco = prBssInfo->eBssSCO;
-
-		if (IS_BSS_AP(prAdapter, prBssInfo))
+		if (p2pFuncIsAPMode(prAdapter->rWifiVar.
+			prP2PConnSettings[prBssInfo->u4PrivateData]))
 			prChnlReqInfo->u4MaxInterval =
 			prAdapter->rWifiVar.u4ApChnlHoldTime;
 		else
@@ -566,9 +518,7 @@ p2pRoleStatePrepare_To_REQING_CHANNEL_STATE(struct ADAPTER *prAdapter,
 		prChnlReqInfo->ucCenterFreqS1 = nicGetS1(
 			prBssInfo->eBand,
 			prBssInfo->ucPrimaryChannel,
-			prChnlReqInfo->eChnlSco,
-			rlmGetBssOpBwByChannelWidth(prChnlReqInfo->eChnlSco,
-				prChnlReqInfo->eChannelWidth));
+			prChnlReqInfo->eChannelWidth);
 		prChnlReqInfo->ucCenterFreqS2 = 0;
 
 		/* If the S1 is invalid, force to change bandwidth */
@@ -604,7 +554,6 @@ p2pRoleStatePrepare_To_DFS_CAC_STATE(struct ADAPTER *prAdapter,
 	struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo =
 		(struct P2P_ROLE_FSM_INFO *) NULL;
 	uint8_t ucRfBw;
-	uint32_t u4CacTimeMs;
 
 	do {
 
@@ -631,19 +580,15 @@ p2pRoleStatePrepare_To_DFS_CAC_STATE(struct ADAPTER *prAdapter,
 			prConnReqInfo->rChannelInfo.ucChannelNum;
 		prChnlReqInfo->eBand = prConnReqInfo->rChannelInfo.eBand;
 		prChnlReqInfo->eChnlSco = prBssInfo->eBssSCO;
+		prChnlReqInfo->u4MaxInterval =
+			prAdapter->prGlueInfo
+				->prP2PInfo[prP2pRoleFsmInfo->ucRoleIndex]
+				->cac_time_ms;
 		prChnlReqInfo->eChnlReqType = CH_REQ_TYPE_DFS_CAC;
 
-		prBssInfo->ucVhtChannelWidth =
-			cnmGetBssMaxBwToChnlBW(prAdapter,
-				prBssInfo->ucBssIndex);
-		prChnlReqInfo->eChannelWidth = prBssInfo->ucVhtChannelWidth;
-
-		if (p2pFuncGetRadarDetectMode() == 1)
-			ucRfBw = prP2pRoleFsmInfo->eDfsChnlBw;
-		else
-			/* Decide RF BW by own OP BW */
-			ucRfBw = cnmGetDbdcBwCapability(prAdapter,
-				prBssInfo->ucBssIndex);
+		/* Decide RF BW by own OP BW */
+		ucRfBw = cnmGetDbdcBwCapability(prAdapter,
+			prBssInfo->ucBssIndex);
 
 		if (p2pFuncIsDualAPMode(prAdapter) &&
 			(ucRfBw >= MAX_BW_160MHZ))
@@ -651,6 +596,7 @@ p2pRoleStatePrepare_To_DFS_CAC_STATE(struct ADAPTER *prAdapter,
 
 		/* Revise to VHT OP BW */
 		ucRfBw = rlmGetVhtOpBwByBssOpBw(ucRfBw);
+		prBssInfo->ucVhtChannelWidth = ucRfBw;
 		prChnlReqInfo->eChannelWidth =
 			(enum ENUM_CHANNEL_WIDTH) ucRfBw;
 
@@ -658,30 +604,13 @@ p2pRoleStatePrepare_To_DFS_CAC_STATE(struct ADAPTER *prAdapter,
 		prChnlReqInfo->ucCenterFreqS1 = nicGetS1(
 			prBssInfo->eBand,
 			prBssInfo->ucPrimaryChannel,
-			prChnlReqInfo->eChnlSco,
-			rlmGetBssOpBwByChannelWidth(prChnlReqInfo->eChnlSco,
-				prChnlReqInfo->eChannelWidth));
+			prChnlReqInfo->eChannelWidth);
 		prChnlReqInfo->ucCenterFreqS2 = 0;
 
 		/* If the S1 is invalid, force to change bandwidth */
 		if (prChnlReqInfo->ucCenterFreqS1 == 0)
 			prChnlReqInfo->eChannelWidth =
 				VHT_OP_CHANNEL_WIDTH_20_40;
-
-		/* Update CAC time */
-		u4CacTimeMs = prAdapter->prGlueInfo
-				->prP2PInfo[prP2pRoleFsmInfo->ucRoleIndex]
-				->cac_time_ms;
-
-		if (p2pFuncCheckWeatherRadarBand(prChnlReqInfo))
-			u4CacTimeMs = P2P_AP_CAC_WEATHER_CHNL_HOLD_TIME_MS;
-
-		if (p2pFuncIsManualCac())
-			u4CacTimeMs = p2pFuncGetDriverCacTime() * 1000;
-		else
-			p2pFuncSetDriverCacTime(u4CacTimeMs/1000);
-
-		prChnlReqInfo->u4MaxInterval = u4CacTimeMs;
 
 		DBGLOG(P2P, TRACE,
 			"p2pRoleStatePrepare_To_DFS_CAC_STATE\n");

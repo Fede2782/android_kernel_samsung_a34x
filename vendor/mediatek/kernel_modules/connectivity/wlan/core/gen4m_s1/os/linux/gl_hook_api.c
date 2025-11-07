@@ -4421,6 +4421,7 @@ uint32_t ServiceWlanOid(void *winfos,
 	struct RECAL_INFO_T *prReCalInfo = NULL;
 	boolean fgRead, fgWaitResp, fgCmd;
 	PFN_OID_HANDLER_FUNC pfnOidHandler = NULL;
+	const char *pOidHandlerStr = NULL;
 	struct test_wlan_info *prTestWinfo;
 	struct hqa_m_rx_stat *prStatsData = NULL;
 #if CFG_SUPPORT_ANT_SWAP
@@ -4462,13 +4463,13 @@ uint32_t ServiceWlanOid(void *winfos,
 		ServiceRfTestInit(winfos);
 
 		i4Status = kalIoctl(prGlueInfo, /* prGlueInfo */
-		wlanoidRftestSetTestMode,  /* pfnOidHandler */
-			NULL, /* pvInfoBuf */
-			0, /* u4InfoBufLen */
-			fgRead, /* fgRead */
-			fgWaitResp, /* fgWaitResp */
-			fgCmd, /* fgCmd */
-			u4BufLen); /* pu4QryInfoLen */
+				  wlanoidRftestSetTestMode,  /* pfnOidHandler */
+				  NULL, /* pvInfoBuf */
+				  0, /* u4InfoBufLen */
+				  fgRead, /* fgRead */
+				  fgWaitResp, /* fgWaitResp */
+				  fgCmd, /* fgCmd */
+				  u4BufLen); /* pu4QryInfoLen */
 
 		DBGLOG(RFTEST, INFO,
 			"Test Mode Start Workaround for META2!\n");
@@ -4480,16 +4481,20 @@ uint32_t ServiceWlanOid(void *winfos,
 		DBGLOG(RFTEST, INFO, "Test Mode Start!\n");
 		ServiceRfTestInit(winfos);
 		pfnOidHandler = wlanoidRftestSetTestMode;
+		pOidHandlerStr = "wlanoidRftestSetTestMode";
 		break;
 	case OP_WLAN_OID_SET_TEST_MODE_ABORT:
 		DBGLOG(RFTEST, INFO, "Test Mode Abort!\n");
 		pfnOidHandler = wlanoidRftestSetAbortTestMode;
+		pOidHandlerStr = "wlanoidRftestSetAbortTestMode";
 		break;
 	case OP_WLAN_OID_RFTEST_SET_AUTO_TEST:
 		pfnOidHandler = wlanoidRftestSetAutoTest;
+		pOidHandlerStr = "wlanoidRftestSetAutoTest";
 		break;
 	case OP_WLAN_OID_RFTEST_QUERY_AUTO_TEST:
 		pfnOidHandler = wlanoidRftestQueryAutoTest;
+		pOidHandlerStr = "wlanoidRftestQueryAutoTest";
 		fgRead = TRUE;
 		fgWaitResp = TRUE;
 		fgCmd = TRUE;
@@ -4497,6 +4502,7 @@ uint32_t ServiceWlanOid(void *winfos,
 	case OP_WLAN_OID_QUERY_RX_STATISTICS:
 		prStatsData = (struct hqa_m_rx_stat *)rsp_data;
 		pfnOidHandler = wlanoidQueryRxStatistics;
+		pOidHandlerStr = "wlanoidQueryRxStatistics";
 		fgRead = TRUE;
 		fgWaitResp = TRUE;
 		fgCmd = TRUE;
@@ -4582,14 +4588,17 @@ uint32_t ServiceWlanOid(void *winfos,
 	/* ICAP Operation Function -- Start*/
 	case OP_WLAN_OID_SET_TEST_ICAP_MODE:
 		pfnOidHandler = wlanoidRftestSetTestIcapMode;
+		pOidHandlerStr = "wlanoidRftestSetTestIcapMode";
 		break;
 	case OP_WLAN_OID_SET_TEST_ICAP_START:
 		ServiceIcapInit(prAdapter);
 		pfnOidHandler = wlanoidExtRfTestICapStart;
+		pOidHandlerStr = "wlanoidExtRfTestICapStart";
 		break;
 	case OP_WLAN_OID_SET_TEST_ICAP_ABORT:
 		i4Status = ServiceIcapDeInit(prAdapter);
 		pfnOidHandler = wlanoidExtRfTestICapStart;
+		pOidHandlerStr = "wlanoidExtRfTestICapStart";
 		break;
 	case OP_WLAN_OID_SET_TEST_ICAP_STATUS:
 
@@ -4609,6 +4618,7 @@ uint32_t ServiceWlanOid(void *winfos,
 		}
 
 		pfnOidHandler = wlanoidExtRfTestICapStatus;
+		pOidHandlerStr = "wlanoidExtRfTestICapStatus";
 		*resp = 1; /*response QA TOOL CAPTURE wait*/
 
 		break;
@@ -4628,6 +4638,7 @@ uint32_t ServiceWlanOid(void *winfos,
 			return WLAN_STATUS_NOT_SUPPORTED;
 		}
 		pfnOidHandler = wlanoidRfTestICapGetIQData;
+		pOidHandlerStr = "wlanoidRfTestICapGetIQData";
 		fgRead = TRUE;
 		fgWaitResp = FALSE;
 		fgCmd = FALSE;
@@ -4636,12 +4647,14 @@ uint32_t ServiceWlanOid(void *winfos,
 
 	case OP_WLAN_OID_SET_MCR_WRITE:
 		pfnOidHandler = wlanoidSetMcrWrite;
+		pOidHandlerStr = "wlanoidSetMcrWrite";
 		fgRead = TRUE;
 		fgWaitResp = TRUE;
 		fgCmd = TRUE;
 		break;
 	case OP_WLAN_OID_QUERY_MCR_READ:
 		pfnOidHandler = wlanoidQueryMcrRead;
+		pOidHandlerStr = "wlanoidQueryMcrRead";
 		break;
 	case OP_WLAN_OID_GET_RECAL_COUNT:
 		*u4BufLen = prReCalInfo->u4Count;
@@ -4687,6 +4700,7 @@ uint32_t ServiceWlanOid(void *winfos,
 
 	case OP_WLAN_OID_LIST_MODE:
 		pfnOidHandler = wlanoidListMode; /* List mode OID control */
+		pOidHandlerStr = "wlanoidListMode";
 		fgRead = TRUE;
 		fgWaitResp = TRUE;
 		fgCmd = TRUE;
@@ -4697,8 +4711,9 @@ uint32_t ServiceWlanOid(void *winfos,
 		return WLAN_STATUS_FAILURE;
 	}
 
-	i4Status = kalIoctl(prGlueInfo, /* prGlueInfo */
+	i4Status = __kalIoctl(prGlueInfo, /* prGlueInfo */
 		pfnOidHandler,  /* pfnOidHandler */
+		pOidHandlerStr,  /* pOidHandlerStr */
 		param, /* pvInfoBuf */
 		paramLen, /* u4InfoBufLen */
 		fgRead, /* fgRead */

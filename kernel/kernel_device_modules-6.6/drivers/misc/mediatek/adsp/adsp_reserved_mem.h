@@ -30,6 +30,11 @@ struct adsp_mpu_info_t {
 	u32 share_dram_size;
 };
 
+struct adsp_c2c_share_dram_info_t {
+	u64 share_dram_addr;
+	u32 share_dram_size;
+};
+
 struct adsp_priv;
 
 /* Reserved Memory Method */
@@ -37,5 +42,6 @@ int adsp_mem_device_probe(struct platform_device *pdev);
 ssize_t adsp_reserve_memory_dump(char *buffer, int size);
 
 void adsp_update_mpu_memory_info(struct adsp_priv *pdata);
+void adsp_update_c2c_memory_info(struct adsp_priv *pdata);
 
 #endif /* __ADSP_RESERVEDMEM_DEFINE_H__ */

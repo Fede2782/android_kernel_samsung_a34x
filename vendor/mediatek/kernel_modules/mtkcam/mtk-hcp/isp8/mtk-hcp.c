@@ -675,14 +675,14 @@ static ssize_t mtk_hcp_proc_read(struct file *file, char __user *buf,
 	}
 
 	remain = data->cnt - *ppos;
-	len = (remain > lbuf) ? lbuf : remain;
-	if (len == 0) {
+	len = remain;
+	if (len <= 0 || len > data->cnt) {
 		mutex_unlock(&data->mtx);
         if (hcp_dbg_enable())
 		dev_dbg(hcp_dev->dev, "Reached end of the device on a read");
 		return 0;
 	}
-
+	len = (remain > lbuf) ? lbuf : remain;
 	len = len - copy_to_user(buf, data->buf + *ppos, len);
 	*ppos += len;
 

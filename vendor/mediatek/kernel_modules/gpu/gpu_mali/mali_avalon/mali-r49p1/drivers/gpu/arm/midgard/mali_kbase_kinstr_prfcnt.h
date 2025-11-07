@@ -217,6 +217,6 @@ void MTK_kbasep_vinstr_hwcnt_release(void);
 void MTK_update_gpu_LTR(void);
 
 #if IS_ENABLED(CONFIG_MALI_MTK_HWCNT_HINT)
-void hwcnt_hint(void);
+void hwcnt_hint(bool is_init);
 #endif /* CONFIG_MALI_MTK_HWCNT_HINT */
 #endif /* _KBASE_KINSTR_PRFCNT_H_ */

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -82,7 +82,7 @@ void dmashdl_dvt_item_6(
 			0x10);
 
 		/* enable WA CPU mode */
-		HAL_MCR_RD(prAdapter,
+		kalDevRegRead(prGlueInfo,
 			WF_HIF_DMASHDL_TOP_CONTROL_SIGNAL_ADDR,
 			&value);
 		value = value |
@@ -199,7 +199,7 @@ void dmashdl_dvt_item_5(
 		0x10);
 
 	/* enable WA CPU mode */
-	HAL_MCR_RD(prAdapter,
+	kalDevRegRead(prGlueInfo,
 		WF_HIF_DMASHDL_TOP_CONTROL_SIGNAL_ADDR,
 		&value);
 	value = value |
@@ -290,7 +290,7 @@ void dmashdl_dvt_item_4(
 			0xffe00000);
 
 		/* disable joint ASK RR */
-		HAL_MCR_RD(prAdapter,
+		kalDevRegRead(prGlueInfo,
 			WF_HIF_DMASHDL_TOP_OPTIONAL_CONTROL_ADDR,
 			&value);
 		value = (value &
@@ -301,7 +301,7 @@ void dmashdl_dvt_item_4(
 
 		/* disable SRC_CNT_PRI_EN & */
 		/* pre-define each slot group strict order(enable as default) */
-		HAL_MCR_RD(prAdapter,
+		kalDevRegRead(prGlueInfo,
 			WF_HIF_DMASHDL_TOP_PAGE_SETTING_ADDR,
 			&value);
 		value = (value &
@@ -317,7 +317,7 @@ WF_HIF_DMASHDL_TOP_PAGE_SETTING_GROUP_SEQUENCE_ORDER_TYPE_MASK;
 			0x10);
 
 		/* enable WA CPU mode */
-		HAL_MCR_RD(prAdapter,
+		kalDevRegRead(prGlueInfo,
 			WF_HIF_DMASHDL_TOP_CONTROL_SIGNAL_ADDR,
 			&value);
 		value = value |
@@ -408,7 +408,7 @@ void dmashdl_dvt_item_3(
 			0xffe00000);
 
 		/* disable joint ASK RR */
-		HAL_MCR_RD(prAdapter,
+		kalDevRegRead(prGlueInfo,
 			WF_HIF_DMASHDL_TOP_OPTIONAL_CONTROL_ADDR,
 			&value);
 		value = value &
@@ -418,7 +418,7 @@ void dmashdl_dvt_item_3(
 			value);
 
 /* disable SRC_CNT_PRI_EN & user program group sequence order type */
-		HAL_MCR_RD(prAdapter,
+		kalDevRegRead(prGlueInfo,
 			WF_HIF_DMASHDL_TOP_PAGE_SETTING_ADDR,
 			&value);
 		value = value &
@@ -442,7 +442,7 @@ void dmashdl_dvt_item_3(
 			0x10);
 
 		/* enable WA CPU mode */
-		HAL_MCR_RD(prAdapter,
+		kalDevRegRead(prGlueInfo,
 			WF_HIF_DMASHDL_TOP_CONTROL_SIGNAL_ADDR,
 			&value);
 		value = value |
@@ -536,7 +536,7 @@ void dmashdl_dvt_item_2(
 		0x10);
 
 	/* enable WA CPU mode */
-	HAL_MCR_RD(prAdapter,
+	kalDevRegRead(prGlueInfo,
 		WF_HIF_DMASHDL_TOP_CONTROL_SIGNAL_ADDR,
 		&value);
 	value = value |
@@ -630,7 +630,7 @@ void dmashdl_dvt_item_1(
 		0x10);
 
 	/* enable WA CPU mode */
-	HAL_MCR_RD(prAdapter,
+	kalDevRegRead(prGlueInfo,
 		WF_HIF_DMASHDL_TOP_CONTROL_SIGNAL_ADDR,
 		&value);
 	value = value |
@@ -738,7 +738,7 @@ void dmashdl_dvt_reset_default(
 		0x3f1000);
 
 	/* enable WA CPU mode */
-	HAL_MCR_RD(prAdapter,
+	kalDevRegRead(prGlueInfo,
 		WF_HIF_DMASHDL_TOP_CONTROL_SIGNAL_ADDR,
 		&value);
 	value = value |
@@ -771,12 +771,12 @@ int dmashdl_dvt_check_pass(
 	ucSubItemNo = DMASHDL_DVT_GET_SUBITEM(pAd);
 
 	/* get free page & FFA page */
-	HAL_MCR_RD(prAdapter, WF_HIF_DMASHDL_TOP_STATUS_RD_ADDR, &free);
+	kalDevRegRead(prGlueInfo, WF_HIF_DMASHDL_TOP_STATUS_RD_ADDR, &free);
 
 	/* fetch status of group0 ~ 15 to array */
 	for (i = 0; i < ARRAY_SIZE(status); i++) {
 		addr = WF_HIF_DMASHDL_TOP_STATUS_RD_GP0_ADDR + i*4;
-		HAL_MCR_RD(prAdapter, addr, &status[i]);
+		kalDevRegRead(prGlueInfo, addr, &status[i]);
 	}
 
 	/* check different CR for different DVT item */
@@ -830,11 +830,11 @@ int dmashdl_dvt_check_pass(
 
 		break;
 	case DMASHDL_DVT_ITEM_3:
-		DBGLOG(REQ, DEBUG,
+		DBGLOG(REQ, INFO,
 			"Check packet's queue id in sequence on WA\n");
 		break;
 	case DMASHDL_DVT_ITEM_4:
-		DBGLOG(REQ, DEBUG,
+		DBGLOG(REQ, INFO,
 			"Check packet's queue id in sequence on WA\n");
 		break;
 	case DMASHDL_DVT_ITEM_5:
@@ -912,7 +912,7 @@ int dmashdl_dvt_check_pass(
 
 		break;
 	default:
-		DBGLOG(REQ, DEBUG, "[DMASHDL] no support this test item\n");
+		DBGLOG(REQ, INFO, "[DMASHDL] no support this test item\n");
 	}
 
 	return result;
@@ -946,7 +946,7 @@ int dmashdl_dvt_result(
 	prAdapter = prGlueInfo->prAdapter;
 
 	if (dmashdl_dvt_check_pass(prGlueInfo) == 1)
-		DBGLOG(REQ, DEBUG, "DVT PASS\n");
+		DBGLOG(REQ, INFO, "DVT PASS\n");
 	priv_driver_show_dmashdl_allcr(prNetDev, pcCommand, i4TotalLen);
 
 #if (CFG_SUPPORT_CONNAC2X == 1)
@@ -967,7 +967,7 @@ int dmashdl_dvt_result(
 			dvt_ping_nums =
 			&(prAdapter->auto_dvt->dmashdl.dvt_ping_nums[0]);
 			for (idx = 0; idx < 32; idx++)
-				DBGLOG(REQ, DEBUG,
+				DBGLOG(REQ, INFO,
 					"Ping nums %u\n", dvt_ping_nums[idx]);
 		}
 	}
@@ -975,6 +975,135 @@ int dmashdl_dvt_result(
 	DMASHDL_DVT_RESET(prAdapter);
 	/* Reset DMASHDL setting to default */
 	dmashdl_dvt_reset_default(prGlueInfo);
+
+	return i4BytesWritten;
+}
+
+/*
+* This routine is used to run DMASHDL DVT items.
+* iwpriv wlan0 driver "DMASHDL_DVT_ITEM item subitem"
+* For example, run item 1-2:
+* iwpriv wlan0 driver "DMASHDL_DVT_ITEM 1 2"
+* ping 10.10.10.1 -c 25 (Do some test)
+* iwpriv wlan0 driver "DMASHDL_DVT_ITEM 0"
+* PS. Item 0 is stop DVT and then check result
+*/
+int priv_driver_dmashdl_dvt_item(
+	struct net_device *prNetDev,
+	char *pcCommand,
+	int i4TotalLen)
+{
+	struct ADAPTER *prAdapter = NULL;
+	struct GLUE_INFO *prGlueInfo = NULL;
+	int32_t i4BytesWritten = 0;
+	int32_t i4Argc = 0;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX];
+	struct DMASHDL_DVT_CMD_T tDvtCmd;
+
+	ASSERT(prNetDev);
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
+		return -1;
+
+	prGlueInfo = *((struct GLUE_INFO **)netdev_priv(prNetDev));
+	prAdapter = prGlueInfo->prAdapter;
+
+	DBGLOG(REQ, INFO, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
+
+	tDvtCmd.ucItemNo = hexDigitToInt(apcArgv[1][0]);
+	tDvtCmd.ucArgNo = i4Argc - 2;
+	if (tDvtCmd.ucArgNo)
+		tDvtCmd.ucSubItemNo = hexDigitToInt(apcArgv[2][0]);
+	else
+		tDvtCmd.ucSubItemNo = 0;
+
+	DBGLOG(REQ, INFO, "[Item Num]=%u\n", tDvtCmd.ucItemNo);
+
+	switch (tDvtCmd.ucItemNo) {
+	case DMASHDL_DVT_RESULT:
+		dmashdl_dvt_result(prNetDev, pcCommand, i4TotalLen, &tDvtCmd);
+		break;
+	case DMASHDL_DVT_ITEM_1:
+		dmashdl_dvt_item_1(prGlueInfo, &tDvtCmd);
+		break;
+	case DMASHDL_DVT_ITEM_2:
+		dmashdl_dvt_item_2(prGlueInfo, &tDvtCmd);
+		break;
+	case DMASHDL_DVT_ITEM_3:
+		dmashdl_dvt_item_3(prGlueInfo, &tDvtCmd);
+		break;
+	case DMASHDL_DVT_ITEM_4:
+		dmashdl_dvt_item_4(prGlueInfo, &tDvtCmd);
+		break;
+	case DMASHDL_DVT_ITEM_5:
+		dmashdl_dvt_item_5(prGlueInfo, &tDvtCmd);
+		break;
+	case DMASHDL_DVT_ITEM_6:
+		dmashdl_dvt_item_6(prGlueInfo, &tDvtCmd);
+		break;
+	default:
+		DBGLOG(REQ, INFO, "[DMASHDL] no support this test item\n");
+	}
+	return i4BytesWritten;
+}
+
+/*
+* This routine is used to dump related CRs about DMASHDL.
+* iwpriv wlan0 driver "DMASHDL_DUMP_MEM"
+*/
+int priv_driver_show_dmashdl_allcr(
+	struct net_device *prNetDev,
+	char *pcCommand,
+	int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	uint32_t addr, value;
+	int32_t i4BytesWritten = 0;
+
+	ASSERT(prNetDev);
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
+		return -1;
+
+	prGlueInfo = *((struct GLUE_INFO **)netdev_priv(prNetDev));
+
+	for (addr = WF_HIF_DMASHDL_TOP_WACPU_REFILL_ADDR;
+			addr <= WF_HIF_DMASHDL_TOP_GROUP15_CONTROL_ADDR;
+			addr += 4) {
+		kalDevRegRead(prGlueInfo, addr, &value);
+		DBGLOG(REQ, INFO,
+			"[DMASHDL] Addr[0x%08X], value=0x%08X\n", addr, value);
+	}
+
+	DBGLOG(REQ, INFO, "[DMASHDL] Queue Mapping\n");
+	for (addr = WF_HIF_DMASHDL_TOP_QUEUE_MAPPING0_ADDR;
+			addr <= WF_HIF_DMASHDL_TOP_QUEUE_MAPPING3_ADDR;
+			addr += 4) {
+		kalDevRegRead(prGlueInfo, addr, &value);
+		DBGLOG(REQ, INFO,
+			"[DMASHDL] Addr[0x%08X], value=0x%08X\n", addr, value);
+	}
+
+	kalDevRegRead(prGlueInfo, WF_HIF_DMASHDL_TOP_STATUS_RD_ADDR, &value);
+	DBGLOG(REQ, INFO,
+		"[DMASHDL] Status RD[0x%08X] value = 0x%08X\n",
+		WF_HIF_DMASHDL_TOP_STATUS_RD_ADDR, value);
+	DBGLOG(REQ, INFO, "[DMASHDL] Status RD GP\n");
+	for (addr = WF_HIF_DMASHDL_TOP_STATUS_RD_GP0_ADDR;
+			addr <= WF_HIF_DMASHDL_TOP_STATUS_RD_GP15_ADDR;
+			addr += 4) {
+		kalDevRegRead(prGlueInfo, addr, &value);
+		DBGLOG(REQ, INFO,
+			"[DMASHDL] Addr[0x%08X], value=0x%08X\n", addr, value);
+	}
+	DBGLOG(REQ, INFO, "[DMASHDL] Status RD GP PKT cnt\n");
+	for (addr = WF_HIF_DMASHDL_TOP_RD_GROUP_PKT_CNT0_ADDR;
+			addr <= WF_HIF_DMASHDL_TOP_RD_GROUP_PKT_CNT7_ADDR;
+			addr += 4) {
+		kalDevRegRead(prGlueInfo, addr, &value);
+		DBGLOG(REQ, INFO,
+			"[DMASHDL] Addr[0x%08X], value=0x%08X\n", addr, value);
+	}
 
 	return i4BytesWritten;
 }

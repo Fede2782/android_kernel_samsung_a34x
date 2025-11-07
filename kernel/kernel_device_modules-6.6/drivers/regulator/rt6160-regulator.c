@@ -131,7 +131,7 @@ static unsigned int rt6160_get_mode(struct regulator_dev *rdev)
 
 	ret = regmap_read(regmap, RT6160_REG_CNTL, &val);
 	if (ret)
-		return ret;
+		return REGULATOR_MODE_INVALID;
 
 	if (val & RT6160_FPWM_MASK)
 		return REGULATOR_MODE_FAST;

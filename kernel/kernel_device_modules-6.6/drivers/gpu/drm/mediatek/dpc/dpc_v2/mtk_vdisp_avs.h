@@ -22,6 +22,7 @@ void mtk_vdisp_avs_vcp_notifier(unsigned long vcp_event, void *data);
 void mtk_vdisp_avs_query_aging_val(struct device *dev);
 int mtk_vdisp_avs_probe(struct platform_device *pdev);
 int mtk_vdisp_avs_dbg_opt(const char *opt);
+void mtk_vdisp_set_clk(unsigned long rate);
 
 /* This enum is used to define the IPI function IDs for vdisp */
 enum mtk_vdisp_avs_ipi_func_id {

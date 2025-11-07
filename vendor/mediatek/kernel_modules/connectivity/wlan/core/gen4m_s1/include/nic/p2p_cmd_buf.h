@@ -108,11 +108,43 @@
 /*--------------------------------------------------------------*/
 /* Firmware Command Packer                                      */
 /*--------------------------------------------------------------*/
+#define wlanoidSendSetQueryP2PCmd(_prAdapter, \
+				  _ucCID, \
+				  _ucBssIdx, \
+				  _fgSetQuery, \
+				  _fgNeedResp, \
+				  _fgIsOid, \
+				  _pfCmdDoneHandler, \
+				  _pfCmdTimeoutHandler, \
+				  _u4SetQueryInfoLen, \
+				  _pucInfoBuffer, \
+				  _pvSetQueryBuffer, \
+				  _u4SetQueryBufferLen) \
+({ \
+	uint32_t u4Status; \
+	WLAN_STATIC_CMD_DONE_HANDLER_CHECK(_pfCmdDoneHandler); \
+	u4Status = __wlanoidSendSetQueryP2PCmd(_prAdapter, \
+				  _ucCID, \
+				  _ucBssIdx, \
+				  _fgSetQuery, \
+				  _fgNeedResp, \
+				  _fgIsOid, \
+				  _pfCmdDoneHandler, \
+				  #_pfCmdDoneHandler, \
+				  _pfCmdTimeoutHandler, \
+				  _u4SetQueryInfoLen, \
+				  _pucInfoBuffer, \
+				  _pvSetQueryBuffer, \
+				  _u4SetQueryBufferLen); \
+	u4Status; \
+})
+
 uint32_t
-wlanoidSendSetQueryP2PCmd(IN struct ADAPTER *prAdapter, IN uint8_t ucCID,
+__wlanoidSendSetQueryP2PCmd(IN struct ADAPTER *prAdapter, IN uint8_t ucCID,
 			  IN uint8_t ucBssIdx, IN u_int8_t fgSetQuery,
 			  IN u_int8_t fgNeedResp, IN u_int8_t fgIsOid,
 			  IN PFN_CMD_DONE_HANDLER pfCmdDoneHandler,
+			  IN const char *pCmdDoneHandlerStr,
 			  IN PFN_CMD_TIMEOUT_HANDLER pfCmdTimeoutHandler,
 			  IN uint32_t u4SetQueryInfoLen,
 			  IN uint8_t *pucInfoBuffer, OUT void *pvSetQueryBuffer,

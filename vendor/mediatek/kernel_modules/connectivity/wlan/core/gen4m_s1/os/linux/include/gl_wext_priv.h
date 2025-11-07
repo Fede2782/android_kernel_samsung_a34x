@@ -327,7 +327,9 @@ struct WLAN_REQ_ENTRY {
 	enum ENUM_OID_METHOD eOidMethod;
 	uint32_t u4InfoBufLen;
 	PFN_OID_HANDLER_FUNC_REQ pfOidQueryHandler; /* PFN_OID_HANDLER_FUNC */
+	const char *pOidQueryHandlerStr;
 	PFN_OID_HANDLER_FUNC_REQ pfOidSetHandler; /* PFN_OID_HANDLER_FUNC */
+	const char *pOidSetHandlerStr;
 };
 
 struct NDIS_TRANSPORT_STRUCT {

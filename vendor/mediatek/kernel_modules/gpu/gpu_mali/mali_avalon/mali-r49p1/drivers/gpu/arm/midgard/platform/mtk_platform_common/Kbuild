@@ -99,6 +99,10 @@ ifeq ($(CONFIG_MALI_MTK_WHITEBOX_MISSING_DOORBELL),y)
     mali_kbase-y += $(curr)/mtk_platform_whitebox_missing_doorbell.o
 endif ## CONFIG_MALI_MTK_WHITEBOX_MISSING_DOORBELL ##
 
+ifeq ($(CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG),y)
+    mali_kbase-y += $(curr)/mtk_platform_upf_counter.o
+endif ## CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG ##
+
 ccflags-y += -I$(srctree)/drivers/devfreq/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/perf_common/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/tinysys_scmi/

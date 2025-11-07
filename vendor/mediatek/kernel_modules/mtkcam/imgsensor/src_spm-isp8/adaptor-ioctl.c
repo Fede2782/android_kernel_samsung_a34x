@@ -799,6 +799,7 @@ static int g_ana_gain_table(struct adaptor_ctx *ctx, void *arg)
 	u32 len;
 	struct workbuf workbuf;
 	int ret;
+	u64 table_sz = 0;
 
 	if (!info->size || !info->p_buf)
 		return -EINVAL;
@@ -810,6 +811,26 @@ static int g_ana_gain_table(struct adaptor_ctx *ctx, void *arg)
 	if (ret)
 		return ret;
 
+	/* Get size */
+	para.u64[0] = 0;
+	para.u64[1] = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_ANA_GAIN_TABLE,
+		para.u8, &len);
+
+	table_sz = para.u64[0];
+
+	/* Size validation */
+	if (info->size < table_sz){
+		pr_err("buffer size is not sufficient for ANA gain table\n");
+		ret = workbuf_put(&workbuf);
+		if (ret)
+			return ret;
+		return -EINVAL;
+	}
+
+	/* Get table */
 	para.u64[0] = info->size;
 	para.u64[1] = (u64)workbuf.kbuf;
 
@@ -1009,6 +1030,9 @@ static int g_4cell_data(struct adaptor_ctx *ctx, void *arg)
 
 	para.u64[0] = info->type;
 	para.u64[1] = (u64)workbuf.kbuf;
+	para.u64[2] = info->size;
+	adaptor_logd(ctx, "[%s] type: %llu, size: %llu\n",
+		__func__, para.u64[0], para.u64[2]);
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_4CELL_DATA,
 		para.u8, &len);
@@ -1285,6 +1309,7 @@ static int g_dcg_gain_ratio_table_by_scenario(struct adaptor_ctx *ctx, void *arg
 	u32 len;
 	struct workbuf workbuf;
 	int ret;
+	u64 table_sz = 0;
 
 	if (!info->size || !info->p_buf)
 		return -EINVAL;
@@ -1296,6 +1321,27 @@ static int g_dcg_gain_ratio_table_by_scenario(struct adaptor_ctx *ctx, void *arg
 	if (ret)
 		return ret;
 
+	/* Get size */
+	para.u64[0] = info->scenario_id;
+	para.u64[1] = 0;
+	para.u64[2] = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_DCG_GAIN_RATIO_TABLE_BY_SCENARIO,
+		para.u8, &len);
+
+	table_sz = para.u64[1];
+
+	/* Size validation */
+	if (info->size < table_sz){
+		pr_err("buffer size is not sufficient for DCG gain ratio table\n");
+		ret = workbuf_put(&workbuf);
+		if (ret)
+			return ret;
+		return -EINVAL;
+	}
+
+	/* Get table */
 	para.u64[0] = info->scenario_id;
 	para.u64[1] = info->size;
 	para.u64[2] = (u64)workbuf.kbuf;

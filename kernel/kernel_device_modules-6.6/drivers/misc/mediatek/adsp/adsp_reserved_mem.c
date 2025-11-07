@@ -250,3 +250,17 @@ void adsp_update_mpu_memory_info(struct adsp_priv *pdata)
 	adsp_copy_to_sharedmem(pdata, ADSP_SHAREDMEM_MPUINFO,
 		&mpu_info, sizeof(struct adsp_mpu_info_t));
 }
+
+void adsp_update_c2c_memory_info(struct adsp_priv *pdata)
+{
+	struct adsp_c2c_share_dram_info_t c2c_info;
+
+	c2c_info.share_dram_addr = adsp_get_reserve_mem_phys(ADSP_C2C_MEM_ID);
+	c2c_info.share_dram_size = adsp_get_reserve_mem_size(ADSP_C2C_MEM_ID);
+
+	pr_info("[ADSP] c2c info=(0x%llx, 0x%x)\n",
+		 c2c_info.share_dram_addr, c2c_info.share_dram_size);
+	adsp_copy_to_sharedmem_tcm(pdata, ADSP_SHAREDMEM_C2C_BUFINFO,
+		&c2c_info, sizeof(struct adsp_c2c_share_dram_info_t));
+}
+

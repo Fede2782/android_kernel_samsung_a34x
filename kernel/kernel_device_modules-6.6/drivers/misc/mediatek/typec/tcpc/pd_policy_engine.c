@@ -1272,7 +1272,7 @@ static inline uint8_t pd_try_get_active_event(
 
 #if CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG
 	if (ret != TCP_DPM_EVT_DUMMY)
-	pe_data->pd_sent_ams_init_cmd = false;
+		pe_data->pd_sent_ams_init_cmd = false;
 #endif	/* CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG */
 
 	return PE_NEW_EVT_PD;

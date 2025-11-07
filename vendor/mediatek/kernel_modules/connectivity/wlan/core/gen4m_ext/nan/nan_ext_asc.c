@@ -153,8 +153,8 @@ static void freePendingAscCmd(void)
 	uint8_t ucIsAscMode;
 
 	ucIsAscMode = g_nanAscPendingCmd.ucIsAscMode;
-	DBGLOG(NAN, DEBUG, "Enter %s, free pending request %u\n",
-		   __func__, g_nanAscPendingCmd.ucRequestId);
+	DBGLOG(NAN, INFO, "free pending request %u\n",
+		   g_nanAscPendingCmd.ucRequestId);
 
 	kalMemZero(&g_nanAscPendingCmd, sizeof(struct NAN_ASC_PENDING_CMD));
 
@@ -194,8 +194,8 @@ uint32_t nanComposeASCResponse(struct ADAPTER *prAdapter,
 	struct IE_NAN_ASC_EVENT *prResponse;
 	uint32_t u4BufSize = sizeof(struct IE_NAN_ASC_EVENT) - EXT_MSG_HDR_LEN;
 
-	DBGLOG(NAN, DEBUG, "Enter %s, type=%u status=%u reason=%u\n",
-			   __func__, type, status, reason_code);
+	DBGLOG(NAN, INFO, "type=%u status=%u reason=%u\n",
+			   type, status, reason_code);
 
 	prResponse = (struct IE_NAN_ASC_EVENT *)aucBuf;
 
@@ -208,15 +208,15 @@ uint32_t nanComposeASCResponse(struct ADAPTER *prAdapter,
 	prResponse->status = status;
 	prResponse->reason_code= reason_code;
 
-	DBGLOG(NAN, DEBUG, "OUI: %d(%02X) (%s)\n",
+	DBGLOG(NAN, INFO, "OUI: %d(%02X) (%s)\n",
 		   prResponse->ucNanOui, prResponse->ucNanOui,
 		   oui_str(prResponse->ucNanOui));
-	DBGLOG(NAN, DEBUG, "Length: %d, v%d.%d\n", prResponse->u2Length,
+	DBGLOG(NAN, INFO, "Length: %d, v%d.%d\n", prResponse->u2Length,
 			prResponse->ucMajorVersion, prResponse->ucMinorVersion);
-	DBGLOG(NAN, DEBUG, "ReqId: %d,Type: %d (%s)\n",
+	DBGLOG(NAN, INFO, "ReqId: %d,Type: %d (%s)\n",
 			prResponse->ucRequestId,
 			prResponse->type, asc_type_str(prResponse->type));
-	DBGLOG(NAN, DEBUG, "Status: %d (%s),Reason: %d\n",
+	DBGLOG(NAN, INFO, "Status: %d (%s),Reason: %d\n",
 			prResponse->status, asc_status_str(prResponse->status),
 			prResponse->reason_code);
 
@@ -239,7 +239,7 @@ uint32_t nanComposeASCResponse(struct ADAPTER *prAdapter,
 			kalMemCopy(prResponse->aucInfo,
 				   &rEvent, sizeof(rEvent));
 
-			DBGLOG(NAN, DEBUG, "Init cluster\n");
+			DBGLOG(NAN, INFO, "Init cluster\n");
 		} else if (reason_code == NAN_ASC_EVENT_JOIN_CLUSTER) {
 			struct NAN_ASC_EVENT_CLUSTER_JOIN rEvent = {0};
 
@@ -258,7 +258,7 @@ uint32_t nanComposeASCResponse(struct ADAPTER *prAdapter,
 			kalMemCopy(&prResponse->aucInfo[0],
 				   &rEvent, sizeof(rEvent));
 
-			DBGLOG(NAN, DEBUG, "Join cluster\n");
+			DBGLOG(NAN, INFO, "Join cluster\n");
 		} else if (reason_code == NAN_ASC_EVENT_NEW_DEVICE_JOIN) {
 			struct NAN_ASC_EVENT_CLUSTER_NEW_DEVICE rEvent = {0};
 
@@ -269,7 +269,7 @@ uint32_t nanComposeASCResponse(struct ADAPTER *prAdapter,
 			kalMemCopy(&prResponse->aucInfo[0],
 				   &rEvent, sizeof(rEvent));
 
-			DBGLOG(NAN, DEBUG, "New Device\n");
+			DBGLOG(NAN, INFO, "New Device\n");
 		} else if (reason_code == NAN_ASC_EVENT_SYNC_BEACON_TRACK) {
 			struct NAN_ASC_EVENT_SYNC_BEACON rEvent = {0};
 
@@ -402,27 +402,27 @@ uint32_t nanProcessASC(struct ADAPTER *prAdapter, const uint8_t *buf,
 	struct IE_NAN_ASC_CMD *c = (struct IE_NAN_ASC_CMD *)buf;
 	uint32_t offset = 0, rStatus = WLAN_STATUS_SUCCESS;
 
-	DBGLOG(NAN, DEBUG, "Enter %s, consuming %lu bytes\n",
-	       __func__, sizeof(struct IE_NAN_ASC_CMD));
-	DBGLOG_HEX(NAN, DEBUG, buf, sizeof(struct IE_NAN_ASC_CMD));
+	DBGLOG(NAN, INFO, "Consuming %lu bytes\n",
+	       sizeof(struct IE_NAN_ASC_CMD));
+	DBGLOG_HEX(NAN, INFO, buf, sizeof(struct IE_NAN_ASC_CMD));
 
-	DBGLOG(NAN, DEBUG, "OUI: %d(%02X) (%s)\n",
+	DBGLOG(NAN, INFO, "OUI: %d(%02X) (%s)\n",
 	       c->ucNanOui, c->ucNanOui, oui_str(c->ucNanOui));
-	DBGLOG(NAN, DEBUG, "Length: %X\n", c->u2Length);
-	DBGLOG(NAN, DEBUG, "v%d.%d\n", c->ucMajorVersion, c->ucMinorVersion);
-	DBGLOG(NAN, DEBUG, "ReqId: %d\n", c->ucRequestId);
-	DBGLOG(NAN, DEBUG, "Type: %d\n", c->type);
-	DBGLOG(NAN, DEBUG, "SubType: %d\n", c->subtype);
-	DBGLOG(NAN, DEBUG, "PS: %d\n", c->power_save);
-	DBGLOG(NAN, DEBUG, "TrackEnable: %d\n", c->track_en);
-	DBGLOG(NAN, DEBUG, "Rsrv: %d\n", c->reserved);
-	DBGLOG(NAN, DEBUG, "OpChannel: %d\n", c->ucOpChannel);
-	DBGLOG(NAN, DEBUG, "OpBand: %u\n", c->ucOpBand);
-	DBGLOG(NAN, DEBUG, "Rsrv2: %d\n", c->reserved2);
-	DBGLOG(NAN, DEBUG, "bssid: " MACSTR "\n", MAC2STR(c->aucBSSID));
-	DBGLOG(NAN, DEBUG, "TSF: %llu\n", c->u8Tsf);
-	DBGLOG(NAN, DEBUG, "TSFOPT: %u\n", c->tsf_option);
-	DBGLOG(NAN, DEBUG, "Rsrv3: 0x%04X\n", c->reserved3);
+	DBGLOG(NAN, INFO, "Length: %X\n", c->u2Length);
+	DBGLOG(NAN, INFO, "v%d.%d\n", c->ucMajorVersion, c->ucMinorVersion);
+	DBGLOG(NAN, INFO, "ReqId: %d\n", c->ucRequestId);
+	DBGLOG(NAN, INFO, "Type: %d\n", c->type);
+	DBGLOG(NAN, INFO, "SubType: %d\n", c->subtype);
+	DBGLOG(NAN, INFO, "PS: %d\n", c->power_save);
+	DBGLOG(NAN, INFO, "TrackEnable: %d\n", c->track_en);
+	DBGLOG(NAN, INFO, "Rsrv: %d\n", c->reserved);
+	DBGLOG(NAN, INFO, "OpChannel: %d\n", c->ucOpChannel);
+	DBGLOG(NAN, INFO, "OpBand: %u\n", c->ucOpBand);
+	DBGLOG(NAN, INFO, "Rsrv2: %d\n", c->reserved2);
+	DBGLOG(NAN, INFO, "bssid: " MACSTR "\n", MAC2STR(c->aucBSSID));
+	DBGLOG(NAN, INFO, "TSF: %llu\n", c->u8Tsf.QuadPart);
+	DBGLOG(NAN, INFO, "TSFOPT: %u\n", c->tsf_option);
+	DBGLOG(NAN, INFO, "Rsrv3: 0x%04X\n", c->reserved3);
 
 	offset += sizeof(struct IE_NAN_ASC_CMD);
 
@@ -458,7 +458,7 @@ void nanExtComposeClusterEvent(struct ADAPTER *prAdapter, struct NAN_DE_EVENT *p
 	prAscAsyncEvt->ucEventType = prDeEvt->ucEventType;
 	COPY_MAC_ADDR(prAscAsyncEvt->ucClusterId, prDeEvt->ucClusterId);
 	kalMemCopy(prAscAsyncEvt->aucAnchorMasterRank,
-		   prDeEvt->aucAnchorMasterRank, ANCHOR_MASTER_RANK_NUM);
+				prDeEvt->aucAnchorMasterRank, ANCHOR_MASTER_RANK_NUM);
 	COPY_MAC_ADDR(prAscAsyncEvt->ucOwnNmi, prDeEvt->ucOwnNmi);
 
 	/* Only JOINED_CLUSTER event will carry Master NMI */
@@ -491,19 +491,18 @@ void nanExtComposeBeaconTrack(struct ADAPTER *prAdapter,
 	kalMemZero(prAscAsyncEvt, sizeof(prAscAsyncEvt));
 
 	if (prWlanBeaconFrame->u2BeaconInterval == 512) {
-		DBGLOG(NAN, DEBUG, "Sync Beacon\n");
+		DBGLOG(NAN, INFO, "Sync Beacon\n");
 		prAscAsyncEvt->ucEventType = NAN_EVENT_ID_SYNC_BEACON_TRACK;
 		COPY_MAC_ADDR(prAscAsyncEvt->ucClusterId,
 				prWlanBeaconFrame->aucBSSID);
 		kalMemCopy(prAscAsyncEvt->aucAnchorMasterRank,
-			   prFwEvt->aucAnchorMasterRank,
-			   ANCHOR_MASTER_RANK_NUM);
+				prFwEvt->aucAnchorMasterRank, ANCHOR_MASTER_RANK_NUM);
 		COPY_MAC_ADDR(prAscAsyncEvt->ucMasterNmi,
 				prWlanBeaconFrame->aucSrcAddr);
 		/* TODO TSF offset */
 
 	} else {
-		DBGLOG(NAN, DEBUG, "Discovery Beacon\n");
+		DBGLOG(NAN, INFO, "Discovery Beacon\n");
 		prAscAsyncEvt->ucEventType = NAN_EVENT_ID_DISC_BEACON_TRACK;
 		COPY_MAC_ADDR(prAscAsyncEvt->ucClusterId,
 				prWlanBeaconFrame->aucBSSID);
@@ -528,8 +527,7 @@ void nanExtSendAsyncEvent(struct ADAPTER *prAdapter, struct NAN_ASC_ASYNC_EVENT 
 	} else if (prAscAsyncEvt->ucEventType == NAN_EVENT_ID_DISC_BEACON_TRACK) {
 		reason_code = NAN_ASC_EVENT_DISC_BEACON_TRACK;
 	} else {
-		DBGLOG(NAN, DEBUG,
-		       "undefined Event %d!\n", prAscAsyncEvt->ucEventType);
+		DBGLOG(NAN, INFO, "undefined Event %d!\n", prAscAsyncEvt->ucEventType);
 	}
 
 	if (reason_code != NAN_ASC_EVENT_FAIL_UNDEFINED)
@@ -537,16 +535,6 @@ void nanExtSendAsyncEvent(struct ADAPTER *prAdapter, struct NAN_ASC_ASYNC_EVENT 
 			   NAN_ASC_PACKET_RESPONSE,
 			   NAN_ASC_STATUS_ASYNC_EVENT,
 			   reason_code, prAscAsyncEvt);
-}
-
-void nanExtTerminateApNanEndPs(struct ADAPTER *prAdapter)
-{
-	nanExtTerminateApNan(prAdapter, NAN_ASC_EVENT_ASCC_END_PS);
-}
-
-void nanExtTerminateApNanEndLegacy(struct ADAPTER *prAdapter)
-{
-	nanExtTerminateApNan(prAdapter, NAN_ASC_EVENT_ASCC_END_LEGACY);
 }
 
 void nanExtTerminateApNan(struct ADAPTER *prAdapter, uint8_t ucReason)
@@ -574,24 +562,23 @@ void nanExtTerminateApNan(struct ADAPTER *prAdapter, uint8_t ucReason)
 		c.u8Tsf.u.HighPart = UINT32_MAX;
 		c.tsf_option = 0; /* FW don't care */
 
-		DBGLOG(NAN, DEBUG, "OUI: %d(%02X) (%s)\n",
+		DBGLOG(NAN, INFO, "OUI: %d(%02X) (%s)\n",
 				  c.ucNanOui, c.ucNanOui, oui_str(c.ucNanOui));
-		DBGLOG(NAN, DEBUG, "Length: %X\n", c.u2Length);
-		DBGLOG(NAN, DEBUG,
-		       "v%d.%d\n", c.ucMajorVersion, c.ucMinorVersion);
-		DBGLOG(NAN, DEBUG, "ReqId: %d\n", c.ucRequestId);
-		DBGLOG(NAN, DEBUG, "Type: %d\n", c.type);
-		DBGLOG(NAN, DEBUG, "SubType: %d\n", c.subtype);
-		DBGLOG(NAN, DEBUG, "PS: %d\n", c.power_save);
-		DBGLOG(NAN, DEBUG, "TrackEnable: %d\n", c.track_en);
-		DBGLOG(NAN, DEBUG, "Rsrv: %d\n", c.reserved);
-		DBGLOG(NAN, DEBUG, "OpChannel: %d\n", c.ucOpChannel);
-		DBGLOG(NAN, DEBUG, "OpBand: %u\n", c.ucOpBand);
-		DBGLOG(NAN, DEBUG, "Rsrv2: %d\n", c.reserved2);
-		DBGLOG(NAN, DEBUG, "bssid: " MACSTR "\n", MAC2STR(c.aucBSSID));
-		DBGLOG(NAN, DEBUG, "TSF: %llu\n", c.u8Tsf.QuadPart);
-		DBGLOG(NAN, DEBUG, "TSFOPT: %u\n", c.tsf_option);
-		DBGLOG(NAN, DEBUG, "Rsrv3: 0x%04X\n", c.reserved3);
+		DBGLOG(NAN, INFO, "Length: %X\n", c.u2Length);
+		DBGLOG(NAN, INFO, "v%d.%d\n", c.ucMajorVersion, c.ucMinorVersion);
+		DBGLOG(NAN, INFO, "ReqId: %d\n", c.ucRequestId);
+		DBGLOG(NAN, INFO, "Type: %d\n", c.type);
+		DBGLOG(NAN, INFO, "SubType: %d\n", c.subtype);
+		DBGLOG(NAN, INFO, "PS: %d\n", c.power_save);
+		DBGLOG(NAN, INFO, "TrackEnable: %d\n", c.track_en);
+		DBGLOG(NAN, INFO, "Rsrv: %d\n", c.reserved);
+		DBGLOG(NAN, INFO, "OpChannel: %d\n", c.ucOpChannel);
+		DBGLOG(NAN, INFO, "OpBand: %u\n", c.ucOpBand);
+		DBGLOG(NAN, INFO, "Rsrv2: %d\n", c.reserved2);
+		DBGLOG(NAN, INFO, "bssid: " MACSTR "\n", MAC2STR(c.aucBSSID));
+		DBGLOG(NAN, INFO, "TSF: %llu\n", c.u8Tsf.QuadPart);
+		DBGLOG(NAN, INFO, "TSFOPT: %u\n", c.tsf_option);
+		DBGLOG(NAN, INFO, "Rsrv3: 0x%04X\n", c.reserved3);
 
 		savePendingAscCmd(&c);
 		nanExtSetAsc(prAdapter);

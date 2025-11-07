@@ -230,8 +230,8 @@ static int sec_map_rdx_bootdev_region(void)
 	pr_info("%s, secdbg-rdx-bootdev : addr [0x%llx], size [0x%llx]\n", __func__,
 		sec_rdx_bootdev_paddr, sec_rdx_bootdev_size);
 
-	if (is_debug_level_low()) {
-		pr_info("%s, debug level is low. sec_debug is not enabled\n", __func__);
+	if (!sec_debug_get_force_upload()) {
+		pr_info("%s, upload mode is disabled\n", __func__);
 		sec_free_rdx_bootdev(sec_rdx_bootdev_paddr, sec_rdx_bootdev_size);
 		return 0;
 	}

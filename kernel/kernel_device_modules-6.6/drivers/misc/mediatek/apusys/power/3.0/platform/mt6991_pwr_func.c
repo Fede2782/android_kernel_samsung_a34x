@@ -3,6 +3,7 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 #include <linux/slab.h>
+#include <linux/delay.h>
 #include "apu_top.h"
 #include "aputop_log.h"
 #include "aputop_rpmsg.h"
@@ -17,7 +18,11 @@ static void __iomem *spare_reg_base;
 static struct tiny_dvfs_opp_tbl opp_tbl;
 static struct tiny_dvfs_opp_tbl opp_tbl2;
 static struct apu_pwr_curr_info curr_info;
-
+int mt6991_mdla_pll_freq[OPP_TABLE_SIZE];
+int mt6991_mvpu_pll_freq[OPP_TABLE_SIZE];
+int cur_mvpu_pll_freq;
+int cur_mdla_pll_freq;
+int mt6991_opp_request_bit;
 static const char * const pll_name[] = {
 				"PLL_CONN", "PLL_RV33", "PLL_MVPU", "PLL_MDLA"};
 static const char * const buck_name[] = {
@@ -99,15 +104,15 @@ static void limit_opp_to_all_devices(int opp)
 
 }
 
-void mt6991_aputop_opp_limit(struct aputop_func_param *aputop,
+void mt6991_aputop_opp_limit(int upper_opp, int low_opp,
 		enum apu_opp_limit_type type)
 {
 	int vpu_max, vpu_min, dla_max, dla_min;
 
-	vpu_max = aputop->param1;
-	vpu_min = aputop->param2;
-	dla_max = aputop->param3;
-	dla_min = aputop->param4;
+	vpu_max = upper_opp;
+	vpu_min = low_opp;
+	dla_max = upper_opp;
+	dla_min = low_opp;
 	_opp_limiter(vpu_max, vpu_min, dla_max, dla_min, type);
 }
 
@@ -457,6 +462,88 @@ out:
 }
 #endif
 
+void mt6991_request_cur_freq(void)
+{
+	struct aputop_rpmsg_data rpmsg_data;
+	int retry = 10;
+
+	memset(&rpmsg_data, 0, sizeof(struct aputop_rpmsg_data));
+
+	rpmsg_data.cmd = APUTOP_CURR_STATUS;
+	rpmsg_data.data0 = 1; // pseudo data
+	do {
+		aputop_send_rpmsg(&rpmsg_data, 100);
+		if (cur_mvpu_pll_freq != 0)
+			break;
+		udelay(1000);
+	} while (--retry);
+}
+
+static void save_cur_freq(struct apu_pwr_curr_info *info)
+{
+	struct apu_pwr_curr_info myinfo;
+
+	memcpy(&myinfo, info, sizeof(struct apu_pwr_curr_info));
+	cur_mvpu_pll_freq = myinfo.pll_freq[2];
+	cur_mdla_pll_freq = myinfo.pll_freq[3];
+}
+
+
+void mt6991_request_opp_table(void)
+{
+	struct aputop_rpmsg_data rpmsg_data;
+	int retry = 10;
+
+	mt6991_opp_request_bit = 1;
+	memset(&rpmsg_data, 0, sizeof(struct aputop_rpmsg_data));
+
+	rpmsg_data.cmd = APUTOP_DUMP_OPP_TBL;
+	rpmsg_data.data0 = 1; // pseudo data
+	do {
+		aputop_send_rpmsg(&rpmsg_data, 100);
+		if (mt6991_mdla_pll_freq[USER_MID_OPP_VAL - 1] != 0)
+			break;
+		udelay(1000);
+	} while (--retry);
+
+	retry = 10;
+	rpmsg_data.cmd = APUTOP_DUMP_OPP_TBL2;
+	rpmsg_data.data0 = 1; // pseudo data
+	do {
+		aputop_send_rpmsg(&rpmsg_data, 100);
+		if (mt6991_mdla_pll_freq[OPP_TABLE_SIZE - 1] != 0)
+			break;
+		udelay(1000);
+	} while (--retry);
+
+}
+
+static void save_opp_table(struct tiny_dvfs_opp_tbl *tbl, int start_index)
+{
+	struct tiny_dvfs_opp_tbl mytbl;
+	int size, i, j;
+
+	size = tbl->tbl_size;
+	memcpy(&mytbl, tbl, sizeof(struct tiny_dvfs_opp_tbl));
+	size = mytbl.tbl_size;
+
+	pr_info("Saving OPP Table Data to mytbl:\n");
+	for (i = 0; i < size; i++) {
+		pr_info("OPP %d: vapu=%d, vsram=%d", i, mytbl.opp[i].vapu, tbl->opp[i].vsram);
+		for (j = 0; j < 4; j++)
+			pr_info(" pll_freq[%d]=%d", j, mytbl.opp[i].pll_freq[j]);
+		if (i + start_index < OPP_TABLE_SIZE)
+			mt6991_mdla_pll_freq[i + start_index] = mytbl.opp[i].pll_freq[PLL_DLA];
+		pr_info("\n");
+	}
+
+	for (i = 0; i < size; i++) {
+		if (i + start_index < OPP_TABLE_SIZE)
+			mt6991_mvpu_pll_freq[i + start_index] = mytbl.opp[i].pll_freq[PLL_VPU];
+		pr_info("\n");
+	}
+}
+
 int mt6991_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src)
 {
 	int ret = 0;
@@ -470,21 +557,31 @@ int mt6991_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src)
 		// do nothing
 		break;
 	case APUTOP_DUMP_OPP_TBL:
-		if (len)
+		if (len) {
 			memcpy(&opp_tbl, data, len);
-		else
+			if(mt6991_opp_request_bit == 1) {
+				save_opp_table(&opp_tbl, 0);
+				//memset(&opp_tbl, 0, sizeof(opp_tbl));
+			}
+		} else
 			ret = -EINVAL;
 		break;
 	case APUTOP_DUMP_OPP_TBL2:
-		if (len)
+		if (len) {
 			memcpy(&opp_tbl2, data, len);
-		else
+			if(mt6991_opp_request_bit == 1) {
+				save_opp_table(&opp_tbl2, USER_MID_OPP_VAL);
+				//memset(&opp_tbl, 0, sizeof(opp_tbl));
+				mt6991_opp_request_bit = 0;
+			}
+		} else
 			ret = -EINVAL;
 		break;
 	case APUTOP_CURR_STATUS:
 		if (len == sizeof(curr_info)) {
 			memcpy(&curr_info,
 				(struct apu_pwr_curr_info *)data, len);
+			save_cur_freq(&curr_info);
 		} else {
 			pr_info("%s invalid size : %d/%lu\n",
 					__func__, len, sizeof(curr_info));

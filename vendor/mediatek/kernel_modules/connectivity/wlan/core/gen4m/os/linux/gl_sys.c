@@ -308,13 +308,13 @@ static ssize_t logDumpStatus_store(
 			DBGLOG(INIT, TRACE,
 				"Write fw log to file done.\n");
 			i4DumpInProgress = i4Value;
-			fw_log_wifi_write_log_to_file(i4DumpInProgress);
+			//fw_log_wifi_write_log_to_file(i4DumpInProgress);
 			break;
 		case 1:
 			DBGLOG(INIT, TRACE,
 				"Write fw log to file start.\n");
 			i4DumpInProgress = i4Value;
-			fw_log_wifi_write_log_to_file(i4DumpInProgress);
+			//fw_log_wifi_write_log_to_file(i4DumpInProgress);
 			break;
 
 		default:

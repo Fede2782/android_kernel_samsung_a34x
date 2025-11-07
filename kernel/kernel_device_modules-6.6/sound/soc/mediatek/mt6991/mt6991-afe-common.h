@@ -16,6 +16,7 @@
 #include "mtk-sp-spk-amp.h"
 #include "mtk-afe-external.h"
 #include "mtk-dsp-mem-control.h"
+#include <linux/regulator/consumer.h>
 
 // #define IS_FPGA_EARLY_PORTING
 #ifndef IS_FPGA_EARLY_PORTING
@@ -98,6 +99,7 @@ enum {
 	MT6991_DAI_ADDA_CH56,
 	MT6991_DAI_AP_DMIC,
 	MT6991_DAI_AP_DMIC_CH34,
+	MT6991_DAI_AP_DMIC_CH56,
 	MT6991_DAI_VOW,
 	MT6991_DAI_VOW_SCP_DMIC,
 	MT6991_DAI_CONNSYS_I2S,
@@ -719,6 +721,8 @@ struct mt6991_afe_private {
 	struct snd_soc_component *codec_component;
 	/* clk always on */
 	struct mtk_clk_ao_attr clk_ao_data[MT6991_DAI_NUM];
+	/* regulator */
+	struct regulator *reg_vib18;
 };
 
 struct mtk_afe_adda_priv {

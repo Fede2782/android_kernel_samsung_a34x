@@ -44,8 +44,8 @@
 			struct mt66xx_chip_info *prChipInfo; \
 			\
 			prChipInfo = prAdapter->chip_info; \
-			DBGLOG(NIC, DEBUG, "Dump RXD:\n"); \
-			DBGLOG_MEM8(NIC, DEBUG, prRxStatus, \
+			DBGLOG(NIC, INFO, "Dump RXD:\n"); \
+			DBGLOG_MEM8(NIC, INFO, prRxStatus, \
 				prChipInfo->rxd_size); \
 		} \
 	} while (0)
@@ -59,36 +59,36 @@
 				DBGLOG(NIC, WARN, "pvPayload == NULL\n"); \
 				break; \
 			} \
-			DBGLOG(NIC, DEBUG, "Dump RXP:\n"); \
-			DBGLOG_MEM8(NIC, DEBUG, pvPayload, u4PayloadLen); \
+			DBGLOG(NIC, INFO, "Dump RXP:\n"); \
+			DBGLOG_MEM8(NIC, INFO, pvPayload, u4PayloadLen); \
 		} \
 	} while (0)
 
 #define NIC_DUMP_TXD_HEADER(prAdapter, header) \
 	do { \
 		if (prAdapter->rWifiVar.fgDumpTxD) \
-			DBGLOG(TX, DEBUG, header); \
+			DBGLOG(TX, INFO, header); \
 	} while (0)
 
 #define NIC_DUMP_TXD(prAdapter, addr, size) \
 	do { \
 		if (prAdapter->rWifiVar.fgDumpTxD) { \
 			DBGLOG(TX, TRACE, "Dump TXD:\n"); \
-			DBGLOG_MEM8(TX, DEBUG, addr, size); \
+			DBGLOG_MEM8(TX, INFO, addr, size); \
 		} \
 	} while (0)
 
 #define NIC_DUMP_TXDMAD_HEADER(prAdapter, header) \
 	do { \
 		if (prAdapter->rWifiVar.fgDumpTxDmad) \
-			DBGLOG(TX, DEBUG, header); \
+			DBGLOG(TX, INFO, header); \
 	} while (0)
 
 #define NIC_DUMP_TXDMAD(prAdapter, addr, size) \
 	do { \
 		if (prAdapter->rWifiVar.fgDumpTxDmad) { \
 			DBGLOG(TX, TRACE, "Dump TXDMAD:\n"); \
-			DBGLOG_MEM8(TX, DEBUG, addr, size); \
+			DBGLOG_MEM8(TX, INFO, addr, size); \
 		} \
 	} while (0)
 
@@ -96,7 +96,7 @@
 	do { \
 		if (prAdapter->rWifiVar.fgDumpTxP || \
 		    prAdapter->rWifiVar.fgDumpTxPfull) \
-			DBGLOG(TX, DEBUG, header, append_len, size); \
+			DBGLOG(TX, INFO, header, append_len, size); \
 	} while (0)
 
 #define NIC_DUMP_TXP(prAdapter, addr, append_len, size) \
@@ -105,35 +105,35 @@
 		      prAdapter->rWifiVar.fgDumpTxPfull)) \
 			break; \
 		DBGLOG(TX, TRACE, "Dump TXP:\n"); \
-		DBGLOG_MEM8(TX, DEBUG, addr, append_len + \
+		DBGLOG_MEM8(TX, INFO, addr, append_len + \
 			(prAdapter->rWifiVar.fgDumpTxPfull ? size : 0)); \
 	} while (0)
 
 #define NIC_DUMP_RXD_HEADER(prAdapter, header) \
 	do { \
 		if (prAdapter->rWifiVar.fgDumpRxD) \
-			DBGLOG(RX, DEBUG, header); \
+			DBGLOG(RX, INFO, header); \
 	} while (0)
 
 #define NIC_DUMP_RXD(prAdapter, addr, size) \
 	do { \
 		if (prAdapter->rWifiVar.fgDumpRxD) { \
 			DBGLOG(RX, TRACE, "Dump RXD:\n"); \
-			DBGLOG_MEM8(RX, DEBUG, addr, size); \
+			DBGLOG_MEM8(RX, INFO, addr, size); \
 		} \
 	} while (0)
 
 #define NIC_DUMP_RXDMAD_HEADER(prAdapter, header) \
 	do { \
 		if (prAdapter->rWifiVar.fgDumpRxDmad) \
-			DBGLOG(RX, DEBUG, header); \
+			DBGLOG(RX, INFO, header); \
 	} while (0)
 
 #define NIC_DUMP_RXDMAD(prAdapter, addr, size) \
 	do { \
 		if (prAdapter->rWifiVar.fgDumpRxDmad) { \
 			DBGLOG(RX, TRACE, "Dump RXDMAD:\n"); \
-			DBGLOG_MEM8(RX, DEBUG, addr, size); \
+			DBGLOG_MEM8(RX, INFO, addr, size); \
 		} \
 	} while (0)
 
@@ -156,6 +156,13 @@ struct _TABLE_ENTRY_T {
 struct INT_EVENT_MAP {
 	uint32_t u4Int;
 	uint32_t u4Event;
+};
+
+struct ECO_INFO {
+	uint8_t ucHwVer;
+	uint8_t ucRomVer;
+	uint8_t ucFactoryVer;
+	uint8_t ucEcoVer;
 };
 
 enum ENUM_INT_EVENT_T {
@@ -330,6 +337,11 @@ u_int8_t nicVerifyChipID(struct ADAPTER *prAdapter);
 
 void nicpmWakeUpWiFi(struct ADAPTER *prAdapter);
 
+u_int8_t nicpmSetDriverOwn(struct ADAPTER *prAdapter);
+
+void nicpmSetFWOwn(struct ADAPTER *prAdapter,
+		   u_int8_t fgEnableGlobalInt);
+
 u_int8_t nicpmSetAcpiPowerD0(struct ADAPTER *prAdapter);
 
 void nicTriggerAHDBG(struct ADAPTER *prAdapter,
@@ -393,33 +405,42 @@ uint8_t nicGetSecCh(struct ADAPTER *prAdapter,
 		enum ENUM_CHNL_EXT eSCO,
 		uint8_t ucPrimaryCh);
 
-u_int8_t nicIsChBwValid(struct ADAPTER *prAdapter, enum ENUM_BAND eBand,
-			uint8_t ucCh, enum ENUM_CHNL_EXT eSco, uint8_t bw);
-
-void nicReviseBwByCh(struct ADAPTER *prAdapter, enum ENUM_BAND eBand,
-		     uint8_t ucCh, enum ENUM_CHNL_EXT eSco, uint8_t *bw);
-
-uint32_t nicGetS1Freq(enum ENUM_BAND eBand,
+uint32_t nicGetS1Freq(struct ADAPTER *prAdapter,
+	enum ENUM_BAND eBand,
 	uint8_t ucPrimaryChannel,
-	uint8_t ucSco,
 	uint8_t ucBandwidth);
-uint32_t nicGetS2Freq(enum ENUM_BAND eBand, uint8_t ucPrimaryChannel,
-		      uint8_t ucBandwidth);
 
-/* Utility to get S1, S2 which defined as CCFS0, CCFS1 in spec */
+#if (CFG_SUPPORT_802_11BE == 1)
+uint8_t nicGetEhtS1(enum ENUM_BAND eBand,
+	uint8_t ucPrimaryChannel,
+	uint8_t ucBandwidth);
+uint8_t nicGetEht6gS1(uint8_t ucPrimaryChannel,
+	uint8_t ucBandwidth);
+uint8_t nicGetEhtS2(enum ENUM_BAND eBand,
+	uint8_t ucPrimaryChannel,
+	uint8_t ucBandwidth);
+uint8_t nicGetEht6gS2(uint8_t ucPrimaryChannel,
+	uint8_t ucBandwidth);
+#endif
+
+/* Utility to get S1, S2 */
 uint8_t nicGetS1(enum ENUM_BAND eBand,
-		uint8_t ucPriCh,
-		uint8_t ucSco,
-		uint8_t ucBw);
+		uint8_t ucPrimaryChannel,
+		uint8_t ucBandwidth);
 uint8_t nicGetS2(enum ENUM_BAND eBand,
-		uint8_t ucPriCh,
-		uint8_t ucBw);
-
-/* Utility to get center channel instread of CCFS */
-uint8_t nicGetCenterCh(enum ENUM_BAND eBand, uint8_t ucPriCh, uint8_t ucSco,
-		       uint8_t ucBw);
-uint32_t nicGetCenterChFreq(enum ENUM_BAND eBand, uint8_t ucPriCh,
-			    uint8_t ucSco, uint8_t ucBw);
+		uint8_t ucPrimaryChannel,
+		uint8_t ucBandwidth,
+		uint8_t ucS1);
+uint8_t nicGetVhtS1(uint8_t ucPrimaryChannel,
+		uint8_t ucBandwidth);
+#if (CFG_SUPPORT_WIFI_6G == 1)
+uint8_t nicGetHe6gS1(uint8_t ucPrimaryChannel,
+		uint8_t ucBandwidth);
+uint8_t nicGetHe6gS2(uint8_t ucPrimaryChannel,
+		uint8_t ucBandwidth,
+		uint8_t ucS1);
+uint8_t nicGetHe6gS1BW40(uint8_t ucPrimaryChannel);
+#endif
 
 /* firmware command wrapper */
 /* NETWORK (WIFISYS) */
@@ -438,9 +459,8 @@ void nicUpdateNetifTxThByBssId(struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex, uint32_t u4StopTh, uint32_t u4StartTh);
 
 /* BSS-INFO */
-uint32_t nicUpdateBss(struct ADAPTER *prAdapter, uint8_t ucBssIndex);
-
-void nicUpdateQos(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec);
+uint32_t nicUpdateBss(struct ADAPTER *prAdapter,
+			uint8_t ucBssIndex);
 
 uint32_t nicUpdateDscb(struct ADAPTER *prAdapter,
 			struct BSS_INFO *prBssInfo,
@@ -529,11 +549,6 @@ nicPowerSaveInfoMap(struct ADAPTER *prAdapter,
 		enum POWER_SAVE_CALLER ucCaller);
 
 uint32_t
-nicConfigPowerSaveProfileEntry(struct ADAPTER *prAdapter,
-		uint8_t ucBssIndex, enum PARAM_POWER_MODE ePwrMode,
-		u_int8_t fgEnCmdEvent, enum POWER_SAVE_CALLER ucCaller);
-
-uint32_t
 nicConfigPowerSaveProfile(struct ADAPTER *prAdapter,
 		uint8_t ucBssIndex, enum PARAM_POWER_MODE ePwrMode,
 		u_int8_t fgEnCmdEvent, enum POWER_SAVE_CALLER ucCaller);
@@ -613,10 +628,10 @@ nicRlmArUpdateParms(struct ADAPTER *prAdapter,
 /*----------------------------------------------------------------------------*/
 /* Link Quality Updating                                                      */
 /*----------------------------------------------------------------------------*/
-void nicUpdateLinkQuality(struct ADAPTER *prAdapter,
-			uint8_t ucBssIndex, int8_t cRssi, int8_t cLinkQuality,
-			uint16_t u2LinkSpeed, uint8_t ucMediumBusyPercentage,
-			uint8_t ucIsLQ0Rdy);
+void
+nicUpdateLinkQuality(struct ADAPTER *prAdapter,
+		     uint8_t ucBssIndex,
+		     struct EVENT_LINK_QUALITY *prEventLinkQuality);
 
 void nicUpdateRSSI(struct ADAPTER *prAdapter,
 		   uint8_t ucBssIndex, int8_t cRssi,
@@ -648,15 +663,18 @@ void nicApplyLinkAddress(struct ADAPTER *prAdapter,
 /*----------------------------------------------------------------------------*/
 /* ECO Version                                                                */
 /*----------------------------------------------------------------------------*/
-uint8_t nicGetChipSwVer(struct ADAPTER *prAdapter);
+uint8_t nicGetChipSwVer(void);
 uint8_t nicGetChipEcoVer(struct ADAPTER *prAdapter);
 u_int8_t nicIsEcoVerEqualTo(struct ADAPTER *prAdapter,
 			    uint8_t ucEcoVer);
 u_int8_t nicIsEcoVerEqualOrLaterTo(struct ADAPTER
 				   *prAdapter, uint8_t ucEcoVer);
-uint8_t nicSetChipHwVer(struct ADAPTER *prAdapter, uint8_t value);
-uint8_t nicSetChipSwVer(struct ADAPTER *prAdapter, uint8_t value);
-uint8_t nicSetChipFactoryVer(struct ADAPTER *prAdapter, uint8_t value);
+uint8_t nicSetChipHwVer(uint8_t value);
+uint8_t nicSetChipSwVer(uint8_t value);
+uint8_t nicSetChipFactoryVer(uint8_t value);
+
+u_int8_t nicNeedDumpActionFrame(struct WLAN_MAC_HEADER *pHeader,
+				uint16_t u2FrameLength);
 
 void nicSerStopTxRx(struct ADAPTER *prAdapter);
 void nicSerStopTx(struct ADAPTER *prAdapter);
@@ -680,19 +698,5 @@ void nicDumpMsduInfo(struct MSDU_INFO *prMsduInfo);
 
 uint8_t nicGetActiveTspec(struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex);
-
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-void nicEtherMAT_M2L(struct ADAPTER *prAdapter,
-	struct MSDU_INFO *prMsduInfo,
-	uint16_t u2ForceTxWlanId);
-
-void nicMgmtMAT_M2L(struct ADAPTER *prAdapter,
-	struct MSDU_INFO *prMsduInfo,
-	uint8_t ucGroupMldId,
-	uint8_t ucForceTxWlanId);
-
-void nicMgmtMAT_L2M(struct ADAPTER *prAdapter,
-	struct SW_RFB *prSwRfb);
-#endif
 
 #endif /* _NIC_H */

@@ -9,7 +9,8 @@ MTK_PM_BUILD_FOLDER=$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/performance
 subdir-ccflags-y += \
 	-I$(MTK_PM_BUILD_FOLDER)/perf_ioctl/ \
 	-I$(MTK_PM_BUILD_FOLDER)/include/\
-	-I$(MTK_PM_BUILD_FOLDER)/powerhal_cpu_ctrl/
+	-I$(MTK_PM_BUILD_FOLDER)/powerhal_cpu_ctrl/	\
+	-I$(MTK_PM_BUILD_FOLDER)/clk_adjust/
 
 # mtk_perf_ioctl
 include $(MTK_PM_BUILD_FOLDER)/perf_ioctl/build.mk
@@ -41,6 +42,7 @@ obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3/
 obj-$(CONFIG_MTK_FRS) += frs/
 obj-$(CONFIG_MTK_PERFORMANCE_MODULE) += powerhal_cpu_ctrl/
 obj-$(CONFIG_MTK_PERFORMANCE_MODULE) += touch_boost/
+obj-$(CONFIG_MTK_PERFORMANCE_MODULE) += clk_adjust/
 
 obj-$(CONFIG_MTK_LOAD_TRACKER) += load_track/
 obj-$(CONFIG_MTK_LOAD_TRACKER) += uload_ind/

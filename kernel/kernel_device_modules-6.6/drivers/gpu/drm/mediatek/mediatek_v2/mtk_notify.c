@@ -49,7 +49,7 @@ int uevent_dev_register(struct mtk_uevent_dev *udev)
 		ret = 0;
 	} else {
 		pr_info("device create fail,index:0x%x\n", udev->index);
-		ret = -1;
+		return -1;
 	}
 
 	dev_set_drvdata(udev->dev, udev);
@@ -63,6 +63,7 @@ int noti_uevent_user(struct mtk_uevent_dev *udev, int state)
 	char *envp[3];
 	char name_buf[120];
 	char state_buf[120];
+	int ret = 0;
 
 	if (udev == NULL)
 		return -1;
@@ -70,9 +71,9 @@ int noti_uevent_user(struct mtk_uevent_dev *udev, int state)
 	if (udev->state != state)
 		udev->state = state;
 
-	snprintf(name_buf, sizeof(name_buf), "%s", udev->name);
+	ret = snprintf(name_buf, sizeof(name_buf), "%s", udev->name);
 	envp[0] = name_buf;
-	snprintf(state_buf, sizeof(state_buf), "SWITCH_STATE=%d", udev->state);
+	ret = snprintf(state_buf, sizeof(state_buf), "SWITCH_STATE=%d", udev->state);
 	envp[1] = state_buf;
 	envp[2] = NULL;
 	pr_info("uevent name:%s ,state:%s\n", envp[0], envp[1]);

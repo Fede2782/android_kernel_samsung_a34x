@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -22,9 +22,6 @@
 */
 #include <linux/string.h>
 #include <linux/slab.h>
-#include <linux/preempt.h>
-#include <linux/version.h>
-
 #include "reset.h"
 
 /**********************************************************************
@@ -66,54 +63,31 @@
 /**********************************************************************
 *                              F U N C T I O N S
 **********************************************************************/
-struct FsmEntity *allocFsmEntity(uint32_t dongle_id,
-				char *name, enum ModuleType eModuleType)
+struct FsmEntity *allocFsmEntity(char *name,
+				enum ModuleType eModuleType,
+				enum TriggerResetApiType resetApiType)
 {
 	struct FsmEntity *fsm;
-#if CFG_RESETKO_ENABLE_WAKE_LOCK
-	char wakeupSourceName[RFSM_NAME_MAX_LEN];
-	int ret;
-#endif
+
 	if ((!name) ||
-	    ((unsigned int)eModuleType >= RESET_MODULE_TYPE_MAX))
+	    ((unsigned int)eModuleType >= RESET_MODULE_TYPE_MAX) ||
+	    ((unsigned int)resetApiType >= TRIGGER_RESET_API_TYPE_MAX))
 		return NULL;
 
-	fsm = kmalloc(sizeof(struct FsmEntity),
-		      in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+	fsm = kmalloc(sizeof(struct FsmEntity), GFP_KERNEL);
 	if (!fsm)
 		return NULL;
-	fsm->name = kmalloc(RFSM_NAME_MAX_LEN,
-			    in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+	fsm->name = kmalloc(RFSM_NAME_MAX_LEN, GFP_KERNEL);
 	if (fsm->name == NULL) {
 		kfree(fsm);
 		return NULL;
 	}
-#if KERNEL_VERSION(4, 3, 0) <= LINUX_VERSION_CODE
-	strscpy(fsm->name, name, RFSM_NAME_MAX_LEN);
-#else
 	strncpy(fsm->name, name, RFSM_NAME_MAX_LEN);
-	fsm->name[RFSM_NAME_MAX_LEN - 1] = 0;
-#endif
 	fsm->eModuleType = eModuleType;
-	fsm->fgReady = false;
+	fsm->resetApiType = resetApiType;
+	fsm->fgReadyForReset = false;
+	fsm->resetFunc = NULL;
 	fsm->notifyFunc = NULL;
-
-	fsm->wakeupCount = 0;
-#if CFG_RESETKO_ENABLE_WAKE_LOCK
-	ret = snprintf(wakeupSourceName, RFSM_NAME_MAX_LEN,
-			"resetko_%s_%d", name, dongle_id);
-	if (ret > 0) {
-		fsm->wakeupSource = wakeup_source_create(wakeupSourceName);
-		if (!fsm->wakeupSource) {
-			MR_Err("[%s_%d] fail to create wakeup resource(%s)\n",
-				name, dongle_id, wakeupSourceName);
-		} else {
-			wakeup_source_add(fsm->wakeupSource);
-			MR_Info("[%s_%d] create wakeup resource (%s)\n",
-				name, dongle_id, wakeupSourceName);
-		}
-	}
-#endif
 
 	return fsm;
 }
@@ -122,15 +96,6 @@ void freeFsmEntity(struct FsmEntity *fsm)
 {
 	if (!fsm)
 		return;
-
-#if CFG_RESETKO_ENABLE_WAKE_LOCK
-	if (fsm->wakeupSource) {
-		wakeup_source_remove(fsm->wakeupSource);
-		wakeup_source_destroy(fsm->wakeupSource);
-		fsm->wakeupSource = NULL;
-	}
-#endif
-	fsm->wakeupCount = 0;
 
 	if (fsm->name != NULL) {
 		memset(fsm->name, 0, RFSM_NAME_MAX_LEN);
@@ -154,10 +119,9 @@ void RFSM_handle_event(struct FsmEntity *fsm, unsigned int event)
 
 	currentFsmState = fsm->fsmState;
 	if ((currentFsmState->name == NULL) ||
-	    (currentFsmState->eventActionListCount == 0) ||
+	    (currentFsmState->eventActionList == 0) ||
 	    (currentFsmState->eventActionList == NULL)) {
-		MR_Err("[%s_%d] RFSM ignore event [%d]\n",
-			fsm->name, fsm->dongle_id, event);
+		MR_Err("[%s] RFSM ignore event [%d]\n", fsm->name, event);
 		return;
 	}
 
@@ -177,8 +141,8 @@ void RFSM_handle_event(struct FsmEntity *fsm, unsigned int event)
 				if (currentFsmState->leave_func != NULL)
 					currentFsmState->leave_func(fsm,
 								nextFsmState);
-				MR_Info("[%s_%d] state: [%s] -> [%s]",
-					fsm->name, fsm->dongle_id,
+				MR_Info("[%s] state: [%s] -> [%s]",
+					fsm->name,
 					currentFsmState->name,
 					nextFsmState->name);
 				fsm->fsmState = nextFsmState;

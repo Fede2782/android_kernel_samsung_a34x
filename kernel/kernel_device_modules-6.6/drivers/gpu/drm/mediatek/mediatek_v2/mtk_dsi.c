@@ -64,6 +64,12 @@
 #include "mtk_dsi.h"
 //#include "mtk_reg_disp_bdg.h"
 /* ************end bridge ic ************* */
+
+#define ALWAYS_PREULTRA 0xFFFF
+
+int dbg_urgent_high;
+module_param(dbg_urgent_high, int, 0644);
+
 //#define DSI_SELF_PATTERN
 #define DSI_START 0x00
 #define SKEWCAL_START BIT(4)
@@ -340,7 +346,9 @@
 
 #define DSI_BUF_CON0(data)	(data->dsi_buf_con_base ? data->dsi_buf_con_base : 0x400)
 #define BUF_BUF_EN BIT(0)
-#define BUF_VDE_BLOCK_URGENT BIT(3)
+#define MT6989_BUF_VDE_BLOCK_URGENT BIT(3)
+#define MT6991_BUF_VDE_BLOCK_URGENT BIT(1)
+#define MT6991_BUF_VDE_BLOCK_ULTRA BIT(3)
 #define BUF_PREURGENT_EN BIT(20)
 #define BUF_PREURGENT_MODE BIT(21)
 #define DSI_BUF_CON1(data)	(DSI_BUF_CON0(data) + 0x4)
@@ -2049,6 +2057,27 @@ static int mtk_dsi_set_data_rate(struct mtk_dsi *dsi)
 	return ret;
 }
 
+static int mtk_dsi_get_data_rate_by_panel_params(struct mtk_dsi *dsi, struct mtk_panel_params *panel_params)
+{
+	unsigned int data_rate = 0;
+	int ret = 0;
+
+	if (dsi->mipi_hopping_sta && panel_params->dyn.data_rate)
+		data_rate = panel_params->dyn.data_rate;
+	else if (panel_params->dyn_fps.data_rate)
+		data_rate = panel_params->dyn_fps.data_rate;
+	else if (panel_params->data_rate)
+		data_rate = panel_params->data_rate;
+	else if (panel_params->pll_clk)
+		data_rate = panel_params->pll_clk * 2;
+	else
+		DDPMSG("no data rate config\n");
+
+	DDPINFO("%s, data_rate=%d\n", __func__, data_rate);
+
+	return data_rate;
+}
+
 void mtk_dsi_tx_lane_config(struct mtk_dsi *dsi, struct mtk_ddp_comp *comp,
 	void *handle)
 {
@@ -2727,7 +2756,8 @@ static int mtk_dsi_calculate_rw_times(struct mtk_dsi *dsi,
 	return rw_times;
 }
 
-static u32 mtk_dsi_get_line_time_ns(struct mtk_dsi *dsi, struct mtk_drm_crtc *mtk_crtc);
+static u32 mtk_dsi_get_line_time_ns(struct mtk_dsi *dsi,
+	struct mtk_drm_crtc *mtk_crtc, int mode_idx);
 
 static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 {
@@ -2737,6 +2767,8 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 	u32 fill_rate;
 	u32 sodi_hi, sodi_lo;
 	u32 sram_unit, buffer_unit;
+	u32 preultra_lo_fifo_us, preultra_hi_fifo_us;
+	u32 ultra_lo_fifo_us, ultra_hi_fifo_us;
 	u32 urgent_lo_fifo_us, urgent_hi_fifo_us, output_valid_us;
 	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
 	struct mtk_drm_crtc *mtk_crtc =	dsi->is_slave ?
@@ -2795,10 +2827,20 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 
 	buffer_unit = dsi->driver_data->buffer_unit;
 	sram_unit = dsi->driver_data->sram_unit;
+	preultra_lo_fifo_us = dsi->driver_data->preultra_lo_fifo_us ?
+				dsi->driver_data->preultra_lo_fifo_us : 35;
+	preultra_hi_fifo_us = dsi->driver_data->preultra_hi_fifo_us ?
+				dsi->driver_data->preultra_hi_fifo_us : 36;
+	ultra_lo_fifo_us = dsi->driver_data->ultra_lo_fifo_us ?
+				dsi->driver_data->ultra_lo_fifo_us : 25;
+	ultra_hi_fifo_us = dsi->driver_data->ultra_hi_fifo_us ?
+				dsi->driver_data->ultra_hi_fifo_us : 26;
 	urgent_lo_fifo_us = dsi->driver_data->urgent_lo_fifo_us ?
 				dsi->driver_data->urgent_lo_fifo_us : 11;
 	urgent_hi_fifo_us = dsi->driver_data->urgent_hi_fifo_us ?
 				dsi->driver_data->urgent_hi_fifo_us : 12;
+	urgent_hi_fifo_us = dbg_urgent_high ?
+				dbg_urgent_high : urgent_hi_fifo_us;
 	output_valid_us = dsi->driver_data->output_valid_fifo_us ?
 				dsi->driver_data->output_valid_fifo_us : 25;
 
@@ -2850,10 +2892,10 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 
 	rw_times = mtk_dsi_calculate_rw_times(dsi, width, height);
 
-	DDPINFO(
-		"%s,mode=0x%lx,valid_theshold=0x%x,lp_perline_en=%d,1t%dp,buf_con:%d\n",
+	DDPCUSTINFO(
+		"%s,mode=0x%lx,valid_th=0x%x,lp_perline=%d,1t%dp,buf_con:%d,drate:%d\n",
 		__func__, dsi->mode_flags & MIPI_DSI_MODE_VIDEO, tmp,
-		ext->params->lp_perline_en, dli_relay_1tnp, buf_con);
+		ext->params->lp_perline_en, dli_relay_1tnp, buf_con, dsi->data_rate);
 
 	mtk_dsi_mask(dsi, DSI_BUF_CON1(dsi->driver_data), 0x7fff, tmp);
 	if (dsi->driver_data->new_rst_dsi && !(dsi->ext->params->is_cphy))
@@ -2874,24 +2916,47 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 	if (dsi->ext->params->is_cphy) {
 		sodi_hi = tmp - (12 * (fill_rate - dsi->data_rate * 2 * dsi->lanes / 7
 				/ buffer_unit) / 10);
-		sodi_lo = (23 + 5) * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
-		preultra_hi = 36 * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
-		preultra_lo = 35 * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
-		ultra_hi = 26 * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
-		ultra_lo = 25 * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
+		sodi_lo = (ultra_lo_fifo_us + 5) * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
+		if ((preultra_hi_fifo_us == ALWAYS_PREULTRA) && buf_con &&
+			(comp->id == DDP_COMPONENT_DSI0)) {
+			preultra_hi = buf_con;
+			preultra_lo = buf_con - 1;
+		} else {
+			preultra_hi = preultra_hi_fifo_us * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
+			preultra_lo = preultra_lo_fifo_us * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
+		}
+		ultra_hi = ultra_hi_fifo_us * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
+		ultra_lo = ultra_lo_fifo_us * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
 		urgent_hi = urgent_hi_fifo_us * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
 		urgent_lo = urgent_lo_fifo_us * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
 	} else {
 		sodi_hi = tmp - (12 * (fill_rate - dsi->data_rate * dsi->lanes / 8
 				/ buffer_unit) / 10);
 		/*dsi->driver_data*/
-		sodi_lo = (23 + 5) * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
-		preultra_hi = 36 * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
-		preultra_lo = 35 * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
-		ultra_hi = 26 * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
-		ultra_lo = 25 * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
+		sodi_lo = (ultra_lo_fifo_us + 5) * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
+		if ((preultra_hi_fifo_us == ALWAYS_PREULTRA) && buf_con &&
+			(comp->id == DDP_COMPONENT_DSI0)) {
+			preultra_hi = buf_con;
+			preultra_lo = buf_con - 1;
+		} else {
+			preultra_hi = preultra_hi_fifo_us * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
+			preultra_lo = preultra_lo_fifo_us * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
+		}
+		ultra_hi = ultra_hi_fifo_us * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
+		ultra_lo = ultra_lo_fifo_us * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
 		urgent_hi = urgent_hi_fifo_us * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
 		urgent_lo = urgent_lo_fifo_us * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
+	}
+
+	if (buf_con) {
+		if ((sodi_hi > buf_con) || (sodi_lo > buf_con) || (sodi_hi < sodi_lo))
+			DDPPR_ERR("fifo invalid: sodi(%d,%d)\n", sodi_hi, sodi_lo);
+		if ((preultra_hi > buf_con) || (preultra_lo > buf_con) || (preultra_hi < preultra_lo))
+			DDPPR_ERR("fifo invalid: preultra(%d,%d)\n", preultra_hi, preultra_lo);
+		if ((ultra_hi > buf_con) || (ultra_lo > buf_con) || (ultra_hi < ultra_lo))
+			DDPPR_ERR("fifo invalid: ultra(%d,%d)\n", ultra_hi, ultra_lo);
+		if ((urgent_hi > buf_con) || (urgent_lo > buf_con) || (urgent_hi < urgent_lo))
+			DDPPR_ERR("fifo invalid: urgent(%d,%d)\n", urgent_hi, urgent_lo);
 	}
 
 	writel((sodi_hi & 0xfffff), dsi->regs + DSI_BUF_SODI_HIGH(dsi->driver_data));
@@ -2906,26 +2971,43 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 	mtk_dsi_mask(dsi, DSI_BUF_CON0(dsi->driver_data), BUF_BUF_EN, BUF_BUF_EN);
 
 	if (!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
-		dsi->driver_data->support_pre_urgent) {
+		(dsi->driver_data->support_pre_urgent & PREURGENT_SUPPORT_VDO)) {
 		/* line counter mode for vdo mode */
-		u32 line_time_ns;
-		u64 buf_preurgent_high;
-		u32 prefetch_time;
+		u32 line_time_ns = 0;
+		u64 buf_preurgent_high = 0;
+		u32 prefetch_time = 0;
+		u32 fld_block_urgent = 0;
+		u32 fld_block_ultra = 0;
 		struct drm_display_mode *mode = mtk_crtc_get_display_mode_by_comp(__func__,
 						&mtk_crtc->base, comp, false);
 
-		line_time_ns = mtk_dsi_get_line_time_ns(dsi, mtk_crtc);
+		line_time_ns = mtk_dsi_get_line_time_ns(dsi, mtk_crtc, -1);
 		if (line_time_ns)
-			buf_preurgent_high = DIV_ROUND_UP(dsi->driver_data->urgent_hi_fifo_us * 1000,
-							line_time_ns);
+			buf_preurgent_high = DIV_ROUND_UP(urgent_hi_fifo_us * 1000, line_time_ns);
+
 		if (mode)
-			prefetch_time = mode->vtotal - mode->vsync_start;	// Unit: line cnt
+			prefetch_time = mode->vtotal - mode->vsync_start; // Unit: line cnt
+
+		DDPCUSTINFO("%s buf_preurgent_high=%llu, prefetch_time=%d\n",
+			__func__, buf_preurgent_high, prefetch_time);
+
+		if (priv && priv->data && priv->data->mmsys_id == MMSYS_MT6989) { // MT6989 MT6878 MT6899)
+			fld_block_urgent = MT6989_BUF_VDE_BLOCK_URGENT;
+			//fld_block_ultra = MT6989_BUF_VDE_BLOCK_ULTRA;
+		} else {
+			fld_block_urgent = MT6991_BUF_VDE_BLOCK_URGENT;
+			fld_block_ultra = MT6991_BUF_VDE_BLOCK_ULTRA;
+		}
 		if (line_time_ns != 0 && mode) {
-			if (prefetch_time - buf_preurgent_high > 0 &&
+			if (dsi->driver_data->non_block_urgent_wa) {
+				buf_preurgent_high = 0;
+				mtk_dsi_mask(dsi, DSI_BUF_CON0(dsi->driver_data), fld_block_ultra, 0);
+			}
+			if (prefetch_time > buf_preurgent_high &&
 				prefetch_time - buf_preurgent_high >= buf_preurgent_high) {
 				buf_preurgent_high = prefetch_time - buf_preurgent_high;
-			} else if (prefetch_time - buf_preurgent_high > 0 &&
-						prefetch_time - buf_preurgent_high < buf_preurgent_high) {
+			} else if (prefetch_time > buf_preurgent_high &&
+					prefetch_time - buf_preurgent_high < buf_preurgent_high) {
 				buf_preurgent_high = prefetch_time - buf_preurgent_high;
 				DDPPR_ERR("prefetch_time is too small! urgent signal will usually be sent\n");
 			} else {
@@ -2935,14 +3017,71 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 
 			mtk_dsi_mask(dsi, DSI_BUF_CON0(dsi->driver_data), BUF_PREURGENT_MODE, 0);
 			writel(buf_preurgent_high, dsi->regs + DSI_BUF_PREURGENT_HIGH(dsi->driver_data));
-			mtk_dsi_mask(dsi, DSI_BUF_CON0(dsi->driver_data), BUF_VDE_BLOCK_URGENT, 0);
+
+			//BUF_VDE_BLOCK_URGENT
+			mtk_dsi_mask(dsi, DSI_BUF_CON0(dsi->driver_data), fld_block_urgent, 0);
 			mtk_dsi_mask(dsi, DSI_BUF_CON0(dsi->driver_data), BUF_PREURGENT_EN, BUF_PREURGENT_EN);
 		} else {
 			writel(0, dsi->regs + DSI_BUF_PREURGENT_HIGH(dsi->driver_data));
-			mtk_dsi_mask(dsi, DSI_BUF_CON0(dsi->driver_data), BUF_VDE_BLOCK_URGENT, 1);
+			//BUF_VDE_BLOCK_URGENT
+			mtk_dsi_mask(dsi, DSI_BUF_CON0(dsi->driver_data), fld_block_urgent, fld_block_urgent);
 			mtk_dsi_mask(dsi, DSI_BUF_CON0(dsi->driver_data), BUF_PREURGENT_EN, 0);
-			DDPPR_ERR("line_time/mode err, disable preurgent\n");
+			DDPCUSTINFO("line_time/mode err, disable preurgent\n");
 		}
+	} else if(mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
+		(dsi->driver_data->support_pre_urgent & PREURGENT_SUPPORT_CMD)) {
+		/* absolute timer mode for cmd mode */
+		u32 frame_time, rframe_time;
+		u32 ps_wc = 0, ps_wc_bits = 0, fps, urgent_threshold;
+		int prefetch_time, urgent_time;
+		struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
+		u32 fld_block_urgent = 0;
+		u32 fld_block_ultra = 0;
+
+		fps = mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps;
+		fps = fps > 0 ? fps : drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
+		if (fps == 0)
+			return;
+
+		if (dsc_params->enable)
+			ps_wc = dsc_params->chunk_size * (dsc_params->slice_mode + 1);
+		else {
+			if (dsc_params->bit_per_pixel == 10)
+				ps_wc = width * 30 / 8;
+			else
+				ps_wc = width * dsi_buf_bpp;
+		}
+
+		ps_wc_bits = ps_wc * 8; // byte -> bits
+		frame_time = 1000000 / fps;
+		rframe_time = ps_wc_bits * height / dsi->lanes / dsi->data_rate;
+		//200: sw config. time //500: sw reserved time
+		prefetch_time = frame_time - rframe_time - 200 - 500;
+		urgent_time = prefetch_time - urgent_hi_fifo_us;
+		urgent_time = urgent_time > urgent_hi_fifo_us ?
+					urgent_time : urgent_hi_fifo_us;
+
+		if (priv && priv->data && priv->data->mmsys_id == MMSYS_MT6989) {// MT6989 MT6878 MT6899)
+			fld_block_urgent = MT6989_BUF_VDE_BLOCK_URGENT;
+			//fld_block_ultra = MT6989_BUF_VDE_BLOCK_ULTRA
+		} else {
+			fld_block_urgent = MT6991_BUF_VDE_BLOCK_URGENT;
+			fld_block_ultra = MT6991_BUF_VDE_BLOCK_ULTRA;
+		}
+		if (dsi->driver_data->non_block_urgent_wa) {
+			urgent_time = output_valid_us;
+			mtk_dsi_mask(dsi, DSI_BUF_CON0(dsi->driver_data), fld_block_ultra, 0);
+		}
+
+		urgent_threshold = urgent_time * dsi->data_rate / 8 / 64;
+		mtk_dsi_mask(dsi, DSI_BUF_CON0(dsi->driver_data), fld_block_urgent, 0);
+		mtk_dsi_mask(dsi, DSI_BUF_CON0(dsi->driver_data), BUF_PREURGENT_MODE, BUF_PREURGENT_MODE);
+		writel(urgent_threshold, dsi->regs + DSI_BUF_PREURGENT_HIGH(dsi->driver_data));
+		mtk_dsi_mask(dsi, DSI_BUF_CON0(dsi->driver_data), BUF_PREURGENT_EN, BUF_PREURGENT_EN);
+
+		DDPCUSTINFO("%s,urgent_threshold=%d,prefetch_time=%d,urgent_time=%d,rframe_time=%d,fps=%d\n",
+				__func__, urgent_threshold, prefetch_time, urgent_time, rframe_time, fps);
+		DDPCUSTINFO("datarate: %d\n", dsi->data_rate);
 	}
 }
 
@@ -3671,6 +3810,7 @@ static void mtk_dsi_ulps_exit_end(struct mtk_dsi *dsi)
 }
 
 static unsigned int dsi_underrun_called;
+static unsigned int underrun_happened;
 unsigned int check_dsi_underrun_event(void)
 {
 	return dsi_underrun_called;
@@ -3849,7 +3989,7 @@ void mtk_dsi_cur_pos_dump(struct mtk_ddp_comp *comp)
 
 	dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 	reg_val = readl(DSI_INPUT_DBG(dsi->driver_data) + baddr);
-	DDPINFO("%s cur_pos(%u,%u)\n", mtk_dump_comp_str(comp),
+	DDPMSG("%s cur_pos(%u,%u)\n", mtk_dump_comp_str(comp),
 		REG_FLD_VAL_GET(DSI_DBG_FLD_ROI_X, reg_val),
 		REG_FLD_VAL_GET(DSI_DBG_FLD_ROI_Y, reg_val));
 }
@@ -3913,7 +4053,7 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	struct mtk_dsi *dsi = dev_id;
 	struct mtk_drm_crtc *mtk_crtc = NULL;
 	struct mtk_panel_ext *panel_ext = NULL;
-	u32 status;
+	u32 status, inten;
 	unsigned int ret = 0;
 	static DEFINE_RATELIMIT_STATE(print_rate, HZ, 5); /* HZ = 250 */
 	static DEFINE_RATELIMIT_STATE(mmp_rate, 2, 2); /* 8 ms */
@@ -3999,13 +4139,25 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	status &= irq_mask;
 	if (status) {
 		writel(~status, dsi->regs + DSI_INTSTA);
+		inten = readl(dsi->regs + DSI_INTEN);
 		if ((status & BUFFER_UNDERRUN_INT_FLAG)	&& (atomic_read(&mtk_crtc->force_high_step) == 0)) {
 			unsigned long long aee_now_ts = sched_clock();
 			bool aee_cooldown = mtk_crtc->last_aee_trigger_ts == 0 ||
 					    (aee_now_ts - mtk_crtc->last_aee_trigger_ts > TIGGER_INTERVAL_S(10));
 			int underrun_int_en = 0;
 
+			if (mtk_dsi_is_cmd_mode(comp)) {
+				underrun_happened = 1;
+				// enable fdone inten and clr inten when fdone if not enable
+				if (!(inten & FRAME_DONE_INT_FLAG)) {
+					inten |= FRAME_DONE_INT_FLAG;
+					writel(inten, dsi->regs + DSI_INTEN);
+					underrun_happened |= FRAME_DONE_INT_FLAG;
+				}
+			}
 			dump_cur_pos(mtk_crtc);
+			if (dsi->encoder.crtc)
+				mtk_drm_crtc_dump_vr_rg(dsi->encoder.crtc);
 
 			if (aee_cooldown && !dsi_underrun_called) {
 				dsi_underrun_called = 1;
@@ -4038,11 +4190,8 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 
 			/* could dump SMI register while dsi not attached to CRTC */
 			if (aee_cooldown &&
-			    (!dsi->driver_data->smi_dbg_disable ||
-			    ((priv->data->mmsys_id != MMSYS_MT6899 &&
-				mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_DSI_UNDERRUN_AEE)) ||
-				(priv->data->mmsys_id == MMSYS_MT6899 &&
-				mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_DSI_UNDERRUN_AEE_V2)))))
+			    (!dsi->driver_data->smi_dbg_disable &&
+			    mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_DSI_UNDERRUN_AEE)))
 				mtk_smi_dbg_hang_detect("dsi-underrun");
 
 			if (!atomic_read(&priv->need_recover)) {
@@ -4064,6 +4213,8 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			++underrun_cnt;
 
 			mtk_disp_clr_debug_deteriorate();
+			if (comp->id == DDP_COMPONENT_DSI0)
+				DRM_MMP_MARK(dsi, underrun_cnt|(0<<16), 0);
 		}
 
 		//if (status & INP_UNFINISH_INT_EN)
@@ -4223,6 +4374,23 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 		}
 
 		if (status & FRAME_DONE_INT_FLAG) {
+			if (mtk_dsi_is_cmd_mode(comp) &&
+				(inten & FRAME_DONE_INT_FLAG) && underrun_happened) {
+				DDPMSG(pr_fmt("[IRQ] %s: buffer underrun then frame done\n"),
+					mtk_dump_comp_str(comp));
+
+				// to check underrun is because of 'path hang' or 'bw'
+				dump_cur_pos(mtk_crtc);
+				if (dsi->encoder.crtc)
+					mtk_drm_crtc_dump_vr_rg(dsi->encoder.crtc);
+
+				// if enable due to underrun, need disable
+				if (underrun_happened & FRAME_DONE_INT_FLAG) {
+					inten &= ~FRAME_DONE_INT_FLAG;
+					writel(inten, dsi->regs + DSI_INTEN);
+				}
+				underrun_happened = 0;
+			}
 			if (mtk_crtc && mtk_crtc->esd_ctx) {
 				if (!mtk_dsi_is_cmd_mode(comp) &&
 					(comp->id == DDP_COMPONENT_DSI0 ||
@@ -5578,7 +5746,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 		}
 	}
 
-#if IS_ENABLED(CONFIG_SMCDSD_PANEL)
+#if IS_ENABLED(CONFIG_SMCDSD_PANEL) || IS_ENABLED(CONFIG_DRM_PANEL_MCD_COMMON)
 	if (!dsi->doze_enabled && dsi->panel) {
 		if (dsi->ext && dsi->ext->funcs && dsi->ext->funcs->set_power)
 			dsi->ext->funcs->set_power(dsi->panel, 1);
@@ -5788,13 +5956,14 @@ static int mtk_dsi_wait_cmd_frame_done(struct mtk_dsi *dsi,
 		//	mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 		//cmdq_pkt_wait_no_clear(handle,
 		//	mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
-		cmdq_pkt_sleep(handle, CMDQ_US_TO_TICK(16600), CMDQ_GPR_R06);
-		cmdq_pkt_wait_no_clear(handle,
-			mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
-		cmdq_pkt_clear_event(handle,
-			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+		if (mtk_crtc->config_cnt != 0) {
+			cmdq_pkt_sleep(handle, CMDQ_US_TO_TICK(16600), CMDQ_GPR_R06);
+			cmdq_pkt_wait_no_clear(handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+			cmdq_pkt_clear_event(handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+		}
 	}
-
 	cmdq_pkt_flush(handle);
 	cmdq_pkt_destroy(handle);
 	return 0;
@@ -5921,7 +6090,7 @@ SKIP_WAIT_FRAME_DONE:
 		}
 	}
 
-#if IS_ENABLED(CONFIG_SMCDSD_PANEL)
+#if IS_ENABLED(CONFIG_SMCDSD_PANEL) || IS_ENABLED(CONFIG_DRM_PANEL_MCD_COMMON)
 	if (!new_doze_state && dsi->panel) {
 		if (dsi->ext && dsi->ext->funcs && dsi->ext->funcs->set_power)
 			dsi->ext->funcs->set_power(dsi->panel, 0);
@@ -6088,7 +6257,7 @@ static void mtk_dsi_encoder_enable(struct drm_encoder *encoder)
 	struct mtk_dsi *dsi = encoder_to_dsi(encoder);
 	struct drm_crtc *crtc = encoder->crtc;
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
-	int index = drm_crtc_index(crtc);
+	int index = crtc ? drm_crtc_index(crtc) : 0;
 	int data = MTK_DISP_BLANK_UNBLANK;
 
 	CRTC_MMP_EVENT_START(index, dsi_resume,
@@ -7057,7 +7226,7 @@ void mtk_dsi_dump_lcm(struct mtk_ddp_comp *comp)
 	}
 }
 
-unsigned int mtk_dsi_mode_change_index(struct mtk_dsi *dsi,
+int mtk_dsi_mode_change_index(struct mtk_dsi *dsi,
 	struct mtk_drm_crtc *mtk_crtc, struct drm_crtc_state *old_state)
 {
 	struct mtk_panel_ext *panel_ext = mtk_crtc->panel_ext;
@@ -8212,14 +8381,19 @@ static void mtk_dsi_cmdq_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 				const struct mipi_dsi_msg *msg)
 {
 	const char *tx_buf = msg->tx_buf;
-	u8 config, cmdq_size, cmdq_off, type = msg->type;
-	u32 reg_val, cmdq_mask, i;
-	unsigned long goto_addr;
+	u8 config = 0, cmdq_size = 0, cmdq_off = 0, type = msg->type;
+	u32 reg_val = 0, cmdq_mask = 0, i = 0;
+	unsigned long goto_addr = 0;
 
 	if (!dsi || !dsi->driver_data) {
 		DDPPR_ERR("%s:%d NULL Pointer\n", __func__, __LINE__);
 		return;
 	}
+
+#if defined(CUSTOMER_USE_SIMPLE_API)
+	if ((!(msg->flags & MIPI_DSI_MSG_USE_LPM)))
+		config |= HSTX;
+#endif
 
 	if (MTK_DSI_HOST_IS_READ(type))
 		config = BTA;
@@ -8246,7 +8420,7 @@ static void mtk_dsi_cmdq_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 			goto_addr, (0xFFu << ((goto_addr & 0x3u) * 8)),
 			handle);
 
-		DDPINFO("set cmdqaddr 0x%08lx, val:0x%08x, mask 0x%08x\n", goto_addr,
+		DDPDBG("set cmdqaddr 0x%08lx, val:0x%08x, mask 0x%08x\n", goto_addr,
 			tx_buf[i] << ((goto_addr & 0x3u) * 8),
 			(0xFFu << ((goto_addr & 0x3u) * 8)));
 	}
@@ -8258,15 +8432,14 @@ static void mtk_dsi_cmdq_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 	mtk_ddp_write_mask(&dsi->ddp_comp, reg_val,
 				dsi->driver_data->reg_cmdq0_ofs,
 				cmdq_mask, handle);
-	DDPINFO("set cmdqaddr 0x%08x, val:0x%08x, mask 0x%08x\n",
+	DDPINFO("set cmdqaddr 0x%08x, val:0x%08x, cmdqsize 0x%08x\n",
 			dsi->driver_data->reg_cmdq0_ofs,
-			reg_val,
-			cmdq_mask);
+			reg_val, cmdq_size);
 	mtk_ddp_write_mask(&dsi->ddp_comp, cmdq_size,
 				DSI_CMDQ_CON(dsi->driver_data), CMDQ_SIZE, handle);
 	mtk_ddp_write_mask(&dsi->ddp_comp, CMDQ_SIZE_SEL,
 				DSI_CMDQ_CON(dsi->driver_data), CMDQ_SIZE_SEL, handle);
-	DDPINFO("set cmdqaddr 0x%08x, val:0x%08x, mask 0x%08x\n", DSI_CMDQ_CON(dsi->driver_data), cmdq_size,
+	DDPDBG("set cmdqaddr 0x%08x, val:0x%08x, mask 0x%08x\n", DSI_CMDQ_CON(dsi->driver_data), cmdq_size,
 			CMDQ_SIZE);
 }
 static void mtk_dsi_cmdq_pack_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
@@ -8400,7 +8573,7 @@ static void mtk_dsi_cmdq_pack_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 				DSI_CMDQ_CON(dsi->driver_data), CMDQ_SIZE, handle);
 	mtk_ddp_write_mask(comp, CMDQ_SIZE_SEL,
 				DSI_CMDQ_CON(dsi->driver_data), CMDQ_SIZE_SEL, handle);
-	DDPINFO("%s DSI_CMDQ_CON=0x%x\n", __func__, (total_cmdq_size | CMDQ_SIZE_SEL));
+	DDPINFO("%s DSI_CMDQ_CON=0x%x\n", __func__, (total_cmdq_size | (u32)CMDQ_SIZE_SEL));
 
 	mtk_ddp_write_relaxed(comp, 0x0, DSI_START, handle);
 	mtk_ddp_write_relaxed(comp, 0x1, DSI_START, handle);
@@ -10776,11 +10949,12 @@ unsigned int mtk_dsi_get_ps_wc(struct mtk_drm_crtc *mtk_crtc,
 }
 
 unsigned int mtk_dsi_get_line_time(struct mtk_drm_crtc *mtk_crtc,
-	struct mtk_dsi *dsi, unsigned int ps_wc)
+	struct mtk_dsi *dsi, unsigned int ps_wc, int mode_idx)
 {
-	unsigned int line_time;
-	unsigned int data_rate;
+	unsigned int line_time = 0;
+	unsigned int data_rate = 0;
 	unsigned int null_packet_len = 0;
+	int ret = 0;
 	u32 lpx = 0, hs_prpr = 0, hs_zero = 0, hs_trail = 0, da_hs_exit = 0;
 	u32 ui = 0, cycle_time = 0;
 	struct mtk_dsi_phy_timcon *phy_timcon = NULL;
@@ -10793,38 +10967,29 @@ unsigned int mtk_dsi_get_line_time(struct mtk_drm_crtc *mtk_crtc,
 		return 0;
 	}
 
-	data_rate = mtk_dsi_default_rate(dsi);
+	if (mode_idx > -1) {
+		if (dsi->ext && dsi->ext->funcs && dsi->ext->funcs->ext_param_get) {
+			ret = dsi->ext->funcs->ext_param_get(dsi->panel, &dsi->conn,
+					&panel_params, mode_idx);
+			if (ret || !panel_params) {
+				panel_params = dsi->ext->params;
+				DDPMSG("%s, error:not support this mode:%d\n", __func__, mode_idx);
+			} else
+				data_rate = mtk_dsi_get_data_rate_by_panel_params(dsi, panel_params);
+		}
+	}
+
+	// Use default value if data rate didn't set before
+	if (data_rate == 0) {
+		data_rate = mtk_dsi_default_rate(dsi);
+		panel_params = dsi->ext->params;
+	}
+
 	if (data_rate == 0) {
 		DDPPR_ERR("%s, data_rate is 0\n", __func__);
 		return 0;
 	}
 
-	if (mtk_crtc->mode_chg && dsi->ext->funcs
-		&& dsi->ext->funcs->ext_param_get) {
-		int ret;
-
-		ret = dsi->ext->funcs->ext_param_get(dsi->panel, &dsi->conn,
-			&panel_params, mtk_crtc->mode_idx);
-		if (ret || !panel_params) {
-			panel_params = dsi->ext->params;
-			DDPMSG("%s, error:not support this mode:%d\n",
-				__func__, mtk_crtc->mode_idx);
-		} else {
-			if (dsi->mipi_hopping_sta && panel_params->dyn.data_rate)
-				data_rate = panel_params->dyn.data_rate;
-			else if (panel_params->dyn_fps.data_rate)
-				data_rate = panel_params->dyn_fps.data_rate;
-			else if (panel_params->data_rate)
-				data_rate = panel_params->data_rate;
-			else if (panel_params->pll_clk)
-				data_rate = panel_params->pll_clk * 2;
-			else
-				DDPMSG("no data rate config\n");
-			DDPINFO("%s[%d] get panel params done! mode_idx=%d data_rate=%d\n",
-				__func__, __LINE__, mtk_crtc->mode_idx, data_rate);
-		}
-	} else
-		panel_params = dsi->ext->params;
 	if (!panel_params) {
 		DDPMSG("%s, panel params is null\n", __func__);
 		return 0;
@@ -10859,7 +11024,7 @@ unsigned int mtk_dsi_get_line_time(struct mtk_drm_crtc *mtk_crtc,
 				(CEILING(1 + ps_wc + 2, 2) / 2)),
 				dsi->lanes) + hs_trail + 1 + da_hs_exit + 1;
 		} else {
-			if (panel_params->cmd_null_pkt_en && dsi->dummy_cmd_en) {
+			if (panel_params->cmd_null_pkt_en) {
 				/* Keep HS + Dummy cycle */
 				line_time = ((dsi->lanes * 3) + 3 + 3 +
 					(CEILING(1 + ps_wc + 2, 2) / 2));
@@ -10901,7 +11066,7 @@ unsigned int mtk_dsi_get_line_time(struct mtk_drm_crtc *mtk_crtc,
 				DIV_ROUND_UP((5 + ps_wc + 6), dsi->lanes) +
 				hs_trail + 1 + da_hs_exit + 1;
 		} else {
-			if (panel_params->cmd_null_pkt_en && dsi->dummy_cmd_en) {
+			if (panel_params->cmd_null_pkt_en) {
 			/* Keep HS + Dummy cycle */
 				line_time = DIV_ROUND_UP((4 + null_packet_len + 2 +
 					5 + ps_wc + 2), dsi->lanes);
@@ -11157,7 +11322,7 @@ void mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 			pixclk /= 1000;
 		}
 
-		DDPMSG("%s, %d, data_rate=%d, mmclk=%u pixclk_min=%d, dual=%u\n", __func__,
+		DDPINFO("%s, %d, data_rate=%d, mmclk=%u pixclk_min=%d, dual=%u\n", __func__,
 				__LINE__, data_rate, pixclk, pixclk_min, mtk_crtc->is_dual_pipe);
 		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
 	} else {
@@ -11410,7 +11575,7 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 			else
 				image_time = DIV_ROUND_UP(ps_wc, dsi->lanes);
 
-			line_time = mtk_dsi_get_line_time(mtk_crtc, dsi, ps_wc);
+			line_time = mtk_dsi_get_line_time(mtk_crtc, dsi, ps_wc, -1);
 
 			if (line_time > 0)
 				bw_base = DO_COMMON_DIV(bw_base * image_time, line_time);
@@ -11549,15 +11714,15 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 			else
 				image_time = DIV_ROUND_UP(ps_wc, dsi->lanes);
 
-			line_time = mtk_dsi_get_line_time(mtk_crtc, dsi, ps_wc);
+			line_time = mtk_dsi_get_line_time(mtk_crtc, dsi, ps_wc, mode_idx);
 
 			if (line_time > 0)
 				bw_base = DO_COMMON_DIV(bw_base * image_time, line_time);
 			else
 				DDPPR_ERR("invalid line_time\n");
 
-			DDPINFO("%s, image_time=%d, line_time=%d\n",
-				__func__, image_time, line_time);
+			DDPINFO("%s,mode_idx:%d, image_time=%d, line_time=%d\n",
+				__func__, mode_idx, image_time, line_time);
 		}
 
 		if (to_info.is_support) {
@@ -12285,13 +12450,14 @@ static void mtk_dsi_set_targetline(struct mtk_ddp_comp *comp,
 
 }
 
-static u32 mtk_dsi_get_line_time_ns(struct mtk_dsi *dsi, struct mtk_drm_crtc *mtk_crtc)
+static u32 mtk_dsi_get_line_time_ns(struct mtk_dsi *dsi,
+	struct mtk_drm_crtc *mtk_crtc, int mode_idx)
 {
 	u32 ps_wc = 0;
 	u32 dsi_clk = 0;
 	u32 line_time = 0;
 	u32 line_time_ns = 0;
-	unsigned int data_rate;
+	unsigned int data_rate = 0;
 
 	if (!mtk_crtc)
 		return 0;
@@ -12308,34 +12474,25 @@ static u32 mtk_dsi_get_line_time_ns(struct mtk_dsi *dsi, struct mtk_drm_crtc *mt
 	}
 
 	ps_wc = mtk_dsi_get_ps_wc(mtk_crtc, dsi);
-	if (dsi->data_rate == 0)
-		mtk_dsi_set_data_rate(dsi);
-	data_rate = dsi->data_rate;
 
-	if (mtk_crtc->mode_chg && dsi->ext && dsi->ext->funcs
-		&& dsi->ext->funcs->ext_param_get) {
-		struct mtk_panel_params *panel_params = NULL;
-		int ret;
+	if (mode_idx > -1) {
+		if (dsi->ext && dsi->ext->funcs && dsi->ext->funcs->ext_param_get) {
+			struct mtk_panel_params *panel_params = NULL;
+			int ret = 0;
 
-		ret = dsi->ext->funcs->ext_param_get(dsi->panel, &dsi->conn,
-			&panel_params, mtk_crtc->mode_idx);
-		if (ret || !panel_params)
-			DDPMSG("%s, error:not support this mode:%d\n",
-				__func__, mtk_crtc->mode_idx);
-		else {
-			if (dsi->mipi_hopping_sta && panel_params->dyn.data_rate)
-				data_rate = panel_params->dyn.data_rate;
-			else if (panel_params->dyn_fps.data_rate)
-				data_rate = panel_params->dyn_fps.data_rate;
-			else if (panel_params->data_rate)
-				data_rate = panel_params->data_rate;
-			else if (panel_params->pll_clk)
-				data_rate = panel_params->pll_clk * 2;
+			ret = dsi->ext->funcs->ext_param_get(dsi->panel, &dsi->conn,
+					&panel_params, mode_idx);
+			if (ret || !panel_params)
+				DDPMSG("%s, error:not support this mode:%d\n", __func__, mode_idx);
 			else
-				DDPMSG("no data rate config\n");
-			DDPINFO("%s[%d] get panel params done! mode_idx=%d data_rate=%d\n",
-				__func__, __LINE__, mtk_crtc->mode_idx, data_rate);
+				data_rate = mtk_dsi_get_data_rate_by_panel_params(dsi, panel_params);
 		}
+	} else
+		data_rate = dsi->data_rate;
+
+	if (data_rate == 0) {
+		mtk_dsi_set_data_rate(dsi);
+		data_rate = dsi->data_rate;
 	}
 
 	if (dsi->ext->params->is_cphy)
@@ -12343,10 +12500,10 @@ static u32 mtk_dsi_get_line_time_ns(struct mtk_dsi *dsi, struct mtk_drm_crtc *mt
 	else
 		dsi_clk = data_rate / 8;
 
-	line_time = mtk_dsi_get_line_time(mtk_crtc, dsi, ps_wc);
+	line_time = mtk_dsi_get_line_time(mtk_crtc, dsi, ps_wc, mode_idx);
 	line_time_ns = DIV_ROUND_UP(line_time * 1000, dsi_clk);
 
-	DDPINFO("%s ps_wc=%d dsi_clk=%d line_time=%d(%dns)\n", __func__,
+	DDPINFO("%s, mode_idx:%d, ps_wc=%d dsi_clk=%d line_time=%d(%dns)\n", __func__, mode_idx,
 		ps_wc, dsi_clk, line_time, line_time_ns);
 
 	return line_time_ns;
@@ -13638,9 +13795,19 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 		unsigned int *line_time = (unsigned int *)params;
 
-		*line_time = mtk_dsi_get_line_time_ns(dsi, mtk_crtc);
+		*line_time = mtk_dsi_get_line_time_ns(dsi, mtk_crtc, -1);
 	}
 		break;
+	case DSI_GET_LINE_TIME_NS_BY_MODE:
+	{
+		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+		unsigned int *line_time = (unsigned int *)params;
+		int mode_idx = (int)*line_time;
+
+		*line_time = mtk_dsi_get_line_time_ns(dsi, mtk_crtc, mode_idx);
+	}
+		break;
+
 	case DSI_DUMP_LCM_INFO:
 	{
 		mtk_dsi_dump_lcm(comp);
@@ -13987,6 +14154,8 @@ static int mtk_dsi_set_partial_update(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DSI_TX_BUF_RW_TIMES(dsi->driver_data), rw_times, ~0);
 
+	crtc->set_lcm_scn = SET_LCM_ROI;
+
 	if (panel_ext && panel_ext->funcs
 		&& panel_ext->funcs->lcm_update_roi_cmdq) {
 		if (dsi->set_partial_update == 1)
@@ -14002,6 +14171,8 @@ static int mtk_dsi_set_partial_update(struct mtk_ddp_comp *comp,
 			mtk_crtc_get_height_by_comp(__func__, &crtc->base,
 				comp, true));
 	}
+
+	crtc->set_lcm_scn = SET_LCM_NONE;
 
 	//cmdq_pkt_set_event(handle,
 		//crtc->gce_obj.event[EVENT_CABC_EOF]);
@@ -14432,15 +14603,21 @@ static const struct mtk_dsi_driver_data mt6991_dsi_driver_data = {
 	.smi_dbg_disable = true,
 	.buffer_unit = 32,
 	.sram_unit = 32,
-	.urgent_lo_fifo_us = 11,
-	.urgent_hi_fifo_us = 12,
-	.output_valid_fifo_us = 35,
+	.preultra_lo_fifo_us = ALWAYS_PREULTRA,
+	.preultra_hi_fifo_us = ALWAYS_PREULTRA,
+	.ultra_lo_fifo_us = 40,
+	.ultra_hi_fifo_us = 41,
+	.urgent_lo_fifo_us = 17,
+	.urgent_hi_fifo_us = 37,
+	.output_valid_fifo_us = 50,
 	.max_vfp = 0x7ffe,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V2,
 	.bubble_rate = 115,
 	.n_verion = VER_N3,
 	.require_phy_reset = false,
 	.keep_hs_eotp = true,
+	.support_pre_urgent = PREURGENT_SUPPORT_ALL,
+	.non_block_urgent_wa = true,
 	.reg_phy_base = 0x600,
 	.reg_20_ofs = 0x020,
 	.reg_30_ofs = 0x030,
@@ -14464,7 +14641,7 @@ static const struct mtk_dsi_driver_data mt6991_dsi_driver_data = {
 	.dsi_phy_syncon = 0x1D8,
 	.dsi_ltpo_vdo_con = 0x1A8,
 	.dsi_ltpo_vdo_sq0 = 0x1AC,
-	.support_bl_at_te = 1,
+	.support_bl_at_te = 0,
 	.support_512byte_rx = 0,
 	.dsi_rx_trig_sta = 0x0B8,
 	.dsi_rx_con = 0x0A0,

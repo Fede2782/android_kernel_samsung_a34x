@@ -13,6 +13,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/pm_wakeup.h>
 #include <linux/regulator/consumer.h>
+#include <linux/sched/clock.h>
 
 #include "mtk_vdisp.h"
 #include "mtk_disp_vidle.h"
@@ -22,11 +23,8 @@
 #include <aee.h>
 #endif
 
-#define VDISPDBG(fmt, args...) \
-	pr_info("[vdisp] %s:%d " fmt "\n", __func__, __LINE__, ##args)
-
-#define VDISPERR(fmt, args...) \
-	pr_info("[vdisp][err] %s:%d " fmt "\n", __func__, __LINE__, ##args)
+int debug_recover;
+module_param(debug_recover, int, 0644);
 
 #define SPM_MML0_PWR_CON 0xE90
 #define SPM_MML1_PWR_CON 0xE94
@@ -51,6 +49,7 @@
 #define VOTE_DELAY_US 2
 #define POLL_DELAY_US 10
 #define TIMEOUT_300MS 300000
+#define TIMEOUT_30MS 30000
 
 #define HW_CCF_AP_VOTER_BIT			(0)
 #define HW_CCF_XPU0_BACKUP1_SET		(0x230)
@@ -60,20 +59,6 @@
 #define HW_CCF_BACKUP1_DONE			(0x143C)
 #define HW_CCF_BACKUP1_SET_STATUS	(0x1484)
 #define HW_CCF_BACKUP1_CLR_STATUS	(0x1488)
-
-/* This id is only for disp internal use */
-enum disp_pd_id {
-	DISP_PD_DISP_VCORE,
-	DISP_PD_DISP1,
-	DISP_PD_DISP0,
-	DISP_PD_OVL1,
-	DISP_PD_OVL0,
-	DISP_PD_MML1,
-	DISP_PD_MML0,
-	DISP_PD_EDP,
-	DISP_PD_DPTX,
-	DISP_PD_NUM,
-};
 
 struct mtk_vdisp {
 	void __iomem *spm_base;
@@ -95,6 +80,7 @@ const struct mtk_vdisp_data default_vdisp_driver_data = {
 	.avs = &default_vdisp_avs_driver_data,
 };
 static struct device *g_dev[DISP_PD_NUM];
+static struct device *g_parent_dev;
 static void __iomem *g_vlp_base;
 static void __iomem *g_disp_voter;
 static atomic_t g_mtcmos_cnt = ATOMIC_INIT(0);
@@ -113,9 +99,7 @@ static void __iomem *g_smi_disp_dram_sub_comm[4];
 static void check_subcomm_status(void)
 {
 	int i = 0, offset = 0;
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	bool trigger_aee = false;
-#endif
 
 	for (i = 0; i < 4; i++) {
 		if (readl(g_smi_disp_dram_sub_comm[i] + 0x40) != 0x1) {
@@ -127,25 +111,106 @@ static void check_subcomm_status(void)
 		}
 	}
 
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	if (trigger_aee)
-		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT | DB_OPT_MMPROFILE_BUFFER,
-					__func__, "subcomm busy");
-#endif
+		VDISPAEE("subcomm busy");
+}
+
+static int check_sub_devices(enum disp_pd_id pd_id)
+{
+	struct device *d;
+	struct pm_domain_data *pdd;
+	struct generic_pm_domain *gpd = pd_to_genpd(g_dev[pd_id]->pm_domain);
+	int total_usage_count = 0;
+
+	mutex_lock(&g_mtcmos_cnt_lock);
+	list_for_each_entry(pdd, &gpd->dev_list, list_node) {
+		d = pdd->dev;
+		if (!d)
+			continue;
+
+		total_usage_count += atomic_read(&d->power.usage_count);
+		if (d->power.runtime_status != RPM_SUSPENDED) {
+			VDISPDBG("\t+ (%-80s %3d %3d %3d %3d %3d status:%3d)",
+				dev_name(d),
+				atomic_read(&d->power.usage_count),
+				d->power.is_noirq_suspended,
+				d->power.syscore,
+				d->power.direct_complete,
+				d->power.must_resume,
+				d->power.runtime_status);
+		}
+	}
+	mutex_unlock(&g_mtcmos_cnt_lock);
+
+	return total_usage_count;
+}
+
+static void set_devices_syscore(void)
+{
+	struct device *d;
+	struct pm_domain_data *pdd;
+	struct generic_pm_domain *gpd;
+	int pd_id;
+
+	for (pd_id = 0; pd_id < DISP_PD_NUM; pd_id++) {
+		gpd = pd_to_genpd(g_dev[pd_id]->pm_domain);
+		list_for_each_entry(pdd, &gpd->dev_list, list_node) {
+			d = pdd->dev;
+			if (!d)
+				continue;
+
+			dev_pm_syscore_device(d, true);
+		}
+	}
 }
 
 static s32 mtk_vdisp_get_power_cnt(void)
 {
-	return atomic_read(&g_mtcmos_cnt);
+	return atomic_read_acquire(&g_mtcmos_cnt);
 }
 
 static s32 mtk_vdisp_poll_power_cnt(s32 val)
 {
 	s32 ret, tmp;
 
-	ret = readx_poll_timeout(mtk_vdisp_get_power_cnt, , tmp, tmp == val, 100, TIMEOUT_300MS);
-	if (ret < 0)
-		VDISPERR("poll power cnt timeout, mtcmos_mask(%#x)", atomic_read(&g_mtcmos_cnt));
+	ret = readx_poll_timeout(mtk_vdisp_get_power_cnt, , tmp, tmp == val, 100, TIMEOUT_30MS);
+	if (ret < 0) {
+		u32 idx, mtcmos_cnt;
+		u64 begin = sched_clock();
+		static u32 fail_cnt, recover_cnt;
+		u32 fail_mtcmos = tmp;
+
+		/* get power from lower bit to higher bit, so disp_vcore is the first one */
+		mtcmos_cnt = tmp;
+		while (mtcmos_cnt) {
+			idx = __builtin_ffs(mtcmos_cnt) - 1;
+			mtcmos_cnt &= ~BIT(idx);
+			check_sub_devices(idx);
+			pm_runtime_get_sync(g_dev[idx]);
+		}
+
+		/* put power from higher bit to lower bit */
+		mtcmos_cnt = tmp;
+		while (mtcmos_cnt) {
+			idx = 31 - __builtin_clz(mtcmos_cnt);
+			mtcmos_cnt &= ~BIT(idx);
+			pm_runtime_put_sync(g_dev[idx]);
+		}
+
+		ret = readx_poll_timeout(mtk_vdisp_get_power_cnt, , tmp, tmp == val, 100, TIMEOUT_30MS);
+		if (ret == 0) {
+			recover_cnt++;
+			if (unlikely(debug_recover))
+				VDISPAEE("mtcmos_cnt(%#x) recovery success, cost(%llu)", tmp,
+					 sched_clock() - begin);
+			else
+				VDISPDBG("mtcmos_cnt(%#x) recovery success, cost(%llu)", tmp,
+					 sched_clock() - begin);
+		}
+
+		fail_cnt++;
+		VDISPDBG("mtcmos(%#x) fail_recover(%u,%u)", fail_mtcmos, fail_cnt, recover_cnt);
+	}
 
 	return ret;
 }
@@ -355,6 +420,52 @@ fail:
 		readl(SPM_SEMA_AP), i);
 }
 
+static int mtk_vdisp_link_parent_power(bool to_link)
+{
+	static bool linked;
+	int ret = 0;
+	struct generic_pm_domain *gpm, *parent;
+
+	if (IS_ERR_OR_NULL(g_dev[DISP_PD_DISP_VCORE]) ||
+	    IS_ERR_OR_NULL(g_dev[DISP_PD_DISP_VCORE]->pm_domain) ||
+	    IS_ERR_OR_NULL(g_parent_dev) ||
+	    IS_ERR_OR_NULL(g_parent_dev->pm_domain)) {
+		VDISPERR("device or parent device is NULL");
+		return -EINVAL;
+	}
+
+	gpm = pd_to_genpd(g_dev[DISP_PD_DISP_VCORE]->pm_domain);
+	parent = pd_to_genpd(g_parent_dev->pm_domain);
+
+	if (!linked && to_link) {
+		/* parent must be powered on before link */
+		pm_runtime_get_sync(g_parent_dev);
+		ret = pm_genpd_add_subdomain(parent, gpm);
+		if (ret == 0)
+			linked = true;
+		else {
+			VDISPDBG("failed to add subdomain ret(%d)", ret);
+			if (!list_empty(&gpm->parent_links))
+				VDISPDBG("parent_link is not empty");
+			if (gpm->device_count)
+				VDISPDBG("device_count(%d) not zero", gpm->device_count);
+		}
+		pm_runtime_put_sync(g_parent_dev);
+	} else if (linked && !to_link) {
+		ret = pm_genpd_remove_subdomain(parent, gpm);
+		if (ret == 0)
+			linked = false;
+		else {
+			VDISPDBG("failed to remove subdomain ret(%d)", ret);
+			if (!list_empty(&gpm->parent_links))
+				VDISPDBG("parent_link is not empty");
+			if (gpm->device_count)
+				VDISPDBG("device_count(%d) not zero", gpm->device_count);
+		}
+	}
+
+	return ret;
+}
 
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK_AUTO_YCT)
 static void mtk_vdisp_wk_lock(u32 crtc_index, bool get, const char *func, int line)
@@ -411,7 +522,7 @@ static int genpd_event_notifier(struct notifier_block *nb,
 		if (priv->pwr_ack_wait_con)
 			writel(priv->pwr_ack_wait_time, priv->pwr_ack_wait_con);
 
-		atomic_or(BIT(priv->pd_id), &g_mtcmos_cnt);
+		atomic_fetch_or(BIT(priv->pd_id), &g_mtcmos_cnt);
 		mutex_unlock(&g_mtcmos_cnt_lock);
 		break;
 	case GENPD_NOTIFY_ON:
@@ -444,7 +555,7 @@ static int genpd_event_notifier(struct notifier_block *nb,
 		}
 
 		/* unvote and power off mminfra, release should be called only if keep successfully */
-		if (disp_dpc_driver.dpc_vidle_power_release && !priv->pm_ret)
+		if (disp_dpc_driver.dpc_vidle_power_release && priv->pm_ret == VOTER_PM_DONE)
 			disp_dpc_driver.dpc_vidle_power_release((enum mtk_vidle_voter_user)priv->pd_id);
 
 		mminfra_hwv_pwr_ctrl(priv, false);
@@ -484,18 +595,23 @@ static int genpd_event_notifier(struct notifier_block *nb,
 		if (atomic_read(&g_mtcmos_cnt) == BIT(DISP_PD_DISP_VCORE))
 			vdisp_hwccf_ctrl(priv, false);
 
-		if (disp_dpc_driver.dpc_vidle_power_release && !priv->pm_ret)
+		if (disp_dpc_driver.dpc_vidle_power_release && priv->pm_ret == VOTER_PM_DONE)
 			disp_dpc_driver.dpc_vidle_power_release((enum mtk_vidle_voter_user)priv->pd_id);
 
 		mminfra_hwv_pwr_ctrl(priv, false);
-
 		if (priv->pd_id == DISP_PD_DISP_VCORE) {
 			vdisp_set_aod_scp_semaphore(0); //protect AOD SCP flow
 #if !IS_ENABLED(CONFIG_DRM_MEDIATEK_AUTO_YCT)
 			__pm_relax(g_vdisp_wake_lock);
 #endif
-		}
-		atomic_and(~BIT(priv->pd_id), &g_mtcmos_cnt);
+			if (!atomic_dec_and_test(&g_mtcmos_cnt)) {
+				atomic_set_release(&g_mtcmos_cnt, 0);
+				VDISPERR("mtcmos_cnt should be zero, reset to (%d)\n",
+					 atomic_read_acquire(&g_mtcmos_cnt));
+			}
+		} else
+			atomic_fetch_and(~BIT(priv->pd_id), &g_mtcmos_cnt);
+
 		mutex_unlock(&g_mtcmos_cnt_lock);
 		break;
 	default:
@@ -518,6 +634,9 @@ static void mtk_vdisp_genpd_put(void)
 		}
 	}
 	VDISPDBG("%d mtcmos has been put", j);
+
+	/* set all devices as syscore to avoid expected power on when suspend resuming */
+	set_devices_syscore();
 }
 
 static void mtk_vdisp_query_aging_val(void)
@@ -541,6 +660,7 @@ static const struct mtk_vdisp_funcs funcs = {
 	.vlp_disp_vote = mtk_vdisp_vlp_disp_vote,
 	.poll_power_cnt = mtk_vdisp_poll_power_cnt,
 	.sent_aod_scp_sema = mtk_sent_aod_scp_sema,
+	.set_clk = mtk_vdisp_set_clk,
 	.query_aging_val = mtk_vdisp_query_aging_val,
 	.debug_mtcmos_ctrl = mtk_vdisp_debug_mtcmos_ctrl,
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK_AUTO_YCT)
@@ -574,23 +694,26 @@ static int mtk_vdisp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *vcp_node;
+	struct device_node *chosen_node;
+	struct tag_bootmode *tag_boot;
 	struct mtk_vdisp *priv;
 	struct regulator *rgu;
 	struct resource *res;
 	const char *clkpropname = "vdisp-clock-names";
-	struct property *prop;
 	const char *clkname;
+	struct property *prop;
+	struct clk *clk;
 	int ret = 0;
 	int support = 0;
 	u32 pd_id = 0;
-	struct clk *clk;
-	int i = 0, clk_num;
+	int i = 0, clk_num = 0, genpd_num = 0, pair_size = 0;
 
 	vcp_node = of_find_node_by_name(NULL, "vcp");
 	if (vcp_node == NULL)
 		pr_info("failed to find vcp_node @ %s\n", __func__);
 	else {
 		ret = of_property_read_u32(vcp_node, "warmboot-support", &support);
+		of_node_put(vcp_node);
 
 		if (ret || support == 0) {
 			pr_info("%s vcp_warmboot_support is disabled: %d\n", __func__, ret);
@@ -726,12 +849,20 @@ static int mtk_vdisp_probe(struct platform_device *pdev)
 	if (mtk_vdisp_avs_probe(pdev))
 		return -EINVAL;
 
-	priv->pd_nb.notifier_call = genpd_event_notifier;
-	priv->pd_id = pd_id;
-	g_dev[pd_id] = dev;
-
 	// Vote on when probe for sync status
 	vdisp_hwccf_ctrl(priv, true);
+
+	priv->pd_id = pd_id;
+	priv->pd_nb.notifier_call = genpd_event_notifier;
+
+	/* count power-domains pairs and attach to g_dev */
+	genpd_num = of_count_phandle_with_args(dev->of_node, "power-domains", NULL);
+	of_property_read_u32(dev->of_node, "disp-power-pair-size", &pair_size);
+	if (pair_size > 0)
+		genpd_num /= pair_size;
+	else
+		genpd_num = 0;
+	g_dev[pd_id] = genpd_num <= 1 ? dev : dev_pm_domain_attach_by_id(dev, 0);
 
 	if (pd_id == DISP_PD_DISP_VCORE) {
 		g_vdisp_wake_lock = wakeup_source_create("vdisp_wakelock");
@@ -741,15 +872,35 @@ static int mtk_vdisp_probe(struct platform_device *pdev)
 		g_smi_disp_dram_sub_comm[1] = ioremap(0x3e820400, 0x40);
 		g_smi_disp_dram_sub_comm[2] = ioremap(0x3e830400, 0x40);
 		g_smi_disp_dram_sub_comm[3] = ioremap(0x3e840400, 0x40);
+
+		if (genpd_num > 1) {
+			VDISPDBG("pd(%d) power domains num > 1\n", pd_id);
+			g_parent_dev = dev_pm_domain_attach_by_id(dev, 1);
+			if (!pm_runtime_enabled(g_parent_dev))
+				pm_runtime_enable(g_parent_dev);
+		}
+
+		/* if not normal mode, link parent power */
+		chosen_node = of_find_node_by_path("/chosen");
+		if (chosen_node) {
+			tag_boot = (struct tag_bootmode *)of_get_property(chosen_node, "atag,boot", NULL);
+			of_node_put(chosen_node);
+			if (tag_boot) {
+				if (tag_boot->bootmode != 0) {
+					VDISPDBG("bootmode(%u), link parent power", tag_boot->bootmode);
+					mtk_vdisp_link_parent_power(true);
+				}
+			}
+		}
 	}
 
-	if (!pm_runtime_enabled(dev))
-		pm_runtime_enable(dev);
-	ret = dev_pm_genpd_add_notifier(dev, &priv->pd_nb);
+	if (!pm_runtime_enabled(g_dev[pd_id]))
+		pm_runtime_enable(g_dev[pd_id]);
+	ret = dev_pm_genpd_add_notifier(g_dev[pd_id], &priv->pd_nb);
 	if (ret)
 		VDISPERR("dev_pm_genpd_add_notifier fail(%d)", ret);
 
-	pm_runtime_get_sync(dev);
+	pm_runtime_get_sync(g_dev[pd_id]);
 	VDISPDBG("get pd(%d)", pd_id);
 	atomic_inc(&g_mtcmos_cnt);
 	mtk_vdisp_register(&funcs, VDISP_VER2);

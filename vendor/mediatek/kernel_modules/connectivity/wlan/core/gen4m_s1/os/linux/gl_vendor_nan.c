@@ -1115,6 +1115,11 @@ int mtk_cfg80211_vendor_nan(struct wiphy *wiphy,
 			msleep(1000);
 		}
 
+		if (!wlanIsDriverReady(prGlueInfo)) {
+			DBGLOG(NAN, WARN, "driver is not ready\n");
+			return -EFAULT;
+		}
+
 		kalMemZero(&nanDisableRsp, sizeof(struct NanDisableRspMsg));
 		nanDisableRsp.status =
 			nanDevDisableRequest(prGlueInfo->prAdapter);

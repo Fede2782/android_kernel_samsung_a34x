@@ -70,10 +70,11 @@ int tcpci_get_alert_status_and_mask(struct tcpc_device *tcpc, uint32_t *alert, u
 int tcpci_get_fault_status(struct tcpc_device *tcpc, uint8_t *fault);
 int tcpci_get_power_status(struct tcpc_device *tcpc);
 int tcpci_init(struct tcpc_device *tcpc, bool sw_reset);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 int tcpci_ss_factory(struct tcpc_device *tcpc);
 #endif
 int tcpci_init_alert_mask(struct tcpc_device *tcpc);
+void tcpci_set_vbus_dischg_gpio(struct tcpc_device *tcpc, int value);
 
 int tcpci_get_cc(struct tcpc_device *tcpc);
 int tcpci_is_plugged_in(struct tcpc_device *tcpc);

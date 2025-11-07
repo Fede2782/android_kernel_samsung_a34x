@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -88,7 +88,7 @@ void kalP2pIndicateListenOffloadEvent(
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
 }
 
-void kalIdcRegisterRilNotifier(struct GLUE_INFO *prGlueInfo)
+void kalIdcRegisterRilNotifier(void)
 {
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
 }
@@ -102,8 +102,5 @@ void kalIdcGetRilInfo(void)
 {
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
 }
-void kalP2pCsaNotifyWorkInit(struct BSS_INFO *prBssInfo)
-{
-	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
-}
+
 #endif /* CFG_ENABLE_WIFI_DIRECT */

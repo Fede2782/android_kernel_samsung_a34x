@@ -19,7 +19,7 @@
 #include <pmic_lbat_service.h>
 #endif
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_MTK_NO_BAT_BOOT_SUPPORT)
 #include <../drivers/battery/common/sec_charging_common.h>
 #endif
 
@@ -5757,9 +5757,11 @@ static int mtk_battery_manager_send(struct mtk_battery *gm, enum manager_cmd cmd
 			wakeup_fg_algo_cmd(gm, FG_INTR_KERNEL_CMD,
 					FG_KERNEL_CMD_GET_DYNAMIC_CV, (val / 100));
 		break;
+#if defined(CONFIG_MTK_NO_BAT_BOOT_SUPPORT)
 	case MANAGER_DISABLE_FG:
 		disable_fg(gm);
 		break;
+#endif
 	default:
 		bm_err(gm, "%s undefined battery manager command\n",__func__);
 		break;

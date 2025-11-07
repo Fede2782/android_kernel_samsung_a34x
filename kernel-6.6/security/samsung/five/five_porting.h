@@ -92,6 +92,17 @@
 #include <linux/sched.h>
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+#define five_lsmid "five_lsm"
+#else
+#include <linux/lsm_hooks.h>
+static const struct lsm_id struct_five_lsmid = {
+	.name = "five_lsm",
+	.id = LSM_ORDER_LAST,
+};
+static const struct lsm_id * five_lsmid = &struct_five_lsmid;
+#endif
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
 #include <linux/fs.h>
 
@@ -130,16 +141,32 @@ static inline ssize_t __vfs_getxattr(struct dentry *dentry, struct inode *inode,
 		__vfs_getxattr(dentry, inode, name, value, size)
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 7, 0)
+#define BDEV_TYPE block_device
+#define GET_BDEV(bdev) bdev
+#else
+#define BDEV_TYPE file
+#define GET_BDEV(bdev) file_bdev(bdev)
+#endif
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 5, 0)
 #define do_blkdev_put(bdev, mode) blkdev_put(bdev, mode)
 #define do_blkdev_get_by_dev(dev, mode, holder) \
 	blkdev_get_by_dev(dev, mode, holder)
-#define do_ahash_request_set_callback(req, tfm, ahash, res) \
-	ahash_request_set_callback(req, tfm, ahash, res)
-#else
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 7, 0)
 #define do_blkdev_put(bdev, mode) blkdev_put(bdev, NULL)
 #define do_blkdev_get_by_dev(dev, mode, holder) \
 	blkdev_get_by_dev(dev, mode, holder, NULL)
+#else
+#define do_blkdev_put(bdev, mode) bdev_fput(bdev)
+#define do_blkdev_get_by_dev(dev, mode, holder) \
+	bdev_file_open_by_dev(dev, mode, holder, NULL)
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 5, 0)
+#define do_ahash_request_set_callback(req, tfm, ahash, res) \
+	ahash_request_set_callback(req, tfm, ahash, res)
+#else
 #define do_ahash_request_set_callback(req, tfm, ahash, res) \
 	ahash_request_set_callback(req, tfm, (void *)ahash, res)
 #endif
@@ -152,6 +179,8 @@ static inline ssize_t __vfs_getxattr(struct dentry *dentry, struct inode *inode,
 	__vfs_setxattr_noperm(&nop_mnt_idmap, dentry, name, value, size, flags)
 #define __vfs_removexattr(dentry, name) \
 		__vfs_removexattr(&nop_mnt_idmap, dentry, name)
+#define __vfs_setxattr(dentry, inode, name, value, size, flags) \
+	__vfs_setxattr(&nop_mnt_idmap, dentry, inode, name, value, size, flags)
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0)
 #define vfs_getxattr_alloc(dentry, name, xattr_value, size, flags) \
 	vfs_getxattr_alloc(&init_user_ns, dentry, name, xattr_value, \
@@ -160,6 +189,8 @@ static inline ssize_t __vfs_getxattr(struct dentry *dentry, struct inode *inode,
 	__vfs_setxattr_noperm(&init_user_ns, dentry, name, value, size, flags)
 #define __vfs_removexattr(dentry, name) \
 		__vfs_removexattr(&init_user_ns, dentry, name)
+#define __vfs_setxattr(dentry, inode, name, value, size, flags) \
+	__vfs_setxattr(&init_user_ns, dentry, inode, name, value, size, flags)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0)
@@ -258,11 +289,21 @@ static inline struct dentry *d_real_comp(struct dentry *dentry)
 {
 	return d_real(dentry, NULL, 0, 0);
 }
-#else
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0)
 static inline struct dentry *d_real_comp(struct dentry *dentry)
 {
 	return d_real(dentry, d_real_inode(dentry));
 }
+#else
+static inline struct dentry *d_real_comp(struct dentry *dentry)
+{
+	return d_real(dentry, D_REAL_METADATA);
+}
+#endif
+
+/* include/linux/mmzone.h */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0)
+#define MAX_ORDER MAX_PAGE_ORDER
 #endif
 
 /* d_real_inode was added in v4.4.16, removed in v4.5.0 and added again in v4.6.5 */
@@ -312,6 +353,21 @@ struct loop_device {
 };
 #else
 #include "drivers/block/loop.h"
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
+struct integrity_label;
+enum five_file_integrity {
+	FIVE_FILE_UNKNOWN,
+	FIVE_FILE_FAIL,
+	FIVE_FILE_RSA,
+	FIVE_FILE_DMVERITY,
+	FIVE_FILE_FSVERITY,
+	FIVE_FILE_HMAC
+};
+
+#define FIVE_DMVERITY_PROTECTED	0x00040000
+#define FIVE_TRUSTED_FILE	0x00080000
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)

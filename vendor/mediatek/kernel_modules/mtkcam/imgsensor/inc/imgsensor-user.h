@@ -841,4 +841,7 @@ struct mtk_fake_sensor_info {
 #define VIDIOC_MTK_S_SENSOR_SENTEST_CTRL \
 	_IOWR('M', BASE_VIDIOC_PRIVATE + 113, struct mtk_adaptor_sentest_ctrl)
 
+// SAMSUNG_MTKCAM_EXT - HAL_CMD_INTERFACE_NIGHT_HYPERLAPSE
+#define VIDIOC_MTK_S_NIGHT_HYPERLAPSE_MODE \
+	_IOW('M', BASE_VIDIOC_PRIVATE + 114, int)
 #endif

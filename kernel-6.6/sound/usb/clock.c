@@ -381,7 +381,7 @@ static int __uac_clock_find_source(struct snd_usb_audio *chip,
 				continue;
 
 			if ((size_t)&sources[i - 1] >=
-					(size_t)(chip->ctrl_intf->extra + chip->ctrl_intf->extralen)) {
+				(size_t)(chip->ctrl_intf->extra + chip->ctrl_intf->extralen)) {
 				usb_audio_err(chip,
 					"%s(): error. out of boundary, i %d\n",
 					__func__, i);

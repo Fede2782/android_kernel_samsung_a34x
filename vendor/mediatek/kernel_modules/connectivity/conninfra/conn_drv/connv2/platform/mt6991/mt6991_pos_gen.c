@@ -594,7 +594,7 @@ unsigned int consys_emi_set_remapping_reg_mt6991_gen(
 
 	if (CONN_BUS_CR_BASE == 0) {
 		pr_notice("CONN_BUS_CR_BASE is not defined\n");
-		return -1;
+		return 1;
 	}
 
 	vir_addr_0x40068000 =
@@ -603,7 +603,7 @@ unsigned int consys_emi_set_remapping_reg_mt6991_gen(
 	if (!vir_addr_0x40068000) {
 		pr_notice("vir_addr_0x40068000(%x) ioremap fail\n",
 			0x40068000);
-		return -1;
+		return 1;
 	}
 
 	/* driver should set the following configuration */

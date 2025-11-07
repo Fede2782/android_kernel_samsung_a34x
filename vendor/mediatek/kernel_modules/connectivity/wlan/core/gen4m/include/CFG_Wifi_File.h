@@ -501,14 +501,6 @@ struct WIFI_NVRAM_TAG_FORMAT {
 	uint8_t u1NvramTypeLenLsb;
 	uint8_t u1NvramTypeLenMsb;
 };
-
-#if CFG_SUPPORT_XONVRAM
-struct XO_CFG_PARAM_STRUCT {
-	uint8_t aucData[256];
-	uint16_t u2DataLen;
-};
-#endif
-
 /*******************************************************************************
  *                           P R I V A T E   D A T A
  *******************************************************************************
@@ -523,8 +515,8 @@ struct XO_CFG_PARAM_STRUCT {
 		{switch (0) {case 0: case (expr): default:; } }
 #endif
 
-#define MAX_CFG_FILE_WIFI_REC_SIZE    (1024*12)
-#define MAX_CFG_FILE_WIFI_RECAL_SIZE    1024
+#define MAX_CFG_FILE_WIFI_REC_SIZE    (1024*8)
+#define MAX_CFG_FILE_WIFI_RECAL_SIZE    512
 
 /*******************************************************************************
  *                  F U N C T I O N   D E C L A R A T I O N S

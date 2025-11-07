@@ -92,6 +92,7 @@ obj-$(CONFIG_DRM_PANEL_SERDES) += panel-serdes-max96789.o bridge-serdes-max96789
 obj-$(CONFIG_DRM_PANEL_NT37707_C2V_ARP) += panel-nt37707-c2v-arp.o
 obj-$(CONFIG_DRM_PANEL_BOE_SW83109_CMD) += panel-boe-sw83109-cmd.o
 obj-$(CONFIG_DRM_PANEL_ANA38407_WQXGA_PLUS_DPHY_CMD) += panel-ana38407-wqxga-plus-dphy-cmd.o
+obj-$(CONFIG_DRM_PANEL_ANA38407_WQXGA_DPHY_CMD) += panel-ana38407-wqxga-dphy-cmd.o
 mediatek-drm-gateic-y := mtk_drm_panel_i2c.o \
 		  mtk_drm_gateic_rt4801h.o \
 		  mtk_drm_gateic_rt4831a.o \

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -343,101 +343,5 @@ WF_HIF_DMASHDL_TOP_OPTIONAL_CONTROL_CR_PSEBF_BL_TH2_NOBMIN_RASIGN_ENA_MASK |
 		u4DefVal);
 }
 
-uint32_t mt7925UpdateDmashdlQuota(struct ADAPTER *prAdapter,
-				uint8_t ucWmmIndex, uint32_t u4MaxQuota)
-{
-	uint8_t ucGroupIdx, ucAcIdx;
-	uint32_t idx;
-	uint16_t u2MaxQuotaFinal;
-	bool fgIsMaxQuotaInvalid = FALSE;
-
-	ASSERT(prAdapter);
-	if (u4MaxQuota > (DMASHDL_MAX_QUOTA_MASK >> DMASHDL_MAX_QUOTA_OFFSET))
-		fgIsMaxQuotaInvalid = TRUE;
-
-	for (idx = 0; idx < WMM_AC_INDEX_NUM; idx++) {
-		ucAcIdx = idx + (ucWmmIndex * WMM_AC_INDEX_NUM);
-		ucGroupIdx = rMt7925DmashdlCfg.aucQueue2Group[ucAcIdx];
-		u2MaxQuotaFinal = u4MaxQuota;
-		if (fgIsMaxQuotaInvalid) {
-			/* Set quota to default */
-			u2MaxQuotaFinal =
-				rMt7925DmashdlCfg.au2MaxQuota[ucGroupIdx];
-		}
-
-		if (u2MaxQuotaFinal) {
-			DBGLOG(HAL, DEBUG,
-				"ucWmmIndex,%u,ucGroupIdx,%u,u2MaxQuotaFinal,0x%x\n",
-				ucWmmIndex, ucGroupIdx, u2MaxQuotaFinal);
-			asicConnac3xDmashdlSetMinMaxQuota(prAdapter, ucGroupIdx,
-							3, u2MaxQuotaFinal);
-
-		}
-	}
-	return WLAN_STATUS_SUCCESS;
-}
-
-uint32_t mt7925dmashdlQuotaDecision(struct ADAPTER *prAdapter,
-			uint8_t ucWmmIndex)
-{
-	struct BSS_INFO *prBssInfo;
-	uint8_t ucBssIndex;
-	uint8_t ucABandWmmIdx = HW_WMM_NUM;
-	bool fgAAWmmConcurrent = false;
-	uint16_t u2MaxQuota = 0;
-	enum ENUM_BAND eTargetBand = BAND_NULL;
-	for (ucBssIndex = 0;
-		ucBssIndex < prAdapter->ucHwBssIdNum; ucBssIndex++) {
-
-		prBssInfo = prAdapter->aprBssInfo[ucBssIndex];
-
-		if (IS_BSS_NOT_ALIVE(prAdapter, prBssInfo))
-			continue;
-
-		if (prBssInfo->eBand != BAND_2G4
-		    && prBssInfo->eBand != BAND_5G
-#if (CFG_SUPPORT_WIFI_6G == 1)
-		    && prBssInfo->eBand != BAND_6G
-#endif
-		    )
-			continue;
-
-		if (prBssInfo->eBand == BAND_5G
-#if (CFG_SUPPORT_WIFI_6G == 1)
-			|| prBssInfo->eBand == BAND_6G
-#endif
-		) {
-			/* MLO STR A+G is regarded as A band to concurrent */
-			/* If there are many WMM set with A band, */
-			/* that means there is A+A Wmm concurent */
-			if (prBssInfo->ucWmmQueSet != ucABandWmmIdx) {
-				if (ucABandWmmIdx == HW_WMM_NUM)
-					ucABandWmmIdx = prBssInfo->ucWmmQueSet;
-				else
-					fgAAWmmConcurrent = true;
-			}
-		}
-
-		/* MLO STR A+G is regarded as A band to concurrent */
-		/* So using A band as target band in the same WMM set */
-		if (prBssInfo->ucWmmQueSet == ucWmmIndex)
-			if (prBssInfo->eBand > eTargetBand)
-				eTargetBand = prBssInfo->eBand;
-	}
-
-	if (eTargetBand != BAND_NULL) {
-		if (eTargetBand == BAND_2G4) /* for G band in case A+G */
-			u2MaxQuota = MT7925_DMASHDL_DBDC_2G_MAX_QUOTA;
-		else {
-			if (fgAAWmmConcurrent) /* for A+A case */
-				u2MaxQuota =
-					MT7925_DMASHDL_DBDC_5G_6G_MAX_QUOTA;
-			else /* for A band in case A+G */
-				u2MaxQuota = MT7925_DMASHDL_DBDC_5G_MAX_QUOTA;
-		}
-	}
-
-	return u2MaxQuota;
-}
 #endif /* defined(_HIF_PCIE) || defined(_HIF_AXI) || defined(_HIF_USB) */
 #endif /* MT7925 */

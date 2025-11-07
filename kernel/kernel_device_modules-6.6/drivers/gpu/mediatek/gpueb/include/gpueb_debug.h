@@ -19,6 +19,7 @@
 #define GPUEB_INTC_IRQ_RAW_STA_L              (GPUEB_INTC_BASE + 0x003C)
 
 #define GPUEB_CFGREG_BASE                     (g_gpueb_cfgreg_base)
+#define GPUEB_CFGREG_SW_RSTN                  (GPUEB_CFGREG_BASE + 0x0000)
 #define GPUEB_CFGREG_AXI_STA                  (GPUEB_CFGREG_BASE + 0x0010)
 #define GPUEB_CFGREG_WDT_CON                  (GPUEB_CFGREG_BASE + 0x0018)
 #define GPUEB_CFGREG_WDT_KICK                 (GPUEB_CFGREG_BASE + 0x001C)
@@ -31,6 +32,11 @@
 #define GPUEB_CFGREG_DBG_APB_SP               (GPUEB_CFGREG_BASE + 0x0124)
 #define MFG_GPUEB_AXI_BIST_CON_DEBUG          (GPUEB_CFGREG_BASE + 0x01D0)
 #define MFG_GPUEB_GPUEB_AXI_BIST_CON_CONFIG   (GPUEB_CFGREG_BASE + 0x01D4)
+
+#define GPUEB_DMA_BASE_CH0                    (g_gpueb_dma_base + 0x0000)
+#define GPUEB_DMA_BASE_CH1                    (g_gpueb_dma_base + 0x0100)
+#define GPUEB_DMA_STATE_CH0                   (GPUEB_DMA_BASE_CH0 + 0x0038)
+#define GPUEB_DMA_STATE_CH1                   (GPUEB_DMA_BASE_CH1 + 0x0038)
 
 #if defined(CONFIG_PROC_FS)
 #define PROC_FOPS_RW(name)            \

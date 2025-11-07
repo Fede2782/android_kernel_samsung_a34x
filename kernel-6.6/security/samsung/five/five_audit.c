@@ -25,6 +25,7 @@
 #include "five_cache.h"
 #include "five_porting.h"
 #include "five_testing.h"
+#include "five_iint.h"
 
 __visible_for_testing __mockable
 void five_audit_msg(struct task_struct *task, struct file *file,
@@ -81,7 +82,7 @@ void five_audit_msg(struct task_struct *task, struct file *file,
 	char comm[TASK_COMM_LEN];
 	const char *name = "";
 	struct task_struct *tsk = task ? task : current;
-	struct integrity_iint_cache *iint = NULL;
+	struct five_iint_cache *iint = NULL;
 
 	if (file) {
 		inode = file_inode(file);
@@ -125,7 +126,7 @@ void five_audit_msg(struct task_struct *task, struct file *file,
 		audit_log_format(ab, " ino=%lu", inode->i_ino);
 		audit_log_format(ab, " i_version=%llu ",
 				inode_query_iversion(inode));
-		iint = integrity_inode_get(inode);
+		iint = five_inode_get(inode);
 		if (iint) {
 			audit_log_format(ab, " five_status=%d ",
 					five_get_cache_status(iint));
@@ -175,7 +176,7 @@ void five_audit_hexinfo(struct file *file, const char *msg, char *data,
 	const unsigned char *fname = NULL;
 	char filename[NAME_MAX];
 	char *pathbuf = NULL;
-	struct integrity_iint_cache *iint = NULL;
+	struct five_iint_cache *iint = NULL;
 
 	if (file) {
 		fname = five_d_path(&file->f_path, &pathbuf, filename);
@@ -197,7 +198,7 @@ void five_audit_hexinfo(struct file *file, const char *msg, char *data,
 		audit_log_format(ab, " i_version=%llu ",
 				inode_query_iversion(inode));
 
-		iint = integrity_inode_get(inode);
+		iint = five_inode_get(inode);
 		if (iint) {
 			audit_log_format(ab, " cache_value=%lu ",
 							iint->five_flags);

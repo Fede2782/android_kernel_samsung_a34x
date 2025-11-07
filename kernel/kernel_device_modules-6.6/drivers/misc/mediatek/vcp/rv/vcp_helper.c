@@ -1018,12 +1018,12 @@ unsigned int is_vcp_ready(enum feature_id id)
 
 unsigned int is_vcp_suspending(void)
 {
-	return is_suspending;
+	return is_suspending ? 1U : 0U;
 }
 
 unsigned int is_vcp_ao(void)
 {
-	return vcp_ao;
+	return vcp_ao ? 1U : 0U;
 }
 
 /*
@@ -1060,8 +1060,8 @@ unsigned int vcp_cmd(enum feature_id id, enum vcp_cmd_id cmd_id, char *user)
 
 uint32_t vcp_wait_ready_sync(enum feature_id id)
 {
-	int i = 0;
-	int j = 0;
+	uint32_t i = 0;
+	uint32_t j = 0;
 	unsigned long C0_H0 = CORE_RDY_TO_REBOOT;
 	unsigned long C0_H1 = CORE_RDY_TO_REBOOT;
 	unsigned long C1_H0 = CORE_RDY_TO_REBOOT;

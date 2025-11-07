@@ -17,6 +17,7 @@ obj-$(CONFIG_MTK_FLASHLIGHT_MT6336)      += flashlights-mt6336.o
 obj-$(CONFIG_MTK_FLASHLIGHT_MT6370)      += flashlights-mt6370.o
 obj-$(CONFIG_MTK_FLASHLIGHT_MT6360)      += flashlights-mt6360.o
 obj-$(CONFIG_MTK_FLASHLIGHT_AW3644)      += flashlights-aw3644.o
+obj-$(CONFIG_MTK_SM5714B_FLASHLIGHT)      += flashlights-sm5714b.o
 obj-$(CONFIG_MTK_FLASHLIGHT_DUMMY)       += flashlights-dummy.o
 obj-$(CONFIG_MTK_FLASHLIGHT_DUMMY_GPIO)  += flashlights-dummy-gpio.o
 
@@ -36,3 +37,7 @@ subdir-ccflags-y += \
 	-I$(MTK_CUSTOM_PATH)/power_throttling
 subdir-ccflags-y += \
     -I$(MTK_CUSTOM_PATH)/pbm
+
+ifneq ($(CONFIG_LEDS_SM5714B),)
+subdir-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/leds
+endif

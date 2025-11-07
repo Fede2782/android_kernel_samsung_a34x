@@ -41,11 +41,6 @@ enum _ENUM_TWT_REQUESTER_STATE_T {
 	TWT_REQ_STATE_TEARING_DOWN_BTWT,
 	TWT_REQ_STATE_RX_TEARDOWN_BTWT,
 #endif
-#if (CFG_SUPPORT_RTWT == 1)
-	TWT_REQ_STATE_REQTX_RTWT,
-	TWT_REQ_STATE_TEARING_DOWN_RTWT,
-	TWT_REQ_STATE_RX_TEARDOWN_RTWT,
-#endif
 #if (CFG_SUPPORT_802_11BE_ML_TWT == 1)
 	TWT_REQ_STATE_REQTX_ML_TWT_ALL_LINKS,
 	TWT_REQ_STATE_REQTX_ML_TWT_ONE_BY_ONE,
@@ -66,14 +61,6 @@ enum _ENUM_TWT_HOTSPOT_RESPONDER_STATE_T {
 };
 #endif
 
-#if (CFG_SUPPORT_TWT_STA_CNM == 1)
-enum _ENUM_TWT_CNM_STATE_T {
-	TWT_CNM_STATE_DEFAULT = 0,
-	TWT_CNM_STATE_WAIT_RESP,
-	TWT_CNM_STATE_ADD_AGRT,
-	TWT_CNM_STATE_ABORT
-};
-#endif
 /*******************************************************************************
 *                            P U B L I C   D A T A
 ********************************************************************************
@@ -104,8 +91,7 @@ void twtReqFsmRunEventRxSetup(
 	struct ADAPTER *prAdapter,
 	struct SW_RFB *prSwRfb,
 	struct STA_RECORD *prStaRec,
-	u_int8_t ucTWTFlowId,
-	enum _ENUM_TWT_TYPE_T eTwtType);
+	u_int8_t ucTWTFlowId);
 
 void twtReqFsmRunEventRxTeardown(
 	struct ADAPTER *prAdapter,
@@ -174,16 +160,6 @@ void btwtReqFsmRunEventTeardown(
 	struct MSG_HDR *prMsgHdr);
 #endif
 
-#if (CFG_SUPPORT_RTWT == 1)
-void rtwtReqFsmRunEventStart(
-	struct ADAPTER *prAdapter,
-	struct MSG_HDR *prMsgHdr);
-
-void rtwtReqFsmRunEventTeardown(
-	struct ADAPTER *prAdapter,
-	struct MSG_HDR *prMsgHdr);
-#endif
-
 #if (CFG_SUPPORT_802_11BE_ML_TWT == 1)
 void mltwtReqFsmRunEventStartAllLinks(
 	struct ADAPTER *prAdapter,
@@ -205,53 +181,9 @@ void mltwtReqFsmSync(
 	enum _ENUM_TWT_REQUESTER_STATE_T eNextState,
 	u_int8_t ucTWTFlowId);
 #endif
-
-#if (CFG_SUPPORT_TWT_STA_CNM == 1)
-u_int32_t
-twtReqFsmRunEventRejectTxDone(
-	struct ADAPTER *prAdapter,
-	struct MSDU_INFO *prMsduInfo,
-	enum ENUM_TX_RESULT_CODE rTxDoneStatus);
-
-void twtReqFsmSetupTimeoutInit(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	enum _ENUM_TWT_CNM_STATE_T eCurState,
-	u_int8_t ucTWTFlowId,
-	enum _ENUM_TWT_TYPE_T *preTwtType);
-
-void twtReqFsmSetupTimeoutDeInit(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	u_int8_t ucTWTFlowId,
-	enum _ENUM_TWT_TYPE_T *preTwtType);
-
-void twtReqFsmSetupTimeoutStateCfg(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	enum _ENUM_TWT_CNM_STATE_T eCurState,
-	u_int8_t ucTWTFlowId,
-	enum _ENUM_TWT_TYPE_T *preTwtType);
-
-void twtReqFsmSetupEventTimeout(
-	struct ADAPTER *prAdapter,
-	uintptr_t ulParamPtr);
-
-void twtReqFsmTeardownTimeoutInit(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	u_int8_t ucTWTFlowId,
-	enum _ENUM_TWT_TYPE_T *preTwtType);
-
-void twtReqFsmTeardownTimeoutDeInit(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	u_int8_t ucTWTFlowId,
-	enum _ENUM_TWT_TYPE_T *preTwtType);
-
-void twtReqFsmTeardownEventTimeout(
-	struct ADAPTER *prAdapter,
-	uintptr_t ulParamPtr);
-#endif /* #if (CFG_SUPPORT_TWT_STA_CNM == 1) */
+/*******************************************************************************
+*                              F U N C T I O N S
+********************************************************************************
+*/
 
 #endif /* _TWT_REQ_FSM_H */

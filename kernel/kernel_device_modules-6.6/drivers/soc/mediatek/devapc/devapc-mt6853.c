@@ -462,7 +462,7 @@ void devapc_catch_illegal_range(phys_addr_t phys_addr, size_t size)
 				"catch BROM address mapped!",
 				__func__, "phys_addr", &phys_addr,
 				"size", size);
-		BUG_ON(1);
+		WARN_ON(1);
 	}
 }
 

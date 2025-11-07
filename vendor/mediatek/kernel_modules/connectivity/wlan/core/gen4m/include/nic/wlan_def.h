@@ -47,8 +47,6 @@
 #define TX_MODE_HT_GF           0xC0
 #define TX_MODE_VHT             0x100
 #define TX_MODE_MLR             0x140
-#define TX_MODE_MLRP            0x180
-#define TX_MODE_ALR             0x1C0
 #define TX_MODE_HE_SU           0x200
 #define TX_MODE_HE_ER_SU        0x240
 #define TX_MODE_HE_TB           0X280
@@ -145,15 +143,6 @@
 #define RATE_MLR_1_5M           (TX_MODE_MLR | PHY_RATE_1_5M)
 #define RATE_MLR_3M             (TX_MODE_MLR | PHY_RATE_3M)
 
-#define RATE_MLRP_3M		(TX_MODE_MLRP | PHY_RATE_MCS0)
-#define RATE_MLRP_1_5M		(TX_MODE_MLRP | PHY_RATE_MCS1)
-#define RATE_MLRP_0_75M		(TX_MODE_MLRP | PHY_RATE_MCS2)
-#define RATE_MLRP_0_375M	(TX_MODE_MLRP | PHY_RATE_MCS3)
-
-#define RATE_ALR_3M		(TX_MODE_ALR | PHY_RATE_MCS0)
-#define RATE_ALR_1_5M		(TX_MODE_ALR | PHY_RATE_MCS1)
-#define RATE_ALR_0_75M		(TX_MODE_ALR | PHY_RATE_MCS2)
-
 #define RATE_NSTS_MASK					BITS(9, 10)
 #define RATE_NSTS_OFFSET				9
 #define RATE_TX_MODE_MASK       BITS(6, 8)
@@ -172,13 +161,7 @@
 #define CHNL_LIST_SZ_5G         14
 
 /*! CNM(STA_RECORD_T) related definition */
-#ifdef CFG_STA_REC_MAXIMUM
-#define CFG_STA_REC_NUM                      CFG_STA_REC_MAXIMUM
-#else
-#define CFG_STA_REC_NUM                      27
-#endif
-
-
+#define CFG_STA_REC_NUM         27
 #define CFG_MLD_STAREC_NUM      128
 
 /* PHY TYPE bit definitions */
@@ -397,12 +380,6 @@
 #define RA_ER_Disable	0
 #define RA_DCM			1
 #define RA_ER_106		2
-
-/* cfg80211_assoc_req_flags */
-#ifndef CONNECT_REQ_MLO_SUPPORT
-/* Userspace indicates support for handling MLD links */
-#define CONNECT_REQ_MLO_SUPPORT BIT(6)
-#endif
 
 /*******************************************************************************
  *                             D A T A   T Y P E S
@@ -954,8 +931,7 @@ enum ENUM_CHANNEL_WIDTH {
 	CW_160MHZ = 2,
 	CW_80P80MHZ = 3,
 	CW_320_1MHZ = 4,
-	CW_320_2MHZ = 5,
-	CW_NUM
+	CW_320_2MHZ = 5
 };
 
 /* This starting freq of the band is unit of kHz */
@@ -986,19 +962,11 @@ enum ENUM_CH_REQ_TYPE {
 #if (CFG_SUPPORT_NAN == 1)
 	CH_REQ_TYPE_NAN_ON,
 #endif
-	CH_REQ_TYPE_MLO_MLSR_AG_JOIN = 10,
-	CH_REQ_TYPE_MLO_MLSR_AA_JOIN = 11,
-	CH_REQ_TYPE_HYBRID_MLO_MLSR_JOIN = 12,
-	CH_REQ_TYPE_MLO_EMLSR_JOIN = 13,
-	CH_REQ_TYPE_MLO_MLSR_CSA = 14,
-#if CFG_SUPPORT_ELL_CSA
-	CH_REQ_TYPE_CSA = 0xA9,				/* CSA fast ch req */
-#endif
-	CH_REQ_TYPE_MLO_MLSR_SINGLE_BAND_JOIN = 0xAA,
+	CH_REQ_TYPE_SINGLE_BAND_MLO_MLSR_JOIN = 0xAA,
 	CH_REQ_TYPE_NUM
 };
 
-#if (CFG_SUPPORT_CONNAC1X == 1) || (CFG_SUPPORT_CONNAC2X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 0)
 enum ENUM_MBMC_BN {
 	ENUM_BAND_0,
 	ENUM_BAND_1,
@@ -1026,8 +994,7 @@ enum ENUM_MLO_MODE {
 	MLO_MODE_EMLSR,
 	MLO_MODE_HYMLO, /* Hybrid MLO */
 	MLO_MODE_HYEMLSR, /* Hybrid EMLSR */
-	MLO_MODE_HYMLSR, /* Hybrid MLSR */
-	MLO_MODE_SB_MLSR, /* SW single band MLSR */
+	MLO_MODE_SB_MLSR, /* Single band MLSR */
 	MLO_MODE_NUM
 };
 
@@ -1054,58 +1021,6 @@ enum ENUM_MLC_MODE {
 	MLC_MODE_DEFAULT,
 	MLC_MODE_USER_CONFIG,
 	MLC_MODE_ACTIVE_NUM,
-	MLC_MODE_LOW_POWER,
-	MLC_MODE_LOW_LATENCY,
-	MLC_MODE_HIGH_TPUT,
-};
-
-enum ENUM_DRV_OWN_SRC {
-	DRV_OWN_SRC_MAIN_THREAD = 0,
-	DRV_OWN_SRC_HIF_THREAD,
-	DRV_OWN_SRC_TX_DIRECT_START_XMIT_MAIN,
-	DRV_OWN_SRC_P2P_FUNC_DISCONNECT,
-	DRV_OWN_SRC_P2P_FUNC_DISSOLVE,
-	DRV_OWN_SRC_GET_LWTBL,
-	DRV_OWN_SRC_GET_RSSI_FROM_WTBL,
-	DRV_OWN_SRC_SHOW_UMAC_WTBL_INFO,
-	DRV_OWN_SRC_CCIF_NOTIFY_UTC_TIME_TO_FW,
-	DRV_OWN_SRC_POWER_DUMP_START,
-	DRV_OWN_SRC_PCI_SUSPEND,
-	DRV_OWN_SRC_PCI_RESUME,
-	DRV_OWN_SRC_ADAPTER_START,
-	DRV_OWN_SRC_SHOW_AHDBG_INFO,
-	DRV_OWN_SRC_QUERY_MCR_READ,
-	DRV_OWN_SRC_QUERY_DRV_MCR_READ,
-	DRV_OWN_SRC_QUERY_DRV_MCR_READ_DIRECT,
-	DRV_OWN_SRC_SET_DRV_MCR_WRITE,
-	DRV_OWN_SRC_SET_DRV_MCR_WRITE_DIRECT,
-	DRV_OWN_SRC_QUERY_UHW_MCR_READ,
-	DRV_OWN_SRC_SET_UHW_MCR_WRITE,
-	DRV_OWN_SRC_QUERY_EMI_MCR_READ,
-	DRV_OWN_SRC_RX_WORK,
-	DRV_OWN_SRC_TX_WORK,
-	DRV_OWN_SRC_HIF_POWER_OFF_WIFI,
-	DRV_OWN_SRC_WTBL_READ_RAW,
-	DRV_OWN_SRC_DUMP_KEY_TABLE,
-	DRV_OWN_SRC_IS_WTBL_BIGTK_EXIST,
-	DRV_OWN_SRC_FW_LOG_MMIO_HANDLER,
-	DRV_OWN_SRC_FW_LOG_EMI_UPDATE,
-	DRV_OWN_SRC_REG_START_WRAPPER,
-	DRV_OWN_SRC_TOGGLE_WFSYS_RST,
-	DRV_OWN_SRC_DUMP_WFSYS_CPUPCR,
-	DRV_OWN_SRC_HAL_RX_WORK,
-	DRV_OWN_SRC_NAN_REQ,
-	DRV_OWN_SRC_MD_DRV_OWN_REQ,
-	DRV_OWN_SRC_NUM
-};
-
-enum DRV_OWN_INFO_ACTION {
-	DRV_OWN_INFO_UPDATE_START,
-	DRV_OWN_INFO_UPDATE_END,
-	DRV_OWN_INFO_UPDATE_TABLE,
-	DRV_OWN_INFO_GET_DEBUG_LOG,
-	DRV_OWN_INFO_DUMP_TABLE,
-	DRV_OWN_INFO_CHECK_CONSEC_FAIL
 };
 
 /* Provide supported channel list to other components in array format */
@@ -1119,12 +1034,8 @@ struct RF_CHANNEL_INFO {
 	uint16_t u2PriChnlFreq;
 	/* To record channel bandwidth from CFG80211 */
 	uint8_t ucChnlBw;
-	enum ENUM_CHNL_EXT eSco;
 	uint8_t ucChannelNum;
 	u_int8_t fgDFS;
-#if (CFG_SUPPORT_SAP_PUNCTURE == 1)
-	uint16_t u2PunctBitmap;
-#endif /* CFG_SUPPORT_SAP_PUNCTURE */
 };
 
 struct DBDC_DECISION_ELEM {
@@ -1171,8 +1082,7 @@ struct DEAUTH_INFO {
 enum ENUM_CHNL_SWITCH_POLICY {
 	CHNL_SWITCH_POLICY_NONE,
 	CHNL_SWITCH_POLICY_DEAUTH,
-	CHNL_SWITCH_POLICY_CSA,
-	CHNL_SWITCH_POLICY_NO_CLIENT
+	CHNL_SWITCH_POLICY_CSA
 };
 
 enum ENUM_CHNL_SORT_POLICY {
@@ -1252,7 +1162,7 @@ enum ENUM_PARAM_CONNECTION_POLICY {
 	CONNECT_BY_SSID_ANY,	/* NOTE(Kevin): Needed by WHQL */
 	CONNECT_BY_BSSID,
 	CONNECT_BY_BSSID_HINT,
-	CONNECT_BY_BSSID_REUSE
+	CONNECT_BY_BSSID_CACHE
 };
 
 enum ENUM_PARAM_PREAMBLE_TYPE {
@@ -1356,11 +1266,11 @@ enum ENUM_PARAM_NAN_MODE_T {
  */
 #define IS_BSS_INFO_IN_AIS(prBssInfo) \
 	(prBssInfo->eNetworkType == NETWORK_TYPE_AIS)
-#define IS_STA_IN_AIS(_prAdapter, _prStaRec) \
-	(_prAdapter->aprBssInfo[(_prStaRec)->ucBssIndex]->eNetworkType \
+#define IS_STA_IN_AIS(_prStaRec) \
+	(prAdapter->aprBssInfo[(_prStaRec)->ucBssIndex]->eNetworkType \
 	== NETWORK_TYPE_AIS)
-#define IS_STA_IN_P2P(_prAdapter, _prStaRec) \
-	(_prAdapter->aprBssInfo[(_prStaRec)->ucBssIndex]->eNetworkType \
+#define IS_STA_IN_P2P(_prStaRec) \
+	(prAdapter->aprBssInfo[(_prStaRec)->ucBssIndex]->eNetworkType \
 	== NETWORK_TYPE_P2P)
 #define IS_STA_LEGACY_TYPE(_prStaRec) \
 	((_prStaRec->eStaType) & STA_TYPE_LEGACY_MASK)
@@ -1378,9 +1288,6 @@ enum ENUM_PARAM_NAN_MODE_T {
 	((_prStaRec->eStaType) & STA_TYPE_DLS_MASK)
 #if CFG_SUPPORT_NAN
 #define IS_STA_NAN_TYPE(_prStaRec) ((_prStaRec->eStaType) & STA_TYPE_NAN_MASK)
-#endif
-#if CFG_SUPPORT_RTT
-#define IS_STA_RTT_TYPE(_prStaRec) ((_prStaRec->eStaSubtype) == STA_SUBTYPE_RTT)
 #endif
 
 /* The ENUM_STA_TYPE_T accounts for
@@ -1414,13 +1321,6 @@ enum ENUM_STA_TYPE {
 	STA_TYPE_DLS_PEER = (STA_TYPE_LEGACY_MASK | STA_TYPE_DLS_MASK),
 #if CFG_SUPPORT_NAN
 	STA_TYPE_NAN = (STA_TYPE_NAN_MASK),
-#endif
-};
-
-enum ENUM_STA_SUBTYPE {
-	STA_SUBTYPE_DEFAULT = 0,
-#if CFG_SUPPORT_RTT
-	STA_SUBTYPE_RTT,
 #endif
 };
 
@@ -1460,8 +1360,10 @@ enum ENUM_ROAMING_REASON {
 	ROAMING_REASON_TX_ERR, /*Lowest rate, high PER*/
 	ROAMING_REASON_RETRY,
 	ROAMING_REASON_IDLE,
+#if (CFG_EXT_ROAMING == 1)
 	ROAMING_REASON_HIGH_CU,
 	ROAMING_REASON_BT_COEX,
+#endif
 
 	/* Driver defined */
 	ROAMING_REASON_BEACON_TIMEOUT,
@@ -1469,8 +1371,10 @@ enum ENUM_ROAMING_REASON {
 	ROAMING_REASON_SAA_FAIL,
 	ROAMING_REASON_UPPER_LAYER_TRIGGER,
 	ROAMING_REASON_BTM,
+#if (CFG_EXT_ROAMING == 1)
 	ROAMING_REASON_SCAN_SINGLE_TIMER,
 	ROAMING_REASON_INACTIVE_TIMER,
+#endif
 	ROAMING_REASON_NUM
 };
 
@@ -1491,7 +1395,6 @@ __KAL_ATTRIB_PACKED_FRONT__
 struct RSN_INFO {
 	uint8_t ucElemId;
 	uint16_t u2Version;
-	uint8_t ucOuiType;
 	uint32_t u4GroupKeyCipherSuite;
 	uint32_t u4PairwiseKeyCipherSuiteCount;
 	uint32_t au4PairwiseKeyCipherSuite[MAX_NUM_SUPPORTED_CIPHER_SUITES];
@@ -1702,106 +1605,6 @@ struct P2P_DEVICE_DESC {
 		__cp[2] = (uint8_t)((__value) >> 8); \
 		__cp[3] = (uint8_t)(__value); \
 	}
-
-static inline uint16_t
-WLAN_GET_BE16(const uint8_t *a) {
-	return (a[0] << 8) | a[1];
-}
-
-static inline void
-WLAN_PUT_BE16(uint8_t *a, uint16_t val) {
-	a[0] = val >> 8;
-	a[1] = val & 0xff;
-}
-
-static inline uint16_t
-WLAN_GET_LE16(const uint8_t *a) {
-	return (a[1] << 8) | a[0];
-}
-
-static inline void
-WLAN_PUT_LE16(uint8_t *a, uint16_t val) {
-	a[1] = val >> 8;
-	a[0] = val & 0xff;
-}
-
-static inline uint32_t
-WLAN_GET_BE24(const uint8_t *a) {
-	return (a[0] << 16) | (a[1] << 8) | a[2];
-}
-
-static inline void
-WLAN_PUT_BE24(uint8_t *a, uint32_t val) {
-	a[0] = (val >> 16) & 0xff;
-	a[1] = (val >> 8) & 0xff;
-	a[2] = val & 0xff;
-}
-
-static inline uint32_t
-WLAN_GET_BE32(const uint8_t *a) {
-	return ((uint32_t)a[0] << 24) | (a[1] << 16) | (a[2] << 8) | a[3];
-}
-
-static inline void
-WLAN_PUT_BE32(uint8_t *a, uint32_t val) {
-	a[0] = (val >> 24) & 0xff;
-	a[1] = (val >> 16) & 0xff;
-	a[2] = (val >> 8) & 0xff;
-	a[3] = val & 0xff;
-}
-
-static inline uint32_t
-WLAN_GET_LE32(const uint8_t *a) {
-	return ((uint32_t)a[3] << 24) | (a[2] << 16) | (a[1] << 8) | a[0];
-}
-
-static inline void
-WLAN_PUT_LE32(uint8_t *a, uint32_t val) {
-	a[3] = (val >> 24) & 0xff;
-	a[2] = (val >> 16) & 0xff;
-	a[1] = (val >> 8) & 0xff;
-	a[0] = val & 0xff;
-}
-
-static inline uint64_t
-WLAN_GET_BE64(const uint8_t *a) {
-	return (((uint64_t)a[0]) << 56) | (((uint64_t)a[1]) << 48) |
-	       (((uint64_t)a[2]) << 40) | (((uint64_t)a[3]) << 32) |
-	       (((uint64_t)a[4]) << 24) | (((uint64_t)a[5]) << 16) |
-	       (((uint64_t)a[6]) << 8) | ((uint64_t)a[7]);
-}
-
-static inline void
-WLAN_PUT_BE64(uint8_t *a, uint64_t val) {
-	a[0] = val >> 56;
-	a[1] = val >> 48;
-	a[2] = val >> 40;
-	a[3] = val >> 32;
-	a[4] = val >> 24;
-	a[5] = val >> 16;
-	a[6] = val >> 8;
-	a[7] = val & 0xff;
-}
-
-static inline uint64_t
-WLAN_GET_LE64(const uint8_t *a) {
-	return (((uint64_t)a[7]) << 56) | (((uint64_t)a[6]) << 48) |
-	       (((uint64_t)a[5]) << 40) | (((uint64_t)a[4]) << 32) |
-	       (((uint64_t)a[3]) << 24) | (((uint64_t)a[2]) << 16) |
-	       (((uint64_t)a[1]) << 8) | ((uint64_t)a[0]);
-}
-
-static inline void
-WLAN_PUT_LE64(uint8_t *a, uint64_t val) {
-	a[7] = val >> 56;
-	a[6] = val >> 48;
-	a[5] = val >> 40;
-	a[4] = val >> 32;
-	a[3] = val >> 24;
-	a[2] = val >> 16;
-	a[1] = val >> 8;
-	a[0] = val & 0xff;
-}
 
 /*******************************************************************************
  *                   F U N C T I O N   D E C L A R A T I O N S

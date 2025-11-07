@@ -907,8 +907,8 @@ struct CMD_INFO *nicGetPendingCmdInfo(IN struct ADAPTER
 	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_CMD_PENDING);
 
 	if (prCmdInfo)
-		DBGLOG(TX, INFO, "Get command: %p, %ps, cmd=0x%02X, seq=%u",
-				prCmdInfo, prCmdInfo->pfCmdDoneHandler,
+		DBGLOG(TX, INFO, "Get command: %p, %s, cmd=0x%02X, seq=%u",
+				prCmdInfo, prCmdInfo->pCmdDoneHandlerStr,
 				prCmdInfo->ucCID, prCmdInfo->ucCmdSeqNum);
 	return prCmdInfo;
 }
@@ -2437,31 +2437,37 @@ nicConfigPowerSaveProfile(IN struct ADAPTER *prAdapter,
 			ucBssIndex,
 			prAdapter->rWlanInfo.u4PowerSaveFlag[ucBssIndex]);
 
-		rWlanStatus = wlanSendSetQueryCmd(prAdapter,	/* prAdapter */
-			CMD_ID_POWER_SAVE_MODE,		/* ucCID */
-			TRUE,	/* fgSetQuery */
-			FALSE,	/* fgNeedResp */
-			fgEnCmdEvent,	/* fgIsOid */
-
-			/* pfCmdDoneHandler */
-			(fgEnCmdEvent ? nicCmdEventSetCommon : NULL),
-
-			/* pfCmdTimeoutHandler */
-			(fgEnCmdEvent ? nicOidCmdTimeoutCommon : NULL),
-
-			/* u4SetQueryInfoLen */
-			sizeof(struct CMD_PS_PROFILE),
-
-			/* pucInfoBuffer */
-			(uint8_t *) &(prAdapter->rWlanInfo
-				.arPowerSaveMode[ucBssIndex]),
-
-			/* pvSetQueryBuffer */
-			NULL,
-
-			/* u4SetQueryBufferLen */
-			0
-			);
+		if (fgEnCmdEvent)
+			rWlanStatus = wlanSendSetQueryCmd(prAdapter,
+				CMD_ID_POWER_SAVE_MODE,		/* ucCID */
+				TRUE,	/* fgSetQuery */
+				FALSE,	/* fgNeedResp */
+				fgEnCmdEvent,	/* fgIsOid */
+				nicCmdEventSetCommon, /* pfCmdDoneHandler */
+				/* pfCmdTimeoutHandler */
+				nicOidCmdTimeoutCommon,
+				/* u4SetQueryInfoLen */
+				sizeof(struct CMD_PS_PROFILE),
+				/* pucInfoBuffer */
+				(uint8_t *) &(prAdapter->rWlanInfo
+					.arPowerSaveMode[ucBssIndex]),
+				NULL, /* pvSetQueryBuffer */
+				0 /* u4SetQueryBufferLen */);
+		else
+			rWlanStatus = wlanSendSetQueryCmd(prAdapter,
+				CMD_ID_POWER_SAVE_MODE,		/* ucCID */
+				TRUE,	/* fgSetQuery */
+				FALSE,	/* fgNeedResp */
+				fgEnCmdEvent,	/* fgIsOid */
+				NULL, /* pfCmdDoneHandler */
+				NULL, /* pfCmdTimeoutHandler */
+				/* u4SetQueryInfoLen */
+				sizeof(struct CMD_PS_PROFILE),
+				/* pucInfoBuffer */
+				(uint8_t *) &(prAdapter->rWlanInfo
+					.arPowerSaveMode[ucBssIndex]),
+				NULL, /* pvSetQueryBuffer */
+				0 /* u4SetQueryBufferLen */);
 
 		if (fgEnCmdEvent)
 			return rWlanStatus;
@@ -2979,6 +2985,7 @@ nicUpdateBeaconIETemplate(IN struct ADAPTER *prAdapter,
 	prCmdInfo->eCmdType = COMMAND_TYPE_NETWORK_IOCTL;
 	prCmdInfo->u2InfoBufLen = cmd_size;
 	prCmdInfo->pfCmdDoneHandler = NULL;	/* @FIXME */
+	prCmdInfo->pCmdDoneHandlerStr = NULL;	/* @FIXME */
 	prCmdInfo->pfCmdTimeoutHandler = NULL;	/* @FIXME */
 	prCmdInfo->fgIsOid = FALSE;
 	prCmdInfo->ucCID = CMD_ID_UPDATE_BEACON_CONTENT;
@@ -5329,7 +5336,7 @@ void nicSerInit(IN struct ADAPTER *prAdapter)
 	    prAdapter->chip_info->u4SerUsbMcuEventAddr != 0) {
 		cnmTimerInitTimer(prAdapter,
 			&rSerSyncTimer,
-			(PFN_MGMT_TIMEOUT_FUNC) nicSerTimerHandler,
+			nicSerTimerHandler,
 			(unsigned long) NULL);
 		cnmTimerStartTimer(prAdapter,
 			&rSerSyncTimer,

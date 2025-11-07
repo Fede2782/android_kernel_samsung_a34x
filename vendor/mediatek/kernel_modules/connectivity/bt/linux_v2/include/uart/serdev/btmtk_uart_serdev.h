@@ -1,6 +1,14 @@
-/* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (c) 2021 MediaTek Inc.
+ *  Copyright (c) 2016,2017 MediaTek Inc.
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *  See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #ifndef _BTMTK_UART_H_
@@ -8,6 +16,7 @@
 #include <linux/serdev.h>
 #include "btmtk_define.h"
 #include "btmtk_main.h"
+#include "btmtk_buffer_mode.h"
 
 #ifndef UART_DEBUG
 #define UART_DEBUG 0
@@ -51,7 +60,6 @@ typedef int (*set_gpio_high)(u8 gpio);
 
 struct btmtk_uart_dev {
 	struct serdev_device *serdev;
-	struct btmtk_woble	bt_woble;
 	struct clk *clk;
 	struct clk *osc;
 	unsigned char	*transfer_buf;

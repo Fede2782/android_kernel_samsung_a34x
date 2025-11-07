@@ -4,5 +4,6 @@
 */
 
 #include "mt6991-gts11u_common.dtsi"
+#include "mt6991-gts11u_camera.dtsi"
 
 /*End of this file, DO NOT ADD ANYTHING HERE*/

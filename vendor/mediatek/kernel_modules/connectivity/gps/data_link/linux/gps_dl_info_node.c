@@ -61,7 +61,7 @@ enum gps_dl_log_info_type {
 
 ssize_t gps_dl_info_node_write(struct file *filp, const char __user *buffer, size_t count, loff_t *f_pos)
 {
-	size_t len = count;
+	size_t len;
 	char buf[256];
 	char *pBuf;
 	int x = 0, y = 0, z = 0;
@@ -69,6 +69,11 @@ ssize_t gps_dl_info_node_write(struct file *filp, const char __user *buffer, siz
 	char *pDelimiter = " \t";
 	long res = 0;
 	int ret = 0;
+
+	if (count >= sizeof(buf))
+		len = sizeof(buf) - 1;
+	else
+		len = count;
 
 	if (copy_from_user(buf, buffer, len))
 		return -EFAULT;

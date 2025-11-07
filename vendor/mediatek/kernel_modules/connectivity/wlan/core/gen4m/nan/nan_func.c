@@ -132,7 +132,26 @@ nanDataEngineVendorAttrLength(struct ADAPTER *prAdapter,
 				 struct _NAN_NDL_INSTANCE_T *prNDL,
 				 struct _NAN_NDP_INSTANCE_T *prNDP)
 {
-	return 0;
+	uint16_t u2VSAttrLen = 0;
+
+	if (!prAdapter) {
+		DBGLOG(NAN, ERROR, "prAdapter error\n");
+		return 0;
+	}
+
+	DBGLOG(NAN, INFO,
+		"NanCustomAttr = %d\n",
+		prAdapter->rNanCustomAttr.length);
+
+	if ((prNDL == NULL) || (prNDP == NULL))
+		return 0;
+
+	u2VSAttrLen = prAdapter->rNanCustomAttr.length;
+
+	if (u2VSAttrLen > NAN_CUSTOM_ATTRIBUTE_MAX_SIZE)
+		return 0;
+
+	return u2VSAttrLen;
 }
 
 void __weak
@@ -141,7 +160,33 @@ nanDataEngineVendorAttrAppend(struct ADAPTER *prAdapter,
 				      struct _NAN_NDL_INSTANCE_T *prNDL,
 				      struct _NAN_NDP_INSTANCE_T *prNDP)
 {
+	uint8_t *pucVSAttrBuf = NULL;
+	uint16_t u2VSAttrLen = 0;
 
+	if (!prAdapter) {
+		DBGLOG(NAN, ERROR, "prAdapter error\n");
+		return;
+	}
+
+	if (!prMsduInfo) {
+		DBGLOG(NAN, ERROR, "prMsduInfo error\n");
+		return;
+	}
+
+	if ((prNDL == NULL) || (prNDP == NULL))
+		return;
+
+	pucVSAttrBuf = prAdapter->rNanCustomAttr.data;
+	u2VSAttrLen = prAdapter->rNanCustomAttr.length;
+
+	if (u2VSAttrLen > NAN_CUSTOM_ATTRIBUTE_MAX_SIZE)
+		return;
+
+	kalMemCopy(((uint8_t *)prMsduInfo->prPacket) +
+		   prMsduInfo->u2FrameLength,
+		   pucVSAttrBuf, u2VSAttrLen);
+
+	prMsduInfo->u2FrameLength += u2VSAttrLen;
 }
 
 uint16_t __weak

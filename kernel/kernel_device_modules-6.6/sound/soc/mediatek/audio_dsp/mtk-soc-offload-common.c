@@ -40,7 +40,8 @@
 
 enum {
 	TASK_SCENE_OFFLOAD_MP3,
-	TASK_SCENE_OFFLOAD_AAC
+	TASK_SCENE_OFFLOAD_AAC,
+	TASK_SCENE_OFFLOAD_FLAC
 };
 
 typedef uint8_t task_offload_scene_t;
@@ -76,6 +77,14 @@ static struct afe_offload_codec_t afe_offload_codec_info = {
 	.codec_bitrate = 0,
 	.target_samplerate = 0,
 	.has_video = 0,
+};
+
+static struct HEAAC_codec_t heaac_codec_info = {
+	.samplerate = 0,
+	.bitrate = 0,
+	.framesize = 0,
+	.channel = 0,
+	.SBRFlag = 0,
 };
 
 static struct snd_compr_stream *offload_stream;
@@ -355,10 +364,18 @@ static int mtk_compr_offload_open(struct snd_soc_component *component,
 				  struct snd_compr_stream *stream)
 {
 	int ret = 0;
+	int offload_featureID = get_featureid_by_dsp_daiid(ID);
 #if IS_ENABLED(CONFIG_MTK_SLBC) && !IS_ENABLED(CONFIG_ADSP_SLB_LEGACY)
 	int slc_sign = get_dsp_task_attr(AUDIO_TASK_OFFLOAD_ID, ADSP_TASK_ATTR_ADSP_SLC_SIGN);
 #endif
 
+	pr_debug("%s()+\n", __func__);
+
+	ret = mtk_dsp_register_feature(offload_featureID);
+	if (ret) {
+		pr_info("%s(), offload register feature fail", __func__);
+		return -1;
+	}
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(true);
 #endif
@@ -441,6 +458,8 @@ static int mtk_afe_dloffload_probe(struct snd_soc_component *component)
 static int mtk_compr_offload_free(struct snd_soc_component *component,
 				  struct snd_compr_stream *stream)
 {
+	int ret = 0;
+	int offload_featureID = get_featureid_by_dsp_daiid(ID);
 #if IS_ENABLED(CONFIG_MTK_SLBC) && !IS_ENABLED(CONFIG_ADSP_SLB_LEGACY)
 	int slc_sign = get_dsp_task_attr(AUDIO_TASK_OFFLOAD_ID, ADSP_TASK_ATTR_ADSP_SLC_SIGN);
 
@@ -453,6 +472,8 @@ static int mtk_compr_offload_free(struct snd_soc_component *component,
 		mutex_unlock(&slc_mutex);
 	}
 #endif
+
+	pr_debug("%s()+\n", __func__);
 	if (afe_offload_block.state != OFFLOAD_STATE_IDLE) {
 		/* stop hw */
 		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
@@ -477,9 +498,20 @@ static int mtk_compr_offload_free(struct snd_soc_component *component,
 			 afe_offload_codec_info.has_video,
 			 NULL);
 	pr_debug("%s afe_offload_codec_info.has_video = %d\n", __func__, afe_offload_codec_info.has_video);
+
+	heaac_codec_info.samplerate = 0;
+	heaac_codec_info.bitrate = 0;
+	heaac_codec_info.framesize = 0;
+	heaac_codec_info.channel = 0;
+	heaac_codec_info.SBRFlag = 0;
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(false);
 #endif
+	ret = mtk_dsp_deregister_feature(offload_featureID);
+	if (ret) {
+		pr_info("%s(), offload deregister feature fail", __func__);
+		return -1;
+	}
 	return 0;
 }
 
@@ -746,6 +778,11 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 			pr_info("%s sample_rate[%u]\n", __func__, ipi_msg->param2);
 		}
 		break;
+	case OFFLOAD_HEAAC_INFO:
+		memcpy((void *)&heaac_codec_info, ipi_msg->payload, sizeof(struct HEAAC_codec_t));
+		pr_info("%s update heaac info framesize[%u] channel[%u] SBRFlag[%u]\n", __func__,
+			heaac_codec_info.framesize, heaac_codec_info.channel, heaac_codec_info.SBRFlag);
+		break;
 	default:
 		break;
 	}
@@ -773,8 +810,6 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 {
 	void *ipi_audio_buf; /* dsp <-> audio data struct */
 	int copy_size, availsize, ret = 0;
-	static unsigned int u4round = 1;
-	int transferred = 0;
 	struct RingBuf *ringbuf = &(dsp->dsp_mem[ID].ring_buf);
 	struct ringbuf_bridge *buf_bridge =
 		&(dsp->dsp_mem[ID].adsp_buf.aud_buffer.buf_bridge);
@@ -814,7 +849,6 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 		afe_offload_block.write_blocked_idx =
 			buf_bridge->pWrite;
 		afe_offload_service.needdata = false;
-		u4round = 1;
 		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
 				AUDIO_IPI_PAYLOAD,
 				AUDIO_IPI_MSG_BYPASS_ACK,
@@ -838,19 +872,14 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 #endif
 
 	if (afe_offload_service.needdata) {
-		transferred = RingBuf_getDataCount(ringbuf);
-		if (transferred >=
-		    (32 * USE_PERIODS_MAX) * u4round) {
-			/* notify writeIDX to SCP each 256K*/
-			mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
-				AUDIO_IPI_PAYLOAD,
-				AUDIO_IPI_MSG_BYPASS_ACK,
-				OFFLOAD_WRITEIDX,
-				sizeof(buf_bridge->pWrite),
-				0,
-				(void *)&buf_bridge->pWrite);
-			u4round++;
-		}
+		/* notify writeIDX to SCP each 256K*/
+		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
+			AUDIO_IPI_PAYLOAD,
+			AUDIO_IPI_MSG_BYPASS_ACK,
+			OFFLOAD_WRITEIDX,
+			sizeof(buf_bridge->pWrite),
+			0,
+			(void *)&buf_bridge->pWrite);
 	}
 	if ((afe_offload_block.state != OFFLOAD_STATE_RUNNING) &&
 		((afe_offload_block.transferred >= 8 * USE_PERIODS_MAX) ||
@@ -877,7 +906,6 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 		pr_debug("%s(),MSG_DECODER_START, TRANSFERRED %lld ret= %d\n",
 				__func__, afe_offload_block.transferred, ret);
 		afe_offload_block.state = OFFLOAD_STATE_RUNNING;
-		u4round = 1;
 	}
 	return count;
 Error:

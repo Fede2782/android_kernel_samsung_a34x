@@ -12,6 +12,7 @@ struct ARP_MON {
 	uint8_t apIp[IPV4_ADDR_LEN];
 	uint8_t gatewayIp[IPV4_ADDR_LEN];
 	uint8_t gatewayMac[MAC_ADDR_LEN];
+	uint32_t u4GatewayRxCnt;
 	uint32_t LastRxCnt;
 	uint32_t CurrentRxCnt;
 	uint32_t LastRxUnicastTime;
@@ -30,6 +31,7 @@ enum ENUM_ARP_MON_TYPE {
 	ARP_MON_TYPE_TX_ARP = 0,
 	ARP_MON_TYPE_RX_ARP,
 	ARP_MON_TYPE_RX_DHCP,
+	ARP_MON_TYPE_NUD_BTO,
 	ARP_MON_TYPE_MAX
 };
 
@@ -52,6 +54,8 @@ u_int8_t arpMonIpIsCritical(struct ADAPTER *ad, struct MSDU_INFO *prMsduInfo);
 u_int8_t arpMonIsCritical(struct ADAPTER *ad, uint8_t ucBssIdx);
 void arpMonResetArpDetect(struct ADAPTER *ad, uint8_t ucBssIdx);
 void arpMonHandleLegacyBTOEvent(struct ADAPTER *ad);
+void arpMonHandleNudState(struct ADAPTER *prAdapter, uint64_t state,
+	uint8_t ucBssIndex);
 
 #if CFG_QM_ARP_MONITOR_MSG
 void arpMonHandleMsg(struct ADAPTER *ad, struct MSG_HDR *prMsgHdr);

@@ -10,27 +10,11 @@
 #ifndef _MLO_H
 #define _MLO_H
 
-#if (CFG_MLO_CONCURRENT_SINGLE_PHY == 1)
-#define MLSR_REMAIN_RSSI_TH                -50 /*dbm*/
-#endif
-
 #define IS_MLD_BSSINFO_MULTI(__prMldBssInfo) \
 	(__prMldBssInfo && __prMldBssInfo->rBssList.u4NumElem > 1)
 
 #define IS_MLD_STAREC_MULTI(__prMldStaRec) \
 	(__prMldStaRec && __prMldStaRec->rStarecList.u4NumElem > 1)
-
-#define IS_NON_AP_EML_ENABLED(__ad) \
-	(IS_FEATURE_ENABLED(__ad->rWifiVar.ucNonApMldEMLSupport) && \
-	 BE_IS_EML_CAP_SUPPORT_EMLSR(__ad->rWifiVar.u2NonApMldEMLCap))
-
-#define IS_MLC_ENABLED(__ad) \
-	(IS_FEATURE_ENABLED(__ad->rWifiVar.fgMlcSupport) && \
-	 (BIT(0) & (__ad->rWifiVar.ucMlcSupportCap)) || \
-	 IS_FEATURE_FORCE_ENABLED(__ad->rWifiVar.fgMlcSupport))
-
-#define IS_MLC_CAPABLE(__ad) \
-	(BIT(0) & (__ad->rWifiVar.ucMlcSupportCap))
 
 #define BE_IS_ML_CTRL_TYPE(__pucIE, __TYPE) \
 	(IE_ID(__pucIE) == ELEM_ID_RESERVED && IE_LEN(__pucIE) >= 3 && \
@@ -78,9 +62,6 @@
 #define BE_IS_ML_CTRL_PRESENCE_EML_CAP(_u2ctrl) \
 	(_u2ctrl & (ML_CTRL_EML_CAPA_PRESENT << ML_CTRL_PRE_BMP_SHIFT))
 
-#define BE_IS_EML_CAP_SUPPORT_EMLSR(_u2Cap) \
-	((_u2Cap) & ML_CTRL_EML_CAPA_EMLSR_SUPPORT_MASK)
-
 #define BE_IS_ML_CTRL_PRESENCE_MLD_CAP(_u2ctrl) \
 	(_u2ctrl & (ML_CTRL_MLD_CAPA_PRESENT << ML_CTRL_PRE_BMP_SHIFT))
 
@@ -103,9 +84,6 @@
 	(_u2Cap) |= (((_num) << (MLD_CAP_TID_TO_LINK_NEGO_SHIFT)) \
 	& (MLD_CAP_TID_TO_LINK_NEGO_MASK)); \
 }
-
-#define BE_SET_EXT_MLD_CAP_BTM_MLD_RECOMM(_u2Cap) \
-	((_u2Cap) |= EXT_MLD_CAP_BTM_MLD_RECOMM_MULTI_AP)
 
 #define MLCIE(fp)              ((struct IE_MULTI_LINK_CONTROL *) fp)
 
@@ -177,17 +155,11 @@ struct SUB_IE_MULTI_LINK_CONTROL {
 #define BE_IS_ML_STA_CTRL_PRESENCE_BCN_INTV(_u2ctrl) \
 	(_u2ctrl & ML_STA_CTRL_BCN_INTV_PRESENT)
 
-#define BE_IS_ML_STA_CTRL_PRESENCE_TSF_OFFSET(_u2ctrl) \
-	(_u2ctrl & ML_STA_CTRL_TSF_OFFSET_PRESENT)
-
 #define BE_IS_ML_STA_CTRL_PRESENCE_DTIM(_u2ctrl) \
 	(_u2ctrl & ML_STA_CTRL_DTIM_INFO_PRESENT)
 
 #define BE_IS_ML_STA_CTRL_PRESENCE_NSTR(_u2ctrl) \
 	(_u2ctrl & ML_STA_CTRL_NSTR_LINK_PAIR_PRESENT)
-
-#define BE_IS_ML_STA_CTRL_PRESENCE_BSS_PARA_CHANGE_COUNT(_u2ctrl) \
-	(_u2ctrl & ML_STA_CTRL_BSS_PARA_CHANGE_COUNT_PRESENT)
 
 /* BE D3.0 Figure 9-1002n - STA Control field format of the Basic Multi-Link
  * Element
@@ -229,20 +201,6 @@ struct IE_TID_TO_LINK_MAPPING {
 	uint8_t ucExtId;
 	uint8_t ucCtrl;
 	uint8_t ucOptCtrl[];
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct IE_MULTI_LINK_TRAFFIC_INDICATION {
-	uint8_t ucId;
-	uint8_t ucLength;
-	uint8_t ucExtId;
-	/* Control field:
-	 *     BITS(0, 3): Bitmap Size
-	 *     BITS(4, 14): AID Offset
-	 *     BIT(15): Reserved
-	 */
-	uint16_t u2Ctrl;
-	uint8_t aucList[1];
 } __KAL_ATTRIB_PACKED__;
 
 struct STA_PROFILE {
@@ -308,10 +266,12 @@ uint8_t *mldGenerateBasicCommonInfo(
 	uint16_t u2FrameCtrl);
 
 uint32_t mldGenerateMlProbeReqIE(struct BSS_DESC *prBssDesc,
-	uint8_t *pucIE, uint32_t u4IELength, uint8_t fgPerSta, uint8_t ucMldId);
+	uint8_t *pucIE, uint32_t u4IELength,
+	u_int8_t fgPerSta, uint8_t ucMldId);
 
 uint32_t mldFillScanIE(struct ADAPTER *prAdapter, struct BSS_DESC *prBssDesc,
-	uint8_t *pucIE, uint32_t u4IELength, uint8_t fgPerSta, uint8_t ucMldId);
+	uint8_t *pucIE, uint32_t u4IELength,
+	u_int8_t fgPerSta, uint8_t ucMldId);
 
 uint8_t *mldGenerateBasicCompleteProfile(
 	struct ADAPTER *prAdapter,
@@ -404,8 +364,7 @@ void mldBssUnregister(struct ADAPTER *prAdapter,
 	struct MLD_BSS_INFO *prMldBssInfo,
 	struct BSS_INFO *prBss);
 
-struct MLD_BSS_INFO *mldBssAlloc(struct ADAPTER *prAdapter,
-	const uint8_t aucMldMacAddr[]);
+struct MLD_BSS_INFO *mldBssAlloc(struct ADAPTER *prAdapter);
 
 void mldBssFree(struct ADAPTER *prAdapter,
 	struct MLD_BSS_INFO *prMldBssInfo);
@@ -418,9 +377,6 @@ struct MLD_BSS_INFO *mldBssGetByBss(struct ADAPTER *prAdapter,
 
 struct MLD_BSS_INFO *mldBssGetByIdx(struct ADAPTER *prAdapter,
 	uint8_t ucIdx);
-
-uint16_t mldBssGetGrpFrameSn(struct ADAPTER *prAdapter,
-			     struct MLD_BSS_INFO *prMldBssInfo);
 
 int8_t mldBssInit(struct ADAPTER *prAdapter);
 
@@ -456,14 +412,14 @@ void mldStarecFree(struct ADAPTER *prAdapter,
 struct MLD_STA_RECORD *mldStarecGetByStarec(struct ADAPTER *prAdapter,
 	struct STA_RECORD *prStaRec);
 
-uint8_t mldGetWlanIdxByBandAndBssid(struct ADAPTER *prAdapter,
-	uint8_t ucHwBandIdx, uint8_t ucHwBssIdx, uint8_t ucWlanIdx);
+uint8_t mldGetWlanIdxByBand(struct ADAPTER *prAdapter, uint8_t ucWlanIdx,
+			    uint8_t ucHwBandIdx);
 
 uint8_t mldGetPrimaryWlanIdx(struct ADAPTER *prAdapter, uint8_t ucWlanIdx);
 
 struct MLD_STA_RECORD *mldStarecGetByMldAddr(struct ADAPTER *prAdapter,
 	struct MLD_BSS_INFO *prMldBssInfo,
-	const uint8_t aucMacAddr[]);
+	uint8_t aucMacAddr[]);
 
 struct MLD_STA_RECORD *mldStarecGetByLinkAddr(struct ADAPTER *prAdapter,
 	struct MLD_BSS_INFO *prMldBssInfo,
@@ -492,7 +448,13 @@ struct BSS_INFO *mldGetBssInfoByLinkID(struct ADAPTER *prAdapter,
 	struct MLD_BSS_INFO *prMldBssInfo, uint8_t ucLinkIndex,
 	uint8_t fgPeerSta);
 
+uint8_t mldGetBssIndexByHwBand(struct ADAPTER *prAdapter,
+	uint8_t ucHwBandIdx, uint8_t ucBssIndex);
+
 uint8_t mldIsMultiLinkFormed(struct ADAPTER *prAdapter,
+	struct STA_RECORD *prStaRec);
+
+uint8_t mldGetMloLinkNum(struct ADAPTER *prAdapter,
 	struct STA_RECORD *prStaRec);
 
 uint8_t mldIsMultiLinkEnabled(
@@ -511,56 +473,23 @@ uint8_t mldSingleLink(struct ADAPTER *prAdapter,
 uint8_t mldCheckMldType(struct ADAPTER *prAdapter,
 	uint8_t *pucIe, uint16_t u2Len);
 
-struct STA_RECORD *mldGetStaRecByBandAndBssid(struct ADAPTER *prAdapter,
-	uint8_t ucHwBandIdx, uint8_t ucHwBssIdx, uint8_t ucWlanIdx);
+struct STA_RECORD *mldGetStaRecByBandIdx(struct ADAPTER *prAdapter,
+		struct STA_RECORD *prStaRec, uint8_t ucHwBandIdx);
+
+void mldDumpStarecList(struct ADAPTER *prAdapter,
+	struct MLD_STA_RECORD *prMldStarec);
+
+void mldCheckStarecList(struct ADAPTER *prAdapter);
 
 void mldCheckApRemoval(struct ADAPTER *prAdapter,
 	struct STA_RECORD *prStaRec, const uint8_t *pucIE);
-
-enum ENUM_CH_REQ_TYPE mldDecideCnmReqCHType(struct ADAPTER *prAdapter,
-	struct MLD_BSS_INFO *mld_bssinfo);
 
 #if (CFG_SINGLE_BAND_MLSR_56 == 1)
 uint8_t mldNeedSingleBandMlsr56(struct ADAPTER *prAdapter,
 	enum ENUM_MLO_LINK_PLAN eLinkPlan);
 #endif /* CFG_SINGLE_BAND_MLSR_56 */
 
-#if (CFG_MLO_CONCURRENT_SINGLE_PHY == 1)
-enum ENUM_MLO_MODE mldCheckMLSRType(struct ADAPTER *prAdapter);
-
-uint8_t mldHasSingleLinkBss(struct ADAPTER *prAdapter);
-
-enum ENUM_MLO_MODE mldNewConnectionType(struct ADAPTER *prAdapter,
-	struct DBDC_DECISION_INFO *prDbdcDecisionInfo);
-
-void mldClearMLSRPausedLinkFlag(struct ADAPTER *prAdapter);
-
-void mldMLSRDecisionLinkRemain(struct ADAPTER *prAdapter,
-	struct DBDC_DECISION_INFO *prDbdcDecisionInfo);
-
-uint32_t mldSetRemainMLSRBssIndex(struct ADAPTER *prAdapter,
-	uint8_t ucRemainBssIndex);
-#endif
-
-#if (CFG_SUPPORT_SAP_BCN_CRI_UPD == 1)
-void mldIncBssParamChangeCount(struct ADAPTER *prAdapter,
-			       struct MSDU_INFO *prMsduInfo);
-
-u_int8_t mldCheckCriticalUpdate(struct ADAPTER *prAdapter,
-				struct MSDU_INFO *prOldMsduInfo,
-				struct MSDU_INFO *prNewMsduInfo);
-
-void mldTriggerCriticalUpdate(struct ADAPTER *prAdapter,
-			      uint8_t ucBssidx);
-#endif /* CFG_SUPPORT_SAP_BCN_CRI_UPD */
-
-#if (CFG_SUPPORT_MLC == 1)
 uint32_t mldSendMlcRequest(struct ADAPTER *prAdapter,
 	struct MLD_BSS_INFO *prMldBssInfo, struct PARAM_MLC_REQ *prMlcReq);
-#endif /* CFG_SUPPORT_MLC */
-uint8_t isEmlsrPermittedAP(uint8_t *aucOui);
-uint8_t mldNeedSTRAsMLSR(struct ADAPTER *prAdapter,
-	struct MLD_BSS_INFO *mld_bssinfo, uint8_t ucMloType);
-uint8_t mldNeedEMLSRAsMLSR(struct ADAPTER *prAdapter,
-	struct MLD_BSS_INFO *mld_bssinfo, uint8_t ucMloType);
+
 #endif /* !_MLO_H */

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -22,7 +22,6 @@
 #include "gl_cfg80211.h"
 #include "gl_ate_agent.h"
 #include "gl_qa_agent.h"
-#include "gl_hook_api.h"
 #if KERNEL_VERSION(3, 8, 0) <= CFG80211_VERSION_CODE
 #include <uapi/linux/nl80211.h>
 #endif
@@ -51,11 +50,6 @@ enum {
 /* Maximum rxv vectors under 2048-2 bytes */
 #define MAX_RXV_DUMP_COUNT			(56)
 uint8_t g_uBandIdx;
-
-#if CFG_WIFI_TESTMODE_FW_REDOWNLOAD
-#define RESET_TRIGGER_L0P5_TIMEOUT_MS			4000
-#define TIMEOUT_EXPIRED			0
-#endif
 /*******************************************************************************
  *				F U N C T I O N   D E C L A R A T I O N S
  *******************************************************************************
@@ -76,14 +70,19 @@ uint8_t g_uBandIdx;
 int32_t MT_ATEStart(struct net_device *prNetDev,
 		    uint8_t *prInBuf)
 {
+	uint32_t u4BufLen = 0;
 	int32_t i4Status;
 	struct GLUE_INFO *prGlueInfo = NULL;
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	i4Status = glSetRFTestMode(prGlueInfo, 1);
+	i4Status = kalIoctl(prGlueInfo,	/* prGlueInfo */
+			    wlanoidRftestSetTestMode,	/* pfnOidHandler */
+			    NULL,	/* pvInfoBuf */
+			    0,	/* u4InfoBufLen */
+			    &u4BufLen);	/* pu4QryInfoLen */
 
 	if (i4Status != WLAN_STATUS_SUCCESS)
 		return -EFAULT;
@@ -110,7 +109,7 @@ int32_t MT_ICAPStart(struct net_device *prNetDev,
 	int32_t i4Status;
 	struct GLUE_INFO *prGlueInfo = NULL;
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
@@ -147,7 +146,7 @@ int32_t MT_ICAPCommand(struct net_device *prNetDev,
 	struct ATE_OPS_T *prAteOps = NULL;
 	uint32_t *buf = NULL;
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 	prChipInfo = prGlueInfo->prAdapter->chip_info;
@@ -241,14 +240,19 @@ int32_t MT_ICAPCommand(struct net_device *prNetDev,
 int32_t MT_ATEStop(struct net_device *prNetDev,
 		   uint8_t *prInBuf)
 {
+	uint32_t u4BufLen = 0;
 	int32_t i4Status;
 	struct GLUE_INFO *prGlueInfo = NULL;
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	i4Status = glSetRFTestMode(prGlueInfo, 0);
+	i4Status = kalIoctl(prGlueInfo,	/* prGlueInfo */
+		    wlanoidRftestSetAbortTestMode, /* pfnOidHandler */
+		    NULL,	/* pvInfoBuf */
+		    0,	/* u4InfoBufLen */
+		    &u4BufLen);	/* pu4QryInfoLen */
 
 	if (i4Status != WLAN_STATUS_SUCCESS)
 		return -EFAULT;
@@ -277,7 +281,7 @@ int32_t MT_ATEStartTX(struct net_device *prNetDev,
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct PARAM_MTK_WIFI_TEST_STRUCT rRfATInfo;
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
@@ -317,7 +321,7 @@ int32_t MT_ATEStopTX(struct net_device *prNetDev,
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct PARAM_MTK_WIFI_TEST_STRUCT rRfATInfo;
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
@@ -359,7 +363,7 @@ int32_t MT_ATEStartRX(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_COMMAND;
 	rRfATInfo.u4FuncData = RF_AT_COMMAND_STARTRX;
@@ -399,7 +403,7 @@ int32_t MT_ATEStopRX(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_COMMAND;
 	rRfATInfo.u4FuncData = RF_AT_COMMAND_STOPTEST;
@@ -442,7 +446,7 @@ int32_t MT_ATESetChannel(struct net_device *prNetDev,
 
 	i4SetChan = nicFreq2ChannelNum(u4SetFreq);
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetChannel=%d, Freq=%d\n",
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetChannel=%d, Freq=%d\n",
 	       i4SetChan, u4SetFreq);
 
 	if (u4SetFreq == 0)
@@ -495,7 +499,7 @@ int32_t MT_ATESetPreamble(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetPreamble=%d\n",
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetPreamble=%d\n",
 	       u4Mode);
 
 	if (u4Mode > 4)
@@ -541,7 +545,7 @@ int32_t MT_ATESetSystemBW(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetSystemBW=%d\n", u4BW);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetSystemBW=%d\n", u4BW);
 
 	if (u4BW > 6)
 		return -EINVAL;
@@ -617,7 +621,7 @@ int32_t MT_ATESetTxLength(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetTxLength=%d\n",
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetTxLength=%d\n",
 	       u4TxLength);
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_PKTLEN;
@@ -659,7 +663,7 @@ int32_t MT_ATESetTxCount(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetTxCount=%d\n",
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetTxCount=%d\n",
 	       u4TxCount);
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_PKTCNT;
@@ -702,7 +706,7 @@ int32_t MT_ATESetTxIPG(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetTxIPG=%d\n", u4TxIPG);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetTxIPG=%d\n", u4TxIPG);
 
 	if (u4TxIPG > 2314 || u4TxIPG < 19)
 		return -EINVAL;
@@ -746,12 +750,12 @@ int32_t MT_ATESetTxPower0(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetTxPower0=0x%02x\n",
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetTxPower0=0x%02x\n",
 	       u4TxPower0);
 
 	if (u4TxPower0 > 0x3F) {
 		u4TxPower0 += 128;
-		DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK Negative Power =0x%02x\n",
+		DBGLOG(RFTEST, INFO, "QA_ATE_HOOK Negative Power =0x%02x\n",
 		       u4TxPower0);
 	}
 
@@ -794,7 +798,7 @@ int32_t MT_ATESetPerPacketBW(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetPerPacketBW=%d\n",
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetPerPacketBW=%d\n",
 	       u4BW);
 
 	if (u4BW > 6)
@@ -871,7 +875,7 @@ int32_t MT_ATEPrimarySetting(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK PrimarySetting=%d\n",
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK PrimarySetting=%d\n",
 	       u4PrimaryCh);
 
 	if (u4PrimaryCh > 7)
@@ -915,7 +919,7 @@ int32_t MT_ATESetTxGi(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetTxGi=%d\n", u4SetTxGi);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetTxGi=%d\n", u4SetTxGi);
 
 	if (u4SetTxGi != 0 && u4SetTxGi != 1)
 		return -EINVAL;
@@ -958,7 +962,7 @@ int32_t MT_ATESetTxPath(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK u4Tx_path=%d\n",
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK u4Tx_path=%d\n",
 	       u4Tx_path);
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_SET_TX_PATH;
@@ -998,7 +1002,7 @@ int32_t MT_ATESetRxPath(struct net_device *prNetDev, uint32_t u4Rx_path)
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK u4Rx_path=%d\n", u4Rx_path);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK u4Rx_path=%d\n", u4Rx_path);
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_SET_RX_PATH;
 	rRfATInfo.u4FuncData = u4Rx_path;
@@ -1039,7 +1043,7 @@ int32_t MT_ATESetTxPayLoad(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK rule=%d, len =0x%x\n",
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK rule=%d, len =0x%x\n",
 	       u4Gen_payload_rule, ucPayload);
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_SET_PAYLOAD;
@@ -1081,7 +1085,7 @@ int32_t MT_ATESetTxSTBC(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK u4Stbc=%d\n", u4Stbc);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK u4Stbc=%d\n", u4Stbc);
 
 	if (u4Stbc > 1)
 		return -EINVAL;
@@ -1124,7 +1128,7 @@ int32_t MT_ATESetTxVhtNss(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK u4Nss=%d\n", u4VhtNss);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK u4Nss=%d\n", u4VhtNss);
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_SET_NSS;
 	rRfATInfo.u4FuncData = u4VhtNss;
@@ -1163,7 +1167,7 @@ int32_t MT_ATESetRate(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetRate=0x%08x\n",
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetRate=0x%08x\n",
 	       u4Rate);
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_RATE;
@@ -1204,7 +1208,7 @@ int32_t MT_ATESetEncodeMode(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetEncodeMode=%d\n",
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetEncodeMode=%d\n",
 	       u4Ldpc);
 
 	if (u4Ldpc != 0 && u4Ldpc != 1)
@@ -1248,7 +1252,7 @@ int32_t MT_ATESetiBFEnable(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetiBFEnable=%d\n",
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetiBFEnable=%d\n",
 	       u4iBF);
 
 	if (u4iBF != 0 && u4iBF != 1)
@@ -1292,7 +1296,7 @@ int32_t MT_ATESeteBFEnable(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SeteBFEnable=%d\n",
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SeteBFEnable=%d\n",
 	       u4eBF);
 
 	if (u4eBF != 0 && u4eBF != 1)
@@ -1395,35 +1399,35 @@ int32_t MT_ATELogOnOff(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK %s\n", __func__);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK MT_ATELogOnOff\n");
 
 	switch (u4Type) {
 	case ATE_LOG_RXV:
-		DBGLOG(RFTEST, DEBUG,
+		DBGLOG(RFTEST, INFO,
 		       "QA_ATE_HOOK MT_ATELogOnOff : ATE_LOG_RXV\n\n");
 		break;
 	case ATE_LOG_RDD:
-		DBGLOG(RFTEST, DEBUG,
+		DBGLOG(RFTEST, INFO,
 		       "QA_ATE_HOOK MT_ATELogOnOff : ATE_LOG_RDD\n\n");
 		break;
 	case ATE_LOG_RE_CAL:
-		DBGLOG(RFTEST, DEBUG,
+		DBGLOG(RFTEST, INFO,
 		       "QA_ATE_HOOK MT_ATELogOnOff : ATE_LOG_RE_CAL\n\n");
 		break;
 	case ATE_LOG_RXINFO:
-		DBGLOG(RFTEST, DEBUG,
+		DBGLOG(RFTEST, INFO,
 		       "QA_ATE_HOOK MT_ATELogOnOff : ATE_LOG_RXINFO\n\n");
 		break;
 	case ATE_LOG_TXDUMP:
-		DBGLOG(RFTEST, DEBUG,
+		DBGLOG(RFTEST, INFO,
 		       "QA_ATE_HOOK MT_ATELogOnOff : ATE_LOG_TXDUMP\n\n");
 		break;
 	case ATE_LOG_TEST:
-		DBGLOG(RFTEST, DEBUG,
+		DBGLOG(RFTEST, INFO,
 		       "QA_ATE_HOOK MT_ATELogOnOff : ATE_LOG_TEST\n\n");
 		break;
 	default:
-		DBGLOG(RFTEST, DEBUG,
+		DBGLOG(RFTEST, INFO,
 		       "QA_ATE_HOOK log type %d not supported\n\n", u4Type);
 	}
 
@@ -1516,7 +1520,7 @@ int32_t MT_ATEGetDumpRXV(struct net_device *prNetDev,
 			    &u4BufLen);
 
 	if (i4Status == 0) {
-		DBGLOG(RFTEST, DEBUG, "Get RX Vector Total count = %d\n",
+		DBGLOG(RFTEST, INFO, "Get RX Vector Total count = %d\n",
 				     rRfATInfo.u4FuncData);
 		if (rRfATInfo.u4FuncData > MAX_RXV_DUMP_COUNT)
 			rRfATInfo.u4FuncData = MAX_RXV_DUMP_COUNT;
@@ -1582,7 +1586,7 @@ int32_t MT_ATEResetTXRXCounter(struct net_device *prNetDev)
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG,
+	DBGLOG(RFTEST, INFO,
 	       "QA_ATE_HOOK MT_ATEResetTXRXCounter\n");
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_RESETTXRXCOUNTER;
@@ -1622,7 +1626,7 @@ int32_t MT_ATESetDBDCBandIndex(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG,
+	DBGLOG(RFTEST, INFO,
 	       "QA_ATE_HOOK MT_ATESetDBDCBandIndex\n");
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_SET_DBDC_BAND_IDX;
@@ -1662,7 +1666,7 @@ int32_t MT_ATESetBand(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK %s\n", __func__);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK MT_ATESetBand\n");
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_SET_BAND;
 	rRfATInfo.u4FuncData = i4Band;
@@ -1701,7 +1705,7 @@ int32_t MT_ATESetTxToneType(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK %s\n", __func__);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK MT_ATESetTxToneType\n");
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_SET_TONE_TYPE;
 	rRfATInfo.u4FuncData = i4ToneType;
@@ -1740,7 +1744,7 @@ int32_t MT_ATESetTxToneBW(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK %s\n", __func__);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK MT_ATESetTxToneBW\n");
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_SET_TONE_BW;
 	rRfATInfo.u4FuncData = i4ToneFreq;
@@ -1780,7 +1784,7 @@ int32_t MT_ATESetTxToneDCOffset(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG,
+	DBGLOG(RFTEST, INFO,
 	       "QA_ATE_HOOK MT_ATESetTxToneDCOffset\n");
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_SET_TONE_DC_OFFSET;
@@ -1822,7 +1826,7 @@ int32_t MT_ATESetDBDCTxTonePower(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG,
+	DBGLOG(RFTEST, INFO,
 	       "QA_ATE_HOOK MT_ATESetDBDCTxTonePower\n");
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_SET_TONE_RF_GAIN;
@@ -1872,7 +1876,7 @@ int32_t MT_ATEDBDCTxTone(struct net_device *prNetDev,
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct PARAM_MTK_WIFI_TEST_STRUCT rRfATInfo;
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK %s\n", __func__);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK MT_ATEDBDCTxTone\n");
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
@@ -1917,7 +1921,7 @@ int32_t MT_ATESetMacHeader(struct net_device *prNetDev,
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct PARAM_MTK_WIFI_TEST_STRUCT rRfATInfo;
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK %s\n", __func__);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK MT_ATESetMacHeader\n");
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
@@ -1972,7 +1976,7 @@ int32_t MT_ATE_IRRSetADC(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK %s\n", __func__);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK MT_ATE_IRRSetADC\n");
 
 	if (u4BW == 3 || u4BW == 4 || u4BW > 5)
 		return -EINVAL;
@@ -2030,7 +2034,7 @@ int32_t MT_ATE_IRRSetRxGain(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK %s\n", __func__);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK MT_ATE_IRRSetRxGain\n");
 
 	au4Param[0] = u4PgaLpfg;
 	au4Param[1] = u4Lna;
@@ -2081,7 +2085,7 @@ int32_t MT_ATE_IRRSetTTG(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK %s\n", __func__);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK MT_ATE_IRRSetTTG\n");
 
 	au4Param[0] = u4ChFreq;
 	au4Param[1] = u4FIToneFreq;
@@ -2129,7 +2133,7 @@ int32_t MT_ATE_IRRSetTrunOnTTG(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG,
+	DBGLOG(RFTEST, INFO,
 	       "QA_ATE_HOOK MT_ATE_IRRSetTrunOnTTG\n");
 
 	au4Param[0] = u4TTGOnOff;
@@ -2176,7 +2180,7 @@ int32_t MT_ATE_TMRSetting(struct net_device *prNetDev, uint32_t u4Setting,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK %s\n", __func__);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK MT_ATE_TMRSetting\n");
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_SET_TMR_ROLE;
 	rRfATInfo.u4FuncData = u4Setting;
@@ -2247,7 +2251,7 @@ int32_t MT_ATEMPSSetSeqData(struct net_device *prNetDev,
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct PARAM_MTK_WIFI_TEST_STRUCT rRfATInfo;
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK %s\n", __func__);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK MT_ATEMPSSetSeqData\n");
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
@@ -2299,7 +2303,7 @@ int32_t MT_ATEMPSSetPayloadLength(struct net_device *prNetDev,
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct PARAM_MTK_WIFI_TEST_STRUCT rRfATInfo;
 
-	DBGLOG(RFTEST, DEBUG,
+	DBGLOG(RFTEST, INFO,
 	       "QA_ATE_HOOK MT_ATEMPSSetPayloadLength\n");
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
@@ -2340,7 +2344,7 @@ int32_t MT_ATEMPSSetPacketCount(struct net_device *prNetDev,
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct PARAM_MTK_WIFI_TEST_STRUCT rRfATInfo;
 
-	DBGLOG(RFTEST, DEBUG,
+	DBGLOG(RFTEST, INFO,
 	       "QA_ATE_HOOK MT_ATEMPSSetPacketCount\n");
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
@@ -2381,7 +2385,7 @@ int32_t MT_ATEMPSSetPowerGain(struct net_device *prNetDev,
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct PARAM_MTK_WIFI_TEST_STRUCT rRfATInfo;
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK %s\n", __func__);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK MT_ATEMPSSetPowerGain\n");
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
@@ -2421,7 +2425,7 @@ int32_t MT_ATEMPSSetNss(struct net_device *prNetDev,
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct PARAM_MTK_WIFI_TEST_STRUCT rRfATInfo;
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK %s\n", __func__);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK MT_ATEMPSSetNss\n");
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
@@ -2461,7 +2465,7 @@ int32_t MT_ATEMPSSetPerpacketBW(struct net_device *prNetDev,
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct PARAM_MTK_WIFI_TEST_STRUCT rRfATInfo;
 
-	DBGLOG(RFTEST, DEBUG,
+	DBGLOG(RFTEST, INFO,
 	       "QA_ATE_HOOK MT_ATEMPSSetPerpacketBW\n");
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
@@ -2504,7 +2508,7 @@ int32_t MT_ATERDDStart(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_COMMAND;
 	rRfATInfo.u4FuncData = RF_AT_COMMAND_RDD;
@@ -2541,7 +2545,7 @@ int32_t MT_ATERDDStop(struct net_device *prNetDev,
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
 
-	DBGLOG(RFTEST, DEBUG, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
+	DBGLOG(RFTEST, INFO, "QA_ATE_HOOK SetATE = %s\n", prInBuf);
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_COMMAND;
 	rRfATInfo.u4FuncData = RF_AT_COMMAND_RDD_OFF;
@@ -2603,7 +2607,7 @@ int32_t MT_ATEWriteEfuse(struct net_device *prNetDev,
 	}
 
 	/* Read */
-	DBGLOG(INIT, DEBUG, "QA_AGENT HQA_WriteBulkEEPROM  Read\n");
+	DBGLOG(INIT, INFO, "QA_AGENT HQA_WriteBulkEEPROM  Read\n");
 	kalMemSet(&rAccessEfuseInfoRead, 0,
 		  sizeof(struct PARAM_CUSTOM_ACCESS_EFUSE));
 	rAccessEfuseInfoRead.u4Address = (u2Offset /
@@ -2623,7 +2627,7 @@ int32_t MT_ATEWriteEfuse(struct net_device *prNetDev,
 	u4Index = u2Offset % EFUSE_BLOCK_SIZE;
 
 	if (u4Index >= EFUSE_BLOCK_SIZE - 1) {
-		DBGLOG(INIT, DEBUG, "u4Index [%d] overrun\n", u4Index);
+		DBGLOG(INIT, INFO, "u4Index [%d] overrun\n", u4Index);
 		return -EFAULT;
 	}
 
@@ -2635,11 +2639,11 @@ int32_t MT_ATEWriteEfuse(struct net_device *prNetDev,
 		   prGlueInfo->prAdapter->aucEepromVaule, 16);
 
 	for (u4Loop = 0; u4Loop < (EFUSE_BLOCK_SIZE); u4Loop++) {
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 		       "QA_AGENT aucEepromVaule u4Loop=%d  u4Value=%x\n",
 		       u4Loop, prGlueInfo->prAdapter->aucEepromVaule[u4Loop]);
 
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 		       "QA_AGENT rAccessEfuseInfoWrite.aucData u4Loop=%d  u4Value=%x\n",
 		       u4Loop, rAccessEfuseInfoWrite.aucData[u4Loop]);
 	}
@@ -2687,7 +2691,7 @@ int32_t MT_ATESetTxTargetPower(struct net_device *prNetDev,
 
 
 	/* Set Target Power Base */
-	DBGLOG(INIT, DEBUG, "QA_AGENT Set Tx Target Power= %x dbm\n",
+	DBGLOG(INIT, INFO, "QA_AGENT Set Tx Target Power= %x dbm\n",
 	       ucTxTargetPower);
 	rSetTxTargetPwr.ucTxTargetPwr = ucTxTargetPower;
 
@@ -2731,7 +2735,7 @@ int32_t MT_ATESetAntSwap(struct net_device *prNetDev,
 		return WLAN_STATUS_ADAPTER_NOT_READY;
 	}
 
-	DBGLOG(RFTEST, DEBUG,
+	DBGLOG(RFTEST, INFO,
 	       "QA_AGENT MT_ATESetAntSwap u4Ant : %d\n", u4Ant);
 
 	rRfATInfo.u4FuncIndex = RF_AT_FUNCID_SET_ANT_SWP;
@@ -2778,7 +2782,7 @@ int32_t MT_ATESetRddReport(struct net_device *prNetDev,
 		  sizeof(struct PARAM_CUSTOM_SET_RDD_REPORT));
 
 	/* Set Rdd Report */
-	DBGLOG(INIT, DEBUG, "QA_AGENT Set RDD Report - Band: %d\n",
+	DBGLOG(INIT, INFO, "QA_AGENT Set RDD Report - Band: %d\n",
 	       ucDbdcIdx);
 	rSetRddReport.ucDbdcIdx = ucDbdcIdx;
 
@@ -2821,7 +2825,7 @@ int32_t MT_ATESetRadarDetectMode(struct net_device
 		  sizeof(struct PARAM_CUSTOM_SET_RADAR_DETECT_MODE));
 
 	/* Set Rdd Report */
-	DBGLOG(INIT, DEBUG, "QA_AGENT Set Radar Detect Mode: %d\n",
+	DBGLOG(INIT, INFO, "QA_AGENT Set Radar Detect Mode: %d\n",
 	       ucRadarDetectMode);
 	rSetRadarDetectMode.ucRadarDetectMode = ucRadarDetectMode;
 
@@ -4381,7 +4385,7 @@ uint32_t ServiceWlanOid(void *winfos,
 	 uint32_t *u4BufLen,
 	 void *rsp_data)
 {
-	int32_t i4Status = 0;
+	uint32_t u4Status = 0;
 	uint32_t u4BufLen2;
 #if CFG_SUPPORT_QA_TOOL
 	uint32_t *resp = NULL;
@@ -4399,9 +4403,6 @@ uint32_t ServiceWlanOid(void *winfos,
 #endif
 	struct ICAP_INFO_T *prIcapInfo = NULL;
 	struct test_capability *capability = NULL;
-	struct test_rdd_dump_params_s *log_cb_qa = NULL;
-	struct _ATE_LOG_DUMP_CB *log_cb_qa_a = NULL;
-	struct ATE_OPS_T *prAteOps = NULL;
 
 	ASSERT(winfos);
 
@@ -4423,8 +4424,6 @@ uint32_t ServiceWlanOid(void *winfos,
 	prIcapInfo = &prAdapter->rIcapInfo;
 	ASSERT(prIcapInfo);
 
-	prAteOps = prAdapter->chip_info->prAteOps;
-
 	/* Normal set */
 	fgRead = FALSE;
 	fgWaitResp = FALSE;
@@ -4432,52 +4431,34 @@ uint32_t ServiceWlanOid(void *winfos,
 #if CFG_SUPPORT_QA_TOOL
 	if (prAdapter->fgTestMode == FALSE) {
 		/* workaround for meta tool */
-		DBGLOG(RFTEST, DEBUG,
+		DBGLOG(RFTEST, INFO,
 			"Test Mode Start Workaround for META!\n");
 
-#if CFG_TESTMODE_FWDL_SUPPORT
-		i4Status = glSetRFTestMode(prGlueInfo, 1);
-		if (i4Status == WLAN_STATUS_SUCCESS)
-			ServiceRfTestInit(winfos);
-#else
 		ServiceRfTestInit(winfos);
-		i4Status = glSetRFTestMode(prGlueInfo, 1);
-#endif /*CFG_TESTMODE_FWDL_SUPPORT*/
 
-		DBGLOG(RFTEST, DEBUG,
-			"Test Mode Start Workaround for META2! status : %d\n",
-			i4Status);
+		u4Status = kalIoctl(prGlueInfo, /* prGlueInfo */
+			wlanoidRftestSetTestMode,  /* pfnOidHandler */
+			NULL, /* pvInfoBuf */
+			0, /* u4InfoBufLen */
+			u4BufLen); /* pu4QryInfoLen */
 
-		if (i4Status != WLAN_STATUS_SUCCESS)
-			return i4Status;
+		DBGLOG(RFTEST, INFO,
+			"Test Mode Start Workaround for META2!\n");
+
 	}
 #endif
 
 	switch (oidType) {
 #if CFG_SUPPORT_QA_TOOL
 	case OP_WLAN_OID_SET_TEST_MODE_START:
-		DBGLOG(RFTEST, DEBUG, "Test Mode Start Bellwether!\n");
-#if CFG_TESTMODE_FWDL_SUPPORT
-		i4Status = glSetRFTestMode(prGlueInfo, 1);
-		if (i4Status == WLAN_STATUS_SUCCESS)
-			ServiceRfTestInit(winfos);
-		return i4Status;
-#else
+		DBGLOG(RFTEST, INFO, "Test Mode Start Bellwether!\n");
 		ServiceRfTestInit(winfos);
 		pfnOidHandler = wlanoidRftestSetTestMode;
 		break;
-#endif /*CFG_TESTMODE_FWDL_SUPPORT*/
-
 	case OP_WLAN_OID_SET_TEST_MODE_ABORT:
-		DBGLOG(RFTEST, DEBUG, "Test Mode Abort!\n");
-#if CFG_TESTMODE_FWDL_SUPPORT
-		i4Status = glSetRFTestMode(prGlueInfo, 0);
-		return i4Status;
-#else
+		DBGLOG(RFTEST, INFO, "Test Mode Abort!\n");
 		pfnOidHandler = wlanoidRftestSetAbortTestMode;
 		break;
-#endif /*CFG_TESTMODE_FWDL_SUPPORT*/
-
 	case OP_WLAN_OID_RFTEST_SET_AUTO_TEST:
 		pfnOidHandler = wlanoidRftestSetAutoTest;
 		break;
@@ -4497,14 +4478,7 @@ uint32_t ServiceWlanOid(void *winfos,
 #endif
 	case OP_WLAN_OID_GET_CAPABILITY:
 		capability = (struct test_capability *)rsp_data;
-
-		if (prAteOps)
-			if (prAteOps->tool_capability) {
-				kalMemCopy(capability,
-					prAteOps->tool_capability,
-					sizeof(struct test_capability));
-				return WLAN_STATUS_SUCCESS;
-			}
+		kalMemSet(capability, 0, sizeof(struct test_capability));
 
 		/* ph_cap.protocol */
 		capability->ph_cap.protocol = BIT(0);
@@ -4552,23 +4526,23 @@ uint32_t ServiceWlanOid(void *winfos,
 		*  4 : support BW20 + BW40 + BW80 + BW 160 + BW8080
 		*  5 : support BW20 + BW40 + BW80 + BW 160 + BW8080 + BW320
 		*/
-		capability->ph_cap.max_bandwidth =
+		capability->ph_cap.bandwidth =
 			BITS(0, prAdapter->rWifiVar.u4PhyMaxBandwidth);
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 		/* ph_cap.ant_num */
 
 		if (g_HqaCap.support_mimo && g_HqaCap.support_dbdc) {
 			/* Chips which support MIMO/DBDC */
 			if (prTestWinfo->dbdc_mode == TEST_DBDC_ENABLE)
-				capability->ph_cap.max_ant_num =
+				capability->ph_cap.ant_num =
 					prAdapter->rWifiVar.ucNSS / 2;
 			else
-				capability->ph_cap.max_ant_num =
+				capability->ph_cap.ant_num =
 					prAdapter->rWifiVar.ucNSS;
 		} else {
 			/* Chips which only support DBDC */
-			capability->ph_cap.max_ant_num =
+			capability->ph_cap.ant_num =
 					prAdapter->rWifiVar.ucNSS;
 		}
 
@@ -4605,12 +4579,11 @@ uint32_t ServiceWlanOid(void *winfos,
 					BIT(16)+BIT(17)+BIT(18);
 			}
 		}
-
 #else
 		/* ph_cap.ant_num */
 
 		/* Chips which only support DBDC */
-		capability->ph_cap.max_ant_num =
+		capability->ph_cap.ant_num =
 				prAdapter->rWifiVar.ucNSS;
 
 		/* ph_cap.channel_band_dbdc */
@@ -4641,7 +4614,7 @@ uint32_t ServiceWlanOid(void *winfos,
 		if (capability->ph_cap.protocol & BIT(3))
 			capability->ext_cap.feature1 |= BIT(1);
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 		capability->ext_cap.feature1 |= BIT(2);
 
 		if (g_HqaCap.support_mimo && g_HqaCap.support_dbdc)
@@ -4650,10 +4623,10 @@ uint32_t ServiceWlanOid(void *winfos,
 		if (g_HqaCap.support_emlsr)
 			capability->ext_cap.feature1 |= BIT(5);
 
-		capability->ph_cap.phy_adie_index |=
+		capability->ph_cap.phy_adie_quantities |=
 			g_HqaCap.phy_num << TEST_PHY_SHIFT;
 
-		capability->ph_cap.phy_adie_index |=
+		capability->ph_cap.phy_adie_quantities |=
 			g_HqaCap.adie_num << TEST_ADIE_SHIFT;
 #endif /* (CFG_SUPPORT_CONNAC3X == 1) */
 
@@ -4672,7 +4645,7 @@ uint32_t ServiceWlanOid(void *winfos,
 		pfnOidHandler = wlanoidExtRfTestICapStart;
 		break;
 	case OP_WLAN_OID_SET_TEST_ICAP_ABORT:
-		ServiceIcapDeInit(prAdapter);
+		u4Status = ServiceIcapDeInit(prAdapter);
 		pfnOidHandler = wlanoidExtRfTestICapStart;
 		break;
 	case OP_WLAN_OID_SET_TEST_ICAP_STATUS:
@@ -4683,11 +4656,11 @@ uint32_t ServiceWlanOid(void *winfos,
 		resp = (uint32_t *)rsp_data;
 #if (CFG_SUPPORT_ICAP_SOLICITED_EVENT == 0)
 		if (prIcapInfo->eIcapState == ICAP_STATE_FW_DUMP_DONE) {
-			DBGLOG(RFTEST, DEBUG, "icap capture done!\n");
+			DBGLOG(RFTEST, INFO, "icap capture done!\n");
 			*resp = 0; /*response QA TOOL CAPTURE success*/
 			 return WLAN_STATUS_SUCCESS;
 		} else if (prIcapInfo->eIcapState == ICAP_STATE_FW_DUMPING) {
-			DBGLOG(RFTEST, DEBUG, "icap fw dumping !!!\n");
+			DBGLOG(RFTEST, INFO, "icap fw dumping !!!\n");
 			*resp = 1; /*response QA TOOL CAPTURE wait*/
 			return WLAN_STATUS_SUCCESS;
 		}
@@ -4720,35 +4693,6 @@ uint32_t ServiceWlanOid(void *winfos,
 		break;
 	/* ICAP Operation Function -- END*/
 #endif
-
-	case OP_WLAN_OID_SET_TEST_RDD_START:
-		pfnOidHandler = wlanoidSetRddStart;
-		break;
-
-	case OP_WLAN_OID_SET_TEST_RDD_STOP:
-		pfnOidHandler = wlanoidSetRddStop;
-		break;
-
-	case OP_WLAN_OID_GET_RDD_CNT:
-		log_cb_qa = (struct test_rdd_dump_params_s *)param;
-		DBGLOG(REQ, ERROR, "[DUMP START] idx : %d, log_cb : %d\n",
-			log_cb_qa->rdd_cnt, log_cb_qa->rdd_dw_num);
-		pfnOidHandler = wlanoidQueryRddLog;
-		break;
-
-	case OP_WLAN_OID_GET_RDD_CONTENT:
-		log_cb_qa_a = (struct _ATE_LOG_DUMP_CB *)param;
-		SERV_LOG(SERV_DBG_CAT_MISC, SERV_DBG_LVL_WARN,
-		("mt_op_get_rdd_content : %d, %d, %d, %d\n",
-		log_cb_qa_a->is_dumping, log_cb_qa_a->is_overwritten,
-		log_cb_qa_a->len, log_cb_qa_a->idx));
-		pfnOidHandler = wlanoidQueryRddLogContent;
-		break;
-
-	case OP_WLAN_OID_SET_LOG_ONFF:
-		pfnOidHandler = wlanoidInitRddLog;
-		break;
-
 	case OP_WLAN_OID_SET_MCR_WRITE:
 		pfnOidHandler = wlanoidSetMcrWrite;
 		fgRead = TRUE;
@@ -4780,10 +4724,10 @@ uint32_t ServiceWlanOid(void *winfos,
 			return -EFAULT;
 		}
 
-		DBGLOG(RFTEST, DEBUG, "HQA_GetAntSwapCapability [%d]\n",
+		DBGLOG(RFTEST, INFO, "HQA_GetAntSwapCapability [%d]\n",
 				prGlueInfo->prAdapter->fgIsSupportAntSwp);
 
-		DBGLOG(RFTEST, DEBUG, "ucMaxSwapAntenna = [%d]\n",
+		DBGLOG(RFTEST, INFO, "ucMaxSwapAntenna = [%d]\n",
 					prChipInfo->ucMaxSwapAntenna);
 
 		if (prGlueInfo->prAdapter->fgIsSupportAntSwp)
@@ -4833,34 +4777,34 @@ uint32_t ServiceWlanOid(void *winfos,
 			rEfuseFreeBlock.ucDieIdx =
 				(uint8_t)eprms->efuse_die_idx;
 
-			DBGLOG(INIT, DEBUG,
+			DBGLOG(INIT, INFO,
 				"OP_WLAN_OID_GET_EFUSE_FREE_BLOCK, rEfuseFreeBlock.ucDieIdx=%d\n",
 				rEfuseFreeBlock.ucDieIdx);
 
-			i4Status = kalIoctl(prGlueInfo,
+			u4Status = kalIoctl(prGlueInfo,
 				   wlanoidQueryEfuseFreeBlock,
 				   &rEfuseFreeBlock,
 				   sizeof(struct PARAM_CUSTOM_EFUSE_FREE_BLOCK),
 				   &len);
 
-			if (i4Status == WLAN_STATUS_SUCCESS) {
+			if (u4Status == WLAN_STATUS_SUCCESS) {
 				eprms->efuse_free_block =
 				(uint32_t)rEfuseFreeBlock.ucGetFreeBlock;
 				eprms->efuse_total_block =
 				(uint32_t)rEfuseFreeBlock.ucGetTotalBlock;
 			}
 
-			DBGLOG(INIT, DEBUG,
-				"OP_WLAN_OID_GET_EFUSE_FREE_BLOCK, i4Status(%d), rEfuseFreeBlock.ucDieIdx=%d, ucGetFreeBlock=%d, ucGetTotalBlock=%d\n",
-				i4Status,
+			DBGLOG(INIT, INFO,
+				"OP_WLAN_OID_GET_EFUSE_FREE_BLOCK, u4Status(%d), rEfuseFreeBlock.ucDieIdx=%d, ucGetFreeBlock=%d, ucGetTotalBlock=%d\n",
+				u4Status,
 				rEfuseFreeBlock.ucDieIdx,
 				rEfuseFreeBlock.ucGetFreeBlock,
 				rEfuseFreeBlock.ucGetTotalBlock);
 		} else {
-			DBGLOG(INIT, DEBUG,
+			DBGLOG(INIT, INFO,
 				"OP_WLAN_OID_GET_EFUSE_FREE_BLOCK, QA tool current no efuse\n");
 		}
-		return i4Status;
+		return u4Status;
 
 	case OP_WLAN_OID_EPRM_READ:
 		if (prTestWinfo->e2p_cur_mode == 1) {
@@ -4877,7 +4821,7 @@ uint32_t ServiceWlanOid(void *winfos,
 			rAccessEfuseInfoRead.u4Address =
 				eprms->offset - alignByte;
 
-			DBGLOG(INIT, DEBUG,
+			DBGLOG(INIT, INFO,
 				"OP_WLAN_OID_EPRM_READ, qa_addr=0x%x, u4Address=0x%x, qa_len=%d\n",
 				eprms->offset,
 				rAccessEfuseInfoRead.u4Address,
@@ -4886,23 +4830,23 @@ uint32_t ServiceWlanOid(void *winfos,
 			if (eprms->length > EFUSE_BLOCK_SIZE)
 				return WLAN_STATUS_INVALID_LENGTH;
 
-			i4Status = kalIoctl(prGlueInfo,
+			u4Status = kalIoctl(prGlueInfo,
 				wlanoidQueryProcessAccessEfuseRead,
 				&rAccessEfuseInfoRead,
 				sizeof(struct PARAM_CUSTOM_ACCESS_EFUSE),
 				&len);
 
-			if (i4Status == WLAN_STATUS_SUCCESS &&
+			if (u4Status == WLAN_STATUS_SUCCESS &&
 				rAccessEfuseInfoRead.u4Valid) {
 				kalMemCopy(eprms->value,
 				&rAccessEfuseInfoRead.aucData[alignByte],
 				EFUSE_BLOCK_SIZE);
 			}
 		} else {
-			DBGLOG(INIT, DEBUG,
+			DBGLOG(INIT, INFO,
 				"OP_WLAN_OID_EPRM_READ, QA tool current no efuse\n");
 		}
-		return i4Status;
+		return u4Status;
 
 	case OP_WLAN_OID_EPRM_WRITE:
 		if (prTestWinfo->e2p_cur_mode == 1) {
@@ -4922,21 +4866,21 @@ uint32_t ServiceWlanOid(void *winfos,
 				rAccessEfuseInfoAccess.u4Address =
 				eprms->offset - alignByte;
 
-				DBGLOG(INIT, DEBUG,
+				DBGLOG(INIT, INFO,
 					"OP_WLAN_OID_EPRM_WRITE, qa_addr=0x%x, u4Address=0x%x, qa_len=%d\n",
 					eprms->offset,
 					rAccessEfuseInfoAccess.u4Address,
 					eprms->length);
 
 				/* read back first for 16 bytes align */
-				i4Status = kalIoctl(prGlueInfo,
+				u4Status = kalIoctl(prGlueInfo,
 				wlanoidQueryProcessAccessEfuseRead,
 				&rAccessEfuseInfoAccess,
 				sizeof(struct PARAM_CUSTOM_ACCESS_EFUSE),
 				&len);
 
-				if (i4Status != WLAN_STATUS_SUCCESS) {
-					DBGLOG(INIT, DEBUG,
+				if (u4Status != WLAN_STATUS_SUCCESS) {
+					DBGLOG(INIT, INFO,
 						"OP_WLAN_OID_EPRM_WRITE, read back fail\n");
 						return WLAN_STATUS_INVALID_DATA;
 				}
@@ -4950,7 +4894,7 @@ uint32_t ServiceWlanOid(void *winfos,
 				(uint8_t *)eprms->value,
 				eprms->length);
 
-				i4Status = kalIoctl(prGlueInfo,
+				u4Status = kalIoctl(prGlueInfo,
 				wlanoidQueryProcessAccessEfuseWrite,
 				&rAccessEfuseInfoAccess,
 				sizeof(struct PARAM_CUSTOM_ACCESS_EFUSE),
@@ -4958,7 +4902,7 @@ uint32_t ServiceWlanOid(void *winfos,
 			} else if (eprms->length + eprms->offset
 				< MAX_EEPROM_BUFFER_SIZE) {
 
-				DBGLOG(INIT, DEBUG,
+				DBGLOG(INIT, INFO,
 					"OP_WLAN_OID_EPRM_WRITE, qa_addr=0x%x, qa_len=%d\n",
 					eprms->offset,
 					eprms->length);
@@ -4974,14 +4918,14 @@ uint32_t ServiceWlanOid(void *winfos,
 						(uint8_t *)eprms->value + count,
 						EFUSE_BLOCK_SIZE);
 
-				i4Status = kalIoctl(prGlueInfo,
+				u4Status = kalIoctl(prGlueInfo,
 				wlanoidQueryProcessAccessEfuseWrite,
 				&rAccessEfuseInfoAccess,
 				sizeof(struct PARAM_CUSTOM_ACCESS_EFUSE),
 				&len);
 				}
 			} else {
-				DBGLOG(INIT, DEBUG,
+				DBGLOG(INIT, INFO,
 					"OP_WLAN_OID_EPRM_WRITE, qa_addr=0x%x, qa_len=%d, over %d\n",
 					eprms->offset,
 					eprms->length,
@@ -4990,17 +4934,17 @@ uint32_t ServiceWlanOid(void *winfos,
 				return WLAN_STATUS_INVALID_LENGTH;
 			}
 		} else {
-			DBGLOG(INIT, DEBUG,
+			DBGLOG(INIT, INFO,
 			"OP_WLAN_OID_EPRM_WRITE, QA tool current no efuse\n");
 		}
-		return i4Status;
+		return u4Status;
 
 	case OP_WLAN_OID_NUM:
 	default:
 		return WLAN_STATUS_FAILURE;
 	}
 
-	i4Status = kalIoctl(prGlueInfo, /* prGlueInfo */
+	u4Status = kalIoctl(prGlueInfo, /* prGlueInfo */
 		pfnOidHandler,  /* pfnOidHandler */
 		param, /* pvInfoBuf */
 		paramLen, /* u4InfoBufLen */
@@ -5009,7 +4953,7 @@ uint32_t ServiceWlanOid(void *winfos,
 #if CFG_SUPPORT_QA_TOOL
 	if ((prStatsData) &&
 		(oidType == OP_WLAN_OID_QUERY_RX_STATISTICS)) {
-#if (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0)
+#if (CFG_SUPPORT_CONNAC3X == 0)
 		kalMemCopy(prStatsData,
 					&g_HqaRxStat,
 					HQA_RX_STATISTIC_NUM*4);
@@ -5024,221 +4968,21 @@ uint32_t ServiceWlanOid(void *winfos,
 	if (oidType == OP_WLAN_OID_SET_TEST_ICAP_STATUS) {
 		*resp = !(prAdapter->ucICapDone);
 
-		DBGLOG(RFTEST, DEBUG, "Resp=%d, ucICapDone=%d\n",
+		DBGLOG(RFTEST, INFO, "Resp=%d, ucICapDone=%d\n",
 			*resp, prAdapter->ucICapDone);
 	}
 
 	if (oidType == OP_WLAN_OID_GET_TEST_ICAP_DATA) {
 
-		DBGLOG(RFTEST, DEBUG, "OP_WLAN_OID_GET_TEST_ICAP_DATA\n");
+		DBGLOG(RFTEST, INFO, "OP_WLAN_OID_GET_TEST_ICAP_DATA\n");
 
-		i4Status = wlanoidRfTestICapCopyDataToQA(
+		u4Status = wlanoidRfTestICapCopyDataToQA(
 					prAdapter,
 					param,
 					0, 0);
 	}
 #endif
 #endif
-	return i4Status;
-}
-
-#if CFG_WIFI_TESTMODE_FW_REDOWNLOAD
-int glRFTestL0P5(void *data)
-{
-	uint32_t u4Status = WLAN_STATUS_FAILURE;
-	uint32_t u4BufLen = 0;
-	uint32_t SER_CMD = SER_USER_CMD_L0P5_RECOVER;
-	ktime_t startTime;
-	int64_t elapsedTime = 0;
-	int timeout = msecs_to_jiffies(RESET_TRIGGER_L0P5_TIMEOUT_MS);
-	struct GLUE_INFO *prGlueInfo = (struct GLUE_INFO *)data;
-
-	if (!prGlueInfo) {
-		DBGLOG(RFTEST, ERROR, "prGlueInfo is NULL\n");
-		return WLAN_STATUS_FAILURE;
-	}
-
-	/* Capture the current time as start time */
-	startTime = ktime_get();
-
-	/* Flush any pending reset operations before triggering new one */
-	flush_work(&prGlueInfo->rWfsysResetWork);
-
-	/* Trigger L0P5 */
-	prGlueInfo->fgTestL0P5Done = FALSE;
-	u4Status = kalIoctl(prGlueInfo,
-			wlanoidSetSer,
-			(void *)&SER_CMD,
-			sizeof(uint32_t),
-			&u4BufLen);
-	if (u4Status != WLAN_STATUS_SUCCESS)
-		return u4Status;
-
-	/* Wait until the reset is complete or timeout */
-	timeout = wait_event_interruptible_timeout(
-		prGlueInfo->waitQTestFwDl,
-		prGlueInfo->fgTestL0P5Done,
-		timeout);
-	if (timeout <= TIMEOUT_EXPIRED) {
-		DBGLOG(RFTEST, ERROR,
-			"L0P5 reset(WfsResetHdlr) %s\n",
-			(timeout == TIMEOUT_EXPIRED) ?
-			"timeout" : "interrupted by signal");
-		return WLAN_STATUS_FAILURE;
-	}
-	DBGLOG(RFTEST, DEBUG, "L0P5 reset done\n");
-
-	/* Set or Abort Mode for RF testing based on previous results */
-	u4Status = wlanSetRFTestModeCMD(prGlueInfo, prGlueInfo->fgTestFwDl);
-	if (u4Status != WLAN_STATUS_SUCCESS) {
-		DBGLOG(RFTEST, ERROR,
-			"Switch RF Test Mode Fail!:%d\n",
-			u4Status);
-		return u4Status;
-	}
-	/* Update the current state of RF Testing */
-	prGlueInfo->fgTestModeStatus = prGlueInfo->fgTestFwDl;
-	DBGLOG(RFTEST, DEBUG, "Switch RF Test Mode Success!\n");
-
-	/* Calculate the elapsed time from start to end */
-	elapsedTime = ktime_ms_delta(ktime_get(), startTime);
-	DBGLOG(RFTEST, DEBUG, "execute %lld ms\n", elapsedTime);
-
-	return WLAN_STATUS_SUCCESS;
-}
-
-static uint32_t wlanSeparateTestMode(struct GLUE_INFO *prGlueInfo,
-			u_int8_t fgIsSwitchToTestMode)
-{
-	long error = 0;
-
-	if (!prGlueInfo) {
-		DBGLOG(RFTEST, ERROR, "prGlueInfo is NULL\n");
-		return WLAN_STATUS_FAILURE;
-	}
-
-	if (fgIsSwitchToTestMode == prGlueInfo->fgTestFwDl) {
-		DBGLOG(RFTEST, STATE, "already switch to %d\n",
-			fgIsSwitchToTestMode);
-		return WLAN_STATUS_SUCCESS;
-	}
-	DBGLOG(RFTEST, STATE, "target:%d, now:%d\n",
-		fgIsSwitchToTestMode, prGlueInfo->fgTestFwDl);
-
-	/* Update test mode flag */
-	prGlueInfo->fgTestFwDl = fgIsSwitchToTestMode;
-
-	prGlueInfo->prTestFwDlThread = kthread_run(glRFTestL0P5,
-		prGlueInfo, "glRFTestL0P5");
-	if (IS_ERR(prGlueInfo->prTestFwDlThread)) {
-		error = PTR_ERR(prGlueInfo->prTestFwDlThread);
-		DBGLOG(INIT, ERROR,
-			"failed to create TestFwDlThread: %ld\n", error);
-		return WLAN_STATUS_FAILURE;
-	}
-	return WLAN_STATUS_SUCCESS;
-}
-#endif  /* CFG_WIFI_TESTMODE_FW_REDOWNLOAD */
-
-#if CFG_TESTMODE_FWDL_SUPPORT
-static uint32_t glRFTestSwitchMode(struct GLUE_INFO *prGlueInfo,
-			u_int8_t fgIsSwitchToTestMode)
-{
-
-	uint32_t u4Status = WLAN_STATUS_FAILURE;
-
-	/* In net device ioctl, kernel will hold rtnl lock until ioctl return.
-	 * So in switch mode scenario, we need to hold rtnl lock and
-	 * excute test mode FW re download.
-	 */
-
-	if (!prGlueInfo) {
-		DBGLOG(RFTEST, STATE, "prGlueInfo is NULL\n");
-		u4Status = WLAN_STATUS_FAILURE;
-		goto done;
-	}
-	if (!prGlueInfo->prAdapter) {
-		DBGLOG(RFTEST, STATE, "prGlueInfo->prAdapter is NULL\n");
-		u4Status = WLAN_STATUS_FAILURE;
-		goto done;
-	}
-
-	/* avoid wifi on/off process concurrent with switch mode operation */
-	if (wfsys_is_locked()) {
-		DBGLOG(RFTEST, STATE, "wfsys is lock, reject\n");
-		u4Status = WLAN_STATUS_FAILURE;
-		goto done;
-	}
-
-	DBGLOG(RFTEST, STATE, "target:%d, now:%d\n",
-		fgIsSwitchToTestMode, prGlueInfo->prAdapter->fgTestMode);
-
-	if (prGlueInfo->prAdapter->fgTestMode == TRUE
-		 && fgIsSwitchToTestMode == true) {
-		u4Status = WLAN_STATUS_SUCCESS;
-		goto done;
-	}
-	if (prGlueInfo->prAdapter->fgTestMode == FALSE
-		 && fgIsSwitchToTestMode == false) {
-		u4Status = WLAN_STATUS_SUCCESS;
-		goto done;
-	}
-
-	u4Status = wlan_test_mode_on(fgIsSwitchToTestMode);
-
-done:
-	if (u4Status == WLAN_STATUS_SUCCESS)
-		DBGLOG(RFTEST, STATE, "%s : switch mode success, now:%d\n",
-				__func__, prGlueInfo->prAdapter->fgTestMode);
-	else
-		DBGLOG(RFTEST, STATE, "%s : switch mode fail\n",
-				__func__, u4Status);
-
 	return u4Status;
-}
-#endif /*CFG_TESTMODE_FWDL_SUPPORT*/
-
-uint32_t glSetRFTestMode(struct GLUE_INFO *prGlueInfo, u_int8_t fgEn)
-{
-	uint32_t u4Status = WLAN_STATUS_FAILURE;
-	DBGLOG(RFTEST, STATE, "%s Test Mode\n",
-		(fgEn) ? "Enter" : "Abort");
-
-#if CFG_TESTMODE_FWDL_SUPPORT
-	u4Status = glRFTestSwitchMode(prGlueInfo, fgEn);
-#elif CFG_WIFI_TESTMODE_FW_REDOWNLOAD
-	u4Status = wlanSeparateTestMode(prGlueInfo, fgEn);
-#else
-	u4Status = wlanSetRFTestModeCMD(prGlueInfo, fgEn);
-#endif /*CFG_TESTMODE_FWDL_SUPPORT*/
-
-	return u4Status;
-}
-
-uint8_t glIsWifiInTestMode(struct net_device *prNetDev)
-{
-	struct GLUE_INFO *prGlueInfo = NULL;
-	struct ADAPTER *prAdapter = NULL;
-
-	if (!prNetDev) {
-		DBGLOG(RFTEST, STATE, "prNetDev is NULL\n");
-		return FALSE;
-	}
-
-	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
-
-	if (!prGlueInfo) {
-		DBGLOG(RFTEST, STATE, "prGlueInfo is NULL\n");
-		return FALSE;
-	}
-
-	prAdapter = prGlueInfo->prAdapter;
-
-	if (!prAdapter) {
-		DBGLOG(RFTEST, STATE, "prAdapter is NULL\n");
-		return FALSE;
-	}
-
-	return wlanQueryTestMode(prAdapter);
 }
 #endif

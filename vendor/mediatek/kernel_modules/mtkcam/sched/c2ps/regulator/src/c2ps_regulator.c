@@ -71,7 +71,8 @@ static void regulator_process(struct regulator_req *req)
 	}
 
 	if (unlikely(c2ps_regulator_is_flushed)) {
-		C2PS_LOGW("c2ps regulator is already flushed");
+		C2PS_LOGE("c2ps regulator is already flushed");
+		kmem_cache_free(regulator_reqs, req);
 		return;
 	}
 

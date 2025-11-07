@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -215,7 +215,7 @@ void thrmProtEventHandler(struct ADAPTER *prAdapter, uint8_t *prBuf)
 
 		prEvent =
 			(struct EXT_EVENT_THERMAL_PROTECT_DUTY_NOTIFY *) prBuf;
-		DBGLOG(NIC, DEBUG,
+		DBGLOG(NIC, INFO,
 			"Duty Event, Band[%d] Level[%d], Duty[%d], Temp[%d]\n",
 			prEvent->u1BandIdx, prEvent->u1LevelIdx,
 			prEvent->u1DutyPercent, prEvent->i4Temp);
@@ -247,7 +247,7 @@ void thrmProtEventHandler(struct ADAPTER *prAdapter, uint8_t *prBuf)
 		for (i = THERMAL_PROTECT_TYPE_NTX_CTRL;
 			i < THERMAL_PROTECT_TYPE_NUM; i++) {
 
-			DBGLOG(NIC, DEBUG,
+			DBGLOG(NIC, INFO,
 				"MechInfo[%d/%d/%d/%d/%d/%d/%d]",
 				prEvent->u1ProtectionType[i],
 				prEvent->u1TriggerType[i],
@@ -266,7 +266,7 @@ void thrmProtEventHandler(struct ADAPTER *prAdapter, uint8_t *prBuf)
 		prEvent =
 			(struct EXT_EVENT_THERMAL_PROTECT_DUTY_INFO *) prBuf;
 
-		DBGLOG(NIC, DEBUG,
+		DBGLOG(NIC, INFO,
 			"Duty Info, Band[%d] Duty[%d/%d/%d/%d]\n",
 			prEvent->u1BandIdx, prEvent->u1Duty0, prEvent->u1Duty1,
 			prEvent->u1Duty2, prEvent->u1Duty3);
@@ -287,7 +287,7 @@ void thrmProtUpdateDutyCfg(struct ADAPTER *prAdapter, uint8_t ucDuty)
 				THERMAL_PROTECT_TYPE_DUTY_CTRL,
 				THERMAL_PROTECT_HIGH_TRIG);
 
-		/* Init duty control */
+		/* Init duty contorl */
 		for (j = 0; j <= THERMAL_PROTECT_LEVEL_3; j++) {
 			thrmProtDutyCfg(prAdapter, i, j,
 				ucDuty -
@@ -323,7 +323,7 @@ int thrmProtLvHandler(struct ADAPTER *prAdapter, uint8_t ucLevel)
 		return 0;
 
 	if (prAdapter->rThrmProtCfg.ucCurrDutyCfg == 0) {
-		DBGLOG(NIC, DEBUG, "Enable radio off control.\n");
+		DBGLOG(NIC, INFO, "Enable radio off control.\n");
 		for (i = ENUM_BAND_0; i < ENUM_BAND_NUM; i++) {
 			/* Init radio off control */
 			thrmProtEnable(prAdapter, i,

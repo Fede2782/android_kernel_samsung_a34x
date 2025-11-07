@@ -85,7 +85,7 @@ struct wpa_sm {
 	u8 *ap_wpa_ie, *ap_rsn_ie;
 	size_t ap_wpa_ie_len, ap_rsn_ie_len;
 
-#if (CFG_SUPPORT_NAN == 1)
+#ifdef CFG_SUPPORT_NAN
 	u8 fgPtkKeyIdSet;
 	u8 u1PtkKeyId;
 

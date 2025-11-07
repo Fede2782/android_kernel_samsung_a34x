@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -75,18 +75,6 @@ uint8_t nic_txd_v3_tid_op(
 		HAL_MAC_CONNAC3X_TXD_SET_TID_MGMT_TYPE(
 			(struct HW_MAC_CONNAC3X_TX_DESC *)prTxDesc, ucTid);
 	return HAL_MAC_CONNAC3X_TXD_GET_TID_MGMT_TYPE(
-			(struct HW_MAC_CONNAC3X_TX_DESC *)prTxDesc);
-}
-
-uint8_t nic_txd_v3_pkt_format_op(
-	void *prTxDesc,
-	uint8_t ucFormat,
-	uint8_t fgSet)
-{
-	if (fgSet)
-		HAL_MAC_CONNAC3X_TXD_SET_PKT_FORMAT(
-			(struct HW_MAC_CONNAC3X_TX_DESC *)prTxDesc, ucFormat);
-	return HAL_MAC_CONNAC3X_TXD_GET_PKT_FORMAT(
 			(struct HW_MAC_CONNAC3X_TX_DESC *)prTxDesc);
 }
 
@@ -202,13 +190,15 @@ void nic_txd_v3_fill_by_pkt_option(
 				}
 			} else if (prMsduInfo->ucPacketType ==
 				TX_PACKET_TYPE_DATA) {
+				struct mt66xx_chip_info *prChipInfo =
+					prAdapter->chip_info;
 				uint8_t *pucData = NULL;
 
 				kalGetPacketBuf(prMsduInfo->prPacket, &pucData);
 				prWlanHeader = (struct WLAN_MAC_HEADER *)
 					(pucData
-					+ MAC_TX_RESERVED_FIELD
-					+ wlanGetTxNeededHeadRoom(prAdapter));
+					+ NIC_TX_DESC_AND_PADDING_LENGTH
+					+ prChipInfo->txd_append_size);
 				if (MLR_CHECK_IF_ENABLE_DEBUG(prAdapter)) {
 					DBGLOG(RSN, INFO,
 						"MLR txdf - 802.11data FC=0x%04x dump...\n",
@@ -264,65 +254,6 @@ void nic_txd_v3_fill_by_pkt_option(
 
 }
 
-static u_int8_t isMgmtFrameByDataQueue(struct MSDU_INFO *prMsduInfo)
-{
-#if (CFG_TX_MGMT_BY_DATA_Q == 1)
-	return (prMsduInfo->fgMgmtUseDataQ &&
-		prMsduInfo->ucControlFlag & MSDU_CONTROL_FLAG_FORCE_TX);
-#else
-	return FALSE;
-#endif /* CFG_TX_MGMT_BY_DATA_Q == 1 */
-}
-
-static uint8_t nicConnac3TxGetTxDestQueue(struct ADAPTER *prAdapter,
-				  struct MSDU_INFO *prMsduInfo,
-				  struct BSS_INFO *prBssInfo)
-{
-	uint8_t ucTarPort;
-	uint8_t ucTarQueueMcu;
-	uint8_t ucTarQueueLmac;
-	uint8_t ucWmmQueSet = 0;
-	uint8_t ucControlFlag = prMsduInfo->ucControlFlag;
-
-	if (likely(prBssInfo))
-		ucWmmQueSet = prBssInfo->ucWmmQueSet;
-	else
-		DBGLOG(TX, ERROR, "prBssInfo is NULL\n");
-
-	ucTarPort = nicTxGetTxDestPortIdxByTc(prMsduInfo->ucTC);
-
-	if (ucTarPort == PORT_INDEX_MCU) {
-		if (ucControlFlag & MSDU_CONTROL_FLAG_MGNT_2_CMD_QUE)
-			ucTarQueueMcu = MCU_Q0_INDEX;
-		else
-			ucTarQueueMcu = MCU_Q1_INDEX;
-#if (CFG_SUPPORT_FORCE_ALTX == 1)
-		/* All Connac3 projects have enabled this option, makes FW
-		 * accept value 17 (MCU_Q1_INDEX | MAC_TXQ_ALTX_0_INDEX)
-		 * for always TX.
-		 * Connac2 only handle 16 (MAC_TXQ_ALTX_0_INDEX) for always TX.
-		 * Keep this option just in case if some projects need to
-		 * disable always TX in the future.
-		 */
-		if (ucControlFlag & MSDU_CONTROL_FLAG_FORCE_TX)
-			ucTarQueueMcu |= (uint8_t)MAC_TXQ_ALTX_0_INDEX;
-#endif /* CFG_SUPPORT_FORCE_ALTX == 1 */
-
-		return ucTarQueueMcu;
-	} else { /* ucTarPort == PORT_INDEX_LMAC */
-		if (isMgmtFrameByDataQueue(prMsduInfo)) {
-			ucTarQueueLmac = MAC_TXQ_ALTX_0_INDEX;
-		} else {
-			ucTarQueueLmac =
-				nicTxGetTxDestQIdxByTc(prMsduInfo->ucTC);
-			ucTarQueueLmac += ucWmmQueSet * WMM_AC_INDEX_NUM;
-		}
-
-		return ucTarQueueLmac;
-	}
-
-}
-
 /*----------------------------------------------------------------------------*/
 /*!
 * @brief In this function, we'll compose the Tx descriptor of the MSDU.
@@ -334,9 +265,12 @@ static uint8_t nicConnac3TxGetTxDestQueue(struct ADAPTER *prAdapter,
 * @retval VOID
 */
 /*----------------------------------------------------------------------------*/
-void nic_txd_v3_compose(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
-			u_int32_t u4TxDescLength, u_int8_t fgIsTemplate,
-			u_int8_t *prTxDescBuffer)
+void nic_txd_v3_compose(
+	struct ADAPTER *prAdapter,
+	struct MSDU_INFO *prMsduInfo,
+	u_int32_t u4TxDescLength,
+	u_int8_t fgIsTemplate,
+	u_int8_t *prTxDescBuffer)
 {
 	struct HW_MAC_CONNAC3X_TX_DESC *prTxDesc;
 	struct STA_RECORD *prStaRec;
@@ -346,11 +280,12 @@ void nic_txd_v3_compose(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
 #endif /* CFG_TX_CUSTOMIZE_LTO */
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
 	struct MLD_STA_RECORD *prMldSta;
-	struct MLD_BSS_INFO *prMldBssInfo = NULL;
 #endif
 	u_int32_t u4TxDescAndPaddingLength;
-	u_int8_t ucTarQueue;
+	u_int8_t ucWmmQueSet = 0, ucTarQueue, ucTarPort;
 	uint8_t ucEtherTypeOffsetInWord;
+	uint8_t fgIsALTXQueue = FALSE;
+	uint8_t fgForceSendQ0 = FALSE;
 	uint8_t ucControlFlag;
 
 #if CFG_TX_CUSTOMIZE_LTO
@@ -372,15 +307,73 @@ void nic_txd_v3_compose(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
 
 	kalMemZero(prTxDesc, u4TxDescAndPaddingLength);
 
-#if (CFG_SUPPORT_802_11BE == 1)
-	if (prAdapter->rWifiVar.ucEhtAmsduInAmpduTx)
-		HAL_MAC_CONNAC3X_TXD_SET_HW_AMSDU(prTxDesc);
-#endif
+	ucTarPort = nicTxGetTxDestPortIdxByTc(prMsduInfo->ucTC);
+
+	nicTxForceAmsduForCert(prAdapter, (uint8_t *)prTxDesc);
+
+	ucControlFlag = prMsduInfo->ucControlFlag;
 
 	/** DW0 **/
 	/* Packet Format */
-	ucTarQueue = nicConnac3TxGetTxDestQueue(prAdapter, prMsduInfo,
-						prBssInfo);
+	if (prBssInfo) {
+		ucWmmQueSet = prBssInfo->ucWmmQueSet;
+		if (fgIsTemplate != TRUE
+			&& prMsduInfo->ucPacketType == TX_PACKET_TYPE_DATA
+			&& ucWmmQueSet != prMsduInfo->ucWmmQueSet) {
+			DBGLOG(RSN, ERROR,
+				"ucStaRecIndex:%x ucWmmQueSet mismatch[%d,%d]\n",
+				prMsduInfo->ucStaRecIndex,
+				ucWmmQueSet, prMsduInfo->ucWmmQueSet);
+		}
+	} else
+		DBGLOG(TX, ERROR, "prBssInfo is NULL\n");
+
+#if (CFG_SUPPORT_FORCE_ALTX == 1)
+	fgIsALTXQueue |= ucTarPort == PORT_INDEX_MCU &&
+		ucControlFlag & MSDU_CONTROL_FLAG_FORCE_TX;
+#endif /* CFG_SUPPORT_FORCE_ALTX == 1 */
+
+#if (CFG_TX_MGMT_BY_DATA_Q == 1)
+	fgIsALTXQueue |= prMsduInfo->fgMgmtUseDataQ &&
+		ucControlFlag & MSDU_CONTROL_FLAG_FORCE_TX;
+#endif /* CFG_TX_MGMT_BY_DATA_Q == 1 */
+
+	fgForceSendQ0 = (ucControlFlag &
+		MSDU_CONTROL_FLAG_MGNT_2_CMD_QUE);
+
+	if (fgIsALTXQueue) {
+		/* packet with always tx flag */
+		ucTarQueue = MAC_TXQ_ALTX_0_INDEX;
+		/* For CONNAC 3.0 FW, separate inband CMD to q0
+		 * mgmt frame(CMD) to q1.
+		 */
+		if (ucTarPort == PORT_INDEX_MCU &&
+		    prMsduInfo->ucPacketType == TX_PACKET_TYPE_MGMT)
+			/* For cmd packet, ALTXQ(16) will send to q0,
+			 * due to hw just see bit 0:1, so if need send to CPU q1
+			 * and forward to ALTXQ, need set with ALTXQ(16) +
+			 * MCUQ1(0x1), FW have correpond change will revise Q
+			 * to ALTXQ(16).
+			 */
+			if (!fgForceSendQ0)
+				ucTarQueue |= 0x1;
+	} else {
+		ucTarQueue = nicTxGetTxDestQIdxByTc(prMsduInfo->ucTC);
+
+		if (ucTarPort == PORT_INDEX_LMAC)
+			ucTarQueue +=
+				(ucWmmQueSet * WMM_AC_INDEX_NUM);
+		/* For CONNAC 3.0 FW, separate inband CMD to q0
+		 * mgmt frame(CMD) to q1.
+		 */
+		else if (ucTarPort == PORT_INDEX_MCU &&
+		    prMsduInfo->ucPacketType == TX_PACKET_TYPE_MGMT)
+			if (fgForceSendQ0)
+				ucTarQueue = 0x0;
+			else
+				ucTarQueue = 0x1;
+	}
+
 	HAL_MAC_CONNAC3X_TXD_SET_QUEUE_INDEX(prTxDesc, ucTarQueue);
 
 	/* Packet Format */
@@ -454,18 +447,9 @@ void nic_txd_v3_compose(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
 	}
 
 	if (prBssInfo) {
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-		prMldBssInfo = mldBssGetByBss(prAdapter, prBssInfo);
-		if (prMldBssInfo &&
-		    prMldBssInfo->ucOmRemapIdx != OM_REMAP_IDX_NONE) {
-			HAL_MAC_CONNAC3X_TXD_SET_OM_MAP(prTxDesc);
-			HAL_MAC_CONNAC3X_TXD_SET_OWN_MAC_INDEX(
-				prTxDesc, prMldBssInfo->ucOmRemapIdx);
-		} else
-#endif
-			/* Own MAC */
-			HAL_MAC_CONNAC3X_TXD_SET_OWN_MAC_INDEX(
-				prTxDesc, prBssInfo->ucOwnMacIndex);
+		/* Own MAC */
+		HAL_MAC_CONNAC3X_TXD_SET_OWN_MAC_INDEX(
+			prTxDesc, prBssInfo->ucOwnMacIndex);
 
 		/* TGID should align HW band idx */
 		HAL_MAC_CONNAC3X_TXD_SET_TGID(prTxDesc, prBssInfo->eHwBandIdx);
@@ -489,13 +473,16 @@ void nic_txd_v3_compose(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
 					WLAN_MAC_HEADER_LEN);
 			}
 		} else if (prMsduInfo->ucPacketType == TX_PACKET_TYPE_DATA) {
+			struct mt66xx_chip_info *prChipInfo =
+				prAdapter->chip_info;
 			uint8_t *pucData = NULL;
 
 			kalGetPacketBuf(prMsduInfo->prPacket, &pucData);
 			prWlanHeader = (struct WLAN_MAC_HEADER *)
 				(pucData
 				+ MAC_TX_RESERVED_FIELD
-				+ wlanGetTxNeededHeadRoom(prAdapter));
+				+ u4TxDescLength
+				+ prChipInfo->txd_append_size);
 			if (MLR_CHECK_IF_ENABLE_DEBUG(prAdapter)) {
 				DBGLOG(RSN, INFO,
 					"MLR txdc - 802.11data FC=0x%04x SC=0x%04x dump...\n",
@@ -541,28 +528,15 @@ void nic_txd_v3_compose(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
 
 	/* Remaining TX time */
 	if (!(prMsduInfo->u4Option & MSDU_OPT_MANUAL_LIFE_TIME)) {
-		uint32_t u4RemainingLifetime = 0;
-
-		if (prMsduInfo->ucStaRecIndex == STA_REC_INDEX_BMCAST)
-			/* BMC packet would be enqueued to BMC_TC_INDEX,
-			 * which currently is TC1_INDEX.
-			 * Force BMC packets set remaining tx time to
-			 * NIC_TX_BMC_REMAINING_TX_TIME to avoid packets cannot
-			 * be released when MAC is in abnormal status.
-			 */
-			u4RemainingLifetime = NIC_TX_BMC_REMAINING_TX_TIME;
-		else
-			u4RemainingLifetime =
-				nicTxGetRemainingTxTimeByTc(prMsduInfo->ucTC);
-
 #if CFG_TX_CUSTOMIZE_LTO
 		if (IS_FEATURE_ENABLED(prWifiVar->ucEnableConfigLTO) &&
 			nicTxEnableLTO(prAdapter, prMsduInfo, prBssInfo))
-			u4RemainingLifetime = prWifiVar->u4LTOValue;
+			prMsduInfo->u4RemainingLifetime =
+				prWifiVar->u4LTOValue;
+		else
 #endif /* CFG_TX_CUSTOMIZE_LTO */
-
-		prMsduInfo->u4RemainingLifetime = u4RemainingLifetime;
-
+			prMsduInfo->u4RemainingLifetime =
+				nicTxGetRemainingTxTimeByTc(prMsduInfo->ucTC);
 	}
 
 	HAL_MAC_CONNAC3X_TXD_SET_REMAINING_LIFE_TIME_IN_MS(
@@ -580,7 +554,7 @@ void nic_txd_v3_compose(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
 			prMsduInfo->eFragPos);
 
 		kalGetPacketBuf(prMsduInfo->prPacket, &pucData);
-		MLR_DBGLOG(prAdapter, REQ, DEBUG,
+		MLR_DBGLOG(prAdapter, REQ, INFO,
 			"MLR txdc - PID=%d SeqNo=%d prPacket=%p prPacket->data=%p u2FrameLength=%d eFragPos=%d\n",
 			prMsduInfo->ucPID,
 			prMsduInfo->ucTxSeqNum,
@@ -590,6 +564,9 @@ void nic_txd_v3_compose(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
 			prMsduInfo->eFragPos);
 	}
 #endif
+
+	/* OM MAP */
+	//HAL_MAC_CONNAC3X_TXD_SET_OM_MAP(prTxDesc);
 
 	/** DW3 **/
 	/* Tx count limit */
@@ -670,8 +647,6 @@ void nic_txd_v3_compose(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
 		HAL_MAC_CONNAC3X_TXD_SET_TXS_TO_MCU(prTxDesc);
 	}
 
-	ucControlFlag = prMsduInfo->ucControlFlag;
-
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
 	/* altx set TGID and force link */
 	if (prMldSta && ucControlFlag & MSDU_CONTROL_FLAG_FORCE_LINK)
@@ -681,15 +656,8 @@ void nic_txd_v3_compose(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
 	/** DW6 **/
 	/* Disable MLD to link address translation */
 	if (ucControlFlag &
-	    (MSDU_CONTROL_FLAG_FORCE_TX | MSDU_CONTROL_FLAG_DIS_MAT))
+	    (MSDU_CONTROL_FLAG_FORCE_TX | MSDU_CONTROL_FLAG_FORCE_LINK))
 		HAL_MAC_CONNAC3X_TXD_SET_DIS_MAT(prTxDesc);
-
-#if CFG_BMC_DISABLE_RETRY_RTS
-	/* BMC packet disable retry RTS*/
-	if (prMsduInfo->ucStaRecIndex == STA_REC_INDEX_BMCAST
-		|| prMsduInfo->ucStaRecIndex == STA_REC_INDEX_NOT_FOUND)
-		HAL_MAC_CONNAC3X_TXD_SET_RTS_DIS(prTxDesc);
-#endif /* CFG_TXD_DISABLE_RTS */
 
 	/* Msdu count */
 	HAL_MAC_CONNAC3X_TXD_SET_MSDU_COUNT(prTxDesc, 1);
@@ -726,7 +694,7 @@ void nic_txd_v3_compose(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
 #endif
 
 	if (prMsduInfo->pfTxDoneHandler) {
-		DBGLOG(TX, INFO,
+		DBGLOG(TX, VOC,
 			"TX[%s] WIDX[%u] PID[%u] Rate mode[%d], RateIdx=%u\n",
 			TXS_PACKET_TYPE[prMsduInfo->ucPktType],
 			prMsduInfo->ucWlanIndex, prMsduInfo->ucPID,
@@ -749,37 +717,7 @@ static uint8_t setMlrFixedRate(struct MSDU_INFO *prMsduInfo)
 	}
 	return ucRateIdx;
 }
-
-static uint8_t setMlrpFixedRate(struct MSDU_INFO *prMsduInfo)
-{
-	uint8_t ucRateIdx;
-
-	if (prMsduInfo->eSrc == TX_PACKET_OS) {
-		ucRateIdx = FIXED_RATE_INDEX_MLRP_MCS3_SPE_IDX_FAVOR_WTBL;
-	} else if (prMsduInfo->eSrc == TX_PACKET_MGMT) {
-		ucRateIdx = FIXED_RATE_INDEX_MLRP_MCS3_SPE_IDX_FAVOR_TXD;
-	} else {
-		ucRateIdx = FIXED_RATE_INDEX_OFDM_6M;
-		DBGLOG(TX, WARN, "MLRP rate - Don't use MLRP rate\n");
-	}
-	return ucRateIdx;
-}
-
-static uint8_t setAlrFixedRate(struct MSDU_INFO *prMsduInfo)
-{
-	uint8_t ucRateIdx;
-
-	if (prMsduInfo->eSrc == TX_PACKET_OS) {
-		ucRateIdx = FIXED_RATE_INDEX_ALR_MCS2_SPE_IDX_FAVOR_WTBL;
-	} else if (prMsduInfo->eSrc == TX_PACKET_MGMT) {
-		ucRateIdx = FIXED_RATE_INDEX_ALR_MCS2_SPE_IDX_FAVOR_TXD;
-	} else {
-		ucRateIdx = FIXED_RATE_INDEX_OFDM_6M;
-		DBGLOG(TX, WARN, "ALR rate - Don't use ALR rate\n");
-	}
-	return ucRateIdx;
-}
-#endif /* CFG_SUPPORT_MLR */
+#endif
 
 static uint8_t getSpeIdx(struct ADAPTER *prAdapter,
 		struct MSDU_INFO *prMsduInfo)
@@ -830,20 +768,6 @@ void nic_txd_v3_set_pkt_fixed_rate_option(
 			ucRateIdx = FIXED_RATE_INDEX_MLR_MCS0_SPE_IDX_FAVOR_TXD;
 			break;
 
-		case RATE_MLRP_0_375M: /* 0x0183 */
-			ucRateIdx =
-				FIXED_RATE_INDEX_MLRP_MCS3_SPE_IDX_FAVOR_TXD;
-			break;
-
-		case RATE_ALR_0_75M: /* 0x01C2 */
-			ucRateIdx = FIXED_RATE_INDEX_ALR_MCS2_SPE_IDX_FAVOR_TXD;
-			break;
-
-#if (CFG_SUPPORT_HE_ER == 1)
-		case RATE_HE_ER_DCM_MCS_0: /* 0x0250 */
-			ucRateIdx = FIXED_RATE_INDEX_HE_ER_DMC_MCS0;
-			break;
-#endif
 		default:
 			ucRateIdx = FIXED_RATE_INDEX_OFDM_6M_SPE_IDX_FAVOR_TXD;
 			DBGLOG(TX, WARN,
@@ -878,19 +802,8 @@ void nic_txd_v3_set_pkt_fixed_rate_option(
 		case RATE_MLR_3M: /* 0x0141 */
 			ucRateIdx = setMlrFixedRate(prMsduInfo);
 			break;
+#endif
 
-		case RATE_MLRP_0_375M: /* 0x0183 */
-			ucRateIdx = setMlrpFixedRate(prMsduInfo);
-			break;
-		case RATE_ALR_0_75M: /* 0x01C2 */
-			ucRateIdx = setAlrFixedRate(prMsduInfo);
-			break;
-#endif
-#if (CFG_SUPPORT_HE_ER == 1)
-		case RATE_HE_ER_DCM_MCS_0: /* 0x0250 */
-			ucRateIdx = FIXED_RATE_INDEX_HE_ER_DMC_MCS0;
-			break;
-#endif
 		default:
 			ucRateIdx = FIXED_RATE_INDEX_OFDM_6M;
 			DBGLOG(TX, WARN,
@@ -915,7 +828,7 @@ void nic_txd_v3_set_hw_amsdu_template(
 {
 	struct HW_MAC_CONNAC3X_TX_DESC *prTxDesc;
 
-	DBGLOG(QM, DEBUG,
+	DBGLOG(QM, INFO,
 		"Update HW Amsdu field of TXD template for STA[%u] Tid[%u]\n",
 		prStaRec->ucIndex, ucTid);
 

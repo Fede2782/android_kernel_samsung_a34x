@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -156,7 +156,7 @@ void p2pFsmRunEventChGrant(struct ADAPTER *prAdapter,
 		prP2pBssInfo =
 			GET_BSS_INFO_BY_INDEX(prAdapter,
 				prMsgChGrant->ucBssIndex);
-		if (!prP2pBssInfo || !prAdapter->prP2pInfo)
+		if (!prP2pBssInfo)
 			break;
 		prAdapter->prP2pInfo->eConnState = P2P_CNN_NORMAL;
 		prAdapter->prP2pInfo->ucExtendChanFlag = 0;
@@ -164,10 +164,17 @@ void p2pFsmRunEventChGrant(struct ADAPTER *prAdapter,
 			prAdapter, prP2pBssInfo->u4PrivateData);
 		DBGLOG(P2P, TRACE, "P2P Run Event Channel Grant\n");
 
+#if ((CFG_SISO_SW_DEVELOP == 1) || (CFG_SUPPORT_SPE_IDX_CONTROL == 1))
+		/* Driver record granted CH in BSS info */
+		prP2pBssInfo->fgIsGranted = TRUE;
+		prP2pBssInfo->eBandGranted = prMsgChGrant->eRfBand;
+		prP2pBssInfo->ucPrimaryChannelGranted =
+			prMsgChGrant->ucPrimaryChannel;
+#endif
 #if CFG_ENABLE_CSA_BLOCK_SCAN
 		if (p2pFuncIsCsaBlockScan(prAdapter) == TRUE) {
 			cnmTimerStopTimer(prAdapter,
-				&prP2pBssInfo->rP2pCsaDoneTimer);
+				&prP2pRoleFsmInfo->rP2pCsaDoneTimer);
 		}
 #endif
 		switch (prP2pBssInfo->eCurrentOPMode) {
@@ -194,6 +201,55 @@ void p2pFsmRunEventChGrant(struct ADAPTER *prAdapter,
 		}
 	} while (FALSE);
 }				/* p2pFsmRunEventChGrant */
+
+void p2pFsmRunEventNetDeviceRegister(struct ADAPTER *prAdapter,
+		struct MSG_HDR *prMsgHdr)
+{
+	struct MSG_P2P_NETDEV_REGISTER *prNetDevRegisterMsg =
+		(struct MSG_P2P_NETDEV_REGISTER *) NULL;
+
+	DBGLOG(P2P, TRACE, "p2pFsmRunEventNetDeviceRegister\n");
+
+	prNetDevRegisterMsg = (struct MSG_P2P_NETDEV_REGISTER *) prMsgHdr;
+
+	if (prNetDevRegisterMsg->fgIsEnable) {
+		p2pSetMode((prNetDevRegisterMsg->ucMode == 1) ? TRUE : FALSE);
+		if (p2pLaunch(prAdapter->prGlueInfo))
+			ASSERT(prAdapter->fgIsP2PRegistered);
+	} else {
+		if (prAdapter->fgIsP2PRegistered)
+			p2pRemove(prAdapter->prGlueInfo, FALSE);
+	}
+
+	cnmMemFree(prAdapter, prMsgHdr);
+}				/* p2pFsmRunEventNetDeviceRegister */
+
+void p2pFsmRunEventUpdateMgmtFrame(struct ADAPTER *prAdapter,
+		struct MSG_HDR *prMsgHdr)
+{
+	struct MSG_P2P_MGMT_FRAME_UPDATE *prP2pMgmtFrameUpdateMsg;
+
+	DBGLOG(P2P, TRACE, "p2pFsmRunEventUpdateMgmtFrame\n");
+
+	prP2pMgmtFrameUpdateMsg = (struct MSG_P2P_MGMT_FRAME_UPDATE *) prMsgHdr;
+
+	switch (prP2pMgmtFrameUpdateMsg->eBufferType) {
+	case ENUM_FRAME_TYPE_EXTRA_IE_BEACON:
+		break;
+	case ENUM_FRAME_TYPE_EXTRA_IE_ASSOC_RSP:
+		break;
+	case ENUM_FRAME_TYPE_EXTRA_IE_PROBE_RSP:
+		break;
+	case ENUM_FRAME_TYPE_PROBE_RSP_TEMPLATE:
+		break;
+	case ENUM_FRAME_TYPE_BEACON_TEMPLATE:
+		break;
+	default:
+		break;
+	}
+
+	cnmMemFree(prAdapter, prMsgHdr);
+}				/* p2pFsmRunEventUpdateMgmtFrame */
 
 #if CFG_SUPPORT_WFD
 void p2pFsmRunEventWfdSettingUpdate(struct ADAPTER *prAdapter,
@@ -337,12 +393,16 @@ void p2pFsmRunEventScanDone(struct ADAPTER *prAdapter,
 void p2pFsmRunEventMgmtFrameTx(struct ADAPTER *prAdapter,
 		struct MSG_HDR *prMsgHdr)
 {
-	struct MSG_MGMT_TX_REQUEST *prMgmtTxMsg;
+	struct MSG_MGMT_TX_REQUEST *prMgmtTxMsg =
+			(struct MSG_MGMT_TX_REQUEST *) NULL;
 
 	if ((prAdapter == NULL) || (prMsgHdr == NULL))
 		return;
 
 	prMgmtTxMsg = (struct MSG_MGMT_TX_REQUEST *) prMsgHdr;
+
+	if (prMgmtTxMsg->fgIsWaitRsp || prMgmtTxMsg->fgIsOffChannel)
+		p2pFuncAddPendingMgmtLinkEntry(prAdapter, prMgmtTxMsg);
 
 	if (p2pFsmUseRoleIf(prAdapter, prMgmtTxMsg->ucBssIdx)) {
 		p2pRoleFsmRunEventMgmtTx(prAdapter, prMsgHdr);
@@ -378,21 +438,31 @@ void p2pFsmRunEventTxCancelWait(struct ADAPTER *prAdapter,
 
 struct BSS_DESC *p2pGetTargetBssDesc(
 	struct ADAPTER *prAdapter,
-	uint8_t ucBssIndex)
-{
-	struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo;
-	struct BSS_INFO *prP2pBssInfo;
+	uint8_t ucBssIndex) {
 
-	prP2pBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
-	if (!prP2pBssInfo)
+	uint8_t i = 0;
+
+	for (i = 0 ; i < BSS_P2P_NUM; i++) {
+		if (!prAdapter->rWifiVar.aprP2pRoleFsmInfo[i])
+			continue;
+
+		if (prAdapter->rWifiVar.aprP2pRoleFsmInfo[i]->ucBssIndex
+			== ucBssIndex)
+			break;
+	}
+
+	if (i >= BSS_P2P_NUM)
 		return NULL;
 
-	prP2pRoleFsmInfo = P2P_ROLE_INDEX_2_ROLE_FSM_INFO(prAdapter,
-		prP2pBssInfo->u4PrivateData);
-	if (!prP2pRoleFsmInfo)
-		return NULL;
+	if (p2pGetLinkNum(p2pGetDefaultRoleFsmInfo(prAdapter,
+			IFTYPE_P2P_CLIENT)) > 1)
+		return p2pGetLinkBssDesc(
+			p2pGetDefaultRoleFsmInfo(prAdapter,
+			IFTYPE_P2P_CLIENT),
+			i);
 
-	return p2pGetLinkBssDesc(prP2pRoleFsmInfo, prP2pBssInfo->ucLinkId);
+	return prAdapter->rWifiVar.aprP2pRoleFsmInfo[i]
+		->rJoinInfo.prTargetBssDesc;
 }
 
 void p2pFsmRunEventCsaDoneTimeOut(struct ADAPTER *prAdapter,

@@ -461,8 +461,11 @@ static int dpmaif_alloc_bat_req(int update_bat_cnt, atomic_t *paused)
 	buf_used = get_ringbuf_used_cnt(bat_req->bat_cnt,
 					atomic_read(&bat_req->bat_rd_idx),
 					atomic_read(&bat_req->bat_wr_idx));
-	if (buf_used >= alloc_skb_threshold)
+	if (buf_used >= alloc_skb_threshold) {
+		if (update_bat_cnt == 0)
+			return buf_used;
 		return 0;
+	}
 
 	request_cnt = (alloc_skb_threshold - buf_used);
 	buf_space = bat_req->bat_cnt - buf_used - 1;
@@ -471,7 +474,7 @@ static int dpmaif_alloc_bat_req(int update_bat_cnt, atomic_t *paused)
 		request_cnt = buf_space;
 
 	if (request_cnt == 0)
-		return 0;
+		goto alloc_end;
 
 	if (g_debug_flags & DEBUG_BAT_ALC_SKB)
 		pre_time = (unsigned int)(local_clock() >> 16);
@@ -494,7 +497,9 @@ alloc_retry:
 		ret = alloc_bat_skb(bat_req->pkt_buf_sz, bat_skb, cur_bat);
 		if (unlikely(ret)) {
 			if (update_bat_cnt == 0) {  //from dpmaif start flow
-				if (total_cnt > MIN_SKB_ALLOC_CNT)
+				if ((total_cnt + get_ringbuf_used_cnt(bat_req->bat_cnt,
+					atomic_read(&bat_req->bat_rd_idx),
+					atomic_read(&bat_req->bat_wr_idx))) > MIN_SKB_ALLOC_CNT)
 					goto alloc_end;
 
 				if ((local_clock() - g_alloc_bat_skb_retry_time) >=
@@ -568,7 +573,12 @@ alloc_end:
 		ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
 	}
 
-	return ((ret < 0) ? ret : total_cnt);
+	if (update_bat_cnt == 0)
+		return get_ringbuf_used_cnt(bat_req->bat_cnt,
+			atomic_read(&bat_req->bat_rd_idx),
+			atomic_read(&bat_req->bat_wr_idx));
+
+	return total_cnt;
 }
 
 static inline int alloc_bat_page(
@@ -641,8 +651,11 @@ static int dpmaif_alloc_bat_frg(int update_bat_cnt, atomic_t *paused)
 	buf_used = get_ringbuf_used_cnt(bat_req->bat_cnt,
 				atomic_read(&bat_req->bat_rd_idx),
 				atomic_read(&bat_req->bat_wr_idx));
-	if (buf_used >= alloc_frg_threshold)
+	if (buf_used >= alloc_frg_threshold) {
+		if (update_bat_cnt == 0)
+			return buf_used;
 		return 0;
+	}
 
 	request_cnt = (alloc_frg_threshold - buf_used);
 	buf_space = bat_req->bat_cnt - buf_used - 1;
@@ -651,7 +664,7 @@ static int dpmaif_alloc_bat_frg(int update_bat_cnt, atomic_t *paused)
 		request_cnt = buf_space;
 
 	if (request_cnt == 0)
-		return 0;
+		goto alloc_end;
 
 	bat_wr_idx = atomic_read(&bat_req->bat_wr_idx);
 
@@ -671,7 +684,9 @@ alloc_retry:
 		ret = alloc_bat_page(bat_req->pkt_buf_sz, bat_page, cur_bat);
 		if (unlikely(ret)) {
 			if (update_bat_cnt == 0) {  //from dpmaif start flow
-				if (count > MIN_FRG_ALLOC_CNT)
+				if ((count + get_ringbuf_used_cnt(bat_req->bat_cnt,
+					atomic_read(&bat_req->bat_rd_idx),
+					atomic_read(&bat_req->bat_wr_idx)))> MIN_FRG_ALLOC_CNT)
 					goto alloc_end;
 
 				if ((local_clock() - g_alloc_bat_frg_retry_time) >=
@@ -732,7 +747,12 @@ alloc_end:
 		}
 	}
 
-	return ((ret < 0) ? ret : count);
+	if (update_bat_cnt == 0)
+		return get_ringbuf_used_cnt(bat_req->bat_cnt,
+			atomic_read(&bat_req->bat_rd_idx),
+			atomic_read(&bat_req->bat_wr_idx));
+
+	return count;
 }
 
 static void ccci_dpmaif_bat_free_req(void)
@@ -827,7 +847,9 @@ static int dpmaif_rx_bat_alloc_thread(void *arg)
 			if (atomic_read(&dpmaif_ctl->bat_paused_alloc) == BAT_ALLOC_IS_PAUSED) {
 				atomic_set(&dpmaif_ctl->bat_paused_alloc, BAT_ALLOC_PAUSE_SUCC);
 				atomic_set(&dpmaif_ctl->bat_need_alloc, 0);
-			}
+			} else // bat_paused_alloc == BAT_ALLOC_PAUSE_SUCC
+				atomic_set(&dpmaif_ctl->bat_need_alloc, 0);
+
 			continue;
 		}
 

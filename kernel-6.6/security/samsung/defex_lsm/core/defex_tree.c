@@ -16,6 +16,7 @@
 
 #else
 
+#include <ctype.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
@@ -38,11 +39,12 @@ struct subpath_extract_ctx {
 
 __visible_for_testing void subpath_extract_init(struct subpath_extract_ctx *ctx, const char *path)
 {
-	if (!ctx || !path)
+	if (!ctx)
 		return;
-
-	while (*path == '/')
-		path++;
+	if (path) {
+		while (*path == '/')
+			path++;
+	}
 	ctx->path = path;
 }
 
@@ -339,6 +341,67 @@ struct d_tree_item *d_tree_next_child(struct d_tree_item *parent_item,
 	return NULL;
 }
 
+int d_tree_compare_item_name(struct d_tree_item *item, const char *name, size_t l)
+{
+	const char *subdir_ptr;
+	unsigned int subdir_size;
+	size_t part_size, name_offset = 0, wildcard_offset = 0;
+
+	subdir_ptr = d_tree_get_subpath(item, &subdir_size);
+	if (subdir_ptr && name && l) {
+		if (!(item->features & d_tree_item_wildcard)) {
+			if ((size_t)subdir_size == l && !memcmp(name, subdir_ptr, l))
+				return 1;
+			return 0;
+		}
+		do {
+			part_size = subdir_ptr[wildcard_offset++];
+			if (part_size & 0x80) {
+				part_size &= 0x7F;
+				name_offset += (part_size) ? part_size : l;
+			} else {
+				if ((l - name_offset) < part_size
+				   || (subdir_size - wildcard_offset) < part_size)
+					return 0;
+				if (memcmp(name + name_offset,
+					   subdir_ptr + wildcard_offset, part_size))
+					return 0;
+				name_offset += part_size;
+				wildcard_offset += part_size;
+			}
+			if (name_offset >= l && wildcard_offset >= subdir_size)
+				return 1;
+		} while (wildcard_offset < subdir_size);
+	}
+	return 0;
+}
+
+size_t d_tree_unpack_wildcard(const char *packed_str, size_t packed_size, char *unpacked_str,
+		size_t unpacked_size)
+{
+	size_t part_size, offset = 0;
+
+	while (packed_size) {
+		--packed_size;
+		part_size = *packed_str++;
+		if (part_size & 0x80) {
+			part_size &= 0x7F;
+			if (offset >= (unpacked_size - 4))
+				break;
+			offset += sprintf(unpacked_str + offset, "[*%d]", (int)part_size);
+		} else {
+			if ((offset + part_size) >= unpacked_size)
+				break;
+			memcpy(unpacked_str + offset, packed_str, part_size);
+			offset += part_size;
+			packed_str += part_size;
+			packed_size -= part_size;
+		}
+	}
+	unpacked_str[offset] = 0;
+	return offset;
+}
+
 struct d_tree_item *d_tree_lookup_dir_init(struct d_tree_item *parent_item,
 		struct d_tree_item *child_item)
 {
@@ -360,8 +423,6 @@ struct d_tree_item *d_tree_lookup_dir_init(struct d_tree_item *parent_item,
 unsigned int d_tree_lookup_dir(struct d_tree_ctx *ctx, struct d_tree_item *parent_item,
 		const char *name, size_t l)
 {
-	unsigned int subdir_size;
-	const char *subdir_ptr;
 	struct d_tree_item tmp_item, *child_item;
 	unsigned int offset = 0;
 	unsigned int feature_flags, tmp_item_attr = 0, tmp_item_rec = 0;
@@ -371,8 +432,7 @@ unsigned int d_tree_lookup_dir(struct d_tree_ctx *ctx, struct d_tree_item *paren
 	child_item = d_tree_lookup_dir_init(parent_item, &tmp_item);
 
 	while (child_item) {
-		subdir_ptr = d_tree_get_subpath(child_item, &subdir_size);
-		if (subdir_ptr && (size_t)subdir_size == l && !memcmp(name, subdir_ptr, l)) {
+		if (d_tree_compare_item_name(child_item, name, l)) {
 			feature_flags = child_item->features;
 			if (!(feature_flags & feature_is_file)) {
 				offset = child_item->item_offset;
@@ -510,6 +570,85 @@ __visible_for_testing void move_data_block(void *src_ptr, size_t size, int offse
 	if (size != 0 && offset != 0)
 		memmove(dst_ptr, src_ptr, size);
 }
+
+int d_tree_get_wildcard_offset(const char *src_ptr, size_t l)
+{
+	char c;
+	const char *start_ptr;
+	int digits, wildcard_size, offset = 0;
+
+	if (!l)
+		l = strnlen(src_ptr, PATH_MAX);
+	while ((start_ptr = memchr(src_ptr + offset, '[', l - offset)) != NULL) {
+		offset = (start_ptr - src_ptr);
+		++start_ptr;
+		if (*start_ptr != '*') {
+			++offset;
+			continue;
+		}
+		++start_ptr;
+		digits = 0;
+		wildcard_size = 0;
+		while ((c = *start_ptr) != 0) {
+			if (c == ']')
+				if (digits && wildcard_size < 128)
+					return offset;
+			if (isdigit(c)) {
+				digits++;
+				wildcard_size = wildcard_size * 10 + (c - '0');
+			} else
+				break;
+			++start_ptr;
+		}
+		++offset;
+	}
+	return -1;
+
+}
+
+char *d_tree_pack_wildcard(const char *src_ptr, size_t l)
+{
+	char c;
+	int  offset, out_offset = 0, wildcard_size;
+	size_t part_size, block_size;
+	static char work_str[PATH_MAX];
+
+	while (l) {
+		offset = d_tree_get_wildcard_offset(src_ptr, l);
+		if (!offset) {
+			src_ptr += 2;
+			l -= 2;
+			wildcard_size = 0;
+			while (isdigit(c = *src_ptr)) {
+				src_ptr++;
+				l--;
+				wildcard_size = wildcard_size * 10 + (c - '0');
+			}
+			src_ptr++;
+			l--;
+			if (out_offset >= (PATH_MAX - 2) || wildcard_size > 127)
+				goto do_exit;
+			work_str[out_offset++] = wildcard_size | 0x80;
+		} else {
+			part_size = (offset < 0) ? l : (size_t)offset;
+			while (part_size) {
+				block_size = (part_size > 127) ? 127 : part_size;
+				if ((out_offset + block_size) >= (PATH_MAX - 2))
+					goto do_exit;
+				work_str[out_offset++] = block_size;
+				memcpy(work_str + out_offset, src_ptr, block_size);
+				src_ptr += block_size;
+				out_offset += block_size;
+				l -= block_size;
+				part_size -= block_size;
+			}
+		}
+	}
+do_exit:
+	work_str[out_offset] = 0;
+	return work_str;
+}
+
 
 void init_tree_data(enum d_tree_version version)
 {
@@ -855,11 +994,18 @@ struct d_tree_item *create_tree_item(const char *name, size_t l)
 struct d_tree_item *add_tree_item(struct d_tree_item *base, const char *name, size_t l)
 {
 	struct d_tree_item *item, *new_item = NULL;
+	enum feature_types_20 add_features = 0;
 
 	if (!base)
 		return new_item;
 
+	if (d_tree_get_wildcard_offset(name, l) >= 0) {
+		name = d_tree_pack_wildcard(name, l);
+		l = strnlen(name, PATH_MAX);
+		add_features = d_tree_item_wildcard;
+	}
 	new_item = create_tree_item(name, l);
+	new_item->features |= add_features;
 	if (!base->child_offset) {
 		base->child_offset = new_item->item_index;
 		base->features |= d_tree_item_children;
@@ -883,6 +1029,10 @@ struct d_tree_item *lookup_dir(struct d_tree_item *base, const char *name, size_
 	if (!base || !base->child_offset)
 		return item;
 	item = d_tree_arr[base->child_offset];
+	if (d_tree_get_wildcard_offset(name, l) >= 0) {
+		name = d_tree_pack_wildcard(name, l);
+		l = strnlen(name, PATH_MAX);
+	}
 	do {
 		item_text = d_tree_get_subpath(item, &item_text_size);
 		if ((!(item->features & feature_is_file)
@@ -935,10 +1085,10 @@ struct d_tree_item *add_tree_path(const char *file_path, unsigned int for_recove
 void d_tree_add_link(struct d_tree_item *item, unsigned short offset, unsigned int feature)
 {
 	unsigned short *old_link_array = NULL, *new_link_array;
-	unsigned int i, link_size = 0;
+	unsigned int i, link_size = 0, is_exist = 0;
 
 	feature &= (feature_immutable_src_exception | feature_immutable_dst_exception
-		| feature_immutable_root);
+		| feature_immutable_root | feature_immutable_root_v2);
 	old_link_array = (unsigned short *)d_tree_get_table_data(d_tree_bin_table, &rules_tree,
 		item->link_index, &link_size);
 	new_link_array = malloc(link_size + 16);
@@ -947,9 +1097,14 @@ void d_tree_add_link(struct d_tree_item *item, unsigned short offset, unsigned i
 	if (old_link_array) {
 		for (i = 0; i < (link_size >> 1); i++)
 			if (old_link_array[i] == offset) {
+				is_exist = 1;
 				free(new_link_array);
-				return;
+				break;
 			}
+		if (is_exist == 1) {
+			item->linked_features |= feature;
+			return;
+		}
 		memcpy(new_link_array, old_link_array, link_size);
 	}
 	new_link_array[link_size >> 1] = offset;

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -102,7 +102,7 @@ scanP2pProcessBeaconAndProbeResp(struct ADAPTER *prAdapter,
 		struct BSS_INFO *prP2pBssInfo =
 			(struct BSS_INFO *) NULL;
 
-		for (u4Idx = 0; u4Idx < prAdapter->ucSwBssIdNum; u4Idx++) {
+		for (u4Idx = 0; u4Idx < prAdapter->ucHwBssIdNum; u4Idx++) {
 			/* Check BSS for P2P. */
 			/* Check BSSID. */
 			prP2pBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
@@ -219,44 +219,31 @@ void scnEventReturnChannel(struct ADAPTER *prAdapter,
 			    (uint8_t *)&rCmdScanCancel, NULL, 0);
 }				/* scnEventReturnChannel */
 
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-static u_int8_t scanP2pNeedTriggerMlScan(struct ADAPTER *prAdapter,
-	struct BSS_DESC_SET *prBssDescSet,
-	struct BSS_DESC *prBssDesc)
+void scanRemoveAllP2pBssDesc(struct ADAPTER *prAdapter)
 {
-	u_int8_t fgIsMlEnable =
-		mldIsMultiLinkEnabled(prAdapter, NETWORK_TYPE_P2P, FALSE);
+	struct LINK *prBSSDescList;
+	struct BSS_DESC *prBssDesc;
+	struct BSS_DESC *prBSSDescNext;
 
-	/* mlo NOT enabled or peer is non-mlo */
-	if (!fgIsMlEnable ||
-	    prBssDesc->rMlInfo.fgMldType == MLD_TYPE_ICV_METHOD_V1 ||
-	    prBssDesc->rMlInfo.fgValid == FALSE ||
-	    prBssDesc->rMlInfo.ucMaxSimuLinks <= 1) {
-		DBGLOG(P2P, TRACE,
-		       "[ML] do not trigger ML scan enable=%u, type=%u, valid=%u, maxSimuLinks=%u\n",
-		       fgIsMlEnable,
-		       prBssDesc->rMlInfo.fgMldType,
-		       prBssDesc->rMlInfo.fgValid,
-		       prBssDesc->rMlInfo.ucMaxSimuLinks);
-		return FALSE;
+	ASSERT(prAdapter);
+
+	prBSSDescList = &(prAdapter->rWifiVar.rScanInfo.rBSSDescList);
+
+	/* Search BSS Desc from current SCAN result list. */
+	LINK_FOR_EACH_ENTRY_SAFE(prBssDesc, prBSSDescNext, prBSSDescList,
+		rLinkEntry, struct BSS_DESC) {
+		scanRemoveP2pBssDesc(prAdapter, prBssDesc);
 	}
+}				/* scanRemoveAllP2pBssDesc */
 
-	/*
-	 * peer is mld with multi links and
-	 * peer's multi links scanned including main link
-	 */
-	if (prBssDescSet->ucLinkNum > 1 &&
-	    prBssDesc->rMlInfo.ucLinkId == 0)
-		return FALSE;
-
-	return TRUE;
-}
-#endif
+void scanRemoveP2pBssDesc(struct ADAPTER *prAdapter,
+		struct BSS_DESC *prBssDesc)
+{
+}				/* scanRemoveP2pBssDesc */
 
 struct BSS_DESC *scanP2pSearchDesc(struct ADAPTER *prAdapter,
-		struct BSS_INFO *prBssInfo,
 		struct P2P_CONNECTION_REQ_INFO *prConnReqInfo,
-		struct P2P_JOIN_INFO *prJoinInfo)
+		struct BSS_DESC_SET *prBssDescSet)
 {
 	struct BSS_DESC *prCandidateBssDesc = (struct BSS_DESC *) NULL,
 		*prBssDesc = (struct BSS_DESC *) NULL;
@@ -337,9 +324,7 @@ struct BSS_DESC *scanP2pSearchDesc(struct ADAPTER *prAdapter,
 
 	} while (FALSE);
 
-	if (prJoinInfo) {
-		struct BSS_DESC_SET *prBssDescSet = &prJoinInfo->rBssDescSet;
-
+	if (prBssDescSet) {
 		if (prCandidateBssDesc) {
 			/* setup primary link */
 			prBssDescSet->ucLinkNum = 1;
@@ -347,20 +332,10 @@ struct BSS_DESC *scanP2pSearchDesc(struct ADAPTER *prAdapter,
 			prBssDescSet->prMainBssDesc = prCandidateBssDesc;
 
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
-			p2pScanFillSecondaryLink(prAdapter, prBssInfo,
-						 prBssDescSet);
+			p2pScanFillSecondaryLink(prAdapter, prBssDescSet);
 			if (prBssDescSet->ucLinkNum > 1)
 				prCandidateBssDesc =
 					prBssDescSet->prMainBssDesc;
-
-			if (scanP2pNeedTriggerMlScan(prAdapter,
-						     prBssDescSet,
-						     prCandidateBssDesc)) {
-				DBGLOG(P2P, INFO, "Enable ML probe\n");
-				prCandidateBssDesc = NULL;
-				kalMemZero(prBssDescSet, sizeof(*prBssDescSet));
-				prJoinInfo->fgNeedMlScan = TRUE;
-			}
 #endif
 		} else {
 			prBssDescSet->ucLinkNum = 0;

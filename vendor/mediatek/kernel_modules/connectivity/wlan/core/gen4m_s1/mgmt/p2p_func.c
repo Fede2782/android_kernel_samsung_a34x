@@ -7936,7 +7936,6 @@ p2pFunNotifyChnlSwitch(IN struct ADAPTER *prAdapter,
 				if (!timerPendingTimer(prTimer)) {
 					cnmTimerInitTimer(prAdapter,
 						prTimer,
-						(PFN_MGMT_TIMEOUT_FUNC)
 						p2pRoleFsmDeauthTimeout,
 						(unsigned long) prCurrStaRec);
 					cnmTimerStartTimer(prAdapter,

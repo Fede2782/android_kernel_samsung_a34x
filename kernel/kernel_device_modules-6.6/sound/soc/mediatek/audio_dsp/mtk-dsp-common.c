@@ -57,6 +57,8 @@ static char *dsp_task_name[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_DATAPROVIDER_ID] = "dataprovider",
 	[AUDIO_TASK_CALL_FINAL_ID]   = "call_final",
 	[AUDIO_TASK_FAST_ID]         = "fast",
+	[AUDIO_TASK_FAST_MEDIA_ID]   = "fast_media",
+	[AUDIO_TASK_SEPARATE_ID]     = "separate",
 	[AUDIO_TASK_KTV_ID]          = "ktv",
 	[AUDIO_TASK_FM_ADSP_ID]      = "fm",
 	[AUDIO_TASK_UL_PROCESS_ID]   = "ulproc",
@@ -67,6 +69,7 @@ static char *dsp_task_name[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_MDDL_ID]         = "mddl",
 	[AUDIO_TASK_MDUL_ID]         = "mdul",
 	[AUDIO_TASK_SPATIALIZER_ID]  = "spatializer",
+	[AUDIO_TASK_DIRECT_ID]       = "direct",
 	[AUDIO_TASK_DYNAMIC_ID]      = "dynamic",
 	[AUDIO_TASK_CALLDL_ID]       = "calldl",
 	[AUDIO_TASK_CALLUL_ID]       = "callul",
@@ -124,6 +127,8 @@ static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_DATAPROVIDER_ID] = TASK_SCENE_DATAPROVIDER,
 	[AUDIO_TASK_CALL_FINAL_ID]  = TASK_SCENE_CALL_FINAL,
 	[AUDIO_TASK_FAST_ID]        = TASK_SCENE_FAST,
+	[AUDIO_TASK_FAST_MEDIA_ID]  = TASK_SCENE_FAST_MEDIA,
+	[AUDIO_TASK_SEPARATE_ID]    = TASK_SCENE_SEPARATE,
 	[AUDIO_TASK_KTV_ID]         = TASK_SCENE_KTV,
 	[AUDIO_TASK_FM_ADSP_ID]     = TASK_SCENE_FM_ADSP,
 	[AUDIO_TASK_UL_PROCESS_ID]  = TASK_SCENE_UL_PROCESS,
@@ -134,6 +139,7 @@ static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_MDDL_ID]        = TASK_SCENE_MD_DL,
 	[AUDIO_TASK_MDUL_ID]        = TASK_SCENE_MD_UL,
 	[AUDIO_TASK_SPATIALIZER_ID] = TASK_SCENE_SPATIALIZER,
+	[AUDIO_TASK_DIRECT_ID]      = TASK_SCENE_DIRECT,
 	[AUDIO_TASK_DYNAMIC_ID]     = TASK_SCENE_DYNAMIC,
 	[AUDIO_TASK_CALLDL_ID]      = TASK_SCENE_PHONE_CALL_SUB,
 	[AUDIO_TASK_CALLUL_ID]      = TASK_SCENE_PHONE_CALL,
@@ -631,11 +637,13 @@ int mtk_dsp_register_feature(int id)
 {
 	return adsp_register_feature(id);
 }
+EXPORT_SYMBOL(mtk_dsp_register_feature);
 
 int mtk_dsp_deregister_feature(int id)
 {
 	return adsp_deregister_feature(id);
 }
+EXPORT_SYMBOL(mtk_dsp_deregister_feature);
 
 int wait_dsp_ready(void)
 {

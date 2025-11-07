@@ -4664,10 +4664,10 @@ static int mtk_dai_i2s_config(struct mtk_base_afe *afe,
 	int ret = 0;
 	int pad_top = 0;
 
-	dev_info(afe->dev, "%s(), id %d, rate %d, format %d\n",
+	dev_info(afe->dev, "%s(), id %d, rate %d, format %d, ch %d\n",
 		 __func__,
 		 i2s_id,
-		 rate, format);
+		 rate, format, i2s_priv->ch_num);
 
 	if (id < 0 || id >= DAI_I2S_NUM) {
 		dev_warn(afe->dev, "%s(), i2s id is invalid", __func__);
@@ -5414,7 +5414,7 @@ static int etdm_parse_dt(struct mtk_base_afe *afe)
 
 	for (i = 0; i < I2S_IN_NUM; i++) {
 		i2s_priv = afe_priv->dai_priv[MT6991_DAI_I2S_IN0 + i];
-		dev_dbg(afe->dev, "%s() I2SIN%d (%d), ch_num=%d sync=%d ip_mode=%d slave_mode=%d format=%d\n", __func__,
+		dev_info(afe->dev, "%s() I2SIN%d (%d), ch_num=%d sync=%d ip_mode=%d slave_mode=%d format=%d\n", __func__,
 				i,
 				MT6991_DAI_I2S_IN0 + i,
 				i2s_priv->ch_num,
@@ -5425,7 +5425,7 @@ static int etdm_parse_dt(struct mtk_base_afe *afe)
 	}
 	for (i = 0; i < I2S_OUT_NUM; i++) {
 		i2s_priv = afe_priv->dai_priv[MT6991_DAI_I2S_OUT0 + i];
-		dev_dbg(afe->dev, "%s() I2SOUT%d (%d), ch_num=%d sync=%d slave_mode=%d format=%d\n", __func__,
+		dev_info(afe->dev, "%s() I2SOUT%d (%d), ch_num=%d sync=%d slave_mode=%d format=%d\n", __func__,
 				i,
 				MT6991_DAI_I2S_OUT0 + i,
 				i2s_priv->ch_num,

@@ -935,6 +935,7 @@ nanDataAllocateNdp(struct ADAPTER *prAdapter,
 	prNDP->fgSecurityRequired = fgSecurityRequired;
 	nanDataUpdateNdpLocalNDI(prAdapter, prNDP);
 	prNDP->fgNDPActive = FALSE;
+	prNDP->eDataPathFailReason = 0;
 	prNDP->ucTxRetryCounter = 0;
 	prNDP->ucNDPSetupStatus = NAN_ATTR_NDP_STATUS_CONTINUED;
 	prNDP->ucReasonCode = NAN_REASON_CODE_RESERVED;
@@ -975,7 +976,7 @@ nanDataAllocateNdp(struct ADAPTER *prAdapter,
 	 */
 
 	cnmTimerInitTimer(prAdapter, &(prNDP->rNDPUserSpaceResponseTimer),
-			  (PFN_MGMT_TIMEOUT_FUNC)nanDataResponseTimeout,
+			  nanDataResponseTimeout,
 			  (uintptr_t)prNDP);
 
 	if (prNDL->ucNDPNum < UINT8_MAX)
@@ -1192,15 +1193,15 @@ nanDataAllocateNdl(struct ADAPTER *prAdapter, uint8_t *pucMacAddr,
 
 	/* timer initialization sequence */
 	cnmTimerInitTimer(prAdapter, &(prNDL->rNDPProtocolExpireTimer),
-			  (PFN_MGMT_TIMEOUT_FUNC)nanDataProtocolTimeout,
+			  nanDataProtocolTimeout,
 			  (uintptr_t)prNDL);
 
 	cnmTimerInitTimer(prAdapter, &(prNDL->rNDPProtocolRetryTimer),
-			  (PFN_MGMT_TIMEOUT_FUNC)nanDataRetryTimeout,
+			  nanDataRetryTimeout,
 			  (uintptr_t)prNDL);
 
 	cnmTimerInitTimer(prAdapter, &(prNDL->rNDPSecurityExpireTimer),
-			  (PFN_MGMT_TIMEOUT_FUNC)nanDataSecurityTimeout,
+			  nanDataSecurityTimeout,
 			  (uintptr_t)prNDL);
 
 	LINK_INITIALIZE(&(prNDL->rPendingReqList));

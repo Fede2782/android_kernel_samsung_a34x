@@ -1,6 +1,6 @@
 config GAF
 	bool "Use GAF structure"
-	default y if PROCA || FIVE
+	default y if PROCA=y || FIVE=y
 	default n
 	help
 	  Enable GAF structure

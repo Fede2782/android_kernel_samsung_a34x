@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -85,7 +85,7 @@ wlanoidSetAddP2PKey(struct ADAPTER *prAdapter,
 	struct BSS_INFO *prBssInfo = (struct BSS_INFO *) NULL;
 	struct STA_RECORD *prStaRec = (struct STA_RECORD *) NULL;
 
-	DBGLOG(REQ, DEBUG, "\n");
+	DBGLOG(REQ, INFO, "\n");
 
 	ASSERT(prAdapter);
 	ASSERT(pvSetBuffer);
@@ -528,7 +528,7 @@ wlanoidQueryP2pPowerSaveProfile(struct ADAPTER *prAdapter,
 		/* TODO: FIXME */
 		/* *(enum PARAM_POWER_MODE *) pvQueryBuffer =
 		 * (enum PARAM_POWER_MODE)
-		 *(prWlanInfo->
+		 *(prAdapter->rWlanInfo.
 		 *	arPowerSaveMode[prAdapter->ucP2PDevBssIdx].ucPsProfile);
 		 */
 		/* *pu4QueryInfoLen = sizeof(PARAM_POWER_MODE); */
@@ -636,7 +636,7 @@ wlanoidSetP2pSetNetworkAddress(struct ADAPTER *prAdapter,
 	uint8_t *pucBuf = NULL;
 
 	DBGLOG(INIT, TRACE, "\n");
-	DBGLOG(INIT, DEBUG, "%s (%d)\n", __func__,
+	DBGLOG(INIT, INFO, "wlanoidSetP2pSetNetworkAddress (%d)\n",
 		(int16_t) u4SetBufferLen);
 
 	ASSERT(prAdapter);
@@ -689,7 +689,7 @@ wlanoidSetP2pSetNetworkAddress(struct ADAPTER *prAdapter,
 		prNWAddress =
 			(struct PARAM_NETWORK_ADDRESS *)(prNWAddrList + 1);
 
-		DBGLOG(INIT, DEBUG, "u4IpAddressCount (%u)\n",
+		DBGLOG(INIT, INFO, "u4IpAddressCount (%u)\n",
 			(int32_t) u4IpAddressCount);
 
 		for (i = 0, j = 0; i < prNWAddrList->u4AddressCount; i++) {
@@ -711,7 +711,7 @@ wlanoidSetP2pSetNetworkAddress(struct ADAPTER *prAdapter,
 				j++;
 
 				pucBuf = (uint8_t *) &prNetAddrIp->in_addr;
-				DBGLOG(INIT, DEBUG,
+				DBGLOG(INIT, INFO,
 						"prNetAddrIp->in_addr:%d:%d:%d:%d\n",
 						(uint8_t) pucBuf[0],
 						(uint8_t) pucBuf[1],
@@ -745,6 +745,92 @@ wlanoidSetP2pSetNetworkAddress(struct ADAPTER *prAdapter,
 	kalMemFree(prCmdNWAddrList, VIR_MEM_TYPE, u4CmdSize);
 	return rStatus;
 }				/* end of wlanoidSetP2pSetNetworkAddress() */
+
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief This routine is called to set Multicast Address List.
+ *
+ * \param[in] prAdapter      Pointer to the Adapter structure.
+ * \param[in] pvSetBuffer    Pointer to the buffer
+ *                                     that holds the data to be set.
+ * \param[in] u4SetBufferLen The length of the set buffer.
+ * \param[out] pu4SetInfoLen If the call is successful, returns the number of
+ *                           bytes read from the set buffer. If the call failed
+ *                           due to invalid length of the set buffer, returns
+ *                           the amount of storage needed.
+ *
+ * \retval WLAN_STATUS_SUCCESS
+ * \retval WLAN_STATUS_INVALID_LENGTH
+ * \retval WLAN_STATUS_ADAPTER_NOT_READY
+ * \retval WLAN_STATUS_MULTICAST_FULL
+ */
+/*----------------------------------------------------------------------------*/
+uint32_t
+wlanoidSetP2PMulticastList(struct ADAPTER *prAdapter,
+		void *pvSetBuffer,
+		uint32_t u4SetBufferLen,
+		uint32_t *pu4SetInfoLen)
+{
+	struct CMD_MAC_MCAST_ADDR rCmdMacMcastAddr = {0};
+
+	ASSERT(prAdapter);
+	ASSERT(pu4SetInfoLen);
+
+	/* The data must be a multiple of the Ethernet address size. */
+	if ((u4SetBufferLen % MAC_ADDR_LEN)) {
+		DBGLOG(REQ, WARN, "Invalid MC list length %u\n",
+			u4SetBufferLen);
+
+		*pu4SetInfoLen =
+			(((u4SetBufferLen + MAC_ADDR_LEN) - 1)
+			/ MAC_ADDR_LEN) * MAC_ADDR_LEN;
+
+		return WLAN_STATUS_INVALID_LENGTH;
+	}
+
+	*pu4SetInfoLen = u4SetBufferLen;
+
+	/* Verify if we can support so many multicast addresses. */
+	if (u4SetBufferLen > MAX_NUM_GROUP_ADDR * MAC_ADDR_LEN) {
+		DBGLOG(REQ, WARN, "Too many MC addresses\n");
+
+		return WLAN_STATUS_MULTICAST_FULL;
+	}
+
+	/* NOTE(Kevin): Windows may set u4SetBufferLen == 0 &&
+	 * pvSetBuffer == NULL to clear exist Multicast List.
+	 */
+	if (u4SetBufferLen)
+		ASSERT(pvSetBuffer);
+
+	if (prAdapter->rAcpiState == ACPI_STATE_D3) {
+		DBGLOG(REQ, WARN,
+			"Fail in set multicast list! (Adapter not ready). ACPI=D%d, Radio=%d\n",
+			prAdapter->rAcpiState, prAdapter->fgIsRadioOff);
+		return WLAN_STATUS_ADAPTER_NOT_READY;
+	}
+
+	rCmdMacMcastAddr.u4NumOfGroupAddr = u4SetBufferLen / MAC_ADDR_LEN;
+	/* TODO: */
+	rCmdMacMcastAddr.ucBssIndex = prAdapter->ucP2PDevBssIdx;
+	kalMemCopy(rCmdMacMcastAddr.arAddress, pvSetBuffer, u4SetBufferLen);
+
+	return wlanSendSetQueryCmd(prAdapter,
+				CMD_ID_MAC_MCAST_ADDR,
+				/* TODO: */
+				/* This CMD response is no need
+				 * to complete the OID.
+				 * Or the event would unsync.
+				 */
+				TRUE, FALSE, FALSE,
+				nicCmdEventSetCommon,
+				nicOidCmdTimeoutCommon,
+				sizeof(struct CMD_MAC_MCAST_ADDR),
+				(uint8_t *) &rCmdMacMcastAddr,
+				pvSetBuffer,
+				u4SetBufferLen);
+
+}				/* end of wlanoidSetP2PMulticastList() */
 
 /*----------------------------------------------------------------------------*/
 /*!

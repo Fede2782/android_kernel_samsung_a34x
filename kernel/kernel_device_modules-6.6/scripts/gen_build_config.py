@@ -130,7 +130,7 @@ def main(**args):
     file_text.append("USERLDFLAGS=\"${LLD_COMPILER_RT} \"")
     file_text.append("USERLDFLAGS+=\"--target=${NDK_TRIPLE} \"")
     file_text.append("export USERCFLAGS USERLDFLAGS")
-    file_text.append("sysroot_flags+=\"--sysroot=${ROOT_DIR}/build/kernel/build-tools/sysroot\"")
+    file_text.append("sysroot_flags=\"--sysroot=${ROOT_DIR}/build/kernel/build-tools/sysroot\"")
     file_text.append("export HOSTCFLAGS=\"${sysroot_flags} -I${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/include\"")
     file_text.append("export HOSTLDFLAGS=\"${sysroot_flags} ${LLD_COMPILER_RT} -L ${ROOT_DIR}/prebuilts/kernel-build-tools/linux-x86/lib64\"")
 
@@ -145,6 +145,10 @@ def main(**args):
         for name in kernel_defconfig_overlays.split():
             kernel_defconfig_overlays_files = '%s ${ROOT_DIR}/%s/kernel/configs/%s' % (kernel_defconfig_overlays_files, kernel_dir, name)
         all_defconfig = '${ROOT_DIR}/%s/%s/%s %s' % (kernel_dir, defconfig_dir, project_defconfig_name, kernel_defconfig_overlays_files)
+
+    sec_ogki_out_cmds = "SEC_OGKI_OUT_CMDS=\'mkdir -p ${OUT_DIR}/OGKI'"
+    file_text.append(sec_ogki_out_cmds)
+
     all_defconfig = '%s ${ROOT_DIR}/%s/kernel/configs/sign.config' % (all_defconfig, kernel_dir)
     if mode_config:
         all_defconfig = '%s ${ROOT_DIR}/%s/kernel/configs/%s' % (all_defconfig, kernel_dir, mode_config)

@@ -1134,9 +1134,8 @@ int cm_mgr_check_dts_setting(struct platform_device *pdev)
 				cm_mgr_cpu_opp_to_dram, cm_mgr_cpu_opp_size);
 	}
 
-	for (i = 0; i < opp_count; i++) {
+	for (i = 0; i < opp_count; i++)
 		pr_info("#@# %s(%d) cm_mgr_cpu_opp_to_dram %d  %d\n",__func__, __LINE__, i, cm_mgr_cpu_opp_to_dram[i]);
-	}
 
 	ret = of_property_read_string(node,
 			"status", (const char **)&buf);
@@ -1167,6 +1166,7 @@ int cm_mgr_check_dts_setting(struct platform_device *pdev)
 			cm_mgr_use_cpu_to_dram_map = 1;
 		else
 			cm_mgr_use_cpu_to_dram_map = 0;
+		cm_mgr_cpu_map_dram_enable = cm_mgr_use_cpu_to_dram_map;
 	}
 	pr_info("#@# %s(%d) cm_mgr_use_cpu_to_dram_map %d\n",
 			__func__, __LINE__, cm_mgr_use_cpu_to_dram_map);

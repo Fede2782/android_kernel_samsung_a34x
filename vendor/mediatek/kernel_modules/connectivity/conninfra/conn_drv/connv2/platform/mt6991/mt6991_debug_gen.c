@@ -500,24 +500,19 @@ void consys_print_power_debug_dbg_level_0_mt6991_debug_gen(
 		CONSYS_REG_READ(vir_addr_0x1c011000_mt6991 + 0x72c));
 
 	/* A63 */
-	update_debug_read_info_mt6991_debug_gen(pdbg_level_0_info,
-		"A63", 0x40001000 + 0x10,
-		CONSYS_REG_READ(vir_addr_0x40001000_mt6991 + 0x10));
-
-	/* A64 */
 	regmap_read(g_regmap_mt6363, 0x1bd1, &val);
 	update_debug_read_info_mt6991_debug_gen(pdbg_level_0_info,
-		"A64", 0x1bd1, val);
+		"A63", 0x1bd1, val);
 
-	/* A65 */
+	/* A64 */
 	regmap_read(g_regmap_mt6363, 0x190, &val);
 	update_debug_read_info_mt6991_debug_gen(pdbg_level_0_info,
-		"A65", 0x190, val);
+		"A64", 0x190, val);
 
-	/* A66 */
+	/* A65 */
 	regmap_read(g_regmap_mt6363, 0x191, &val);
 	update_debug_read_info_mt6991_debug_gen(pdbg_level_0_info,
-		"A66", 0x191, val);
+		"A65", 0x191, val);
 }
 
 void consys_print_power_debug_dbg_level_1_mt6991_debug_gen(
@@ -864,6 +859,12 @@ void consys_print_power_debug_dbg_level_2_mt6991_debug_gen(
 		"C27", 0x40042000 + CONSYS_DBG_GEN_SPI_CRTL_OFFSET_ADDR,
 		CONSYS_REG_READ(CONN_RF_SPI_MST_REG_BASE +
 			CONSYS_DBG_GEN_SPI_CRTL_OFFSET_ADDR));
+
+	/* C28 */
+	update_debug_read_info_mt6991_debug_gen(pdbg_level_2_info,
+		"C28", 0x40001000 + 0x10,
+		CONSYS_REG_READ(vir_addr_0x40001000_mt6991 + 0x10));
+
 }
 
 void consys_print_bus_debug_dbg_level_1_mt6991_debug_gen(

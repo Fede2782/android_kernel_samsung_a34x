@@ -336,4 +336,11 @@ config MTK_CHGLOG_SUPPORT
 	  If you say yes here you will get support for
 	  the MTK Charger LOG.
 
+config BATTERY_SAMSUNG_MTK
+	bool "MTK Charger support SAMSUNG BATTERY"
+	default n
+	help
+	  If you say yes here you will get support for
+	  the MTK Charger support SAMSUNG BATTERY.
+
 source "$(KCONFIG_EXT_PREFIX)drivers/power/supply/ufcs/Kconfig"

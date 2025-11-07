@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -35,74 +35,45 @@
  *                           P R I V A T E   D A T A
  *******************************************************************************
  */
+static struct CSI_INFO_T rCSIInfo;
+static uint8_t aucCSIBuf[CSI_MAX_BUFFER_SIZE];
 
 /*******************************************************************************
  *                              F U N C T I O N S
  *******************************************************************************
  */
-
-uint8_t glCsiGetBandIdx(struct GLUE_INFO *prGlueInfo)
+struct CSI_INFO_T *glCsiGetCSIInfo(void)
 {
-	if (!prGlueInfo)
-		return 0;
-
-	return prGlueInfo->ucCSIBandIdx;
+	return &rCSIInfo;
 }
 
-void glCsiSetBandIdx(struct GLUE_INFO *prGlueInfo, uint8_t ucBandIdx)
+uint8_t *glCsiGetCSIBuf(void)
 {
-	if (!prGlueInfo)
-		return;
-
-	prGlueInfo->ucCSIBandIdx = ucBandIdx;
+	return aucCSIBuf;
 }
 
-struct CSI_INFO_T *glCsiGetCSIInfo(struct GLUE_INFO *prGlueInfo)
+struct CSI_DATA_T *glCsiGetCSIData(void)
 {
-	if (!prGlueInfo)
-		return NULL;
-
-	return &prGlueInfo->rCSIInfo;
-}
-
-uint8_t *glCsiGetCSIBuf(struct GLUE_INFO *prGlueInfo)
-{
-	if (!prGlueInfo)
-		return NULL;
-
-	return prGlueInfo->aucCSIBuf;
-}
-
-struct CSI_DATA_T *glCsiGetCSIData(struct GLUE_INFO *prGlueInfo)
-{
-	if (!prGlueInfo)
-		return NULL;
-
-	return prGlueInfo->rCSIInfo.prCSIData;
+	return rCSIInfo.prCSIData;
 }
 
 void glCsiSupportInit(struct GLUE_INFO *prGlueInfo)
 {
-	if (!prGlueInfo) {
-		DBGLOG(REQ, ERROR, "prGlueInfo Empty.\n");
-		return;
-	}
-
-	kalMemZero(&prGlueInfo->rCSIInfo, sizeof(prGlueInfo->rCSIInfo));
+	kalMemZero(&rCSIInfo, sizeof(rCSIInfo));
 
 	/* init CSI wait queue	*/
 	init_waitqueue_head(&(prGlueInfo->waitq_csi));
-	LINK_INITIALIZE(&(prGlueInfo->rCSIInfo.rStaList));
-	prGlueInfo->rCSIInfo.eCSIOutput = CSI_OUTPUT_PROC_FILE;
+	LINK_INITIALIZE(&(rCSIInfo.rStaList));
+	rCSIInfo.eCSIOutput = CSI_OUTPUT_PROC_FILE;
 }
 
 void glCsiSupportDeinit(struct GLUE_INFO *prGlueInfo)
 {
-	struct CSI_INFO_T *prCSIInfo = glCsiGetCSIInfo(prGlueInfo);
+	struct CSI_INFO_T *prCSIInfo = glCsiGetCSIInfo();
 
 	glCsiFreeStaList(prGlueInfo);
 
-	if (prCSIInfo && prCSIInfo->prCSIData) {
+	if (prCSIInfo->prCSIData) {
 		kalMemFree(prCSIInfo->prCSIData,
 			   VIR_MEM_TYPE,
 			   sizeof(struct CSI_DATA_T));
@@ -147,17 +118,12 @@ void glCsiSetEnable(struct GLUE_INFO *prGlueInfo,
 int32_t glCsiAddSta(struct GLUE_INFO *prGlueInfo,
 			struct CMD_CSI_CONTROL_T *prCSICtrl)
 {
-	struct CSI_INFO_T *prCSIInfo = glCsiGetCSIInfo(prGlueInfo);
+	struct CSI_INFO_T *prCSIInfo = &rCSIInfo;
 	struct CSI_STA *prCSISta = NULL;
-
-	if (!prCSIInfo) {
-		DBGLOG(REQ, ERROR, "CSI data Empty.\n");
-		return -1;
-	}
 
 	/* list full */
 	if (prCSIInfo->ucStaCount >= CSI_MAX_STA_MAC_NUM) {
-		DBGLOG(REQ, DEBUG,
+		DBGLOG(REQ, INFO,
 			"[CSI] List is full! Current number=%d\n",
 			prCSIInfo->ucStaCount);
 		return -1;
@@ -169,7 +135,7 @@ int32_t glCsiAddSta(struct GLUE_INFO *prGlueInfo,
 		rLinkEntry, struct CSI_STA) {
 		if (EQUAL_MAC_ADDR(prCSISta->aucMacAddress,
 				prCSICtrl->aucMacAddr)) {
-			DBGLOG(REQ, DEBUG,
+			DBGLOG(REQ, INFO,
 				"[CSI] Sta mac (" MACSTR
 				") is already in csi sta list",
 				MAC2STR(prCSISta->aucMacAddress));
@@ -195,7 +161,7 @@ int32_t glCsiAddSta(struct GLUE_INFO *prGlueInfo,
 	LINK_INSERT_HEAD(&prCSIInfo->rStaList, &prCSISta->rLinkEntry);
 	KAL_RELEASE_MUTEX(prGlueInfo->prAdapter, MUTEX_CSI_STA_LIST);
 
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 		"[CSI] Add sta mac (" MACSTR ") to CSI List.\n",
 		MAC2STR(prCSISta->aucMacAddress));
 	prCSIInfo->ucStaCount++;
@@ -206,14 +172,9 @@ int32_t glCsiAddSta(struct GLUE_INFO *prGlueInfo,
 int32_t glCsiDelSta(struct GLUE_INFO *prGlueInfo,
 			struct CMD_CSI_CONTROL_T *prCSICtrl)
 {
-	struct CSI_INFO_T *prCSIInfo = glCsiGetCSIInfo(prGlueInfo);
+	struct CSI_INFO_T *prCSIInfo = &rCSIInfo;
 	struct CSI_STA *prCSISta = NULL;
 	uint8_t fgIsFound;
-
-	if (!prCSIInfo) {
-		DBGLOG(REQ, ERROR, "CSI data Empty.\n");
-		return -1;
-	}
 
 	/* list empty */
 	if (prCSIInfo->ucStaCount == 0) {
@@ -230,7 +191,7 @@ int32_t glCsiDelSta(struct GLUE_INFO *prGlueInfo,
 		rLinkEntry, struct CSI_STA) {
 		if (EQUAL_MAC_ADDR(prCSISta->aucMacAddress,
 				prCSICtrl->aucMacAddr)) {
-			DBGLOG(REQ, DEBUG,
+			DBGLOG(REQ, INFO,
 				"[CSI] Del sta mac (" MACSTR ") to CSI List.\n",
 				MAC2STR(prCSISta->aucMacAddress));
 			fgIsFound = TRUE;
@@ -247,7 +208,7 @@ int32_t glCsiDelSta(struct GLUE_INFO *prGlueInfo,
 
 	/* not find */
 	if (!fgIsFound) {
-		DBGLOG(REQ, DEBUG,
+		DBGLOG(REQ, INFO,
 			"[CSI] Sta mac (" MACSTR
 			") is not found in CSI list.\n",
 			MAC2STR(prCSISta->aucMacAddress));
@@ -260,13 +221,13 @@ int32_t glCsiDelSta(struct GLUE_INFO *prGlueInfo,
 void glCsiFreeStaList(struct GLUE_INFO *prGlueInfo)
 {
 	struct CSI_STA *prCSISta = NULL;
-	struct CSI_INFO_T *prCSIInfo = glCsiGetCSIInfo(prGlueInfo);
+	struct CSI_INFO_T *prCSIInfo = &rCSIInfo;
 
 	KAL_ACQUIRE_MUTEX(prGlueInfo->prAdapter, MUTEX_CSI_STA_LIST);
 	while (!LINK_IS_EMPTY(&prCSIInfo->rStaList)) {
 		LINK_REMOVE_HEAD(&prCSIInfo->rStaList,
 			prCSISta, struct CSI_STA *);
-		DBGLOG(INIT, DEBUG, "[CSI] Remove sta mac (" MACSTR ")\n",
+		DBGLOG(INIT, INFO, "[CSI] Remove sta mac (" MACSTR ")\n",
 			MAC2STR(prCSISta->aucMacAddress));
 		kalMemFree(prCSISta, VIR_MEM_TYPE,
 			sizeof(struct CSI_STA));
@@ -285,7 +246,7 @@ void nicEventCSIData(struct ADAPTER *prAdapter,
 	uint32_t *p32tmp = NULL;
 	struct CSI_DATA_T *prCSIData = NULL;
 	struct CSI_DATA_T *prCSIBuffer;
-	struct CSI_INFO_T *prCSIInfo = NULL;
+	struct CSI_INFO_T *prCSIInfo = &rCSIInfo;
 	/* u2Offset is 8 bytes currently, tag 4 bytes + length 4 bytes */
 	uint16_t u2Offset = OFFSET_OF(struct CSI_TLV_ELEMENT, aucbody);
 	uint32_t u4Tmp = 0;
@@ -295,18 +256,18 @@ void nicEventCSIData(struct ADAPTER *prAdapter,
 
 #define CSI_EVENT_MAX_SIZE 2500
 
-	if (!prAdapter || !prAdapter->prGlueInfo)
+	if (!prAdapter)
 		return;
 
 	i4EventLen = prEvent->u2PacketLength -
 			sizeof(struct WIFI_EVENT);
-	if (i4EventLen > CSI_EVENT_MAX_SIZE
-		|| i4EventLen < sizeof(struct CSI_TLV_ELEMENT)) {
+	if (i4EventLen > CSI_EVENT_MAX_SIZE ||
+	    i4EventLen < sizeof(struct CSI_TLV_ELEMENT) ||
+	    i4EventLen < (u2Offset + sizeof(uint32_t))) {
 		DBGLOG(NIC, WARN, "[CSI] Invalid CSI event size %u\n",
 			i4EventLen);
 		return;
 	}
-	prCSIInfo = glCsiGetCSIInfo(prAdapter->prGlueInfo);
 	prCSIData = (struct CSI_DATA_T *)
 			kalMemAlloc(sizeof(struct CSI_DATA_T), VIR_MEM_TYPE);
 
@@ -321,9 +282,10 @@ void nicEventCSIData(struct ADAPTER *prAdapter,
 	prBuf = (int8_t *) (prEvent->aucBuffer);
 
 #if CFG_CSI_DEBUG
-	DBGLOG_MEM8(NIC, TRACE, (uint8_t *) prBuf, i4EventLen);
+	DBGLOG_MEM8(NIC, INFO, (uint8_t *) prBuf, i4EventLen);
 #endif
-	while ((i4EventLen >= u2Offset) && (ucLastTagFlg == false)) {
+	while ((i4EventLen >= (u2Offset + sizeof(uint32_t))) &&
+		(ucLastTagFlg == false)) {
 		prCSITlvData = (struct CSI_TLV_ELEMENT *) prBuf;
 
 		if (prCSITlvData->body_len >
@@ -398,8 +360,6 @@ void nicEventCSIData(struct ADAPTER *prAdapter,
 
 			prCSIData->ucDbdcIdx = (uint8_t) le32_to_cpup(
 					(uint32_t *) prCSITlvData->aucbody);
-				DBGLOG(NIC, DEBUG, "[CSI] Band=%u\n",
-						prCSIData->ucDbdcIdx);
 			break;
 		case CSI_EVENT_CSI_NUM:
 			if (prCSITlvData->body_len != sizeof(uint32_t)) {
@@ -599,7 +559,7 @@ void nicEventCSIData(struct ADAPTER *prAdapter,
 		case CSI_EVENT_TX_RX_IDX:
 			if (prCSITlvData->body_len != sizeof(uint32_t)) {
 				DBGLOG(NIC, WARN,
-					"[CSI] Invalid TRxIdx len %u\n",
+					"[CSI] Invalid TRxIdx len %u",
 					prCSITlvData->body_len);
 				goto out;
 			}
@@ -651,17 +611,6 @@ void nicEventCSIData(struct ADAPTER *prAdapter,
 			prCSIData->u4Rsvd6 = le32_to_cpup(
 					(uint32_t *) prCSITlvData->aucbody);
 			break;
-		case CSI_EVENT_TONE_VALID:
-			if (prCSITlvData->body_len != sizeof(uint32_t)) {
-				DBGLOG(NIC, WARN,
-					"[CSI] Invalid TONE_VALID len %u",
-					prCSITlvData->body_len);
-				goto out;
-			}
-
-			prCSIData->u4ToneValid = le32_to_cpup(
-					(uint32_t *) prCSITlvData->aucbody);
-			break;
 		default:
 			DBGLOG(NIC, WARN, "[CSI] Unsupported CSI tag %d\n",
 				prCSITlvData->tag_type);
@@ -678,11 +627,11 @@ void nicEventCSIData(struct ADAPTER *prAdapter,
 
 		i4EventLen -= (u2Offset + prCSITlvData->body_len);
 
-		if (i4EventLen >= u2Offset)
+		if (i4EventLen >= (u2Offset + sizeof(uint32_t)))
 			prBuf += (u2Offset + prCSITlvData->body_len);
 	}
 
-	DBGLOG(NIC, DEBUG, "[CSI] u2DataCount=%d\n",
+	DBGLOG(NIC, INFO, "[CSI] u2DataCount=%d\n",
 				prCSIData->u2DataCount);
 
 	bStatus = wlanPushCSISegmentData(prAdapter, prCSIData);
@@ -724,11 +673,11 @@ u_int8_t
 wlanPushCSISegmentData(struct ADAPTER *prAdapter,
 	struct CSI_DATA_T *prCSIData)
 {
-	struct CSI_INFO_T *prCSIInfo = glCsiGetCSIInfo(prAdapter->prGlueInfo);
+	struct CSI_INFO_T *prCSIInfo = &rCSIInfo;
 	struct CSI_DATA_T *prCSISegmentTemp;
 
 #if CFG_CSI_DEBUG
-	DBGLOG(NIC, DEBUG,
+	DBGLOG(NIC, INFO,
 		"[CSI] Segment number=%d, Remain last=%d\n",
 		prCSIData->u4SegmentNum, prCSIData->ucRemainLast);
 #endif
@@ -778,7 +727,7 @@ wlanPushCSISegmentData(struct ADAPTER *prAdapter,
 u_int8_t
 wlanPushCSIData(struct ADAPTER *prAdapter, struct CSI_DATA_T *prCSIData)
 {
-	struct CSI_INFO_T *prCSIInfo = glCsiGetCSIInfo(prAdapter->prGlueInfo);
+	struct CSI_INFO_T *prCSIInfo = &rCSIInfo;
 
 	KAL_ACQUIRE_MUTEX(prAdapter, MUTEX_CSI_BUFFER);
 
@@ -806,7 +755,7 @@ wlanPushCSIData(struct ADAPTER *prAdapter, struct CSI_DATA_T *prCSIData)
 	}
 
 #if CFG_CSI_DEBUG
-	DBGLOG(NIC, DEBUG,
+	DBGLOG(NIC, INFO,
 		"[CSI] Push idx = %d, data count = %d, H_IDX = %d\n",
 		prCSIInfo->u4CSIBufferTail,
 		prCSIData->u2DataCount,
@@ -821,7 +770,7 @@ wlanPushCSIData(struct ADAPTER *prAdapter, struct CSI_DATA_T *prCSIData)
 u_int8_t
 wlanPopCSIData(struct ADAPTER *prAdapter, struct CSI_DATA_T *prCSIData)
 {
-	struct CSI_INFO_T *prCSIInfo = glCsiGetCSIInfo(prAdapter->prGlueInfo);
+	struct CSI_INFO_T *prCSIInfo = &rCSIInfo;
 
 	KAL_ACQUIRE_MUTEX(prAdapter, MUTEX_CSI_BUFFER);
 
@@ -836,7 +785,7 @@ wlanPopCSIData(struct ADAPTER *prAdapter, struct CSI_DATA_T *prCSIData)
 		sizeof(struct CSI_DATA_T));
 
 #if CFG_CSI_DEBUG
-	DBGLOG(NIC, DEBUG,
+	DBGLOG(NIC, INFO,
 		"[CSI] Pop idx = %d, data count = %d, H_IDX = %d\n",
 		prCSIInfo->u4CSIBufferHead,
 		prCSIData->u2DataCount,
@@ -1042,20 +991,6 @@ ssize_t wlanCSIDataPrepare(
 	put_unaligned(prCSIData->u4Rsvd6, (uint32_t *) (tmpBuf + i4Pos));
 	i4Pos += sizeof(uint32_t);
 
-	put_unaligned(CSI_DATA_BAND, (uint8_t *) (tmpBuf + i4Pos));
-	i4Pos += sizeof(uint8_t);
-	put_unaligned(sizeof(uint8_t), (int16_t *) (tmpBuf + i4Pos));
-	i4Pos += sizeof(int16_t);
-	put_unaligned(prCSIData->ucDbdcIdx, (uint8_t *) (tmpBuf + i4Pos));
-	i4Pos += sizeof(uint8_t);
-
-	put_unaligned(CSI_DATA_TONE_VALID, (uint8_t *) (tmpBuf + i4Pos));
-	i4Pos += sizeof(uint8_t);
-	put_unaligned(sizeof(uint32_t), (int16_t *) (tmpBuf + i4Pos));
-	i4Pos += sizeof(int16_t);
-	put_unaligned(prCSIData->u4ToneValid, (uint32_t *) (tmpBuf + i4Pos));
-	i4Pos += sizeof(uint32_t);
-
 	/*
 	 * The lengths of magic number (1 byte) and total length (2 bytes)
 	 * fields should not be counted in the total length value
@@ -1063,7 +998,7 @@ ssize_t wlanCSIDataPrepare(
 	put_unaligned(i4Pos - 3, (uint16_t *) (tmpBuf + 1));
 
 #if CFG_CSI_DEBUG
-	DBGLOG(REQ, DEBUG, "[CSI] debug: i4Pos = %d", i4Pos);
+	DBGLOG(REQ, INFO, "[CSI] debug: i4Pos = %d", i4Pos);
 #endif
 
 	return i4Pos;

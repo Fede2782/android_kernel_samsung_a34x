@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -38,19 +38,20 @@
  */
 
 const uint8_t *apucNetworkType[NETWORK_TYPE_NUM] = {
-	(uint8_t *) "AIS",
-	(uint8_t *) "P2P",
-	(uint8_t *) "BOW",
-	(uint8_t *) "MBSS"
+	[NETWORK_TYPE_AIS] = (uint8_t *)"AIS",
+	[NETWORK_TYPE_P2P] = (uint8_t *)"P2P",
+	[NETWORK_TYPE_BOW] = (uint8_t *)"BOW",
+	[NETWORK_TYPE_MBSS] = (uint8_t *)"MBSS",
+	[NETWORK_TYPE_NAN] = (uint8_t *)"NAN",
 };
 
 const uint8_t *apucNetworkOpMode[OP_MODE_NUM] = {
-	(uint8_t *) "INFRASTRUCTURE",
-	(uint8_t *) "IBSS",
-	(uint8_t *) "ACCESS_POINT",
-	(uint8_t *) "P2P_DEVICE",
-	(uint8_t *) "BOW",
-	(uint8_t *) "NAN"
+	[OP_MODE_INFRASTRUCTURE] = (uint8_t *)"INFRASTRUCTURE",
+	[OP_MODE_IBSS] = (uint8_t *)"IBSS",
+	[OP_MODE_ACCESS_POINT] = (uint8_t *)"ACCESS_POINT",
+	[OP_MODE_P2P_DEVICE] = (uint8_t *)"P2P_DEVICE",
+	[OP_MODE_BOW] = (uint8_t *)"BOW",
+	[OP_MODE_NAN] = (uint8_t *)"NAN",
 };
 
 #if (CFG_SUPPORT_ADHOC) || (CFG_SUPPORT_AAA)
@@ -83,14 +84,6 @@ struct APPEND_VAR_IE_ENTRY txBcnIETable[] = {
 	   rsnGenerateWPAIE}	/* 221 */
 	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN), NULL,
 	   rsnGenerateRSNIE}	/* 48 */
-#if (CFG_SUPPORT_RSNO == 1)
-	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4), NULL,
-	   rsnGenerateRSNOIE}	/* 221 */
-	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4), NULL,
-	   rsnGenerateRSNO2IE}	/* 221 */
-	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4), NULL,
-	   rsnGenerateRSNXOIE}	/* 221 */
-#endif /* CFG_SUPPORT_RSNO */
 #if CFG_ENABLE_WIFI_DIRECT
 	, {0, p2pFuncCalculateP2p_IELenForBeacon,
 	   p2pFuncGenerateP2p_IEForBeacon}	/* 221 */
@@ -133,6 +126,8 @@ struct APPEND_VAR_IE_ENTRY txBcnIETable[] = {
 #endif
 #if CFG_SUPPORT_MTK_SYNERGY
 	, {0, rlmCalculateMTKOuiIELen, rlmGenerateMTKOuiIE}	/* 221 */
+	, {0, rlmCalculateCustomer1OuiIELen, rlmGenerateCustomer1OuiIE}
+	, {0, rlmCalculateCustomer2OuiIELen, rlmGenerateCustomer2OuiIE}
 #endif
 	, {0, rlmCalculateCsaIELen,
 	   rlmGenerateCsaIE}	/* 37 */
@@ -141,9 +136,6 @@ struct APPEND_VAR_IE_ENTRY txBcnIETable[] = {
 	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_WPA), NULL,
 	   rsnGenerateOWEIE}
 	, {0, rlmCalculateTpeIELen, rlmGenerateTpeIE}
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-	, {0, ehtRlmCalMlTrafficIndiIELen, ehtRlmGenMlTrafficIndiIE}
-#endif /* CFG_SUPPORT_802_11BE_MLO */
 };
 
 struct APPEND_VAR_IE_ENTRY txProbRspIETable[] = {
@@ -165,14 +157,6 @@ struct APPEND_VAR_IE_ENTRY txProbRspIETable[] = {
 	   rsnGenerateWPAIE}	/* 221 */
 	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN), NULL,
 	   rsnGenerateRSNIE}	/* 48 */
-#if (CFG_SUPPORT_RSNO == 1)
-	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4), NULL,
-	   rsnGenerateRSNOIE}	/* 221 */
-	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4), NULL,
-	   rsnGenerateRSNO2IE}	/* 221 */
-	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4), NULL,
-	   rsnGenerateRSNXOIE}	/* 221 */
-#endif /* CFG_SUPPORT_RSNO */
 #if CFG_ENABLE_WIFI_DIRECT
 	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_OBSS_SCAN), NULL,
 	   rlmRspGenerateObssScanIE}	/* 74 */
@@ -211,6 +195,8 @@ struct APPEND_VAR_IE_ENTRY txProbRspIETable[] = {
 #endif
 #if CFG_SUPPORT_MTK_SYNERGY
 	, {0, rlmCalculateMTKOuiIELen, rlmGenerateMTKOuiIE}
+	, {0, rlmCalculateCustomer1OuiIELen, rlmGenerateCustomer1OuiIE}
+	, {0, rlmCalculateCustomer2OuiIELen, rlmGenerateCustomer2OuiIE}
 #endif
 	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN), NULL,
 	   rsnGenerateRSNXIE}	/* 244 */
@@ -239,6 +225,11 @@ struct APPEND_VAR_IE_ENTRY txProbRspIETable[] = {
  *                              F U N C T I O N S
  ******************************************************************************
  */
+u_int8_t IS_BSS_INDEX_VALID(uint8_t ucBssIndex)
+{
+	return ucBssIndex < ARRAY_SIZE(((struct ADAPTER *)0)->aprBssInfo);
+}
+
 /*---------------------------------------------------------------------------*/
 /* Routines for all Operation Modes                                          */
 /*---------------------------------------------------------------------------*/
@@ -266,14 +257,12 @@ void bssDetermineStaRecPhyTypeSet(struct ADAPTER *prAdapter,
 #if (CFG_SUPPORT_802_11BE == 1)
 	uint8_t ucEhtOption = FEATURE_ENABLED;
 #endif
-	uint32_t u4PTKCipher;
-	uint32_t u4GTKCipher;
 #if (CFG_SUPPORT_802_11AX == 1)
 	uint8_t ucHeOption = FEATURE_ENABLED;
 
-	/* 802.11 AX blocklist */
+	/* 802.11 AX blacklist */
 	if (queryAxBlocklist(prAdapter, prBssDesc->aucBSSID,
-			     prStaRec->ucBssIndex, BLOCKLIST_AX_TO_AC)) {
+			     prStaRec->ucBssIndex, BLACKLIST_AX_TO_AC)) {
 		DBGLOG(BSS, INFO,
 		    "BSSID " MACSTR " is in AX blocklist!\n",
 		    MAC2STR(prBssDesc->aucBSSID));
@@ -289,17 +278,17 @@ void bssDetermineStaRecPhyTypeSet(struct ADAPTER *prAdapter,
 #endif
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 			prStaRec->ucBssIndex);
+	if (!prBssInfo) {
+		DBGLOG(BSS, ERROR, "prBssInfo is null\n");
+		return;
+	}
 
 	/* Decide AIS PHY type set */
 	if (prStaRec->eStaType == STA_TYPE_LEGACY_AP) {
-		if (prBssInfo == NULL)
-			goto BYPASS_SEC_CHECK;
-#if CFG_SUPPORT_WAPI
-		if (prBssDesc->fgIEWAPI)
-			goto BYPASS_SEC_CHECK;
-#endif
-		u4PTKCipher = prBssInfo->u4RsnSelectedPairwiseCipher;
-		u4GTKCipher = prBssInfo->u4RsnSelectedGroupCipher;
+		uint32_t u4PTKCipher =
+			prBssInfo->u4RsnSelectedPairwiseCipher;
+		uint32_t u4GTKCipher =
+			prBssInfo->u4RsnSelectedGroupCipher;
 
 		if (GET_SELECTOR_TYPE(u4PTKCipher) == CIPHER_SUITE_TKIP ||
 		    GET_SELECTOR_TYPE(u4PTKCipher) == CIPHER_SUITE_WEP40 ||
@@ -308,7 +297,7 @@ void bssDetermineStaRecPhyTypeSet(struct ADAPTER *prAdapter,
 		    (GET_SELECTOR_TYPE(u4GTKCipher) == CIPHER_SUITE_TKIP ||
 		     GET_SELECTOR_TYPE(u4GTKCipher) == CIPHER_SUITE_WEP40 ||
 		     GET_SELECTOR_TYPE(u4GTKCipher) == CIPHER_SUITE_WEP104))) {
-			DBGLOG(BSS, STATE,
+			DBGLOG(BSS, INFO,
 			       "Ignore the HT/VHT or higher Bit for pairwise/group cipher (0x%08x/0x%08x) as key cipher configed!\n",
 			       u4PTKCipher, u4GTKCipher);
 
@@ -327,14 +316,13 @@ void bssDetermineStaRecPhyTypeSet(struct ADAPTER *prAdapter,
 		    !prWifiVar->fgDisSecurityCheck &&
 		    !rsnIsKeyMgmtForEht(prAdapter, prBssDesc,
 					prStaRec->ucBssIndex)) {
-			DBGLOG(BSS, STATE,
+			DBGLOG(BSS, INFO,
 			       "Ignore the EHT Bit for AKM suite (0x%x) configed!\n",
 			       SWAP32(prBssDesc->u4RsnSelectedAKMSuite));
 			prStaRec->ucPhyTypeSet &= ~(PHY_TYPE_BIT_EHT);
 		}
 #endif
 
-BYPASS_SEC_CHECK:
 		ucHtOption = prWifiVar->ucStaHt;
 		ucVhtOption = prWifiVar->ucStaVht;
 #if (CFG_SUPPORT_802_11AX == 1)
@@ -376,11 +364,9 @@ BYPASS_SEC_CHECK:
 		prStaRec->ucPhyTypeSet &= ~PHY_TYPE_BIT_VHT;
 	else if (IS_FEATURE_FORCE_ENABLED(ucVhtOption))
 		prStaRec->ucPhyTypeSet |= PHY_TYPE_BIT_VHT;
-	else if (prBssDesc && prBssDesc->eBand == BAND_2G4 &&
+	else if (prBssInfo && prBssInfo->eBand == BAND_2G4 &&
 		IS_FEATURE_DISABLED(prWifiVar->ucVhtIeIn2g)) {
 		prStaRec->ucPhyTypeSet &= ~PHY_TYPE_BIT_VHT;
-	} else {
-		prStaRec->ucPhyTypeSet |= PHY_TYPE_BIT_VHT;
 	}
 
 #if (CFG_SUPPORT_802_11AX == 1)
@@ -464,17 +450,19 @@ void bssDetermineApBssInfoPhyTypeSet(struct ADAPTER *prAdapter,
 		prBssInfo->ucPhyTypeSet &= ~PHY_TYPE_BIT_VHT;
 	} else if (IS_FEATURE_FORCE_ENABLED(ucVhtOption)) {
 		prBssInfo->ucPhyTypeSet |= PHY_TYPE_BIT_VHT;
-	} else if (IS_FEATURE_ENABLED(ucVhtOption)) {
-		if (prBssInfo->eBand == BAND_2G4) {
-			if (prWifiVar->ucVhtIeIn2g &&
-			    (prBssInfo->ucPhyTypeSet & PHY_TYPE_SET_802_11N))
-				prBssInfo->ucPhyTypeSet |= PHY_TYPE_BIT_VHT;
-			else
-				prBssInfo->ucPhyTypeSet &= ~PHY_TYPE_BIT_VHT;
-		} else {
-			if (!fgIsPureAp)
-				prBssInfo->ucPhyTypeSet |= PHY_TYPE_BIT_VHT;
-		}
+	} else if (IS_FEATURE_ENABLED(ucVhtOption) &&
+			prBssInfo->eBand == BAND_2G4 &&
+			prWifiVar->ucVhtIeIn2g &&
+			(prBssInfo->ucPhyTypeSet & PHY_TYPE_SET_802_11N)) {
+		prBssInfo->ucPhyTypeSet |= PHY_TYPE_BIT_VHT;
+	} else if (!fgIsPureAp &&
+			IS_FEATURE_ENABLED(ucVhtOption) &&
+			((prBssInfo->eBand == BAND_5G)
+#if (CFG_SUPPORT_WIFI_6G == 1)
+			|| (prBssInfo->eBand == BAND_6G)
+#endif
+			)) {
+		prBssInfo->ucPhyTypeSet |= PHY_TYPE_BIT_VHT;
 	}
 
 #if (CFG_SUPPORT_802_11AX == 1)
@@ -513,8 +501,11 @@ uint32_t bssInfoConnType(struct ADAPTER *ad, struct BSS_INFO *bssinfo)
 			return CONNECTION_P2P_GC;
 		} else if (bssinfo->eCurrentOPMode == OP_MODE_ACCESS_POINT) {
 #if CFG_ENABLE_WIFI_DIRECT
-			if (ad->fgIsP2PRegistered && IS_BSS_GO(ad, bssinfo))
+			if (ad->fgIsP2PRegistered &&
+			    !p2pFuncIsAPMode(ad->rWifiVar.prP2PConnSettings[
+					bssinfo->u4PrivateData])) {
 				return CONNECTION_P2P_GO;
+			}
 #endif
 			return CONNECTION_INFRA_AP;
 		} else if (bssinfo->eCurrentOPMode == OP_MODE_P2P_DEVICE) {
@@ -636,8 +627,9 @@ struct STA_RECORD *bssCreateStaRecFromBssDesc(struct ADAPTER *prAdapter,
 	} else {
 		prBssInfo->fgAssoc40mBwAllowed = FALSE;
 	}
-	DBGLOG(RLM, TRACE, "STA 40mAllowed=%d\n",
-	       prBssInfo->fgAssoc40mBwAllowed);
+
+	DBGLOG(RLM, TRACE, "STA 40mAllowed=%d iotap=%d\n",
+	       prBssInfo->fgAssoc40mBwAllowed, prBssDesc->ucIotApAct);
 
 	return prStaRec;
 }				/* end of bssCreateStaRecFromBssDesc() */
@@ -896,68 +888,25 @@ bssSendQoSNullFrame(struct ADAPTER *prAdapter,
 
 }				/* end of bssSendQoSNullFrame() */
 
-const char *bssOpBw2Str(struct BSS_INFO *prBssInfo)
-{
-	static const char * const apucDebug[] = {
-		"20",
-		"40",
-		"80",
-		"160",
-		"80+80",
-		"320-1",
-		"320-2",
-		"UNKNOWN",
-	};
-	uint8_t ucBssOpBw =
-		rlmGetBssOpBwByVhtAndHtOpInfo(prBssInfo);
-
-	if (ucBssOpBw < MAX_BW_UNKNOWN)
-		return apucDebug[ucBssOpBw];
-
-	return "UNKNOWN";
-}
-
-uint32_t bssGetAliveBssByBand(struct ADAPTER *prAdapter, enum ENUM_BAND eBand,
-			      struct BSS_INFO **prBssList)
-{
-	struct BSS_INFO *bss;
-	uint8_t i, ucNumAliveBss = 0;
-
-	for (i = 0; i < MAX_BSSID_NUM; ++i) {
-		bss = GET_BSS_INFO_BY_INDEX(prAdapter, i);
-
-		if (!bss || !IS_BSS_ALIVE(prAdapter, bss))
-			continue;
-		else if (eBand != BAND_NULL && eBand != BAND_NUM &&
-			 bss->eBand != eBand)
-			continue;
-
-		prBssList[ucNumAliveBss++] = bss;
-		DBGLOG(BSS, INFO,
-		       "bss%u (%s), band:%u, ch:%u, bw:%s, hw_band:%u\n",
-		       i, bssGetRoleTypeString(prAdapter, bss),
-		       bss->eBand, bss->ucPrimaryChannel,
-		       bssOpBw2Str(bss), bss->eHwBandIdx);
-	}
-
-	return ucNumAliveBss;
-}
-
 const char *bssGetRoleTypeString(struct ADAPTER *prAdapter,
 				 struct BSS_INFO *bss)
 {
 	if (IS_BSS_AIS(bss))
 		return "STA";
 #if CFG_ENABLE_WIFI_DIRECT
-	else if (IS_BSS_GC(bss))
-		return "GC";
-	else if (IS_BSS_AP(prAdapter, bss))
-		return "SAP";
-	else if (IS_BSS_GO(prAdapter, bss))
-		return "GO";
+	else if (IS_BSS_P2P(bss)) {
+		if (IS_BSS_GC(bss))
+			return "GC";
+		else if (IS_BSS_APGO(bss)) {
+			if (p2pFuncIsAPMode(
+				prAdapter->rWifiVar.prP2PConnSettings[
+					bss->u4PrivateData]))
+				return "SAP";
+			else
+				return "GO";
+		}
+	}
 #endif
-	else if (IS_BSS_NAN(bss))
-		return "NAN";
 	else if (IS_BSS_BOW(bss))
 		return "BOW";
 
@@ -1273,15 +1222,11 @@ struct MSDU_INFO *bssComposeBeaconContent(struct ADAPTER *prAdapter,
 	/* For Beacon */
 	prMsduInfo = prBssInfo->prBeacon;
 
-	/* beacon prMsduInfo will be NULL if once BSS deactivated,
+	/* beacon prMsduInfo will be NULLify once BSS deactivated,
 	 * so skip if it is
 	 */
 	if (prMsduInfo == NULL)
 		return NULL;
-
-	kalMemZero(prMsduInfo->prPacket,
-		   OFFSET_OF(struct WLAN_BEACON_FRAME, aucInfoElem[0]) +
-		   MAX_IE_LENGTH);
 
 	/* 4 <2> Compose header */
 	bssComposeBeaconProbeRespFrameHeaderAndFF((uint8_t *)
@@ -1311,7 +1256,9 @@ struct MSDU_INFO *bssComposeBeaconContent(struct ADAPTER *prAdapter,
 #endif
 
 	/* Append IE for Beacon */
-	for (i = 0; i < ARRAY_SIZE(txBcnIETable); i++) {
+	for (i = 0;
+	     i < sizeof(txBcnIETable) / sizeof(struct APPEND_VAR_IE_ENTRY);
+	     i++) {
 		if (txBcnIETable[i].pfnAppendIE)
 			txBcnIETable[i].pfnAppendIE(prAdapter, prMsduInfo);
 
@@ -1319,9 +1266,7 @@ struct MSDU_INFO *bssComposeBeaconContent(struct ADAPTER *prAdapter,
 
 	sortMgmtFrameIE(prAdapter, prMsduInfo);
 
-#if (CFG_SUPPORT_SAP_BCN_PROT == 1)
-	rsnGenerateMMIE(prAdapter, prMsduInfo);
-#endif
+	nicDumpTxMgmtPacketHex(prAdapter, prMsduInfo);
 
 	return prMsduInfo;
 }
@@ -1340,17 +1285,10 @@ uint32_t bssUpdateBeaconContentEx(struct ADAPTER *prAdapter,
 				uint8_t ucBssIndex,
 				enum ENUM_IE_UPD_METHOD eMethod)
 {
-#if (CFG_SUPPORT_SAP_BCN_CRI_UPD == 1)
-	struct MLD_BSS_INFO *prMldBss;
-	struct MSDU_INFO *prOldMsduInfo = NULL;
-#endif /* CFG_SUPPORT_SAP_BCN_CRI_UPD */
-	struct MSDU_INFO *prNewMsduInfo;
+
+	struct MSDU_INFO *prMsduInfo;
 	struct BSS_INFO *prBssInfo;
 	struct WLAN_BEACON_FRAME *prBcnFrame;
-	uint32_t u4Status;
-#if (CFG_SUPPORT_SAP_BCN_CRI_UPD == 1)
-	u_int8_t fgTriggerCriticalUpdate = FALSE;
-#endif /* CFG_SUPPORT_SAP_BCN_CRI_UPD */
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
 
@@ -1358,129 +1296,29 @@ uint32_t bssUpdateBeaconContentEx(struct ADAPTER *prAdapter,
 		DBGLOG(P2P, WARN,
 			"bss%d is not in used\n",
 			ucBssIndex);
-		u4Status = WLAN_STATUS_INVALID_DATA;
-		goto exit;
+		return 0;
 	}
 
-	/* if FW receive beacon update before ch grant, beacon will always
-	 * in bn0 with Skayhawk.
-	 */
-	if (!IS_BSS_ACTIVE(prBssInfo) || !prBssInfo->fgIsApGoGranted ||
-	    prBssInfo->fgIsSwitchingChnl) {
-		DBGLOG(P2P, WARN,
-			"skip update beacon to FW, active=%u, granted=%u chnlSwitching=%u\n",
-			IS_BSS_ACTIVE(prBssInfo),
-			prBssInfo->fgIsApGoGranted,
-			prBssInfo->fgIsSwitchingChnl);
-		u4Status = WLAN_STATUS_NOT_ACCEPTED;
-		goto exit;
-	}
-
-#if (CFG_SUPPORT_SAP_BCN_CRI_UPD == 1)
-	if (eMethod == IE_UPD_METHOD_UPDATE_ALL &&
-	    prBssInfo->prBeacon && prBssInfo->prBeacon->u2FrameLength) {
-		prOldMsduInfo = cnmMgtPktAlloc(prAdapter,
-			prBssInfo->prBeacon->u2FrameLength);
-		if (!prOldMsduInfo) {
-			DBGLOG(P2P, WARN,
-				"Alloc backup beacon (%u) failed.\n",
-				prBssInfo->prBeacon->u2FrameLength);
-		} else {
-			kalMemCopy(prOldMsduInfo->prPacket,
-				   prBssInfo->prBeacon->prPacket,
-				   prBssInfo->prBeacon->u2FrameLength);
-			prOldMsduInfo->u2FrameLength =
-				prBssInfo->prBeacon->u2FrameLength;
-		}
-	}
-#endif /* CFG_SUPPORT_SAP_BCN_CRI_UPD */
-
-	prNewMsduInfo = bssComposeBeaconContent(prAdapter, ucBssIndex);
-	if (!prNewMsduInfo) {
-		DBGLOG(P2P, ERROR, "prNewMsduInfo is NULL\n");
-		u4Status = WLAN_STATUS_NOT_ACCEPTED;
-		goto exit;
-	}
-
-#if (CFG_SUPPORT_SAP_BCN_CRI_UPD == 1)
-	if (prOldMsduInfo) {
-		fgTriggerCriticalUpdate =
-			mldCheckCriticalUpdate(prAdapter,
-					       prOldMsduInfo,
-					       prNewMsduInfo);
-
-		if (fgTriggerCriticalUpdate) {
-			mldIncBssParamChangeCount(prAdapter, prNewMsduInfo);
-			mldTriggerCriticalUpdate(prAdapter, ucBssIndex);
-		}
-
-		cnmMgtPktFree(prAdapter, prOldMsduInfo);
-	}
-#endif /* CFG_SUPPORT_SAP_BCN_CRI_UPD */
+	prMsduInfo = bssComposeBeaconContent(prAdapter, ucBssIndex);
+	if (!prMsduInfo)
+		return WLAN_STATUS_SUCCESS;
 
 	DBGLOG(P2P, TRACE, "Dump beacon content %d to FW, method:%d\n",
 		ucBssIndex, eMethod);
-	DBGLOG_MEM8(P2P, TRACE, prNewMsduInfo->prPacket,
-		    prNewMsduInfo->u2FrameLength);
-
-	prBcnFrame = (struct WLAN_BEACON_FRAME *)prNewMsduInfo->prPacket;
-	u4Status =
-		nicUpdateBeaconIETemplate(prAdapter,
-					  eMethod,
-					  ucBssIndex,
-					  prBssInfo->u2CapInfo,
-					  (uint8_t *) prBcnFrame->aucInfoElem,
-					  prNewMsduInfo->u2FrameLength -
-					  OFFSET_OF(struct WLAN_BEACON_FRAME,
-					  aucInfoElem));
-
-#if (CFG_SUPPORT_SAP_BCN_CRI_UPD == 1)
-	prMldBss = mldBssGetByBss(prAdapter, prBssInfo);
-	if (fgTriggerCriticalUpdate && prMldBss) {
-		struct BSS_INFO *prOtherBssInfo;
-		struct MSDU_INFO *prOtherMsduInfo;
-		uint16_t u2IELen;
-
-		LINK_FOR_EACH_ENTRY(prOtherBssInfo, &prMldBss->rBssList,
-				    rLinkEntryMld, struct BSS_INFO) {
-			if (prOtherBssInfo == prBssInfo)
-				continue;
-
-			/* Beacon cannot be sent corrently if update beacon
-			 * before ch grant.
-			 */
-			if (!prOtherBssInfo->fgIsApGoGranted)
-				continue;
-
-			/*
-			 * For rnr ie update, re-generate beacon content
-			 * for neighbor AP.
-			 */
-			prOtherMsduInfo = bssComposeBeaconContent(prAdapter,
-				prOtherBssInfo->ucBssIndex);
-			if (!prOtherMsduInfo) {
-				DBGLOG(P2P, ERROR,
-					"bssComposeBeaconContent failed, bss=%u\n",
-					prOtherBssInfo->ucBssIndex);
-				continue;
-			}
-			prBcnFrame = (struct WLAN_BEACON_FRAME *)
-				prOtherMsduInfo->prPacket;
-			u2IELen = prOtherMsduInfo->u2FrameLength -
-				OFFSET_OF(struct WLAN_BEACON_FRAME,
-					  aucInfoElem);
-			nicUpdateBeaconIETemplate(prAdapter,
-						  eMethod,
-						  prOtherBssInfo->ucBssIndex,
-						  prOtherBssInfo->u2CapInfo,
-						  prBcnFrame->aucInfoElem,
-						  u2IELen);
-		}
+	if (au2DebugModule[DBG_P2P_IDX] & DBG_CLASS_TRACE) {
+		dumpMemory8((uint8_t *) prMsduInfo->prPacket,
+			(uint32_t) prMsduInfo->u2FrameLength);
 	}
-#endif /* CFG_SUPPORT_SAP_BCN_CRI_UPD */
 
-exit:
-	return u4Status;
+	prBcnFrame = (struct WLAN_BEACON_FRAME *)prMsduInfo->prPacket;
+	return nicUpdateBeaconIETemplate(prAdapter,
+				 eMethod,
+				 ucBssIndex,
+				 prBssInfo->u2CapInfo,
+				 (uint8_t *) prBcnFrame->aucInfoElem,
+				 prMsduInfo->u2FrameLength -
+				 OFFSET_OF(struct WLAN_BEACON_FRAME,
+					   aucInfoElem));
 }				/* end of bssUpdateBeaconContent() */
 
 /*----------------------------------------------------------------------------*/
@@ -1516,10 +1354,13 @@ bssSendBeaconProbeResponse(struct ADAPTER *prAdapter,
 
 	if (!pucDestAddr) {	/* For Beacon */
 		prIeArray = &txBcnIETable[0];
-		u4IeArraySize = ARRAY_SIZE(txBcnIETable);
+		u4IeArraySize =
+		    sizeof(txBcnIETable) / sizeof(struct APPEND_VAR_IE_ENTRY);
 	} else {
 		prIeArray = &txProbRspIETable[0];
-		u4IeArraySize = ARRAY_SIZE(txProbRspIETable);
+		u4IeArraySize =
+		    sizeof(txProbRspIETable) /
+		    sizeof(struct APPEND_VAR_IE_ENTRY);
 	}
 
 	/* 4 <1> Allocate a PKT_INFO_T for Beacon /Probe Response Frame */
@@ -1576,8 +1417,8 @@ bssSendBeaconProbeResponse(struct ADAPTER *prAdapter,
 				((uintptr_t)
 				(prMsduInfo->prPacket) + MAC_TX_RESERVED_FIELD),
 				pucDestAddr,
-				prAdapter->rWifiVar.aucP2pDeviceAddress[0],
-				prAdapter->rWifiVar.aucP2pDeviceAddress[0],
+				prAdapter->rWifiVar.aucP2pDevAddr[0],
+				prAdapter->rWifiVar.aucP2pDevAddr[0],
 				DOT11_BEACON_PERIOD_DEFAULT,
 				(prBssInfo->u2CapInfo & ~(CAP_INFO_ESS
 							   | CAP_INFO_IBSS)));
@@ -1683,7 +1524,7 @@ uint32_t bssProcessProbeRequest(struct ADAPTER *prAdapter,
 	/* 4 <2> Check network conditions before reply Probe Response Frame
 	 *         (Consider Concurrent)
 	 */
-	for (ucBssIndex = 0; ucBssIndex <= MAX_BSSID_NUM;
+	for (ucBssIndex = 0; ucBssIndex <= prAdapter->ucP2PDevBssIdx;
 	     ucBssIndex++) {
 
 		if (!IS_NET_ACTIVE(prAdapter, ucBssIndex))
@@ -1979,17 +1820,17 @@ void bssDumpClientList(struct ADAPTER *prAdapter,
 
 	prClientList = &prBssInfo->rStaRecOfClientList;
 
-	DBGLOG(SW4, DEBUG, "Dump BSS[%u] Client List NUM[%u]\n",
+	DBGLOG(SW4, INFO, "Dump BSS[%u] Client List NUM[%u]\n",
 	       prBssInfo->ucBssIndex, prClientList->u4NumElem);
 
 	LINK_FOR_EACH_ENTRY(prCurrStaRec, prClientList, rLinkEntry,
 			    struct STA_RECORD) {
 
 		if (!prCurrStaRec) {
-			DBGLOG(SW4, DEBUG, "[%2u] is NULL STA_REC\n", ucCount);
+			DBGLOG(SW4, INFO, "[%2u] is NULL STA_REC\n", ucCount);
 			break;
 		}
-		DBGLOG(SW4, DEBUG, "[%2u] STA[%u] [" MACSTR "]\n", ucCount,
+		DBGLOG(SW4, INFO, "[%2u] STA[%u] [" MACSTR "]\n", ucCount,
 		       prCurrStaRec->ucIndex,
 		       MAC2STR(prCurrStaRec->aucMacAddr));
 
@@ -2009,7 +1850,7 @@ void bssCheckClientList(struct ADAPTER *prAdapter,
 
 	/* Check MAX number */
 	if (prClientList->u4NumElem > P2P_MAXIMUM_CLIENT_COUNT) {
-		DBGLOG(SW4, DEBUG, "BSS[%u] Client List NUM[%u] ERR\n",
+		DBGLOG(SW4, INFO, "BSS[%u] Client List NUM[%u] ERR\n",
 		       prBssInfo->ucBssIndex, prClientList->u4NumElem);
 
 		fgError = TRUE;
@@ -2023,7 +1864,7 @@ void bssCheckClientList(struct ADAPTER *prAdapter,
 			fgError = TRUE;
 
 		if (fgError) {
-			DBGLOG(SW4, DEBUG,
+			DBGLOG(SW4, INFO,
 			       "BSS[%u] Client List PTR next/prev[%p/%p] ERR\n",
 			       prBssInfo->ucBssIndex, prClientList->prNext,
 			       prClientList->prPrev);
@@ -2035,7 +1876,7 @@ void bssCheckClientList(struct ADAPTER *prAdapter,
 			    struct STA_RECORD) {
 		if (!prCurrStaRec) {
 			fgError = TRUE;
-			DBGLOG(SW4, DEBUG, "BSS[%u] Client List NULL PTR ERR\n",
+			DBGLOG(SW4, INFO, "BSS[%u] Client List NULL PTR ERR\n",
 			       prBssInfo->ucBssIndex);
 
 			break;
@@ -2046,7 +1887,7 @@ void bssCheckClientList(struct ADAPTER *prAdapter,
 
 	/* Check real count and list number */
 	if (ucCount != prClientList->u4NumElem) {
-		DBGLOG(SW4, DEBUG,
+		DBGLOG(SW4, INFO,
 		       "BSS[%u] Client List NUM[%u] REAL CNT[%u] ERR\n",
 		       prBssInfo->ucBssIndex, prClientList->u4NumElem, ucCount);
 
@@ -2699,8 +2540,8 @@ void bssDumpBssInfo(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 	/* P_LINK_T prStaRecOfClientList = (P_LINK_T) NULL; */
 	/* P_STA_RECORD_T prCurrStaRec = (P_STA_RECORD_T) NULL; */
 
-	if (ucBssIndex > prAdapter->ucSwBssIdNum) {
-		DBGLOG(SW4, DEBUG, "Invalid BssInfo index[%u], skip dump!\n",
+	if (ucBssIndex > prAdapter->ucHwBssIdNum) {
+		DBGLOG(SW4, INFO, "Invalid BssInfo index[%u], skip dump!\n",
 		       ucBssIndex);
 		return;
 	}
@@ -2708,12 +2549,12 @@ void bssDumpBssInfo(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
 
 	if (!prBssInfo) {
-		DBGLOG(SW4, DEBUG, "Invalid BssInfo index[%u], skip dump!\n",
+		DBGLOG(SW4, INFO, "Invalid BssInfo index[%u], skip dump!\n",
 		       ucBssIndex);
 		return;
 	}
 
-	DBGLOG(SW4, DEBUG, "OWNMAC[" MACSTR "] BSSID[" MACSTR "] SSID[%s]\n",
+	DBGLOG(SW4, INFO, "OWNMAC[" MACSTR "] BSSID[" MACSTR "] SSID[%s]\n",
 	       MAC2STR(prBssInfo->aucOwnMacAddr), MAC2STR(prBssInfo->aucBSSID),
 	       HIDE(prBssInfo->aucSSID));
 
@@ -2721,7 +2562,7 @@ void bssDumpBssInfo(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 	u4CurrentOPMode = prBssInfo->eCurrentOPMode;
 	if (u4NetworkType < NETWORK_TYPE_NUM
 			&& u4CurrentOPMode < OP_MODE_NUM) {
-		DBGLOG(SW4, DEBUG,
+		DBGLOG(SW4, INFO,
 			"BSS IDX[%u] Type[%s] OPMode[%s] ConnState[%u] Absent[%u]\n",
 			prBssInfo->ucBssIndex,
 			apucNetworkType[u4NetworkType],
@@ -2729,66 +2570,66 @@ void bssDumpBssInfo(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 			prBssInfo->eConnectionState, prBssInfo->fgIsNetAbsent);
 	}
 
-	DBGLOG(SW4, DEBUG,
+	DBGLOG(SW4, INFO,
 	       "Channel[%u] Band[%u] SCO[%u] Assoc40mBwAllowed[%u] 40mBwAllowed[%u]\n",
 	       prBssInfo->ucPrimaryChannel, prBssInfo->eBand,
 	       prBssInfo->eBssSCO, prBssInfo->fgAssoc40mBwAllowed,
 	       prBssInfo->fg40mBwAllowed);
 
-	DBGLOG(SW4, DEBUG, "MaxBw[%u] OpRxNss[%u] OpTxNss[%u]\n",
+	DBGLOG(SW4, INFO, "MaxBw[%u] OpRxNss[%u] OpTxNss[%u]\n",
 	       cnmGetBssMaxBw(prAdapter, prBssInfo->ucBssIndex),
 	       prBssInfo->ucOpRxNss, prBssInfo->ucOpTxNss);
 
-	DBGLOG(SW4, DEBUG, "QBSS[%u] CapInfo[0x%04x] AID[%u]\n",
+	DBGLOG(SW4, INFO, "QBSS[%u] CapInfo[0x%04x] AID[%u]\n",
 	       prBssInfo->fgIsQBSS, prBssInfo->u2CapInfo, prBssInfo->u2AssocId);
 
-	DBGLOG(SW4, DEBUG,
+	DBGLOG(SW4, INFO,
 	       "ShortPreamble Allowed[%u] EN[%u], ShortSlotTime[%u]\n",
 	       prBssInfo->fgIsShortPreambleAllowed,
 	       prBssInfo->fgUseShortPreamble, prBssInfo->fgUseShortSlotTime);
 
-	DBGLOG(SW4, DEBUG, "PhyTypeSet: Basic[0x%02x] NonHtBasic[0x%02x]\n",
+	DBGLOG(SW4, INFO, "PhyTypeSet: Basic[0x%02x] NonHtBasic[0x%02x]\n",
 	       prBssInfo->ucPhyTypeSet, prBssInfo->ucNonHTBasicPhyType);
 
-	DBGLOG(SW4, DEBUG, "RateSet: BssBasic[0x%04x] Operational[0x%04x]\n",
+	DBGLOG(SW4, INFO, "RateSet: BssBasic[0x%04x] Operational[0x%04x]\n",
 	       prBssInfo->u2BSSBasicRateSet, prBssInfo->u2OperationalRateSet);
 
-	DBGLOG(SW4, DEBUG, "ATIMWindow[%u] DTIM Period[%u] Count[%u]\n",
+	DBGLOG(SW4, INFO, "ATIMWindow[%u] DTIM Period[%u] Count[%u]\n",
 	       prBssInfo->u2ATIMWindow, prBssInfo->ucDTIMPeriod,
 	       prBssInfo->ucDTIMCount);
 
-	DBGLOG(SW4, DEBUG,
+	DBGLOG(SW4, INFO,
 	       "HT Operation Info1[0x%02x] Info2[0x%04x] Info3[0x%04x]\n",
 	       prBssInfo->ucHtOpInfo1, prBssInfo->u2HtOpInfo2,
 	       prBssInfo->u2HtOpInfo3);
 
-	DBGLOG(SW4, DEBUG,
+	DBGLOG(SW4, INFO,
 	       "ProtectMode HT[%u] ERP[%u], OperationMode GF[%u] RIFS[%u]\n",
 	       prBssInfo->eHtProtectMode, prBssInfo->fgErpProtectMode,
 	       prBssInfo->eGfOperationMode, prBssInfo->eRifsOperationMode);
 
-	DBGLOG(SW4, DEBUG,
+	DBGLOG(SW4, INFO,
 	       "(OBSS) ProtectMode HT[%u] ERP[%u], OperationMode GF[%u] RIFS[%u]\n",
 	       prBssInfo->eObssHtProtectMode, prBssInfo->fgObssErpProtectMode,
 	       prBssInfo->eObssGfOperationMode,
 	       prBssInfo->fgObssRifsOperationMode);
 
-	DBGLOG(SW4, DEBUG,
+	DBGLOG(SW4, INFO,
 	       "VhtChannelWidth[%u] OpChangeChannelWidth[%u], IsOpChangeChannelWidth[%u]\n",
 	       prBssInfo->ucVhtChannelWidth, prBssInfo->ucOpChangeChannelWidth,
 	       prBssInfo->fgIsOpChangeChannelWidth);
 
-	DBGLOG(SW4, DEBUG, "======== Dump Connected Client ========\n");
+	DBGLOG(SW4, INFO, "======== Dump Connected Client ========\n");
 
 #if 0
-	DBGLOG(SW4, DEBUG, "NumOfClient[%u]\n",
+	DBGLOG(SW4, INFO, "NumOfClient[%u]\n",
 	       bssGetClientCount(prAdapter, prBssInfo));
 
 	prStaRecOfClientList = &prBssInfo->rStaRecOfClientList;
 
 	LINK_FOR_EACH_ENTRY(prCurrStaRec, prStaRecOfClientList, rLinkEntry,
 			    struct STA_RECORD) {
-		DBGLOG(SW4, DEBUG, "STA[%u] [" MACSTR "]\n",
+		DBGLOG(SW4, INFO, "STA[%u] [" MACSTR "]\n",
 		       prCurrStaRec->ucIndex,
 		       MAC2STR(prCurrStaRec->aucMacAddr));
 	}
@@ -2798,7 +2639,7 @@ void bssDumpBssInfo(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 #endif
 #endif
 
-	DBGLOG(SW4, DEBUG, "============== Dump Done ==============\n");
+	DBGLOG(SW4, INFO, "============== Dump Done ==============\n");
 }
 
 int8_t bssGetHtRxNss(struct BSS_DESC *prBssDesc)
@@ -2909,7 +2750,6 @@ void bssProcessErTxModeEvent(struct ADAPTER *prAdapter,
 {
 	struct BSS_INFO *prBssInfo;
 	struct EVENT_ER_TX_MODE *prErTxMode;
-	struct STA_RECORD *prStaRec;
 
 	prErTxMode = (struct EVENT_ER_TX_MODE *) (prEvent->aucBuffer);
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prErTxMode->ucBssInfoIdx);
@@ -2919,11 +2759,6 @@ void bssProcessErTxModeEvent(struct ADAPTER *prAdapter,
 	}
 
 	prBssInfo->ucErMode = prErTxMode->ucErMode;
-	nicTxUpdateBssDefaultRate(prBssInfo);
-
-	prStaRec = prBssInfo->prStaRecOfAP;
-	if (prStaRec)
-		nicTxUpdateStaRecDefaultRate(prAdapter, prStaRec);
 
 	DBGLOG_LIMITED(BSS, WARN,
 		"Receive ER Tx mode event,BSS[%d],Mode[0x%x]\n",
@@ -2931,14 +2766,14 @@ void bssProcessErTxModeEvent(struct ADAPTER *prAdapter,
 }
 #endif
 
-#if CFG_SUPPORT_IOT_AP_BLOCKLIST
+#if CFG_SUPPORT_IOT_AP_BLACKLIST
 /*----------------------------------------------------------------------------*/
 /*!
  * @brief get IOT AP handle action.
  *
  * @param[in] prBssDesc
  *
- * @return ENUM_WLAN_IOT_ACTION
+ * @return ENUM_WLAN_IOT_AP_HANDLE_ACTION
  */
 /*----------------------------------------------------------------------------*/
 uint32_t bssGetIotApAction(struct ADAPTER *prAdapter,
@@ -2954,16 +2789,15 @@ uint32_t bssGetIotApAction(struct ADAPTER *prAdapter,
 
 	if (!prAdapter || !prBssDesc) {
 		DBGLOG(BSS, INFO, "GetIotApAction Param Error!\n");
-		return -EINVAL;
+		return WLAN_STATUS_FAILURE;
 	}
 	/*To make sure one Bss only parse once*/
 	if (prBssDesc->fgIotApActionValid)
-		return prBssDesc->u8IotApAct;
+		return prBssDesc->ucIotApAct;
 
 
 	prBssDesc->fgIotApActionValid = TRUE;
-	prBssDesc->u8IotApAct = 0;
-	prBssDesc->ucIotVer = 0;
+	prBssDesc->ucIotApAct = WLAN_IOT_AP_VOID;
 
 	pucIes = prBssDesc->pucIeBuf;
 	for (ucCnt = 0; ucCnt < CFG_IOT_AP_RULE_MAX_CNT; ucCnt++) {
@@ -2972,6 +2806,11 @@ uint32_t bssGetIotApAction(struct ADAPTER *prAdapter,
 
 		/*No need to match empty rule*/
 		if (prIotApRule->u2MatchFlag == 0)
+			continue;
+
+		/*Check if default rule is allowed*/
+		if (!prAdapter->rWifiVar.fgEnDefaultIotApRule &&
+			(prIotApRule->ucVersion & BIT(7)))
 			continue;
 
 		/*Match Vendor OUI*/
@@ -3058,58 +2897,9 @@ uint32_t bssGetIotApAction(struct ADAPTER *prAdapter,
 				continue;
 			/*Matched, Fall through*/
 		}
-		/*All match, set the actions and version*/
-		prBssDesc->u8IotApAct = prIotApRule->u8Action;
-		prBssDesc->ucIotVer = prIotApRule->ucVersion;
+		/*All match, set the actions*/
+		prBssDesc->ucIotApAct = prIotApRule->ucAction;
 	}
-	return prBssDesc->u8IotApAct;
-}
-
-bool bssIsIotAp(struct ADAPTER *prAdapter,
-	struct BSS_DESC *prBssDesc, enum ENUM_WLAN_IOT_ACTION eAction)
-{
-	uint64_t u8IotApAct;
-
-	u8IotApAct = bssGetIotApAction(prAdapter, prBssDesc);
-	if (prBssDesc && prBssDesc->fgIotApActionValid) {
-		if (prBssDesc->ucIotVer == 1)
-			return u8IotApAct & BIT(eAction);
-		else
-			return u8IotApAct == eAction;
-	}
-	return FALSE;
-}
-
-#endif
-
-#if CFG_ENABLE_WIFI_DIRECT
-/*---------------------------------------------------------------------------*/
-/*!
- * \brief Get the alive bss HW band bitmap. Each bit indicate the bss
- *        of that index number is alive or not.
- *
- * \param[in] prAdapter Pointer to the Adapter structure.
- * \param[in] pau4Bitmap The output bitmap.
- * \param[in] ucBandNum Number of HW band of the chip.
- */
-/*---------------------------------------------------------------------------*/
-void bssGetAliveBssHwBitmap(struct ADAPTER *prAdapter, uint32_t *pau4Bitmap)
-{
-	struct BSS_INFO *bss;
-	uint8_t i;
-
-	for (i = 0; i < MAX_BSSID_NUM; ++i) {
-		bss = GET_BSS_INFO_BY_INDEX(prAdapter, i);
-
-		if (!IS_BSS_ALIVE(prAdapter, bss) ||
-		    bss->eHwBandIdx >= AA_HW_BAND_NUM)
-			continue;
-
-		pau4Bitmap[bss->eHwBandIdx] |= BIT(i);
-	}
-	DBGLOG(BSS, TRACE,
-	       "alive Bss hw bitmap [bn0:bn1:bn2]=[0x%x:0x%x:0x%x]\n",
-	       pau4Bitmap[AA_HW_BAND_0], pau4Bitmap[AA_HW_BAND_1],
-	       pau4Bitmap[AA_HW_BAND_2]);
+	return prBssDesc->ucIotApAct;
 }
 #endif

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -321,7 +321,7 @@ void halSetFWOwn(struct ADAPTER *prAdapter, u_int8_t fgEnableGlobalInt)
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__, prAdapter);
 }
 
-uint32_t halSetDriverOwn(struct ADAPTER *prAdapter)
+u_int8_t halSetDriverOwn(struct ADAPTER *prAdapter)
 {
 	return KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__, prAdapter);
 }

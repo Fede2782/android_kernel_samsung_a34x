@@ -31,7 +31,7 @@
 
 #if IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_CS35L41)
 #include <sound/cirrus/big_data.h>
-#include "../../codecs/bigdata_cs35l41_sysfs_cb.h"
+#include <sound/samsung/bigdata_cirrus_sysfs_cb.h>
 #endif
 
 /*

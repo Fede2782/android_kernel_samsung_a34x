@@ -30,6 +30,9 @@ enum ppb_sram_offset {
 	HPT_GPU_SF_L1,
 	HPT_GPU_SF_L2,
 	HPT_DELAY_TIME,
+	HPT_CPU_B_SF_FORCE,
+	HPT_CPU_M_SF_FORCE,
+	HPT_GPU_SF_FORCE,
 	PPB_MODE = 32,
 	PPB_CG_PWR,
 	PPB_VSYS_PWR,
@@ -82,7 +85,7 @@ struct ppb {
 
 struct power_budget_t {
 	unsigned int version;
-	int hpt_max_lv;
+	int soc_max_lv;
 	int hpt_cur_lv;
 	int hpt_lv_t[10];
 	int soc;
@@ -120,6 +123,13 @@ struct power_budget_t {
 	struct power_supply *psy;
 	struct device *dev;
 	unsigned int hpt_exclude_lbat_cg_thl;
+	int cpub_sf_default;
+	int cpum_sf_default;
+	int gpu_sf_default;
+	int sf_cur_lv;
+	int sf_cpub_lv_t[10];
+	int sf_cpum_lv_t[10];
+	int sf_gpu_lv_t[10];
 };
 
 struct ocv_table_t {

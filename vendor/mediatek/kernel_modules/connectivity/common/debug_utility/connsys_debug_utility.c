@@ -1135,7 +1135,7 @@ EXPORT_SYMBOL(connsys_log_deinit);
 unsigned int connsys_log_get_buf_size(int conn_type)
 {
 	if (conn_type >= CONNLOG_TYPE_END || conn_type < 0)
-		return -1;
+		return 0;
 	return RING_SIZE(&connlog_buffer_table[conn_type].ring_cache);
 }
 EXPORT_SYMBOL(connsys_log_get_buf_size);

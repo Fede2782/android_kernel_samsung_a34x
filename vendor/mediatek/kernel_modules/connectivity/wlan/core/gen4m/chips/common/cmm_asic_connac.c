@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -191,7 +191,7 @@ void asicEnableFWDownload(struct ADAPTER *prAdapter,
 	{
 		union WPDMA_GLO_CFG_STRUCT GloCfg;
 
-		HAL_MCR_RD(prAdapter, WPDMA_GLO_CFG, &GloCfg.word);
+		kalDevRegRead(prGlueInfo, WPDMA_GLO_CFG, &GloCfg.word);
 
 		GloCfg.field_conn.bypass_dmashdl_txring3 = fgEnable;
 
@@ -442,7 +442,7 @@ void asicPdmaLoopBackConfig(struct GLUE_INFO *prGlueInfo, u_int8_t fgEnable)
 	union WPDMA_GLO_CFG_STRUCT GloCfg;
 	uint32_t word = 1;
 
-	HAL_MCR_RD(prGlueInfo->prAdapter, WPDMA_GLO_CFG, &GloCfg.word);
+	kalDevRegRead(prGlueInfo, WPDMA_GLO_CFG, &GloCfg.word);
 
 	GloCfg.field_conn.bypass_dmashdl_txring3 = 1;
 	GloCfg.field_conn.pdma_addr_ext_en = 0;
@@ -466,7 +466,7 @@ static void configPdmaRxRingThreshold(struct GLUE_INFO *prGlueInfo)
 		return;
 
 	/* Config RX ring0 & ring1 */
-	HAL_MCR_RD(prGlueInfo->prAdapter, WPDMA_PAUSE_RX_Q_TH10, &u4OldVal);
+	kalDevRegRead(prGlueInfo, WPDMA_PAUSE_RX_Q_TH10, &u4OldVal);
 	u4NewVal += (WPDMA_PAUSE_RX_Q_TH0 << WPDMA_PAUSE_RX_Q_TH0_SHFT);
 	u4NewVal += (WPDMA_PAUSE_RX_Q_TH1 << WPDMA_PAUSE_RX_Q_TH1_SHFT);
 	kalDevRegWrite(prGlueInfo, WPDMA_PAUSE_RX_Q_TH10, u4NewVal);
@@ -475,7 +475,7 @@ static void configPdmaRxRingThreshold(struct GLUE_INFO *prGlueInfo)
 
 	/* Config RX ring2 & ring3 */
 	u4OldVal = u4NewVal = 0;
-	HAL_MCR_RD(prGlueInfo->prAdapter, WPDMA_PAUSE_RX_Q_TH32, &u4OldVal);
+	kalDevRegRead(prGlueInfo, WPDMA_PAUSE_RX_Q_TH32, &u4OldVal);
 	u4NewVal += (WPDMA_PAUSE_RX_Q_TH2 << WPDMA_PAUSE_RX_Q_TH2_SHFT);
 	u4NewVal += (WPDMA_PAUSE_RX_Q_TH3 << WPDMA_PAUSE_RX_Q_TH3_SHFT);
 	kalDevRegWrite(prGlueInfo, WPDMA_PAUSE_RX_Q_TH32, u4NewVal);
@@ -491,7 +491,7 @@ void asicPdmaIntMaskConfig(struct GLUE_INFO *prGlueInfo,
 			prGlueInfo->prAdapter->chip_info->bus_info;
 	union WPDMA_INT_MASK IntMask = {0};
 
-	HAL_MCR_RD(prGlueInfo->prAdapter, WPDMA_INT_MSK, &IntMask.word);
+	kalDevRegRead(prGlueInfo, WPDMA_INT_MSK, &IntMask.word);
 
 	if (fgEnable == TRUE) {
 		if (ucType & BIT(DMA_INT_TYPE_MCU2HOST))
@@ -524,70 +524,10 @@ void asicPdmaIntMaskConfig(struct GLUE_INFO *prGlueInfo,
 		}
 	}
 
-	DBGLOG(HAL, DEBUG, "type:0x%x, enable:%u, mask:0x%08x\n",
+	DBGLOG(HAL, INFO, "type:0x%x, enable:%u, mask:0x%08x\n",
 		ucType, fgEnable, IntMask.word);
 
 	kalDevRegWrite(prGlueInfo, WPDMA_INT_MSK, IntMask.word);
-}
-
-static void asicEnableSlpProt(struct GLUE_INFO *prGlueInfo)
-{
-	uint32_t u4Val = 0;
-	uint32_t u4WaitDelay = 20000;
-
-	HAL_MCR_RD(prGlueInfo->prAdapter,
-		   CONN_HIF_PDMA_CSR_PDMA_SLP_PROT_ADDR, &u4Val);
-	u4Val |= CONN_HIF_PDMA_CSR_PDMA_SLP_PROT_PDMA_AXI_SLPPROT_ENABLE_MASK;
-	kalDevRegWrite(prGlueInfo, CONN_HIF_PDMA_CSR_PDMA_SLP_PROT_ADDR, u4Val);
-	while (TRUE) {
-		u4WaitDelay--;
-		HAL_MCR_RD(prGlueInfo->prAdapter,
-			   CONN_HIF_PDMA_CSR_PDMA_SLP_PROT_ADDR,
-			   &u4Val);
-		if (CONN_HIF_PDMA_CSR_PDMA_SLP_PROT_PDMA_AXI_SLPPROT_RDY_MASK &
-				u4Val)
-			break;
-		if (u4WaitDelay == 0) {
-			DBGLOG(HAL, ERROR, "wait for sleep protect timeout.\n");
-			GL_DEFAULT_RESET_TRIGGER(prGlueInfo->prAdapter,
-						 RST_SLP_PROT_TIMEOUT);
-			break;
-		}
-		kalUdelay(1);
-	}
-}
-
-static void asicDisableSlpProt(struct GLUE_INFO *prGlueInfo)
-{
-	uint32_t u4Val = 0;
-
-	HAL_MCR_RD(prGlueInfo->prAdapter,
-		   CONN_HIF_PDMA_CSR_PDMA_SLP_PROT_ADDR, &u4Val);
-	u4Val &= ~CONN_HIF_PDMA_CSR_PDMA_SLP_PROT_PDMA_AXI_SLPPROT_ENABLE_MASK;
-	kalDevRegWrite(prGlueInfo, CONN_HIF_PDMA_CSR_PDMA_SLP_PROT_ADDR, u4Val);
-}
-
-u_int8_t asicWpdmaWaitIdle(struct GLUE_INFO *prGlueInfo,
-	int32_t round, int32_t wait_us)
-{
-	int32_t i = 0;
-	union WPDMA_GLO_CFG_STRUCT GloCfg = {0};
-
-	do {
-		HAL_MCR_RD(prGlueInfo->prAdapter,
-			   WPDMA_GLO_CFG, &GloCfg.word);
-		if ((GloCfg.field.TxDMABusy == 0) &&
-		(GloCfg.field.RxDMABusy == 0)) {
-			DBGLOG(HAL, TRACE,
-				"==>  DMAIdle, GloCfg=0x%x\n", GloCfg.word);
-			return TRUE;
-		}
-		kalUdelay(wait_us);
-	} while ((i++) < round);
-
-	DBGLOG(HAL, DEBUG, "==>  DMABusy, GloCfg=0x%x\n", GloCfg.word);
-
-	return FALSE;
 }
 
 void asicPdmaConfig(struct GLUE_INFO *prGlueInfo, u_int8_t fgEnable,
@@ -601,7 +541,7 @@ void asicPdmaConfig(struct GLUE_INFO *prGlueInfo, u_int8_t fgEnable,
 	asicPdmaIntMaskConfig(prGlueInfo,
 		BIT(DMA_INT_TYPE_MCU2HOST) | BIT(DMA_INT_TYPE_TRX),
 		fgEnable);
-	HAL_MCR_RD(prGlueInfo->prAdapter, WPDMA_GLO_CFG, &GloCfg.word);
+	kalDevRegRead(prGlueInfo, WPDMA_GLO_CFG, &GloCfg.word);
 
 	if (fgEnable == TRUE) {
 		GloCfg.field_conn.tx_dma_en = 1;
@@ -624,7 +564,7 @@ void asicPdmaConfig(struct GLUE_INFO *prGlueInfo, u_int8_t fgEnable,
 		       ERROR_DETECT_MASK);
 
 	/* Set PDMA APSRC_ACK CR */
-	HAL_MCR_RD(prGlueInfo->prAdapter, WPDMA_APSRC_ACK_LOCK_SLPPROT, &u4Val);
+	kalDevRegRead(prGlueInfo, WPDMA_APSRC_ACK_LOCK_SLPPROT, &u4Val);
 	kalDevRegWrite(prGlueInfo, WPDMA_APSRC_ACK_LOCK_SLPPROT,
 		u4Val | BIT(4));
 
@@ -632,13 +572,13 @@ void asicPdmaConfig(struct GLUE_INFO *prGlueInfo, u_int8_t fgEnable,
 		kalDevRegWrite(prGlueInfo, WPDMA_PAUSE_TX_Q, 0);
 		configPdmaRxRingThreshold(prGlueInfo);
 	} else {
-		asicWpdmaWaitIdle(prGlueInfo, 100, 1000);
+		halWpdmaWaitIdle(prGlueInfo, 100, 1000);
 		/* Reset DMA Index */
 		kalDevRegWrite(prGlueInfo, WPDMA_RST_PTR, 0xFFFFFFFF);
 		if (fgResetHif) {
-			asicEnableSlpProt(prGlueInfo);
+			halEnableSlpProt(prGlueInfo);
 			halHifRst(prGlueInfo);
-			asicDisableSlpProt(prGlueInfo);
+			halDisableSlpProt(prGlueInfo);
 		}
 	}
 }
@@ -690,7 +630,7 @@ uint32_t asicUpdatTxRingMaxQuota(struct ADAPTER *prAdapter,
 	}
 
 	/* Step 1. Pause the TxRing */
-	HAL_MCR_RD(prAdapter, WPDMA_PAUSE_TX_Q, &u4TxRingBitmap);
+	kalDevRegRead(prGlueInfo, WPDMA_PAUSE_TX_Q, &u4TxRingBitmap);
 	kalDevRegWrite(prGlueInfo, WPDMA_PAUSE_TX_Q,
 		u4TxRingBitmap |
 		(BIT(u2Port) << WPDMA_PAUSE_TX_Q_RINGIDX_OFFSET));
@@ -706,7 +646,7 @@ uint32_t asicUpdatTxRingMaxQuota(struct ADAPTER *prAdapter,
 	 * WLAN_STATUS_SUCCESS or unlock the TxRing by itself.
 	 */
 	if (u4MaxQuota < u4SrcCnt+u4RsvCnt) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"WmmQuota,CannotUpdateNow,Port,%u,Grp,%u,reqMax,%u,src,%u,rsv,%u\n",
 			u2Port, u4GroupIdx, u4MaxQuota, u4SrcCnt, u4RsvCnt);
 		return WLAN_STATUS_PENDING;
@@ -802,7 +742,7 @@ void asicLowPowerOwnClearPCIe(struct ADAPTER *prAdapter,
 bool asicIsValidRegAccess(struct ADAPTER *prAdapter, uint32_t u4Register)
 {
 	uint32_t au4ExcludeRegs[] = { CONN_HIF_ON_LPCTL };
-	uint32_t u4Idx;
+	uint32_t u4Idx, u4Size = sizeof(au4ExcludeRegs) / sizeof(uint32_t);
 
 	if (wlanIsChipNoAck(prAdapter))
 		return false;
@@ -812,7 +752,7 @@ bool asicIsValidRegAccess(struct ADAPTER *prAdapter, uint32_t u4Register)
 		return true;
 
 	/* only own control register can be accessed on fw own */
-	for (u4Idx = 0; u4Idx < ARRAY_SIZE(au4ExcludeRegs); u4Idx++) {
+	for (u4Idx = 0; u4Idx < u4Size; u4Idx++) {
 		if (u4Register == au4ExcludeRegs[u4Idx])
 			return true;
 	}
@@ -846,7 +786,7 @@ void asicCheckDummyReg(struct GLUE_INFO *prGlueInfo)
 
 	prAdapter = prGlueInfo->prAdapter;
 	prHifInfo = &prGlueInfo->rHifInfo;
-	HAL_MCR_RD(prAdapter, CONN_DUMMY_CR, &u4Value);
+	kalDevRegRead(prGlueInfo, CONN_DUMMY_CR, &u4Value);
 	DBGLOG(HAL, TRACE, "Check sleep mode DummyReg[0x%x]\n", u4Value);
 	if (u4Value != PDMA_DUMMY_RESET_VALUE)
 		return;
@@ -959,13 +899,11 @@ void asicUsbDmaShdlGroupInit(struct ADAPTER *prAdapter,
 #if CFG_SUPPORT_CFG_FILE
 	u4CfgVal = wlanCfgGetUint32(prAdapter,
 				    "DmaShdlGroup1MinQuota",
-				    USB_DMA_SHDL_GROUP_DEF_MIN_QUOTA,
-				    FEATURE_DEBUG_ONLY);
+				    USB_DMA_SHDL_GROUP_DEF_MIN_QUOTA);
 	u4MacVal = DMASHDL_MIN_QUOTA_NUM(u4CfgVal);
 	u4CfgVal = wlanCfgGetUint32(prAdapter,
 				    "DmaShdlGroup1MaxQuota",
-				    USB_DMA_SHDL_GROUP_DEF_MAX_QUOTA,
-				    FEATURE_DEBUG_ONLY);
+				    USB_DMA_SHDL_GROUP_DEF_MAX_QUOTA);
 	u4MacVal |= DMASHDL_MAX_QUOTA_NUM(u4CfgVal);
 #else /* CFG_SUPPORT_CFG_FILE */
 	u4MacVal = DMASHDL_MIN_QUOTA_NUM(
@@ -979,13 +917,11 @@ void asicUsbDmaShdlGroupInit(struct ADAPTER *prAdapter,
 #if CFG_SUPPORT_CFG_FILE
 	u4CfgVal = wlanCfgGetUint32(prAdapter,
 				    "DmaShdlGroup0MinQuota",
-				    USB_DMA_SHDL_GROUP_DEF_MIN_QUOTA,
-				    FEATURE_DEBUG_ONLY);
+				    USB_DMA_SHDL_GROUP_DEF_MIN_QUOTA);
 	u4MacVal = DMASHDL_MIN_QUOTA_NUM(u4CfgVal);
 	u4CfgVal = wlanCfgGetUint32(prAdapter,
 				    "DmaShdlGroup0MaxQuota",
-				    USB_DMA_SHDL_GROUP_DEF_MAX_QUOTA,
-				    FEATURE_DEBUG_ONLY);
+				    USB_DMA_SHDL_GROUP_DEF_MAX_QUOTA);
 	u4MacVal |= DMASHDL_MAX_QUOTA_NUM(u4CfgVal);
 #else /* CFG_SUPPORT_CFG_FILE */
 	u4MacVal = DMASHDL_MIN_QUOTA_NUM(
@@ -999,13 +935,11 @@ void asicUsbDmaShdlGroupInit(struct ADAPTER *prAdapter,
 #if CFG_SUPPORT_CFG_FILE
 	u4CfgVal = wlanCfgGetUint32(prAdapter,
 				    "DmaShdlGroup2MinQuota",
-				    USB_DMA_SHDL_GROUP_DEF_MIN_QUOTA,
-				    FEATURE_DEBUG_ONLY);
+				    USB_DMA_SHDL_GROUP_DEF_MIN_QUOTA);
 	u4MacVal = DMASHDL_MIN_QUOTA_NUM(u4CfgVal);
 	u4CfgVal = wlanCfgGetUint32(prAdapter,
 				    "DmaShdlGroup2MaxQuota",
-				    USB_DMA_SHDL_GROUP_DEF_MAX_QUOTA,
-				    FEATURE_DEBUG_ONLY);
+				    USB_DMA_SHDL_GROUP_DEF_MAX_QUOTA);
 	u4MacVal |= DMASHDL_MAX_QUOTA_NUM(u4CfgVal);
 #else /* CFG_SUPPORT_CFG_FILE */
 	u4MacVal = DMASHDL_MIN_QUOTA_NUM(
@@ -1019,13 +953,11 @@ void asicUsbDmaShdlGroupInit(struct ADAPTER *prAdapter,
 #if CFG_SUPPORT_CFG_FILE
 	u4CfgVal = wlanCfgGetUint32(prAdapter,
 				    "DmaShdlGroup3MinQuota",
-				    USB_DMA_SHDL_GROUP_DEF_MIN_QUOTA,
-				    FEATURE_DEBUG_ONLY);
+				    USB_DMA_SHDL_GROUP_DEF_MIN_QUOTA);
 	u4MacVal = DMASHDL_MIN_QUOTA_NUM(u4CfgVal);
 	u4CfgVal = wlanCfgGetUint32(prAdapter,
 				    "DmaShdlGroup3MaxQuota",
-				    USB_DMA_SHDL_GROUP_DEF_MAX_QUOTA,
-				    FEATURE_DEBUG_ONLY);
+				    USB_DMA_SHDL_GROUP_DEF_MAX_QUOTA);
 	u4MacVal |= DMASHDL_MAX_QUOTA_NUM(u4CfgVal);
 #else /* CFG_SUPPORT_CFG_FILE */
 	u4MacVal = DMASHDL_MIN_QUOTA_NUM(
@@ -1039,13 +971,11 @@ void asicUsbDmaShdlGroupInit(struct ADAPTER *prAdapter,
 #if CFG_SUPPORT_CFG_FILE
 	u4CfgVal = wlanCfgGetUint32(prAdapter,
 				    "DmaShdlGroup4MinQuota",
-				    USB_DMA_SHDL_GROUP_DEF_MIN_QUOTA,
-				    FEATURE_DEBUG_ONLY);
+				    USB_DMA_SHDL_GROUP_DEF_MIN_QUOTA);
 	u4MacVal = DMASHDL_MIN_QUOTA_NUM(u4CfgVal);
 	u4CfgVal = wlanCfgGetUint32(prAdapter,
 				    "DmaShdlGroup4MaxQuota",
-				    USB_DMA_SHDL_GROUP_DEF_MAX_QUOTA,
-				    FEATURE_DEBUG_ONLY);
+				    USB_DMA_SHDL_GROUP_DEF_MAX_QUOTA);
 	u4MacVal |= DMASHDL_MAX_QUOTA_NUM(u4CfgVal);
 #else /* CFG_SUPPORT_CFG_FILE */
 	u4MacVal = DMASHDL_MIN_QUOTA_NUM(
@@ -1167,7 +1097,7 @@ u_int8_t asicUsbSuspend(struct ADAPTER *prAdapter,
 	int32_t ret = 0;
 	struct BUS_INFO *prBusInfo;
 
-	TRACE_FUNC(HAL, DEBUG, "%s ---->\n");
+	DBGLOG(HAL, INFO, "%s ---->\n", __func__);
 	prBusInfo = prAdapter->chip_info->bus_info;
 
 	/* Disable PDMA TX */
@@ -1181,7 +1111,7 @@ u_int8_t asicUsbSuspend(struct ADAPTER *prAdapter,
 	/* Polling PDMA_dmashdl_request done  */
 	while (count < PDMA_TX_IDLE_WAIT_COUNT) {
 		HAL_MCR_RD(prAdapter, PDMA_DEBUG_STATUS, &u4Value);
-		DBGLOG(HAL, DEBUG, "%s: 0x%08x = 0x%08x\n", __func__,
+		DBGLOG(HAL, INFO, "%s: 0x%08x = 0x%08x\n", __func__,
 		       PDMA_DEBUG_STATUS, u4Value);
 		if (!(u4Value & PDMA_DEBUG_DMASHDL_REQUEST_DONE_MASK)
 		    && (count >= 3))
@@ -1206,7 +1136,7 @@ u_int8_t asicUsbSuspend(struct ADAPTER *prAdapter,
 	count = 0;
 	while (count < PDMA_TX_IDLE_WAIT_COUNT) {
 		HAL_MCR_RD(prAdapter, PDMA_DEBUG_STATUS, &u4Value);
-		DBGLOG(HAL, DEBUG, "%s:: 0x%08x = 0x%08x\n",
+		DBGLOG(HAL, INFO, "%s:: 0x%08x = 0x%08x\n",
 		       __func__, PDMA_DEBUG_STATUS, u4Value);
 		if ((u4Value == PDMA_DEBUG_TX_STATUS_MASK)
 		    && (count >= 3)) {
@@ -1248,10 +1178,10 @@ u_int8_t asicUsbSuspend(struct ADAPTER *prAdapter,
 		HAL_MCR_RD(prAdapter, PDMA_IF_MISC, &u4Value);
 		u4Value |= PDMA_IF_MISC_TX_ENABLE_MASK;
 		HAL_MCR_WR(prAdapter, PDMA_IF_MISC, u4Value);
-		TRACE_FUNC(HAL, DEBUG, "%s <----\n");
+		DBGLOG(HAL, INFO, "%s <----\n", __func__);
 		return FALSE;
 	}
-	TRACE_FUNC(HAL, DEBUG, "%s <----\n");
+	DBGLOG(HAL, INFO, "%s <----\n", __func__);
 	return TRUE;
 }
 
@@ -1295,7 +1225,7 @@ uint8_t asicUsbEventEpDetected(struct ADAPTER *prAdapter)
 			  "usb_readl() reports error: %x retry: %u\n", ret,
 			  ucRetryCount);
 		} else {
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 				"%s: Get ucEp5Disable = %d\n", __func__,
 			  ucEp5Disable);
 			if (ucEp5Disable)
@@ -1405,7 +1335,7 @@ static void asicFillInitCmdTxdInfo(
 	if (pucSeqNum)
 		*pucSeqNum = prInitHifTxHeader->rInitWifiCmd.ucSeqNum;
 
-	DBGLOG_LIMITED(INIT, DEBUG, "TX CMD: ID[0x%02X] SEQ[%u] LEN[%u]\n",
+	DBGLOG_LIMITED(INIT, INFO, "TX CMD: ID[0x%02X] SEQ[%u] LEN[%u]\n",
 			prInitHifTxHeader->rInitWifiCmd.ucCID,
 			prInitHifTxHeader->rInitWifiCmd.ucSeqNum,
 			prInitHifTxHeader->u2TxByteCount);
@@ -1441,7 +1371,7 @@ static void asicFillCmdTxdInfo(
 	if (pucSeqNum)
 		*pucSeqNum = prWifiCmd->ucSeqNum;
 
-	DBGLOG_LIMITED(INIT, DEBUG,
+	DBGLOG_LIMITED(INIT, INFO,
 			"TX CMD: ID[0x%02X] SEQ[%u] SET[%u] LEN[%u]\n",
 			prWifiCmd->ucCID, prWifiCmd->ucSeqNum,
 			prWifiCmd->ucSetQuery, prWifiCmd->u2Length);

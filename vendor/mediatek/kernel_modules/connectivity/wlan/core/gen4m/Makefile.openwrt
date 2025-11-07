@@ -411,6 +411,7 @@ NIC_OBJS := 	$(NIC_DIR)nic.o \
 		$(NIC_DIR)cmd_buf.o \
 		$(NIC_DIR)que_mgt.o \
 		$(NIC_DIR)nic_cmd_event.o \
+		$(NIC_DIR)nic_umac.o
 
 ifeq ($(os), none)
 OS_OBJS := 	$(OS_DIR)gl_dependent.o \
@@ -565,7 +566,9 @@ endif
 ifeq ($(CONFIG_MTK_COMBO_WIFI_HIF), sdio)
 HIF_OBJS :=  $(HIF_DIR)arm.o \
              $(HIF_DIR)sdio.o \
-             $(HIF_DIR)hal_api.o
+             $(HIF_DIR)hal_api.o \
+             $(HIF_DIR)sdio_test_driver_core.o \
+             $(HIF_DIR)sdio_test_driver_ops.o
 else ifeq ($(CONFIG_MTK_COMBO_WIFI_HIF), pcie)
 HIF_OBJS :=  $(HIF_COMMON_DIR)hal_pdma.o \
              $(HIF_COMMON_DIR)kal_pdma.o \

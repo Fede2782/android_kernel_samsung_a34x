@@ -182,7 +182,7 @@ struct platform_device *imgsys_cmdq_set_frm_sync_pdev(struct device *dev)
 }
 EXPORT_SYMBOL(imgsys_cmdq_set_frm_sync_pdev);
 
-unsigned int imgsys_cmdq_frm_sync_init(void)
+int imgsys_cmdq_frm_sync_init(void)
 {
 	struct group token_group;
 	int ret;
@@ -201,7 +201,7 @@ unsigned int imgsys_cmdq_frm_sync_dump_event_info(int event)
 }
 EXPORT_SYMBOL(imgsys_cmdq_frm_sync_dump_event_info);
 
-unsigned int imgsys_cmdq_frm_sync_uninit(void)
+int imgsys_cmdq_frm_sync_uninit(void)
 {
 	struct group token_group;
 	int ret;

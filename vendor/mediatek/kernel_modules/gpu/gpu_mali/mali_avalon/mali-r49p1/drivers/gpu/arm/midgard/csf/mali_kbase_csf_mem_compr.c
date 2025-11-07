@@ -286,6 +286,7 @@ static u32 compress_large_page(struct kbase_context *kctx, struct kbase_va_regio
 	kbase_mem_pool_free_page(&kctx->mem_pools.large[phys_alloc->group_id], page);
 	phys_alloc->compressed_nents += NUM_PAGES_IN_2MB_LARGE_PAGE;
 	atomic_add(NUM_PAGES_IN_2MB_LARGE_PAGE, &kctx->csf.compressed_pages_cnt);
+	atomic_add(NUM_PAGES_IN_2MB_LARGE_PAGE, &kctx->kbdev->memdev.compressed_pages_total);
 
 	out = NUM_PAGES_IN_2MB_LARGE_PAGE;
 	goto exit;
@@ -384,6 +385,7 @@ static u32 compress_small_page(struct kbase_context *kctx, struct kbase_va_regio
 	/* Compress 1 page  */
 	phys_alloc->compressed_nents += 1;
 	atomic_add(1, &kctx->csf.compressed_pages_cnt);
+	atomic_add(1, &kctx->kbdev->memdev.compressed_pages_total);
 	if (!is_partial) {
 		/* Free the 1 page, if not partial */
 		kbase_mem_pool_free_page(&kctx->mem_pools.small[phys_alloc->group_id], page);
@@ -568,6 +570,7 @@ static int decompress_large_page_using_small_pages(struct kbase_context *kctx, s
 
 	phys_alloc->compressed_nents -= NUM_PAGES_IN_2MB_LARGE_PAGE;
 	atomic_sub(NUM_PAGES_IN_2MB_LARGE_PAGE, &kctx->csf.compressed_pages_cnt);
+	atomic_sub(NUM_PAGES_IN_2MB_LARGE_PAGE, &kctx->kbdev->memdev.compressed_pages_total);
 
 exit:
 	kfree(scratch_pages_array);
@@ -709,6 +712,7 @@ static int decompress_large_page(struct kbase_context *kctx, struct kbase_va_reg
 	dma_sync_single_for_device(kbdev->dev, kbase_dma_addr(page), SZ_2M, DMA_BIDIRECTIONAL);
 	phys_alloc->compressed_nents -= NUM_PAGES_IN_2MB_LARGE_PAGE;
 	atomic_sub(NUM_PAGES_IN_2MB_LARGE_PAGE, &kctx->csf.compressed_pages_cnt);
+	atomic_sub(NUM_PAGES_IN_2MB_LARGE_PAGE, &kctx->kbdev->memdev.compressed_pages_total);
 
 exit:
 	kfree(scratch_pages_array);
@@ -775,6 +779,7 @@ static int decompress_small_page(struct kbase_context *kctx, struct kbase_va_reg
 	dma_sync_single_for_device(kbdev->dev, kbase_dma_addr(page), PAGE_SIZE, DMA_BIDIRECTIONAL);
 	phys_alloc->compressed_nents -= 1;
 	atomic_sub(1, &kctx->csf.compressed_pages_cnt);
+	atomic_sub(1, &kctx->kbdev->memdev.compressed_pages_total);
 	kfree(scratch_buf);
 
 	return 0;
@@ -1002,6 +1007,7 @@ void kbase_zs_free_compressed_page(struct kbase_context *kctx, struct tagged_add
 		zs_free(kctx->csf.zs_pool, zs_handle);
 		*pages = as_tagged(KBASE_INVALID_PHYSICAL_ADDRESS);
 		atomic_sub(1, &kctx->csf.compressed_pages_cnt);
+		atomic_sub(1, &kctx->kbdev->memdev.compressed_pages_total);
 		return;
 	}
 
@@ -1015,6 +1021,7 @@ void kbase_zs_free_compressed_page(struct kbase_context *kctx, struct tagged_add
 		pages[i] = as_tagged(KBASE_INVALID_PHYSICAL_ADDRESS);
 	}
 	atomic_sub(NUM_PAGES_IN_2MB_LARGE_PAGE, &kctx->csf.compressed_pages_cnt);
+	atomic_sub(NUM_PAGES_IN_2MB_LARGE_PAGE, &kctx->kbdev->memdev.compressed_pages_total);
 }
 
 #define KBASE_CSF_MEM_COMPR_SYSFS_ATTR(_name, _mode)                \
@@ -1023,8 +1030,8 @@ void kbase_zs_free_compressed_page(struct kbase_context *kctx, struct tagged_add
 		.mode = VERIFY_OCTAL_PERMISSIONS(_mode),            \
 	}
 
-static KBASE_CSF_MEM_COMPR_SYSFS_ATTR(proc_state, 0644);
-static KBASE_CSF_MEM_COMPR_SYSFS_ATTR(max_reclaimable_mem_limit, 0644);
+static KBASE_CSF_MEM_COMPR_SYSFS_ATTR(proc_state, 0664);
+static KBASE_CSF_MEM_COMPR_SYSFS_ATTR(max_reclaimable_mem_limit, 0664);
 static KBASE_CSF_MEM_COMPR_SYSFS_ATTR(reclaimed_mem_count, 0444);
 static KBASE_CSF_MEM_COMPR_SYSFS_ATTR(reclaimable_memory_count, 0444);
 
@@ -1112,68 +1119,86 @@ static ssize_t kbase_csf_mem_compr_sysfs_store(struct kobject *kobj, struct attr
 	WARN_ON(!kprcs);
 	kbdev = kprcs->kbdev;
 
-	mutex_lock(&kbdev->kctx_list_lock);
-	list_for_each_entry(kctx, &kprcs->kctx_list, kprcs_link) {
-		WARN_ON(kctx->tgid != kprcs->tgid);
+	//dev_err(kbdev->dev, "[Begin]kbase_csf_mem_compr_sysfs_store: %d, called %d times", kprcs->tgid, kprcs->store_count++);
 
-		/* check whether the kctx has been removed from the device list */
-		still_in_device_list = false;
-		list_for_each_entry(check_kctx, &kbdev->kctx_list, kctx_list_link) {
-			if (check_kctx == kctx) {
-				still_in_device_list = true;
-				break;
+try_lock:
+	if (mutex_trylock(&kbdev->kctx_list_lock)) {
+		list_for_each_entry(kctx, &kprcs->kctx_list, kprcs_link) {
+			WARN_ON(kctx->tgid != kprcs->tgid);
+
+			/* check whether the kctx has been removed from the device list */
+			still_in_device_list = false;
+			list_for_each_entry(check_kctx, &kbdev->kctx_list, kctx_list_link) {
+				if (check_kctx == kctx) {
+					still_in_device_list = true;
+					break;
+				}
 			}
-		}
 
-		/* kctx already deleted from device list can not process */
-		if (!still_in_device_list)
-			continue;
+			/* kctx already deleted from device list can not process */
+			if (!still_in_device_list){
+				continue;
+			}
 
-		if (attr == &kbase_csf_mem_compr_sysfs_attr_proc_state) {
-			if (sysfs_streq(buf, "foreground")) {
-				kctx->csf.foreground = true;
+			if (attr == &kbase_csf_mem_compr_sysfs_attr_proc_state) {
+				if (sysfs_streq(buf, "foreground")) {
+					kctx->csf.foreground = true;
 
-				ret = kbase_zs_decompress(kctx);
-				if (ret)
+					ret = kbase_zs_decompress(kctx);
+					if (ret)
+						goto out;
+				} else if (sysfs_streq(buf, "background")) {
+					kctx->csf.foreground = false;
+
+					queue_work(kctx->csf.wq, &kctx->csf.compress_work);
+				} else {
+					dev_err(kctx->kbdev->dev, "Couldn't process %d_%d/%s write operation",
+							kctx->tgid, kctx->id, attr->name);
+					ret = -EINVAL;
 					goto out;
-			} else if (sysfs_streq(buf, "background")) {
-				kctx->csf.foreground = false;
+				}
 
-				queue_work(kctx->csf.wq, &kctx->csf.compress_work);
-			} else {
-				dev_err(kctx->kbdev->dev, "Couldn't process %d_%d/%s write operation",
-						kctx->tgid, kctx->id, attr->name);
-				ret = -EINVAL;
-				goto out;
+				ret = (ssize_t)count;
+				continue;
 			}
 
-			ret = (ssize_t)count;
-			continue;
-		}
+			if (attr == &kbase_csf_mem_compr_sysfs_attr_max_reclaimable_mem_limit) {
+				s32 val;
+				ret = kstrtoint(buf, 0, &val);
 
-		if (attr == &kbase_csf_mem_compr_sysfs_attr_max_reclaimable_mem_limit) {
-			s32 val;
-			ret = kstrtoint(buf, 0, &val);
+				if (ret) {
+					dev_err(kctx->kbdev->dev, "Couldn't process %d_%d/%s write operation",
+							kctx->tgid, kctx->id, attr->name);
+					ret = -EINVAL;
+					goto out;
+				}
 
-			if (ret) {
-				dev_err(kctx->kbdev->dev, "Couldn't process %d_%d/%s write operation",
-						kctx->tgid, kctx->id, attr->name);
-				ret = -EINVAL;
-				goto out;
+				kctx->csf.max_compressed_pages_cnt = val;
+
+				ret = (ssize_t)count;
+				continue;
 			}
 
-			kctx->csf.max_compressed_pages_cnt = val;
+			dev_err(kctx->kbdev->dev, "Unexpected write to entry %d_%d/%s", kctx->tgid, kctx->id, attr->name);
 
-			ret = (ssize_t)count;
-			continue;
+			ret = -EINVAL;
+			goto out;
 		}
 
-		dev_err(kctx->kbdev->dev, "Unexpected write to entry %d_%d/%s", kctx->tgid, kctx->id, attr->name);
-
-		ret = -EINVAL;
-		goto out;
+	} else {
+		/* Get the lock failed check whether kprcs already in
+		 * term processing, if yes return directly
+                 * or a deadlock will generated.
+		 * if no try to lock again
+                 */
+		if (atomic_read(&kprcs->term_processing) > 0) {
+			if (list_empty(&kprcs->kctx_list))
+				return ret;
+		} else {
+			//dev_err(kbdev->dev, "[Retry]kbase_csf_mem_compr_sysfs_store: %d\n", kprcs->tgid);
+			goto try_lock;
+		}
 	}
-
 out:
 	mutex_unlock(&kbdev->kctx_list_lock);
 	return ret;

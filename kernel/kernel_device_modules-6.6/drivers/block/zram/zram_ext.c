@@ -160,7 +160,7 @@ static void check_marker(struct zram *zram, struct page **pages, int idx,
 		return;
 
 	prio = zram_get_priority(zram, index);
-	if (!strncmp(zram->comps[prio]->name, "lzo-rle", 7))
+	if (strncmp(zram->comps[prio]->name, "lzo-rle", 7))
 		return;
 	if (!memcmp(addr + size - 3, lzo_marker, 3))
 		return;
@@ -203,7 +203,7 @@ static int zram_decomp_page(struct zram *zram, struct page **src_page,
 	prio = zram_get_priority(zram, index);
 	zstrm = zcomp_stream_get(zram->comps[prio]);
 	if (offset + header_sz + size > PAGE_SIZE) {
-		addr = zstrm->tmpbuf;
+		addr = zstrm->buffer;
 		copy_to_buf(src_page, addr, page_idx, offset + header_sz, size);
 	} else {
 		addr = src + offset + header_sz;
@@ -364,9 +364,6 @@ static void zram_read_done_work(struct work_struct *work)
 	unsigned long chunk_idx = blk_to_chunk_idx(blk_idx);
 	int errno = blk_status_to_errno(bio->bi_status);
 
-#ifdef CONFIG_ZRAM_PERF_STAT
-	zram_perf_io_end(zw, READ);
-#endif
 	if (dst_page) {
 		if (errno)
 			bio_chain->bi_status = bio->bi_status;
@@ -391,6 +388,9 @@ static void zram_read_end_io(struct bio *bio)
 	unsigned long chunk_idx = blk_to_chunk_idx(zw->handle >> IDX_SHIFT);
 	int errno = blk_status_to_errno(bio->bi_status);
 
+#ifdef CONFIG_ZRAM_PERF_STAT
+	zram_perf_io_end(zw, READ);
+#endif
 	if (errno)
 		pr_err("%s read bio returned errno %d\n", __func__, errno);
 	else if (!zram->read_work[chunk_idx])
@@ -1172,12 +1172,25 @@ void zram_error_count_store(struct zram *zram, int type)
 	BUG_ON(force_upload_mode());
 }
 
-ssize_t zram_error_count_show(struct zram *zram, char *buf, ssize_t size)
+#define MAX_ERROR_COUNT 100ULL
+
+static ssize_t error_count_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
 {
-	return scnprintf(buf, size, "%8llu %8llu\n",
-			(u64)atomic64_read(&zram->stats.error_count[0]),
-			(u64)atomic64_read(&zram->stats.error_count[1]));
+	struct zram *zram = dev_to_zram(dev);
+	u64 error_count[NR_ERR_TYPES];
+
+	down_read(&zram->init_lock);
+	error_count[0] = (u64)atomic64_read(&zram->stats.error_count[0]);
+	error_count[1] = (u64)atomic64_read(&zram->stats.error_count[1]);
+	up_read(&zram->init_lock);
+
+	return scnprintf(buf, PAGE_SIZE, "%llu %llu\n",
+			min_t(u64, MAX_ERROR_COUNT, error_count[0]),
+			min_t(u64, MAX_ERROR_COUNT, error_count[1]));
 }
+
+DEVICE_ATTR_RO(error_count);
 
 void deinit_zram_ext(struct zram *zram)
 {
@@ -1206,12 +1219,6 @@ void deinit_zram_ext(struct zram *zram)
 
 	kvfree(refcount_table);
 	exit_zram_madvise();
-	unregister_trace_android_vh_smaps_swap_shared(zram_count_shared, zram);
-	unregister_trace_android_vh_show_smap_swap_shared(zram_show_shared, zram);
-	unregister_trace_android_vh_smaps_pte_entry(zram_count_entry_type, zram);
-	unregister_trace_android_vh_show_smap(zram_show_entry_type, zram);
-	unregister_trace_android_vh_show_mem(zram_show_mem, zram);
-	unregister_trace_android_vh_meminfo_proc_show(zram_meminfo, zram);
 }
 
 int init_zram_ext(struct zram *zram, unsigned long nr_pages, unsigned int size)
@@ -1249,16 +1256,29 @@ int init_zram_ext(struct zram *zram, unsigned long nr_pages, unsigned int size)
 		goto out;
 	zram->wb_limit_enable = true;
 	init_zram_madvise(zram);
+	return 0;
+out:
+	deinit_zram_ext(zram);
+	return -ENOMEM;
+}
+
+void zram_register_vendor_hooks(struct zram *zram)
+{
 	register_trace_android_vh_smaps_swap_shared(zram_count_shared, zram);
 	register_trace_android_vh_show_smap_swap_shared(zram_show_shared, zram);
 	register_trace_android_vh_smaps_pte_entry(zram_count_entry_type, zram);
 	register_trace_android_vh_show_smap(zram_show_entry_type, zram);
 	register_trace_android_vh_show_mem(zram_show_mem, zram);
 	register_trace_android_vh_meminfo_proc_show(zram_meminfo, zram);
+}
 
-	return 0;
-out:
-	deinit_zram_ext(zram);
-	return -ENOMEM;
+void zram_unregister_vendor_hooks(struct zram *zram)
+{
+	unregister_trace_android_vh_smaps_swap_shared(zram_count_shared, zram);
+	unregister_trace_android_vh_show_smap_swap_shared(zram_show_shared, zram);
+	unregister_trace_android_vh_smaps_pte_entry(zram_count_entry_type, zram);
+	unregister_trace_android_vh_show_smap(zram_show_entry_type, zram);
+	unregister_trace_android_vh_show_mem(zram_show_mem, zram);
+	unregister_trace_android_vh_meminfo_proc_show(zram_meminfo, zram);
 }
 #endif

@@ -167,6 +167,7 @@ struct mtk_cam_ctx {
 	 */
 
 	atomic_t streaming;
+	atomic_t seninf_streaming;
 	unsigned int used_pipe;
 	int used_engine;
 

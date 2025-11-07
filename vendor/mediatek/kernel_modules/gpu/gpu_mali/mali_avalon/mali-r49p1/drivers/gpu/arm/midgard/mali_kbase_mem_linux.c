@@ -715,10 +715,8 @@ static unsigned long kbase_mem_evictable_reclaim_count_objects(struct shrinker *
 		atomic_read(&kctx->evict_nents) - atomic_read(&kctx->evict_compressed_nents);
 	unsigned long nr_freeable_items;
 #if IS_ENABLED(CONFIG_MALI_MTK_JIT_RECLAIM_ANTITHRASHING)
-	struct kbase_mem_phy_alloc *alloc, *tmp;
 	struct kbase_device *kbdev;
 	u64 jit_reclaim_timeout_ns = 0;
-	u64 now_ns;
 #endif /* CONFIG_MALI_MTK_JIT_RECLAIM_ANTITHRASHING */
 
 #if IS_ENABLED(CONFIG_MALI_MTK_JIT_RECLAIM_ANTITHRASHING)
@@ -740,26 +738,32 @@ static unsigned long kbase_mem_evictable_reclaim_count_objects(struct shrinker *
 	}
 
 #if IS_ENABLED(CONFIG_MALI_MTK_JIT_RECLAIM_ANTITHRASHING)
-	now_ns = ktime_get_raw_ns();
+	if (mutex_trylock(&kctx->jit_evict_lock)) {
+		struct kbase_mem_phy_alloc *alloc, *tmp;
+		u64 now_ns;
 
-	mutex_lock(&kctx->jit_evict_lock);
+		now_ns = ktime_get_raw_ns();
+		list_for_each_entry_safe(alloc, tmp, &kctx->evict_list, evict_node) {
+			if (!alloc->reg)
+				continue;
 
-	list_for_each_entry_safe(alloc, tmp, &kctx->evict_list, evict_node) {
-		if (!alloc->reg)
-			continue;
+			if (alloc->reg->last_used_ts == 0 || now_ns - alloc->reg->last_used_ts > jit_reclaim_timeout_ns)
+				continue;
 
-		if (alloc->reg->last_used_ts == 0 || now_ns - alloc->reg->last_used_ts > jit_reclaim_timeout_ns)
-			continue;
+			pr_debug("mem_evictable count_object: tgid=%d, jit_usage_id=%u, total=%lu, exclude=%lu",
+				 kctx->tgid, alloc->reg->jit_usage_id,
+				 nr_freeable_items, alloc->reg->gpu_alloc->nents);
 
-		pr_debug("mem_evictable count_object: tgid=%d, jit_usage_id=%u, total=%lu, exclude=%lu",
-			 kctx->tgid, alloc->reg->jit_usage_id,
-			 nr_freeable_items, alloc->reg->gpu_alloc->nents);
+			/* exclude those recently used jit mem */
+			nr_freeable_items -= alloc->reg->gpu_alloc->nents;
+		}
 
-		/* exclude those recently used jit mem */
-		nr_freeable_items -= alloc->reg->gpu_alloc->nents;
+		mutex_unlock(&kctx->jit_evict_lock);
+	} else {
+		pr_debug("mem_evictable count_object: tgid=%d, total=%lu, exclude=%lu",
+			 kctx->tgid, nr_freeable_items, nr_freeable_items);
+		nr_freeable_items = 0;
 	}
-
-	mutex_unlock(&kctx->jit_evict_lock);
 
 	trace_mali_mem_evictable_count(kctx, nr_freeable_items);
 #endif /* CONFIG_MALI_MTK_JIT_RECLAIM_ANTITHRASHING */

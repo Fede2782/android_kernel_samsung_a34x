@@ -1,8 +1,15 @@
-/* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (c) 2021 MediaTek Inc.
+ *  Copyright (c) 2016,2017 MediaTek Inc.
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *  See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
-
 #ifndef _BTMTK_PROJ_SP_H_
 #define _BTMTK_PROJ_SP_H_
 
@@ -16,7 +23,6 @@
 #include "connv3_debug_utility.h"
 #include "connv3_mcu_log.h"
 #include "connv3.h"
-//#include "btmtk_uart_tty.h"
 
 #define QUERY_FW_SCHEDULE_INTERVAL	(60 * 60 * 1000)	// 1 HR interval
 
@@ -64,15 +70,6 @@ extern int mtk8250_uart_hub_dev0_set_rx_request(void);
 extern int mtk8250_uart_hub_dev0_clear_tx_request(void);
 extern int mtk8250_uart_hub_dev0_clear_rx_request(struct tty_struct *tty);
 extern int mtk8250_uart_hub_get_host_wakeup_status(void);
-extern int mtk8250_uart_hub_get_bt_sleep_flow_hw_mech_en(void);
-extern int mtk8250_uart_hub_set_bt_sleep_flow_hw_mech_en(int enable);
-extern int mtk8250_uart_hub_get_host_awake_sta(int dev_index);
-extern int mtk8250_uart_hub_set_host_awake_sta(int dev_index);
-extern int mtk8250_uart_hub_clear_host_awake_sta(int dev_index);
-extern int mtk8250_uart_hub_get_host_bt_awake_sta(int dev_index);
-extern int mtk8250_uart_hub_get_cmm_bt_awake_sta(void);
-extern int mtk8250_uart_hub_get_bt_awake_sta(void);
-extern int mtk8250_uart_hub_bt_on_count_inc(void);
 int btmtk_wakeup_uarthub(void);
 void btmtk_release_uarthub(bool force);
 #endif
@@ -89,15 +86,6 @@ void mtk8250_uart_end_record(struct tty_struct *tty);
 #define HCI_CMD_DY_ADJ_PWR_QUERY	0x01
 #define HCI_CMD_DY_ADJ_PWR_SET		0x02
 #define BT_RHW_MAX_ERR_COUNT		(2)
-
-
-/* ioctl */
-#define COMBO_IOC_MAGIC				0xb0
-#define COMBO_IOCTL_BT_HOST_DEBUG	_IOW(COMBO_IOC_MAGIC, 4, void*)
-#define COMBO_IOCTL_BT_INTTRX		_IOW(COMBO_IOC_MAGIC, 5, void*)
-#define COMBO_IOCTL_BT_FINDER_MODE	_IOW(COMBO_IOC_MAGIC, 6, void*)
-#define IOCTL_BT_HOST_DEBUG_BUF_SIZE	(32)
-#define IOCTL_BT_HOST_INTTRX_SIZE		(256)
 
 typedef int (*BT_RX_EVT_HANDLER_CB) (uint8_t *buf, int len);
 
@@ -143,36 +131,24 @@ struct platform_prop {
 	struct bt_gpio		rst_gpio;
 };
 
-typedef struct _CONNXO_CFG_PARAM_STRUCT_T
-{
-	uint8_t ucDataLenLSB;
-	uint8_t ucDataLenMSB;
-	uint8_t ucFreqC1Axm52m;
-	uint8_t ucFreqC2Axm52m;
-	uint8_t ucFreqC1Btm52m;
-	uint8_t ucFreqC2Btm52m;
-	uint8_t ucFreqC1Axm80m;
-	uint8_t ucFreqC2Axm80m;
-	uint8_t ucFreqC1Btm80m;
-	uint8_t ucFreqC2Btm80m;
-	uint8_t ucFreqC1Lpm52m;
-	uint8_t ucFreqC2Lpm52m;
-	uint8_t ucFreqC1Lpm80m;
-	uint8_t ucFreqC2Lpm80m;
-	uint8_t ucCompC1Axm52m;
-	uint8_t ucCompC2Axm52m;
-	uint8_t ucCompC1Btm52m;
-	uint8_t ucCompC2Btm52m;
-	uint8_t ucCompC1Axm80m;
-	uint8_t ucCompC2Axm80m;
-	uint8_t ucCompC1Btm80m;
-	uint8_t ucCompC2Btm80m;
-	uint8_t ucCompC1Lpm52m;
-	uint8_t ucCompC2Lpm52m;
-	uint8_t ucCompC1Lpm80m;
-	uint8_t ucCompC2Lpm80m;
-	uint8_t ucExt32Cal;
-} CONNXO_CFG_PARAM_STRUCT, *P_CONNXO_CFG_PARAM_STRUCT;
+#define IRQ_NAME_SIZE	(20)
+struct bt_irq_ctrl {
+	uint32_t irq_num;
+	uint8_t name[IRQ_NAME_SIZE];
+	u_int8_t active;
+	spinlock_t lock;
+	unsigned long flags;
+};
+enum bt_irq_type {
+	UART_WAKEUP_IRQ,
+	BTMTK_IRQ_MAX
+};
+
+enum wmt_system_state {
+	// wmt parameter: 0(AP suspend) / 1(AP resume)
+	WMT_PARA_SUSPEND = 0,
+	WMT_PARA_RESUME = 1
+};
 
 void btmtk_async_trx_work(struct work_struct *work);
 void btmtk_pwr_on_uds_work(struct work_struct *work);
@@ -214,13 +190,18 @@ void btmtk_hif_dump_work(struct work_struct *work);
 
 /* find my phone mode api */
 int btmtk_find_my_phone_cmd(u32 hr);
-int btmtk_set_powered_off_finder_mode(bool enable);
-int btmtk_send_finder_eids(u8 *buf, u32 len);
 
 void btmtk_dump_gpio_state(void);
 void btmtk_dump_gpio_state_unmap(void);
 
 int btmtk_uart_launcher_deinit(void);
+
+/* uart_wakeup_irq */
+void btmtk_uart_wakeup_irq_disable(void);
+void btmtk_uart_wakeup_irq_enable(void);
+
+int btmtk_intcmd_wmt_blank_status(unsigned char blank_state);
+int btmtk_intcmd_system_status(unsigned char system_state);
 
 #endif // (USE_DEVICE_NODE == 1)
 #endif

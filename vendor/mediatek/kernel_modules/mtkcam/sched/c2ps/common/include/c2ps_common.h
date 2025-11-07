@@ -283,6 +283,13 @@ struct regulator_req {
 #define C2PS_LOGE(fmt, ...) pr_err("[C2PS]: %s %s %d " fmt, \
 	__FILE__, __func__, __LINE__, ##__VA_ARGS__)
 
+/* c2ps_main */
+int c2ps_notify_init(
+	int cfg_camfps, int max_uclamp_cluster0, int max_uclamp_cluster1,
+	int max_uclamp_cluster2, int ineff_cpu_ceiling_freq0,
+	int ineff_cpu_ceiling_freq1, int ineff_cpu_ceiling_freq2,
+	int lcore_mcore_um_ratio, int um_floor);
+
 int init_c2ps_common(int cfg_camfps);
 void exit_c2ps_common(void);
 int set_curr_uclamp_hint(int pid, int set);

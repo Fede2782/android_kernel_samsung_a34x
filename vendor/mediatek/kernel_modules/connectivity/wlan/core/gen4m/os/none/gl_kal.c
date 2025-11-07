@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -94,8 +94,7 @@ void kalRemoveProbe(struct GLUE_INFO *prGlueInfo)
 #if (CFG_SUPPORT_SINGLE_SKU == 1)
 #if (CFG_SUPPORT_SINGLE_SKU_LOCAL_DB == 1)
 void
-kalApplyCustomRegulatory(const void *pRegdom,
-	uint8_t fgNeedHoldRtnlLock) { }
+kalApplyCustomRegulatory(const void *pRegdom) { }
 
 const void *kalGetDefaultRegWW(void)
 {
@@ -126,8 +125,7 @@ void kalSetLogTooMuch(uint32_t u4DriverLevel,
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
 }
 
-
-void kalSendUeventHandler(struct ADAPTER *prAdapter, struct MSG_HDR *prMsgHdr)
+void kalGetRealTime(struct REAL_TIME *prRealTime)
 {
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
 }
@@ -177,16 +175,6 @@ uint32_t kalGetSKBSharedInfoSize(void)
 	return 0;
 }
 
-void kalTxTimeoutDump(struct ADAPTER *prAdapter)
-{
-	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
-}
-
-void kalSetTxTimeoutDump(struct GLUE_INFO *pr)
-{
-	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
-}
-
 #if (CFG_TX_MGMT_BY_DATA_Q == 1)
 void kalSetMgmtDirectTxEvent2Hif(
 		struct GLUE_INFO *pr)
@@ -196,7 +184,6 @@ void kalSetMgmtDirectTxEvent2Hif(
 #endif
 
 uint32_t kalGetChannelFrequency(
-		struct ADAPTER *prAdapter,
 		uint8_t ucChannel,
 		uint8_t ucBand)
 {
@@ -446,23 +433,14 @@ uint8_t kalNlaPut(void *pvPacket, uint32_t attrType,
 {
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
 }
-
+#if CFG_SUPPORT_RTT
 void *
 kalProcessRttReportDone(struct GLUE_INFO *prGlueInfo,
 		uint32_t u4DataLen, uint32_t u4Count)
 {
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
 }
-
-#if CFG_SUPPORT_PASN
-uint8_t kalIndicatePasnEvent(struct ADAPTER *prAdapter,
-		void *pvPasnReq,
-		uint8_t ucBssIdx)
-{
-	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
-}
 #endif
-
 void *kalGetGlueNetDevHdl(struct GLUE_INFO *prGlueInfo)
 {
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
@@ -475,7 +453,7 @@ void *kalGetGlueDevHdl(struct GLUE_INFO *prGlueInfo)
 	return (void *)NULL;
 }
 
-void kalGetDev(void **dev)
+void kalGetPlatDev(void **dev)
 {
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
 }
@@ -690,6 +668,18 @@ int kal_strtos32(const char *s, unsigned int base, int32_t *res)
 	return 0;
 }
 
+int kal_strtou64(const char *s, unsigned int base, uint64_t *res)
+{
+	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
+	return 0;
+}
+
+int kal_strtos64(const char *s, unsigned int base, int64_t *res)
+{
+	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
+	return 0;
+}
+
 int kal_strtoint(const char *s, unsigned int base, int *res)
 {
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
@@ -766,13 +756,6 @@ bool kal_is_err(void *ptr)
 	return KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
 }
 
-#if CFG_MTK_WIFI_PCIE_SR
-u_int8_t __weak kalIsSupportPcieL2(void)
-{
-	return FALSE;
-}
-#endif
-
 #if (CFG_SUPPORT_HOST_OFFLOAD == 1)
 u_int8_t __weak kalIsSupportMawd(void)
 {
@@ -788,16 +771,6 @@ u_int8_t __weak kalIsSupportRro(void)
 {
 	return FALSE;
 }
-uint32_t __weak kalGetMawdVer(void)
-{
-	return 0;
-}
-
-uint32_t __weak kalGetConnInfraId(void)
-{
-	return 0;
-}
-#endif /* CFG_SUPPORT_HOST_OFFLOAD */
 
 uint32_t kalFirmwareOpen(struct GLUE_INFO *prGlueInfo,
 			 uint8_t **apucNameTable)
@@ -826,9 +799,5 @@ uint32_t kalFirmwareLoad(struct GLUE_INFO *prGlueInfo,
 	return 0;
 }
 
-void kalIndicateControlPortTxStatus(struct ADAPTER *prAdapter,
-	struct MSDU_INFO *prMsduInfo,
-	enum ENUM_TX_RESULT_CODE rTxDoneStatus)
-{
-	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
-}
+
+#endif

@@ -30,7 +30,7 @@
  */
 
 #if CFG_MTK_ANDROID_WMT
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 #include "connv3.h"
 #endif
 #endif
@@ -39,7 +39,6 @@
 #include "gl_os.h"		/* Include "config.h" */
 #include "gl_sys_lock.h"
 #include "gl_cfg80211.h"
-#include "gl_concurrency_matrix.h"
 
 #if CFG_ENABLE_WIFI_DIRECT
 #include "gl_p2p_os.h"
@@ -98,19 +97,15 @@
 
 #include "nic_connac2x_tx.h"
 #include "nic_connac3x_tx.h"
-#include "nic_connac5x_tx.h"
 #include "nic_tx.h"
 #include "nic_txd_v1.h"
 #include "nic_txd_v2.h"
 #include "nic_txd_v3.h"
-#include "nic_txd_v5.h"
 
 #if (CFG_SUPPORT_CONNAC2X == 1)
 #include "nic_rxd_v2.h"
 #elif (CFG_SUPPORT_CONNAC3X == 1)
 #include "nic_rxd_v3.h"
-#elif (CFG_SUPPORT_CONNAC5X == 1)
-#include "nic_rxd_v5.h"
 #else
 #include "nic_rxd_v1.h"
 #endif
@@ -118,10 +113,11 @@
 #include "hal.h"
 #include "nic_connac2x_rx.h"
 #include "nic_connac3x_rx.h"
-#include "nic_connac5x_rx.h"
 /* Dependency:  hif_rx.h (P_HIF_RX_HEADER_T) */
 /* Dependency:  hal.h (RRO_COUNTER_NUM) */
 #include "nic_rx.h"
+
+#include "nic_umac.h"
 
 #include "bss.h"
 
@@ -166,7 +162,6 @@
 #include "cmm_asic_connac.h"
 #include "cmm_asic_connac2x.h"
 #include "cmm_asic_connac3x.h"
-#include "cmm_asic_connac5x.h"
 #include "pre_cal.h"
 
 #if (CFG_SUPPORT_802_11AX == 1)
@@ -200,8 +195,6 @@
 #include "aa_fsm.h"
 
 #include "que_mgt.h"
-
-#include "arp_mon.h"
 
 #include "wmm.h"
 #if CFG_ENABLE_BT_OVER_WIFI
@@ -253,55 +246,53 @@
 #include "gl_vendor_nan.h"
 #include "nan_data_engine.h"
 #include "nanDiscovery.h"
-#include "nanInstantCommMode.h"
 #include "nanScheduler.h"
 #include "nanReg.h"
 #include "nan_base.h"
 #if CFG_SUPPORT_NAN_EXT
 #include "nan_ext.h"
-#include "nan_ext_log.h"
-#else
-#include "nan_log.h"
 #endif
-#include "nan_data_engine.h"
 #include "nan_dev.h"
 #include "nan_link.h"
 #include "nan_intf.h"
 #include "nan_ranging.h"
 #include "nan_func.h"
+#if CFG_SUPPORT_NAN_R4_PAIRING
+#include "nan_pairing.h"
+#endif
 #endif
 
 #if CFG_SUPPORT_LOGGER
 #include "gl_vendor_logger.h"
 #endif
 
-#if CFG_SUPPORT_ROAMING
-#include "roaming_fsm.h"
-#endif /* CFG_SUPPORT_ROAMING */
-
 #if CFG_SUPPORT_PASSPOINT
 #include "hs20.h"
 #endif /* CFG_SUPPORT_PASSPOINT */
 
 /* Support AP Selection */
+#if (CFG_SUPPORT_APS == 1)
 #include "aps.h"
+#else
+#include "ap_selection.h"
+#endif
+
+#if (CFG_EXT_FEATURE == 1)
+#include "roaming_ext.h"
+#endif
+
+#if CFG_SUPPORT_ROAMING
+#include "roaming_fsm.h"
+#endif /* CFG_SUPPORT_ROAMING */
 
 #include "ais_fsm.h"
-
-#if CFG_SUPPORT_RTT
 #include "rtt.h"
-#endif
-#if CFG_SUPPORT_PASN
-#include "pasn.h"
-#endif
 
 #include "gcm.h"
 
 #include "fw_log.h"
 
 #include "mscs.h"
-
-#include "ccm.h"
 
 #include "adapter.h"
 #include "ccif.h"
@@ -368,11 +359,10 @@
 
 #if CFG_EXT_FEATURE
 #include "log_ext.h"
-#include "roaming_ext.h"
-#include "twt_ext.h"
-#include "debug_ext.h"
-#include "gl_sys.h"
 #include "p2p_ext.h"
+#include "twt_ext.h"
+#include "gl_sys.h"
+#include "fw_log_emi_ext.h"
 #endif
 
 #if CFG_SUPPORT_TDLS_AUTO
@@ -392,14 +382,6 @@
  */
 #if CFG_CHIP_RESET_KO_SUPPORT
 #include "reset.h"
-#endif
-
-/*------------------------------------------------------------------------------
- * wed (wifi ethernet dispatch)
- *------------------------------------------------------------------------------
- */
-#if CFG_SUPPORT_WED_PROXY
-#include "hal_wed.h"
 #endif
 
 #if CFG_SUPPORT_CABLE_DETECT

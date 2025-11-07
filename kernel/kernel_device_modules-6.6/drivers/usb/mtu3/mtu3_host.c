@@ -463,6 +463,9 @@ static void ssusb_host_cleanup(struct ssusb_mtk *ssusb)
 	if (ssusb->is_host)
 		ssusb_set_vbus(&ssusb->otg_switch, 0);
 
+	/* wait for USB bus idle */
+	ssusb_wait_power_state(ssusb, MTU3_STATE_POWER_OFF);
+
 	ssusb_host_disable(ssusb);
 }
 

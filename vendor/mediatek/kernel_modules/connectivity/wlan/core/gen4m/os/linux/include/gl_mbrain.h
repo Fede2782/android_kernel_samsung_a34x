@@ -25,8 +25,8 @@
  *******************************************************************************
  */
 
-#define MBR_TXTIMEOUT_QUE_CNT_MAX	50
-#define MBR_TXTIMEOUT_INTERVAL		20000 /* 20s*/
+#define MBR_TRX_PERF_QUE_CNT_MAX	200
+#define MBR_TRX_PERF_TIMEOUT_INTERVAL	5000 /* 5s*/
 
 #if CFG_SUPPORT_MBRAIN_TXPWR_RPT
 #define TXPWR_MBRAIN_ANT_NUM 2
@@ -190,12 +190,21 @@ struct mbrain_emi_data {
 #if CFG_SUPPORT_PCIE_MBRAIN
 	struct PCIE_T rMbrPcieData;
 #endif /* CFG_SUPPORT_PCIE_MBRAIN */
+#if CFG_SUPPORT_MBRAIN_BIGDATA
+	struct BIG_DATA_BSS_CNT_T arBssStatCnt[MAX_BSSID_NUM];
+	struct BIG_DATA_ABT_CNT arAbtCnt[ENUM_BAND_NUM];
+	struct BIG_DATA_PHY_CNT arPhyCnt[ENUM_BAND_NUM];
+	struct BIG_DATA_STA_INFO arStaInfo[BIG_DATA_MAX_STA_NUM];
+#endif /* CFG_SUPPORT_MBRAIN_BIGDATA */
 };
 
-struct MBRAIN_TXTIMEOUT_ENTRY {
+#if CFG_SUPPORT_MBRAIN_TRX_PERF
+struct MBRAIN_TRXPERF_ENTRY {
 	struct QUE_ENTRY rQueEntry;
-	struct wifi2mbr_TxTimeoutInfo rTxTimeoutInfo;
+	struct wifi2mbr_TRxPerfInfo rTRxPerfInfo;
 };
+#endif /* CFG_SUPPORT_MBRAIN_TRX_PERF */
+
 
 /*******************************************************************************
  *                  F U N C T I O N   D E C L A R A T I O N S
@@ -239,23 +248,33 @@ uint16_t mbr_wifi_lls_get_total_data_num(
 uint16_t mbr_wifi_lp_get_total_data_num(
 	struct ADAPTER *prAdapter, enum wifi2mbr_tag eTag);
 
-uint16_t mbrWifiTxTimeoutGetTotalDataNum(
-	struct ADAPTER *prAdapter, enum wifi2mbr_tag eTag);
-
 uint16_t mbr_wifi_txpwr_get_total_data_num(
 	struct ADAPTER *prAdapter, enum wifi2mbr_tag eTag);
 
-void mmbrTxTimeoutEnqueue(struct ADAPTER *prAdapter,
-	uint32_t u4TokenId, struct timespec64 rTimeoutTs,
-	uint32_t u4AvgIdleSlot);
-
-struct MBRAIN_TXTIMEOUT_ENTRY *mbrTxTimeoutDequeue(struct ADAPTER *prAdapter);
+uint16_t mbrWifiPcieGetTotalDataNum(
+	struct ADAPTER *prAdapter, enum wifi2mbr_tag eTag);
 
 void mbrIsTxTimeout(struct ADAPTER *prAdapter,
 	uint32_t u4TokenId, uint32_t u4TxTimeoutDuration);
 
-uint16_t mbrWifiPcieGetTotalDataNum(
-	struct ADAPTER *prAdapter, enum wifi2mbr_tag eTag);
+#if CFG_SUPPORT_MBRAIN_TRX_PERF
+void mbrTRxPerfEnqueue(struct ADAPTER *prAdapter);
+
+struct MBRAIN_TRXPERF_ENTRY *mbrTRxPerfDequeue(struct ADAPTER *prAdapter);
+
+enum wifi2mbr_status mbrWifiTRxPerfHandler(struct ADAPTER *prAdapter,
+	enum wifi2mbr_tag eTag, uint16_t u2CurLoopIdx,
+	void *buf, uint16_t *pu2Len);
+
+uint16_t mbrWifiTRxPerfGetTotalDataNum(struct ADAPTER *prAdapter,
+	enum wifi2mbr_tag eTag);
+#endif /* CFG_SUPPORT_MBRAIN_TRX_PERF */
+
+#if CFG_SUPPORT_MBRAIN_TXPWR_RPT
+enum wifi2mbr_status mbr_wifi_txpwr_uni_event_handler(struct ADAPTER *prAdapter,
+	struct TXPWR_MBRAIN_RPT_T *prMbrRpt
+);
+#endif
 
 #endif /* CFG_SUPPORT_MBRAIN */
 #endif /* _GL_MBRAIN_H */

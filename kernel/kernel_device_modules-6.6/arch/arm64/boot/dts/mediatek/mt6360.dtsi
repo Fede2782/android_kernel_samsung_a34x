@@ -193,8 +193,6 @@ status = "okay";
 		mt-tcpc,vconn-supply = <1>;
 		mt6360pd,intr-gpio = <&pio 25 0x0>;
 		mt6360pd,intr-gpio-num = <25>;
-		mt6360pd,pcb-gpio = <&pio 19 0x0>;
-		mt6360pd,pcb-gpio-num = <19>;
 		interrupt-parent = <&subpmic_mtk>;
 		interrupts = <64 0>;
 		interrupt-names = "usbid_evt";
@@ -230,7 +228,7 @@ status = "okay";
 			pd,sink-pdo-data = <0x000190c8>;
 
 			/*
-			 * No DP, host + device
+			 * No DP Sink capability
 			 *	pd,id-vdo-size = <6>;
 			 *	pd,id-vdo-data = <0xd14029cf 0x0 0x63600000
 						  0x61000000 0x0 0x41000000>;

@@ -103,10 +103,13 @@ static void cma_clear_bitmap(struct cma *cma, unsigned long pfn,
 	spin_unlock_irqrestore(&cma->lock, flags);
 }
 
-static void __init cma_activate_area(struct cma *cma)
+static void cma_activate_area(struct cma *cma)
 {
 	unsigned long base_pfn = cma->base_pfn, pfn;
 	struct zone *zone;
+
+	if (cma->reserve_pages_on_error)
+		return;
 
 	cma->bitmap = bitmap_zalloc(cma_bitmap_maxno(cma), GFP_KERNEL);
 	if (!cma->bitmap)
@@ -168,6 +171,25 @@ void __init cma_reserve_pages_on_error(struct cma *cma)
 	cma->reserve_pages_on_error = true;
 }
 
+unsigned long cma_get_first_virtzone_base(int nid)
+{
+        struct pglist_data *pgdata;
+        struct zone *zone;
+        int zone_idx;
+
+        pgdata = NODE_DATA(nid);
+        if (!pgdata)
+                return 0;
+
+        for (zone_idx = ZONE_NOSPLIT; zone_idx <= ZONE_NOMERGE; zone_idx++) {
+                zone = &pgdata->node_zones[zone_idx];
+                if (zone->zone_start_pfn)
+                        return zone->zone_start_pfn << PAGE_SHIFT;
+        }
+
+        return 0;
+}
+
 /**
  * cma_init_reserved_mem() - create custom contiguous area from reserved memory
  * @base: Base address of the reserved area
@@ -183,7 +205,8 @@ void __init cma_reserve_pages_on_error(struct cma *cma)
 int __init cma_init_reserved_mem(phys_addr_t base, phys_addr_t size,
 				 unsigned int order_per_bit,
 				 const char *name,
-				 struct cma **res_cma)
+				 struct cma **res_cma,
+				 bool late_activate)
 {
 	struct cma *cma;
 
@@ -214,6 +237,7 @@ int __init cma_init_reserved_mem(phys_addr_t base, phys_addr_t size,
 	cma->base_pfn = PFN_DOWN(base);
 	cma->count = size >> PAGE_SHIFT;
 	cma->order_per_bit = order_per_bit;
+	cma->reserve_pages_on_error = late_activate;
 	*res_cma = cma;
 	cma_area_count++;
 	totalcma_pages += (size / PAGE_SIZE);
@@ -376,7 +400,8 @@ int __init cma_declare_contiguous_nid(phys_addr_t base,
 		base = addr;
 	}
 
-	ret = cma_init_reserved_mem(base, size, order_per_bit, name, res_cma);
+	ret = cma_init_reserved_mem(base, size, order_per_bit, name, res_cma,
+				    false);
 	if (ret)
 		goto free_mem;
 
@@ -451,6 +476,12 @@ struct page *__cma_alloc(struct cma *cma, unsigned long count,
 	int ret = -ENOMEM;
 	int num_attempts = 0;
 	int max_retries = 5;
+
+	if (cma->reserve_pages_on_error) {
+		cma->reserve_pages_on_error = false;
+		cma_activate_area(cma);
+		pr_info("cma %s late activate done\n", cma->name);
+	}
 
 	if (WARN_ON_ONCE((gfp_mask & GFP_KERNEL) == 0 ||
 		(gfp_mask & ~(GFP_KERNEL|__GFP_NOWARN|__GFP_NORETRY)) != 0))
@@ -550,6 +581,7 @@ struct page *__cma_alloc(struct cma *cma, unsigned long count,
 	}
 
 	if (ret && !(gfp_mask & __GFP_NOWARN)) {
+		trace_android_vh_cma_alloc_fail(cma->name, cma->count, count);
 		pr_err_ratelimited("%s: %s: alloc failed, req-size: %lu pages, ret: %d\n",
 				   __func__, cma->name, count, ret);
 		cma_debug_show_areas(cma);
@@ -653,3 +685,7 @@ int cma_for_each_area(int (*it)(struct cma *cma, void *data), void *data)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(cma_for_each_area);
+EXPORT_TRACEPOINT_SYMBOL_GPL(cma_alloc_start);
+EXPORT_TRACEPOINT_SYMBOL_GPL(cma_alloc_busy_retry);
+EXPORT_TRACEPOINT_SYMBOL_GPL(cma_alloc_finish);
+EXPORT_TRACEPOINT_SYMBOL_GPL(cma_release);

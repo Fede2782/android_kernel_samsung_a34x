@@ -144,8 +144,14 @@ uint32_t nanProcessFR(struct ADAPTER *prAdapter, const uint8_t *buf,
 u_int8_t nanExtGetFr(struct _NAN_NDL_INSTANCE_T *prNDL, uint8_t *ucRequestId,
 		 uint32_t *u4BootTime);
 
-u_int8_t nanExtSetFr(struct _NAN_NDL_INSTANCE_T *prNDL, uint8_t ucRequestId,
-		     uint64_t u8Boottime);
+u_int8_t nanExtSetFrPs(struct ADAPTER *prAdapter,
+		       struct _NAN_NDL_INSTANCE_T *prNDL,
+		       struct IE_NAN_ASCC_CMD *cmd, u_int8_t fgEnterSleep);
+
+uint32_t nanIndicateActiveFrResponse(struct ADAPTER *prAdapter,
+				uint8_t ucRequestId,
+				enum NAN_FR_PACKET_TYPE type,
+				enum NAN_FR_PACKET_SUBTYPE subtype);
 
 #endif /* CFG_SUPPORT_NAN */
 #endif /* _NAN_EXT_FR_H_ */

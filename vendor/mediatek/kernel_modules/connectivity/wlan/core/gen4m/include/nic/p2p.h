@@ -60,18 +60,15 @@
 
 /* Device Charactoristic. */
 /* 1000 is too short , the deauth would block in the queue */
-#define SAP_CHNL_HOLD_TIME_MS			200
-#define P2P_CHNL_HOLD_TIME_MS			3000
+#define SAP_CHNL_HOLD_TIME_MS		200
+#define P2P_CHNL_HOLD_TIME_MS		3000
 #define P2P_AP_CHNL_HOLD_TIME_CSA_MS		100
-#define P2P_GC_JOIN_CH_GRANT_THRESHOLD		10
-#define P2P_GC_JOIN_CH_REQUEST_INTERVAL		4000
 #define P2P_DEFAULT_LISTEN_CHANNEL                   1
 #define P2P_EXTEND_ROLE_REQ_CHNL_TIME_DIFF_MS 2000
 
 #if (CFG_SUPPORT_DFS_MASTER == 1)
 #define P2P_AP_CAC_WEATHER_CHNL_HOLD_TIME_MS (600*1000)
 #define P2P_AP_CAC_MIN_CAC_TIME_MS (60*1000)
-#define P2P_AP_CAC_TIMER_MARGIN (2000)
 #endif
 
 #define P2P_DEAUTH_TIMEOUT_TIME_MS 1000
@@ -81,22 +78,9 @@
 #define AP_NONINDOOR_CHANNEL_5G   149
 #define AP_DEFAULT_CHANNEL_2G     6
 #define AP_DEFAULT_CHANNEL_5G     36
-#define AP_DEFAULT_CHANNEL_5GL    36
-#define AP_DEFAULT_CHANNEL_5GH     149
 #if (CFG_SUPPORT_WIFI_6G == 1)
 #define AP_DEFAULT_CHANNEL_6G     5
-#define AP_DEFAULT_CHANNEL_6G_1     97
-#define AP_DEFAULT_CHANNEL_6G_2     37
 #endif
-#define P2P_5G_L_H_ISOLATION_WIDTH 160
-#define P2P_5G_6G_ISOLATION_WIDTH  190
-#define P2P_5G_L_LOWER_BOUND       5170
-#define P2P_5G_L_UPPER_BOUND       5330
-#define P2P_5G_H_LOWER_BOUND       5490
-#define P2P_5G_H_UPPER_BOUND       5895
-#define P2P_6G_LOWER_BOUND         5945
-#define P2P_6G_UPPER_BOUND         6425
-#define AP_A_BAND_CHANNEL_INTERVAL     4
 
 #if (CFG_TX_MGMT_BY_DATA_Q == 1)
 #define DEFAULT_P2P_PROBERESP_RETRY_LIMIT (2)
@@ -107,10 +91,6 @@
 #define DEFAULT_P2P_PROBERESP_LIFE_TIME 500
 
 #define DEFAULT_P2P_CSA_TIMEOUT_MS	7000
-#define P2P_MAX_AID_VALUE	2007
-
-#define DEFAULT_MAX_CHANNEL_SWITCH_TIME_TU	1000
-#define P2P_MAX_PROBE_RESP_LEN			768
 
 /******************************************************************************
  *                                 M A C R O S
@@ -233,7 +213,6 @@ enum P2P_CHANNEL_SWITCH_POLICY {
 enum P2P_CONCURRENCY_POLICY {
 	P2P_CONCURRENCY_POLICY_REMOVE,
 	P2P_CONCURRENCY_POLICY_KEEP,
-	P2P_CONCURRENCY_POLICY_REMOVE_IF_STA_MLO,
 };
 
 enum P2P_AUTH_POLICY {
@@ -250,27 +229,8 @@ enum P2P_VENDOR_ACS_HW_MODE {
 	P2P_VENDOR_ACS_HW_MODE_11ANY
 };
 
-enum P2P_FOBIDDEN_REGION_TYPE {
-	P2P_FOBIDDEN_REGION_ISOLATION = 0,
-	P2P_FOBIDDEN_REGION_ALIASING = 1,
-	P2P_FOBIDDEN_REGION_NUM = 2
-};
-
-/**
- * @ucVhtSeg0: VHT mode Segment0 center channel
- *	The value is the index of the channel center frequency for
- *	20 MHz, 40 MHz, and 80 MHz channels. The value is the center
- *	frequency index of the primary 80 MHz segment for 160 MHz and
- *	80+80 MHz channels.
- * @ucVhtSeg1: VHT mode Segment1 center channel
- *	The value is zero for 20 MHz, 40 MHz, and 80 MHz channels. The
- *	value is the index of the channel center frequency for 160 MHz
- *	channels and the center frequency index of the secondary 80 MHz
- *	segment for 80+80 MHz channels.
- */
 struct P2P_ACS_REQ_INFO {
 	uint8_t ucRoleIdx;
-	int8_t icLinkId;
 	u_int8_t fgIsProcessing;
 	u_int8_t fgIsHtEnable;
 	u_int8_t fgIsHt40Enable;
@@ -278,17 +238,19 @@ struct P2P_ACS_REQ_INFO {
 	u_int8_t fgIsEhtEnable;
 	enum ENUM_MAX_BANDWIDTH_SETTING eChnlBw;
 	enum P2P_VENDOR_ACS_HW_MODE eHwMode;
+	uint32_t u4LteSafeChnMask_2G;
+	uint32_t u4LteSafeChnMask_5G_1;
+	uint32_t u4LteSafeChnMask_5G_2;
+	uint32_t u4LteSafeChnMask_6G;
 	u_int8_t fgIsAis;
 
 	/* output only */
+	uint8_t ucBand;
 	enum ENUM_BAND eBand;
 	uint8_t ucPrimaryCh;
 	uint8_t ucSecondCh;
-	uint8_t ucVhtSeg0;
-	uint8_t ucVhtSeg1;
-	uint16_t u2PunctBitmap;
-	uint32_t au4SafeChnl[ENUM_SAFE_CH_MASK_MAX_NUM];
-	uint32_t au4ValidChnl[ENUM_SAFE_CH_MASK_MAX_NUM];
+	uint8_t ucCenterFreqS1;
+	uint8_t ucCenterFreqS2;
 };
 
 struct P2P_CHNL_REQ_INFO {
@@ -303,9 +265,6 @@ struct P2P_CHNL_REQ_INFO {
 	enum ENUM_CHANNEL_WIDTH eChannelWidth;	/*VHT operation ie */
 	uint8_t ucCenterFreqS1;
 	uint8_t ucCenterFreqS2;
-#if (CFG_SUPPORT_SAP_PUNCTURE == 1)
-	uint16_t u2PunctBitmap;
-#endif /* CFG_SUPPORT_SAP_PUNCTURE */
 	enum ENUM_BAND eOriBand;
 	enum ENUM_CHNL_EXT eOriChnlSco;
 	uint32_t u4MaxInterval;
@@ -314,10 +273,6 @@ struct P2P_CHNL_REQ_INFO {
 	uint32_t NFC_BEAM;	/*NFC Beam + Indication */
 #endif
 	uint8_t ucChReqNum;
-};
-
-struct P2P_CSA_REQ_INFO {
-	uint8_t ucBssIdx;
 };
 
 /* Glubal Connection Settings. */
@@ -419,17 +374,6 @@ struct P2P_SPECIFIC_BSS_INFO {
 	uint16_t u2RsnxIeLen;
 	uint8_t aucRsnxIeBuffer[ELEM_HDR_LEN + ELEM_MAX_LEN_RSN];
 
-#if (CFG_SUPPORT_RSNO == 1)
-	uint16_t u2RsnoIeLen;
-	uint8_t aucRsnoIeBuffer[ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4];
-
-	uint16_t u2Rsno2IeLen;
-	uint8_t aucRsno2IeBuffer[ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4];
-
-	uint16_t u2RsnxoIeLen;
-	uint8_t aucRsnxoIeBuffer[ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4];
-#endif /* CFG_SUPPORT_RSNO */
-
 	uint16_t u2OweIeLen;
 	uint8_t aucOweIeBuffer[ELEM_HDR_LEN + ELEM_MAX_LEN_WPA];
 
@@ -455,19 +399,6 @@ struct P2P_SPECIFIC_BSS_INFO {
 	uint8_t ucDHIELen;
 
 	u_int8_t fgAddPwrConstrIe;
-
-	u_int8_t fgMlIeExist;
-	/* For CSA trigger when ch abort */
-	u_int8_t fgIsGcEapolDone;
-
-#if (CFG_SUPPORT_SAP_BCN_PROT == 1)
-	u_int8_t fgBcnProtEn;
-	uint8_t ucBcnKeyIdx;
-#endif /* CFG_SUPPORT_SAP_BCN_PROT */
-
-#if (CFG_SUPPORT_SAP_BCN_CRI_UPD == 1)
-	u_int8_t fgForceUpdateBpcc;
-#endif /* CFG_SUPPORT_SAP_BCN_CRI_UPD */
 };
 
 struct P2P_QUEUED_ACTION_FRAME {
@@ -501,43 +432,6 @@ struct P2P_LISTEN_OFFLOAD_INFO {
 	uint32_t u2DevLen;
 	uint8_t aucIE[MAX_IE_LENGTH];
 	uint16_t u2IELen;
-};
-
-struct P2P_CH_SWITCH_CANDIDATE {
-	uint8_t ucBssIndex;
-	enum ENUM_BAND eRfBand;
-	enum ENUM_MBMC_BN eHwBand;
-	uint8_t ucChUpperBound;
-	uint8_t ucChLowerBound;
-};
-
-struct P2P_HW_BAND_UNIT {
-	uint8_t ucBssIndex;
-	enum ENUM_BAND eRfBand;
-	uint8_t ucCh;
-};
-
-struct P2P_CH_BW_RANGE {
-	enum ENUM_BAND eRfBand;
-	uint8_t ucCh;
-	uint8_t ucBwBitmap;
-	u_int8_t fgIsDfsSupport;
-	uint32_t u4CenterFreq[MAX_BW_NUM];
-	uint32_t u4UpperBound[MAX_BW_NUM];
-	uint32_t u4LowerBound[MAX_BW_NUM];
-};
-
-struct P2P_HW_BAND_GROUP {
-	enum ENUM_MBMC_BN eHwBand;
-	uint8_t ucUnitNum;
-	struct P2P_HW_BAND_UNIT
-		arP2pHwBandUnit[MAX_BSSID_NUM];
-	u_int8_t fgIsMcc;
-};
-
-struct P2P_CH_SWITCH_INTERFACE {
-	struct P2P_CH_SWITCH_CANDIDATE *prP2pChInterface;
-	uint8_t *ucInterfaceLen;
 };
 
 /******************************************************************************

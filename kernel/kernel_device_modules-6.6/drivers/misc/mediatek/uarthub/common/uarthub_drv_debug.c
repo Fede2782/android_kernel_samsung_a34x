@@ -9,6 +9,7 @@
 
 #include <linux/proc_fs.h>
 #include <linux/io.h>
+#include <linux/sched/clock.h>
 
 #define UARTHUB_DBG_PROCNAME "driver/uarthub_dbg"
 
@@ -36,6 +37,7 @@ static int uarthub_dbg_uartip_offset_reg_read(int par1, int par2, int par3, int 
 static int uarthub_dbg_uartip_offset_reg_write(int par1, int par2, int par3, int par4, int par5);
 static int uarthub_dbg_uartip_offset_reg_write_with_mask(
 	int par1, int par2, int par3, int par4, int par5);
+static int uarthub_dbg_notfiy_ap_error_irq(int par1, int par2, int par3, int par4, int par5);
 static int uarthub_dbg_trigger_fpga_testing(int par1, int par2, int par3, int par4, int par5);
 static int uarthub_dbg_trigger_dvt_testing(int par1, int par2, int par3, int par4, int par5);
 static int uarthub_dbg_verify_combo_connect_sta(int par1, int par2, int par3, int par4, int par5);
@@ -57,6 +59,7 @@ static const UARTHUB_DBG_FUNC uarthub_dbg_func[] = {
 	[0x27] = uarthub_dbg_uartip_offset_reg_read,
 	[0x28] = uarthub_dbg_uartip_offset_reg_write,
 	[0x29] = uarthub_dbg_uartip_offset_reg_write_with_mask,
+	[0x30] = uarthub_dbg_notfiy_ap_error_irq,
 
 	[0x41] = uarthub_dbg_trigger_fpga_testing,
 	[0x42] = uarthub_dbg_trigger_dvt_testing,
@@ -241,6 +244,22 @@ static int uarthub_dbg_debug_monitor_ctrl(int par1, int par2, int par3, int par4
 
 	return 0;
 }
+
+#if UARTHUB_DBG_SUPPORT
+static int uarthub_dbg_notfiy_ap_error_irq(int par1, int par2, int par3, int par4, int par5)
+{
+	int err_type = par2;
+	unsigned long irq_ts;
+
+	irq_ts = sched_clock();
+	pr_info("[%s] err_type=[0x%x]\n", __func__, err_type);
+
+	if (err_type > 0)
+		uarthub_core_set_trigger_uarthub_error_worker(err_type, irq_ts);
+
+	return 0;
+}
+#endif /* UARTHUB_DBG_SUPPORT */
 
 #if UARTHUB_DBG_SUPPORT
 int uarthub_dbg_ap_reg_read(int par1, int par2, int par3, int par4, int par5)
@@ -684,6 +703,9 @@ int uarthub_core_debug_info(const char *tag)
 
 	if (g_plat_ic_debug_ops->uarthub_plat_dump_sspm_wakeup_debug_info)
 		g_plat_ic_debug_ops->uarthub_plat_dump_sspm_wakeup_debug_info(tag);
+
+	if (g_plat_ic_debug_ops->uarthub_plat_dump_extend_debug_info)
+		g_plat_ic_debug_ops->uarthub_plat_dump_extend_debug_info(tag);
 
 	pr_info("[%s][%s] ----------------------------------------\n",
 		def_tag, ((tag == NULL) ? "null" : tag));

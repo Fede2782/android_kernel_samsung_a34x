@@ -105,9 +105,9 @@ struct ACTIVE_RM_TSM_REQ {
 
 #if CFG_SUPPORT_SOFT_ACM
 struct SOFT_ACM_CTRL {
-	uint64_t u8RemainTime;
-	uint64_t u8AdmittedTime;
-	uint64_t u8IntervalEndSec;
+	uint32_t u4RemainTime;
+	uint32_t u4AdmittedTime;
+	uint32_t u4IntervalEndSec;
 	uint16_t u2DeqNum;
 };
 #endif

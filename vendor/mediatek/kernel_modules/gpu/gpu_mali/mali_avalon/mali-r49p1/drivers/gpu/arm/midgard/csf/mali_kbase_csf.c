@@ -1290,6 +1290,7 @@ static int create_queue_group(struct kbase_context *const kctx,
 			group->faulted = false;
 			group->cs_unrecoverable = false;
 			group->reevaluate_idle_status = false;
+			group->idle_on_stop = false;
 
 			group->csg_reg = NULL;
 			group->csg_reg_bind_retries = 0;
@@ -3412,7 +3413,10 @@ static inline void check_protm_enter_req_complete(struct kbase_device *kbdev, u3
 	if ((glb_req & GLB_REQ_PROTM_ENTER_MASK) != (glb_ack & GLB_REQ_PROTM_ENTER_MASK))
 		return;
 
-	dev_dbg(kbdev->dev, "Protected mode entry interrupt received");
+	kbase_csf_scheduler_append_protm_flag(kbdev, CSF_SCHED_PROTM_EVENT_ENTER_FW_ACK);
+	dev_dbg(kbdev->dev, "Protected mode entry interrupt received, event_seq: %d",
+		GET_PROTM_EVENT_ID_SEQ(
+			atomic_read(&kbdev->csf.scheduler.pages_defer_ctrl.protm_event_id)));
 #if IS_ENABLED(CONFIG_MALI_MTK_LOG_BUFFER)
 	mtk_logbuffer_type_print(kbdev, MTK_LOGBUFFER_TYPE_REGULAR,
 		"Protected mode entry interrupt received\n");
@@ -3463,6 +3467,7 @@ static inline void process_protm_exit(struct kbase_device *kbdev, u32 glb_ack)
 
 	if (!WARN_ON(!kbdev->protected_mode)) {
 		kbdev->protected_mode = false;
+		kbase_csf_scheduler_complete_protm_event(kbdev);
 #if IS_ENABLED(CONFIG_MALI_MTK_GPU_DVFS_HINT_26M_LOADING)
 		ged_dvfs_write_sysram_protm_exit();
 #endif /* CONFIG_MALI_MTK_GPU_DVFS_HINT_26M_LOADING */

@@ -9989,7 +9989,7 @@ int __init fbt_cpu_init(void)
 		fpsgo_sysfs_create_file(fbt_kobj, &kobj_attr_powerRL_voltage);
 	}
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	bat_psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 	bat_psy = power_supply_get_by_name("battery");

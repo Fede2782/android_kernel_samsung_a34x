@@ -23,10 +23,11 @@
 #define __LINUX_CPUFREQ_LIMIT_H__
 
 struct cpufreq_limit_parameter {
-	unsigned int unified_table[50];
+	unsigned int unified_table[70];
 	unsigned int num_cpu;
 	unsigned int freq_count;
 	unsigned int ltl_cpu_start;
+	unsigned int mid_cpu_start;
 	unsigned int big_cpu_start;
 	unsigned int ltl_max_freq;
 	unsigned int ltl_min_freq;
@@ -36,6 +37,8 @@ struct cpufreq_limit_parameter {
 	unsigned int big_max_lock_freq;
 	unsigned int l_fmin;
 	unsigned int l_fmax;
+	unsigned int m_fmin;
+	unsigned int m_fmax;
 	unsigned int b_fmin;
 	unsigned int b_fmax;
 	unsigned int ltl_divider;
@@ -44,6 +47,12 @@ struct cpufreq_limit_parameter {
 	struct freq_map *ltl_limit_map;
 	unsigned int boost_map_size;
 	unsigned int limit_map_size;
+#if IS_ENABLED(CONFIG_CPU_FREQ_MID_LIMIT)
+	struct freq_map *mid_boost_map;
+	struct freq_map *mid_limit_map;
+	unsigned int mid_boost_map_size;
+	unsigned int mid_limit_map_size;
+#endif
 };
 
 enum {

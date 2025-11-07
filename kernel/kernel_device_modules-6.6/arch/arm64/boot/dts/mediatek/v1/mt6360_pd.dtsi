@@ -4,7 +4,7 @@
  */
 
 / {
-	mt6360_typec: type_c_port0 {
+	mt6360_typec: tcpc {
 		mt-tcpc,name = "type_c_port0"; /* tcpc_device's name */
 		/* 0: Unknown, 1: SNK, 2: SRC, 3: DRP, 4: Try.SRC, 5: Try.SNK */
 		mt-tcpc,role-def = <5>;
@@ -13,10 +13,6 @@
 		mt-tcpc,vconn-supply = <1>;
 		mt6360pd,intr-gpio = <&pio 24 0x0>;
 		mt6360pd,intr-gpio-num = <24>;
-		mt6360pd,pcb-gpio = <&pio 16 0x0>;
-		mt6360pd,pcb-gpio-num = <16>;
-		/* 0: gpio low as phone, 1: gpio high as phone */
-		mt6360pd,pcb-gpio-polarity = <0>;
 		interrupt-parent = <&mt6360_pmu>;
 		interrupts = <64 0>;
 		interrupt-names = "usbid_evt";
@@ -52,7 +48,7 @@
 			pd,sink-pdo-data = <0x000190c8>;
 
 			/*
-			 * No DP, host + device
+			 * No DP Sink capability
 			 *	pd,id-vdo-size = <6>;
 			 *	pd,id-vdo-data = <0xd14029cf 0x0 0x63600000
 						  0x61000000 0x0 0x41000000>;

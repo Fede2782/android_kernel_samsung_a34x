@@ -246,9 +246,9 @@ int sec_debug_init_crash_key_user(void)
 
 	/*
 	 * NOTE: 
-	 * return if the kernel debug level is not low
-	*/
-	if (!is_debug_level_low())
+	 * return if the upload mode is enabled
+	 */
+	if (sec_debug_get_force_upload())
 		return 0;
 
 	sec_kn_register_notifier(&sec_user_debug_keyboard_notifier);

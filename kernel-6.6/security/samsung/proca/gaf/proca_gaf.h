@@ -17,4 +17,6 @@
 #ifndef _SECURITY_PROCA_GAF_H
 #define _SECURITY_PROCA_GAF_H
 const void *proca_gaf_get_addr(void);
+int proca_init_gaf(void);
+
 #endif /* _SECURITY_PROCA_GAF_H */

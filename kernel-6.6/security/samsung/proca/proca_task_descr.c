@@ -21,6 +21,21 @@
 
 #include <linux/slab.h>
 #include <linux/string.h>
+#include <linux/debugfs.h>
+#include <asm/atomic.h>
+
+static atomic_t g_proca_td_cnt = ATOMIC_INIT(0);
+
+void proca_task_descr_debugfs_init(void)
+{
+#ifdef CONFIG_PROCA_DEBUG
+	static struct dentry *debugfs_proca;
+
+	debugfs_proca = debugfs_create_dir("proca", NULL);
+	if (debugfs_proca)
+		debugfs_create_atomic_t("g_proca_td_cnt", 0444, debugfs_proca, &g_proca_td_cnt);
+#endif
+}
 
 struct proca_task_descr *create_proca_task_descr(struct task_struct *task,
 						 struct proca_identity *ident)
@@ -30,6 +45,7 @@ struct proca_task_descr *create_proca_task_descr(struct task_struct *task,
 	if (unlikely(!task_descr))
 		return NULL;
 
+	atomic_inc(&g_proca_td_cnt);
 	task_descr->task = task;
 	task_descr->proca_identity = *ident;
 
@@ -50,4 +66,6 @@ void destroy_proca_task_descr(struct proca_task_descr *proca_task_descr)
 			proca_task_descr->task->pid);
 	deinit_proca_identity(&proca_task_descr->proca_identity);
 	kfree(proca_task_descr);
+
+	atomic_dec(&g_proca_td_cnt);
 }

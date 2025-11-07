@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -65,6 +65,35 @@ void nicpmWakeUpWiFi(struct ADAPTER *prAdapter)
 		return;
 	}
 	HAL_WAKE_UP_WIFI(prAdapter);
+}
+
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief This routine is used to process the POWER ON procedure.
+ *
+ * \param[in] pvAdapter Pointer to the Adapter structure.
+ *
+ * \return (none)
+ */
+/*----------------------------------------------------------------------------*/
+void nicpmSetFWOwn(struct ADAPTER *prAdapter,
+		   u_int8_t fgEnableGlobalInt)
+{
+	halSetFWOwn(prAdapter, fgEnableGlobalInt);
+}
+
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief This routine is used to process the POWER OFF procedure.
+ *
+ * \param[in] pvAdapter Pointer to the Adapter structure.
+ *
+ * \return (none)
+ */
+/*----------------------------------------------------------------------------*/
+u_int8_t nicpmSetDriverOwn(struct ADAPTER *prAdapter)
+{
+	return halSetDriverOwn(prAdapter);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -305,5 +334,38 @@ u_int8_t nicpmSetAcpiPowerD3(struct ADAPTER *prAdapter)
 
 	ASSERT(prAdapter);
 
+#if 0
+	/* 1. MGMT - unitialization */
+	nicUninitMGMT(prAdapter);
+
+	/* 2. Disable Interrupt */
+	nicDisableInterrupt(prAdapter);
+
+	/* 3. emit CMD_NIC_POWER_CTRL command packet */
+	wlanSendNicPowerCtrlCmd(prAdapter, 1);
+
+	/* 4. Clear Interrupt Status */
+	i = 0;
+	while (i < CFG_IST_LOOP_COUNT
+	       && nicProcessIST(prAdapter) != WLAN_STATUS_NOT_INDICATING) {
+		i++;
+	};
+
+	/* 5. Remove pending TX */
+	nicTxRelease(prAdapter, TRUE);
+
+	/* 5.1 clear pending CmdData / Management Frames */
+	kalClearCmdDataFrames(prAdapter->prGlueInfo);
+	kalClearMgmtFrames(prAdapter->prGlueInfo);
+
+	/* 5.2 clear pending TX packet queued in glue layer */
+	kalFlushPendingTxPackets(prAdapter->prGlueInfo);
+
+	/* 6. Set Onwership to F/W */
+	nicpmSetFWOwn(prAdapter, FALSE);
+
+	/* 7. Set variables */
+	prAdapter->rAcpiState = ACPI_STATE_D3;
+#endif
 	return TRUE;
 }

@@ -512,7 +512,7 @@ out:
 
 /* device_va == iova */
 int addr_encode_and_write_stable(enum AMMU_BUF_TYPE type, uint64_t session, uint64_t device_va,
-								uint32_t buf_size, uint64_t *eva)
+								uint64_t buf_size, uint64_t *eva)
 {
 	int ret = 0;
 	uint64_t ret_eva = 0;
@@ -527,7 +527,7 @@ int addr_encode_and_write_stable(enum AMMU_BUF_TYPE type, uint64_t session, uint
 		goto out;
 	}
 
-	AMMU_LOG_VERBO("session = 0x%llx, device_va = 0x%llx, size = 0x%x\n",
+	AMMU_LOG_VERBO("session = 0x%llx, device_va = 0x%llx, size = 0x%llx\n",
 		session, device_va, buf_size);
 
 	if (device_va < 0x40000000) {

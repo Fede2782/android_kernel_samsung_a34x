@@ -419,7 +419,10 @@ static u16 ccmni_select_queue(struct net_device *dev, struct sk_buff *skb,
 		if (skb->mark & APP_VIP_MARK) {
 			ret = MD_HW_HIGH_Q; /* highest priority */
 		} else if (skb->mark & APP_VIP_MARK2) {
-			ret = MD_HW_MEDIUM_Q;
+			if (is_ack_skb(skb))
+				ret = MD_HW_HIGH_Q;
+			else
+				ret = MD_HW_MEDIUM_Q;
 		} else if (ccmni->ack_prio_en) {
 			if (is_ack_skb(skb))
 				ret = MD_HW_HIGH_Q;
@@ -700,11 +703,11 @@ static netdev_tx_t ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	unsigned int tag_id = 0;
 #endif
 
-	/* dev->mtu is changed  if dev->mtu is changed by upper layer */
-	if (unlikely(skb->len > dev->mtu)) {
+	/* If larger unexpected packets are sent to MD, MD will hang, ccmni driver intercepts  */
+	if (unlikely(skb->len > dev->max_mtu)) {
 		netdev_err(dev,
 			   "CCMNI%d write fail: len(0x%x)>MTU(0x%x, 0x%x)\n",
-			   ccmni->index, skb->len, CCMNI_MTU, dev->mtu);
+			   ccmni->index, skb->len, dev->max_mtu, dev->mtu);
 		dev_kfree_skb(skb);
 		dev->stats.tx_dropped++;
 		return NETDEV_TX_OK;
@@ -1245,7 +1248,7 @@ const struct header_ops ccmni_eth_header_ops ____cacheline_aligned = {
 };
 #endif
 
-static u32 ccmni_get_capability_from_dts_node(unsigned int hw_type)
+static int ccmni_get_capability_from_dts_node(unsigned int hw_type)
 {
 	u32 capability = 0;
 	struct device_node *node = NULL;
@@ -1276,7 +1279,7 @@ static u32 ccmni_get_capability_from_dts_node(unsigned int hw_type)
 	return -1;
 }
 
-static u32 ccmni_get_capability_from_dts(void)
+static int ccmni_get_capability_from_dts(void)
 {
 	struct device_node *node = NULL;
 	unsigned int hw_type = 0;
@@ -1303,7 +1306,7 @@ static int ccmni_init(void)
 	struct ccmni_instance *ccmni = NULL;
 	struct net_device *dev = NULL;
 	unsigned long long time_total = sched_clock();
-	u32 capability;
+	int capability;
 
 	capability = ccmni_get_capability_from_dts();
 	if (capability == -1)

@@ -103,12 +103,13 @@ static struct ged_gpu_frame_time_table g_ged_gpu_frame_time[GED_FRAME_TIME_CONFI
 	{36666666, 33333333},    // 30fps
 };
 
-#define GED_APO_THR_NS 2000000
+#define GED_APO_VAR_NS 1000000
+#define GED_APO_SHORT_ACTIVE_NS 1300000
 
+#define GED_APO_THR_NS 2000000
 #define GED_APO_LP_THR_NS 4000000
 
-#define GED_APO_WAKEUP_THR_NS (GED_APO_THR_NS + 1000000)
-
+#define GED_APO_WAKEUP_THR_NS (GED_APO_THR_NS + GED_APO_VAR_NS)
 #define GED_APO_LONG_WAKEUP_THR_NS 100000000
 
 #define GED_APO_AUTOSUSPEND_DELAY_TARGET_REF_COUNT 3
@@ -153,8 +154,8 @@ static enum ged_apo_legacy g_apo_legacy;
 
 #endif /* CONFIG_MTK_GPU_APO_SUPPORT */
 
-static int g_whitebox_support_flag;
-static int mcu_replace;
+static unsigned int g_whitebox_support_flag;
+static unsigned int mcu_replace;
 int stat_mcu_store[30][30]={0};
 
 static int g_autosuspend_stress;
@@ -724,7 +725,7 @@ unsigned int ged_gpu_power_stress_test_enable(void)
 EXPORT_SYMBOL(ged_gpu_power_stress_test_enable);
 #endif /* MTK_GPU_POWER_ON_OFF_TEST */
 
-unsigned int ged_gpu_whitebox_power_test_support(int support_flag)
+unsigned int ged_gpu_whitebox_power_test_support(unsigned int support_flag)
 {
 	g_whitebox_support_flag = support_flag;
 
@@ -732,7 +733,7 @@ unsigned int ged_gpu_whitebox_power_test_support(int support_flag)
 }
 EXPORT_SYMBOL(ged_gpu_whitebox_power_test_support);
 
-unsigned int ged_gpu_whitebox_power_test_case(int replace)
+unsigned int ged_gpu_whitebox_power_test_case(unsigned int replace)
 {
 	mcu_replace = replace;
 
@@ -880,6 +881,13 @@ void ged_set_apo_autosuspend_delay_ctrl(int ctrl)
 }
 EXPORT_SYMBOL(ged_set_apo_autosuspend_delay_ctrl);
 
+int ged_get_apo_autosuspend_delay_ctrl(void)
+{
+	return g_apo_autosuspend_delay_ctrl;
+}
+EXPORT_SYMBOL(ged_get_apo_autosuspend_delay_ctrl);
+
+
 int ged_get_apo_autosuspend_delay_target_ref_count(void)
 {
 	return g_apo_autosuspend_delay_target_ref_count;
@@ -908,6 +916,9 @@ void ged_set_apo_autosuspend_delay_ms_ref_idletime_nolock(long long idle_time)
 {
 	/* autosuspend_delay setting */
 	if (g_apo_autosuspend_delay_ctrl == 0) {
+		trace_GPU_Power__Policy__APO_active_time(g_ns_gpu_predict_A_to_I_duration);
+		trace_GPU_Power__Policy__APO_idle_time(idle_time);
+
 		if (g_apo_legacy == GED_APO_LEGACY_VER1) {
 			if (g_gpu_frame_time_ns >= g_ged_gpu_frame_time[2].target)
 				g_apo_autosuspend_delay_ms = GED_APO_AUTOSUSPEND_DELAY_MS;
@@ -916,15 +927,37 @@ void ged_set_apo_autosuspend_delay_ms_ref_idletime_nolock(long long idle_time)
 		} else {
 			if ((g_gpu_frame_time_ns >= g_ged_gpu_frame_time[2].target) &&
 				(g_gpu_frame_time_ns <= g_ged_gpu_frame_time[3].target)) {
-				if (idle_time > (long long)(div_u64(g_gpu_frame_time_ns, 2) + 1000000))
+				if (idle_time > 0 &&
+					idle_time <= (long long)(div_u64(g_gpu_frame_time_ns, 2) + GED_APO_VAR_NS)) {
+					if (g_ns_gpu_predict_A_to_I_duration < GED_APO_SHORT_ACTIVE_NS &&
+						idle_time < GED_APO_WAKEUP_THR_NS) {
+						g_apo_autosuspend_delay_ms = GED_APO_AUTOSUSPEND_DELAY_MS;
+						trace_GPU_Power__Policy__APO_irregular(2);
+					} else if ((g_ns_gpu_predict_A_to_I_duration <
+						((unsigned long long)(div_u64(g_gpu_frame_time_ns, 3)))) &&
+						(ged_get_policy_state() == POLICY_STATE_FB) &&
+						(ged_get_cur_oppidx() >= ged_get_min_oppidx_real())) {
+						g_apo_autosuspend_delay_ms = 0;
+						trace_GPU_Power__Policy__APO_irregular(3);
+					} else {
+						g_apo_autosuspend_delay_ms = GED_APO_AUTOSUSPEND_DELAY_MS;
+						trace_GPU_Power__Policy__APO_irregular(4);
+					}
+				} else if (idle_time > (long long)(div_u64(g_gpu_frame_time_ns, 2) + GED_APO_VAR_NS)) {
 					g_apo_autosuspend_delay_ms = 0;
-				else
+					trace_GPU_Power__Policy__APO_irregular(5);
+				} else {
 					g_apo_autosuspend_delay_ms = GED_APO_AUTOSUSPEND_DELAY_MS;
+					trace_GPU_Power__Policy__APO_irregular(6);
+				}
 			} else {
-				if (idle_time > (long long)(div_u64(g_gpu_frame_time_ns, 2) + 1000000))
+				if (idle_time > (long long)(div_u64(g_gpu_frame_time_ns, 2) + GED_APO_VAR_NS)) {
 					g_apo_autosuspend_delay_ms = GED_APO_AUTOSUSPEND_DELAY_MS;
-				else
+					trace_GPU_Power__Policy__APO_irregular(7);
+				} else {
 					g_apo_autosuspend_delay_ms = GED_APO_AUTOSUSPEND_DELAY_HFR_MS;
+					trace_GPU_Power__Policy__APO_irregular(8);
+				}
 			}
 		}
 	}
@@ -1058,11 +1091,14 @@ void ged_check_power_duration(void)
 	unsigned long ulIRQFlags;
 	bool bforce = false;
 	bool bLast_I_to_A = false;
+	unsigned long long ns_api_boost_interval = 0;
+	unsigned long long cur_ts_ns = ged_get_time();
+	unsigned long long gpu_api_boost_end_ts = ged_get_api_boost_end_ts();
 
 	spin_lock_irqsave(&g_sApoLock, ulIRQFlags);
 
 	/* Condition-1 */
-	bforce = ged_gpu_is_heavy();
+	bforce = ged_gpu_is_heavy() || (get_api_sync_flag() == 1);
 	if (true == bforce)
 		goto direct_check;
 
@@ -1071,11 +1107,25 @@ void ged_check_power_duration(void)
 		return;
 	}
 
+	/* Reset API boost interval if long time no API boost call */
+	if (cur_ts_ns > gpu_api_boost_end_ts &&
+		(cur_ts_ns - gpu_api_boost_end_ts) > g_apo_thr_ns) {
+		ged_reset_api_boost_interval();
+		spin_unlock_irqrestore(&g_sApoLock, ulIRQFlags);
+		return;
+	}
+
+	ns_api_boost_interval = ged_get_api_boost_interval();
+	if (ns_api_boost_interval > 0)
+		trace_tracing_mark_write(5566, "api_boost_interval",
+				div64_u64(ns_api_boost_interval, 1000));
+
 	/* Condition */
 	bLast_I_to_A = g_ns_gpu_I_to_A_duration < g_apo_thr_ns;
 
 direct_check:
-	if (bforce || bLast_I_to_A)
+	if (bforce || bLast_I_to_A ||
+		(ns_api_boost_interval > 0 && ns_api_boost_interval < g_apo_thr_ns))
 		g_bGPUAPO = true;
 	else {
 		if (g_apo_thr_ns == 0) {
@@ -1210,6 +1260,10 @@ bool ged_check_predict_power_autosuspend_nolock(void)
 				(g_ns_gpu_predict_prev_A_to_A_duration < div_u64(g_apo_wakeup_ns, 2)) ||
 				(g_ns_gpu_predict_A_to_A_duration < g_apo_wakeup_ns &&
 				g_ns_gpu_predict_prev_A_to_A_duration < g_apo_wakeup_ns))) {
+				// Calculate for autosuspend_delay setting
+				llDiff = (long long)(g_ns_gpu_predict_prev_A_to_A_duration -
+					g_ns_gpu_predict_A_to_I_duration);
+
 				// Jobs in one frame or similar power-durations
 				if (((g_ns_gpu_predict_A_to_A_duration +
 					g_ns_gpu_predict_prev_A_to_A_duration) <= g_gpu_frame_time_ns) ||
@@ -1217,11 +1271,8 @@ bool ged_check_predict_power_autosuspend_nolock(void)
 						g_ns_gpu_predict_prev_A_to_A_duration) <
 					min(g_ns_gpu_predict_A_to_A_duration,
 						g_ns_gpu_predict_prev_A_to_A_duration)) {
-					trace_GPU_Power__Policy__APO_irregular(0);
-					// Calculate for autosuspend_delay setting
-					llDiff = (long long)(g_ns_gpu_predict_prev_A_to_A_duration -
-							g_ns_gpu_predict_A_to_I_duration);
 					bPredict_current_I_to_A = llDiff < (long long)g_apo_thr_ns;
+					trace_GPU_Power__Policy__APO_irregular(0);
 				} else {
 					// set "false" when power-durations are irregular.
 					bPredict_current_I_to_A = false;
@@ -1261,11 +1312,14 @@ void ged_check_predict_power_duration(void)
 	bool bPredict_force = false;
 	bool bPredict_current_I_to_A = true; /* Default set "true" to discard */
 	bool bPredict_last_I_to_A = false;
+	unsigned long long cur_ts_ns = ged_get_time();
+	unsigned long long ns_api_boost_interval = 0;
+	unsigned long long gpu_api_boost_end_ts = ged_get_api_boost_end_ts();
 
 	spin_lock_irqsave(&g_sApoLock, ulIRQFlags);
 
 	/* Condition-1 */
-	bPredict_force = ged_gpu_is_heavy();
+	bPredict_force = ged_gpu_is_heavy() || (get_api_sync_flag() == 1);
 	if (true == bPredict_force) {
 		ged_set_apo_wakeup_ns_nolock(GED_APO_LONG_WAKEUP_THR_NS);
 		goto direct_check;
@@ -1278,6 +1332,19 @@ void ged_check_predict_power_duration(void)
 		return;
 	}
 
+	/* Reset API boost interval if long time no API boost call */
+	if (cur_ts_ns > gpu_api_boost_end_ts &&
+		(cur_ts_ns - gpu_api_boost_end_ts) > g_apo_thr_ns) {
+		ged_reset_api_boost_interval();
+		spin_unlock_irqrestore(&g_sApoLock, ulIRQFlags);
+		return;
+	}
+
+	ns_api_boost_interval = ged_get_api_boost_interval();
+	if (ns_api_boost_interval > 0)
+		trace_tracing_mark_write(5566, "api_boost_interval",
+				div64_u64(ns_api_boost_interval, 1000));
+
 	/* Condition-2 */
 	bPredict_current_I_to_A = ged_check_predict_power_autosuspend_nolock();
 
@@ -1289,7 +1356,8 @@ void ged_check_predict_power_duration(void)
 
 direct_check:
 	if (bPredict_force ||
-		(bPredict_current_I_to_A && bPredict_last_I_to_A))
+		(bPredict_current_I_to_A && bPredict_last_I_to_A) ||
+		(ns_api_boost_interval > 0 && ns_api_boost_interval < g_apo_thr_ns))
 		g_bGPUPredictAPO = true;
 	else {
 		if (g_ged_apo_support == APO_NORMAL_AND_LP_SUPPORT &&

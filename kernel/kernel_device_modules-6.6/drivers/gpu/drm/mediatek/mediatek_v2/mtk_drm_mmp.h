@@ -123,6 +123,7 @@ struct CRTC_MMP_Events {
 	mmp_event atomic_commit;
 	mmp_event pu_ddic_cmd;
 	mmp_event pu_final_roi;
+	mmp_event pu_status_err;
 	mmp_event user_cmd_cb;
 	mmp_event bl_cb;
 	mmp_event clk_change;

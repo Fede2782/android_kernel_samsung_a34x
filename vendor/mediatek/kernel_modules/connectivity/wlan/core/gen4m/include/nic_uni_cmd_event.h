@@ -79,6 +79,11 @@
 #define BUFFER_MODE_CONTENT_MAX 1024
 #define BUFFER_ACCESS_CONTENT_MAX 16
 
+#if (CFG_HW_DETECT_REPORT == 1)
+/* UNI_EVENT_HW_DETECT_REPORT usage */
+#define HW_DETECT_REPORT_STR_MAX_LEN 64
+#endif
+
 /* UNI_EVENT_UPDATE_LP_DELAYED_WAKEUP */
 #define DELAY_WAKEUP_PKT_INFO_LEN 43
 
@@ -267,18 +272,13 @@ enum ENUM_UNI_CMD_ID {
 	UNI_CMD_ID_LOW_LATENCY_MODE     = 0x62, /* Low Latency Mode */
 	UNI_CMD_ID_GAMING_MODE          = 0x63, /* Gaming Mode */
 	UNI_CMD_ID_MDNS_RECORD		= 0x64, /* Keep alive */
-	UNI_CMD_ID_SET_SAP		= 0x70, /* SAP */
+	UNI_CMD_ID_SET_SAP_RPS          = 0x70, /* SAP */
 	UNI_CMD_ID_LP_DBG_CTRL		= 0x71, /* LP */
 	UNI_CMD_ID_UWB_COEX		= 0x75, /* UWB COEX */
-	UNI_CMD_ID_BT_CTRL		= 0x7B, /* BT control */
-	UNI_CMD_ID_FACT_CAL		= 0x7C, /* Factory Calibration*/
-	UNI_CMD_ID_HM			= 0x7D, /* Hybrid mlo */
 	UNI_CMD_ID_RESET_TX_SCRAMBLE	= 0x7E, /* TX RESET SCRAMBLE */
-	UNI_CMD_ID_PHY_LIST_DUMP	= 0x7F, /* Get Phy CR */
 	UNI_CMD_ID_MLC			= 0x81, /* Multi-link Control */
 	UNI_CMD_ID_UPDATE_LP	= 0x84, /*Update LP Parameter*/
-	UNI_CMD_ID_COEX	= 0x87, /*notify FW coex cmd*/
-	UNI_CMD_ID_PHY_ICS = 0x8A, /*PHY ICS*/
+	UNI_CMD_ID_UPDATE_PCIE	= 0x89, /*Update PCIE Parameter*/
 };
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -463,8 +463,7 @@ struct UNI_CMD_BSSINFO_HE {
 	uint8_t  ucDefaultPEDuration;
 	uint8_t fgErSuDisable; /* for mobile segment */
 	uint16_t au2MaxNssMcs[3];
-	uint8_t uc6GPwrRegBitMap;
-	uint8_t  aucPadding[1];
+	uint8_t  aucPadding[2];
 } __KAL_ATTRIB_PACKED__;
 
 /* BssInfo 11v MBSSID information (Tag6) */
@@ -622,8 +621,7 @@ struct UNI_CMD_BSSINFO_BCN_PROT {
 	uint8_t ucBcnProtCipherId;
 	uint8_t aucBcnProtKey[32];
 	uint8_t ucBcnProtKeyId;
-	uint8_t ucBmcWlanIndex;
-	uint8_t aucReserved[2];
+	uint8_t aucReserved[3];
 } __KAL_ATTRIB_PACKED__;
 
 /* TxCMD Mode information (Tag 0x12) */
@@ -710,7 +708,6 @@ struct UNI_CMD_BSSINFO_IOT {
 	uint8_t ucIotApBmp;
 	uint8_t ucIotApAct;
 	uint8_t aucReserved[2];
-	uint64_t u8IotApBmp;
 } __KAL_ATTRIB_PACKED__;
 
 /* BssInfo IFS time information (Tag 0x19) */
@@ -772,15 +769,7 @@ struct UNI_CMD_BSSINFO_MLD {
 	 * Max simultaneous links
 	 */
 	uint8_t  ucMaxSimuLinks;
-	/*
-	 * hybrid mlo enabled
-	 */
-	uint8_t  ucHmloEnabled;
 
-	/*
-	 * for 4 byte alignment
-	 */
-	uint8_t  aucReserved[3];
 } __KAL_ATTRIB_PACKED__;
 
 /* BssInfo Max Idle Period element (Tag 0x1D) */
@@ -868,7 +857,6 @@ enum ENUM_UNI_CMD_STAREC_TAG {
 	UNI_CMD_STAREC_TAG_MLR_INFO		= 0x2D,
 	UNI_CMD_STAREC_TAG_NAN			= 0x2E,
 	UNI_CMD_STAREC_TAG_T2LM			= 0x3E,
-	UNI_CMD_STAREC_TAG_INSTALL_LTF_KEYSEED	= 0x40,
 	UNI_CMD_STAREC_TAG_MAX_NUM
 };
 
@@ -942,17 +930,16 @@ struct UNI_CMD_TXBF_PFMU_STA_INFO {
 	uint8_t    uciBfNcol;
 	uint8_t    uciBfNrow;
 	uint8_t    nr_bw160;
-	uint8_t    nc_bw160;
+	uint8_t	  nc_bw160;
 	uint8_t    ru_start_idx;
 	uint8_t    ru_end_idx;
-	uint8_t    trigger_su;
-	uint8_t    trigger_mu;
-	uint8_t    ng16_su;
-	uint8_t    ng16_mu;
-	uint8_t    codebook42_su;
-	uint8_t    codebook75_mu;
+	uint8_t   trigger_su;
+	uint8_t   trigger_mu;
+	uint8_t   ng16_su;
+	uint8_t   ng16_mu;
+	uint8_t   codebook42_su;
+	uint8_t   codebook75_mu;
 	uint8_t    he_ltf;
-	uint8_t    u1Reserved[3];
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -1188,16 +1175,6 @@ struct UNI_CMD_STAREC_INSTALL_KEY3 {
 	uint8_t       aucKeyRsc[16];
 } __KAL_ATTRIB_PACKED__;
 
-/* STAREC get PN (Tag 0x26) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_STAREC_GET_PN {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t aucPn[6];
-	uint8_t ucTscType; /* 0:GTK_PN, 1:IPN, 2:BIPN */
-	uint8_t aucReserved;
-} __KAL_ATTRIB_PACKED__;
-
 /* MLR information (Tag 0x2d) */
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_CMD_STAREC_MLR_INFO {
@@ -1205,11 +1182,7 @@ struct UNI_CMD_STAREC_MLR_INFO {
 	uint16_t  u2Length;
 	uint8_t   ucMlrMode;
 	uint8_t   ucMlrState;
-	/* MLR state force mode(0:don't care/1:IDLE/2:START)
-	 * only used for REBB segment
-	 */
-	uint8_t   ucMlrStateForceType;
-	uint8_t   aucReserved[1];
+	uint8_t   aucReserved[2];
 } __KAL_ATTRIB_PACKED__;
 
 /* NAN information (Tag 0x2e) */
@@ -1229,17 +1202,6 @@ struct UNI_CMD_STAREC_T2LM {
 	uint8_t   ucLinkNumber;
 	uint8_t   audPaddings[3];
 	uint8_t   aucLinkInfo[];
-} __KAL_ATTRIB_PACKED__;
-
-/* LTF keyseed (Tag 0x40) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_STAREC_INSTALL_LTE_KEYSEED {
-	uint16_t  u2Tag;                 /* Tag = 0x40 */
-	uint16_t  u2Length;
-	uint8_t   ucAddRemove;
-	uint8_t   ucLtfKeyseedLen;
-	uint16_t  u2WlanIdx;
-	uint8_t   aucLtfKeyseed[48];
 } __KAL_ATTRIB_PACKED__;
 
 /* EDCA set command (0x04) */
@@ -1765,7 +1727,7 @@ struct UNI_CMD_ROAMING_TRANSIT_FSM {
 	uint32_t eReason; /*ENUM_ROAMING_REASON_T*/
 	uint32_t u4RoamingTriggerTime;
 	uint16_t u2RcpiLowThreshold;
-	uint8_t  ucIsSupport11B;
+	u_int8_t fgIsAggressive;
 	uint8_t  aucPadding[1];
 } __KAL_ATTRIB_PACKED__;
 
@@ -2072,13 +2034,6 @@ struct UNI_CMD_TWT_ARGT_UPDATE {
 #if 0
 	uint16_t     au2StaList[UNI_TWT_GRP_MAX_MEMBER_CNT];
 #endif
-#if (CFG_SUPPORT_RTWT == 1)
-	/* DW7 RTWT traffic info */
-	uint8_t ucTrafficInfoPresent;
-	uint8_t ucDlUlBmpValid;
-	uint8_t ucDlBmp;
-	uint8_t ucUlBmp;
-#endif
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -2113,7 +2068,7 @@ struct UNI_CMD_DOMAIN_SET_INFO_DOMAIN_SUBBAND {
 	uint16_t u2IsSetPassiveScan;
 	uint8_t  aucReserved[1];
 	uint8_t  ucSubBandNum;
-	uint8_t  aucSubBandInfoBuffer[]; // UNI_CMD_DOMAIN_SUBBAND_INFO
+	uint8_t  aucSubBandInfoBuffer[];
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -2135,7 +2090,7 @@ struct UNI_CMD_DOMAIN_SET_INFO_DOMAIN_ACTIVE_CHANNEL_LIST {
 	uint8_t  u1ActiveChNum5g;
 	uint8_t  u1ActiveChNum6g;
 	uint8_t  aucReserved[1];
-	uint8_t  aucActChnlListBuffer[]; // DOMAIN_CHANNEL_T
+	uint8_t  aucActChnlListBuffer[];
 } __KAL_ATTRIB_PACKED__;
 
 /* IDC command (0x17) */
@@ -2242,7 +2197,7 @@ struct UNI_CMD_SCAN {
 	uint8_t aucTlvBuffer[];
 } __KAL_ATTRIB_PACKED__;
 
-typedef uint16_t(*PFN_UNI_CMD_SCAN_TAG_HANDLER) (struct ADAPTER
+typedef uint32_t(*PFN_UNI_CMD_SCAN_TAG_HANDLER) (struct ADAPTER
 	*ad, uint8_t *buf, struct CMD_SCAN_REQ_V2 *cmd);
 
 struct UNI_CMD_SCAN_TAG_HANDLE {
@@ -2250,7 +2205,7 @@ struct UNI_CMD_SCAN_TAG_HANDLE {
 	PFN_UNI_CMD_SCAN_TAG_HANDLER pfHandler;
 };
 
-typedef uint16_t(*PFN_UNI_CMD_SCHED_SCAN_TAG_HANDLER) (struct ADAPTER
+typedef uint32_t(*PFN_UNI_CMD_SCHED_SCAN_TAG_HANDLER) (struct ADAPTER
 	*ad, uint8_t *buf, struct CMD_SCHED_SCAN_REQ *cmd);
 
 struct UNI_CMD_SCHED_SCAN_TAG_HANDLE {
@@ -2309,7 +2264,7 @@ struct UNI_CMD_SCAN_SSID {
 	uint8_t ucSSIDNum;
 	uint8_t ucIsShortSSID;
 	uint8_t ucReserved;
-	uint8_t aucSsidBuffer[]; // PARAM_SSID_T
+	uint8_t aucSsidBuffer[];
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -2344,7 +2299,7 @@ struct UNI_CMD_SCAN_IE {
 	uint16_t u2IELen;
 	uint8_t  ucBand;
 	uint8_t  ucPadding;
-	uint8_t  aucIEBuffer[];  //depends on u2IELen
+	uint8_t  aucIEBuffer[];
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -2358,6 +2313,8 @@ struct UNI_CMD_SCAN_MISC {
 	uint8_t ucDfsChDwellTimeMs;
 	uint8_t ucPerScanChannelCnt;
 	uint16_t u2OpChStayTimeMs;
+	uint16_t u2LLWMaxDwellTime;
+	uint16_t u2LLWMinDwellTime;
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -2374,11 +2331,17 @@ struct UNI_CMD_SCAN_SCHED_SCAN_REQ {
 
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_CMD_SCAN_SCHED_SCAN_ENABLE {
-	uint16_t u2Tag;                   // Tag = 0x04
+	uint16_t u2Tag;                  /* Tag = 0x04 */
 	uint16_t u2Length;
-
-	uint8_t  ucSchedScanAct;  //ENUM_SCHED_SCAN_ACT
-	uint8_t  aucReserved[3];
+	uint8_t ucSchedScanAct;  /* ENUM_SCHED_SCAN_ACT*/
+#if CFG_SUPPORT_LLW_SCAN
+	uint8_t ucOpChStayTimeMs;
+	uint8_t ucDfsChDwellTimeMs;
+	uint8_t ucPerScanChannelCnt;
+#else
+	uint8_t aucReserved[3];
+#endif
+	uint8_t ucChannelMaxDwellTime;
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -2388,7 +2351,7 @@ struct UNI_CMD_SCAN_SSID_MATCH_SETS {
 
 	uint8_t  ucMatchSsidNum;
 	uint8_t  aucReserved[3];
-	uint8_t  aucMatchSsidBuffer[]; // SCAN_SCHED_SSID_MATCH_SETS_T
+	uint8_t  aucMatchSsidBuffer[];
 } __KAL_ATTRIB_PACKED__;
 
 /* RDD set command (0x19) */
@@ -2420,8 +2383,7 @@ struct UNI_CMD_RDD_ON_OFF_CTRL_PARM {
 	uint8_t u1RddIdx;
 	uint8_t u1RddRxSel;
 	uint8_t u1SetVal;
-	uint8_t ucBssIdx;
-	uint8_t aucReserve[3];
+	uint8_t aucReserve[4];
 } __KAL_ATTRIB_PACKED__;
 
 /* Get mac info command (0x1A) */
@@ -2432,19 +2394,17 @@ struct UNI_CMD_GET_MAC_INFO {
 
 	/* tlv */
 	uint8_t aucTlvBuffer[];/**< the TLVs included in this field:
-	* TAG                             | ID  | structure
-	* --------------------------------|-----|--------------
-	* UNI_CMD_MAC_INFO_TAG_TSF        | 0x0 | UNI_CMD_MAC_INFO_TSF
-	* UNI_CMD_MAC_INFO_TAG_TWT_STA_CNM| 0x1 | UNI_CMD_MAC_INFO_TWT_STA_CNM
-	* UNI_CMD_MAC_INFO_TAG_TSF_SYNC   | 0x3 | UNI_CMD_MAC_INFO_TSF_SYNC
-	*/
+        *
+        *   TAG                      | ID  | structure
+        *   -------------------------|-----|--------------
+        *   UNI_CMD_MAC_INFO_TSF     | 0x0 | UNI_CMD_MAC_INFO_TSF_T
+        */
 } __KAL_ATTRIB_PACKED__;
 
 /* Get mac info command TLV List */
 enum ENUM_UNI_CMD_MAC_INFO_TAG {
 	UNI_CMD_MAC_INFO_TAG_TSF = 0,
 	UNI_CMD_MAC_INFO_TAG_TWT_STA_CNM = 1,
-	UNI_CMD_MAC_INFO_TAG_TSF_SYNC = 3,
 	UNI_CMD_MAC_INFO_TAG_NUM
 };
 
@@ -2468,17 +2428,6 @@ struct UNI_CMD_MAC_INFO_TWT_STA_CNM {
 	uint8_t ucHwBssidIndex;
 	uint8_t ucBssIndex;
 	uint8_t fgTwtEn;
-	uint32_t u4TwtCnmAbortTimeoutMs;
-} __KAL_ATTRIB_PACKED__;
-
-/* Get tsf_sync time (Tag3) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_MAC_INFO_TSF_SYNC {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t fgIsLatch;
-	uint8_t ucBssIndex;
-	uint8_t aucPadding[2];
 } __KAL_ATTRIB_PACKED__;
 
 /* TDLS command (0x1B) */
@@ -2520,12 +2469,10 @@ struct UNI_CMD_BA_OFFLOAD {
 	/* tlv */
 	uint8_t aucTlvBuffer[];/**< the TLVs included in this field:
 	*
-	*   TAG                          | ID  | structure
-	*   -----------------------------|-----|--------------
-	*   UNI_CMD_TX_AMPDU             | 0x0 | UNI_CMD_TX_AMPDU_T
-	*   UNI_CMD_RX_AMPDU             | 0x1 | UNI_CMD_RX_AMPDU_T
-	*   UNI_CMD_TX_AGG_LIMIT         | 0x2 | UNI_CMD_TX_AGG_LIMIT_T
-	*   UNI_CMD_TX_AMSDU_NUM_LIMIT   | 0x3 | UNI_CMD_TX_AMSDU_NUM_LIMIT_T
+	*   TAG                              | ID  | structure
+	*   ---------------------------------|-----|--------------
+	*   UNI_CMD_TX_AMPDU                 | 0x0 | UNI_CMD_TX_AMPDU_T
+	*   UNI_CMD_RX_AMPDU                 | 0x1 | UNI_CMD_RX_AMPDU_T
 	*/
 } __KAL_ATTRIB_PACKED__;
 
@@ -2533,8 +2480,6 @@ struct UNI_CMD_BA_OFFLOAD {
 enum UNI_CMD_BA_OFFLOAD_TAG {
 	UNI_CMD_BA_OFFLOAD_TAG_TX_AMPDU = 0,
 	UNI_CMD_BA_OFFLOAD_TAG_RX_AMPDU = 1,
-	UNI_CMD_BA_OFFLOAD_TAG_TX_AGG_LIMIT = 2,
-	UNI_CMD_BA_OFFLOAD_TAG_TX_AMSDU_NUM_LIMIT = 3,
 	UNI_CMD_BA_OFFLOAD_TAG_NUM
 };
 
@@ -2556,27 +2501,6 @@ struct UNI_CMD_RX_AMPDU_PARAM {
 	uint8_t  aucReserved[3];
 } __KAL_ATTRIB_PACKED__;
 
-/* TX AMPDU SIZE (Tag2) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_TX_AGG_LIMIT {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint16_t u2TxAmpduNum;
-	uint8_t ucBssIdx;
-	uint8_t ucSet;
-} __KAL_ATTRIB_PACKED__;
-
-/* TX max AMSDU NUM (Tag3) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_TX_AMSDU_NUM_LIMIT {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t ucTxAmsduNum;
-	uint8_t ucBssIdx;
-	uint8_t ucSet;
-	uint8_t ucReserved;
-} __KAL_ATTRIB_PACKED__;
-
 /* P2P command (0x20) */
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_CMD_P2P {
@@ -2592,6 +2516,7 @@ struct UNI_CMD_P2P {
 	*   UNI_CMD_SET_OPPPS_PARAM    | 0x01 | UNI_CMD_SET_OPPPS_PARAM_T
 	*   UNI_CMD_SET_LO_START       | 0x02 | UNI_CMD_SET_LO_START_PARAM_T
 	*   UNI_CMD_SET_LO_STOP        | 0x03 | UNI_CMD_SET_LO_STOP_PARAM_T
+	*   UNI_CMD_SET_GC_CSA_PARAM   | 0x04 | UNI_CMD_SET_GC_CSA_PARAM_T
 	*/
 } __KAL_ATTRIB_PACKED__;
 
@@ -2601,6 +2526,7 @@ enum ENUM_UNI_CMD_P2P_TAG {
 	UNI_CMD_P2P_TAG_SET_OPPPS_PARAM = 1,
 	UNI_CMD_P2P_TAG_SET_LO_START = 2,
 	UNI_CMD_P2P_TAG_SET_LO_STOP = 3,
+	UNI_CMD_P2P_TAG_SET_GC_CSA_PARAM = 4,
 	UNI_CMD_P2P_TAG_NUM
 };
 
@@ -2651,6 +2577,17 @@ struct UNI_CMD_SET_P2P_LO_STOP_PARAM {
 	uint8_t aucReserved[3];
 } __KAL_ATTRIB_PACKED__;
 
+/* Set GC CSA parameters (Tag4) */
+__KAL_ATTRIB_PACKED_FRONT__
+struct UNI_CMD_SET_GC_CSA_PARAM {
+	uint16_t u2Tag;
+	uint16_t u2Length;
+	uint8_t ucBssIdx;
+	uint8_t ucChannel;
+	uint8_t ucband;
+	uint8_t aucReserved[1];
+} __KAL_ATTRIB_PACKED__;
+
 /* Smart gear command (0x21) */
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_CMD_SMART_GEAR {
@@ -2697,14 +2634,12 @@ struct UNI_CMD_POWER_METRICS {
 	*   TAG                        | ID  | structure
 	*   ---------------------------|-----|--------------
 	*   UNI_CMD_POWER_METRICS_PARAM| 0x00| UNI_CMD_POWER_METRICS_PARAM_T
-	*   UNI_CMD_ICCM_PARAM         | 0x01| UNI_CMD_ICCM_PARAM_T
 	*/
 } __KAL_ATTRIB_PACKED__;
 
 /* Power metrics command TLV List */
 enum ENUM_UNI_CMD_POWER_METRICS_TAG {
 	UNI_CMD_POWER_METRICS_TAG_PARAM = 0,
-	UNI_CMD_ICCM_TAG_PARAM = 1,
 	UNI_CMD_POWER_METRICS_TAG_NUM
 };
 
@@ -2714,18 +2649,7 @@ struct UNI_CMD_POWER_METRICS_PARAM {
 	uint16_t u2Tag;
 	uint16_t u2Length;
 	uint8_t u4Enable;
-	uint32_t u4Value;
-	uint8_t aucPadding[2];
-} __KAL_ATTRIB_PACKED__;
-
-/* Set ICCM parameters (Tag1) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_ICCM_PARAM {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t u4Enable;
-	uint8_t u4EnablePrintFw;
-	uint32_t u4Value;
+	uint8_t u4Value;
 	uint8_t aucPadding[2];
 } __KAL_ATTRIB_PACKED__;
 #endif
@@ -2918,15 +2842,12 @@ enum ENUM_UNI_CMD_GET_STATISTICS_TAG {
 	UNI_CMD_GET_STATISTICS_TAG_BUG_REPORT = 3,
 	UNI_CMD_GET_STATISTICS_TAG_EML_STATS = 6,
 	UNI_CMD_GET_STATISTICS_TAG_REGULAR_STATS = 7,
-	UNI_CMD_GET_STATISTICS_TAG_BSS_LINK_QUALITY = 8,
 	UNI_CMD_GET_STATISTICS_TAG_GET_ML_CHNL_COND = 9,
 	/* Reserved range for compatible with ENUM_STATS_LLS_TLV_TAG_ID */
 	UNI_CMD_GET_STATISTICS_TAG_LINK_LAYER_STATS = 0x80,
 	UNI_CMD_GET_STATISTICS_TAG_PPDU_LATENCY,
 	UNI_CMD_GET_STATISTICS_TAG_CURRENT_TX_RATE,
 	UNI_CMD_GET_STATISTICS_TAG_BEACON_REPORT = 0x86,
-	UNI_CMD_GET_STATISTICS_TAG_BSS_CURRENT_TX_RATE = 0x87,
-	UNI_CMD_GET_STATISTICS_TAG_BSS_PRED_TX_BITRATE = 0x88,
 };
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -2970,12 +2891,6 @@ struct UNI_CMD_REGULAR_STATS {
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_BSS_LINK_QUALITY {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
 struct UNI_CMD_GET_ML_CHNL_COND {
 	uint16_t u2Tag;
 	uint16_t u2Length;
@@ -3004,17 +2919,6 @@ struct UNI_CMD_LINK_LAYER_STATS {
 
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_CMD_CURRENT_TX_RATE {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-
-	uint8_t ucArg0;
-	uint8_t ucArg1;
-	uint8_t ucArg2;
-	uint8_t ucArg3;
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_BSS_CURRENT_TX_RATE {
 	uint16_t u2Tag;
 	uint16_t u2Length;
 
@@ -3297,12 +3201,6 @@ enum ENUM_UNI_CMD_CNM_CH_REQ_BAND {
 	UNI_CMD_CNM_CH_REQ_BAND_AUTO = 0xFF,
 };
 
-enum ENUM_CNM_CH_PRIVILEGE_REQ_EXTRA_INFO {
-	CNM_CH_PRIVILEGE_REQ_EXTRA_INFO_MULTI_LINK = 0,
-	CNM_CH_PRIVILEGE_REQ_EXTRA_INFO_EMLSR = 1,
-	CNM_CH_PRIVILEGE_REQ_EXTRA_INFO_NUM
-};
-
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_CMD_CNM_CH_PRIVILEGE_REQ {
 	uint16_t         u2Tag;
@@ -3321,12 +3219,7 @@ struct UNI_CMD_CNM_CH_PRIVILEGE_REQ {
 	uint8_t          ucReqType;          /* ENUM_CH_REQ_TYPE_T */
 	uint32_t         u4MaxInterval;      /* In unit of ms */
 	uint8_t          ucDBDCBand;
-	/* CNM Function Mask: Each bit represents whether to turn on
-	 * specific function
-	 */
-	uint8_t          ucCnmFuncMask;
-	uint8_t          ucExtraInfo;
-	uint8_t          aucReserved[1];
+	uint8_t          aucReserved[3];
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -3363,9 +3256,6 @@ struct UNI_CMD_MBMC {
 __KAL_ATTRIB_PACKED_FRONT__
 enum ENUM_UNI_CMD_MBMC_TAG {
 	UNI_CMD_MBMC_TAG_SETTING = 0,
-#if (CFG_MLO_CONCURRENT_SINGLE_PHY == 1)
-	UNI_CMD_MBMC_NO_RESP_TAG_SETTING = 1,
-#endif
 	UNI_CMD_MBMC_TAG_MAX_NUM
 } __KAL_ATTRIB_PACKED__;
 
@@ -3409,8 +3299,6 @@ struct UNI_CMD_MDVT_PARA {
 	uint16_t u2Length;
 	uint16_t u2ModuleId;
 	uint16_t u2CaseId;
-	uint8_t ucCapId;
-	uint8_t ucReserved[3];
 };
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -3638,7 +3526,6 @@ enum ENUM_UNI_CMD_MLO_TAG {
 	UNI_CMD_MLO_TAG_MLD_REC_LINK = 0x3,
 	UNI_CMD_MLO_TAG_MLD_REC_LINK_AGC_TX = 0x4,
 	UNI_CMD_MLO_TAG_MLD_REC_LINK_AGC_TRIG = 0x5,
-	UNI_CMD_MLO_TAG_MLD_MLSR_CONCURENT_PRECONNECT = 0x7,
 };
 
 /* UNI_CMD_MLO_TAG_MLD_REC(Tag=0x2) */
@@ -3675,16 +3562,6 @@ struct UNI_EVENT_GET_MLD_REC {
 	struct PARAM_MLD_REC rMldRec;
 };
 
-/*UNI_CMD_MLO_TAG_MLD_MLSR_CONCURENT_PRECONNECT(Tag=0x7)*/
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_MLD_MLSR_CONCURENT_PRECONNECT {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-
-	uint8_t ucMlsrRemainBssIndex;
-	uint8_t aucReserved[3];
-} __KAL_ATTRIB_PACKED__;
-
 #endif
 
 /*PP command (Tag 0x38) */
@@ -3693,22 +3570,19 @@ struct UNI_CMD_PP {
 	uint8_t aucReserved[4];
 
 	/* tlv */
-	uint8_t aucTlvBuffer[];
-	/**< the TLVs included in this field:
-	 *
-	 * TAG                        | ID  | structure
-	 * -------------------        | ----| -------------
-	 *    UNI_CMD_PP_EN_CTRL         | 0x0 | UNI_CMD_PP_EN_CTRL_T
-	 *    UNI_CMD_PP_ALG_CTRL        | 0x1 | UNI_CMD_PP_ALG_CTRL_T
-	 *    UNI_CMD_PP_DSCB_CTRL       | 0x2 | UNI_CMD_PP_DSCB_CTRL_T
-	 */
+	uint8_t aucTlvBuffer[]; /**< the TLVs included in this field:
+	*
+	*   TAG                                        | ID   |
+	*   -------------------------      | --   |
+	*   UNI_CMD_PP_SET_PP_CAP_CTRL     | 0x1  |
+	*/
 };
 /** @} */
 
 enum UNI_CMD_ID_PP_TAG {
+    /** SET **/
 	UNI_CMD_PP_TAG_EN_CTRL = 0x0,
 	UNI_CMD_PP_TAG_ALG_CTRL = 0x1,
-	UNI_CMD_PP_DSCB_CTRL = 0x2,
 	UNI_CMD_PP_MAX_NUM
 };
 
@@ -3719,39 +3593,12 @@ enum UNI_CMD_PP_ALG_CMD_ACTION {
 	UNI_CMD_PP_ALG_MAX_NUM
 };
 
-enum PP_HW_CTRL_MODE {
-	PP_NO_PP = 0x0,
-	PP_HW_PP = 0x1,
-	PP_SW_PP = 0x2,
-	PP_SW_THEN_HW_PP = 0x3
-};
-
-enum PP_MGMT_MODE {
-	PP_MGMT_ALG = 0,
-	PP_MGMT_MANUAL = 1,
-	PP_MGMT_IGNORE_ECO_SYSTEM = 2
-};
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_PP_EN_CTRL_T {
-	uint16_t  u2Tag;
-	uint16_t  u2Length;
-
-	/* tag specific part */
-	uint8_t    u1PpMgmtMode;
-	uint8_t    u1DbdcIdx;
-	uint8_t    u1PpCtrl;
-	uint8_t    u1PpMgmtEn;
-	uint16_t   u1PpBitMap;
-	uint8_t    u1Reserved[2];
-} __KAL_ATTRIB_PACKED__;
-
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_CMD_PP_ALG_CTRL {
 	uint16_t  u2Tag;
 	uint16_t  u2Length;
 
-	/* tag specific part */
+    /* tag specific part */
 	uint32_t u4PpTimerIntv;
 	uint32_t u4ThrX2_Value;
 	uint32_t u4ThrX2_Shift;
@@ -3774,54 +3621,17 @@ struct UNI_CMD_PP_ALG_CTRL {
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_PP_DSCB_CTRL_T {
-	uint16_t  u2Tag;
-	uint16_t  u2Length;
-
-	/* tag specific part */
-	uint8_t  ucBssInfoIdx;
-	uint8_t  fgIsEhtOpPresent;
-	uint8_t  fgIsEhtDscbPresent;
-	uint8_t  ucEhtCtrl;
-	uint8_t  ucEhtCcfs0;
-	uint8_t  ucEhtCcfs1;
-	uint16_t u2EhtDisSubChanBitmap;
-	uint8_t  u1Reserved[1];
-} __KAL_ATTRIB_PACKED__;
-
-/*HM command (Tag 0x??) */
-struct UNI_CMD_HM {
-	/* fixed field */
-	uint8_t aucReserved[4];
-
-	/* tlv */
-	uint8_t aucTlvBuffer[];
-	/**< the TLVs included in this field:
-	 *
-	 *   TAG                            | ID   |
-	 *   -------------------------      | --   |
-	 */
-};
-/** @} */
-enum UNI_CMD_ID_HM_TAG {
-    /** SET **/
-	UNI_CMD_HM_TAG_ALG_CTRL = 0x0,
-	UNI_CMD_HM_MAX_NUM
-};
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_HM_ALG_CTRL_T {
+struct UNI_CMD_PP_EN_CTRL_T {
 	uint16_t  u2Tag;
 	uint16_t  u2Length;
 
     /* tag specific part */
-	uint8_t u1HmManualModeEn;
-	uint8_t u1ForceObss;
-	uint8_t u1ForceBT;
-	uint8_t u1HmForcePlan;
-	uint8_t u1ObssTimePercntg;
-	uint8_t u1BTPercntg;
-	uint8_t u1Reserved[6];
+	uint8_t    u1PpMgmtMode;
+	uint8_t    u1DbdcIdx;
+	uint8_t    u1PpCtrl;
+	uint8_t    u1PpMgmtEn;
+	uint16_t   u1PpBitMap;
+	uint8_t    u1Reserved[2];
 } __KAL_ATTRIB_PACKED__;
 
 #if CFG_SUPPORT_TX_BF
@@ -4025,7 +3835,6 @@ enum UNI_CMD_THERMAL_TAG {
 	UNI_CMD_THERMAL_TAG_PROTECT_DUTY_INFO = 0xA,
 	UNI_CMD_THERMAL_TAG_PROTECT_STATE_ACT = 0xB,
 	UNI_CMD_THERMAL_TAG_FEATURE_DDIE_INFO = 0xC,
-	UNI_CMD_THERMAL_TAG_FEATURE_ADC_TEMPERATURE_QUERY = 0xD,
 	UNI_CMD_THERMAL_TAG_NUM
 };
 
@@ -4052,16 +3861,6 @@ struct UNI_CMD_THERMAL_DDIE_SENSOR_INFO {
 	uint8_t ucThermalCtrlFormatId;
 	uint8_t ucActionIdx;
 	uint8_t ucSensorIdx;
-	uint8_t ucReserved;
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_THERMAL_TEMP_ADC_INFO {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t ucThermalCtrlFormatId;
-	uint8_t ucType;
-	uint8_t ucIndex;
 	uint8_t ucReserved;
 } __KAL_ATTRIB_PACKED__;
 
@@ -4155,20 +3954,8 @@ struct UNI_CMD_PERF_IND {
 enum ENUM_UNI_CMD_PERF_IND_TAG {
 	UNI_CMD_PERF_IND_TAG_PARM = 0,
 	UNI_CMD_PERF_IND_TAG_TPUT_FACTOR = 1,
-	UNI_CMD_PERF_IND_TAG_PARM_V2 = 2,
 	UNI_CMD_PERF_IND_TAG_NUM
 };
-__KAL_ATTRIB_PACKED_FRONT__
-struct STRU_UNI_CMD_PERF_IND_PARM {
-	uint32_t u4CurTxBytes;    /* in Bps */
-	uint32_t u4CurRxBytes;    /* in Bps */
-	uint16_t u2CurRxRate;    /* Unit 500 Kbps */
-	uint8_t ucCurRxRCPI0;
-	uint8_t ucCurRxRCPI1;
-	uint8_t ucCurRxNss;
-	uint8_t ucCurRxNss2;
-	uint16_t u2Reserve;
-} __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_CMD_PERF_IND_PARM {
@@ -4178,10 +3965,14 @@ struct UNI_CMD_PERF_IND_PARM {
 	uint8_t aucPadding0[1];
 	uint16_t u2CmdLen;       // cmd size including common part and body.
 	uint32_t u4VaildPeriod;   /* in ms */
-	uint8_t ucBssNum;
-	uint8_t  ucReserve[3];
-	struct STRU_UNI_CMD_PERF_IND_PARM rUniCmdParm[MAX_BSSID_NUM];
-	//uint32_t au4Padding[62]; /* reserve for future*/
+	uint32_t ulCurTxBytes[4];   /* in Bps */
+	uint32_t ulCurRxBytes[4];   /* in Bps */
+	uint16_t u2CurRxRate[4];     /* Unit 500 Kbps */
+	uint8_t ucCurRxRCPI0[4];
+	uint8_t ucCurRxRCPI1[4];
+	uint8_t ucCurRxNss[4];
+	uint8_t ucCurRxNss2[4];
+	uint32_t au4Padding[62]; /* reserve for future*/
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -4230,7 +4021,7 @@ struct UNI_CMD_FRM_IND_FROM_HOST_PARM {
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_TESTMODE {
+struct UNI_CMD_TESTMODE_CTRL {
 	/* fix field*/
 	uint8_t aucPadding[4];
 
@@ -4239,19 +4030,15 @@ struct UNI_CMD_TESTMODE {
 	*
 	*   TAG                            | ID  | structure
 	*   -------------------------------|-----|--------------
-	*   UNI_CMD_TESTMODE_TAG_CTRL      | 0x0 | UNI_CMD_TESTMODE_CTRL
+	*   UNI_CMD_TESTMODE_TAG_RF_CTRL   | 0x0 | UNI_CMD_TESTMODE_RF_CTRL
 	*   UNI_CMD_TESTMODE_TAG_LISTMODE  | 0x1 | UNI_CMD_TESTMODE_LISTMODE
-	*   UNI_CMD_TESTMODE_TAG_XO_CAL    | 0x2 | UNI_CMD_TESTMODE_XO_CAL
-	*   UNI_CMD_TESTMODE_TAG_PL_CAL    | 0x3 | UNI_CMD_TESTMODE_PL_CAL
 	*/
 } __KAL_ATTRIB_PACKED__;
 
 /** testmode RF test command TLV List */
 enum ENUM_UNI_CMD_TESTMODE_CTRL_TAG {
-	UNI_CMD_TESTMODE_TAG_CTRL = 0x0,
+	UNI_CMD_TESTMODE_TAG_RF_CTRL = 0x0,
 	UNI_CMD_TESTMODE_TAG_LISTMODE = 0x1,
-	UNI_CMD_TESTMODE_TAG_XO_CAL = 0x2,
-	UNI_CMD_TESTMODE_TAG_PL_CAL = 0x3,
 	UNI_CMD_TESTMODE_TAG_NUM
 };
 
@@ -4259,7 +4046,7 @@ enum ENUM_UNI_CMD_TESTMODE_CTRL_TAG {
  * @{
  */
 /**
- * This structure is used for UNI_CMD_TESTMODE_TAG_CTRL(0x00)
+ * This structure is used for UNI_CMD_TESTMODE_TAG_RF_CTRL(0x00)
  * of UNI_CMD_ID_TESTMODE_CTRL command (0x46)
  * to set testmode RF parameter.
  * @version Supported from ver:1.0.0.0
@@ -4268,13 +4055,15 @@ enum ENUM_UNI_CMD_TESTMODE_CTRL_TAG {
  * @param[in] u2Length      the length of this TLV, should be 8
  * @param[in] ucAction      set action of testmode
  * @param[in] aucReserved   Reserved
+ * @param[in] ucIcapLen     Icap data length
+ * @param[in] aucReserved   Reserved
  * @param[in] u4OpMode      Operation mode
  * @param[in] u4ChannelFreq Frequency of channel
  * @param[in] rRfATInfo     RF information
  */
 /* Set testmode RF parameter cmd struct (Tag 0x00) */
 __KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_TESTMODE_CTRL {
+struct UNI_CMD_TESTMODE_RF_CTRL {
 	uint16_t u2Tag;
 	uint16_t u2Length;
 
@@ -4286,7 +4075,6 @@ struct UNI_CMD_TESTMODE_CTRL {
 		struct PARAM_MTK_WIFI_TEST_STRUCT_EXT_T rRfATInfo;
 	}u;
 }__KAL_ATTRIB_PACKED__;
-/** @} */
 
 #define TESTMODE_LISTMODE_DATA_LEN	780
 
@@ -4299,7 +4087,7 @@ struct UNI_CMD_TESTMODE_CTRL {
  * to set testmode listmode.
  * @version Supported from ver:1.0.0.0
  *
- * @param[in] u2Tag         should be 0x01
+ * @param[in] u2Tag         should be 0x00
  * @param[in] u2Length      the length of this TLV
  * @param[in] aucData       list mode data
  */
@@ -4310,109 +4098,12 @@ struct UNI_CMD_TESTMODE_LISTMODE {
 	uint16_t u2Length;
 	uint8_t aucData[TESTMODE_LISTMODE_DATA_LEN];
 } __KAL_ATTRIB_PACKED__;
-/** @} */
-
-/** @addtogroup UNI_CMD_ID_TESTMODE_XO_CAL
- * @{
- */
-/**
- * This structure is used for UNI_CMD_TESTMODE_TAG_XO_CAL(0x02)
- * of UNI_CMD_ID_TESTMODE_CTRL command (0x46)
- * Xtal calibration data.
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u4CalType     the type of calibration
- * @param[in] u4ClkSrc      the clock source for calibration
- * @param[in] u4Mode        the mode for calibration
- * @param[in] u4TargetReq   the target frequency for calibration
- */
-/* Set testmode XO calibratrion cmd struct (Tag 0x02) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_TESTMODE_XO_CAL_REQ {
-	uint32_t u4CalType;
-	uint32_t u4ClkSrc;
-	uint32_t u4Mode;
-	uint32_t u4TargetReq;
-} __KAL_ATTRIB_PACKED__;
-/** @} */
-
-/** @addtogroup UNI_CMD_ID_TESTMODE_XO_CAL
- * @{
- */
-/**
- * This structure is used for UNI_CMD_TESTMODE_TAG_XO_CAL(0x02)
- * of UNI_CMD_ID_TESTMODE_CTRL command (0x46)
- * to set testmode Xtal calibration.
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u2Tag         should be 0x02
- * @param[in] u2Length      the length of this TLV
- * @param[in] rXoReq        XO request parameters
- */
-/* Set testmode XO calibratrion cmd struct (Tag 0x02) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_TESTMODE_XO_CAL {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	struct UNI_CMD_TESTMODE_XO_CAL_REQ rXoReq;
-} __KAL_ATTRIB_PACKED__;
-/** @} */
-
-/** @addtogroup UNI_CMD_ID_TESTMODE_PL_CAL
- * @{
- */
-/**
- * This structure is used for UNI_CMD_TESTMODE_TAG_PL_CAL(0x03)
- * of UNI_CMD_ID_TESTMODE_CTRL command (0x46)
- * production line calibration data.
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u4BandIdx		dbdc band index
- * @param[in] u4PLCalId		production line calibration id
- * @param[in] u4Action		calibration action
- * @param[in] u4Flags		reserved field
- * @param[in] u4InCnt		input parameter count
- * @param[in] u4InData		input parameter data
- */
-/* Set testmode PL calibratrion cmd struct (Tag 0x03) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_TESTMODE_PL_CAL_REQ {
-	uint32_t u4BandIdx;
-	uint32_t u4PLCalId;
-	uint32_t u4Action;
-	uint32_t u4Flags;
-	uint32_t u4InCnt;
-	uint32_t u4InData[PLCAL_MAX_CNT];
-} __KAL_ATTRIB_PACKED__;
-/** @} */
-
-/** @addtogroup UNI_CMD_ID_TESTMODE_PL_CAL
- * @{
- */
-/**
- * This structure is used for UNI_CMD_TESTMODE_TAG_PL_CAL(0x03)
- * of UNI_CMD_ID_TESTMODE_CTRL command (0x46)
- * to do testmode production line calibration.
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u2Tag         should be 0x03
- * @param[in] u2Length      the length of this TLV
- * @param[in] rPlReq        PL request parameters
- */
-/* Set testmode PL calibratrion cmd struct (Tag 0x03) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_TESTMODE_PL_CAL {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	struct UNI_CMD_TESTMODE_PL_CAL_REQ rPlReq;
-} __KAL_ATTRIB_PACKED__;
-/** @} */
 
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_CMD_TESTMODE_RX_STAT {
 	/* fix field*/
-	uint8_t u1BandIdx;
-	uint8_t ucReserved[3];
+	uint8_t aucPadding[4];
+
 	/* tlv */
 	uint8_t aucTlvBuffer[];/**< the TLVs included in this field:
 	*
@@ -4428,7 +4119,6 @@ struct UNI_CMD_TESTMODE_RX_STAT {
 enum ENUM_UNI_CMD_TESTMODE_RX_TAG {
 	UNI_CMD_TESTMODE_RX_TAG_GET_STAT_ALL = 0x8,
 	UNI_CMD_TESTMODE_RX_TAG_GET_STAT_ALL_V2 = 0x9,
-	UNI_CMD_TESTMODE_RX_TAG_GET_STAT_TLV = 0xA,
 	UNI_CMD_TESTMODE_RX_TAG_NUM,
 };
 
@@ -4493,103 +4183,6 @@ struct UNI_CMD_ICS_SNIFFER {
 	uint8_t aucPadding1[62];
 } __KAL_ATTRIB_PACKED__;
 #endif
-
-#if (CFG_SUPPORT_PHY_ICS == 1)
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_PHY_ICS {
-	/*fixed field*/
-	uint8_t aucReserved[4];
-
-	/* tlv */
-	uint8_t aucTlvBuffer[];
-       /**< the TLVs included in this field:
-	*
-	*   TAG                              | ID  | structure
-	*   -------------------              | ----| -------------
-	*   UNI_CMD_PHY_ICS_EVENT_CTRL       | 0x0 | UNI_CMD_PHY_ICS_EVENT_T
-	*   UNI_CMD_PHY_ICS_START_CTRL       | 0x1 | UNI_CMD_PHY_ICS_START_T
-	*/
-} __KAL_ATTRIB_PACKED__;
-
-enum UNI_CMD_PHY_ICS_TAG {
-	UNI_CMD_PHY_ICS_EVENT_TAG_CTRL = 0x0,
-	UNI_CMD_PHY_ICS_START_TAG_CTRL = 0x1,
-	UNI_CMD_PHY_ICS_TAG_MAX_NUM
-};
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_PHY_ICS_EVENT {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-
-	/* tag specific part */
-	uint8_t ucBandIdx;
-	uint8_t ucPartition;
-	uint16_t u2EventGroup;
-	uint32_t u4EventID;
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_PHY_ICS_START {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-
-	/* tag specific part */
-	uint16_t u2Action;
-	uint16_t u2Timer;
-} __KAL_ATTRIB_PACKED__;
-#endif
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_PHY_CTRL_LIST_DUMP {
-
-	/*fixed field*/
-	uint8_t ucAction;
-	uint8_t aucReserved[3];
-
-	/* tlv */
-	uint8_t aucTlvBuffer[];
-	/**< the TLVs included in this field:
-	 *
-	 *   TAG                             | ID  | structure
-	 *   -------------                   | ----| -------------
-	 *   UNI_CMD_PHY_LIST_DUMP_RESERVED  | 0x0 | UNI_CMD_PHY_LSIT_DUMP_T
-	 *   UNI_CMD_PHY_LIST_DUMP_HW_PHY    | 0x1 | UNI_CMD_PHY_LSIT_DUMP_T
-	 *   UNI_CMD_PHY_LIST_DUMP_HW_EMLSR  | 0x2 | UNI_CMD_PHY_LSIT_DUMP_T
-	 *   UNI_CMD_PHY_LIST_DUMP_SW_PHY    | 0x3 | UNI_CMD_PHY_LSIT_DUMP_T
-	 *   UNI_CMD_PHY_LIST_DUMP_SW_EMLSR  | 0x4 | UNI_CMD_PHY_LSIT_DUMP_T
-	 *   UNI_CMD_PHY_LIST_DUMP_HW_PHY1   | 0x5 | UNI_CMD_PHY_LIST_DUMP_T
-	 *   UNI_CMD_PHY_LIST_DUMP_SW_PHY1   | 0x6 | UNI_CMD_PHY_LIST_DUMP_T
-	 *   UNI_CMD_PHY_LIST_DUMP_HW_PHY2   | 0x7 | UNI_CMD_PHY_LIST_DUMP_T
-	 *   UNI_CMD_PHY_LIST_DUMP_SW_PHY2   | 0x8 | UNI_CMD_PHY_LIST_DUMP_T
-	 */
-
-} __KAL_ATTRIB_PACKED__;
-
-/* Suspend command Tag */
-
-enum ENUM_UNI_CMD_PHY_LIST_DUMP_TAG {
-	UNI_CMD_PHY_LIST_DUMP_TAG_RESERVED = 0,
-	UNI_CMD_PHY_LIST_DUMP_TAG_HW_PHY = 1,
-	UNI_CMD_PHY_LIST_DUMP_TAG_HW_EMLSR = 2,
-	UNI_CMD_PHY_LIST_DUMP_TAG_SW_PHY = 3,
-	UNI_CMD_PHY_LIST_DUMP_TAG_SW_EMLSR = 4,
-	UNI_CMD_PHY_LIST_DUMP_TAG_HW_PHY1 = 5,
-	UNI_CMD_PHY_LIST_DUMP_TAG_SW_PHY1 = 6,
-	UNI_CMD_PHY_LIST_DUMP_TAG_HW_PHY2 = 7,
-	UNI_CMD_PHY_LIST_DUMP_TAG_SW_PHY2 = 8,
-	UNI_CMD_PHY_LIST_DUMP_TAG_NUM
-};
-
-__KAL_ATTRIB_PACKED_FRONT__
-
-struct UNI_CMD_PHY_LIST_DUMP_CR {
-
-	uint16_t u2Tag;                   // Tag = 0x00
-	uint16_t u2Length;
-	uint32_t u4Stamp;
-} __KAL_ATTRIB_PACKED__;
-
 
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_CMD_ACS_POLICY {
@@ -4759,21 +4352,16 @@ struct UNI_CMD_RTT {
 	/* tlv */
 	uint8_t aucTlvBuffer[];/**< the TLVs included in this field:
 	*
-	*   TAG                            |  ID  | structure
-	*   -------------------------------|------|--------------
-	*   UNI_CMD_RTT_TAG_GET_CAPA       | 0x00 | UNI_CMD_RTT_GET_CAPA_T
-	*   UNI_CMD_RTT_TAG_RANGE_REQ_MC   | 0x01 | UNI_CMD_RTT_RANGE_REQ_MC_T
-	*   UNI_CMD_RTT_TAG_RANGE_RSP_MC   | 0x02 | UNI_CMD_RTT_RANGE_RSP_MC_T
-	*   UNI_CMD_RTT_TAG_RANGE_REQ_AZ_NTB | 0x03 | UNI_CMD_RTT_REQ_AZ_NTB_T
+	*   TAG                          |  ID  | structure
+	*   -----------------------------|------|--------------
+	*   UNI_CMD_RTT_TAG_GET_CAPA     | 0x00 | UNI_CMD_RTT_GET_CAPA_T
+	*   UNI_CMD_RTT_TAG_RANGE_REQ    | 0x01 | UNI_CMD_RTT_RANGE_REQ_T
 	*/
 } __KAL_ATTRIB_PACKED__;
-
 /* RTT command TLV List */
 enum ENUM_UNI_CMD_RTT_TAG {
 	UNI_CMD_RTT_TAG_GET_CAPA = 0,
-	UNI_CMD_RTT_TAG_RANGE_REQ_MC = 1,      /* 11mc initiator */
-	UNI_CMD_RTT_TAG_RANGE_RSP_MC = 2,      /* 11mc responder */
-	UNI_CMD_RTT_TAG_RANGE_REQ_AZ_NTB = 3,  /* 11AZ NTB */
+	UNI_CMD_RTT_TAG_RANGE_REQ = 1,
 	UNI_CMD_RTT_TAG_NUM
 };
 /* Get RTT Capabilities (Tag0) */
@@ -4782,111 +4370,17 @@ struct UNI_CMD_RTT_GET_CAPA_T {
 	uint16_t u2Tag;
 	uint16_t u2Length;
 } __KAL_ATTRIB_PACKED__;
-
-/* 11mc ranging request (Tag1) */
-struct RTT_CONFIG_MC {
-	uint8_t aucAddr[MAC_ADDR_LEN]; /* peer device mac address */
-	uint8_t eType; /* enum ENUM_RTT_TYPE */
-	uint8_t ePeer; /* enum ENUM_RTT_PEER_TYPE */
-	struct WIFI_CHANNEL_INFO rChannel;
-	uint16_t u2BurstPeriod;
-	uint16_t u2NumBurstExponent;
-	uint16_t u2PreferencePartialTsfTimer;
-	uint8_t ucNumFramesPerBurst;
-	uint8_t ucNumRetriesPerRttFrame;
-	uint8_t ucNumRetriesPerFtmr;
-	uint8_t ucLciRequest;
-	uint8_t ucLcrRequest;
-	uint8_t ucBurstDuration;
-	uint8_t ePreamble; /* enum ENUM_WIFI_RTT_PREAMBLE */
-	uint8_t eBw; /* enum ENUM_WIFI_RTT_BW */
-
-	/* bellow are for internal useages */
-	uint8_t eBand; /* enum ENUM_BAND */
-	uint8_t ucPrimaryChannel;
-	uint8_t ucS1;
-	uint8_t ucS2;
-	uint8_t eChannelWidth; /* enum ENUM_CHANNEL_WIDTH */
-	uint8_t ucBssIndex;
-	uint8_t eEventType;  /* enum ENUM_LOC_EVENT_TYPE_T*/
-	uint8_t ucASAP;
-	uint8_t ucFtmMinDeltaTime; //mc: UNIT:100us
-	uint8_t ucReserved; // 4 byte align
-};
-
+/* Range request (Tag1) */
 __KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_RTT_RANGE_REQ_MC_T {
+struct UNI_CMD_RTT_RANGE_REQ_T {
 	uint16_t u2Tag;
 	uint16_t u2Length;
 	uint8_t ucSeqNum;
 	uint8_t fgEnable;              /* request or cancel */
 	uint8_t ucConfigNum;
 	uint8_t ucPaddings[5];
-	struct RTT_CONFIG_MC arRttConfigs[CFG_RTT_MAX_CANDIDATES];
+	struct RTT_CONFIG arRttConfigs[CFG_RTT_MAX_CANDIDATES];
 } __KAL_ATTRIB_PACKED__;
-
-/* 11mc ranging request (Tag2) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_RTT_RANGE_RSP_MC_T {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t ucSeqNum;
-	uint8_t fgEnable;              /* request or cancel */
-	uint8_t ucConfigNum;
-	uint8_t ucPaddings[5];
-	struct RTT_CONFIG arRttConfigs[CFG_RTT_MAX_CLIENTS];
-} __KAL_ATTRIB_PACKED__;
-
-/* 11az NTB ranging request (Tag3) */
-struct RTT_CONFIG_AZ_NTB {
-	uint8_t aucAddr[MAC_ADDR_LEN]; /* peer device mac address */
-	uint8_t eType; /* enum ENUM_RTT_TYPE */
-	uint8_t ePeer; /* enum ENUM_RTT_PEER_TYPE */
-	struct WIFI_CHANNEL_INFO rChannel;
-	uint16_t u2BurstPeriod;
-	uint16_t u2NumBurstExponent;
-	uint16_t u2PreferencePartialTsfTimer;
-	uint8_t ucNumFramesPerBurst;
-	uint8_t ucNumRetriesPerRttFrame;
-	uint8_t ucNumRetriesPerFtmr;
-	uint8_t ucLciRequest;
-	uint8_t ucLcrRequest;
-	uint8_t ucBurstDuration;
-	uint8_t ePreamble; /* enum ENUM_WIFI_RTT_PREAMBLE */
-	uint8_t eBw; /* enum ENUM_WIFI_RTT_BW */
-
-	/* bellow are for internal useages */
-	uint8_t eBand; /* enum ENUM_BAND */
-	uint8_t ucPrimaryChannel;
-	uint8_t ucS1;
-	uint8_t ucS2;
-	uint8_t eChannelWidth; /* enum ENUM_CHANNEL_WIDTH */
-	uint8_t ucBssIndex;
-	uint8_t eEventType;  /* enum ENUM_LOC_EVENT_TYPE_T*/
-	uint8_t ucASAP;
-	uint8_t ucFtmMinDeltaTime; //mc: UNIT:100us
-	uint8_t ucReserved; // 4 byte align
-
-	/* 11az */
-	uint64_t u8NtbMinMeasurementTime;
-	uint64_t u8NtbMaxMeasurementTime;
-	uint8_t ucI2rLmrFeedback;
-	uint8_t ucImmeR2iFeedback;
-	uint8_t ucImmeI2rFeedback;
-	uint8_t ucForceReplyI2rLmr;
-};
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_RTT_RANGE_REQ_AZ_NTB_T {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t ucSeqNum;
-	uint8_t fgEnable;              /* request or cancel */
-	uint8_t ucConfigNum;
-	uint8_t ucPaddings[5];
-	struct RTT_CONFIG_AZ_NTB arRttConfigs[CFG_RTT_MAX_CANDIDATES];
-} __KAL_ATTRIB_PACKED__;
-
 #endif /* CFG_SUPPORT_RTT */
 
 #if CFG_SUPPORT_NAN
@@ -4937,10 +4431,8 @@ enum ENUM_UNI_CMD_NAN_TAG {
 	UNI_CMD_NAN_TAG_ENABLE_UNSYNC = 30,
 	UNI_CMD_NAN_TAG_GET_DEVICE_INFO = 33,
 	UNI_CMD_NAN_TAG_VENDOR_PAYLOAD = 35,
-	UNI_CMD_NAN_TAG_LOWPOWER_CTRL = 37,
 	UNI_CMD_NAN_TAG_SET_HOST_ELECTION = 42,
 	UNI_CMD_NAN_TAG_SET_ELECTION_ROLE = 43,
-	UNI_CMD_NAN_TAG_INSTANT_COMM_MODE = 44,
 
 	/* EXT_CMD Part */
 	/* Reserve for vendor r, 100 ~ 199 */
@@ -5045,7 +4537,7 @@ struct UNI_CMD_CSI_SET_FRAME_TYPE {
 	uint16_t   u2Length;
 	uint8_t    ucFrameTypeIndex;
 	uint32_t    u4FrameType;
-	uint8_t    aucPadding[3];
+	uint8_t    aucPadding[2];
 } __KAL_ATTRIB_PACKED__;
 
 /* Set max chain number (Tag3) */
@@ -5179,7 +4671,7 @@ struct UNI_CMD_KEEP_ALIVE_SET {
 	uint32_t u4PeriodMsec;
 } __KAL_ATTRIB_PACKED__;
 
-#if CFG_WOW_SUPPORT
+
 #if CFG_SUPPORT_MDNS_OFFLOAD
 struct UNI_CMD_MDNS_RECORDE {
 	/* fixed field */
@@ -5195,63 +4687,25 @@ struct UNI_CMD_MDNS_RECORDE {
 
 
 enum UNI_CMD_MDNS_RECORDE_TAG {
-	UNI_CMD_MDNS_RECORDE_TAG_ENABLE = 0x0,
-	UNI_CMD_MDNS_RECORDE_TAG_GET_HIT,
-	UNI_CMD_MDNS_RECORDE_TAG_GET_MISS,
-	UNI_CMD_MDNS_RECORDE_TAG_IPV6_WAKEUP,
+	UNI_CMD_MDNS_RECORDE_TAG_SET = 0x0,
 	UNI_CMD_MDNS_RECORDE_TAG_MAX_NUM
 };
 
-struct UNI_CMD_MDNS_RECORDE_ENABLE {
+
+struct UNI_CMD_MDNS_RECORDE_SET {
 	uint16_t u2Tag;
-	/* tlv */
 	uint16_t u2Length;
+	/* Tag specific part */
+	uint8_t ucCmd;
+	struct MDNS_PARAM_T mdns_param;
+	uint32_t u4RecordId;
 	uint8_t ucWakeFlag;
-	uint8_t EnableFlag;
-	uint8_t aucReserved[2];
-	/* 26 bytes */
 	struct WLAN_MAC_HEADER_QoS_T aucMdnsMacHdr;
-	uint8_t aucReserved2[2];
-	/* 8 bytes */
-	uint8_t aucMdnsUdpHdr[UDP_HEADER_LENGTH];
-	/* 20 bytes */
 	uint8_t aucMdnsIPHdr[IPV4_HEADER_LENGTH];
+	uint8_t aucMdnsUdpHdr[UDP_HEADER_LENGTH];
+
 };
-
-struct UNI_CMD_MDNS_RECORDE_GET_HIT {
-	uint16_t u2Tag;
-	/* tlv */
-	uint16_t u2Length;
-	uint8_t ucRecordId;
-	uint8_t aucReserved[3];
-};
-
-struct UNI_CMD_MDNS_RECORDE_GET_MISS {
-	uint16_t u2Tag;
-	/* tlv */
-	uint16_t u2Length;
-};
-
-struct UNI_CMD_MDNS_RECORDE_IPV6_WAKEUP {
-	uint16_t u2Tag;
-	/* tlv */
-	uint16_t u2Length;
-
-	uint8_t ucWakeFlag;
-	uint8_t ucPassthroughBehavior;
-	uint8_t ucIPV6WakeupFlag;
-	uint8_t ucPayloadOrder;
-
-	/* 2 bytes */
-	uint16_t u2PayloadTotallength;
-	uint8_t aucReserved[2];
-
-	/* 1024 bytes */
-	uint8_t ucPayload[MAX_MDNS_TRANSFER_SIZE];
-};
-
-#endif /* #if CFG_SUPPORT_MDNS_OFFLOAD */
-#endif /* #if CFG_WOW_SUPPORT */
+#endif
 
 /* Reset Tx Scramble Seed (0x73) */
 struct UNI_CMD_RESET_TX_SCRAMBLE {
@@ -5284,13 +4738,11 @@ struct UNI_CMD_GAMING_MODE {
 	* TAG                              |ID |structure
 	* ---------------------------------|---|-------------
 	* UNI_CMD_FORCE_RTS_GAMING_MODE_SET|0x0|UNI_CMD_FORCE_RTS_GAMING_MODE_T
-	* UNI_CMD_GAMING_MODE_ATXOP_SET    |0x1|UNI_CMD_GAMING_MODE_T
 	*/
 } __KAL_ATTRIB_PACKED__;
 /* Get Gaming Mode command TLV List */
 enum ENUM_UNI_CMD_GAMING_MODE_TAG {
 	UNI_CMD_GAMING_MODE_PROCESS = 0,
-	UNI_CMD_GAMING_MODE_ATXOP_SET = 1,
 	UNI_CMD_GAMING_MODE_MAX_NUM
 };
 
@@ -5312,27 +4764,6 @@ struct UNI_CMD_GAMING_MODE_PROCESS_T {
 	uint8_t  ucForceRtsEn;
 	uint8_t ucRtsPktNum;
 	uint8_t aucReserved[2];
-} __KAL_ATTRIB_PACKED__;
-
-/** This structure is used for UNI_CMD_GAMING_MODE_ATXOP_SET tag(0x1) of
- * UNI_CMD_ID_GAMING_MODE command (0x63)
- * to set force rts gaming mode
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u2Tag              should be 0x0
- * @param[in] u2Length           the length of this TLV, should be
-				sizeof(UNI_CMD_GAMING_MODE_ATXOP_SET_T)
- * @param[in] u4Cmd
- * @param[in] ucRtsPktNum
- * @param[in] aucReserved[2]
- */
-
-struct UNI_CMD_GAMING_MODE_ATXOP_SET_T {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	/* tag specific part */
-	uint32_t u4Cmd;
-	uint32_t au4Param[MAX_ATXOP_PARAM_NUM];
 } __KAL_ATTRIB_PACKED__;
 
 #if CFG_FAST_PATH_SUPPORT
@@ -5410,207 +4841,56 @@ struct UNI_CMD_LP_KEEP_PWR_CTRL {
 	uint8_t aucPadding[2];
 } __KAL_ATTRIB_PACKED__;
 
-#if (CFG_SUPPORT_FACT_CAL == 1)
-/* Factory cal command (0x7C) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_FACT_CAL {
-	/* fixed field */
-	uint8_t aucRsvd[4];
-
-	/* tlv */
-	uint8_t aucTlvBuffer[];
-} __KAL_ATTRIB_PACKED__;
-/**< the TLVs included in this field:
- *
- *   TAG                           | ID   | structure
- *   -------------                 | ---- | -------------
- *   UNI_CMD_FACT_CAL_GET          | 0x00 | UNI_CMD_FACT_CAL_GET_T
- *   UNI_CMD_FACT_CAL_SET          | 0x01 | UNI_CMD_FACT_CAL_SET_T
- *   UNI_CMD_FACT_CAL_TRIGGER      | 0x02 | UNI_CMD_FACT_CAL_TRIGGER_T
- *   UNI_CMD_FACT_CAL_UPDATE_FLAG  | 0x03 | UNI_CMD_FACT_CAL_UPDATE_FLAG_T
- *   UNI_CMD_FACT_CAL_RAPID_GET    | 0x04 | UNI_CMD_FACT_CAL_RAPID_GET_T
- *   UNI_CMD_FACT_CAL_RAPID_SET    | 0x05 | UNI_CMD_FACT_CAL_RAPID_SET_T
- */
-
-/* Fact cal command Tag */
-enum ENUM_UNI_CMD_ID_FACT_CAL_TAG {
-	UNI_CMD_FACT_CAL_TAG_GET            = 0,
-	UNI_CMD_FACT_CAL_TAG_SET            = 1,
-	UNI_CMD_FACT_CAL_TAG_TRIGGER        = 2,
-	UNI_CMD_FACT_CAL_TAG_UPDATE_FLAG    = 3,
-	UNI_CMD_FACT_CAL_TAG_RAPID_GET      = 4,
-	UNI_CMD_FACT_CAL_TAG_RAPID_SET      = 5,
-	UNI_CMD_ID_FACT_CAL_TAG_MAX_NUM
-};
-
-/** This structure is used for UNI_CMD_FACT_CAL_GET(0x00)
- * of UNI_CMD_ID_FACT_CAL command (0x7C) to get calbration data.
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u2Tag            should be 0x00
- * @param[in] u2Length         the length of this TLV
- * @param[in] u4Data           data value
- * @param[in] u4SeqNum         sequence number
- * @param[in] u4BufDataLength  data length
- * @param[in] u1CalType        calbration type
- * @param[in] u1Done           done
- * @param[in] u1Rsvd           rsvd
- * @param[in] u1BufData        cal data
- */
-/* Fact cal get command (Tag0) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_FACT_CAL_GET {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-
-#define FACT_CAL_DATA_BUF_MAXSIZE 1400
-	uint32_t u4Data;
-	uint32_t u4SeqNum;
-	uint32_t u4BufDataLength;
-	uint8_t u1CalType;
-	uint8_t u1Done;
-	uint8_t u1Band;
-	uint8_t u1Channel;
-	uint8_t u1BufData[FACT_CAL_DATA_BUF_MAXSIZE];
-} __KAL_ATTRIB_PACKED__;
-
-/** This structure is used for UNI_CMD_FACT_CAL_SET(0x01)
- * of UNI_CMD_ID_FACT_CAL command (0x7C) to set calbration data.
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u2Tag            should be 0x01
- * @param[in] u2Length         the length of this TLV
- * @param[in] u4Data           data value
- * @param[in] u4SeqNum         sequence number
- * @param[in] u4BufDataLength  data length
- * @param[in] u1CalType        calbration type
- * @param[in] u1Done           done
- * @param[in] u1Rsvd           rsvd
- * @param[in] u1BufData        cal data
- */
-/* Fact cal set command (Tag1) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_FACT_CAL_SET {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-
-	uint32_t u4Data;
-	uint32_t u4SeqNum;
-	uint32_t u4BufDataLength;
-	uint8_t u1CalType;
-	uint8_t u1Done;
-	uint8_t u1Rsvd[2];
-	uint8_t u1BufData[FACT_CAL_DATA_BUF_MAXSIZE];
-} __KAL_ATTRIB_PACKED__;
-
-/** This structure is used for UNI_CMD_FACT_CAL_TRIGGER(0x02)
- * of UNI_CMD_ID_FACT_CAL command (0x7C) to trigger calbration.
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u2Tag            should be 0x02
- * @param[in] u2Length         the length of this TLV
- *
- */
-/* Fact cal trigger command (Tag2) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_FACT_CAL_TRIGGER {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-} __KAL_ATTRIB_PACKED__;
-
-/** This structure is used for UNI_CMD_FACT_CAL_UPDATE_FLAG(0x03)
- * of UNI_CMD_ID_FACT_CAL command (0x7C) to update calbration flag.
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u2Tag            should be 0x03
- * @param[in] u2Length         the length of this TLV
- * @param[in] u4Data           the status of bypass flow control
- *
- */
-/* Fact cal update flag command (Tag3) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_FACT_CAL_UPDATE_FLAG {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint32_t u4Data;
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_FACT_CAL_RAPID_GET {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-
-#define FACT_CAL_DATA_BUF_MAXSIZE 1400
-	uint32_t u4Data;
-	uint32_t u4SeqNum;
-	uint32_t u4BufDataLength;
-	uint32_t u4Channel;
-	uint8_t u1CalType;
-	uint8_t u1Done;
-	uint8_t u1Band;
-	uint8_t u1Rsvd;
-	uint8_t u1BufData[FACT_CAL_DATA_BUF_MAXSIZE];
-} __KAL_ATTRIB_PACKED__;
-
-/** This structure is used for UNI_CMD_FACT_CAL_RAPID_SET(0x05)
- * of UNI_CMD_ID_FACT_CAL command (0x7C) to set calbration data.
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u2Tag            should be 0x01
- * @param[in] u2Length         the length of this TLV
- * @param[in] u4Data           data value
- * @param[in] u4SeqNum         sequence number
- * @param[in] u4BufDataLength  data length
- * @param[in] u1CalType        calbration type
- * @param[in] u1Done           done
- * @param[in] u1Rsvd           rsvd
- * @param[in] u1BufData        cal data
- */
-/* Fact cal set command (Tag1) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_FACT_CAL_RAPID_SET {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-
-	uint32_t u4Data;
-	uint32_t u4SeqNum;
-	uint32_t u4BufDataLength;
-	uint8_t u1CalType;
-	uint8_t u1Done;
-	uint8_t u1Rsvd[2];
-	uint8_t u1BufData[FACT_CAL_DATA_BUF_MAXSIZE];
-} __KAL_ATTRIB_PACKED__;
-#endif /* CFG_SUPPORT_FACT_CAL */
-
-/* SAP command (UNI_CMD_ID_SET_SAP 0x70) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_SAP {
+struct UNI_CMD_SET_SAP_RPS {
 	/* fixed field */
 	uint8_t ucBssIdx;
 	uint8_t aucReserved[3];
 	/* tlv */
 	uint8_t aucTlvBuffer[];
 	/**< the TLVs included in this field:
-	 * TAG				| ID  | structure
-	 * -----------------------------|-----|--------------
-	 * UNI_CMD_SAP_TAG_RSV		| 0x00|
-	 * UNI_CMD_SET_SAP_RPS_TAG_SET	| 0x01| UNI_CMD_SET_SAP_RPS_SET_T
-	 * UNI_CMD_SET_SAP_SUS_TAG_SET	| 0x02| UNI_CMD_SET_SAP_SUS_SET_T
-	 * UNI_CMD_SAP_BCN_CRI_UPD	| 0x03| UNI_CMD_SAP_BCN_CRI_UPD_T
+	 *	TAG				 | ID  | structure
+	 *	---------------------------------|-----|--------------
+	 *	UNI_CMD_SET_SAP_RPS_TAG_SET	 | 0x01| UNI_CMD_SET_SAP_RPS_T
 	 */
+
 } __KAL_ATTRIB_PACKED__;
 
-/* SAP command TLV List */
+struct UNI_CMD_SET_SAP_SUS {
+	/* fixed field */
+	uint8_t ucBssIdx;
+	uint8_t aucReserved[3];
+	/* tlv */
+	uint8_t aucTlvBuffer[];
+	/**< the TLVs included in this field:
+	 *	TAG				 | ID  | structure
+	 *	---------------------------------|-----|--------------
+	 *	UNI_CMD_SET_SAP_SUS_TAG_SET	 | 0x02| UNI_CMD_SET_SAP_RPS_T
+	 */
+
+} __KAL_ATTRIB_PACKED__;
+
 enum UNI_CMD_SET_SAP_RPS_TAG {
-	UNI_CMD_SAP_TAG_RSV = 0x0,
+	UNI_CMD_SET_SAP_RPS_TAG_INIT = 0x0,
 	UNI_CMD_SET_SAP_RPS_TAG_SET = 0x1,
 	UNI_CMD_SET_SAP_SUS_TAG_SET = 0x2,
-	UNI_CMD_SAP_BCN_CRI_UPD = 0x3,
-	UNI_CMD_SAP_TAG_MAX_NUM
+	UNI_CMD_SET_SAP_RPS_TAG_MAX_NUM
 };
+/** @addtogroup UNI_CMD_ID_SET_SAP_RPS
+ *  @{
+ */
 
-/* UNI_CMD_SET_SAP_SUS_TAG_SET (Tag1) */
-__KAL_ATTRIB_PACKED_FRONT__
+/**
+ * This structure is used for UNI_CMD_SET_SAP_RPS (0x00)
+ * of UNI_CMD_ID_SAP command (0x70) to set packet offload parameters.
+ * @version Supported from ver:1.0.0.0
+ *
+ * @param[in] u2Tag		should be valid tag num
+ * @param[in] u2Length		the length of this TLV,
+ * @param[in] fgEnable		0: Enable, 1: Disable
+ * @param[in] ucPhase	The percentage of beacon interval, 1~9 :10% ~ 90%
+ * @param[in] aucPadding	Reserved
+ */
+
 struct UNI_CMD_SET_SAP_RPS_SET_T {
 	uint16_t u2Tag;
 	uint16_t u2Length;
@@ -5619,22 +4899,11 @@ struct UNI_CMD_SET_SAP_RPS_SET_T {
 	uint8_t aucPadding[2];
 } __KAL_ATTRIB_PACKED__;
 
-/* UNI_CMD_SET_SAP_SUS_TAG_SET (Tag2) */
-__KAL_ATTRIB_PACKED_FRONT__
 struct UNI_CMD_SET_SAP_SUS_SET_T {
 	uint16_t u2Tag;
 	uint16_t u2Length;
 	uint8_t fgEnable;
 	uint8_t aucPadding[3];
-} __KAL_ATTRIB_PACKED__;
-
-/* UNI_CMD_SAP_BCN_CRI_UPD (Tag3) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_SAP_BCN_CRI_UPD_T {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint16_t u2UpdateBssBitmap;
-	uint16_t u2BypassSeqBitmap;
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -5653,9 +4922,6 @@ enum ENUM_UNI_CMD_MLC_TAG {
 	UNI_CMD_MLC_TAG_REQ_USER_CONFIG = 1,
 	UNI_CMD_MLC_TAG_REQ_ACTIVE_NUM = 2,
 	UNI_CMD_MLC_TAG_QUERY = 3,
-	UNI_CMD_MLC_TAG_REQ_LOW_POWER = 4,
-	UNI_CMD_MLC_TAG_REQ_LOW_LATENCY = 5,
-	UNI_CMD_MLC_TAG_REQ_HIGH_TPUT = 6,
 	UNI_CMD_MLC_TAG_NUM
 };
 
@@ -5694,115 +4960,12 @@ struct UNI_CMD_MLC_REQ_ACTIVE_NUM {
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_MLC_REQ_LOW_POWER {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-
-	uint8_t aucReserved[4];
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_MLC_REQ_LOW_LATENCY {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-
-	uint8_t aucReserved[4];
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_MLC_REQ_HIGH_TPUT {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-
-	uint8_t aucReserved[4];
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
 struct UNI_CMD_MLC_QUERY {
 	uint16_t u2Tag;
 	uint16_t u2Length;
 
 	uint8_t aucReserved[4];
 } __KAL_ATTRIB_PACKED__;
-
-/* COEX command (0x87) */
-struct UNI_CMD_COEX_T {
-	uint8_t ucReserved[4];
-
-/* tlv */
-	uint8_t aucTlvBuffer[];
-/**< the TLVs included in this field:
- *   TAG                        | ID  | structure
- *   ---------------------------|-----|--------------
- *    UNI_CMD_COEX_STOP_CONNECT_PROTECT | 0x00 |
- *    UNI_CMD_STOP_CONNECT_PROTECT
- */
-} __KAL_ATTRIB_PACKED__;
-
-/* COEX config Tag */
-enum UNI_CMD_COEX_TAG_T {
-	UNI_CMD_COEX_STOP_CONNECT_PROTECT = 0,
-	UNI_CMD_COEX_MAX_NUM
-} __KAL_ATTRIB_PACKED__;
-
-/** @addtogroup UNI_CMD_ID_COEX
- * @{
- */
-/**
- * This structure is used for
- * UNI_CMD_COEX_STOP_CONNECT_PROTECT (0x00)
- * of UNI_CMD_ID_COEX command (0x87) to stop connect protect
- *
- * @param[in] ucBssInfoIdx            the BSS info index
- */
-/* COEX Setting (Tag0) */
-struct UNI_CMD_COEX_STOP_CONNECT_PROTECT_T {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t ucBssInfoIdx;
-	uint8_t aucReserved[3];
-} __KAL_ATTRIB_PACKED__;
-/** @} */
-
-
-#if (CFG_SUPPORT_WF_DUMP_BT_COREDUMP == 1)
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_BT_CTRL {
-	/* fixed field */
-	uint8_t aucReserved[4];
-
-	/* tlv */
-	uint8_t aucTlvBuffer[0];
-	/**<the TLVs includer in this field:
-	 *
-	 *  TAG                    | ID   | structure
-	 *  -------------          | -----| -------------
-	 *  UNI_CMD_BT_CTRL_HEAD   | 0x0  | UNI_CMD_BT_CTRL_HEAD_T
-	 *  UNI_CMD_BT_CTRL_DATA   | 0x1  | UNI_CMD_BT_CTRL_DATA_T
-	 */
-} __KAL_ATTRIB_PACKED__;
-
-/* BT_CTRL command TLV List */
-enum UNI_CMD_BT_CTRL_TAG {
-	UNI_CMD_BT_CTRL_HEAD = 0,
-	UNI_CMD_BT_CTRL_DATA = 1,
-	UNI_CMD_BT_CTRL_MAX_NUM
-};
-
-/* get header (Tag0) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_BT_CTRL_HEAD {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-} __KAL_ATTRIB_PACKED__;
-
-/* get data (Tag1) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_BT_CTRL_DATA {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-} __KAL_ATTRIB_PACKED__;
-#endif /* CFG_SUPPORT_WF_DUMP_BT_COREDUMP */
 
 /*******************************************************************************
  *                                 Event
@@ -5912,18 +5075,11 @@ enum ENUM_UNI_EVENT_ID {
 	UNI_EVENT_ID_PKT_OFLD	     = 0x60,
 	UNI_EVENT_ID_DELAY_BAR       = 0x61,
 	UNI_EVENT_ID_FW_DROP_SSN     = 0x62,
-	UNI_EVENT_ID_MDNS_REOCRD     = 0x64,
+	UNI_EVENT_ID_SMARTGEAR	     = 0x65,
 	UNI_EVENT_ID_LP_DBG_CTRL     = 0x71,
 	UNI_EVENT_ID_HW_DETECT_REPORT = 0x76,
 	UNI_EVENT_ID_UPDATE_LP       = 0x77,
-	UNI_EVENT_ID_BT_CTRL         = 0x7B,
-#if (CFG_SUPPORT_FACT_CAL == 1)
-	UNI_EVENT_ID_FACT_CAL        = 0x7C,
-#endif
-	UNI_EVENT_ID_PHY_LIST_DUMP   = 0x7f,
-	UNI_EVENT_ID_OMI	     = 0x84,
 	UNI_EVENT_ID_MLC	     = 0x86,
-	UNI_EVENT_ID_MBRAIN      = 0x89,
 	UNI_EVENT_ID_NUM
 };
 
@@ -6047,20 +5203,8 @@ struct UNI_EVENT_ROAMING {
 	uint8_t aucTlvBuffer[];
 } __KAL_ATTRIB_PACKED__;
 
-struct UNI_EVENT_MDNS_RECORD {
-	/* DWORD_0 */
-	uint8_t ucVersion;
-	uint8_t ucType; /* 0: invalid, 1: Hit 2: Miss */
-	uint16_t u2ControlFlag;
-	/* DWORD_1 */
-	uint32_t u4MdnsHitMiss;
-	/* DWORD_2 */
-	uint8_t aucReserved2[64];
-};
-
 enum ENUM_UNI_EVENT_ROAMING_TAG {
 	UNI_EVENT_ROAMING_TAG_STATUS  = 0,
-	UNI_EVENT_ROAMING_TAG_LINK_STATUS = 1,
 	UNI_EVENT_ROAMING_TAG_NUM
 };
 
@@ -6075,17 +5219,6 @@ struct UNI_EVENT_ROAMING_STATUS {
 	uint32_t u4RoamingTriggerTime;
 	uint16_t u2RcpiLowThreshold;
 	uint16_t u2RcpiHighThreshold;
-} __KAL_ATTRIB_PACKED__;
-
-/* Roaming status (Tag1) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_ROAMING_LINK_STATUS {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t  ucBssIndex;
-	uint8_t  ucRcpi;
-	uint8_t  ucPER;
-	uint8_t  aucPadding[1];
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -6297,7 +5430,6 @@ enum ENUM_UNI_BCN_TIMEOUT_REASON {
 	UNI_ENUM_BCN_LOSS_AP_ERROR = 0x09,
 	UNI_ENUM_BCN_MLINK_NULL_FRAME_THRESHOLD = 0x0a,
 	UNI_ENUM_BCN_LINK_RECOVERY = 0x0b,
-	UNI_ENUM_BCN_PROT_ERROR = 0x0c,
 	UNI_ENUM_BCN_TIMEOUT_REASON_MAX_NUM
 };
 
@@ -6322,7 +5454,9 @@ struct UNI_EVENT_BEACON_TIMEOUT_INFO {
 	uint16_t u2Tag;    // Tag = 0x00
 	uint16_t u2Length;
 	uint8_t ucReasonCode;
-	uint8_t aucPadding[3];
+	uint8_t ucMLBTOLinkNum;
+	uint8_t ucLinkDtThreshold;
+	uint8_t aucPadding[1];
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -6512,15 +5646,9 @@ struct UNI_EVENT_RDD
  event Tag */
 enum ENUM_UNI_EVENT_RDD_TAG {
 	UNI_EVENT_RDD_TAG_SEND_PULSE = 0,
-	UNI_EVENT_RDD_TAG_REPORT = 1,
+	UNI_EVENT_RDD_TAG_REPORT     = 1,
 	UNI_EVENT_RDD_TAG_NUM
 };
-
-#define INC_RING_INDEX2(_idx, _RingSize)		\
-{ \
-	(_idx) = (_idx+1) % (_RingSize); \
-	KAL_MB_W(); \
-}
 
 /* Beacon timeout reason (Tag0) */
 __KAL_ATTRIB_PACKED_FRONT__
@@ -6685,21 +5813,12 @@ struct UNI_EVENT_MAC_IFNO {
 
 	/* tlv */
 	uint8_t aucTlvBuffer[];
-	/* the TLVs included in this field:
-	 * TAG                               | ID  | structure
-	 * ----------------------------------|-----|--------------
-	 * UNI_EVENT_MAC_INFO_TAG_TSF        | 0x0 | UNI_EVENT_MAC_INFO_TSF
-	 * UNI_EVENT_MAC_INFO_TAG_TWT_STA_CNM| 0x1 |
-	 *                                        UNI_EVENT_MAC_INFO_TWT_STA_CNM
-	 * UNI_EVENT_MAC_INFO_TAG_TSF_SYNC   | 0x3 | UNI_EVENT_MAC_INFO_TSF_SYNC
-	 */
 } __KAL_ATTRIB_PACKED__;
 
 /* Mac info event Tag */
 enum ENUM_UNI_EVENT_MAC_INFO_TAG {
 	UNI_EVENT_MAC_INFO_TAG_TSF  = 0,
 	UNI_EVENT_MAC_INFO_TAG_TWT_STA_CNM = 1,
-	UNI_EVENT_MAC_INFO_TAG_TSF_SYNC  = 3,
 	UNI_EVENT_MAC_INFO_TAG_NUM
 };
 
@@ -6726,16 +5845,6 @@ struct UNI_EVENT_MAC_INFO_TWT_STA_CNM {
 	uint8_t fgCnmGranted;
 } __KAL_ATTRIB_PACKED__;
 
-/* Uni event for TSF_SYNC (Tag3) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_MAC_INFO_TSF_SYNC {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t  ucBssIndex;
-	uint8_t  aucPadding[3];
-	uint64_t u8TsfValue;
-} __KAL_ATTRIB_PACKED__;
-
 #if CFG_SUPPORT_WIFI_POWER_METRICS
 struct UNI_EVENT_ID_POWER_METRICS {
 	/* fixed field */
@@ -6748,7 +5857,6 @@ struct UNI_EVENT_ID_POWER_METRICS {
 /* Power Metrics event tag */
 enum UNI_EVENT_ID_POWER_METRICS_TAG {
 	UNI_EVENT_POWER_METRICS_INFO_TAG = 0,
-	UNI_EVENT_ICCM_TAG = 1,
 	UNI_EVENT_POWER_METRICS_TAG_NUM
 };
 
@@ -6774,14 +5882,6 @@ struct UNI_EVENT_ID_POWER_METRICS_INFO {
 	uint32_t arStatsPmVhtRateStat[30];
 	uint32_t arStatsPmHeRateStat[48];
 	uint32_t arStatsPmEhtRateStat[80];
-};
-
-struct UNI_EVENT_ID_PWR_MET_ICCM_INFO {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	/* event body */
-	uint32_t u4TotalTime;
-	struct UNI_POWER_STATE_INFO u4BandRatio[5];
 };
 #endif
 
@@ -6827,7 +5927,6 @@ enum ENUM_UNI_EVENT_STATISTICS_TAG {
 	UNI_EVENT_STATISTICS_TAG_TX_STATS = 4,
 	UNI_EVENT_STATISTICS_TAG_ALL_STATS = 5,
 	UNI_EVENT_STATISTICS_TAG_EML_STATS = 6,
-	UNI_EVENT_STATISTICS_TAG_BSS_LINK_QUALITY = 8,
 	UNI_EVENT_STATISTICS_TAG_GET_ML_CHNL_COND = 9,
 	UNI_EVENT_STATISTICS_TAG_GET_ML_CHNL_COND_RESULT = 10,
 	/* Reserved range for compatible with ENUM_STATS_LLS_TLV_TAG_ID */
@@ -6836,9 +5935,7 @@ enum ENUM_UNI_EVENT_STATISTICS_TAG {
 	UNI_EVENT_STATISTICS_TAG_CURRENT_TX_RATE,
 	UNI_EVENT_STATISTICS_TAG_SET_WFD_TX_BITRATE_MONTR,
 	UNI_EVENT_STATISTICS_TAG_GET_WFD_PRED_TX_BITRATE,
-	UNI_EVENT_STATISTICS_TAG_UEVENT = 0x86,
-	UNI_EVENT_STATISTICS_TAG_BSS_CURRENT_TX_RATE = 0x87,
-	UNI_EVENT_STATISTICS_TAG_GET_BSS_PRED_TX_BITRATE = 0x88,
+	UNI_EVENT_STATISTICS_TAG_UEVENT = 0x86
 };
 
 /* Basic Scan down notify Parameters (Tag00) */
@@ -6969,35 +6066,12 @@ struct UNI_EVENT_LINK_STATS {
 	uint8_t  aucBuffer[];
 } __KAL_ATTRIB_PACKED__;
 
-#if CFG_SUPPORT_LLS
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_LINK_LAYER_STATS {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	struct EVENT_STATS_LLS_DATA data;
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_PPDU_LATENCY {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	struct EVENT_STATS_LLS_TX_LATENCY latency;
-} __KAL_ATTRIB_PACKED__;
-
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_EVENT_CURRENT_TX_RATE {
 	uint16_t u2Tag;
 	uint16_t u2Length;
-	struct EVENT_STATS_LLS_TX_RATE_INFO rate_info;
+	uint8_t  aucBuffer[];
 } __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_PRED_TX_BITRATE {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	struct EVENT_STATS_LLS_TX_BIT_RATE bitrate;
-} __KAL_ATTRIB_PACKED__;
-#endif
 
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_EVENT_EML_INFO {
@@ -7010,20 +6084,9 @@ struct UNI_EVENT_EML_INFO {
 	uint8_t ucCurrentState;
 	/* AP MLD responded the EML notification frame */
 	uint8_t ucEmlNegotiated;
-	/* Reserved for backward compatible for ucMaxMldLinkNum*/
-	uint8_t ucReserved0;
+	uint8_t ucMaxMldLinkNum;
 	/* protocol link index to band index */
-	uint8_t auMldLinkIdx[3];
-	uint8_t aucReserved1[7];
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_BSS_LINK_QUALITY {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t ucBssIdx;
-	uint8_t aucReserved[3];
-	struct UNI_LINK_QUALITY rLq;
+	uint8_t auMldLinkIdx[];
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -7047,26 +6110,6 @@ struct UNI_EVENT_UEVENT {
 	uint8_t  aucBuffer[];
 } __KAL_ATTRIB_PACKED__;
 
-#if CFG_SUPPORT_LLS
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_BSS_TX_RATE {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t ucBssIdx;
-	uint8_t aucReserved[3];
-	struct _STATS_LLS_TX_RATE_INFO rTxRateInfo;
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_BSS_PRED_TX_BR {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t ucBssIdx;
-	uint8_t aucReserved[3];
-	struct STATS_LLS_TX_BIT_RATE rBitRate;
-} __KAL_ATTRIB_PACKED__;
-#endif
-
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_EVENT_SAP {
 	/* fixed field */
@@ -7081,7 +6124,6 @@ enum ENUM_UNI_EVENT_SAP_TAG {
 	UNI_EVENT_SAP_TAG_AGING_TIMEOUT = 0,
 	UNI_EVENT_SAP_TAG_UPDATE_STA_FREE_QUOTA = 1,
 	UNI_EVENT_SAP_TAG_NOTIFY_AP_GO_STARTED = 2,
-	UNI_EVENT_SAP_TAG_NOTIFY_LINK_TSF = 3,
 	UNI_EVENT_SAP_TAG_NUM
 };
 
@@ -7108,22 +6150,6 @@ struct UNI_EVENT_NOTIFY_AP_GO_STARTED {
 	uint16_t u2Length;
 	uint8_t  ucBssIdx;
 	uint8_t  aucReserved[3];
-} __KAL_ATTRIB_PACKED__;
-
-struct LINK_TSF_ENTRY {
-	uint8_t ucBssIdx;
-	uint8_t aucReserved[3];
-	uint32_t u4TsfBit0_31;
-	uint32_t u4TsfBit63_32;
-};
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_LINK_TSF {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t ucLinkNum;
-	uint8_t aucReserved[3];
-	struct LINK_TSF_ENTRY aucLinkTsf[];
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -7176,6 +6202,7 @@ struct UNI_EVENT_P2P {
 	*   ------------------------------| ----| -------------
 	*   UNI_EVENT_UPDATE_NOA_PARAM    | 0x00| UNI_EVENT_UPDATE_NOA_PARAM_T
 	*   UNI_EVENT_LO_STOP_PARAM       | 0x01| UNI_EVENT_LO_STOP_PARAM_T
+	*   UNI_EVENT_GC_CSA_PARAM        | 0x02| UNI_EVENT_GC_CSA_PARAM_T
 	*/
 } __KAL_ATTRIB_PACKED__;
 
@@ -7183,6 +6210,7 @@ struct UNI_EVENT_P2P {
 enum ENUM_UNI_EVENT_P2P_TAG {
 	UNI_EVENT_P2P_TAG_UPDATE_NOA_PARAM = 0,
 	UNI_EVENT_P2P_TAG_LO_STOP_PARAM = 1,
+	UNI_EVENT_P2P_TAG_GC_CSA_PARAM = 2,
 	UNI_EVENT_P2P_TAG_NUM
 };
 
@@ -7214,6 +6242,16 @@ struct UNI_EVENT_UPDATE_NOA_PARAM {
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
+struct UNI_EVENT_GC_CSA_PARAM {
+	uint16_t u2Tag;
+	uint16_t u2Length;
+	uint8_t ucBssIndex;
+	uint8_t ucChannel;
+	uint8_t ucBand;
+	uint8_t aucReserved[1];
+} __KAL_ATTRIB_PACKED__;
+
+__KAL_ATTRIB_PACKED_FRONT__
 struct UNI_EVENT_P2P_LO_STOP_PARAM {
 	uint16_t u2Tag;
 	uint16_t u2Length;
@@ -7233,15 +6271,13 @@ struct UNI_EVENT_CNM {
 	/* tlv */
 	uint8_t aucTlvBuffer[];/**< the TLVs included in this field:
 	*
-	*   TAG                                      | ID  | structure
-	*   -----------------------------------------|-----|--------------
-	*   UNI_EVENT_CNM_CH_PRIVILEGE_GRANT         | 0x0 | UNI_EVENT_CH_PRIVILEGE_GRANT_T
-	*   UNI_EVENT_CNM_GET_CHANNEL_INFO           | 0x1 | UNI_EVENT_CNM_GET_CHANNEL_INFO_T
-	*   UNI_EVENT_CNM_GET_BSS_INFO               | 0x2 | UNI_EVENT_CNM_GET_BSS_INFO_T
-	*   UNI_EVENT_CNM_OPMODE_CHANGE              | 0x3 | UNI_EVENT_CNM_OPMODE_CHANGE_T
-	*   UNI_EVENT_CNM_CH_PRIVILEGE_MLO_SUB_GRANT | 0x4 | UNI_EVENT_CNM_CH_PRIVILEGE_GRANT_T
-	*   UNI_EVENT_CNM_OPMODE_CHANGE_RDD          | 0x5 | UNI_EVENT_CNM_OPMODE_CHANGE_RDD_T
-	*   UNI_EVENT_CNM_CH_GRANT_INFO              | 0x6 | UNI_EVENT_CNM_CH_GRANT_INFO_T
+	*   TAG                              | ID  | structure
+	*   ---------------------------------|-----|--------------
+	*   UNI_EVENT_CNM_CH_PRIVILEGE_GRANT | 0x0 | UNI_EVENT_CH_PRIVILEGE_GRANT_T
+	*   UNI_EVENT_CNM_GET_CHANNEL_INFO   | 0x1 | UNI_EVENT_CNM_GET_CHANNEL_INFO_T
+	*   UNI_EVENT_CNM_GET_BSS_INFO       | 0x2 | UNI_EVENT_CNM_GET_BSS_INFO_T
+	*   UNI_EVENT_CNM_OPMODE_CHANGE      | 0x3 | UNI_EVENT_CNM_OPMODE_CHANGE_T
+	*   UNI_EVENT_CNM_CH_PRIVILEGE_GRANT | 0x4 | UNI_EVENT_CH_PRIVILEGE_GRANT_T
 	*/
 } __KAL_ATTRIB_PACKED__;
 
@@ -7254,7 +6290,6 @@ enum ENUM_UNI_EVENT_CNM_TAG {
 	UNI_EVENT_CNM_TAG_OPMODE_CHANGE = 3,
 	UNI_EVENT_CNM_TAG_CH_PRIVILEGE_MLO_SUB_GRANT = 4,
 	UNI_EVENT_CNM_TAG_OPMODE_CHANGE_RDD = 5,
-	UNI_EVENT_CNM_TAG_CH_GRANT_INFO = 6,
 	UNI_EVENT_CNM_TAG_NUM
 }__KAL_ATTRIB_PACKED__;
 
@@ -7275,16 +6310,6 @@ struct UNI_EVENT_CNM_CH_PRIVILEGE_GRANT {
 	uint8_t          ucDBDCBand;         // ENUM_CMD_REQ_DBDC_BAND_T
 	uint8_t          aucReserved[1];
 	uint32_t         u4GrantInterval;    /* In unit of ms */
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_CNM_CH_GRANT_INFO {
-	uint16_t         u2Tag;
-	uint16_t         u2Length;
-	uint8_t          ucTxNss;        /*Set channel TX Nss*/
-	uint8_t          ucRxNss;        /*Set channel RX Nss*/
-	uint8_t          ucChannelWidth; /*Set channel Bandwidth*/
-	uint8_t          aucReserved[1];
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -7332,8 +6357,7 @@ struct UNI_EVENT_CNM_BSS_INFO {
 	uint8_t      ucBssOMACDBDCBand;
 	uint8_t      ucBssOpTxNss;
 	uint8_t      ucBssOpRxNss;
-	uint8_t      ucBssLinkIdx;
-	uint8_t      aucReserved[1];
+	uint8_t      aucReserved[2];
 }__KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -7345,8 +6369,7 @@ struct UNI_EVENT_CNM_OPMODE_CHANGE {
 	uint8_t          ucOpTxNss;
 	uint8_t          ucOpRxNss;
 	uint8_t          ucReason;
-	uint8_t          ucBandWidth;
-	uint8_t          aucReserved[1];
+	uint8_t          aucReserved[2];
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -7438,6 +6461,7 @@ struct UNI_EVENT_TXPOWER {
 	uint8_t aucTlvBuffer[];
 } __KAL_ATTRIB_PACKED__;
 
+
 enum ENUM_UNI_EVENT_TXPOWER_INFO_TAG {
 	UNI_EVENT_TXPOWER_SHOW_INFO = 0,
 	UNI_EVENT_TXPOWER_UPDATE_COMPENSATE_TABLE = 1,
@@ -7496,8 +6520,6 @@ enum ENUM_UNI_EVENT_BA_OFFLOAD_TAG {
 	UNI_EVENT_BA_OFFLOAD_TAG_RX_ADDBA  = 0,
 	UNI_EVENT_BA_OFFLOAD_TAG_RX_DELBA  = 1,
 	UNI_EVENT_BA_OFFLOAD_TAG_TX_ADDBA  = 2,
-	UNI_EVENT_BA_OFFLOAD_TAG_TX_AGG_LIMIT  = 3,
-	UNI_EVENT_BA_OFFLOAD_TAG_TX_AMSDU_NUM_LIMIT  = 4,
 	UNI_EVENT_BA_OFFLOAD_TAG_NUM
 };
 
@@ -7549,26 +6571,6 @@ struct UNI_EVENT_TX_ADDBA {
 	/* Max MPDU count in an AMSDU */
 	uint8_t	ucMaxMpduCount;
 	uint8_t	aucReserved[15];
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_TX_AGG_LIMIT {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t ucBssIdx;
-	/* 0: success, others: fail */
-	uint8_t ucStatus;
-	uint8_t aucReserved[2];
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_TX_AMSDU_NUM_LIMIT {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t ucBssIdx;
-	/* 0: success, others: fail */
-	uint8_t ucStatus;
-	uint8_t aucReserved[2];
 } __KAL_ATTRIB_PACKED__;
 
 /* status to host event tag */
@@ -7701,14 +6703,6 @@ struct UNI_EVENT_THERMAL_DDIE_SENSOR_INFO {
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_THERMAL_TEMP_ADC_INFO {
-	uint8_t ucCategory;
-	uint8_t ucReserved[3];
-	uint32_t u4Temp;
-	uint32_t u4Adc;
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
 struct UNI_EVENT_THERMAL_PROTECT_MECH_INFO {
 	uint8_t ucSubEventId;
 	uint8_t uc1BandIdx;
@@ -7745,7 +6739,6 @@ enum UNI_THERMAL_EVENT_CATEGORY {
 	UNI_THERMAL_EVENT_THERMAL_PROTECT_MECH_INFO = 0x3,
 	UNI_THERMAL_EVENT_THERMAL_PROTECT_DUTY_INFO = 0x4,
 	UNI_THERMAL_EVENT_DDIE_SENSOR_INFO = 0x5,
-	UNI_THERMAL_EVENT_SENSOR_ADC_TEMP_INFO = 0x05,
 	UNI_THERMAL_EVENT_THERMAL_PROTECT_DUTY_UPDATE = 0x6,
 	UNI_THERMAL_EVENT_THERMAL_PROTECT_RADIO_UPDATE = 0x7,
 	UNI_THERMAL_EVENT_NUM
@@ -7824,7 +6817,7 @@ struct UNI_EVENT_UPDATE_COEX_PHYRATE
 	uint16_t u2Tag;
 	uint16_t u2Length;
 	uint32_t u4Flags;
-	uint32_t au4PhyRateLimit[MAX_BSSID_NUM + 1];
+	uint32_t au4PhyRateLimit[UNI_BSS_INFO_NUM];
 } __KAL_ATTRIB_PACKED__;
 
 /** @addtogroup UNI_EVENT_ID_TESTMODE_CTRL
@@ -7850,28 +6843,24 @@ struct UNI_EVENT_TESTMODE_CTRL {
 	/*tlv */
 	uint8_t aucTlvBuffer[];/**< the TLVs included in this field:
 	*
-	*   TAG                           | ID  | structure
-	*   ------------------------------|-----|--------------
-	*   UNI_EVENT_TESTMODE_TAG_RESULT | 0x0 | UNI_EVENT_TESTMODE_RESULT_TLV
-	*   UNI_EVENT_TESTMODE_TAG_XO_CAL | 0x1 | UNI_EVENT_TESTMODE_XO_CAL
-	*   UNI_EVENT_TESTMODE_TAG_PL_CAL | 0x2 | UNI_EVENT_TESTMODE_PL_CAL
+	*   TAG                          | ID  | structure
+	*   -----------------------------|-----|--------------
+	*   UNI_EVENT_RF_TEST_RESULT_TAG | 0x0 | UNI_EVENT_TESTMODE_CTRL
 	*/
 } __KAL_ATTRIB_PACKED__;
 /** @} */
 
 /* testmode RF test event tag */
-enum UNI_EVENT_TESTMODE_TAG {
-	UNI_EVENT_TESTMODE_TAG_RESULT = 0x0,
-	UNI_EVENT_TESTMODE_TAG_XO_CAL = 0x1,
-	UNI_EVENT_TESTMODE_TAG_PL_CAL = 0x2,
-	UNI_EVENT_TESTMODE_TAG_NUM
+enum UNI_EVENT_TESTMODE_CTRL_TAG {
+	UNI_EVENT_RF_TEST_RESULT_TAG,
+	UNI_EVENT_TESTMODE_CTRL_NUM
 };
 
 /** @addtogroup UNI_EVENT_ID_TESTMODE_CTRL
  * @{
  */
 /**
- * This structure is used for UNI_EVENT_TESTMODE_RESULT tag(0x0) of
+ * This structure is used for UNI_EVENT_RF_TEST_RESULT tag(0x0) of
  * UNI_EVENT_ID_TESTMODE_CTRL event (0x46)
  * to report testmode RF status.
  * @version Supported from ver:1.0.0.0
@@ -7882,118 +6871,17 @@ enum UNI_EVENT_TESTMODE_TAG {
  */
 /* Testmode RF status (Tag0) */
 __KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_TESTMODE_RESULT_TLV {
+struct UNI_EVENT_RF_TEST_TLV {
     uint16_t u2Tag;
     uint16_t u2Length;
 	uint8_t  aucBuffer[];
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_TESTMODE_RESULT {
+struct UNI_EVENT_RF_TEST_RESULT {
 	uint32_t u4FuncIndex;
 	uint32_t u4PayloadLength;
 	uint8_t  aucEvent[];
-} __KAL_ATTRIB_PACKED__;
-/** @} */
-
-/** @addtogroup UNI_EVENT_ID_TESTMODE_CTRL
- * @{
- */
-/**
- * This structure is used for UNI_EVENT_TESTMODE_TAG_XO_CAL (0x1) of
- * UNI_EVENT_ID_TESTMODE_CTRL event (0x46)
- * to report testmode XO calibration data.
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u4AxmFreq     XO AXM mode measured frequency
- * @param[in] u4AxmC1Freq   XO AXM mode C1 frequency value
- * @param[in] u4AxmC2Freq   XO AXM mode C2 frequency value
- * @param[in] u4AxmC1Comp   XO AXM mode C1 compensation value
- * @param[in] u4AxmC2Comp   XO AXM mode C2 compensation value
- * @param[in] u4BtmFreq     XO BTM mode measured frequency
- * @param[in] u4BtmC1Freq   XO BTM mode C1 frequency value
- * @param[in] u4BtmC2Freq   XO BTM mode C2 frequency value
- * @param[in] u4BtmC1Comp   XO BTM mode C1 compensation value
- * @param[in] u4BtmC2Comp   XO BTM mode C2 compensation value
- */
-/* Testmode XO calibration data (Tag1) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_TESTMODE_XO_CAL_DATA {
-	uint32_t u4AxmFreq;
-	uint32_t u4AxmC1Freq;
-	uint32_t u4AxmC2Freq;
-	uint32_t u4AxmC1Comp;
-	uint32_t u4AxmC2Comp;
-
-	uint32_t u4BtmFreq;
-	uint32_t u4BtmC1Freq;
-	uint32_t u4BtmC2Freq;
-	uint32_t u4BtmC1Comp;
-	uint32_t u4BtmC2Comp;
-} __KAL_ATTRIB_PACKED__;
-/** @} */
-
-/** @addtogroup UNI_EVENT_ID_TESTMODE_CTRL
- * @{
- */
-/**
- * This structure is used for UNI_EVENT_TESTMODE_TAG_XO_CAL (0x1) of
- * UNI_EVENT_ID_TESTMODE_CTRL event (0x46)
- * to report testmode XO calibration data.
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u2Tag      should be 0x01
- * @param[in] u2Length   the length of this TLV
- * @param[in] rXoCal     the XO calibration data
- */
-/* Testmode XO calibration data (Tag1) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_TESTMODE_XO_CAL {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	struct UNI_EVENT_TESTMODE_XO_CAL_DATA rXoCal;
-} __KAL_ATTRIB_PACKED__;
-/** @} */
-
-/** @addtogroup UNI_EVENT_ID_TESTMODE_CTRL
- * @{
- */
-/**
- * This structure is used for UNI_EVENT_TESTMODE_TAG_PL_CAL (0x2) of
- * UNI_EVENT_ID_TESTMODE_CTRL event (0x46)
- * to report testmode PL calibration data.
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u4OutCnt    the number of output data
- * @param[in] u4OutData   the output data
- */
-/* Testmode PL calibration data (Tag1) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_TESTMODE_PL_CAL_DATA {
-	uint32_t u4OutCnt;
-	uint32_t u4OutData[PLCAL_MAX_CNT];
-} __KAL_ATTRIB_PACKED__;
-/** @} */
-
-/** @addtogroup UNI_EVENT_ID_TESTMODE_CTRL
- * @{
- */
-/**
- * This structure is used for UNI_EVENT_TESTMODE_TAG_PL_CAL (0x2) of
- * UNI_EVENT_ID_TESTMODE_CTRL event (0x46)
- * to report testmode PL calibration data.
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u2Tag                should be 0x02
- * @param[in] u2Length             the length of this TLV
- * @param[in] rPlCal               the PL calibration data
- */
-/* Testmode PL calibration data (Tag1) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_TESTMODE_PL_CAL {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	struct UNI_EVENT_TESTMODE_PL_CAL_DATA rPlCal;
 } __KAL_ATTRIB_PACKED__;
 /** @} */
 
@@ -8015,8 +6903,7 @@ struct UNI_EVENT_TESTMODE_PL_CAL {
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_EVENT_TESTMODE_RX_STAT {
 	/* fix field */
-	uint8_t u1TagNum;
-	uint8_t au1Reserved[3];
+	uint8_t au1Reserved[4];
 
 	/* tlv */
 	uint8_t aucTlvBuffer[];/**< the TLVs included in this field:
@@ -8033,6 +6920,7 @@ enum UNI_EVENT_TESTMODE_RX_STAT_TAG {
 	UNI_EVENT_TESTMODE_RX_STAT_TAG_GET_ALL = 0x6,
 	UNI_EVENT_TESTMODE_RX_STAT_TAG_NUM
 };
+
 /** @addtogroup UNI_EVENT_ID_TESTMODE_RX_STAT_ALL
  * @{
  */
@@ -8221,11 +7109,6 @@ struct UNI_EVENT_MLR_FSM_UPDATE {
 	uint16_t u2WlanIdx;
 	uint8_t ucMlrMode;  /* ENUM_MLR_MODE */
 	uint8_t ucMlrState; /* ENUM_MLR_STATE */
-	/* MLR TXD fixed rate index (only used for REBB segment) */
-	uint8_t ucMlrTxdFrIdx;
-	/* MLR enable Tx fragment or not */
-	uint8_t ucTxFragEn;
-	uint8_t aucReserved[2];
 } __KAL_ATTRIB_PACKED__;
 
 /* EFUSE event Tag */
@@ -8367,27 +7250,12 @@ enum ENUM_UNI_EVENT_RTT_TAG {
 	UNI_EVENT_RTT_TAG_RTT_DONE = 2,
 	UNI_EVENT_RTT_TAG_NUM
 };
-
-/* Location capabilities (CMD_GET_LOC_CAP_T) retrieved from FW */
-__KAL_ATTRIB_PACKED_FRONT__
-struct LOC_CAPABILITIES_T {
-	uint16_t u2LocInitSupported;
-	uint16_t u2LocResSupported;
-	uint8_t ucLciSupport;
-	uint8_t ucLcrSupport;
-	uint16_t u2PreambleSupport;
-	uint16_t u2BwSupport;
-	uint16_t u2AzBwSupport;
-	uint32_t u4MinDeltaTimePerPacket;
-	uint32_t u4Reserved;
-} __KAL_ATTRIB_PACKED__;
-
 /* RTT capabilities (Tag0) */
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_EVENT_RTT_CAPA_T {
 	uint16_t u2Tag;
 	uint16_t u2Length;
-	struct LOC_CAPABILITIES_T rCapabilities;
+	struct RTT_CAPABILITIES rCapabilities;
 } __KAL_ATTRIB_PACKED__;
 /* RTT result (Tag1) */
 __KAL_ATTRIB_PACKED_FRONT__
@@ -8426,7 +7294,6 @@ struct UNI_EVENT_RTT_DONE_T {
 	uint16_t u2Tag;
 	uint16_t u2Length;
 	uint8_t ucSeqNum;
-	uint8_t aucMacAddr[MAC_ADDR_LEN];
 } __KAL_ATTRIB_PACKED__;
 #endif /* CFG_SUPPORT_RTT */
 
@@ -8566,8 +7433,6 @@ enum ENUM_UNI_EVENT_NAN_TAG {
 	UNI_EVENT_NAN_ID_MATCH_EXPIRE = 24,
 	UNI_EVENT_NAN_DEVICE_INFO = 27,
 	UNI_EVENT_NAN_TAG_REPORT_BEACON = 28,
-	UNI_EVENT_NAN_TAG_SLOT_STATISTICS = 29,
-	UNI_EVENT_NAN_TAG_LOWPOWER_CTRL = 37,
 	UNI_EVENT_NAN_TAG_NUM
 };
 
@@ -8758,8 +7623,6 @@ struct UNI_EVENT_HW_DETECT_REPORT_PARAM {
 	uint16_t u2Tag;
 	uint16_t u2Length;
 	/* event body */
-	bool	 fgIsReportNode;
-	uint8_t  aucReserved[3];
 	uint8_t  aucStrBuffer[HW_DETECT_REPORT_STR_MAX_LEN];
 } __KAL_ATTRIB_PACKED__;
 
@@ -8881,8 +7744,8 @@ struct UNI_CMD_RX_HDR_TRAN_TAG_HANDLE {
 	uint32_t u4Size;
 };
 
-struct UNI_CMD_RX_HDR_TRAN_BLOCKLIST_ENTRY {
-	uint8_t ucBlockListIdx;
+struct UNI_CMD_RX_HDR_TRAN_BLACKLIST_ENTRY {
+	uint8_t ucBlackListIdx;
 	u_int8_t fgEnable;
 	uint16_t u2EtherType;
 };
@@ -8898,9 +7761,9 @@ struct UNI_CMD_RX_HDR_TRAN_PARM {
 	u_int8_t fgRemoveVlan;
 	u_int8_t fgUseQosTid;
 
-	/* UNI_CMD_RX_HDR_TRAN_BLOCKLIST_CONFIG = 2 */
-	uint8_t ucBlockListCnt;
-	struct UNI_CMD_RX_HDR_TRAN_BLOCKLIST_ENTRY *list;
+	/* UNI_CMD_RX_HDR_TRAN_BLACKLIST_CONFIG = 2 */
+	uint8_t ucBlackListCnt;
+	struct UNI_CMD_RX_HDR_TRAN_BLACKLIST_ENTRY *list;
 };
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -8915,7 +7778,7 @@ struct UNI_CMD_RX_HDR_TRAN {
 enum UNI_CMD_RX_HDR_TRAN_TAG {
 	UNI_CMD_RX_HDR_TRAN_ENABLE = 0,
 	UNI_CMD_RX_HDR_TRAN_VLAN_CONFIG = 1,
-	UNI_CMD_RX_HDR_TRAN_BLOCKLIST_CONFIG = 2,
+	UNI_CMD_RX_HDR_TRAN_BLACKLIST_CONFIG = 2,
 	UNI_CMD_RX_HDR_TRAN_MAX_NUM
 };
 
@@ -8940,10 +7803,10 @@ struct UNI_CMD_RX_HDR_TRAN_VLAN {
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_RX_HDR_TRAN_BLOCKLIST {
+struct UNI_CMD_RX_HDR_TRAN_BLACKLIST {
 	uint16_t u2Tag;
 	uint16_t u2Length;
-	uint8_t ucBlockListIdx;
+	uint8_t ucBlackListIdx;
 	u_int8_t fgEnable;
 	uint16_t u2EtherType;
 } __KAL_ATTRIB_PACKED__;
@@ -8980,34 +7843,6 @@ struct UNI_EVENT_LP_KEEP_PWR_CTRL {
 	uint8_t ucKeepPwr;
 	uint8_t ucStatus;
 	uint8_t aucPadding[2];
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_PHY_LIST_DUMP {
-	/*fixed field*/
-	uint8_t aucReserved[4];
-
-	/* tlv */
-	uint8_t aucTlvBuffer[];
-} __KAL_ATTRIB_PACKED__;
-
-enum ENUM_UNI_EVENT_PHY_LIST_DUMP_TAG {
-	UNI_EVENT_PHY_LIST_DUMP_TAG_RESERVED = 0x0,
-	UNI_EVENT_PHY_LIST_DUMP_TAG_HW_PHY = 1,
-	UNI_EVENT_PHY_LIST_DUMP_TAG_HW_EMLSR = 2,
-	UNI_EVENT_PHY_LIST_DUMP_TAG_SW_PHY = 3,
-	UNI_EVENT_PHY_LIST_DUMP_TAG_SW_EMLSR = 4,
-	UNI_EVENT_PHY_LIST_DUMP_TAG_NUM
-
-};
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_PHY_LIST_DUMP_CR {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint32_t u4ListSize;
-	uint8_t aucReserved[4];
-
 } __KAL_ATTRIB_PACKED__;
 
 #if CFG_SUPPORT_FW_DROP_SSN
@@ -9110,13 +7945,13 @@ struct UNI_EVENT_UPDATE_LP_DELAYED_WAKEUP_T {
 } __KAL_ATTRIB_PACKED__;
 
 /**
- * This structure is used for UNI_EVENT_UPDATE_LP_LEAKY_AP_DETECT tag(0x03)
- * of UNI_EVENT_UPDATE_LP event (0x77) to identify leakdy AP detection statues
- *
- * @param[in] u2Tag         Tag id
- * @param[in] u2Length      The length of this TLV
- * @param[in] ucDectionType Leaky AP Detection Type
- */
+* This structure is used for UNI_EVENT_UPDATE_LP_LEAKY_AP_DETECT tag(0x03)
+* of UNI_EVENT_UPDATE_LP event (0x77) to identify leakdy AP detection statues
+*
+* @param[in] u2Tag         Tag id
+* @param[in] u2Length      The length of this TLV
+* @param[in] ucDectionType Leaky AP Detection Type
+*/
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_EVENT_UPDATE_LP_LEAKY_AP_DETECT_T {
 uint16_t     u2Tag;
@@ -9125,221 +7960,37 @@ uint8_t      ucDectionType;
 uint8_t      aucPadding[3];
 } __KAL_ATTRIB_PACKED__;
 
-
-#if (CFG_SUPPORT_FACT_CAL == 1)
-/** This structure is used for UNI_EVENT_ID_FACT_CAL event
- * (0x7C)(unsolicited) to report fact data to host
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] aucReserved      reserved fixed field
- * @param[in] aucTlvBuffer     TLVs
- */
-/* Factory Calibration event */
+#if CFG_SUPPORT_SMART_GEAR
 __KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_FACT_CAL {
-	/* fixed field */
-	uint8_t aucReserved[4];
+struct UNI_EVENT_SMARTGEAR {
+	/*fixed field*/
+	uint8_t ucBssIndex;
+	uint8_t aucPadding[3];
 
 	/* tlv */
-	uint8_t aucTlvBuffer[];
+	uint8_t aucTlvBuffer[]; /**< the TLVs included in this field:
+	*
+	*   TAG                             | ID  | structure
+	*   -------------                   | ----| -------------
+	*   UNI_EVENT_IOTAP_MONITOR_INFO |0x0|UNI_EVENT_IOTAP_MONITOR_INFO_T
+	*/
 } __KAL_ATTRIB_PACKED__;
 
-/* Update Factory Calibration event tags */
-enum UNI_EVENT_FACT_CAL_TAG {
-	UNI_EVENT_FACT_CAL_GET_DATA_TAG       = 0x0,   // For cx driver used
-	UNI_EVENT_FACT_CAL_RAPID_GET_DATA_TAG = 0x1,   // For SDK driver used
-	UNI_EVENT_FACT_CAL_TAG_MAX_TAG_NUM
+/* Sleep Notify event Tag */
+enum ENUM_UNI_EVENT_SMARTGEAR_TAG {
+	UNI_EVENT_SMARTGEAR_TAG_IOTAP_MONITOR_INFO = 0,
+	UNI_EVENT_SMARTGEAR_TAG_NUM
 };
 
-/**
- * This structure is used for send RAPID_GET/RAPID_SET cmd data
- */
 __KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_FACT_CAL_DATA {
-	uint32_t u4Data;
-	uint32_t u4SeqNum;
-	uint32_t u4BufDataLength;
-	uint32_t u4Channel;
-	uint8_t ucCalType;
-	uint8_t ucDone;
-	uint8_t ucBand;
-	uint8_t u1Rsvd;
-	uint8_t aucBufData[FACT_CAL_DATA_BUF_MAXSIZE];
-} __KAL_ATTRIB_PACKED__;
-
-/**
- * This structure is used for UNI_EVENT_FACT_CAL_RAPID_GET_DATA_TAG tag(0x01)
- of UNI_EVENT_ID_FACT_CAL event (0x7C) to report fact data to host
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u2Tag            should be 0x00
- * @param[in] u2Length         the length of this TLV
- * @param[in] u4Data           fact data
- * @param[in] u4SeqNum         seq num
- * @param[in] u4BufDataLength  buffer length
- * @param[in] u1CalType        calbration type
- * @param[in] u1Done           done
- * @param[in] u1Rsvd           rsvd
- * @param[in] u1BufData        cal data
- */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_FACT_CAL_RAPID_GET_DATA {
-	uint16_t u2Tag;    // Tag = 0x01
-	uint16_t u2Length;
-
-	uint32_t u4Data;
-	uint32_t u4SeqNum;
-	uint32_t u4BufDataLength;
-	uint8_t ucCalType;
-	uint8_t ucDone;
-	uint8_t ucSubDone;
-	uint8_t ucBand;
-	uint8_t ucChannel;
-	uint8_t rvsd[3];
-	uint8_t aucBufData[FACT_CAL_DATA_BUF_MAXSIZE];
-} __KAL_ATTRIB_PACKED__;
-#endif /* CFG_SUPPORT_FACT_CAL */
-
-/* Update MLO event tags */
-enum ENUM_UNI_EVENT_MLO {
-	UNI_EVENT_MLD_MLSR_CONCURRENT_DONE = 0x7,
-	UNI_EVENT_UPDATE_MLO_NUM
-};
-
-/**
- * This structure is used for UNI_CMD_MLO_TAG_MLD_MLSR_CONCURRENT_PRECONNECT
- * tag(0x07) of UNI_EVENT_ID_MLO event (0x59) to response driver MLSR ready.
- *
- * @param[in] u2Tag         Tag id
- * @param[in] u2Length      The length of this TLV
- */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_MLSR_CONCURRENT_PRECONNECT {
+struct UNI_EVENT_IOTAP_MONITOR_INFO {
 	uint16_t u2Tag;
 	uint16_t u2Length;
-} __KAL_ATTRIB_PACKED__;
 
-/** This structure is used for UNI_EVENT_ID_OMI event (0x84)
- * to do OMI's related synchronization with Driver.
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] aucPadding        aucPadding
- * @param[in] aucTlvBuffer      TLVs
- */
-/* Update OMI event */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_UPDATE_OMI {
-	/* fixed field */
-	uint8_t aucPadding[4];
-
-	/* tlv */
-	uint8_t aucTlvBuffer[];
-} __KAL_ATTRIB_PACKED__;
-
-/* Update LP event tags */
-enum ENUM_UNI_EVENT_UPDATE_OMI_TAG {
-	UNI_EVENT_NOTIFY_OMI_RX = 0,
-	UNI_EVENT_OMI_MAX_NUM
-};
-
-/**
- * This structure is used for UNI_EVENT_NOTIFY_OMI_RX(0x00)
- * of UNI_EVENT_ID_OMI event (0x84)
- * to Notify Driver Do Channel Selection
- * @version Supported from ver:1.0.0.0
- *
- * @param[in] u2Tag
- *	should be 0x00
- * @param[in] u2Length
- *	the length of this TLV, sizeof(UNI_EVENT_NOTIFY_OMI_RX_T)
- * @param[in] u2StaRecIndex
- *	index of StaRec that receive this OMI.
- * @param[in] ucRxNss
- *	Parsed RxNSS from OMI.
- * @param[in] ucTxNss
- *	Parsed TxNSS from OMI. (STA Should Ignore this parameter.)
- * @param[in] ucBW
- *	Parsed BW from OMI. Type:
- *		typedef enum _WH_ENUM_PHY_BW
- *		{
- *			WH_PHY_BW_20 = 0,
- *			WH_PHY_BW_40,
- *			WH_PHY_BW_80,
- *			WH_PHY_BW_160,
- *			WH_PHY_BW_10,
- *			WH_PHY_BW_5,
- *			WH_PHY_BW_8080,
- *			WH_PHY_BW_320,
- *			WH_PHY_BW_NUM
- *		} WH_ENUM_PHY_BW, *P_WH_ENUM_PHY_BW;
- *
- * @param[in] fgDisMuUL
- * @param[in] fgDisMuULData
- * @param[in] ucRxNssExt
- * @param[in] ucBWExt
- * @param[in] ucTxNstsExt
-
- */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_NOTIFY_OMI_RX_T {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint16_t u2StaRecIndex;
-	uint8_t ucRxNss;
-	uint8_t ucTxNsts;
-	uint8_t ucBW;
-	uint8_t fgDisMuUL;
-	uint8_t fgDisMuULData;
-#if (CFG_SUPPORT_802_11BE == 1)
-	uint8_t ucRxNssExt;
-	uint8_t ucBWExt;
-	uint8_t ucTxNstsExt;
-	uint8_t ucReserved[2];
-#else
-	uint8_t ucReserved[5];
-#endif
-} __KAL_ATTRIB_PACKED__;
-
-/**
- * This structure is used for UNI_EVENT_UPDATE_LP_GEN_SWITCH tag(0x01)
- * of UNI_EVENT_UPDATE_LP event (0x77) to identify Tx delay status
- *
- * @param[in] u2Tag         Tag id
- * @param[in] u2Length      The length of this TLV
- * @param[in] ucGenSwitchStatus        Gen Switch Status
- */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_UPDATE_LP_GEN_SWITCH_T {
-	uint16_t     u2Tag;
-	uint16_t     u2Length;
-	uint8_t      ucGenSwitchStatus;
-	uint8_t      aucPadding[3];
-} __KAL_ATTRIB_PACKED__;
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_UPDATE_LP {
-	/* fixed field */
-	uint8_t ucReserved[4];
-
-	/* tlv */
-	uint8_t aucTlvBuffer[];
-} __KAL_ATTRIB_PACKED__;
-
-/* Gen Switch command TLV List */
-enum ENUM_UNI_CMD_UPDATE_LP_TAG {
-	UNI_CMD_UPDATE_LP_TAG_DYN_QOS_PARAM = 0,
-	UNI_CMD_UPDATE_LP_TAG_GEN_SWITCH_PARAM,
-	UNI_CMD_UPDATE_LP_TAG_NUM
-};
-
-/* Set gen switch parameters (Tag1) */
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_CMD_UPDATE_LP_GEN_SWITCH_PARAM {
-	uint16_t u2Tag;
-	uint16_t u2Length;
-	uint8_t ucPcieTransitionStatus;
+	uint8_t ucMonitorState;
 	uint8_t aucPadding[3];
 } __KAL_ATTRIB_PACKED__;
+#endif
 
 __KAL_ATTRIB_PACKED_FRONT__
 struct UNI_EVENT_MLC {
@@ -9390,53 +8041,75 @@ struct UNI_EVENT_MLC_QUERY {
 	uint8_t aucLinkInfo[];
 } __KAL_ATTRIB_PACKED__;
 
-#if (CFG_SUPPORT_WF_DUMP_BT_COREDUMP == 1)
+/**
+ * This structure is used for UNI_EVENT_UPDATE_LP_GEN_SWITCH tag(0x01)
+ * of UNI_EVENT_UPDATE_LP event (0x77) to identify Tx delay status
+ *
+ * @param[in] u2Tag         Tag id
+ * @param[in] u2Length      The length of this TLV
+ * @param[in] u1GenSwitchStatus        Gen Switch Status
+ */
 __KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_BT_CTRL {
-	/* fixed field */
-	uint8_t aucReserved[4];
-
-	/* tlv */
-	uint8_t aucTlvBuffer[];
+struct UNI_EVENT_UPDATE_LP_GEN_SWITCH_T {
+	uint16_t     u2Tag;
+	uint16_t     u2Length;
+	uint8_t      u1GenSwitchStatus;
+	uint8_t      aucPadding[3];
 } __KAL_ATTRIB_PACKED__;
 
-/* BT control event Tag */
-enum UNI_EVENT_BT_CTRL_TAG {
-	UNI_EVENT_BT_CTRL_GET_COREDUMP_HEAD = 0,
-	UNI_EVENT_BT_CTRL_GET_COREDUMP_DATA = 1,
-	UNI_EVENT_BT_CTRL_MAX_NUM
+__KAL_ATTRIB_PACKED_FRONT__
+struct UNI_CMD_UPDATE_LP {
+	/* fixed field */
+	uint8_t ucReserved[4];
+
+	/* tlv */
+	uint8_t aucTlvBuffer[0];/**< the TLVs included in this field:
+*TAG                               | ID  | structure
+*----------------------------------|-----|--------------
+*UNI_CMD_UPDATE_LP_GEN_SWITCH_PARAM| 0x00|UNI_CMD_UPDATE_LP_GEN_SWITCH_PARAM_T
+*/
+} __KAL_ATTRIB_PACKED__;
+
+/* Gen Switch command TLV List */
+enum ENUM_UNI_CMD_UPDATE_LP_TAG {
+	UNI_CMD_UPDATE_LP_TAG_DYN_QOS_PARAM = 0,
+	UNI_CMD_UPDATE_LP_TAG_GEN_SWITCH_PARAM,
+	UNI_CMD_UPDATE_LP_TAG_PCIE_PARAM,
+	UNI_CMD_UPDATE_LP_TAG_NUM
 };
 
+/* Set gen switch parameters (Tag1) */
 __KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_BT_CTRL_HEAD {
-	uint16_t   u2Tag;    /* Tag = 0x00 */
-	uint16_t   u2Length;
-	/* coredump header */
-	uint32_t addr;
-	uint32_t length;
-	uint32_t round;
-	uint32_t dumpLeave;
-	uint32_t currentRound;
-	uint32_t done;
-	uint32_t reserved[20];
+struct UNI_CMD_UPDATE_LP_GEN_SWITCH_PARAM {
+	uint16_t u2Tag;
+	uint16_t u2Length;
+	uint8_t ucPcieTransitionStatus;
+	uint8_t aucPadding[3];
 } __KAL_ATTRIB_PACKED__;
 
 __KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_BT_CTRL_DATA_T {
-	uint16_t   u2Tag;    // Tag = 0x01
-	uint16_t   u2Length;
-} __KAL_ATTRIB_PACKED__;
-
-#endif /* CFG_SUPPORT_WF_DUMP_BT_COREDUMP */
-
-__KAL_ATTRIB_PACKED_FRONT__
-struct UNI_EVENT_MBRAIN {
+struct UNI_CMD_UPDATE_PCIE {
 	/* fixed field */
-	uint8_t aucPadding[4];
+	uint8_t ucReserved[4];
 
 	/* tlv */
-	uint8_t aucTlvBuffer[];
+	uint8_t aucTlvBuffer[0];/**< the TLVs included in this field:
+*   TAG                                  | ID  | structure
+*   -------------------------------------|-----|--------------
+*   UNI_CMD_UPDATE_LP_TAG_PCIE_PARAM     | 0x00| UNI_CMD_UPDATE_PCIE_PARAM
+*/
 } __KAL_ATTRIB_PACKED__;
+
+/* Set gen switch parameters (Tag1) */
+__KAL_ATTRIB_PACKED_FRONT__
+struct UNI_CMD_UPDATE_PCIE_PARAM {
+	uint16_t u2Tag;
+	uint16_t u2Length;
+	uint8_t ucGen;
+	uint8_t ucLane;
+	uint8_t aucPadding[2];
+} __KAL_ATTRIB_PACKED__;
+
 
 /*******************************************************************************
  *                            P U B L I C   D A T A
@@ -9666,8 +8339,6 @@ uint32_t nicUniCmdUpdateEdcaSet(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 uint32_t nicUniCmdAccessReg(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
-void nicUniCmdEventSetPhyCtrl(struct ADAPTER *prAdapter,
-		struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf);
 uint32_t nicUniCmdUpdateMuEdca(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 uint32_t nicUniCmdUpdateSrParams(struct ADAPTER *ad,
@@ -9716,6 +8387,8 @@ uint32_t nicUniCmdSetP2pNoa(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 uint32_t nicUniCmdSetP2pOppps(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
+uint32_t nicUniCmdSetP2pGcCsa(struct ADAPTER *ad,
+		struct WIFI_UNI_SETQUERY_INFO *info);
 uint32_t nicUniCmdSetP2pLoStart(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 uint32_t nicUniCmdSetP2pLoStop(struct ADAPTER *ad,
@@ -9734,8 +8407,6 @@ uint32_t nicUniCmdGetBugReport(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 uint32_t nicUniCmdMldStaTeardown(struct ADAPTER *ad,
 		struct STA_RECORD *prStaRec);
-uint32_t UniCmdSetRecSecPnInfo(struct ADAPTER *ad,
-	struct PARAM_TX_TSC_INFO *tsc);
 uint32_t nicUniCmdSetApConstraintPwrLimit(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 uint32_t nicUniCmdSetRrmCapability(struct ADAPTER *ad,
@@ -9756,25 +8427,11 @@ uint32_t nicUniCmdTestmodeListmode(struct ADAPTER *ad,
 #endif
 uint32_t nicUniCmdTestmodeCtrl(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
-#if CFG_SUPPORT_XONVRAM
-uint32_t nicUniCmdTestmodeXOCal(struct ADAPTER *ad,
-	void *pvQueryBuffer,
-	uint32_t u4QueryBufferLen);
-#endif /* CFG_SUPPORT_XONVRAM */
-#if CFG_SUPPORT_PLCAL
-uint32_t nicUniCmdTestmodePlCal(struct ADAPTER *ad,
-	void *pvQueryBuffer,
-	uint32_t u4QueryBufferLen);
-#endif /* CFG_SUPPORT_PLCAL */
 #if CFG_SUPPORT_QA_TOOL
 uint32_t nicUniExtCmdTestmodeCtrl(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 uint32_t nicUniCmdTestmodeRxStat(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
-uint32_t nicUniCmdTestmodeRxStatTlv(struct ADAPTER *ad,
-	void *pvQueryBuffer,
-	uint32_t u4QueryBufferLen);
-
 #endif
 
 #if (CFG_SUPPORT_NAN == 1)
@@ -9787,16 +8444,9 @@ uint32_t nicUniCmdSetRxAmpdu(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 uint32_t nicUniCmdSetMultiAddr(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
-
-uint32_t nicUniCmdSetCoexStopConnProtect(struct ADAPTER *ad, uint8_t ucBssIdx);
-
 uint32_t nicUniCmdSetRssiMonitor(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 uint32_t nicUniCmdSetIcsSniffer(struct ADAPTER *ad,
-		struct WIFI_UNI_SETQUERY_INFO *info);
-uint32_t nicUniCmdSetPhyIcsEventOn(struct ADAPTER *ad,
-		struct WIFI_UNI_SETQUERY_INFO *info);
-uint32_t nicUniCmdSetPhyIcsStart(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 uint32_t nicUniCmdTxPowerCtrl(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
@@ -9827,9 +8477,6 @@ uint32_t nicUniCmdQueryThermalAdieTemp(struct ADAPTER *ad,
 uint32_t nicUniCmdQueryThermalDdieTemp(struct ADAPTER *ad,
 	void *pvQueryBuffer,
 	uint32_t u4QueryBufferLen);
-uint32_t nicUniCmdQueryThermalAdcTemp(struct ADAPTER *ad,
-	void *pvQueryBuffer,
-	uint32_t u4QueryBufferLen);
 void nicUniEventEfuseAccess(struct ADAPTER	*prAdapter,
 	struct CMD_INFO *prCmdInfo,
 	uint8_t *pucEventBuf);
@@ -9855,19 +8502,12 @@ uint32_t nicUniCmdPktOfldOp(struct ADAPTER *ad,
 uint32_t nicUniCmdKeepAlive(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 
-#if CFG_WOW_SUPPORT
 #if CFG_SUPPORT_MDNS_OFFLOAD
 uint32_t nicUniCmdMdnsRecorde(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 #endif
-#endif
 uint32_t nicUniCmdLpDbgCtrl(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
-
-#if CFG_SUPPORT_WIFI_ICCM
-uint32_t nicUniCmdIccmSetParam(struct ADAPTER *ad,
-		struct WIFI_UNI_SETQUERY_INFO *info);
-#endif
 
 uint32_t nicUniCmdGamingMode(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
@@ -9876,44 +8516,23 @@ uint32_t nicUniCmdGamingMode(struct ADAPTER *ad,
 uint32_t nicUniCmdQueryEmlInfo(struct ADAPTER *ad,
 	void *pvQueryBuffer,
 	uint32_t u4QueryBufferLen);
-#if (CFG_SUPPORT_MLC == 1)
 uint32_t nicUniCmdSendMlcRequest(struct ADAPTER *prAdapter,
 	struct MLD_BSS_INFO *prMldBssInfo,
 	struct PARAM_MLC_REQ *prMlcReq);
 uint32_t nicUniCmdSendMlcQuery(struct ADAPTER *prAdapter,
 	struct MLD_BSS_INFO *prMldBssInfo,
 	void *pvQueryBuffer, uint32_t u4QueryBufferLen);
-#endif /* CFG_SUPPORT_MLC */
-#endif /* CFG_SUPPORT_802_11BE_MLO */
+#endif
 
 uint32_t nicUniCmdSetSapRps(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 uint32_t nicUniCmdSetSapSus(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
-#if (CFG_SUPPORT_SAP_BCN_CRI_UPD == 1)
-uint32_t nicUniCmdSapBcnCriUpd(struct ADAPTER *ad, uint8_t idx);
-#endif /* CFG_SUPPORT_SAP_BCN_CRI_UPD */
 
 #if CFG_SUPPORT_RTT
 uint32_t nicUniCmdRttGetCapabilities(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 uint32_t nicUniCmdRttRangeRequest(struct ADAPTER *ad,
-		struct WIFI_UNI_SETQUERY_INFO *info);
-uint32_t nicUniCmdRttInstallLtfKeyseed(struct ADAPTER *ad,
-		struct WIFI_UNI_SETQUERY_INFO *info);
-#endif
-
-#if CFG_SUPPORT_TPUT_FACTOR
-uint32_t nicUniCmdGetTputFactor(struct ADAPTER *ad, uint32_t u4WtblFlag);
-#endif
-
-#if CFG_SUPPORT_WED_PROXY
-uint32_t nicUniCmdStaRecConnType(struct ADAPTER *ad,
-		uint32_t legacy_sta_type);
-#endif
-
-#if (CFG_SUPPORT_PWR_LMT_EMI == 1)
-uint32_t nicUniCmdPowerLimitEmiInfo(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 #endif
 
@@ -9922,30 +8541,15 @@ uint32_t nicUniCmdUpdateLowPowerParam(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 #endif
 
-#if (CFG_SUPPORT_TSF_SYNC == 1)
-uint32_t nicUniCmdUpdateTsfSyncParam(struct ADAPTER *ad,
+#if (CFG_SS_PCIE_GEN_SWITCH == 1)
+uint32_t nicUniCmdUpdatePcieParam(struct ADAPTER *ad,
+		struct WIFI_UNI_SETQUERY_INFO *info);
+#endif /*CFG_SS_PCIE_GEN_SWITCH*/
+
+#if (CFG_SUPPORT_PWR_LMT_EMI == 1)
+uint32_t nicUniCmdPowerLimitEmiInfo(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 #endif
-
-uint32_t nicUniCmdPpEnCtrl(struct ADAPTER *ad, uint8_t ucMode,
-			   uint8_t ucDbdxIdx, uint8_t ucCtrl,
-			   uint8_t ucMgmtEn, uint16_t u2Bitmap,
-			   u_int8_t fgIsOid);
-
-uint32_t nicUniCmdPpAlgoCtrl(struct ADAPTER *ad,
-			     struct UNI_CMD_PP_ALG_CTRL *para,
-			     u_int8_t fgIsOid);
-
-#if (CFG_SUPPORT_FACT_CAL == 1)
-uint32_t nicUniCmdFactCal(struct ADAPTER *prAdapter,
-		uint32_t u4Action,
-		struct UNI_CMD_FACT_CAL_DATA *prCalData);
-#endif
-
-#if (CFG_SUPPORT_WF_DUMP_BT_COREDUMP == 1)
-uint32_t nicUniCmdBtCtrl(struct ADAPTER *prAdapter,
-			    struct WIFI_UNI_SETQUERY_INFO *prInfo);
-#endif /* CFG_SUPPORT_WF_DUMP_BT_COREDUMP */
 
 /*******************************************************************************
  *                   Event
@@ -10005,9 +8609,6 @@ void nicUniEventStatistics(struct ADAPTER
 void nicUniEventLinkQuality(struct ADAPTER
 	*prAdapter, struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf);
 
-void nicUniSolicitEventBaOffload(struct ADAPTER
-	*prAdapter, struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf);
-
 #if (CFG_SUPPORT_REG_STAT_FROM_EMI == 1)
 void nicCollectRegStatFromEmi(struct ADAPTER *prAdapter);
 #endif
@@ -10015,22 +8616,14 @@ void nicCollectRegStatFromEmi(struct ADAPTER *prAdapter);
 void nicUniEventAllStatsOneCmd(struct ADAPTER
 	*prAdapter, struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf);
 #endif
+void nicUniCmdEventTxPowerComp(struct ADAPTER
+	*prAdapter, struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf);
 void nicUniEventQueryRfTestATInfo(struct ADAPTER
 	*prAdapter, struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf);
-#if CFG_SUPPORT_XONVRAM
-void nicUniEventRfTestXoCal(struct ADAPTER *ad,
-	struct CMD_INFO *cmd, uint8_t *event);
-#endif /* CFG_SUPPORT_XONVRAM */
-#if CFG_SUPPORT_PLCAL
-void nicUniEventRfTestPlCal(struct ADAPTER *ad,
-	struct CMD_INFO *cmd, uint8_t *event);
-#endif /* CFG_SUPPORT_PLCAL */
 void nicUniEventQueryRxStatAll(struct ADAPTER
 	*prAdapter, struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf);
 void nicUniEventQueryRxStatAllCon3(struct ADAPTER
 	*prAdapter, struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf);
-void nicUniEventQueryRxStatInfoTlv(struct ADAPTER
-	  *prAdapter, struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf);
 void nicUniEventBugReport(struct ADAPTER
 	*prAdapter, struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf);
 void nicUniEventLinkStats(struct ADAPTER *prAdapter,
@@ -10053,8 +8646,6 @@ void nicUniEventThermalAdieTemp(struct ADAPTER *ad,
 	struct CMD_INFO *cmd, uint8_t *event);
 void nicUniEventThermalDdieTemp(struct ADAPTER *ad,
 	struct CMD_INFO *cmd, uint8_t *event);
-void nicUniEventThermalAdcTemp(struct ADAPTER *ad,
-	struct CMD_INFO *cmd, uint8_t *event);
 void nicUniEventMibInfo(struct ADAPTER *ad,
 	struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf);
 
@@ -10068,30 +8659,16 @@ void nicUniCmdEventLpDbgCtrl(struct ADAPTER *prAdapter,
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
 void nicUniEventEmlInfo(struct ADAPTER *ad,
 	struct CMD_INFO *cmd, uint8_t *event);
-#if (CFG_MLO_CONCURRENT_SINGLE_PHY == 1)
-void nicUniEventMLSRSwitchDone(struct ADAPTER *ad,
-	struct WIFI_UNI_EVENT *evt);
-#endif
-#if (CFG_SUPPORT_MLC == 1)
 void nicUniEventMlcReqDone(struct ADAPTER *prAdapter,
 	struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf);
 void nicUniEventMlcQueryDone(struct ADAPTER *prAdapter,
 	struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf);
-#endif /* CFG_SUPPORT_MLC */
-
-#if (CFG_SUPPORT_ML_CHNL_CONDITION == 1)
 void nicUniCmdEventGetMlChnlCond(struct ADAPTER
 	*prAdapter, struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf);
-#endif /* CFG_SUPPORT_ML_CHNL_CONDITION */
-#endif /* CFG_SUPPORT_802_11BE_MLO */
+#endif
 #if CFG_SUPPORT_RTT
 void nicUniEventRttCapabilities(struct ADAPTER	*prAdapter,
 	struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf);
-#endif
-
-#if (CFG_SUPPORT_FACT_CAL == 1)
-void nicUniEventGetFactCalData(struct ADAPTER *prAdapter,
-	struct WIFI_UNI_EVENT *uni_evt);
 #endif
 /*******************************************************************************
  *                   Unsolicited Event
@@ -10144,12 +8721,6 @@ void nicUniEventP2p(struct ADAPTER *ad,
 #if (CFG_SUPPORT_DFS_MASTER == 1)
 void nicUniEventRDD(struct ADAPTER *ad,
 	struct WIFI_UNI_EVENT *evt);
-static uint32_t MT_ATEInsertRDD(
-	struct _ATE_LOG_DUMP_ENTRY *entry,
-	uint8_t *data, uint32_t len);
-uint32_t MT_ATEInsertLog(
-	struct ADAPTER *prAdapter,
-	uint8_t *log, uint32_t len);
 #endif
 void nicUniEventCountdown(struct ADAPTER *ad,
 	struct WIFI_UNI_EVENT *evt);
@@ -10206,12 +8777,7 @@ void nicUniEventHwDetectReport(struct ADAPTER *ad,
 void nicUniEventFwDropSSN(struct ADAPTER *ad,
 	struct WIFI_UNI_EVENT *evt);
 #endif /* CFG_SUPPORT_FW_DROP_SSN */
-#if CFG_WOW_SUPPORT
-#if CFG_SUPPORT_MDNS_OFFLOAD
-void nicUniEventMdnsStats(struct ADAPTER *ad,
-	struct WIFI_UNI_EVENT *evt);
-#endif /* CFG_SUPPORT_MDNS_OFFLOAD */
-#endif
+
 #if CFG_SUPPORT_RTT
 void nicUniEventRtt(struct ADAPTER *ad,
 	struct WIFI_UNI_EVENT *evt);
@@ -10223,24 +8789,20 @@ void nicUniEventUpdateLp(struct ADAPTER *ad,
 	struct WIFI_UNI_EVENT *evt);
 void nicUniEventTxPower(struct ADAPTER *ad,
 	struct WIFI_UNI_EVENT *evt);
+#if (CFG_SUPPORT_PKT_OFLD)
+void nicUniEventPktOfld(struct ADAPTER *ad,
+	struct WIFI_UNI_EVENT *evt);
+#endif
+
 
 uint32_t nicUniCmdRxHdrTransUpdate(struct ADAPTER *ad,
 	struct UNI_CMD_RX_HDR_TRAN_PARM *param);
 #if CFG_MTK_MDDP_SUPPORT
 void nicUniEventMddp(struct ADAPTER *ad, struct WIFI_UNI_EVENT *evt);
 	#endif
-void nicUniEventOmi(struct ADAPTER *ad,
+void nicUniEventSmartGear(struct ADAPTER *ad,
 	struct WIFI_UNI_EVENT *evt);
 
-#if (CFG_SUPPORT_WF_DUMP_BT_COREDUMP == 1)
-void nicUniCmdEventQueryBtCtrl(struct ADAPTER *prAdapter,
-			    struct WIFI_UNI_EVENT *prEvt);
-#endif /* CFG_SUPPORT_WF_DUMP_BT_COREDUMP */
-
-#if CFG_SUPPORT_MBRAIN
-void nicUniUnsolicitMbrEvt(struct ADAPTER *ad,
-	struct WIFI_UNI_EVENT *evt);
-#endif
 /*******************************************************************************
  *                              F U N C T I O N S
  *******************************************************************************

@@ -6,6 +6,19 @@
 #ifndef __MT6685_RTC_H__
 #define __MT6685_RTC_H__
 
+#if IS_ENABLED(CONFIG_RTC_AUTO_PWRON)
+   #define BOOTALM_BIT_EN       0
+   #define BOOTALM_BIT_YEAR     1
+   #define BOOTALM_BIT_MONTH    5
+   #define BOOTALM_BIT_DAY      7
+   #define BOOTALM_BIT_HOUR     9
+   #define BOOTALM_BIT_MIN     11
+   #define BOOTALM_BIT_TOTAL   13
+#endif /* CONFIG_RTC_BOOT_ALARM */
+
+
+
+
 #include <linux/mfd/mt6685/registers.h>
 
 /*features*/
@@ -177,6 +190,18 @@
 #define MTK_RTC_POLL_TIMEOUT             (jiffies_to_usecs(HZ))
 
 #define RTC_POFF_ALM_SET                 _IOW('p', 0x15, struct rtc_time) /* Set alarm time  */
+
+#if IS_ENABLED(CONFIG_RTC_AUTO_PWRON)
+struct alarm_timespec {
+	char alarm[14];
+};
+
+#define ANDROID_ALARM_BASE_CMD(cmd)		(cmd & ~(_IOC(0, 0, 0xf0, 0)))
+#define ANDROID_ALARM_SET_ALARM_BOOT	_IOW('a', 7, struct alarm_timespec)
+#endif /* CONFIG_RTC_BOOT_ALARM */
+
+
+
 
 #define SPARE_REG_WIDTH                  1
 

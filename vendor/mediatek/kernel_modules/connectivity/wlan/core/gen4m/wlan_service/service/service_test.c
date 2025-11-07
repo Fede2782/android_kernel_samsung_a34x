@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -35,7 +35,7 @@ static s_int32 mt_serv_init_op(struct test_operation *ops)
 	ops->op_set_antswap = mt_op_set_antswap;
 	ops->op_set_rx_filter_pkt_len = mt_op_set_rx_filter_pkt_len;
 	ops->op_set_freq_offset = mt_op_set_freq_offset;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	ops->op_set_freq_offset_C2 = mt_op_set_freq_offset_C2;
 #endif
 	ops->op_set_phy_counter = mt_op_set_phy_counter;
@@ -51,7 +51,6 @@ static s_int32 mt_serv_init_op(struct test_operation *ops)
 	ops->op_stop_rx = mt_op_stop_rx;
 	ops->op_set_channel = mt_op_set_channel;
 	ops->op_set_tx_content = mt_op_set_tx_content;
-	ops->op_set_tmr = mt_op_set_tmr;
 	ops->op_set_preamble = mt_op_set_preamble;
 	ops->op_set_rate = mt_op_set_rate;
 	ops->op_set_system_bw = mt_op_set_system_bw;
@@ -78,11 +77,9 @@ static s_int32 mt_serv_init_op(struct test_operation *ops)
 	ops->op_mps_set_power_gain = mt_op_mps_set_power_gain;
 	ops->op_mps_set_seq_data = mt_op_mps_set_seq_data;
 	ops->op_get_tx_pwr = mt_op_get_tx_pwr;
-	ops->op_get_tx_default_pwr = mt_op_get_tx_default_pwr;
-	ops->op_set_get_pwr_type = mt_op_set_get_pwr_type;
 	ops->op_set_tx_pwr = mt_op_set_tx_pwr;
 	ops->op_get_freq_offset = mt_op_get_freq_offset;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	ops->op_get_freq_offset_C2 = mt_op_get_freq_offset_C2;
 #endif
 	ops->op_get_cfg_on_off = mt_op_get_cfg_on_off;
@@ -94,7 +91,7 @@ static s_int32 mt_serv_init_op(struct test_operation *ops)
 	ops->op_get_thermal_val = mt_op_get_thermal_val;
 	ops->op_set_cal_bypass = mt_op_set_cal_bypass;
 	ops->op_set_dpd = mt_op_set_dpd;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	ops->op_set_max_pac_ext = mt_op_set_max_pac_ext;
 #endif
 	ops->op_set_tssi = mt_op_set_tssi;
@@ -130,7 +127,6 @@ static s_int32 mt_serv_init_op(struct test_operation *ops)
 	ops->op_set_tx_gain = mt_op_set_tx_gain;
 	ops->op_set_etssi_gain = mt_op_set_etssi_gain;
 	ops->op_get_tssi_meas_dbv = mt_op_get_tssi_meas_dbv;
-	ops->op_get_sleep_check = mt_op_get_sleep_check;
 
 	return SERV_STATUS_SUCCESS;
 }
@@ -387,11 +383,11 @@ s_int32 mt_serv_init_test(struct service_test *serv_test)
 			sizeof(struct test_band_state));
 	} else {
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 		serv_test->test_winfo->dbdc_mode = TEST_DBDC_ENABLE;
 #else
 		serv_test->test_winfo->dbdc_mode = TEST_DBDC_DISABLE;
-#endif /* (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1) */
+#endif /* (CFG_SUPPORT_CONNAC3X == 1) */
 
 		serv_test->test_winfo->hw_tx_enable = TEST_HWTX_DISABLE;
 	}
@@ -490,17 +486,19 @@ s_int32 mt_serv_stop(struct service_test *serv_test)
 s_int32 mt_serv_set_channel(struct service_test *serv_test)
 {
 	s_int32 ret = SERV_STATUS_SUCCESS;
-	u_int8 ctrl_band_idx = serv_test->ctrl_band_idx;
+	u_char ctrl_band_idx = serv_test->ctrl_band_idx;
 	struct test_configuration *configs;
 	struct test_wlan_info *winfos = serv_test->test_winfo;
 	struct test_operation *ops = serv_test->test_op;
 	struct serv_chip_cap *cap = &winfos->chip_cap;
-	u_int8 ant_loop;
-	u_int8 ant_mask = 0;
-	u_int8 tx_stream_num = 0, max_stream_num = 0;
+	s_int32 ant_loop;
+	u_char ant_mask = 0;
+	u_int32 tx_stream_num = 0, max_stream_num = 0;
 	s_int8 ch_offset = 0;
-
-	u_int8 pri_sel = 0, channel = 0, channel_2nd = 0;
+#if 0
+	u_char tmp = 0;
+#endif
+	u_char pri_sel = 0, channel = 0, channel_2nd = 0;
 	const s_int8 bw40_sel[] = { -2, 2};
 	const s_int8 bw80_sel[] = { -6, -2, 2, 6};
 	const s_int8 bw160_sel[] = { -14, -10, -6, -2, 2, 6, 10, 14};
@@ -618,6 +616,14 @@ s_int32 mt_serv_set_channel(struct service_test *serv_test)
 		if (!channel_2nd)
 			goto error2;
 
+#if 0
+		/* swap control channel to be in order */
+		if (channel_2nd < channel) {
+			tmp = channel;
+			channel = channel_2nd;
+			channel_2nd = tmp;
+		}
+#endif
 		/* TODO: bw80+80 primary select definition */
 		if (pri_sel < 4) {
 			configs->ctrl_ch = channel + bw80_sel[pri_sel];
@@ -983,7 +989,7 @@ s_int32 mt_serv_set_freq_offset(struct service_test *serv_test, u_int32 type)
 			serv_test->test_winfo,
 			rf_freq_offset,
 			ctrl_band_idx);
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	} else if (type == SERV_FREQ_C2) {
 		ret = ops->op_set_freq_offset_C2(
 			serv_test->test_winfo,
@@ -1042,17 +1048,6 @@ s_int32 mt_serv_tx_power_operation(
 		/* TODO: */
 		break;
 
-	case SERV_TEST_TXPWR_GET_DEFAULT_PWR:
-		ret = ops->op_get_tx_default_pwr(
-				winfos, configs, ctrl_band_idx,
-				configs->channel, (u_char)pwr_param->ant_idx,
-				&(pwr_param->power));
-		break;
-
-	case SERV_TEST_TXPWR_SET_GET_PWR_TYPE:
-		ret = ops->op_set_get_pwr_type(winfos, pwr_param->powertype);
-		break;
-
 	default:
 		return SERV_STATUS_SERV_TEST_INVALID_PARAM;
 	}
@@ -1084,7 +1079,7 @@ s_int32 mt_serv_get_freq_offset(
 			serv_test->test_winfo,
 			ctrl_band_idx,
 			freq_offset);
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	} else if (type == SERV_FREQ_C2) {
 		ret = ops->op_get_freq_offset_C2(
 			serv_test->test_winfo,
@@ -1219,7 +1214,7 @@ s_int32 mt_serv_set_dpd(
 	return ret;
 }
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 s_int32 mt_serv_set_max_pac_ext(
 	struct service_test *serv_test,
 	u_int32 max_pac_ext)
@@ -1669,7 +1664,7 @@ s_int32 mt_serv_get_rx_stat(
 	case TEST_RX_STAT_PATH:
 		if (blk_idx >= TEST_ANT_NUM)
 			break;
-#if (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0)
+#if (CFG_SUPPORT_CONNAC3X == 0)
 		if ((dbdc_mode == 1) && (band_idx == 1))
 			blk_idx = ANT_WF1;
 #endif
@@ -1797,65 +1792,99 @@ s_int32 mt_serv_get_band_mode(
 	s_int32 ret = SERV_STATUS_SUCCESS;
 	u_char ctrl_band_idx = serv_test->ctrl_band_idx;
 	u_int32 band_type = TEST_BAND_TYPE_UNUSE;
+
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	struct test_capability capability;
-	u_int32 band_mode = BSTATE_GET_PARAM(serv_test, band_mode);
+	u_int32 band_mode = 0;
+	u_int8 is_single_band = 0;
+	u_int8 set_band_idx = 0; /*band which is choose by set_band_mode*/
 
-#if (CFG_SUPPORT_CONNAC2X == 1)
-	/* set FW to sync status */
-	mt_op_set_band_mode(
-		serv_test->test_winfo,
-		&serv_test->test_bstat);
-#endif
+	band_mode = BSTATE_GET_PARAM(serv_test, band_mode);
+	is_single_band =
+		((band_mode & 0xff) == TEST_BAND_MODE_SINGLE) ? TRUE : FALSE;
 
-	/* get content */
-	ret = mt_serv_get_capability(serv_test, &capability);
+	set_band_idx = (band_mode & (0xff << 24)) >> 24;
 
-	if (ret == SERV_STATUS_SUCCESS) {
-		switch (ctrl_band_idx) {
-		case TEST_DBDC_BAND0:
-			band_type =
-				(capability.ph_cap.channel_band_dbdc & 0xFF);
+	if (is_single_band && !((1 << ctrl_band_idx) & set_band_idx)) {
+		band_type = TEST_BAND_TYPE_UNUSE;
+		ret = SERV_STATUS_SUCCESS;
+	} else {
 
-			/* check if single band */
-			if ((band_mode == TEST_BAND_MODE_SINGLE_BAND0) ||
-				(band_mode == TEST_BAND_MODE_SINGLE))
-				band_type |=
-				((capability.ph_cap.channel_band_dbdc >> 16) &
-				0xFF);
-			else if (band_mode == TEST_BAND_MODE_SINGLE_BAND1)
-				band_type = TEST_BAND_TYPE_UNUSE;
-			break;
+		/* get content */
+		ret = mt_serv_get_capability(serv_test, &capability);
 
-		case TEST_DBDC_BAND1:
-			band_type =
-			((capability.ph_cap.channel_band_dbdc >> 16) &
-			0xFF);
-
-			/* check if single band */
-			if ((band_mode == TEST_BAND_MODE_SINGLE_BAND0) ||
-				(band_mode == TEST_BAND_MODE_SINGLE))
-				band_type = TEST_BAND_TYPE_UNUSE;
-			else if (band_mode == TEST_BAND_MODE_SINGLE_BAND1)
-				band_type |=
-				(capability.ph_cap.channel_band_dbdc & 0xFF);
-			break;
-
-		case TEST_DBDC_BAND2:
-			band_type =
-			(capability.ph_cap.channel_band_dbdc_ext & 0xFF);
-			break;
-
-		case TEST_DBDC_BAND3:
-			band_type =
-			((capability.ph_cap.channel_band_dbdc_ext >> 16) &
-			0xFF);
-			break;
-
-		default:
-			band_type = TEST_BAND_TYPE_UNUSE;
-			break;
+		if (ret == SERV_STATUS_SUCCESS) {
+			switch (ctrl_band_idx) {
+			case TEST_DBDC_BAND0:
+				band_type =
+				capability.ph_cap.channel_band_dbdc & 0xFF;
+				break;
+			case TEST_DBDC_BAND1:
+				band_type =
+				(capability.ph_cap.channel_band_dbdc >> 16)
+				& 0xFF;
+				break;
+			case TEST_DBDC_BAND2:
+				band_type =
+				capability.ph_cap.channel_band_dbdc_ext & 0xFF;
+				break;
+			case TEST_DBDC_BAND3:
+				band_type =
+				(capability.ph_cap.channel_band_dbdc_ext >> 16)
+				& 0xFF;
+				break;
+			}
 		}
 	}
+#else
+
+	struct test_operation *ops;
+
+	ops = serv_test->test_op;
+
+	if (!serv_test->engine_offload) {
+		/*
+		 * DLL will query two times per band0/band1 if DBDC chip set.
+		 * 0: no this band
+		 * 1: 2.4G
+		 * 2: 5G
+		 * 3. 2.4G+5G
+		 */
+		if (IS_TEST_DBDC(serv_test->test_winfo))
+			band_type = (ctrl_band_idx == TEST_DBDC_BAND0)
+				? TEST_BAND_TYPE_2_4G : TEST_BAND_TYPE_5G;
+		else {
+			/* Always report 2.4+5G */
+			band_type = TEST_BAND_TYPE_2_4G_5G;
+
+			/*
+			 * If IS_TEST_DBDC=0,
+			 * band_idx should not be 1 so return band_mode=0
+			 */
+			if (ctrl_band_idx == TEST_DBDC_BAND1)
+				band_type = TEST_BAND_TYPE_UNUSE;
+		}
+	} else {
+		ret = ops->op_set_band_mode(
+			serv_test->test_winfo,
+			&serv_test->test_bstat);
+
+		if (ctrl_band_idx == TEST_DBDC_BAND0)
+			band_type = TEST_BAND_TYPE_2_4G_5G;
+		else {
+			if (serv_test->test_bstat.band_mode ==
+				TEST_BAND_MODE_DUAL)
+				band_type = TEST_BAND_TYPE_2_4G_5G;
+			else
+				band_type = TEST_BAND_TYPE_UNUSE;
+		}
+	}
+
+	if ((band_type != TEST_BAND_TYPE_UNUSE) &&
+		serv_test->test_winfo->chip_cap.support_6g)
+		band_type |= TEST_BAND_TYPE_6G;
+
+#endif /*(CFG_SUPPORT_CONNAC3X == 1)*/
 
 	SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_ERROR,
 		("%s: band_idx=%d, band_type=%u\n",
@@ -1864,6 +1893,7 @@ s_int32 mt_serv_get_band_mode(
 			band_type));
 
 	BSTATE_SET_PARAM(serv_test, band_type, band_type);
+
 	return ret;
 }
 
@@ -1960,9 +1990,9 @@ s_int32 mt_serv_get_antswap_capability(
 
 	ret = ops->op_get_antswap_capability(
 			serv_test->test_winfo,
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 			serv_test->ctrl_band_idx,
-#endif /* (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1) */
+#endif /* (CFG_SUPPORT_CONNAC3X == 1) */
 			antswap_support);
 
 	return ret;
@@ -2368,15 +2398,7 @@ s_int32 mt_serv_set_tmr(struct service_test *serv_test)
 {
 	s_int32 ret = SERV_STATUS_SUCCESS;
 
-	if (!serv_test->engine_offload) {
-		ret = net_ad_set_tmr(
-			serv_test->test_winfo,
-			&serv_test->test_tmr);
-	} else {
-		ret = serv_test->test_op->op_set_tmr(
-			serv_test->test_winfo,
-			&serv_test->test_tmr);
-	}
+	ret = net_ad_set_tmr(serv_test->test_winfo, &serv_test->test_tmr);
 
 	if (ret)
 		SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_ERROR,
@@ -2751,23 +2773,4 @@ s_int32 mt_serv_get_tssi_meas_dbv(
 	return ret;
 }
 
-s_int32 mt_serv_get_sleep_check(
-	struct service_test *serv_test,
-	u_int32 action,
-	u_int32 *sleep_result)
-{
-	s_int32 ret = SERV_STATUS_SUCCESS;
-	struct test_operation *ops;
 
-	ops = serv_test->test_op;
-	ret = ops->op_get_sleep_check(
-		serv_test->test_winfo,
-		action,
-		sleep_result);
-
-	if (ret)
-		SERV_LOG(SERV_DBG_CAT_TEST, SERV_DBG_LVL_ERROR,
-			("%s: err=0x%08x\n", __func__, ret));
-
-	return ret;
-}

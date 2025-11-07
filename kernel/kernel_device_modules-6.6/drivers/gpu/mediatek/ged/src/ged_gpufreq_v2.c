@@ -616,7 +616,7 @@ int ged_get_min_oppidx_real(void)
 		return gpufreq_get_opp_num(TARGET_DEFAULT) - 1;
 }
 
-unsigned int ged_get_opp_num(void)
+int ged_get_opp_num(void)
 {
 	if (is_dcs_enable() && g_async_virtual_table_support)
 		return g_virtual_async_oppnum;
@@ -630,7 +630,7 @@ unsigned int ged_get_opp_num(void)
 		return gpufreq_get_opp_num(TARGET_DEFAULT);
 }
 
-unsigned int ged_get_opp_num_real(void)
+int ged_get_opp_num_real(void)
 {
 	if (g_async_virtual_table_support && g_min_stack_oppidx)
 		return ged_get_min_oppidx_real() + 1;

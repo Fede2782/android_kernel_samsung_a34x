@@ -54,8 +54,8 @@
 #define VOW_MODEL_SIZE_THRES           (0x2800)
 #define VOW_MODEL_SIZE                 (0x16800)
 #define VOW_VOICEDATA_OFFSET           (VOW_MODEL_SIZE * MAX_VOW_SPEAKER_MODEL)
-#define VOW_VOICEDATA_SIZE             (0x12C00) /* 74880 + 6*320, need over 2.3sec */
-#define VOW_NORMAL_REC_SIZE            (0x12C00) /* 2.3sec + 6*frame(74880B + 1920B) can be divided by 320byte */
+#define VOW_VOICEDATA_SIZE             (0x17F00) /* 96000 + 6*320, need over 3sec */
+#define VOW_NORMAL_REC_SIZE            (0x17C00) /* 3sec(96000B) can be divided by 320byte */
 /* IPI return value definition */
 #define WORD_H                         (16)
 #define WORD_L                         (0)
@@ -74,7 +74,7 @@
 #define VOW_DEFAULT_SPEAKER_NUM        (1)
 
 /* length limitation sync by audio hal */
-#define VOW_VBUF_LENGTH                (0x12E80)  /* 0x12480 + 0x0A00 */
+#define VOW_VBUF_LENGTH                (0x18100)  /* 0x17700 + 0x0A00 */
 
 #define VOW_FRM_LEN                    (160)
 #define AECOUT_DUMP_SMPL_CNT           (VOW_FRM_LEN * 16)
@@ -294,6 +294,7 @@ enum {
 	VENDOR_ID_MTK = 77,     //'M'
 	VENDOR_ID_AMAZON = 65,  //'A'
 	VENDOR_ID_OTHERS = 71,
+	VENDOR_ID_BIXBY = 66,	//'B'
 	VENDOR_ID_NONE = 0
 };
 

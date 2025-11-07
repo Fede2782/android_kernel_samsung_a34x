@@ -218,7 +218,7 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		is_basic = false;
 	else {
 		is_basic = true;
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		/* AICL */
 		if (!info->disable_aicl)
 			charger_dev_run_aicl(info->chg1_dev,
@@ -376,7 +376,7 @@ static int do_algorithm(struct mtk_charger *info)
 	bool chg_done = false;
 	bool cs_chg_done = false;
 	int i;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	int ret;
 #else
 	int ret, ret2, ret3;
@@ -463,7 +463,7 @@ static int do_algorithm(struct mtk_charger *info)
 		} else
 			info->cs_cc_now = AC_CS_NORMAL_CC;
 		chr_err("cs_ir_cmp:%d, cs_cc_now:%d\n", cs_ir_cmp, info->cs_cc_now);
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		charger_dev_dump_registers(info->cschg1_dev);
 #endif
 		// charger_cs_parallel_mode_setting(info->cschg1_dev, info->cs_para_mode);
@@ -581,7 +581,7 @@ static int do_algorithm(struct mtk_charger *info)
 	info->is_chg_done = chg_done;
 
 	if (is_basic == true) {
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		charger_dev_set_input_current(info->chg1_dev,
 			pdata->input_current_limit);
 		charger_dev_set_charging_current(info->chg1_dev,
@@ -619,7 +619,7 @@ static int do_algorithm(struct mtk_charger *info)
 		}
 	}
 
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	if (pdata->input_current_limit == 0 ||
 	    pdata->charging_current_limit == 0)
 		charger_dev_enable(info->chg1_dev, false);
@@ -638,27 +638,27 @@ static int do_algorithm(struct mtk_charger *info)
 #endif
 
 	if (info->chg1_dev != NULL) {
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		charger_dev_dump_registers(info->chg1_dev);
 #endif
 		charger_dev_kick_wdt(info->chg1_dev);
 	}
 
 	if (info->chg2_dev != NULL) {
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		charger_dev_dump_registers(info->chg2_dev);
 #endif
 		charger_dev_kick_wdt(info->chg2_dev);
 	}
 
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	if (info->bkbstchg_dev != NULL)
 		charger_dev_dump_registers(info->bkbstchg_dev);
 #endif
 	return 0;
 }
 
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 static int enable_charging(struct mtk_charger *info,
 						bool en)
 {
@@ -849,7 +849,7 @@ int mtk_basic_charger_init(struct mtk_charger *info)
 {
 
 	info->algo.do_algorithm = do_algorithm;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	info->algo.enable_charging = NULL;
 #else
 	info->algo.enable_charging = enable_charging;

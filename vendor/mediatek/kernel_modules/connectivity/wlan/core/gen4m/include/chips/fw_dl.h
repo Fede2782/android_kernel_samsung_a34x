@@ -145,7 +145,7 @@ struct patch_dl_buf {
 
 struct patch_dl_target {
 	struct patch_dl_buf *patch_region;
-	uint32_t num_of_region;
+	uint8_t num_of_region;
 };
 
 struct WIFI_VER_INFO;
@@ -220,8 +220,7 @@ struct FWDL_OPS_T {
 	void (*setup_date_info)(struct ADAPTER *prAdapter,
 		enum ENUM_IMG_DL_IDX_T eDlIdx,
 		uint8_t *date);
-	uint32_t (*getFlavorVer)(struct GLUE_INFO *prGlueInfo,
-		uint8_t *flavor);
+	uint32_t (*getFlavorVer)(uint8_t *flavor);
 };
 
 #if (CFG_UMAC_GENERATION >= 0x20)
@@ -372,10 +371,6 @@ struct ROM_EMI_HEADER {
 	uint32_t u4PatchType;
 	uint32_t u4CRC[4];
 };
-
-#if (CFG_TESTMODE_FWDL_SUPPORT == 1)
-extern u_int8_t fgIsCurrentInTestMode;
-#endif
 
 /*******************************************************************************
  *                  F U N C T I O N   D E C L A R A T I O N S
@@ -564,4 +559,6 @@ uint32_t asicConnac3xConfigBtImageSection(struct ADAPTER *prAdapter,
 #endif /* CFG_SUPPORT_CONNAC3X == 1 */
 
 uint32_t wlanDownloadDspFw(struct ADAPTER *prAdapter);
+
 #endif /* _FW_DL_H */
+

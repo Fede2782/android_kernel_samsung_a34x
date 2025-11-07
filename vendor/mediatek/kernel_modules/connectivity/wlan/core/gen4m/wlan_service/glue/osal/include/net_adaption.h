@@ -218,10 +218,8 @@ enum {
 /* Test DBDC band mode for QA */
 enum test_band_mode {
 	TEST_BAND_MODE_UNUSE = 0,
-	TEST_BAND_MODE_SINGLE = 0x01,
-	TEST_BAND_MODE_DUAL = 0x02,
-	TEST_BAND_MODE_SINGLE_BAND0 = 0x01000001,	/* BIT[31:24]: 0x01*/
-	TEST_BAND_MODE_SINGLE_BAND1 = 0x02000001,	/* BIT[31:24]: 0x02*/
+	TEST_BAND_MODE_SINGLE,
+	TEST_BAND_MODE_DUAL
 };
 
 /* Test DBDC band type for QA */
@@ -327,7 +325,7 @@ enum test_phy_mode_type {
 	TEST_MODE_HE_TB,
 	TEST_MODE_HE_MU,
 	TEST_MODE_VHT_MIMO,
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	TEST_MODE_EHT_MU_DL_SU,
 	TEST_MODE_EHT_MU_UL_SU,
 	TEST_MODE_EHT_MU_DL_OFDMA = 15,
@@ -368,15 +366,6 @@ enum {
 	TEST_RX_STAT_USER,
 	TEST_RX_STAT_COMM,
 	TEST_RX_STAT_NUM
-};
-
-/* Tool RX INFO Tag */
-/* Band Tag (1<<12)|n */
-/* Path Tag (1<<13)|n */
-/* User Tag (1<<14)|n */
-/* Comm Tag (1<<15)|n */
-enum {
-	TEST_RX_STAT_TAG_NUM
 };
 
 /*****************************************************************************
@@ -566,13 +555,6 @@ struct test_backup_params {
 	u_int16 bcn_prd;
 };
 
-struct get_temp_adc {
-	u_int8 u1ThermalCategory;
-	u_int8 u1Reserved[3];
-	u_int32 temp;
-	u_int32 adc;
-};
-
 /* Test tx counters */
 struct test_tx_statistic {
 	u_int32 tx_cnt;
@@ -596,7 +578,7 @@ struct test_rx_stat_band_info {
 	u_int32 phy_rx_tag_err_ofdm;
 	u_int32 phy_rx_mdrdy_cnt_cck;
 	u_int32 phy_rx_mdrdy_cnt_ofdm;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1) /* band info v1*/
 	u_int32 aci_hit_low;
 	u_int32 aci_hit_high;
 	u_int32 phy_rx_pd_alr; /* band info v2*/
@@ -612,7 +594,7 @@ struct test_rx_stat_path_info {
 	u_int32 fagc_wb_rssi;
 	u_int32 inst_ib_rssi;
 	u_int32 inst_wb_rssi;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1) /* path_info v1 */
 	u_int32 adc_rssi;
 	u_int32 cca_idle_pwr;
 #endif
@@ -628,7 +610,7 @@ struct test_rx_stat_user_info {
 /* Test rx stat comm info */
 struct test_rx_stat_comm_info {
 	u_int32 rx_fifo_full;
-#if (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0)
+#if (CFG_SUPPORT_CONNAC3X == 0) /* comm_info v0 */
 	u_int32 aci_hit_low;
 	u_int32 aci_hit_high;
 #endif
@@ -636,7 +618,7 @@ struct test_rx_stat_comm_info {
 	u_int32 sig_mcs;
 	u_int32 sinr;
 	u_int32 driver_rx_count;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1) /* comm_info v1 */
 	u_int32 ne_var_db;
 #endif
 };
@@ -724,7 +706,7 @@ struct GNU_PACKED test_rx_stat_leg {
 	u_int32 fcs_error_cnt[TEST_USER_NUM];
 };
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 
 struct GNU_PACKED hqa_rx_band_info
 {
@@ -921,32 +903,23 @@ struct GNU_PACKED hqa_comm_rx_stat {
 	} u;
 };
 
-/*****************************************************************************
- * Test capability
- * VER 0x0001: Init version
- * VER 0x0002: Add hw_tx support, channel_band_dbdc
- * VER 0x0003: CFG_SUPPORT_CONNAC3X: Add little core support,
- *             channel_band_dbdc_ext
- * VER 0x0004: Add DBDC/MIMO switch support or not
- * VER 0x0005: Add eMLSR, PHY num, Adie num
- * VER 0x0006: Add WiFi path by band, bandwidth by band, MRL+/ALR,
- *             Bandwidth duplicated debug
- *****************************************************************************/
+/* Test capability */
+/* VER 0x0001: Init version */
+/* VER 0x0002: Add hw_tx support, channel_band_dbdc */
+/* VER 0x0003: CFG_SUPPORT_CONNAC3X: Add little core support, channel_band_dbdc_ext  */
+/* VER 0x0004: Add DBDC/MIMO switch support or not  */
 
-#define GET_CAPABILITY_VER	0x0008
+
+#define GET_CAPABILITY_VER		0x0005
 #define GET_CAPABILITY_TAG_NUM	2
 
 /* phy capability */
-#define GET_CAPABILITY_TAG_PHY	1
-#define GET_CAPABILITY_TAG_PHY_LEN	16
+#define GET_CAPABILITY_TAG_PHY			1
+#define GET_CAPABILITY_TAG_PHY_LEN		16
 
 /* phy capability ext */
-#define GET_CAPABILITY_TAG_PHY_EXT	2
+#define GET_CAPABILITY_TAG_PHY_EXT		2
 #define GET_CAPABILITY_TAG_PHY_EXT_LEN	16
-
-/* phy capability rx info */
-#define GET_CAPABILITY_TAG_RX_INFO	3
-#define GET_CAPABILITY_TAG_RX_INFO_LEN	64
 
 struct test_capability_ph_cap {
 	/* header */
@@ -959,7 +932,7 @@ struct test_capability_ph_cap {
 	u_int32 protocol;
 
 	/* 1:1x1, 2:2x2, ... */
-	u_int32 max_ant_num;
+	u_int32 ant_num;
 
 	/* BIT0: DBDC support */
 	u_int32 dbdc;
@@ -972,8 +945,8 @@ struct test_capability_ph_cap {
 
 	/* BIT0: BW20, BIT1: BW40, BIT2: BW80 */
 	/* BIT3: BW160C, BIT4: BW80+80(BW160NC) */
-	/* BIT5: BW320 */
-	u_int32 max_bandwidth;
+	/* BIT5: BW320*/
+	u_int32 bandwidth;
 
 	/* BIT0: Band0 2.4G, BIT1: Band0 5G, BIT2: Band0 6G */
 	/* BIT16: Band1 2.4G, BIT17: Band1 5G, BIT18: Band1 6G */
@@ -983,29 +956,11 @@ struct test_capability_ph_cap {
 	/* BIT16: Band3 2.4G, BIT17: Band3 5G, BIT18: Band3 6G */
 	u_int32 channel_band_dbdc_ext;	/* CFG_SUPPORT_CONNAC3X */
 
-	/* BIT[7:0]: PHY index (bitwise) */
-	/* BIT[15:8]: Adie index (bitwise) */
-	u_int32 phy_adie_index; /* phy_adie_index CFG_SUPPORT_CONNAC3X */
+	/* BIT[7:0]: Support phy quantities */
+	/* BIT[15:8]: Support Adie quantities */
+	u_int32 phy_adie_quantities; /* CFG_SUPPORT_CONNAC3X */
 
-	/* BIT[7:0]: Band0 TX path num */
-	/* BIT[15:8]: Band0 RX path num */
-	/* BIT[23:16]: Band1 TX path num */
-	/* BIT[31:24]: Band1 RX path num */
-	u_int32 band_0_1_wf_path_num;
-
-	/* BIT[7:0]: Band2 TX path num */
-	/* BIT[15:8]: Band2 RX path num */
-	/* BIT[23:16]: Band3 TX path num */
-	/* BIT[31:24]: Band3 RX path num */
-	u_int32 band_2_3_wf_path_num;
-
-	/* BIT[7:0]: Band0 system bandwidth */
-	/* BIT[15:8]: Band1 system bandwidth */
-	/* BIT[23:16]: Band2 system bandwidth */
-	/* BIT[31:24]: Band3 system bandwidth */
-	u_int32 band_bandwidth;
-
-	u_int32 reserved[4];
+	u_int32 reserved[7];
 };
 
 struct test_capability_ext_cap {
@@ -1021,23 +976,8 @@ struct test_capability_ext_cap {
 	/* BIT3: XTAL trim support */
 	/* BIT4: DBDC/MIMO switch support */
 	/* BIT5: eMLSR support */
-	/* BIT6: MLR+, ALR support */
-	/* BIT7: Bandwidth duplicated debug support */
-	/* BIT8: dRU support */
-
 	u_int32 feature1;
 	u_int32 reserved[15];
-};
-
-struct test_capability_rx_info_cap {
-	/* header */
-	u_int32 tag;		/* GET_CAPABILITY_TAG_RX_INFO */
-	u_int32 tag_len;	/* GET_CAPABILITY_TAG_RX_INFO_LEN */
-
-	/* content: GET_CAPABILITY_TAG_RX_INFO_LEN */
-
-	/* reserved 64 */
-	u_int32 rx_info[64];
 };
 
 struct test_capability {
@@ -1045,7 +985,6 @@ struct test_capability {
 	u_int32 tag_num;
 	struct test_capability_ph_cap ph_cap;
 	struct test_capability_ext_cap ext_cap;
-	struct test_capability_rx_info_cap rx_info_cap;
 };
 
 /* Test mps for service */
@@ -1112,7 +1051,6 @@ struct test_txpwr_param {
 	u_int32 channel;
 	u_int32 band_idx;
 	u_int32 ch_band;
-	u_int32 powertype;
 };
 
 /* Test off channel scan parameters */
@@ -1164,11 +1102,9 @@ struct test_ru_info {
 	u_int8 pe_disamb;
 	s_int16 punc;
 	u_int32 l_len;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	u_int8 ps160;
 	u_int8 isEHT;
-	boolean dRU_valid;
-	boolean dRU_en;
 #endif
 };
 
@@ -1333,8 +1269,6 @@ struct test_configuration {
 
 	/* off ch scan */
 	struct test_off_ch_param off_ch_param;
-
-	u_int32 seg_sta_cnt[4];
 };
 
 /* Test wlan information for service */
@@ -1448,18 +1382,6 @@ struct list_mode_rx_status {
 	u_int32	u4RSSI1;
 };
 
-struct list_mode_gen_seg {
-	u_int32	u4ExtId;
-	u_int32	u4SegNumStart;
-	u_int32	u4TestType;
-};
-
-struct list_mode_seg_cfg {
-	u_int32	u4OfsTime;
-	u_int32	u4MeasTime;
-	u_int32	u4PrepareTime;
-};
-
 #define	LIST_SEG_MAX 100
 #define LIST_MODE_FW_SEG_NUM_MAX	6
 #define LIST_MODE_FW_SEG_PARA_NUM_MAX 30
@@ -1472,18 +1394,7 @@ struct list_mode_event {
 	union {
 		u_int32 u4TxStatus[LIST_SEG_MAX];
 		struct list_mode_rx_status tRxStatus[LIST_SEG_MAX];
-		struct list_mode_seg_cfg tSegCfg[LIST_SEG_MAX];
 	};
-};
-
-/* Test tmr for service */
-struct test_tmr_info {
-	u_int32 setting;
-	u_int32 version;
-	u_int32 through_hold;
-	u_int32 iter;
-	u_int32 toae_cal;
-	u_int32 band_idx;
 };
 
 /* Test operation hook handlers for service */
@@ -1548,9 +1459,9 @@ struct test_operation {
 		u_int8 enable, u_char band_idx, u_int32 rx_pkt_len);
 	s_int32 (*op_get_antswap_capability)(
 			struct test_wlan_info *winfos,
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 			u_char band_idx,
-#endif /* (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1) */
+#endif /* (CFG_SUPPORT_CONNAC3X == 1) */
 			u_int32 *antswap_support);
 	s_int32 (*op_set_antswap)(
 			struct test_wlan_info *winfos,
@@ -1558,7 +1469,7 @@ struct test_operation {
 	s_int32 (*op_set_freq_offset)(
 		struct test_wlan_info *winfos,
 		u_int32 freq_offset, u_char band_idx);
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	s_int32 (*op_set_freq_offset_C2)(
 		struct test_wlan_info *winfos,
 		u_int32 freq_offset, u_char band_idx);
@@ -1604,9 +1515,6 @@ struct test_operation {
 		struct test_wlan_info *winfos,
 		u_char band_idx,
 		struct test_configuration *configs);
-	s_int32 (*op_set_tmr)(
-		struct test_wlan_info *winfos,
-		struct test_tmr_info *test_tmr);
 	s_int32 (*op_set_preamble)(
 		struct test_wlan_info *winfos,
 		u_char mode);
@@ -1707,16 +1615,6 @@ struct test_operation {
 		u_char channel,
 		u_char ant_idx,
 		u_int32 *power);
-	s_int32 (*op_get_tx_default_pwr)(
-		struct test_wlan_info *winfos,
-		struct test_configuration *configs,
-		u_char band_idx,
-		u_char channel,
-		u_char ant_idx,
-		u_int32 *power);
-	s_int32 (*op_set_get_pwr_type)(
-		struct test_wlan_info *winfos,
-		u_int32_t powertype);
 	s_int32 (*op_set_tx_pwr)(
 		struct test_wlan_info *winfos,
 		struct test_configuration *configs,
@@ -1747,7 +1645,7 @@ struct test_operation {
 		struct test_wlan_info *winfos,
 		u_char band_idx,
 		u_int32 *freq_offset);
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	s_int32 (*op_get_freq_offset_C2)(
 		struct test_wlan_info *winfos,
 		u_char band_idx,
@@ -1806,7 +1704,7 @@ struct test_operation {
 		struct test_wlan_info *winfos,
 		u_int32 on_off,
 		u_int32 wf_sel);
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	s_int32 (*op_set_max_pac_ext)(
 		struct test_wlan_info *winfos,
 		u_int32 mac_pac_ext);
@@ -1927,10 +1825,14 @@ struct test_operation {
 		u_int32 band_idx,
 		u_int32 wf_path,
 		u_int32 *dbv_value);
-	s_int32 (*op_get_sleep_check)(
-		struct test_wlan_info *winfos,
-		u_int32 action,
-		u_int32 *sleep_result);
+};
+
+/* Test tmr for service */
+struct test_tmr_info {
+	u_int32 setting;
+	u_int32 version;
+	u_int32 through_hold;
+	u_int32 iter;
 };
 
 /*****************************************************************************

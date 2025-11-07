@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 6.6.50 Kernel Configuration
+# Linux/arm64 6.6.82 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="Android (11368308, +pgo, +bolt, +lto, +mlgo, based on r510928) clang version 18.0.0 (https://android.googlesource.com/toolchain/llvm-project 477610d4d0d988e69dbc3fae4fe86bff3f07f2b5)"
 CONFIG_GCC_VERSION=0
@@ -529,7 +529,6 @@ CONFIG_ARM64_EPAN=y
 # end of ARMv8.7 architectural features
 
 CONFIG_ARM64_SVE=y
-CONFIG_ARM64_SME=y
 # CONFIG_ARM64_PSEUDO_NMI is not set
 CONFIG_RELOCATABLE=y
 CONFIG_RANDOMIZE_BASE=y
@@ -574,7 +573,7 @@ CONFIG_PM_STD_PARTITION=""
 CONFIG_PM_SLEEP=y
 CONFIG_PM_SLEEP_SMP=y
 # CONFIG_PM_AUTOSLEEP is not set
-# CONFIG_PM_USERSPACE_AUTOSLEEP is not set
+CONFIG_PM_USERSPACE_AUTOSLEEP=y
 CONFIG_PM_WAKELOCKS=y
 CONFIG_PM_WAKELOCKS_LIMIT=0
 # CONFIG_PM_WAKELOCKS_GC is not set
@@ -641,6 +640,7 @@ CONFIG_CPU_FREQ_GOV_SCHEDUTIL=y
 #
 # CONFIG_CPUFREQ_DT is not set
 # CONFIG_ANDROID_V_CPUFREQ_VIRT is not set
+# CONFIG_CPUFREQ_VIRT is not set
 # CONFIG_CPUFREQ_DT_PLATDEV is not set
 # CONFIG_CPUFREQ_DUMMY is not set
 CONFIG_ARM_SCPI_CPUFREQ=y
@@ -745,6 +745,8 @@ CONFIG_HAS_LTO_CLANG=y
 CONFIG_LTO_NONE=y
 # CONFIG_LTO_CLANG_FULL is not set
 # CONFIG_LTO_CLANG_THIN is not set
+CONFIG_ARCH_SUPPORTS_AUTOFDO_CLANG=y
+CONFIG_AUTOFDO_CLANG=y
 CONFIG_ARCH_SUPPORTS_CFI_CLANG=y
 CONFIG_CFI_CLANG=y
 # CONFIG_CFI_PERMISSIVE is not set
@@ -1072,10 +1074,12 @@ CONFIG_SKB_EXTENSIONS=y
 CONFIG_PACKET=y
 # CONFIG_PACKET_DIAG is not set
 CONFIG_UNIX=y
-CONFIG_UNIX_SCM=y
 CONFIG_AF_UNIX_OOB=y
 # CONFIG_UNIX_DIAG is not set
-# CONFIG_TLS is not set
+CONFIG_TLS=m
+# CONFIG_TLS_DEVICE is not set
+# CONFIG_TLS_TOE is not set
+# CONFIG_TLS_STATS is not set
 CONFIG_XFRM=y
 CONFIG_XFRM_ALGO=y
 CONFIG_XFRM_USER=y
@@ -1539,6 +1543,7 @@ CONFIG_VIRTIO_VSOCKETS_COMMON=y
 # CONFIG_NET_L3_MASTER_DEV is not set
 # CONFIG_QRTR is not set
 # CONFIG_NET_NCSI is not set
+CONFIG_KNOX_NCM=y
 CONFIG_PCPU_DEV_REFCNT=y
 CONFIG_MAX_SKB_FRAGS=17
 CONFIG_RPS=y
@@ -1618,6 +1623,7 @@ CONFIG_BT_HCIUART_QCA=y
 
 # CONFIG_AF_RXRPC is not set
 # CONFIG_AF_KCM is not set
+CONFIG_STREAM_PARSER=y
 # CONFIG_MCTP is not set
 CONFIG_FIB_RULES=y
 CONFIG_WIRELESS=y
@@ -1960,6 +1966,7 @@ CONFIG_ZRAM_DEF_COMP_LZORLE=y
 # CONFIG_ZRAM_DEF_COMP_LZO is not set
 CONFIG_ZRAM_DEF_COMP="lzo-rle"
 CONFIG_ZRAM_WRITEBACK=y
+# CONFIG_ZRAM_TRACK_ENTRY_ACTIME is not set
 # CONFIG_ZRAM_MEMORY_TRACKING is not set
 # CONFIG_ZRAM_MULTI_COMP is not set
 CONFIG_BLK_DEV_LOOP=y
@@ -4259,6 +4266,7 @@ CONFIG_DRM_KMS_HELPER=y
 # CONFIG_DRM_LOAD_EDID_FIRMWARE is not set
 CONFIG_DRM_DISPLAY_HELPER=m
 CONFIG_DRM_DISPLAY_DP_HELPER=y
+CONFIG_DRM_DISPLAY_HDMI_HELPER=y
 # CONFIG_DRM_DP_AUX_CHARDEV is not set
 # CONFIG_DRM_DP_CEC is not set
 CONFIG_DRM_TTM=y
@@ -4990,6 +4998,7 @@ CONFIG_HID_WIIMOTE=y
 # CONFIG_HID_ZYDACRON is not set
 # CONFIG_HID_SENSOR_HUB is not set
 # CONFIG_HID_ALPS is not set
+# CONFIG_HID_MCP2200 is not set
 # CONFIG_HID_MCP2221 is not set
 CONFIG_HID_KUNIT_TEST=m
 # end of Special HID drivers
@@ -5707,9 +5716,10 @@ CONFIG_GUNYAH_IOEVENTFD=y
 CONFIG_VIRTIO_ANCHOR=y
 CONFIG_VIRTIO=y
 CONFIG_VIRTIO_PCI_LIB=m
+CONFIG_VIRTIO_PCI_LIB_LEGACY=m
 CONFIG_VIRTIO_MENU=y
 CONFIG_VIRTIO_PCI=m
-# CONFIG_VIRTIO_PCI_LEGACY is not set
+CONFIG_VIRTIO_PCI_LEGACY=y
 # CONFIG_VIRTIO_PMEM is not set
 CONFIG_VIRTIO_BALLOON=m
 # CONFIG_VIRTIO_MEM is not set
@@ -6933,6 +6943,9 @@ CONFIG_FUSE_FS=y
 # CONFIG_CUSE is not set
 CONFIG_VIRTIO_FS=y
 CONFIG_FUSE_BPF=y
+CONFIG_FUSE_FREEZABLE_WAIT=y
+CONFIG_FUSE_SUPPORT_STLOG=y
+CONFIG_FUSE_WATCHDOG=y
 CONFIG_OVERLAY_FS=y
 # CONFIG_OVERLAY_FS_REDIRECT_DIR is not set
 CONFIG_OVERLAY_FS_REDIRECT_ALWAYS_FOLLOW=y
@@ -7105,6 +7118,7 @@ CONFIG_NLS_UCS2_UTILS=y
 CONFIG_UNICODE=y
 # CONFIG_UNICODE_NORMALIZATION_SELFTEST is not set
 CONFIG_IO_WQ=y
+CONFIG_FREEZABLE_IN_LOOKUP=y
 # end of File systems
 
 #
@@ -7118,6 +7132,9 @@ CONFIG_KEYS=y
 # CONFIG_ENCRYPTED_KEYS is not set
 # CONFIG_KEY_DH_OPERATIONS is not set
 # CONFIG_SECURITY_DMESG_RESTRICT is not set
+CONFIG_PROC_MEM_ALWAYS_FORCE=y
+# CONFIG_PROC_MEM_FORCE_PTRACE is not set
+# CONFIG_PROC_MEM_NO_FORCE is not set
 CONFIG_SECURITY=y
 CONFIG_SECURITYFS=y
 CONFIG_SECURITY_NETWORK=y
@@ -7151,6 +7168,8 @@ CONFIG_INTEGRITY_AUDIT=y
 # CONFIG_IMA is not set
 # CONFIG_IMA_SECURE_AND_OR_TRUSTED_BOOT is not set
 # CONFIG_EVM is not set
+CONFIG_SECURITY_KUMIHO=y
+CONFIG_SECURITY_DSMS=y
 CONFIG_SECURITY_DEFEX=y
 # CONFIG_SECURITY_DEFEX_GKI is not set
 # CONFIG_SECURITY_DEFEX_NOBOOTPART is not set
@@ -7160,6 +7179,8 @@ CONFIG_SECURITY_DEFEX_USER=y
 # CONFIG_SECURITY_DEFEX_DTM is not set
 # CONFIG_SECURITY_DEFEX_IMR is not set
 # CONFIG_SECURITY_DEFEX_IMR_PERMISSIVE is not set
+CONFIG_SECURITY_DEFEX_IMR_V2=y
+# CONFIG_SECURITY_DEFEX_IMR_V2_PERMISSIVE is not set
 # CONFIG_SECURITY_DEFEX_SEC_FACTORY is not set
 CONFIG_FIVE=y
 CONFIG_FIVE_GKI_10=y
@@ -7175,11 +7196,12 @@ CONFIG_FIVE_TRUSTED_KEYRING=y
 # CONFIG_FIVE_AUDIT_VERBOSE is not set
 CONFIG_PROCA=y
 CONFIG_PROCA_GKI_10=y
+# CONFIG_PROCA_GKI_20 is not set
 CONFIG_PROCA_S_OS=y
 # CONFIG_PROCA_CERTIFICATES_XATTR is not set
 CONFIG_PROCA_CERTIFICATES_DB=y
-CONFIG_PROCA_CERT_ENG="x509_proca_eng.der"
 CONFIG_PROCA_CERT_USER="x509_proca_user.der"
+# CONFIG_PROCA_DEBUG is not set
 CONFIG_GAF=y
 # CONFIG_GAF_V3 is not set
 # CONFIG_GAF_V4 is not set
@@ -7776,7 +7798,7 @@ CONFIG_KFENCE=y
 CONFIG_KFENCE_SAMPLE_INTERVAL=500
 CONFIG_KFENCE_NUM_OBJECTS=63
 # CONFIG_KFENCE_DEFERRABLE is not set
-CONFIG_KFENCE_STATIC_KEYS=y
+# CONFIG_KFENCE_STATIC_KEYS is not set
 CONFIG_KFENCE_STRESS_TEST_FAULTS=0
 # CONFIG_KFENCE_KUNIT_TEST is not set
 # end of Memory Debugging
@@ -8016,6 +8038,7 @@ CONFIG_MEDIATEK_MT6375_AUXADC=m
 CONFIG_MEDIATEK_MT6681_AUXADC=m
 CONFIG_DEVICE_MODULES_MEDIATEK_MT6577_AUXADC=m
 CONFIG_MEDIATEK_SPMI_PMIC_ADC=m
+CONFIG_MEDIATEK_SPMI_TIA_ADC=m
 CONFIG_RT9490_ADC=m
 CONFIG_MFD_MT6338=m
 CONFIG_DEVICE_MODULES_MFD_MT6360=m
@@ -8029,6 +8052,7 @@ CONFIG_MFD_MT6685=m
 CONFIG_MFD_MTK_SPMI_PMIC=m
 CONFIG_MFD_RT9490=m
 CONFIG_MTK_DEVINFO=m
+CONFIG_SEC_DEVINFO=m
 CONFIG_MT635X_EFUSE=m
 CONFIG_MT6338_EFUSE=m
 CONFIG_MT6681_EFUSE=m
@@ -8053,6 +8077,7 @@ CONFIG_RPMB=m
 CONFIG_DEVICE_MODULES_COMMON_CLK_MEDIATEK=m
 # CONFIG_MTK_CLKMGR_FTRACE is not set
 # CONFIG_MTK_CLKMGR_DEBUG is not set
+# CONFIG_MTK_CLKMGR_DEBUG_REG_RW is not set
 # CONFIG_COMMON_CLK_MT6761 is not set
 # CONFIG_DEVICE_MODULE_COMMON_CLK_MT6765 is not set
 # CONFIG_COMMON_CLK_MT6768 is not set
@@ -8199,6 +8224,7 @@ CONFIG_DEVICE_MODULES_MTK_TIMER=m
 CONFIG_DEVICE_MODULES_ARM_MEDIATEK_CPUFREQ_HW=m
 CONFIG_CPU_FREQ_LIMIT=m
 CONFIG_CPU_FREQ_LTL_LIMIT=y
+# CONFIG_CPU_FREQ_MID_LIMIT is not set
 # end of CPU Frequency scaling
 
 #
@@ -8353,10 +8379,12 @@ CONFIG_MTK_CHARGER_TYPE_DETECT=m
 # CONFIG_CHARGER_SGM41516D is not set
 CONFIG_MTK_NO_BAT_BOOT_SUPPORT=y
 # CONFIG_MTK_CHGLOG_SUPPORT is not set
+CONFIG_BATTERY_SAMSUNG_MTK=y
 CONFIG_UFCS_CLASS=m
 CONFIG_UFCS_MT6379=m
 CONFIG_DEVICE_MODULES_RTC_DRV_MT6397=m
 CONFIG_RTC_DRV_MT6685=m
+# CONFIG_RTC_AUTO_PWRON is not set
 
 #
 # Remoteproc drivers
@@ -8427,13 +8455,14 @@ CONFIG_DEVICE_MODULES_MTK_IOMMU=m
 # TEE drivers
 #
 CONFIG_TEEGRIS_TEE_SUPPORT=m
+# CONFIG_TEEGRIS_RPMB_SUPPORT is not set
 CONFIG_TEE_PERF_SUPPORT=m
 # CONFIG_TRUSTONIC_TEE_SUPPORT is not set
 CONFIG_TZDEV=m
 # CONFIG_TZDEV_TVM is not set
-CONFIG_SAMSUNG_GKI_KERNEL=y
 # CONFIG_TZDEV_SK_PFNS_64BIT is not set
 CONFIG_TZDEV_USE_ARM_CALLING_CONVENTION=y
+# CONFIG_TZDEV_FFA is not set
 CONFIG_TZDEV_IWI_EVENT=176
 CONFIG_TZDEV_IWI_PANIC=177
 CONFIG_TZDEV_SWD_PANIC_IS_CRITICAL=y
@@ -8449,12 +8478,13 @@ CONFIG_TZIRS=y
 # CONFIG_TZDEV_HOTPLUG is not set
 CONFIG_TZ_BOOT_LOG=y
 CONFIG_TZ_BOOT_LOG_PG_CNT=2
-# CONFIG_TZDEV_QC_CRYPTO_CLOCKS_MANAGEMENT is not set
 # CONFIG_TZDEV_DEBUG is not set
 # CONFIG_TZ_SCMA is not set
 # CONFIG_TZDEV_DEPLOY_TZAR is not set
 CONFIG_TEEGRIS_VERSION=5
 # CONFIG_TZDEV_CPUFREQ_TRANSITION is not set
+CONFIG_SAMSUNG_GKI_KERNEL=y
+# CONFIG_TZDEV_QC_CRYPTO_CLOCKS_MANAGEMENT is not set
 # CONFIG_TZTUI is not set
 # CONFIG_MICROTRUST_TEE_SUPPORT is not set
 # CONFIG_MTK_OPTEE_SUPPORT is not set
@@ -8597,6 +8627,7 @@ CONFIG_DRM_PANEL_S6E8FC3_VDO=m
 CONFIG_DRM_PANEL_S6E8FC5_CMD=m
 CONFIG_DRM_PANEL_BOE_SW83109_CMD=m
 CONFIG_DRM_PANEL_ANA38407_WQXGA_PLUS_DPHY_CMD=m
+CONFIG_DRM_PANEL_ANA38407_WQXGA_DPHY_CMD=m
 CONFIG_SMCDSD_PANEL=m
 CONFIG_SMCDSD_LCD_DEBUG=y
 CONFIG_SMCDSD_DPUI=y
@@ -8684,6 +8715,11 @@ CONFIG_USB_F_SS_MON_GADGET=m
 CONFIG_USB_CONFIGFS_F_DM=m
 CONFIG_USB_CONFIGFS_F_CONN_GADGET=m
 CONFIG_USB_CONFIGFS_F_SS_MON_GADGET=m
+
+#
+# USB Miscellaneous drivers
+#
+CONFIG_SEC_USB_LINKLAYER_TEST=m
 CONFIG_DEVICE_MODULES_NET_VENDOR_STMICRO=y
 CONFIG_DEVICE_MODULES_STMMAC_ETH=m
 # CONFIG_DEVICE_MODULES_STMMAC_SELFTESTS is not set
@@ -8824,6 +8860,7 @@ CONFIG_MTK_MDPM_LEGACY=m
 CONFIG_MTK_PBM=m
 CONFIG_MTK_PEAK_POWER_BUDGET=m
 CONFIG_MTK_CG_PEAK_POWER_THROTTLING=m
+# CONFIG_MTK_CG_PPT_MODE_OFF is not set
 CONFIG_MTK_IPS_HELPER=m
 # CONFIG_MEDIATEK_CPUIDLE is not set
 # CONFIG_MEDIATEK_MCDI is not set
@@ -9008,10 +9045,12 @@ CONFIG_CUSTOM_KERNEL_IMGSENSOR="imx582_mipi_raw imx258_mipi_raw s5k4hayx_mipi_ra
 CONFIG_MTK_SENSOR_PROJECT=""
 # CONFIG_MTK_IMGSENSOR_MT6893 is not set
 CONFIG_MTK_IMGSENSOR_PLATFORM="MTK_PLATFORM"
-CONFIG_MTK_V4L2_IMGSENSOR=m
+# CONFIG_MTK_V4L2_IMGSENSOR is not set
 CONFIG_IMGSENSOR_CUSTOM_CAMERA=y
 # CONFIG_CAMERA_MMV_V53X is not set
 CONFIG_CAMERA_AAW_V34X=y
+# CONFIG_CAMERA_STY_V11 is not set
+# CONFIG_CAMERA_STY_V11U is not set
 CONFIG_CAMERA_SAMSUNG_MODEL_NAME="aaw_v34x"
 CONFIG_CAMERA_SENSOR0="imx582_mipi_raw"
 CONFIG_CAMERA_SENSOR1="imx258_mipi_raw"
@@ -9032,7 +9071,9 @@ CONFIG_CAMERA_SENSOR3_3=""
 CONFIG_CAMERA_SENSOR4_3=""
 CONFIG_CAMERA_SENSOR5_3=""
 CONFIG_IMGSENSOR_SYSFS=y
+# CONFIG_IMGSENSOR_SYSFS_V2 is not set
 CONFIG_CAMERA_ADAPTIVE_MIPI=y
+# CONFIG_CAMERA_ADAPTIVE_MIPI_V2 is not set
 CONFIG_MTK_JPEG=m
 # CONFIG_MTK_CAM_CAL_ISP3_Z is not set
 # CONFIG_MTK_CAM_CAL_ISP3_M is not set
@@ -9119,6 +9160,7 @@ CONFIG_MTK_GZ_IDLE=y
 CONFIG_MTK_MKP=m
 CONFIG_MTK_SECURITY_SW_SUPPORT=m
 # CONFIG_MTK_SEC_MODEM_NVRAM_ANTI_CLONE is not set
+# CONFIG_MTK_SEC_DEBUG_SUPPORT is not set
 # CONFIG_MTK_ISE_LPM_SUPPORT is not set
 # CONFIG_TEEGRIS_TUI is not set
 # end of Security
@@ -9171,6 +9213,7 @@ CONFIG_MTK_BLOCK_IO_TRACER=m
 CONFIG_MTK_FUSE_TRACER=y
 CONFIG_MTPROF=m
 CONFIG_BOOTPROF_THRESHOLD_MS=15
+# CONFIG_MTK_IRQ_MONITOR_CUSTOM is not set
 # CONFIG_MTK_IRQ_MONITOR is not set
 # CONFIG_MTK_IRQ_MONITOR_DEBUG is not set
 CONFIG_MMSTAT_TRACER=m
@@ -9322,10 +9365,11 @@ CONFIG_USB_PD_VBUS_STABLE_TOUT=125
 CONFIG_PD_DBG_INFO=m
 CONFIG_MTK_TYPEC_WATER_DETECT=m
 # CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB is not set
+# CONFIG_SEC_HICCUP is not set
 CONFIG_MTK_USB_TYPEC_MUX=m
 CONFIG_TYPEC_MUX_FUSB304=m
 CONFIG_TYPEC_MUX_PTN36241G=m
-CONFIG_TYPEC_MUX_PS5169=m
+# CONFIG_TYPEC_MUX_PS5169 is not set
 CONFIG_TYPEC_MUX_PS5170=m
 CONFIG_TYPEC_MUX_DP_SELECTOR=m
 # CONFIG_TYPEC_MUX_PI3DPX1205A is not set
@@ -9489,7 +9533,7 @@ CONFIG_MTK_KTCHBST=m
 #
 CONFIG_BUILD_CONFIG_FILE="build.config.mtk_kernel_device_modules"
 CONFIG_ABI_MONITOR=y
-CONFIG_EXT_MODULES="../vendor/mediatek/kernel_modules/connectivity/common ../vendor/mediatek/kernel_modules/connectivity/conninfra ../vendor/mediatek/kernel_modules/connectivity/connfem ../vendor/mediatek/kernel_modules/connectivity/gps/gps_stp ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v051 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v060 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v061 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v062 ../vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr ../vendor/mediatek/kernel_modules/connectivity/gps/gps_scp ../vendor/mediatek/kernel_modules/gpu ../vendor/mediatek/kernel_modules/connectivity/fmradio ../vendor/mediatek/kernel_modules/connectivity/wlan/adaptor ../vendor/mediatek/kernel_modules/connectivity/wlan/adaptor/wlan_page_pool ../vendor/mediatek/kernel_modules/connectivity/bt/linux_v2 ../vendor/mediatek/kernel_modules/connectivity/bt/mt66xx ../vendor/mediatek/kernel_modules/hbt_driver_cus ../vendor/mediatek/kernel_modules/hbt_driver ../vendor/mediatek/kernel_modules/mtk_input/fingerprint/goodix/5.10 ../vendor/mediatek/kernel_modules/mtk_input/fingerprint/goodix/4.14 ../vendor/mediatek/tests/ktf/kernel ../vendor/mediatek/tests/kernel/ktf_testcase ../vendor/mediatek/kernel_modules/mtk_input/FT3518U ../vendor/mediatek/kernel_modules/mtk_input/GT9886 ../vendor/mediatek/kernel_modules/mtk_input/GT9916 ../vendor/mediatek/kernel_modules/mtk_input/NT36672C ../vendor/mediatek/kernel_modules/mtk_input/ST61Y ../vendor/mediatek/kernel_modules/mtk_input/synaptics_tcm ../vendor/mediatek/kernel_modules/connectivity/bt/mt66xx/wmt ../vendor/mediatek/kernel_modules/connectivity/bt/mt66xx ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_s1/build/connac1x/6768 ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_s1/build/connac1x/6833 ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_s1/build/connac2x/6877 ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m/build/connac3x/6991_6653 ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m/build/connac3x/6991_6653_dx5_2g2a_tc10sp ../vendor/mediatek/kernel_modules/mtkcam ../vendor/mediatek/kernel_modules/cpufreq_cus ../vendor/mediatek/kernel_modules/cpufreq_int ../vendor/mediatek/kernel_modules/afs_common_utils  ../vendor/mediatek/kernel_modules/afs_core_cus  ../vendor/mediatek/kernel_modules/afs_core_int"
+CONFIG_EXT_MODULES="../vendor/mediatek/kernel_modules/connectivity/common ../vendor/mediatek/kernel_modules/connectivity/conninfra ../vendor/mediatek/kernel_modules/connectivity/connfem ../vendor/mediatek/kernel_modules/connectivity/gps/gps_stp ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v010 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v030 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v050 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v051 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v060 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v061 ../vendor/mediatek/kernel_modules/connectivity/gps/data_link/plat/v062 ../vendor/mediatek/kernel_modules/connectivity/gps/gps_pwr ../vendor/mediatek/kernel_modules/connectivity/gps/gps_scp ../vendor/mediatek/kernel_modules/connectivity/gps/capid_util ../vendor/mediatek/kernel_modules/gpu ../vendor/mediatek/kernel_modules/connectivity/fmradio ../vendor/mediatek/kernel_modules/connectivity/wlan/adaptor ../vendor/mediatek/kernel_modules/connectivity/wlan/adaptor/wlan_page_pool ../vendor/mediatek/kernel_modules/connectivity/bt/linux_v2 ../vendor/mediatek/kernel_modules/connectivity/bt/linux_v2_mt6653 ../vendor/mediatek/kernel_modules/connectivity/bt/mt66xx ../vendor/mediatek/kernel_modules/hbt_driver_cus ../vendor/mediatek/kernel_modules/hbt_driver ../vendor/mediatek/kernel_modules/mtk_input/fingerprint/goodix/5.10 ../vendor/mediatek/kernel_modules/mtk_input/fingerprint/goodix/4.14 ../vendor/mediatek/tests/ktf/kernel ../vendor/mediatek/tests/kernel/ktf_testcase ../vendor/mediatek/kernel_modules/mtk_input/FT3518U ../vendor/mediatek/kernel_modules/mtk_input/GT9886 ../vendor/mediatek/kernel_modules/mtk_input/GT9916 ../vendor/mediatek/kernel_modules/mtk_input/NT36672C ../vendor/mediatek/kernel_modules/mtk_input/ST61Y ../vendor/mediatek/kernel_modules/mtk_input/synaptics_tcm ../vendor/mediatek/kernel_modules/connectivity/bt/mt66xx/wmt ../vendor/mediatek/kernel_modules/connectivity/bt/mt66xx ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_s1/build/connac1x/6768 ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_s1/build/connac1x/6833 ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_s1/build/connac2x/6877 ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m/build/connac3x/6991_6639_tc10sp ../vendor/mediatek/kernel_modules/connectivity/wlan/core/gen4m_mt6653/build/connac3x/6991_6653 ../vendor/mediatek/kernel_modules/mtkcam ../vendor/mediatek/kernel_modules/cpufreq_cus ../vendor/mediatek/kernel_modules/cpufreq_int ../vendor/mediatek/kernel_modules/afs_common_utils  ../vendor/mediatek/kernel_modules/afs_core_cus  ../vendor/mediatek/kernel_modules/afs_core_int"
 # end of Config File
 
 #
@@ -9546,6 +9590,8 @@ CONFIG_MTK_DEVLINK_LOGDUMP_SUPPORT=y
 # CONFIG_DEVICE_MODULES_SND_SOC_CS35L41_SPI is not set
 # CONFIG_DEVICE_MODULES_SND_SOC_CS35L41_I2C is not set
 # CONFIG_DEVICE_MODULES_SND_SOC_CIRRUS_REINIT_SYSFS is not set
+# CONFIG_DEVICE_MODULES_SND_SOC_CS35L45_SPI is not set
+# CONFIG_DEVICE_MODULES_SND_SOC_CS35L45_I2C is not set
 # CONFIG_SND_SOC_RT5509 is not set
 # CONFIG_SND_SOC_RT5512 is not set
 # CONFIG_SND_SOC_FS16XX is not set
@@ -9694,7 +9740,7 @@ CONFIG_MQ_IOSCHED_SSG_WB=m
 CONFIG_SEC_MM=m
 CONFIG_SEC_MM_DUMP_DMABUF_TASKS=y
 CONFIG_MMAP_READAROUND_LIMIT=16
-# CONFIG_HUGEPAGE_POOL is not set
+CONFIG_HUGEPAGE_POOL=m
 # end of SEC Memory Management Options
 
 CONFIG_VIBRATOR_VIB_INFO=m

@@ -238,6 +238,10 @@ endif
 ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6653),)
 ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6653/include
 endif
+# for customization project
+ifneq ($(wildcard $(PATH_TO_CONNINFRA_DRV)/conn_drv/connv3/platform/mt6639),)
+ccflags-y += -I$(KO_CODE_PATH)/conn_drv/connv3/platform/mt6639/include
+endif
 endif
 
 ifeq ($(CONFIG_MTK_COMBO_CHIP_CONSYS_6899),y)
@@ -574,6 +578,9 @@ $(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6991/mt6991.o
 $(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6991/mt6991_pmic.o
 $(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6991/mt6991_pinctrl.o
 $(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6653/mt6653_dbg.o
+$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6639/mt6639_dbg.o
+$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6991/mt6991_mt6639.o
+$(MODULE_NAME)-objs += conn_drv/connv3/platform/mt6991/mt6991_mt6639_pmic.o
 endif
 endif
 

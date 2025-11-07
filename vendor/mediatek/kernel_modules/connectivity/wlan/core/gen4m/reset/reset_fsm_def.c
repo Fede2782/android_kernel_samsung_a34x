@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -20,6 +20,7 @@
 *                    E X T E R N A L   R E F E R E N C E S
 ***********************************************************************
 */
+#include "reset_fsm_def.h"
 #include "reset.h"
 
 /**********************************************************************
@@ -48,24 +49,13 @@
 *                  F U N C T I O N   D E C L A R A T I O N S
 ***********************************************************************
 */
-static void enter_POWER_UP(struct FsmEntity *fsm, struct FsmState *prev);
-static void leave_POWER_UP(struct FsmEntity *fsm, struct FsmState *next);
-static void enter_PROBED(struct FsmEntity *fsm, struct FsmState *prev);
-static void enter_PRE_RESET(struct FsmEntity *fsm, struct FsmState *prev);
-static void leave_PRE_RESET(struct FsmEntity *fsm, struct FsmState *next);
-static void enter_PRE_POWER_OFF(struct FsmEntity *fsm, struct FsmState *prev);
-static void leave_PRE_POWER_OFF(struct FsmEntity *fsm, struct FsmState *next);
-static void enter_POWER_OFF(struct FsmEntity *fsm, struct FsmState *prev);
-static void leave_POWER_OFF(struct FsmEntity *fsm, struct FsmState *next);
+static void enter_INIT(struct FsmEntity *fsm, struct FsmState *prev);
 
-static bool gaurd_isAllModuleReady(struct FsmEntity *fsm);
-static bool guard_isResetWorkIdle(struct FsmEntity *fsm);
+static void enter_L0_PRE_RESET(struct FsmEntity *fsm, struct FsmState *prev);
+static bool gaurd_L0_PRE_RESET_L0_RESET_READY(struct FsmEntity *fsm);
+static void leave_L0_PRE_RESET(struct FsmEntity *fsm, struct FsmState *next);
 
-static void action_RestartWaitprobeTimer(struct FsmEntity *fsm);
-static void action_PowerReset(struct FsmEntity *fsm);
-static void action_PowerOff(struct FsmEntity *fsm);
-static void action_PowerOn(struct FsmEntity *fsm);
-static void action_NotifyLrwpanResetDone(struct FsmEntity *fsm);
+static void enter_L0_RESET_GOING(struct FsmEntity *fsm, struct FsmState *prev);
 
 
 /**********************************************************************
@@ -78,268 +68,135 @@ static void action_NotifyLrwpanResetDone(struct FsmEntity *fsm);
 *                           P R I V A T E   D A T A
 ***********************************************************************
 */
-bool fgResetWorkIdle = true;
-
-static struct FsmState RFSM_POWER_UP;
+static struct FsmState RFSM_INIT;
+static struct FsmState RFSM_WAIT_PROBE;
 static struct FsmState RFSM_PROBED;
-static struct FsmState RFSM_PRE_RESET;
-static struct FsmState RFSM_PRE_POWER_OFF;
-static struct FsmState RFSM_POWER_OFF;
+static struct FsmState RFSM_L0_PRE_RESET;
+static struct FsmState RFSM_L0_RESET_GOING;
 
-static struct ResetFsmEventAction RFSM_EVENT_ACTION_LIST_POWER_UP[] = {
-	{RFSM_EVENT_PROBED, NULL, NULL, &RFSM_PROBED},
-	{RFSM_EVENT_TRIGGER_RESET, NULL, NULL, &RFSM_PRE_RESET},
-	{RFSM_EVENT_TRIGGER_POWER_OFF, NULL, NULL, &RFSM_PRE_POWER_OFF},
-	{RFSM_EVENT_START_PROBE, NULL, action_RestartWaitprobeTimer, NULL},
-#if RESETKO_WAIT_MODULE_PROBE_TIMEOUT
-	/* wait probe timeout, trigger reset */
-	{RFSM_EVENT_TIMEOUT, NULL, NULL, &RFSM_PRE_RESET}
-#endif
+static struct ResetFsmEventAction RFSM_EVENT_ACTION_LIST_INIT[] = {
+	{RFSM_EVENT_PROBE_START, NULL, NULL, &RFSM_WAIT_PROBE},
+	{RFSM_EVENT_TRIGGER_RESET, NULL, NULL, &RFSM_L0_PRE_RESET}
+};
+
+static struct ResetFsmEventAction RFSM_EVENT_ACTION_LIST_WAIT_PROBE[] = {
+	{RFSM_EVENT_PROBE_FAIL, NULL, NULL, &RFSM_INIT},
+	{RFSM_EVENT_PROBE_SUCCESS, NULL, NULL, &RFSM_PROBED},
+	{RFSM_EVENT_TRIGGER_RESET, NULL, NULL, &RFSM_L0_PRE_RESET},
+	{RFSM_EVENT_L0_RESET_DONE, NULL, NULL, &RFSM_INIT}
 };
 
 static struct ResetFsmEventAction RFSM_EVENT_ACTION_LIST_PROBED[] = {
-	{RFSM_EVENT_REMOVED, NULL, NULL, &RFSM_POWER_UP},
-	{RFSM_EVENT_TRIGGER_RESET, NULL, NULL, &RFSM_PRE_RESET},
-	{RFSM_EVENT_TRIGGER_POWER_OFF, NULL, NULL, &RFSM_PRE_POWER_OFF},
-	{RFSM_EVENT_RESET_DONE, NULL, NULL, &RFSM_POWER_UP}
+	{RFSM_EVENT_REMOVE, NULL, NULL, &RFSM_INIT},
+	{RFSM_EVENT_TRIGGER_RESET, NULL, NULL, &RFSM_L0_PRE_RESET},
+	{RFSM_EVENT_L0_RESET_DONE, NULL, NULL, &RFSM_INIT}
 };
 
-static struct ResetFsmEventAction RFSM_EVENT_ACTION_LIST_PRE_RESET[] = {
-	{RFSM_EVENT_READY, gaurd_isAllModuleReady, action_PowerReset,
-		&RFSM_PRE_RESET},
-#if RESETKO_WAIT_MODULE_READY_TIMEOUT
-	/* timeout force reset */
-	{RFSM_EVENT_TIMEOUT, guard_isResetWorkIdle, action_PowerReset,
-		&RFSM_PRE_RESET},
-#endif
-	/* if trigger power off before reset, ignore reset and run power off */
-	{RFSM_EVENT_TRIGGER_POWER_OFF, NULL, NULL, &RFSM_PRE_POWER_OFF},
-	{RFSM_EVENT_RESET_DONE, NULL, action_NotifyLrwpanResetDone,
-		&RFSM_POWER_UP}
+static struct ResetFsmEventAction RFSM_EVENT_ACTION_LIST_L0_PRE_RESET[] = {
+	{RFSM_EVENT_TIMEOUT, NULL, NULL, &RFSM_L0_RESET_GOING},
+	{RFSM_EVENT_L0_RESET_READY, gaurd_L0_PRE_RESET_L0_RESET_READY, NULL,
+		&RFSM_L0_RESET_GOING},
+	{RFSM_EVENT_L0_RESET_GOING, NULL, NULL, &RFSM_L0_RESET_GOING},
+	{RFSM_EVENT_TIMEOUT, NULL, NULL, &RFSM_L0_RESET_GOING},
+	{RFSM_EVENT_L0_RESET_DONE, NULL, NULL, &RFSM_INIT}
 };
 
-static struct ResetFsmEventAction RFSM_EVENT_ACTION_LIST_PRE_POWER_OFF[] = {
-	{RFSM_EVENT_READY, gaurd_isAllModuleReady, action_PowerOff,
-		&RFSM_POWER_OFF},
-#if RESETKO_WAIT_MODULE_READY_TIMEOUT
-	/* timeout force power off */
-	{RFSM_EVENT_TIMEOUT, NULL, action_PowerOff, &RFSM_POWER_OFF},
-#endif
-	/* power off can't be cancel, so goto PRE_RESET, don't reset timer */
-	{RFSM_EVENT_TRIGGER_POWER_ON, NULL, NULL, &RFSM_PRE_RESET},
-	{RFSM_EVENT_POWER_OFF_DONE, NULL, NULL, &RFSM_POWER_OFF},
-	{RFSM_EVENT_RESET_DONE, NULL, NULL, &RFSM_POWER_UP}
+static struct ResetFsmEventAction RFSM_EVENT_ACTION_LIST_L0_RESET_GOING[] = {
+	{RFSM_EVENT_L0_RESET_DONE, NULL, NULL, &RFSM_INIT},
 };
 
-static struct ResetFsmEventAction RFSM_EVENT_ACTION_LIST_POWER_OFF[] = {
-	{RFSM_EVENT_TRIGGER_POWER_ON, NULL, action_PowerOn, &RFSM_POWER_UP},
-	{RFSM_EVENT_POWER_ON_DONE, NULL, NULL, &RFSM_POWER_UP},
-	{RFSM_EVENT_RESET_DONE, NULL, NULL, &RFSM_POWER_UP}
+static struct FsmState RFSM_INIT = {
+	.name = "INIT",
+	.enter_func = enter_INIT,
+	.leave_func = NULL,
+	.eventActionListCount = ARRAY_SIZE(RFSM_EVENT_ACTION_LIST_INIT),
+	.eventActionList = RFSM_EVENT_ACTION_LIST_INIT
 };
-
-static struct FsmState RFSM_POWER_UP = {
-	.name = "POWER_UP",
-	.enter_func = enter_POWER_UP,
-	.leave_func = leave_POWER_UP,
-	.eventActionListCount = ARRAY_SIZE(RFSM_EVENT_ACTION_LIST_POWER_UP),
-	.eventActionList = RFSM_EVENT_ACTION_LIST_POWER_UP
+static struct FsmState RFSM_WAIT_PROBE = {
+	.name = "WAIT_PROBE",
+	.enter_func = NULL,
+	.leave_func = NULL,
+	.eventActionListCount = ARRAY_SIZE(RFSM_EVENT_ACTION_LIST_WAIT_PROBE),
+	.eventActionList = RFSM_EVENT_ACTION_LIST_WAIT_PROBE
 };
 static struct FsmState RFSM_PROBED = {
 	.name = "PROBED",
-	.enter_func = enter_PROBED,
+	.enter_func = NULL,
 	.leave_func = NULL,
 	.eventActionListCount = ARRAY_SIZE(RFSM_EVENT_ACTION_LIST_PROBED),
 	.eventActionList = RFSM_EVENT_ACTION_LIST_PROBED
 };
-static struct FsmState RFSM_PRE_RESET = {
-	.name = "PRE_RESET",
-	.enter_func = enter_PRE_RESET,
-	.leave_func = leave_PRE_RESET,
+static struct FsmState RFSM_L0_PRE_RESET = {
+	.name = "L0_PRE_RESET",
+	.enter_func = enter_L0_PRE_RESET,
+	.leave_func = leave_L0_PRE_RESET,
 	.eventActionListCount =
-		ARRAY_SIZE(RFSM_EVENT_ACTION_LIST_PRE_RESET),
-	.eventActionList = RFSM_EVENT_ACTION_LIST_PRE_RESET
+		ARRAY_SIZE(RFSM_EVENT_ACTION_LIST_L0_PRE_RESET),
+	.eventActionList = RFSM_EVENT_ACTION_LIST_L0_PRE_RESET
 };
-static struct FsmState RFSM_PRE_POWER_OFF = {
-	.name = "PRE_POWER_OFF",
-	.enter_func = enter_PRE_POWER_OFF,
-	.leave_func = leave_PRE_POWER_OFF,
+static struct FsmState RFSM_L0_RESET_GOING = {
+	.name = "L0_RESET_GOING",
+	.enter_func = enter_L0_RESET_GOING,
+	.leave_func = NULL,
 	.eventActionListCount =
-		ARRAY_SIZE(RFSM_EVENT_ACTION_LIST_PRE_POWER_OFF),
-	.eventActionList = RFSM_EVENT_ACTION_LIST_PRE_POWER_OFF
-};
-static struct FsmState RFSM_POWER_OFF = {
-	.name = "POWER_OFF",
-	.enter_func = enter_POWER_OFF,
-	.leave_func = leave_POWER_OFF,
-	.eventActionListCount =
-		ARRAY_SIZE(RFSM_EVENT_ACTION_LIST_POWER_OFF),
-	.eventActionList = RFSM_EVENT_ACTION_LIST_POWER_OFF
+		ARRAY_SIZE(RFSM_EVENT_ACTION_LIST_L0_RESET_GOING),
+	.eventActionList = RFSM_EVENT_ACTION_LIST_L0_RESET_GOING
 };
 
 
 /**********************************************************************
 *                              F U N C T I O N S
 **********************************************************************/
-static void enter_POWER_UP(struct FsmEntity *fsm, struct FsmState *prev)
+static void enter_INIT(struct FsmEntity *fsm, struct FsmState *prev)
 {
-	MR_Info("[%s_%d] %s\n", fsm->name, fsm->dongle_id, __func__);
-	resetkoStartTimer(fsm, WAIT_PROBE_TIMEOUT);
+	MR_Info("[%s] %s\n", fsm->name, __func__);
+	clearAllModuleReadyForReset();
+
+	if (prev == &RFSM_L0_RESET_GOING)
+		resetkoNotifyEvent(fsm, MODULE_NOTIFY_RESET_DONE);
 }
 
-static void leave_POWER_UP(struct FsmEntity *fsm, struct FsmState *next)
+static void enter_L0_PRE_RESET(struct FsmEntity *fsm, struct FsmState *prev)
 {
-	MR_Info("[%s_%d] %s\n", fsm->name, fsm->dongle_id, __func__);
-	resetkoCancleTimer(fsm);
+	MR_Info("[%s] %s\n", fsm->name, __func__);
+	resetkoStartTimer(fsm, WAIT_ALL_MODULE_READY_TIMEOUT);
+	fsm->fgReadyForReset = false;
+	resetkoNotifyEvent(fsm, MODULE_NOTIFY_PRE_RESET);
 }
 
-static void enter_PROBED(struct FsmEntity *fsm, struct FsmState *prev)
+static bool gaurd_L0_PRE_RESET_L0_RESET_READY(struct FsmEntity *fsm)
 {
-	if (fsm->wakeupCount > 0) {
-		wakeupSourceRelax(fsm);
-		if (fsm->eModuleType != RESET_MODULE_TYPE_LRWPAN)
-			resetkoNotifyEvent(fsm, MODULE_NOTIFY_RESET_DONE);
-	}
-}
+	bool ret = isAllModuleReadyForReset();
 
-static void enter_PRE_RESET(struct FsmEntity *fsm, struct FsmState *prev)
-{
-	MR_Info("[%s_%d] %s\n", fsm->name, fsm->dongle_id, __func__);
-	if (prev != &RFSM_PRE_POWER_OFF) {
-		fsm->fgReady = false;
-		resetkoStartTimer(fsm, WAIT_ALL_MODULE_READY_TIMEOUT);
-		wakeupSourceStayAwake(fsm);
-		resetkoNotifyEvent(fsm, MODULE_NOTIFY_PRE_POWER_OFF);
-	}
-}
-
-static void leave_PRE_RESET(struct FsmEntity *fsm, struct FsmState *next)
-{
-	MR_Info("[%s_%d] %s\n", fsm->name, fsm->dongle_id, __func__);
-	if (next != &RFSM_PRE_POWER_OFF) {
-		resetkoCancleTimer(fsm);
-		fsm->fgReady = false;
-	}
-	fgResetWorkIdle = true;
-}
-
-static void enter_PRE_POWER_OFF(struct FsmEntity *fsm, struct FsmState *prev)
-{
-	MR_Info("[%s_%d] %s\n", fsm->name, fsm->dongle_id, __func__);
-	if (prev != &RFSM_PRE_RESET) {
-		fsm->fgReady = false;
-		resetkoStartTimer(fsm, WAIT_ALL_MODULE_READY_TIMEOUT);
-		wakeupSourceStayAwake(fsm);
-		resetkoNotifyEvent(fsm, MODULE_NOTIFY_PRE_POWER_OFF);
-	}
-}
-static void leave_PRE_POWER_OFF(struct FsmEntity *fsm, struct FsmState *next)
-{
-	MR_Info("[%s_%d] %s\n", fsm->name, fsm->dongle_id, __func__);
-	if (next != &RFSM_PRE_POWER_OFF) {
-		resetkoCancleTimer(fsm);
-		fsm->fgReady = false;
-		wakeupSourceRelax(fsm);
-	}
-}
-
-static void enter_POWER_OFF(struct FsmEntity *fsm, struct FsmState *prev)
-{
-	MR_Info("[%s_%d] %s\n", fsm->name, fsm->dongle_id, __func__);
-	resetkoNotifyEvent(fsm, MODULE_NOTIFY_POWER_OFF_DONE);
-}
-
-static void leave_POWER_OFF(struct FsmEntity *fsm, struct FsmState *next)
-{
-	MR_Info("[%s_%d] %s\n", fsm->name, fsm->dongle_id, __func__);
-	wakeupSourceStayAwake(fsm);
-}
-
-static bool gaurd_isAllModuleReady(struct FsmEntity *fsm)
-{
-	bool ret = isAllModuleReady(fsm->dongle_id);
-
-	MR_Info("[%s_%d] %s %s\n",
-		fsm->name, fsm->dongle_id, __func__, ret ? "pass" : "fail");
+	MR_Info("[%s] %s %s\n", fsm->name, __func__, ret ? "pass" : "fail");
 
 	return ret;
 }
 
-static bool guard_isResetWorkIdle(struct FsmEntity *fsm)
+static void leave_L0_PRE_RESET(struct FsmEntity *fsm, struct FsmState *next)
 {
-	MR_Info("[%s] %s %s\n", fsm->name, __func__,
-		fgResetWorkIdle ? "pass" : "fail");
-	return fgResetWorkIdle;
+	MR_Info("[%s] %s\n", fsm->name, __func__);
+	resetkoCancleTimer(fsm);
 }
 
-static void action_RestartWaitprobeTimer(struct FsmEntity *fsm)
+static void enter_L0_RESET_GOING(struct FsmEntity *fsm, struct FsmState *prev)
 {
-	MR_Info("[%s_%d] %s\n", fsm->name, fsm->dongle_id, __func__);
-	resetkoStartTimer(fsm, WAIT_PROBE_TIMEOUT);
+	MR_Info("[%s] %s\n", fsm->name, __func__);
+	send_reset_event(fsm->eModuleType, RFSM_EVENT_L0_RESET_GOING);
+	resetkoNotifyEvent(fsm, MODULE_NOTIFY_RESET_GOING);
+	callResetFuncByResetApiType(fsm);
 }
 
-static void action_PowerReset(struct FsmEntity *fsm)
+struct FsmEntity *allocResetFsm(char *name,
+				enum ModuleType eModuleType,
+				enum TriggerResetApiType resetApiType)
 {
-	MR_Info("[%s_%d] %s\n", fsm->name, fsm->dongle_id, __func__);
-	fgResetWorkIdle = false;
-	powerReset(fsm->dongle_id);
-}
-
-static void action_PowerOff(struct FsmEntity *fsm)
-{
-#if CFG_RESETKO_SUPPORT_MULTI_CARD
-	uint32_t bus_id;
-#endif
-	MR_Info("[%s_%d] %s\n", fsm->name, fsm->dongle_id, __func__);
-	powerOff(fsm->dongle_id);
-#if CFG_RESETKO_SUPPORT_MULTI_CARD
-	if (findBusIdByDongleId(fsm->dongle_id, &bus_id))
-		send_reset_event(bus_id,
-				 fsm->eModuleType, RFSM_EVENT_POWER_OFF_DONE);
-	else
-		MR_Err("[%s_%d] can't find bus_id\n",
-			fsm->name, fsm->dongle_id);
-#else
-	send_reset_event(fsm->eModuleType, RFSM_EVENT_POWER_OFF_DONE);
-#endif
-}
-
-static void action_PowerOn(struct FsmEntity *fsm)
-{
-#if CFG_RESETKO_SUPPORT_MULTI_CARD
-	uint32_t bus_id;
-#endif
-	MR_Info("[%s_%d] %s\n", fsm->name, fsm->dongle_id, __func__);
-	powerOn(fsm->dongle_id);
-#if CFG_RESETKO_SUPPORT_MULTI_CARD
-	if (findBusIdByDongleId(fsm->dongle_id, &bus_id))
-		send_reset_event(bus_id,
-				 fsm->eModuleType, RFSM_EVENT_POWER_ON_DONE);
-	else
-		MR_Err("[%s_%d] can't find bus_id\n",
-			fsm->name, fsm->dongle_id);
-#else
-	send_reset_event(fsm->eModuleType, RFSM_EVENT_POWER_ON_DONE);
-#endif
-}
-
-static void action_NotifyLrwpanResetDone(struct FsmEntity *fsm)
-{
-	if (fsm->eModuleType != RESET_MODULE_TYPE_LRWPAN)
-		return;
-
-	MR_Info("[%s_%d] %s\n", fsm->name, fsm->dongle_id, __func__);
-	resetkoNotifyEvent(fsm, MODULE_NOTIFY_RESET_DONE);
-}
-
-struct FsmEntity *allocResetFsm(uint32_t dongle_id,
-				char *name, enum ModuleType eModuleType)
-{
-	struct FsmEntity *fsm = allocFsmEntity(dongle_id, name, eModuleType);
+	struct FsmEntity *fsm = allocFsmEntity(name, eModuleType, resetApiType);
 
 	if (!fsm)
 		return NULL;
 
-	fsm->fsmState = &RFSM_POWER_UP;
+	fsm->fsmState = &RFSM_INIT;
 
 	return fsm;
 }

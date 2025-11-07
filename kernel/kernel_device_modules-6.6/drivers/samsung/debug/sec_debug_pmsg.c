@@ -103,8 +103,8 @@ static void secdbg_hook_logger(const char *str, size_t size)
 
 	if (IS_ENABLED(CONFIG_SEC_BOOTSTAT) && size > 2 &&
 			strncmp(str, "!@", 2) == 0) {
-		char _buf[SZ_128];
-		size_t count = size < SZ_128 ? size : SZ_128 - 1;
+		char _buf[SZ_1K];
+		size_t count = size < SZ_1K ? size : SZ_1K - 1;
 		memcpy(_buf, str, count);
 		_buf[count] = '\0';
 

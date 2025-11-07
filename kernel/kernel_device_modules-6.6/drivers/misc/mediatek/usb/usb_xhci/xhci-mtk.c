@@ -394,6 +394,8 @@ static void xhci_mtk_snd_disconnect(struct snd_usb_audio *chip)
 	if (!chip)
 		return;
 
+	xhci_mtk_deinit_snd_quirk(chip);
+
 	xhci = hcd_to_xhci(bus_to_hcd(chip->dev->bus));
 	ops = xhci_vendor_get_ops_(xhci);
 

@@ -2027,9 +2027,9 @@
 				"path_larb4";
 			interconnect-num = <13>;
 			bandwidth-table =
-				<4 2 380>,
-				<4 0 10>,
-				<4 1 0>,
+				<4 5 380>,
+				<4 4 10>,
+				<4 3 159>,
 				<4 2 1>,
 				<4 2 1>,
 				<4 2 1>,
@@ -2037,7 +2037,7 @@
 				<4 0 33>,
 				<4 0 33>,
 				<4 2 64>,
-				<4 0 159>,
+				<4 4 159>,
 				<4 0 1>;
 		};
 
@@ -5754,8 +5754,8 @@
 			<1>, /*MTK_DRM_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ*/
 			<0>, /*MTK_DRM_OPT_MET_LOG*/
 			<1>, /*MTK_DRM_OPT_USE_PQ*/
-			<1>, /*MTK_DRM_OPT_ESD_CHECK_RECOVERY*/
-			<1>, /*MTK_DRM_OPT_ESD_CHECK_SWITCH*/
+			<0>, /*MTK_DRM_OPT_ESD_CHECK_RECOVERY*/
+			<0>, /*MTK_DRM_OPT_ESD_CHECK_SWITCH*/
 			<1>, /*MTK_DRM_OPT_PRESENT_FENCE*/
 			<1>, /*MTK_DRM_OPT_RDMA_UNDERFLOW_AEE*/
 			<1>, /*MTK_DRM_OPT_DSI_UNDERRUN_AEE*/

@@ -213,7 +213,7 @@ struct charger_ops {
 	int (*enable_hz)(struct charger_device *dev, bool en);
 	int (*set_vac_ovp)(struct charger_device *dev, u32 uV);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	/* ALPS09479827 Charger: add charger class APIs of MT6360 for factory */
 	int (*get_vsys_adc)(struct charger_device *dev, u32 *vsys);
 	int (*set_eoc_timer)(struct charger_device *dev, unsigned int mins);
@@ -457,7 +457,7 @@ extern int unregister_charger_device_notifier(
 extern int charger_dev_notify(
 	struct charger_device *charger_dev, int event);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 extern int charger_dev_get_vsys(
 	struct charger_device *charger_dev, u32 *vsys);
 

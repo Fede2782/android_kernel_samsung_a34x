@@ -79,6 +79,22 @@ config SECURITY_DEFEX_IMR_PERMISSIVE
 	  This lets defex to know whether device supports Immutble root permissive mode or not.
 	  If you are unsure how to answer this question, answer N.
 
+config SECURITY_DEFEX_IMR_V2
+	bool "Immutable root v2"
+	depends on SECURITY_DEFEX
+	default n
+	help
+	  This lets defex to know whether device supports Immutable root v2 or not.
+	  If you are unsure how to answer this question, answer N.
+
+config SECURITY_DEFEX_IMR_V2_PERMISSIVE
+	bool "Immutable root v2 permissive"
+	depends on SECURITY_DEFEX
+	default n
+	help
+	  This lets defex to know whether device supports Immutable root v2 permissive mode or not.
+	  If you are unsure how to answer this question, answer N.
+
 config SECURITY_DEFEX_SEC_FACTORY
 	bool "Factory build"
 	depends on SECURITY_DEFEX

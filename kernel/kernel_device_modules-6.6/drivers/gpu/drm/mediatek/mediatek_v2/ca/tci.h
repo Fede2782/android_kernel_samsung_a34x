@@ -8,7 +8,11 @@
 typedef uint32_t tciCommandId_t;
 typedef uint32_t tciResponseId_t;
 typedef uint32_t tciReturnCode_t;
+#ifdef HDCP_TEE_TYPE_TEEGRIS
+typedef uint64_t TEE_VA_TYPE;
+#else
 typedef uint32_t TEE_VA_TYPE;
+#endif
 
 #define RET_COMPARE_PASS 0
 #define RET_COMPARE_FAIL 1

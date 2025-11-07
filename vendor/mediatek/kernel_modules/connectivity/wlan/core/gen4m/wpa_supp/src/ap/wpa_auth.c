@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -633,7 +633,7 @@ wpa_auth_sta_init(struct wpa_authenticator *wpa_auth, const u8 *addr,
 	if (wpa_auth->group->wpa_group_state == WPA_GROUP_FATAL_FAILURE)
 		return NULL;
 
-#if (CFG_SUPPORT_NAN == 1)
+#ifdef CFG_SUPPORT_NAN
 	/*sm = &g_arNanWpaAuthSm[wpa_auth->u1NdpIdx];*/
 	sm = ((struct _NAN_NDP_INSTANCE_T *)(wpa_auth->pvNdp))
 		     ->prInitiatorSecSmInfo;
@@ -1572,7 +1572,7 @@ wpa_send_eapol(struct wpa_authenticator *wpa_auth, struct wpa_state_machine *sm,
 	if (sm == NULL)
 		return;
 
-#if (CFG_SUPPORT_NAN == 1)
+#ifdef CFG_SUPPORT_NAN
 	nan_sec_wpa_send_eapol(wpa_auth, sm, key_info, key_rsc, nonce, kde,
 			       kde_len, keyidx, encr, 0);
 #else
@@ -1607,9 +1607,7 @@ wpa_verify_key_mic(int akmp, struct wpa_ptk *PTK, u8 *data, size_t data_len) {
 	int ret = 0;
 	u8 mic[WPA_EAPOL_KEY_MIC_MAX_LEN];
 	size_t mic_len = wpa_mic_len(akmp);
-#if (CFG_SUPPORT_NAN == 1)
 	u32 cipher;
-#endif
 
 	if (data_len < sizeof(*hdr) + sizeof(*key)) {
 		wpa_printf(
@@ -1848,10 +1846,8 @@ SM_STATE(WPA_PTK, AUTHENTICATION2) {
 	}
 	wpa_hexdump(MSG_DEBUG, "WPA: Assign ANonce", sm->ANonce, WPA_NONCE_LEN);
 
-#if (CFG_SUPPORT_NAN == 1)
 #if (ENABLE_SEC_UT_LOG == 1)
 	dumpMemory8(sm->ANonce, WPA_NONCE_LEN);
-#endif
 #endif
 	/* IEEE 802.11i does not clear TimeoutCtr here, but this is more
 	 * logical place than INITIALIZE since AUTHENTICATION2 can be
@@ -1962,7 +1958,7 @@ SM_STATE(WPA_PTK, PTKSTART) {
 		}
 	}
 
-#if (CFG_SUPPORT_NAN == 1)
+#ifdef CFG_SUPPORT_NAN
 	sm->u1CurMsg = NAN_SEC_M1;
 #endif
 
@@ -1974,8 +1970,11 @@ SM_STATE(WPA_PTK, PTKSTART) {
 static int
 wpa_derive_ptk(struct wpa_state_machine *sm, const u8 *snonce, const u8 *pmk,
 	       struct wpa_ptk *ptk) {
+	/*return wpa_pmk_to_ptk(pmk, PMK_LEN, "Pairwise key expansion",
+	*		sm->wpa_auth->addr, sm->addr, sm->ANonce, snonce,
+	*		ptk, sm->wpa_key_mgmt, sm->pairwise);
+	*/
 
-#if (CFG_SUPPORT_NAN == 1)
 	wpa_printf(MSG_INFO, "[%s] Enter\n", __func__);
 
 	wpa_printf(MSG_INFO, "[%s] initiator_addr: " MACSTR "\n", __func__,
@@ -2001,11 +2000,6 @@ wpa_derive_ptk(struct wpa_state_machine *sm, const u8 *snonce, const u8 *pmk,
 				      sm->wpa_auth->addr, sm->addr, sm->ANonce,
 				      snonce, ptk, WPA_KEY_MGMT_PSK_SHA256,
 				      NAN_CIPHER_SUITE_ID_NCS_SK_CCM_128);
-#else /* CFG_SUPPORT_NAN */
-	return wpa_pmk_to_ptk(pmk, PMK_LEN, "Pairwise key expansion",
-		sm->wpa_auth->addr, sm->addr, sm->ANonce, snonce,
-		ptk, sm->wpa_key_mgmt, sm->pairwise);
-#endif /* CFG_SUPPORT_NAN */
 }
 
 extern int nan_sec_wpa_verify_key_mic(int akmp, struct wpa_ptk *PTK, u8 *data,
@@ -2028,12 +2022,11 @@ SM_STATE(WPA_PTK, PTKCALCNEGOTIATING) {
 	/*for (;;) {    //Coverity:loop inc unreachable*/
 	while (1) {
 		if (wpa_key_mgmt_wpa_psk(sm->wpa_key_mgmt)) {
-#if (CFG_SUPPORT_NAN == 1)
-			pmk = sm->au1Psk;
-#else /* CFG_SUPPORT_NAN */
+#ifdef NAN_UNUSED
 			pmk = wpa_auth_get_psk(sm->wpa_auth, sm->addr,
 					       sm->p2p_dev_addr, pmk);
-#endif /* CFG_SUPPORT_NAN */
+#endif
+			pmk = sm->au1Psk;
 			if (pmk == NULL)
 				break;
 			psk_found = 1;
@@ -2277,7 +2270,7 @@ SM_STATE(WPA_PTK, PTKINITNEGOTIATING) {
 /*TODO_CJ: KDE for NAN*/
 #endif
 
-#if (CFG_SUPPORT_NAN == 1)
+#ifdef CFG_SUPPORT_NAN
 	sm->u1CurMsg = NAN_SEC_M3;
 #endif
 	wpa_send_eapol(sm->wpa_auth, sm,

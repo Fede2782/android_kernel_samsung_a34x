@@ -58,9 +58,6 @@
 #define QCA_NL80211_VENDOR_SUBCMD_SETBAND 105
 #define QCA_NL80211_VENDOR_SUBCMD_P2P_LISTEN_OFFLOAD_START 122
 #define QCA_NL80211_VENDOR_SUBCMD_P2P_LISTEN_OFFLOAD_STOP 123
-#define QCA_NL80211_VENDOR_SUBCMD_PASN 215
-#define QCA_NL80211_VENDOR_SUBCMD_SECURE_RANGING_CONTEXT 216
-#define QCA_NL80211_VENDOR_SUBCMD_CONNECT_EXT 250
 /* End of QCA-OUI subcmds */
 
 #define NL80211_VENDOR_SUBCMD_GET_APF_CAPABILITIES 14
@@ -91,26 +88,6 @@ enum NL80211_VENDOR_FEATURES {
 	VENDOR_FEATURE_OCE_STA                 = 4,
 	VENDOR_FEATURE_OCE_AP                  = 5,
 	VENDOR_FEATURE_OCE_STA_CFON            = 6,
-	VENDOR_FEATURE_SELF_MANAGED_REGULATORY = 7,
-	VENDOR_FEATURE_TWT			= 8,
-	VENDOR_FEATURE_11AX			= 9,
-	VENDOR_FEATURE_6GHZ_SUPPORT		= 10,
-	VENDOR_FEATURE_THERMAL_CONFIG		= 11,
-	VENDOR_FEATURE_ADAPTIVE_11R		= 12,
-	VENDOR_FEATURE_CONCURRENT_BAND_SESSIONS = 13,
-	VENDOR_FEATURE_TWT_ASYNC_SUPPORT	= 14,
-	VENDOR_FEATURE_USE_ADD_DEL_VIRTUAL_INTF_FOR_NDI = 15,
-	VENDOR_FEATURE_SECURE_LTF_STA		= 16,
-	VENDOR_FEATURE_SECURE_LTF_AP		= 17,
-	VENDOR_FEATURE_SECURE_RTT_STA		= 18,
-	VENDOR_FEATURE_SECURE_RTT_AP		= 19,
-	VENDOR_FEATURE_PROT_RANGE_NEGO_AND_MEASURE_STA = 20,
-	VENDOR_FEATURE_PROT_RANGE_NEGO_AND_MEASURE_AP = 21,
-	VENDOR_FEATURE_AP_ALLOWED_FREQ_LIST = 22,
-	VENDOR_FEATURE_ENHANCED_AUDIO_EXPERIENCE_OVER_WLAN = 23,
-	VENDOR_FEATURE_HT_VHT_TWT_RESPONDER = 24,
-	VENDOR_FEATURE_RSN_OVERRIDE_STA = 25,
-	VENDOR_FEATURE_NAN_USD_OFFLOAD = 26,
 	NUM_VENDOR_FEATURES /* keep last */
 };
 
@@ -214,10 +191,13 @@ enum MTK_WIFI_VENDOR_SUB_COMMAND {
 	MTK_SUBCMD_GET_USABLE_CHANNEL = 82,
 	MTK_SUBCMD_GET_CHIP_CAPABILITIES = 83,
 	MTK_SUBCMD_GET_CHIP_CONCURRENCY_MATRIX = 84,
-#if CFG_SUPPORT_WIFI_ADJUST_DTIM
-	MTK_SUBCMD_SET_CHIP_DTIM_PERIOD = 85,
-#endif
 	MTK_SUBCMD_NAN_EXT = 92,
+#if CFG_SUPPORT_NAN_R4_PAIRING
+	MTK_SUBCMD_NAN_PASN = 95,
+	MTK_SUBCMD_NAN_PASN_RSP = 96,
+	MTK_SUBCMD_NAN_PASN_SETKEY = 97,
+#endif /* CFG_SUPPORT_NAN_R4_PAIRING */
+
 
 	MTK_SUBCMD_STRING_CMD = 0x2454,
 };
@@ -227,15 +207,25 @@ enum WIFI_VENDOR_EVENT {
 	GSCAN_EVENT_HOTLIST_RESULTS_FOUND = 1,
 	GSCAN_EVENT_SCAN_RESULTS_AVAILABLE = 2,
 	GSCAN_EVENT_FULL_SCAN_RESULTS = 3,
+#if CFG_SUPPORT_RTT
 	RTT_EVENT_COMPLETE = 4,
+#endif
 	GSCAN_EVENT_COMPLETE_SCAN = 5,
 	GSCAN_EVENT_HOTLIST_RESULTS_LOST = 6,
 	WIFI_EVENT_RSSI_MONITOR = 7,
+#if CFG_SUPPORT_DATA_STALL
 	WIFI_EVENT_DRIVER_ERROR = 8,
+#endif
+#if CFG_AUTO_CHANNEL_SEL_SUPPORT
 	WIFI_EVENT_ACS = 9,
+#endif
 	WIFI_EVENT_GENERIC_RESPONSE = 10,
+#if CFG_SUPPORT_BIGDATA_PIP
 	WIFI_EVENT_BIGDATA_PIP = 11,
+#endif
+#if CFG_SUPPORT_DBDC
 	WIFI_EVENT_OP_MODE_CHANGE = 12,
+#endif
 	WIFI_EVENT_DFS_OFFLOAD_CAC_STARTED = 13,
 	WIFI_EVENT_DFS_OFFLOAD_CAC_FINISHED = 14,
 	WIFI_EVENT_DFS_OFFLOAD_CAC_ABORTED = 15,
@@ -247,11 +237,13 @@ enum WIFI_VENDOR_EVENT {
 	WIFI_EVENT_SUBCMD_CSI = 21,
 	WIFI_EVENT_P2P_LISTEN_OFFLOAD = 22,
 	WIFI_EVENT_SUBCMD_GET_CHIP_CAPABILITIES = 23,
-	WIFI_EVENT_PASN = 24,
-	WIFI_EVENT_SUBCMD_NAN_EXT = 25,
+	WIFI_EVENT_SUBCMD_NAN_EXT = 24,
 #if CFG_SUPPORT_LOGGER
 	WIFI_EVENT_RING_EVENT = 26,
 #endif
+#if CFG_SUPPORT_NAN_R4_PAIRING
+	WIFI_EVENT_SUBCMD_NAN_PASN = 27,
+#endif /* CFG_SUPPORT_NAN_R4_PAIRING */
 	/* Always add at the end.*/
 };
 
@@ -267,10 +259,10 @@ enum WIFI_ATTRIBUTE {
 	WIFI_ATTRIBUTE_COUNTRY_CODE,
 
 	WIFI_ATTRIBUTE_ROAMING_CAPABILITIES,
-	WIFI_ATTRIBUTE_ROAMING_BLOCKLIST_NUM,
-	WIFI_ATTRIBUTE_ROAMING_BLOCKLIST_BSSID,
-	WIFI_ATTRIBUTE_ROAMING_ALLOWLIST_NUM,
-	WIFI_ATTRIBUTE_ROAMING_ALLOWLIST_SSID,
+	WIFI_ATTRIBUTE_ROAMING_BLACKLIST_NUM,
+	WIFI_ATTRIBUTE_ROAMING_BLACKLIST_BSSID,
+	WIFI_ATTRIBUTE_ROAMING_WHITELIST_NUM,
+	WIFI_ATTRIBUTE_ROAMING_WHITELIST_SSID,
 	WIFI_ATTRIBUTE_ROAMING_STATE,
 	WIFI_ATTRIBUTE_TX_POWER_SCENARIO,
 	WIFI_ATTRIBUTE_CONCURRENCY_MATRIX,
@@ -401,12 +393,9 @@ enum WIFI_MKEEP_ALIVE_ATTRIBUTE {
 	MKEEP_ALIVE_ATTRIBUTE_MAX
 };
 
-#if (CFG_SUPPORT_APFV6 == 1)
-#define APF_VERSION		6000
-#define APF_MAX_PROGRAM_LEN	(CFG_APF_BUFF_LEN)
-#elif (CFG_SUPPORT_APF == 1)
-#define APF_VERSION             4
-#define APF_MAX_PROGRAM_LEN     2048
+#if (CFG_SUPPORT_APF == 1)
+#define APF_VERSION		4
+#define APF_MAX_PROGRAM_LEN	2048
 #else
 #define APF_VERSION		0
 #define APF_MAX_PROGRAM_LEN	0
@@ -431,7 +420,7 @@ enum QCA_SET_BAND {
 
 enum QCA_ATTR_ROAM_SUBCMD {
 	QCA_ATTR_ROAM_SUBCMD_INVALID = 0,
-	QCA_ATTR_ROAM_SUBCMD_SET_BLOCKLIST_BSSID = 6,
+	QCA_ATTR_ROAM_SUBCMD_SET_BLACKLIST_BSSID = 6,
 
 	/* keep last */
 	QCA_ATTR_ROAM_SUBCMD_AFTER_LAST,
@@ -445,7 +434,7 @@ enum QCA_ATTR_ROAMING_PARAMS {
 	QCA_ATTR_ROAMING_SUBCMD = 1,
 	QCA_ATTR_ROAMING_REQ_ID = 2,
 
-	/* Attribute for set_blocklist bssid params */
+	/* Attribute for set_blacklist bssid params */
 	QCA_ATTR_ROAMING_PARAM_SET_BSSID_PARAMS = 18,
 	QCA_ATTR_ROAMING_PARAM_SET_BSSID_PARAMS_NUM_BSSID = 19,
 	QCA_ATTR_ROAMING_PARAM_SET_BSSID_PARAMS_BSSID = 20,
@@ -509,76 +498,6 @@ enum QCA_WLAN_VENDOR_ATTR_P2P_LISTEN_OFFLOAD {
 	QCA_WLAN_VENDOR_ATTR_P2P_LO_AFTER_LAST - 1
 };
 
-/* PASN */
-enum QCA_WLAN_VENDOR_PASN_ACTION {
-	QCA_WLAN_VENDOR_PASN_ACTION_AUTH,
-	QCA_WLAN_VENDOR_PASN_ACTION_DELETE_SECURE_RANGING_CONTEXT,
-};
-
-enum QCA_WLAN_VENDOR_ATTR_PASN_PEER {
-	QCA_WLAN_VENDOR_ATTR_PASN_PEER_INVALID = 0,
-	QCA_WLAN_VENDOR_ATTR_PASN_PEER_SRC_ADDR = 1,
-	QCA_WLAN_VENDOR_ATTR_PASN_PEER_MAC_ADDR = 2,
-	QCA_WLAN_VENDOR_ATTR_PASN_PEER_LTF_KEYSEED_REQUIRED = 3,
-	QCA_WLAN_VENDOR_ATTR_PASN_PEER_STATUS_SUCCESS = 4,
-
-	/* keep last */
-	QCA_WLAN_VENDOR_ATTR_PASN_PEER_AFTER_LAST,
-	QCA_WLAN_VENDOR_ATTR_PASN_PEER_MAX =
-	QCA_WLAN_VENDOR_ATTR_PASN_PEER_AFTER_LAST - 1,
-};
-
-enum QCA_WLAN_VENDOR_ATTR_PASN {
-	QCA_WLAN_VENDOR_ATTR_PASN_INVALID = 0,
-	QCA_WLAN_VENDOR_ATTR_PASN_ACTION = 1,
-	QCA_WLAN_VENDOR_ATTR_PASN_PEERS = 2,
-
-	/* keep last */
-	QCA_WLAN_VENDOR_ATTR_PASN_AFTER_LAST,
-	QCA_WLAN_VENDOR_ATTR_PASN_MAX =
-	QCA_WLAN_VENDOR_ATTR_PASN_AFTER_LAST - 1,
-};
-
-enum QCA_WLAN_VENDOR_SECURE_RANGING_CTX_ACTION {
-	QCA_WLAN_VENDOR_SECURE_RANGING_CTX_ACTION_ADD,
-	QCA_WLAN_VENDOR_SECURE_RANGING_CTX_ACTION_DELETE,
-};
-
-enum QCA_WLAN_VENDOR_SHA_TYPE {
-	QCA_WLAN_VENDOR_SHA_256,
-	QCA_WLAN_VENDOR_SHA_384,
-};
-
-enum QCA_WLAN_VENDOR_ATTR_SECYRE_RANGING_CTX {
-	QCA_WLAN_VENDOR_ATTR_SECURE_RANGING_CTX_INVALID = 0,
-	QCA_WLAN_VENDOR_ATTR_SECURE_RANGING_CTX_ACTION = 1,
-	QCA_WLAN_VENDOR_ATTR_SECURE_RANGING_CTX_SRC_ADDR = 2,
-	QCA_WLAN_VENDOR_ATTR_SECURE_RANGING_CTX_PEER_MAC_ADDR = 3,
-	QCA_WLAN_VENDOR_ATTR_SECURE_RANGING_CTX_SHA_TYPE = 4,
-	QCA_WLAN_VENDOR_ATTR_SECURE_RANGING_CTX_TK = 5,
-	QCA_WLAN_VENDOR_ATTR_SECURE_RANGING_CTX_CIPHER = 6,
-	QCA_WLAN_VENDOR_ATTR_SECURE_RANGING_CTX_LTF_KEYSEED = 7,
-
-	/* keep last */
-	QCA_WLAN_VENDOR_ATTR_SECURE_RANGING_CTX_AFTER_LAST,
-	QCA_WLAN_VENDOR_ATTR_SECURE_RANGING_CTX_MAX =
-	QCA_WLAN_VENDOR_ATTR_SECURE_RANGING_CTX_AFTER_LAST - 1,
-};
-
-enum QCA_WLAN_CONNECT_EXT_FEATURES {
-	QCA_CONNECT_EXT_FEATURE_RSNO	= 0,
-	NUM_QCA_CONNECT_EXT_FEATURES /* keep last */
-};
-
-enum QCA_WLAN_VENDOR_ATTR_CONNECT_EXT {
-	QCA_WLAN_VENDOR_ATTR_CONNECT_EXT_INVALID = 0,
-	QCA_WLAN_VENDOR_ATTR_CONNECT_EXT_FEATURES = 1,
-
-	QCA_WLAN_VENDOR_ATTR_CONNECT_EXT_AFTER_LAST,
-	QCA_WLAN_VENDOR_ATTR_CONNECT_EXT_MAX =
-	QCA_WLAN_VENDOR_ATTR_CONNECT_EXT_AFTER_LAST - 1,
-};
-
 enum WIFI_VENDOR_ATTR_ACS {
 	WIFI_VENDOR_ATTR_ACS_CHANNEL_INVALID = 0,
 	WIFI_VENDOR_ATTR_ACS_PRIMARY_CHANNEL = 1,
@@ -596,12 +515,11 @@ enum WIFI_VENDOR_ATTR_ACS {
 	WIFI_VENDOR_ATTR_ACS_SECONDARY_FREQUENCY = 13,
 	WIFI_VENDOR_ATTR_ACS_VHT_SEG0_CENTER_FREQUENCY = 14,
 	WIFI_VENDOR_ATTR_ACS_VHT_SEG1_CENTER_FREQUENCY = 15,
-	WIFI_VENDOR_ATTR_ACS_EDMG_ENABLED = 16,
-	WIFI_VENDOR_ATTR_ACS_EDMG_CHANNEL = 17,
-	WIFI_VENDOR_ATTR_ACS_PUNCTURE_BITMAP = 18,
-	WIFI_VENDOR_ATTR_ACS_EHT_ENABLED = 19,
-	WIFI_VENDOR_ATTR_ACS_LAST_SCAN_AGEOUT_TIME = 20,
-	WIFI_VENDOR_ATTR_ACS_LINK_ID = 21,
+	WIFI_VENDOR_ATTR_ACS_ACS_EDMG_ENABLED = 16,
+	WIFI_VENDOR_ATTR_ACS_ACS_EDMG_CHANNEL = 17,
+	WIFI_VENDOR_ATTR_ACS_ACS_PUNCTURE_BITMAP = 18,
+	WIFI_VENDOR_ATTR_ACS_ACS_EHT_ENABLED = 19,
+	WIFI_VENDOR_ATTR_ACS_ACS_LAST_SCAN_AGEOUT_TIME = 20,
 
 	/* keep last */
 	WIFI_VENDOR_ATTR_ACS_AFTER_LAST,
@@ -610,17 +528,42 @@ enum WIFI_VENDOR_ATTR_ACS {
 };
 #if CFG_SUPPORT_NAN
 enum WIFI_VENDOR_NAN {
+	MTK_WLAN_VENDOR_ATTR_INVALID = 0,
 	MTK_WLAN_VENDOR_ATTR_NAN = 2,
+#if CFG_SUPPORT_NAN_R4_PAIRING
+	MTK_WLAN_VENDOR_ATTR_NAN_PASN_STATE = 12,
+	MTK_WLAN_VENDOR_ATTR_NAN_PASN_M1_REQ_PARAM = 13,
+	MTK_WLAN_VENDOR_ATTR_NAN_PASN_M1_IND_PARAM = 14,
+	MTK_WLAN_VENDOR_ATTR_NAN_PASN_M2_REQ_PARAM = 15,
+	MTK_WLAN_VENDOR_ATTR_NAN_PASN_M2_IND_PARAM = 16,
+	MTK_WLAN_VENDOR_ATTR_NAN_PASN_M3_REQ_PARAM = 17,
+	MTK_WLAN_VENDOR_ATTR_NAN_PASN_M3_IND_PARAM = 18,
+	MTK_WLAN_VENDOR_ATTR_NAN_PASN_RAW_FRAME = 19,
+	MTK_WLAN_VENDOR_ATTR_NAN_PASN_SET_KEY = 20,
+#endif
+	/* keep last */
+	MTK_WLAN_VENDOR_ATTR_AFTER_LAST,
+	MTK_WLAN_VENDOR_ATTR_MAX = MTK_WLAN_VENDOR_ATTR_AFTER_LAST - 1,
+};
+
+#if CFG_SUPPORT_NAN_R4_PAIRING
+enum mtk_wlan_vendor_nl80211_attr_nan_pasn_state {
+	MTK_WLAN_VENDOR_ATTR_NAN_PASN_INITIATOR_START = 0,
+	MTK_WLAN_VENDOR_ATTR_NAN_PASN_RESPONDER_HANDLE_PASN_1,
+	MTK_WLAN_VENDOR_ATTR_NAN_PASN_INITIATOR_HANDLE_PASN_2,
+	MTK_WLAN_VENDOR_ATTR_NAN_PASN_RESPONDER_HANDLE_PASN_3,
+	MTK_WLAN_VENDOR_ATTR_NAN_PASN_STATE_INVALID = 99,
 };
 #endif
+#endif
 
-#if (CFG_EXT_FEATURE == 1)
-#define MAX_FW_ROAMING_BLOCKLIST_SIZE	0
-#define MAX_FW_ROAMING_ALLOWLIST_SIZE	0
-#else /* CFG_EXT_FEATURE == 1 */
-#define MAX_FW_ROAMING_BLOCKLIST_SIZE	16
-#define MAX_FW_ROAMING_ALLOWLIST_SIZE	8
-#endif /* CFG_EXT_FEATURE == 1 */
+#if (CFG_TC10_FEATURE == 1)
+#define MAX_FW_ROAMING_BLACKLIST_SIZE  0
+#define MAX_FW_ROAMING_WHITELIST_SIZE  0
+#else
+#define MAX_FW_ROAMING_BLACKLIST_SIZE  16
+#define MAX_FW_ROAMING_WHITELIST_SIZE  8
+#endif
 
 #if CFG_SUPPORT_DATA_STALL
 enum WIFI_DATA_STALL_ATTRIBUTE {
@@ -646,13 +589,6 @@ enum WIFI_SCAN_PARAMS_ATTRIBUTE {
 	WIFI_ATTR_SCAN_PASSIVE_N_CH_BACK,
 	WIFI_ATTR_SCAN_MAX
 };
-
-#if CFG_SUPPORT_WIFI_ADJUST_DTIM
-enum WIFI_SET_DTIM_PARAMS_ATTRIBUTE {
-	WIFI_ATTR_SET_DTIM_PARAMS = 1,
-	WIFI_ATTR_SET_DTIM_MAX
-};
-#endif
 
 #if CFG_SUPPORT_DBDC
 enum WIFI_OP_MODE_CHANGE_ATTRIBUTE {
@@ -706,6 +642,90 @@ enum WIFI_USABLE_CHANNEL_REQ_ATTRIBUTE {
 	WIFI_ATTRIBUTE_USABLE_CHANNEL_MAX
 };
 
+enum WIFI_LATENCY_MODE {
+	WIFI_LATENCY_MODE_SCAN_OFF = 0,
+	WIFI_LATENCY_MODE_SCAN_ON = 1
+};
+
+
+#define MAX_IFACE_COMBINATIONS 16
+#define MAX_IFACE_LIMITS 8
+
+struct wifi_iface_limit {
+	/* Max number of interfaces of same type */
+	uint32_t max_limit;
+
+	/* BIT mask of interfaces from wifi_interface_type */
+	uint32_t iface_mask;
+};
+
+struct wifi_iface_combination {
+	/* Maximum number of concurrent interfaces allowed in this
+	 * combination
+	 */
+	uint32_t max_ifaces;
+
+	/* Total number of interface limits in a combination */
+	uint32_t num_iface_limits;
+
+	/* Interface limits */
+	struct wifi_iface_limit iface_limits[MAX_IFACE_LIMITS];
+};
+
+struct wifi_iface_concurrency_matrix {
+	/* Total count of possible iface combinations */
+	uint32_t num_iface_combinations;
+
+	/* Interface combinations */
+	struct wifi_iface_combination iface_combinations[
+		MAX_IFACE_COMBINATIONS];
+};
+
+struct mtk_wifi_iface_combination {
+	/* Maximum number of concurrent interfaces allowed in this
+	 * combination
+	 */
+	uint32_t max_ifaces;
+
+	/* Total number of interface limits in a combination */
+	uint32_t num_iface_limits;
+
+	/* Interface limits */
+	struct wifi_iface_limit *iface_limits;
+};
+
+struct mtk_wifi_iface_concurrency_matrix {
+	/* Total count of possible iface combinations */
+	uint32_t num_iface_combinations;
+
+	/* Interface combinations */
+	struct mtk_wifi_iface_combination *iface_combinations;
+};
+
+enum wifi_interface_type {
+	WIFI_INTERFACE_TYPE_STA        = 0,
+	WIFI_INTERFACE_TYPE_AP         = 1,
+	WIFI_INTERFACE_TYPE_P2P        = 2,
+	WIFI_INTERFACE_TYPE_NAN        = 3,
+	WIFI_INTERFACE_TYPE_AP_BRIDGED = 4,
+};
+
+enum reg_change_initiator {
+	REGDOM_SET_BY_CORE,
+	REGDOM_SET_BY_USER,
+	REGDOM_SET_BY_DRIVER,
+	REGDOM_SET_BY_COUNTRY_IE,
+	REGDOM_BEACON_HINT,
+};
+
+enum reg_type {
+	REGDOM_TYPE_UNKNOWN,
+	REGDOM_TYPE_COUNTRY,
+	REGDOM_TYPE_WORLD,
+	REGDOM_TYPE_CUSTOM_WORLD,
+	REGDOM_TYPE_INTERSECTION,
+};
+
 /*******************************************************************************
  *                             D A T A   T Y P E S
  *******************************************************************************
@@ -717,10 +737,6 @@ enum WIFI_USABLE_CHANNEL_REQ_ATTRIBUTE {
  */
 extern const struct nla_policy mtk_scan_param_policy[
 		WIFI_ATTR_SCAN_MAX + 1];
-#if CFG_SUPPORT_WIFI_ADJUST_DTIM
-extern const struct nla_policy mtk_set_dtim_param_policy[
-		WIFI_ATTR_SET_DTIM_MAX + 1];
-#endif
 extern const struct nla_policy nla_parse_wifi_multista[
 		MULTISTA_ATTRIBUTE_MAX + 1];
 extern const struct nla_policy nla_parse_wifi_rssi_monitor[
@@ -754,12 +770,6 @@ extern const struct nla_policy nla_get_apf_policy[
 
 extern const struct nla_policy nla_set_rtt_config_policy[
 		RTT_ATTRIBUTE_TARGET_BW + 1];
-extern const  struct nla_policy nla_pasn_policy[
-		QCA_WLAN_VENDOR_ATTR_PASN_MAX + 1];
-extern const struct nla_policy nla_pasn_peer_policy[
-		QCA_WLAN_VENDOR_ATTR_PASN_PEER_MAX + 1];
-extern const struct nla_policy nla_secure_ranging_ctx_policy[
-		QCA_WLAN_VENDOR_ATTR_SECURE_RANGING_CTX_MAX + 1];
 
 #if CFG_SUPPORT_CSI
 extern const struct nla_policy nla_get_csi_policy[
@@ -777,9 +787,6 @@ extern const struct nla_policy nla_trx_stats_policy[
 
 extern const struct nla_policy mtk_usable_channel_policy[
 	WIFI_ATTRIBUTE_USABLE_CHANNEL_MAX + 1];
-
-extern const struct nla_policy nla_connect_ext_policy[
-	QCA_WLAN_VENDOR_ATTR_CONNECT_EXT_MAX + 1];
 
 enum WIFIBAND {
 	WIFIBAND_BAND_24GHZ = 1 << 0,
@@ -828,6 +835,12 @@ enum UsableChannelFilter {
 	NAN_INSTANT_MODE = (1 << 2) /* 4 */,
 };
 
+#if CFG_SUPPORT_NAN_R4_PAIRING
+extern const struct nla_policy nla_pasn_rsp_policy[
+	MTK_WLAN_VENDOR_ATTR_MAX + 1];
+extern const struct nla_policy nla_pasn_setkey_policy[
+	MTK_WLAN_VENDOR_ATTR_MAX + 1];
+#endif /* CFG_SUPPORT_NAN_R4_PAIRING */
 /*******************************************************************************
  *                           MACROS
  *******************************************************************************
@@ -1409,6 +1422,20 @@ struct WIFI_RADIO_CHANNEL_STAT {
 	struct STATS_LLS_CHANNEL_STAT channel[STATS_LLS_CH_NUM];
 };
 
+/* IFACE_NUM as BSSID_NUM to retrived statistics by interface; or sum up else */
+#if (CFG_SUPPORT_CONNAC3X == 1)
+#define IFACE_NUM BSSID_NUM
+#else
+#define IFACE_NUM 1
+#endif
+
+/* Structure of FW reported data */
+struct HAL_LLS_FW_REPORT {
+	struct STATS_LLS_WIFI_IFACE_STAT iface[IFACE_NUM];
+	struct PEER_INFO_RATE_STAT peer_info[CFG_STA_REC_NUM];
+	struct WIFI_RADIO_CHANNEL_STAT radio[ENUM_BAND_NUM];
+};
+
 /* Buffer to hold collected data from FW reported EMI address */
 struct HAL_LLS_FULL_REPORT {
 	struct STATS_LLS_WIFI_IFACE_STAT iface;
@@ -1530,14 +1557,20 @@ enum PARAM_GENERIC_RESPONSE_ID {
 	GRID_SWPIS_CONNECTIVITY_LOG = 5,
 	GRID_MANAGE_FREQ_LIST = 6,
 	GRID_RESET_FT_PROCESS = 7,
-	GRID_ROAMING_REPORT = 8,
-	GRID_TWT_NEGOTIATION = 9,
-	GRID_TWT_TEARDOWN = 10,
-	GRID_TWT_NOTIFICATION = 11,
-	GRID_SCHED_TEARDOWN = 12,
-	GRID_SCHED_LEAKYAP = 13,
+	GRID_TWT_NEGOTIATION = 8,
+	GRID_TWT_TEARDOWN = 9,
+	GRID_TWT_NOTIFICATION = 10,
+	GRID_SCHED_TEARDOWN = 11,
+	GRID_SCHED_LEAKYAP = 12,
+	GRID_DELAYED_WAKEUP = 13,
 	GRID_ML_CHNL_COND_REPORT = 14,
-	GRID_DELAYED_WAKEUP = 15,
+	GRID_ROAMING_REPORT = 15,
+	GRID_UPDATE_CHANNEL_LIST = 16,
+};
+
+struct PARAM_RESET_FT {
+	uint8_t id;
+	uint8_t len;
 };
 
 struct PARAM_EXTERNAL_AUTH_INFO {
@@ -1552,6 +1585,23 @@ struct PARAM_EXTERNAL_AUTH_INFO {
 	uint8_t own_ml_addr[PARAM_MAC_ADDR_LEN];
 	uint8_t peer_ml_addr[PARAM_MAC_ADDR_LEN];
 } __KAL_ATTRIB_PACKED__;
+
+#if (CFG_SUPPORT_802_11BE_MLO == 1)
+struct ML_CHNL_COND_INFO {
+	uint8_t ucLinkId;
+	uint8_t ucP20Cnt;
+	int8_t cRssi;
+	uint8_t ucReserved;
+	uint32_t au4ccaRatio[ML_CHNL_COND_MAX_P20_NUM];
+} __KAL_ATTRIB_PACKED__;
+
+struct PARAM_ML_CHNL_COND_REPORT {
+	uint8_t id;
+	uint8_t len;
+	uint8_t link_num;
+	struct ML_CHNL_COND_INFO mlChnlInfo[MLD_LINK_MAX];
+} __KAL_ATTRIB_PACKED__;
+#endif
 
 struct PARAM_ROAMING_REPORT {
 	uint8_t id;
@@ -1570,22 +1620,21 @@ struct PARAM_ROAMING_REPORT {
 	uint8_t disconnect;
 } __KAL_ATTRIB_PACKED__;
 
-#if (CFG_SUPPORT_ML_CHNL_CONDITION == 1)
-struct ML_CHNL_COND_INFO {
-	uint8_t ucLinkId;
-	uint8_t ucP20Cnt;
-	int8_t cRssi;
-	uint8_t ucReserved;
-	uint32_t au4ccaRatio[ML_CHNL_COND_MAX_P20_NUM];
-} __KAL_ATTRIB_PACKED__;
-
-struct PARAM_ML_CHNL_COND_REPORT {
+struct PARAM_CHANNEL_LIST_CHANGED {
 	uint8_t id;
 	uint8_t len;
-	uint8_t link_num;
-	struct ML_CHNL_COND_INFO mlChnlInfo[MLD_LINK_MAX];
+	enum reg_change_initiator initiator;
+	enum reg_type type;
+	uint8_t alpha2[3];
+	struct frequency_attrs {
+		uint32_t freq;
+		uint32_t max_tx_power;
+		u_int8_t disabled;
+		u_int8_t no_ir;
+		u_int8_t radar;
+	} beacon_hint_before, beacon_hint_after;
 } __KAL_ATTRIB_PACKED__;
-#endif /* CFG_SUPPORT_ML_CHNL_CONDITION */
+
 /*******************************************************************************
  *                                 M A C R O S
  *******************************************************************************
@@ -1655,18 +1704,6 @@ int mtk_cfg80211_vendor_set_rtt_config(
 int mtk_cfg80211_vendor_cancel_rtt_config(
 	struct wiphy *wiphy, struct wireless_dev *wdev,
 	const void *data, int data_len);
-
-#if CFG_SUPPORT_LLS
-uint8_t isValidRate(struct STATS_LLS_RATE_STAT *rate_stats,
-	uint32_t ofdm_idx, uint32_t cck_idx);
-
-uint32_t receivedMpduCount(struct STA_RECORD *sta_rec,
-		struct STATS_LLS_RATE_STAT *rate_stats,
-		uint32_t ofdm_idx, uint32_t cck_idx);
-
-struct STA_RECORD *find_peer_starec(struct ADAPTER *prAdapter,
-		struct STATS_LLS_PEER_INFO *peer_info);
-#endif
 
 int mtk_cfg80211_vendor_llstats_get_info(struct wiphy
 		*wiphy, struct wireless_dev *wdev,
@@ -1805,11 +1842,6 @@ int mtk_cfg80211_vendor_driver_memory_dump(struct wiphy *wiphy,
 int mtk_cfg80211_vendor_set_scan_param(struct wiphy *wiphy,
 		struct wireless_dev *wdev, const void *data, int data_len);
 
-#if CFG_SUPPORT_WIFI_ADJUST_DTIM
-int mtk_cfg80211_vendor_set_dtim_param(struct wiphy *wiphy,
-		struct wireless_dev *wdev, const void *data, int data_len);
-#endif
-
 int mtk_cfg80211_vendor_string_cmd(struct wiphy *wiphy,
 	struct wireless_dev *wdev, const void *data, int data_len);
 
@@ -1836,7 +1868,7 @@ int mtk_cfg80211_vendor_comb_matrix(
 	const void *data, int data_len);
 
 int mtk_cfg80211_vendor_event_reset_triggered(
-	struct GLUE_INFO *prGlueInfo, uint32_t data);
+	uint32_t data);
 
 #if CFG_SUPPORT_CSI
 int mtk_cfg80211_vendor_csi_control(
@@ -1847,26 +1879,7 @@ int mtk_cfg80211_vendor_event_csi_raw_data(
 	struct ADAPTER *prAdapter);
 #endif
 
-#if CFG_SUPPORT_PASN
-int mtk_cfg80211_vendor_pasn(
-	struct wiphy *wiphy,
-	struct wireless_dev *wdev,
-	const void *data,
-	int data_len);
-
-int mtk_cfg80211_vendor_secure_ranging_ctx(
-	struct wiphy *wiphy,
-	struct wireless_dev *wdev,
-	const void *data,
-	int data_len);
-#endif
-
 int mtk_cfg80211_vendor_get_usable_channel(
 	struct wiphy *wiphy, struct wireless_dev *wdev,
 	const void *data, int data_len);
-
-int mtk_cfg80211_vendor_connect_ext(
-	struct wiphy *wiphy, struct wireless_dev *wdev,
-	const void *data, int data_len);
-
 #endif /* _GL_VENDOR_H */

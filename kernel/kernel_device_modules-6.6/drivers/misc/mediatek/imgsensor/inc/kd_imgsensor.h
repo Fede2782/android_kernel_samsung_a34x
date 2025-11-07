@@ -205,6 +205,8 @@
 #define OV23850_SENSOR_ID                       0x023850
 #define OV16880_SENSOR_ID                       0x016880
 #define OV16825MIPI_SENSOR_ID                   0x016820
+#define OV13A10_SENSOR_ID                       0x13A10
+#define OV13A10F_SENSOR_ID                      0x13A11
 #define OV13855_SENSOR_ID                       0xD855
 #define OV13850_SENSOR_ID                       0xD850
 #define OV12A10_SENSOR_ID                       0x1241
@@ -311,6 +313,9 @@
 #define S5KHM6_SENSOR_ID                        0x1AD6
 
 /*HI*/
+#define HI1337_SENSOR_ID                        0x1337
+#define HI1337F_SENSOR_ID                       0x1338
+#define HI1337FU_SENSOR_ID                      0x1339
 #define HI841_SENSOR_ID                         0x0841
 #define HI707_SENSOR_ID                         0x00b8
 #define HI704_SENSOR_ID                         0x0096
@@ -515,6 +520,8 @@
 #define SENSOR_DRVNAME_OV16880_MIPI_RAW         "ov16880_mipi_raw"
 #define SENSOR_DRVNAME_OV16885_MIPI_RAW         "ov16885_mipi_raw"
 #define SENSOR_DRVNAME_OV16825_MIPI_RAW         "ov16825_mipi_raw"
+#define SENSOR_DRVNAME_OV13A10_MIPI_RAW         "ov13a10_mipi_raw"
+#define SENSOR_DRVNAME_OV13A10F_MIPI_RAW        "ov13a10f_mipi_raw"
 #define SENSOR_DRVNAME_OV13855_MIPI_RAW         "ov13855_mipi_raw"
 #define SENSOR_DRVNAME_OV13870_MIPI_RAW         "ov13870_mipi_raw"
 #define SENSOR_DRVNAME_OV13855_MIPI_RAW         "ov13855_mipi_raw"
@@ -613,6 +620,9 @@
 #define SENSOR_DRVNAME_S5KHM6_MIPI_RAW          "s5khm6_mipi_raw"
 /*HI*/
 #define SENSOR_DRVNAME_HI841_MIPI_RAW           "hi841_mipi_raw"
+#define SENSOR_DRVNAME_HI1337_MIPI_RAW          "hi1337_mipi_raw"
+#define SENSOR_DRVNAME_HI1337F_MIPI_RAW         "hi1337f_mipi_raw"
+#define SENSOR_DRVNAME_HI1337FU_MIPI_RAW        "hi1337fu_mipi_raw"
 #define SENSOR_DRVNAME_HI707_YUV                "hi707_yuv"
 #define SENSOR_DRVNAME_HI704_YUV                "hi704_yuv"
 #define SENSOR_DRVNAME_HI556_MIPI_RAW           "hi556_mipi_raw"
@@ -751,5 +761,5 @@ void KD_IMGSENSOR_PROFILE_INIT_I2C(void);
 void KD_IMGSENSOR_PROFILE_I2C(char *tag, int trans_num);
 
 #define mDELAY(ms)       usleep_range(ms*1000, ms*1000)
-#define uDELAY(us)       udelay(us)
+#define uDELAY(us)       usleep_range(us, us)
 #endif              /* _KD_IMGSENSOR_H */

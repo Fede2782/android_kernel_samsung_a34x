@@ -122,13 +122,14 @@
  */
 /*---------------------------------------------------------------------------*/
 uint32_t
-wlanoidSendSetQueryP2PCmd(IN struct ADAPTER *prAdapter,
+__wlanoidSendSetQueryP2PCmd(IN struct ADAPTER *prAdapter,
 		IN uint8_t ucCID,
 		IN uint8_t ucBssIdx,
 		IN u_int8_t fgSetQuery,
 		IN u_int8_t fgNeedResp,
 		IN u_int8_t fgIsOid,
 		IN PFN_CMD_DONE_HANDLER pfCmdDoneHandler,
+		IN const char *pCmdDoneHandlerStr,
 		IN PFN_CMD_TIMEOUT_HANDLER pfCmdTimeoutHandler,
 		IN uint32_t u4SetQueryInfoLen,
 		IN uint8_t *pucInfoBuffer,
@@ -162,6 +163,7 @@ wlanoidSendSetQueryP2PCmd(IN struct ADAPTER *prAdapter,
 	prCmdInfo->u2InfoBufLen =
 		(uint16_t) (prChipInfo->u2CmdTxHdrSize + u4SetQueryInfoLen);
 	prCmdInfo->pfCmdDoneHandler = pfCmdDoneHandler;
+	prCmdInfo->pCmdDoneHandlerStr = pCmdDoneHandlerStr;
 	prCmdInfo->pfCmdTimeoutHandler = pfCmdTimeoutHandler;
 	prCmdInfo->fgIsOid = fgIsOid;
 	prCmdInfo->ucCID = ucCID;

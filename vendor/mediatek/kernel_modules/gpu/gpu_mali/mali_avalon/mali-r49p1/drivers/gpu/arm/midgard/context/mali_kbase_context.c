@@ -134,6 +134,8 @@ static int kbase_insert_kctx_to_process(struct kbase_context *kctx)
 		kctx->kprcs = kprcs;
 		kprcs->kbdev = kctx->kbdev;
 		kbase_csf_mem_compr_kobj_init(kctx);
+		atomic_set(&kctx->kprcs->term_processing, 0);
+		kctx->kprcs->store_count = 0;
 #endif
 	}
 
@@ -290,6 +292,9 @@ static void kbase_remove_kctx_from_process(struct kbase_context *kctx)
 	 * we can remove it from the process rb_tree.
 	 */
 	if (list_empty(&kprcs->kctx_list)) {
+#if IS_ENABLED(CONFIG_MALI_MEMORY_COMPRESSION)
+		atomic_set(&kprcs->term_processing, 1);
+#endif
 		rb_erase(&kprcs->kprcs_node, &kctx->kbdev->process_root);
 		/* Add checks, so that the terminating process Should not
 		 * hold any gpu_memory.
@@ -303,6 +308,7 @@ static void kbase_remove_kctx_from_process(struct kbase_context *kctx)
 		/*delete the per process kobj*/
 		kobject_del(&kprcs->kobj);
 		kobject_put(&kprcs->kobj);
+		atomic_set(&kprcs->term_processing, 0);
 #endif
 
 		kfree(kprcs);

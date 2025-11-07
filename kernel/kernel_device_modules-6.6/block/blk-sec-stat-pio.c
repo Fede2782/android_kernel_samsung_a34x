@@ -142,18 +142,19 @@ struct pio_node *get_pio_node(struct request *rq)
 
 	rcu_read_lock();
 	cg = task_cgroup(current, io_cgrp_id);
-	rcu_read_unlock();
 
 	spin_lock(&pio_list_lock);
 	pio = find_pio_node(task_tgid_nr(gleader), gleader->start_time, cg);
 	if (pio) {
 		atomic_inc(&pio->ref_count);
 		spin_unlock(&pio_list_lock);
-		return pio;
+	} else {
+		spin_unlock(&pio_list_lock);
+		pio = add_pio_node(rq, gleader, cg);
 	}
-	spin_unlock(&pio_list_lock);
+	rcu_read_unlock();
 
-	return add_pio_node(rq, gleader, cg);
+	return pio;
 }
 
 void update_pio_node(struct request *rq,

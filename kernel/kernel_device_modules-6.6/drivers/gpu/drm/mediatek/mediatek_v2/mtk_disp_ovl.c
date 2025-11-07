@@ -594,7 +594,7 @@ resource_size_t mtk_ovl_mmsys_mapping_MT6989(struct mtk_ddp_comp *comp)
 	}
 }
 
-unsigned int mtk_ovl_sys_mapping_MT6989(struct mtk_ddp_comp *comp)
+int mtk_ovl_sys_mapping_MT6989(struct mtk_ddp_comp *comp)
 {
 	switch (comp->id) {
 	case DDP_COMPONENT_OVL0_2L:
@@ -656,7 +656,7 @@ resource_size_t mtk_ovl_mmsys_mapping_MT6899(struct mtk_ddp_comp *comp)
 	}
 }
 
-unsigned int mtk_ovl_sys_mapping_MT6899(struct mtk_ddp_comp *comp)
+int mtk_ovl_sys_mapping_MT6899(struct mtk_ddp_comp *comp)
 {
 	switch (comp->id) {
 	case DDP_COMPONENT_OVL0_2L:

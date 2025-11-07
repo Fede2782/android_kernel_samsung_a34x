@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -153,7 +153,7 @@ int32_t emi_mem_init(struct mt66xx_chip_info *chip, void *dev)
 		break;
 	case EMI_ALLOC_TYPE_WMT:
 #if CFG_MTK_ANDROID_WMT
-#if CFG_SUPPORT_CONNAC1X
+#if IS_ENABLED(CFG_SUPPORT_CONNAC1X)
 		emi->pa = gConEmiPhyBase;
 		emi->size = gConEmiSize;
 #endif
@@ -185,16 +185,16 @@ int32_t emi_mem_init(struct mt66xx_chip_info *chip, void *dev)
 
 	if (emi_is_remap_type(emi->type)) {
 		struct resource *res;
-		emi->isReqMemRegSuccess = FALSE;
+
 		res = request_mem_region(emi->pa, emi->size, EMI_NAME);
 		if (!res) {
-			DBGLOG(HAL, WARN,
-				"request_mem_region failed, pa(%pa) size(0x%x) name(%s)\n",
-				&emi->pa,
+			DBGLOG(HAL, ERROR,
+				"request_mem_region failed, pa(0x%llx) size(0x%x) name(%s)\n",
+				(uint64_t)emi->pa,
 				emi->size,
 				EMI_NAME);
-		} else {
-			emi->isReqMemRegSuccess = TRUE;
+			ret = -EBUSY;
+			goto exit;
 		}
 		emi->va = ioremap(emi->pa, emi->size);
 	}
@@ -206,7 +206,7 @@ int32_t emi_mem_init(struct mt66xx_chip_info *chip, void *dev)
 	}
 #endif
 
-	DBGLOG(HAL, DEBUG, "type: %d, emi pa=0x%llx va=%p size=0x%x\n",
+	DBGLOG(HAL, INFO, "type: %d, emi pa=0x%llx va=%p size=0x%x\n",
 		emi->type,
 		(uint64_t)emi->pa,
 		emi->va,
@@ -227,7 +227,7 @@ void emi_mem_uninit(struct mt66xx_chip_info *chip, void *dev)
 	if (!emi->initialized)
 		return;
 
-	DBGLOG(HAL, DEBUG, "type: %d, emi pa=0x%llx va=%p size=0x%x\n",
+	DBGLOG(HAL, INFO, "type: %d, emi pa=0x%llx va=%p size=0x%x\n",
 		emi->type,
 		(uint64_t)emi->pa,
 		emi->va,
@@ -246,8 +246,7 @@ void emi_mem_uninit(struct mt66xx_chip_info *chip, void *dev)
 	default:
 		if (emi_is_remap_type(emi->type)) {
 			iounmap(emi->va);
-			if (emi->isReqMemRegSuccess)
-				release_mem_region(emi->pa, emi->size);
+			release_mem_region(emi->pa, emi->size);
 		}
 		break;
 	}

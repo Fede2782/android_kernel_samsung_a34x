@@ -17,8 +17,6 @@
 
 ssize_t five_getxattr_alloc(struct dentry *dentry, const char *name,
 			    char **xattr_value, size_t xattr_size, gfp_t flags);
-ssize_t five_vfs_read(struct file *file, char __user *buf,
-		      size_t count, loff_t *pos);
 int five_kernel_read(struct file *file, loff_t offset,
 			  void *addr, unsigned long count);
 int five_setxattr_noperm(struct dentry *dentry, const char *name,

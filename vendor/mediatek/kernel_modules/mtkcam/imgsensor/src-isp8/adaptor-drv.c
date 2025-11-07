@@ -17,6 +17,10 @@
 
 #include "kd_imgsensor_define_v4l2.h"
 #include "kd_imgsensor.h"
+#ifdef CONFIG_IMGSENSOR_SYSFS_V2
+#include "kd_imgsensor_sysfs_adapter_v2.h"
+#endif
+#include "kd_imgsensor_adaptive_mipi_v2.h"
 
 #include "adaptor.h"
 #include "adaptor-hw.h"
@@ -30,6 +34,8 @@
 #include "adaptor-sentest-ctrl.h"
 #include "imgsensor-glue/imgsensor-glue.h"
 #include "virt-sensor/virt-sensor-entry.h"
+
+#define USING_SEARCH_SENSOR_WTIH_FIXED_POSITION
 
 #undef E
 #define E(__x__) (__x__##_entry)
@@ -49,6 +55,7 @@ static struct subdrv_entry *imgsensor_subdrvs[] = {
 
 module_param(sensor_debug, uint, 0644);
 module_param(set_ctrl_unlock, uint, 0644);
+module_param(sensor_power_on_profile, uint, 0644);
 MODULE_PARM_DESC(sensor_debug, "imgsensor_debug");
 
 unsigned int gSensor_num;
@@ -1395,7 +1402,127 @@ void mtk_v4l2_ixc_subdev_init(struct v4l2_subdev *sd,
 	dev_set_drvdata(dev, sd);
 }
 
-static int search_sensor(struct adaptor_ctx *ctx)
+#ifdef USING_SEARCH_SENSOR_WTIH_FIXED_POSITION
+static int search_sensor_with_fixed_position(struct adaptor_ctx *ctx)
+{
+	int ret, i, j, of_sensor_names_cnt, subdrvs_cnt;
+	struct subdrv_entry **subdrvs, *subdrv;
+	struct subdrv_entry *of_subdrvs[OF_SENSOR_NAMES_MAXCNT];
+	const char *of_sensor_names[OF_SENSOR_NAMES_MAXCNT];
+
+	of_sensor_names_cnt = of_property_read_string_array(ctx->dev->of_node,
+		"sensor-names", of_sensor_names, ARRAY_SIZE(of_sensor_names));
+
+	if (of_sensor_names_cnt == 0) {
+		adaptor_logi(ctx,"[ERR] of_sensor_names_cnt is 0\n");
+		return -EIO;
+	}
+
+	subdrvs = of_subdrvs;
+	subdrvs_cnt = 0;
+
+	for (i = 0; i < of_sensor_names_cnt; i++) {
+		adaptor_logi(ctx, "sensor_name %s\n",
+			of_sensor_names[i]);
+		for (j = 0; j < ARRAY_SIZE(imgsensor_subdrvs); j++) {
+			subdrv = imgsensor_subdrvs[j];
+			if (!strcmp(subdrv->name,
+				of_sensor_names[i])) {
+				of_subdrvs[subdrvs_cnt++] = subdrv;
+				break;
+			}
+		}
+		if (j == ARRAY_SIZE(imgsensor_subdrvs)) {
+			adaptor_logd(ctx, "%s not found\n",
+				of_sensor_names[i]);
+		}
+	}
+
+	if (subdrvs_cnt > 1) {
+		for (i = 0; i < subdrvs_cnt; i++) {
+			u32 sensor_id = 0xffffffff;
+
+			ctx->subdrv = subdrvs[i];
+
+			if (ctx->subdrv == NULL) {
+				adaptor_loge(ctx, "ctx->subdrv == NULL");
+				continue;
+			}
+
+			ctx->subctx.i2c_client = ctx->i2c_client;
+			ctx->subctx.ixc_client = ctx->ixc_client;
+			adaptor_cam_pmic_on(ctx);
+			adaptor_hw_power_on(ctx);
+			ret = adaptor_ixc_do_daa (&ctx->ixc_client);
+			if (ret)
+				adaptor_logi(ctx, "ixc_do_daa(ret=%d), prot= %d\n",
+					ret, ctx->ixc_client.protocol);
+			subdrv_call(ctx, init_ctx, ctx->i2c_client,
+					ctx->subctx.i2c_write_id);
+			ret = subdrv_call(ctx, get_id, &sensor_id);
+			adaptor_hw_power_off(ctx);
+			if (!ret) {
+				adaptor_logi(ctx, "sensor %s found\n",
+					ctx->subdrv->name);
+				subdrv_call(ctx, init_ctx, ctx->i2c_client,
+					ctx->subctx.i2c_write_id);
+				ctx->ctx_pw_seq = kmalloc_array(ctx->subdrv->pw_seq_cnt,
+						sizeof(struct subdrv_pw_seq_entry),
+						GFP_KERNEL);
+				if (ctx->ctx_pw_seq) {
+					memcpy(ctx->ctx_pw_seq, ctx->subdrv->pw_seq,
+						ctx->subdrv->pw_seq_cnt *
+						sizeof(struct subdrv_pw_seq_entry));
+				}
+				if (ctx->subctx.aov_sensor_support && ctx->cust_aov_csi_clk) {
+					ctx->subctx.aov_csi_clk = ctx->cust_aov_csi_clk;
+					adaptor_logi(ctx,
+						"aov_csi_clk:%u\n",
+						ctx->subctx.aov_csi_clk);
+				}
+				if (ctx->subctx.aov_sensor_support && ctx->phy_ctrl_ver) {
+					ctx->subctx.aov_phy_ctrl_ver = ctx->phy_ctrl_ver;
+					adaptor_logi(ctx,
+						"aov_phy_ctrl_ver:%s\n",
+						ctx->subctx.aov_phy_ctrl_ver);
+				}
+				return 0;
+			}
+			adaptor_logi(ctx, "sensor %s not found\n",
+				ctx->subdrv->name);
+		}
+	}
+
+	/* connect the first driver directly */
+	ctx->subdrv = subdrvs[0];
+	ctx->subctx.i2c_client = ctx->i2c_client;
+	ctx->subctx.ixc_client = ctx->ixc_client;
+	subdrv_call(ctx, init_ctx, ctx->i2c_client, ctx->subctx.i2c_write_id);
+	ctx->ctx_pw_seq = kmalloc_array(ctx->subdrv->pw_seq_cnt,
+						sizeof(struct subdrv_pw_seq_entry), GFP_KERNEL);
+	if (ctx->ctx_pw_seq) {
+		memcpy(ctx->ctx_pw_seq, ctx->subdrv->pw_seq,
+			ctx->subdrv->pw_seq_cnt * sizeof(struct subdrv_pw_seq_entry));
+	}
+
+	if (ctx->subctx.aov_sensor_support && ctx->cust_aov_csi_clk) {
+		ctx->subctx.aov_csi_clk = ctx->cust_aov_csi_clk;
+		adaptor_logi(ctx,
+			"aov_csi_clk:%u\n",
+			ctx->subctx.aov_csi_clk);
+	}
+	if (ctx->subctx.aov_sensor_support && ctx->phy_ctrl_ver) {
+		ctx->subctx.aov_phy_ctrl_ver = ctx->phy_ctrl_ver;
+		adaptor_logi(ctx,
+			"aov_phy_ctrl_ver:%s\n",
+			ctx->subctx.aov_phy_ctrl_ver);
+	}
+
+	return 0;
+}
+#else
+
+static int mtk_search_sensor(struct adaptor_ctx *ctx)
 {
 	int ret, i, j, of_sensor_names_cnt, subdrvs_cnt;
 	struct subdrv_entry **subdrvs, *subdrv;
@@ -1504,6 +1631,16 @@ static int search_sensor(struct adaptor_ctx *ctx)
 
 	return -EIO;
 }
+#endif
+
+static int search_sensor(struct adaptor_ctx *ctx)
+{
+#ifdef USING_SEARCH_SENSOR_WTIH_FIXED_POSITION
+	return search_sensor_with_fixed_position(ctx);
+#else
+	return mtk_search_sensor(ctx);
+#endif
+}
 
 static int imgsensor_probe(struct i3c_i2c_device *client)
 {
@@ -1517,6 +1654,9 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 	int reindex_match_cnt;
 	int forbid_index;
 	struct device_node *platform_node = NULL;
+#ifdef CONFIG_IMGSENSOR_SYSFS_V2
+	struct device_node *sysfs_node = NULL;
+#endif
 
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
@@ -1541,6 +1681,7 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 	ctx->dev = dev;
 	ctx->sensor_debug_flag = &sensor_debug;
 	ctx->p_set_ctrl_unlock_flag = &set_ctrl_unlock;
+	ctx->sensor_power_on_profile_flag = &sensor_power_on_profile;
 	ctx->aov_pm_ops_flag = 0;
 	ctx->aov_mclk_ulposc_flag = 0;
 
@@ -1719,6 +1860,25 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 		ctx->adaptor_kworker_task = NULL;
 	} else
 		adaptor_logi(ctx, "adaptor kthread worker init done\n");
+
+#ifdef CONFIG_IMGSENSOR_SYSFS_V2
+	if (!strcmp(dev->of_node->name, "sensor0")) {
+		sysfs_node = of_find_compatible_node(NULL, NULL, "mediatek,imgsensor-sysfs");
+		if (!sysfs_node) {
+			adaptor_logi(ctx, "compatiable node:(mediatek,imgsensor-sysfs) not found\n");
+			return -EINVAL;
+		}
+		CAM_INFO_PROB(sysfs_node);
+		imgsensor_sysfs_init(dev);
+	}
+#endif
+
+#ifdef CONFIG_CAMERA_ADAPTIVE_MIPI_V2
+	if (!strcmp(dev->of_node->name, "sensor0")) {
+		dev_err(dev, "[%s] imgsensor_register_ril_notifier\n", __func__);
+		imgsensor_register_ril_notifier();
+	}
+#endif
 
 	return 0;
 

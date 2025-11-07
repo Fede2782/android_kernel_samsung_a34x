@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -41,9 +41,9 @@
  *                           P R I V A T E   D A T A
  *******************************************************************************
  */
-static const char * const apucDebugScanState[SCAN_STATE_NUM] = {
-	"IDLE",
-	"SCANNING",
+static uint8_t *apucDebugScanState[SCAN_STATE_NUM] = {
+	(uint8_t *) DISP_STRING("IDLE"),
+	(uint8_t *) DISP_STRING("SCANNING"),
 };
 
 /*******************************************************************************
@@ -151,25 +151,25 @@ void scnFsmSteps(struct ADAPTER *prAdapter,
 			break;
 
 		case SCAN_STATE_SCANNING:
-			if (scnDoAllowScanCheck(prAdapter)) {
-				/* Support AP Selection */
-				prScanInfo->u4ScanUpdateIdx++;
-				if (prScanParam->fgIsScanV2 == FALSE)
-					scnSendScanReq(prAdapter);
-				else
-					scnSendScanReqV2(prAdapter);
-			} else {
+			/* If CSA is ongoing, directly report scan done. */
+			if (p2pFuncIsCsaBlockScan(prAdapter)) {
 				scnFsmGenerateScanDoneMsg(prAdapter,
 					prScanParam->eMsgId,
 					prScanParam->ucSeqNum,
 					prScanParam->ucBssIndex,
-					SCAN_STATUS_CANCELLED,
-					MSG_SEND_METHOD_BUF);
+					SCAN_STATUS_CANCELLED);
 
 				/* switch to next pending scan */
 				eNextState = SCAN_STATE_IDLE;
 				fgIsTransition = TRUE;
+				break;
 			}
+			/* Support AP Selection */
+			prScanInfo->u4ScanUpdateIdx++;
+			if (prScanParam->fgIsScanV2 == FALSE)
+				scnSendScanReq(prAdapter);
+			else
+				scnSendScanReqV2(prAdapter);
 			break;
 
 		default:
@@ -266,12 +266,14 @@ void scnSendScanReqV2(struct ADAPTER *prAdapter)
 	uint8_t ucChannel;
 	uint8_t ucBand;
 	struct CHANNEL_INFO *prCnlInfo;
+	struct BSS_INFO *prAisBssInfo;
 
 	ASSERT(prAdapter);
 
 	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
 	prScanParam = &(prScanInfo->rScanParam);
-
+	prAisBssInfo = aisGetAisBssInfo(prAdapter,
+				prScanInfo->rScanParam.ucBssIndex);
 	prCmdScanReq = kalMemAlloc(
 		sizeof(struct CMD_SCAN_REQ_V2), VIR_MEM_TYPE);
 	if (!prCmdScanReq) {
@@ -308,7 +310,7 @@ void scnSendScanReqV2(struct ADAPTER *prAdapter)
 	prCmdScanReq->auVersion[0] = 1;
 	prCmdScanReq->ucScnFuncMask |= prScanParam->ucScnFuncMask;
 	prCmdScanReq->u4ScnFuncMaskExtend |= prScanParam->u4ScnFuncMaskExtend;
-	prCmdScanReq->ucScnSourceMask = ENUM_SCN_NORMAL;
+	prCmdScanReq->ucScnSourceMask = prScanParam->ucScnSourceMask;
 
 	/* for 6G OOB scan */
 	kalMemCopy(prCmdScanReq->ucBssidMatchCh, prScanParam->ucBssidMatchCh,
@@ -425,7 +427,6 @@ void scnSendScanReqV2(struct ADAPTER *prAdapter)
 	prCmdScanReq->u2TimeoutValue = prScanParam->u2TimeoutValue;
 
 #if CFG_SUPPORT_LLW_SCAN
-
 	if (prScanParam->u2LLWChannelDwellTime != 0) {
 		prCmdScanReq->u2ChannelDwellTime =
 			prScanParam->u2LLWChannelDwellTime;
@@ -474,7 +475,7 @@ void scnSendScanReqV2(struct ADAPTER *prAdapter)
 
 	scanAddPerBandIE(prAdapter, prScanParam, prCmdScanReq);
 
-	log_dbg(SCN, TRACE, "ScanReqV2: used[%d]free[%d] ScanType=%d,BSS=%u,SSIDType=%d,Num=%u,Ext=%u,ChannelType=%d,Num=%d,Ext=%u,Seq=%u,Ver=%u,Dw=%u,Min=%u,IELen=%d,Func=(0x%X,0x%X),Mac="
+	log_dbg(SCN, TRACE, "ScanReqV2: used[%d]free[%d] ScanType=%d,BSS=%u,SSIDType=%d,Num=%u,Ext=%u,ChannelType=%d,Num=%d,Ext=%u,Seq=%u,Ver=%u,Dw=%u,Min=%u,IELen=%d,ScnSrc=(0x%X),Func=(0x%X,0x%X),Mac="
 		MACSTR ",BSSID:"MACSTR"\n",
 		prScanInfo->rBSSDescList.u4NumElem,
 		prScanInfo->rFreeBSSDescList.u4NumElem,
@@ -490,6 +491,7 @@ void scnSendScanReqV2(struct ADAPTER *prAdapter)
 		prCmdScanReq->u2ChannelDwellTime,
 		prCmdScanReq->u2ChannelMinDwellTime,
 		prCmdScanReq->u2IELen,
+		prCmdScanReq->ucScnSourceMask,
 		prCmdScanReq->ucScnFuncMask,
 		prCmdScanReq->u4ScnFuncMaskExtend,
 		MAC2STR(prCmdScanReq->aucRandomMac),
@@ -616,18 +618,7 @@ void scnFsmMsgAbort(struct ADAPTER *prAdapter, struct MSG_HDR *prMsgHdr)
 			scanlog_dbg(LOG_SCAN_ABORT_REQ_D2F, INFO, "Scan Abort#%u to Q: isExtCh=%u",
 				rCmdScanCancel.ucSeqNum,
 				rCmdScanCancel.ucIsExtChannel);
-#if (CFG_MLO_CONCURRENT_SINGLE_PHY == 1)
-#ifdef CFG_SUPPORT_UNIFIED_COMMAND
-			wlanSendSetQueryCmdHelper(
-#else
-			wlanSendSetQueryCmdAdv(
-#endif
-				prAdapter, CMD_ID_SCAN_CANCEL,
-				0, TRUE, FALSE, FALSE, NULL, NULL,
-				sizeof(struct CMD_SCAN_CANCEL),
-				(uint8_t *) &rCmdScanCancel, NULL, 0,
-				CMD_SEND_METHOD_REQ_RESOURCE);
-#else
+
 			wlanSendSetQueryCmd(prAdapter,
 				CMD_ID_SCAN_CANCEL,
 				TRUE,
@@ -639,7 +630,6 @@ void scnFsmMsgAbort(struct ADAPTER *prAdapter, struct MSG_HDR *prMsgHdr)
 				(uint8_t *) &rCmdScanCancel,
 				NULL,
 				0);
-#endif /* CFG_MLO_CONCURRENT_SINGLE_PHY == 1 */
 
 			/* Full2Partial: ignore this statistics */
 			if (prScanInfo->fgIsScanForFull2Partial) {
@@ -659,8 +649,7 @@ void scnFsmMsgAbort(struct ADAPTER *prAdapter, struct MSG_HDR *prMsgHdr)
 				prScanParam->eMsgId,
 				prScanParam->ucSeqNum,
 				prScanParam->ucBssIndex,
-				eStatus,
-				MSG_SEND_METHOD_UNBUF);
+				eStatus);
 
 			/* switch to next pending scan */
 			scnFsmSteps(prAdapter, SCAN_STATE_IDLE);
@@ -782,9 +771,9 @@ void scnFsmHandleScanMsgV2(struct ADAPTER *prAdapter,
 	uint32_t i;
 #if CFG_MTK_FPGA_PLATFORM
 	uint8_t ch_list[] = {1, 6, 11,
-			  36};
+			  36, 40, 44, 52, 64, 100, 149, 153};
 #if (CFG_SUPPORT_WIFI_6G == 1)
-	uint8_t ch_list_6g[] = {37, 1, 31};
+	uint8_t ch_list_6g[] = {1, 31, 37};
 #endif
 #endif /* CFG_MTK_FPGA_PLATFORM */
 
@@ -800,6 +789,7 @@ void scnFsmHandleScanMsgV2(struct ADAPTER *prAdapter,
 	prScanParam->ucBssIndex = prScanReqMsg->ucBssIndex;
 	prScanParam->ucSSIDType = prScanReqMsg->ucSSIDType;
 	prScanParam->ucSSIDNum = prScanReqMsg->ucSSIDNum;
+	prScanParam->ucScnSourceMask = prScanReqMsg->ucScnSourceMask;
 	prScanParam->ucScnFuncMask |= prScanReqMsg->ucScnFuncMask;
 	prScanParam->u4ScnFuncMaskExtend |= prScanReqMsg->u4ScnFuncMaskExtend;
 
@@ -881,6 +871,7 @@ void scnFsmHandleScanMsgV2(struct ADAPTER *prAdapter,
 	prScanParam->u2LLWChannelMinDwellTime =
 		prScanReqMsg->u2LLWChannelMinDwellTime;
 #endif
+
 	prScanParam->ucSeqNum = prScanReqMsg->ucSeqNum;
 	prScanParam->eMsgId = prScanReqMsg->rMsgHdr.eMsgId;
 	prScanParam->fgIsScanV2 = TRUE;
@@ -1010,8 +1001,7 @@ void scnFsmRemovePendingMsg(struct ADAPTER *prAdapter, uint8_t ucSeqNum,
 				/* generate scan-done event for caller */
 				scnFsmGenerateScanDoneMsg(prAdapter,
 					prPendingMsgHdr->eMsgId, ucSeqNum,
-					ucBssIndex, SCAN_STATUS_CANCELLED,
-					MSG_SEND_METHOD_UNBUF);
+					ucBssIndex, SCAN_STATUS_CANCELLED);
 			}
 
 			/* remove from pending list */
@@ -1077,7 +1067,7 @@ uint8_t scnNeedMloScan(struct ADAPTER *prAdapter, uint8_t ucSeqNum)
 				",LinkID=%d,MaxSimu=%d,EmlCap=0x%x,MldCap=0x%x,MldType=%d,Total=%d\n",
 				MAC2STR(prBssDesc->rMlInfo.aucMldAddr),
 				MAC2STR(prBssDesc->aucBSSID),
-				prBssDesc->rMlInfo.ucLinkId,
+				prBssDesc->rMlInfo.ucLinkIndex,
 				prBssDesc->rMlInfo.ucMaxSimuLinks,
 				prBssDesc->rMlInfo.u2EmlCap,
 				prBssDesc->rMlInfo.u2MldCap,
@@ -1105,7 +1095,7 @@ uint8_t scnNeedMloScan(struct ADAPTER *prAdapter, uint8_t ucSeqNum)
 			",LinkID=%d,MaxSimu=%d,EmlCap=0x%x,MldCap=0x%x,MldType=%d,Total=%d\n",
 			MAC2STR(prBssDesc->rMlInfo.aucMldAddr),
 			MAC2STR(prBssDesc->aucBSSID),
-			prBssDesc->rMlInfo.ucLinkId,
+			prBssDesc->rMlInfo.ucLinkIndex,
 			prBssDesc->rMlInfo.ucMaxSimuLinks,
 			prBssDesc->rMlInfo.u2EmlCap,
 			prBssDesc->rMlInfo.u2MldCap,
@@ -1185,7 +1175,45 @@ cleanup:
 }
 #endif
 
-#if (CFG_SUPPORT_WIFI_RNR == 1)
+boolean scnCheckPSCInRNRChnl(struct ADAPTER *prAdapter,
+	uint8_t ucRnrChNum, enum ENUM_BAND eBand)
+{
+	struct SCAN_INFO *prScanInfo;
+	struct NEIGHBOR_AP_INFO *prNeighborAPInfo = NULL;
+	struct NEIGHBOR_AP_PARAM *prNbrScanParam = NULL;
+	uint8_t i;
+	boolean fgIsSameChnl = FALSE;
+
+	if (prAdapter == NULL) {
+		log_dbg(SCN, ERROR, "prAdapter is NULL!\n");
+		return FALSE;
+	}
+
+	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
+
+	/* Traverse all RNR channel to remove duplicated PSC channel*/
+	LINK_FOR_EACH_ENTRY(prNeighborAPInfo,
+				&prScanInfo->rNeighborAPInfoList,
+				rLinkEntry, struct NEIGHBOR_AP_INFO) {
+		prNbrScanParam = &prNeighborAPInfo->rNeighborParam;
+
+		for (i = 0; i < prNbrScanParam->ucChannelListNum;
+			i++) {
+			if (ucRnrChNum == prNbrScanParam->
+				arChnlInfoList[i].ucChannelNum &&
+			    eBand == prNbrScanParam->
+				arChnlInfoList[i].eBand) {
+				fgIsSameChnl = TRUE;
+				log_dbg(SCN, TRACE, "RemoveChnl(b:%d,ch:%d)!\n",
+							eBand, ucRnrChNum);
+				break;
+			}
+		}
+	}
+
+	return fgIsSameChnl;
+}
+
 void scnSetRnrScanParam(struct SCAN_PARAM *prScanParam,
 	struct NEIGHBOR_AP_PARAM *prNeighborParam)
 {
@@ -1193,7 +1221,6 @@ void scnSetRnrScanParam(struct SCAN_PARAM *prScanParam,
 	uint16_t i;
 #ifdef CFG_SUPPORT_UNIFIED_COMMAND
 	uint8_t aucNullAddr[] = NULL_MAC_ADDR;
-	uint16_t j;
 #endif
 
 	fgRnrChnlScan = prNeighborParam->ucSSIDType &
@@ -1237,10 +1264,10 @@ void scnSetRnrScanParam(struct SCAN_PARAM *prScanParam,
 
 		/* don't add same chnl to the newest nbr ap param */
 		for (i = 0; i < prScanParam->ucChannelListNum; i++) {
-			if (ucRnrChNum == prScanParam
-				->arChnlInfoList[i].ucChannelNum &&
-			    eBand == prScanParam
-				->arChnlInfoList[i].eBand)
+			if (ucRnrChNum == prScanParam->
+				arChnlInfoList[i].ucChannelNum &&
+			    eBand == prScanParam->
+				arChnlInfoList[i].eBand)
 				break;
 		}
 
@@ -1270,23 +1297,14 @@ void scnSetRnrScanParam(struct SCAN_PARAM *prScanParam,
 #ifdef CFG_SUPPORT_UNIFIED_COMMAND
 			if (kalMemCmp(pucShortSSID, aucNullAddr,
 				       MAX_SHORT_SSID_LEN) != 0) {
-				for (j = 0; j < prScanParam->ucShortSSIDNum;
-						j++) {
-					if (kalMemCmp(pucShortSSID,
-						prScanParam->aucShortSSID[j],
-						MAX_SHORT_SSID_LEN) == 0)
-						break;
-				}
-
-				if (j == prScanParam->ucShortSSIDNum) {
-					kalMemCopy(
-						prScanParam->aucShortSSID[j],
-						pucShortSSID,
-						MAX_SHORT_SSID_LEN);
-					prScanParam->ucShortSSIDNum++;
-					prScanParam->ucBssidMatchShortSsidInd[
-						ucBssidCnt] = j;
-				}
+				kalMemCopy(
+				prScanParam->
+				aucShortSSID[prScanParam->ucShortSSIDNum],
+				pucShortSSID,
+				MAX_SHORT_SSID_LEN);
+				prScanParam->ucBssidMatchShortSsidInd[
+				ucBssidCnt] = prScanParam->ucShortSSIDNum;
+				prScanParam->ucShortSSIDNum++;
 			}
 #endif
 
@@ -1295,7 +1313,7 @@ void scnSetRnrScanParam(struct SCAN_PARAM *prScanParam,
 		}
 	}
 }
-#endif
+
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief
@@ -1310,13 +1328,15 @@ void scnEventScanDone(struct ADAPTER *prAdapter,
 {
 	struct SCAN_INFO *prScanInfo;
 	struct SCAN_PARAM *prScanParam;
+	uint8_t i = 0, ucChnl = 0, ucChnlIdx = 0;
+	enum ENUM_BAND eBand;
 	KAL_SPIN_LOCK_DECLARATION();
 
 	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
 	prScanParam = &prScanInfo->rScanParam;
 
 	if (fgIsNewVersion) {
-		scanlog_dbg(LOG_SCAN_DONE_F2D, INFO, "Version%u!size of ScanDone%zu,used[%d]free[%d],ucCompleteChanCount[%u],ucCurrentState%u, u4ScanDurBcnCnt[%u],Seq[%u]\n",
+		scanlog_dbg(LOG_SCAN_DONE_F2D, INFO, "scnEventScanDone Version%u!size of ScanDone%zu,used[%d]free[%d],ucCompleteChanCount[%u],ucCurrentState%u, u4ScanDurBcnCnt[%u],Seq[%u]\n",
 			prScanDone->ucScanDoneVersion,
 			sizeof(struct EVENT_SCAN_DONE),
 			prScanInfo->rBSSDescList.u4NumElem,
@@ -1338,10 +1358,10 @@ void scnEventScanDone(struct ADAPTER *prAdapter,
 				prScanParam->ucChannelListNum);
 
 		} else {
-			log_dbg(SCN, TRACE, "at FW_SCAN_STATE_SCAN_DONE state\n");
+			log_dbg(SCN, TRACE, " scnEventScanDone at FW_SCAN_STATE_SCAN_DONE state\n");
 		}
 	} else {
-		scanlog_dbg(LOG_SCAN_DONE_F2D, INFO, "Old Version\n");
+		scanlog_dbg(LOG_SCAN_DONE_F2D, INFO, "Old scnEventScanDone Version\n");
 	}
 
 	/* buffer empty channel information */
@@ -1394,7 +1414,41 @@ void scnEventScanDone(struct ADAPTER *prAdapter,
 			SCN_RM_POLICY_MISS_COUNT,
 			NULL);
 
+#if (CFG_SUPPORT_WIFI_6G == 1)
+		/* Specific scan request for scanning PSC channels
+		 * excluding channels in RNR scan.
+		 * (By check the prNeighborAPInfo)
+		 */
+		if (prScanInfo->fgIsNeedPSCScan == TRUE
+			    && prScanInfo->ucPSCChannelNum != 0) {
+			prScanParam->ucScnSourceMask =
+				ENUM_SCN_PSC_SCAN;
+			prScanParam->eScanChannel = SCAN_CHANNEL_SPECIFIED;
+			for (i = 0; i < MAX_6GPSC_CHANNEL_NUM; i++) {
+				eBand = BAND_6G;
+				ucChnl = (i << 4) + 5;
+				prScanParam->
+				arChnlInfoList[ucChnlIdx].ucChannelNum =
+					ucChnl;
+				prScanParam->
+				arChnlInfoList[ucChnlIdx].eBand = eBand;
+				if (prScanInfo->ucPSCChannelMap[i] == 1
+					&& (!scnCheckPSCInRNRChnl(prAdapter,
+							ucChnl, eBand))) {
+					ucChnlIdx++;
+				}
+			}
+			prScanInfo->fgIsNeedPSCScan = FALSE;
+
+			if (ucChnlIdx != 0) {
+				prScanParam->ucChannelListNum = ucChnlIdx;
+				scnFsmSteps(prAdapter, SCAN_STATE_SCANNING);
+				return;
+			}
+		}
+#endif
 #if (CFG_SUPPORT_WIFI_RNR == 1)
+
 		prScanParam->fgOobRnrParseEn = FALSE;
 
 		if (!LINK_IS_EMPTY(&prScanInfo->rNeighborAPInfoList)) {
@@ -1409,12 +1463,14 @@ void scnEventScanDone(struct ADAPTER *prAdapter,
 				SCAN_CHANNEL_DWELL_TIME_MSEC_APP;
 			prScanParam->u2ChannelMinDwellTime =
 				SCAN_CHANNEL_MIN_DWELL_TIME_MSEC_APP;
+			prScanParam->ucScnSourceMask =
+				ENUM_SCN_NORMAL;
 			prScanParam->u4ScnFuncMaskExtend |=
 				ENUM_SCN_RNR_SCAN;
 
 			/* Init value = CFG_SCAN_OOB_MAX_NUM, if init value = 0
-			 * will let FW confuse to match SSID ind 0.
-			 */
+			*  will let FW confuse to match SSID ind 0.
+			*/
 			kalMemSet(prScanParam->ucBssidMatchSsidInd,
 				CFG_SCAN_OOB_MAX_NUM,
 				sizeof(prScanParam->ucBssidMatchSsidInd));
@@ -1485,11 +1541,6 @@ void scnEventScanDone(struct ADAPTER *prAdapter,
 				prScanParam->ucPerScanChCnt =
 					prAisFsmInfo->ucPerScanChannelCnt;
 #endif
-				cnmTimerStopTimer(prAdapter,
-					&prAisFsmInfo->rScanDoneTimer);
-				cnmTimerStartTimer(prAdapter,
-					&prAisFsmInfo->rScanDoneTimer,
-					SEC_TO_MSEC(AIS_SCN_DONE_TIMEOUT_SEC));
 			}
 			/* go for next scan */
 			scnFsmSteps(prAdapter, SCAN_STATE_SCANNING);
@@ -1505,8 +1556,7 @@ void scnEventScanDone(struct ADAPTER *prAdapter,
 		/* generate scan-done event for caller */
 		scnFsmGenerateScanDoneMsg(prAdapter,
 			prScanParam->eMsgId, prScanParam->ucSeqNum,
-			prScanParam->ucBssIndex, SCAN_STATUS_DONE,
-			MSG_SEND_METHOD_BUF);
+			prScanParam->ucBssIndex, SCAN_STATUS_DONE);
 
 		/* switch to next pending scan */
 		scnFsmSteps(prAdapter, SCAN_STATE_IDLE);
@@ -1531,6 +1581,14 @@ void scnEventScanDone(struct ADAPTER *prAdapter,
 		(prScanParam->eMsgId == MID_AIS_SCN_SCAN_REQ ||
 		prScanParam->eMsgId == MID_AIS_SCN_SCAN_REQ_V2)) {
 		scnDoZeroChRecoveryCheck(prAdapter, prScanInfo);
+		scnDoZeroMdrdyRecoveryCheck(prAdapter, prScanDone,
+			prScanInfo, prScanParam->ucBssIndex);
+	}
+#else
+	if (IS_FEATURE_ENABLED(prAdapter->rWifiVar.ucScanNoApRecover) &&
+		IS_BSS_INDEX_AIS(prAdapter, prScanParam->ucBssIndex)) {
+		scnDoZeroMdrdyRecoveryCheck(prAdapter, prScanDone,
+				prScanInfo, prScanParam->ucBssIndex);
 	}
 #endif /* CFG_EXT_SCAN */
 
@@ -1664,7 +1722,8 @@ scnFsmDumpScanDoneInfo(struct ADAPTER *prAdapter,
 	print_info(SCN, INFO, "IdleTime : %s\n", au2ChannelIdleTime);
 	print_info(SCN, INFO, "MdrdyCnt : %s\n", aucChannelMDRDYCnt);
 	print_info(SCN, INFO, "BAndPCnt : %s\n", aucChannelBAndPCnt);
-	print_info(SCN, INFO,
+	if (prScanDone->ucScanDoneVersion >= 4)
+		print_info(SCN, LOUD,
 			"ScanTime : %s\n", au2ChannelScanTime);
 #undef	print_scan_info
 }
@@ -1681,7 +1740,7 @@ scnFsmDumpScanDoneInfo(struct ADAPTER *prAdapter,
 void
 scnFsmGenerateScanDoneMsg(struct ADAPTER *prAdapter,
 	enum ENUM_MSG_ID eMsgId, uint8_t ucSeqNum, uint8_t ucBssIndex,
-	enum ENUM_SCAN_STATUS eScanStatus, enum EUNM_MSG_SEND_METHOD eMethod)
+	enum ENUM_SCAN_STATUS eScanStatus)
 {
 	struct SCAN_INFO *prScanInfo;
 	struct SCAN_PARAM *prScanParam;
@@ -1727,7 +1786,7 @@ scnFsmGenerateScanDoneMsg(struct ADAPTER *prAdapter,
 	prScanDoneMsg->eScanStatus = eScanStatus;
 
 	mboxSendMsg(prAdapter, MBOX_ID_0,
-		(struct MSG_HDR *) prScanDoneMsg, eMethod);
+		(struct MSG_HDR *) prScanDoneMsg, MSG_SEND_METHOD_BUF);
 
 }	/* end of scnFsmGenerateScanDoneMsg() */
 
@@ -1816,13 +1875,17 @@ bool scnEnableSplitScan(struct ADAPTER *prAdapter, uint8_t ucBssIndex,
 
 	if (!prBssInfo)
 		return FALSE;
+
+	if (!prAdapter->rWifiVar.fgEnableSplitScan)
+		return FALSE;
+
 	/* Enable condition 1: WFD case*/
 	ucWfdEn = wlanWfdEnabled(prAdapter);
 
 	/* Enable condition 2: (TX + RX) packets in last 1s > 30,
 	 * exclude P2P device because prPerMonitor not include P2P device
 	 */
-	if (ucBssIndex < MAX_BSSID_NUM && IS_BSS_ACTIVE(prBssInfo)) {
+	if (ucBssIndex < P2P_DEV_BSS_INDEX && IS_BSS_ACTIVE(prBssInfo)) {
 		ulTrxPacketsDiffTotal +=
 			(prPerMonitor->ulTxPacketsDiffLastSec[ucBssIndex] +
 			prPerMonitor->ulRxPacketsDiffLastSec[ucBssIndex]);
@@ -1841,7 +1904,7 @@ bool scnEnableSplitScan(struct ADAPTER *prAdapter, uint8_t ucBssIndex,
 		    prAisFsmInfo->eCurrentState == AIS_STATE_LOOKING_FOR) {
 			ucRoamingEn = TRUE;
 			prCmdScanReq->ucScnSourceMask =
-					ENUM_SCN_ROMAING;
+					ENUM_SCN_ROAMING;
 		}
 	}
 	log_dbg(SCN, TRACE, "SplitScan: Roam(%d),WFD(%d),TRX(%d)",
@@ -2097,16 +2160,37 @@ u_int8_t
 scnFsmSchedScanSetAction(struct ADAPTER *prAdapter,
 		 enum ENUM_SCHED_SCAN_ACT ucSchedScanAct)
 {
+	struct AIS_FSM_INFO *prAisFsmInfo;
 	struct CMD_SET_SCHED_SCAN_ENABLE rCmdSchedScanAction;
 	uint32_t rStatus;
+	struct SCAN_INFO *prScanInfo;
+	struct SCAN_PARAM *prScanParam;
 
 	ASSERT(prAdapter);
+
+	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
+	prScanParam = &(prScanInfo->rScanParam);
 
 	kalMemZero(&rCmdSchedScanAction,
 		sizeof(struct CMD_SET_SCHED_SCAN_ENABLE));
 
+	prAisFsmInfo = aisGetAisFsmInfo(prAdapter,
+			prScanInfo->rScanParam.ucBssIndex);
+
 	/* 0:enable, 1:disable */
 	rCmdSchedScanAction.ucSchedScanAct = ucSchedScanAct;
+
+#if CFG_SUPPORT_LLW_SCAN
+	/* using customized scan parameters */
+	rCmdSchedScanAction.ucOpChStayTimeMs =
+		prAisFsmInfo->u2OpChStayTimeMs;
+	rCmdSchedScanAction.ucDfsChDwellTimeMs =
+		prAisFsmInfo->ucDfsChDwellTimeMs;
+	rCmdSchedScanAction.ucPerScanChannelCnt =
+		prAisFsmInfo->ucPerScanChannelCnt;
+	rCmdSchedScanAction.ucChannelMaxDwellTime =
+		prAisFsmInfo->ucNonDfsChDwellTimeMs;
+#endif
 
 	if (ucSchedScanAct == SCHED_SCAN_ACT_ENABLE) {
 		scanlog_dbg(LOG_SCHED_SCAN_REQ_START_D2F, INFO, "sched scan action = %d\n",
@@ -2184,7 +2268,6 @@ scnSetSchedScanPlan(struct ADAPTER *prAdapter,
 
 	ASSERT(prAdapter);
 
-
 	if (u2ScanInterval != 0) {
 		uint8_t i;
 
@@ -2199,34 +2282,6 @@ scnSetSchedScanPlan(struct ADAPTER *prAdapter,
 }
 
 #endif /* CFG_SUPPORT_SCHED_SCAN */
-
-/*----------------------------------------------------------------------------*/
-/*!
- * \brief                 Check if we can allow conduct a scan process now
- * \param prAdapter       adapter
- *
- * \return                TRUE if we can conduct scan;
- *                        FALSE if we should not start a scan.
- */
-/*----------------------------------------------------------------------------*/
-u_int8_t
-scnDoAllowScanCheck(struct ADAPTER *prAdapter)
-{
-#if CFG_ENABLE_CSA_BLOCK_SCAN
-	if (p2pFuncIsCsaBlockScan(prAdapter)) {
-		log_dbg(SCN, INFO, "Abort Scan due to CSA blocking.\n");
-		return FALSE;
-	}
-#endif
-
-#if CFG_SUPPORT_RTT
-	if (rttIsRunning(prAdapter)) {
-		log_dbg(SCN, INFO, "Abort Scan due to RTT blocking.\n");
-		return FALSE;
-	}
-#endif
-	return TRUE;
-}
 
 #if CFG_SUPPORT_SCAN_NO_AP_RECOVERY
 /*----------------------------------------------------------------------------*/
@@ -2263,7 +2318,11 @@ scnDoZeroMdrdyRecoveryCheck(struct ADAPTER *prAdapter,
 		fgRecovery = FALSE;
 
 	/* Not to do recovery for roaming scan */
-	if (prAisFsmInfo->eCurrentState == AIS_STATE_LOOKING_FOR)
+	if (
+#if (CFG_EXT_ROAMING == 0)
+	aisNeedTargetScan(prAdapter, ucBssIndex) ||
+#endif
+	prAisFsmInfo->eCurrentState == AIS_STATE_LOOKING_FOR)
 		fgRecovery = FALSE;
 
 	if (!fgRecovery)
@@ -2347,12 +2406,21 @@ scnDoScanTimeoutRecoveryCheck(struct ADAPTER *prAdapter,
 		prScanInfo->ucScnTimeoutTimes,
 		prScanInfo->ucScnTimeoutSubsysResetCnt);
 
-	/* If scanDoneTimeout count > 3 and no connection, do subsys reset */
+	/* If scanDoneTimeout count == 2, trigger TX timeout debug SOP */
+	if (prScanInfo->ucScnTimeoutTimes == 2) {
+		prAdapter->u4HifChkFlag |= HIF_TRIGGER_FW_DUMP;
+		prAdapter->u4HifDbgMod = DBG_PLE_INT_MOD_TX;
+		prAdapter->u4HifDbgBss = ucBssIndex;
+		prAdapter->u4HifDbgReason = DBG_PLE_INT_REASON_MANUAL;
+		kalSetHifDbgEvent(prAdapter->prGlueInfo);
+	}
+	/* If scanDoneTimeout count >= 3 and no connection, do L1 SER */
 	if (prScanInfo->ucScnTimeoutTimes >= prWifiVar->ucScanNoApRecoverTh) {
 		if (prScanInfo->ucScnTimeoutSubsysResetCnt < 1 &&
 		   prAisBssInfo->eConnectionState == MEDIA_STATE_DISCONNECTED) {
 			prScanInfo->ucScnTimeoutSubsysResetCnt++;
-			GL_DEFAULT_RESET_TRIGGER(prAdapter, RST_SCAN_RECOVERY);
+			prAdapter->u4HifChkFlag |= HIF_DRV_SER;
+			kalSetHifDbgEvent(prAdapter->prGlueInfo);
 		}
 	}
 }
@@ -2363,7 +2431,7 @@ scnDoZeroChRecoveryCheck(struct ADAPTER *prAdapter,
 		struct SCAN_INFO *prScanInfo)
 {
 	log_dbg(SCN, WARN,
-		"ScanRecover: ScnZeroChCount(%d), ResetCount(%d)\n",
+		"ScanRecover: ScnZeroChCount(%d), ResetCount(%d)",
 		prScanInfo->ucScnZeroChannelCnt,
 		prScanInfo->ucScnZeroChSubsysResetCnt);
 
@@ -2393,12 +2461,12 @@ scnFsmNotifyEvent(struct ADAPTER *prAdapter,
 	struct SCAN_INFO *prScanInfo;
 	char uEvent[300], strbuf[200] = "N/A";
 	uint8_t fgIsScanNormal = TRUE, fgIsDbdcScan = TRUE;
-	uint8_t i, ucReasonInd, ucWritten = 0, fgAnyConnection = FALSE;
+	uint8_t i, ucReasonInd = 0, ucWritten = 0;
 	uint8_t ucTotalLen = 200;
-	static const char * const apucScnReason[3] = {
-		"OK",
-		"TIMEOUT",
-		"DRIVER ABORT",
+	uint8_t *apucScnReason[3] = {
+		(uint8_t *) DISP_STRING("OK"),
+		(uint8_t *) DISP_STRING("TIMEOUT"),
+		(uint8_t *) DISP_STRING("DRIVER ABORT"),
 	};
 	uint32_t u4ScanTime = 0;
 
@@ -2421,17 +2489,8 @@ scnFsmNotifyEvent(struct ADAPTER *prAdapter,
 				SCN_DONE_DRIVER_ABORT;
 		prScanInfo->fgIsScanTimeout = FALSE;
 	}
-	/* Currently FW only do DBDC scan when no connection, but this condition
-	 * might changed.
-	 */
-	for (i = 0; i < KAL_AIS_NUM; i++) {
-		if (IS_BSS_ALIVE(prAdapter, prAdapter->aprBssInfo[i])) {
-			fgAnyConnection	= TRUE;
-			break;
-		}
-	}
-	if (prAdapter->rWifiVar.eDbdcMode == ENUM_DBDC_MODE_DISABLED
-		|| fgAnyConnection)
+
+	if (prAdapter->rWifiVar.eDbdcMode == ENUM_DBDC_MODE_DISABLED)
 		fgIsDbdcScan = FALSE;
 
 	if (fgIsScanNormal) {
@@ -2455,5 +2514,5 @@ scnFsmNotifyEvent(struct ADAPTER *prAdapter,
 	DBGLOG(SCN, LOUD, "request uevent:%s\n", uEvent);
 	/* Only send Uevent if BSS is AIS */
 	if (IS_BSS_INDEX_AIS(prAdapter, ucBssIndex))
-		kalSendUevent(prAdapter, uEvent);
+		kalSendUevent(uEvent);
 }

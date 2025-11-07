@@ -22,6 +22,11 @@
 #include "../../codecs/mt6681-accdet.h"
 #endif
 
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45_I2C)
+#include <sound/cirrus/big_data.h>
+#include <sound/cirrus/core.h>
+#include <sound/samsung/bigdata_cirrus_sysfs_cb.h>
+#endif
 /*
  * if need additional control for the ext spk amp that is connected
  * after Lineout Buffer / HP Buffer on the codec, put the control in
@@ -40,7 +45,8 @@ static const char *const mt6991_spk_type_str[] = {MTK_SPK_NOT_SMARTPA_STR,
 						  MTK_SPK_MEDIATEK_MT6660_STR,
 						  MTK_SPK_RICHTEK_RT5512_STR,
 						  MTK_SPK_GOODIX_TFA98XX_STR,
-						  MTK_SPK_AKM_AK7709_STR};
+						  MTK_SPK_AKM_AK7709_STR,
+						  MTK_SPK_CIRRUS_CS35L45_STR};
 static const char *const
 	mt6991_spk_i2s_type_str[] = {MTK_SPK_I2S_0_STR,
 				     MTK_SPK_I2S_1_STR,
@@ -214,8 +220,97 @@ static int mt6991_mt6681_spk_amp_event(struct snd_soc_dapm_widget *w,
 	return 0;
 };
 
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45_I2C)
+static int cirrus_amp_0_speaker(struct snd_soc_dapm_widget *w,
+			  struct snd_kcontrol *kcontrol, int event)
+{
+	//struct snd_soc_component *component = snd_soc_dapm_to_component(w->dapm);
+	struct snd_soc_dapm_context *dapm = w->dapm;
+	struct snd_soc_card *card = dapm->card;
+
+	dev_info(card->dev, "%s ev: %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMD:
+		cirrus_bd_store_values("_0");
+		break;
+	}
+
+	return 0;
+}
+
+static int cirrus_amp_1_speaker(struct snd_soc_dapm_widget *w,
+			  struct snd_kcontrol *kcontrol, int event)
+{
+	//struct snd_soc_component *component = snd_soc_dapm_to_component(w->dapm);
+	struct snd_soc_dapm_context *dapm = w->dapm;
+	struct snd_soc_card *card = dapm->card;
+
+	dev_info(card->dev, "%s ev: %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMD:
+		cirrus_bd_store_values("_1");
+		break;
+	}
+
+	return 0;
+}
+
+static int cirrus_amp_2_speaker(struct snd_soc_dapm_widget *w,
+			  struct snd_kcontrol *kcontrol, int event)
+{
+	//struct snd_soc_component *component = snd_soc_dapm_to_component(w->dapm);
+	struct snd_soc_dapm_context *dapm = w->dapm;
+	struct snd_soc_card *card = dapm->card;
+
+	dev_info(card->dev, "%s ev: %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMD:
+		cirrus_bd_store_values("_2");
+		break;
+	}
+
+	return 0;
+}
+
+static int cirrus_amp_3_speaker(struct snd_soc_dapm_widget *w,
+			  struct snd_kcontrol *kcontrol, int event)
+{
+	//struct snd_soc_component *component = snd_soc_dapm_to_component(w->dapm);
+	struct snd_soc_dapm_context *dapm = w->dapm;
+	struct snd_soc_card *card = dapm->card;
+
+	dev_info(card->dev, "%s ev: %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMD:
+		cirrus_bd_store_values("_3");
+		break;
+	}
+
+	return 0;
+}
+#endif
+
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45_I2C)
+static const struct snd_soc_dapm_route cirrus_quad_routes[] = {
+	{ "AMP0 SPK", NULL, "FL SPK" },
+	{ "AMP1 SPK", NULL, "FR SPK" },
+	{ "AMP2 SPK", NULL, "RL SPK" },
+	{ "AMP3 SPK", NULL, "RR SPK" },
+};
+#endif
+
 static const struct snd_soc_dapm_widget mt6991_mt6681_widgets[] = {
 	SND_SOC_DAPM_SPK(EXT_SPK_AMP_W_NAME, mt6991_mt6681_spk_amp_event),
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45_I2C)
+	SND_SOC_DAPM_SPK("AMP0 SPK", cirrus_amp_0_speaker),
+	SND_SOC_DAPM_SPK("AMP1 SPK", cirrus_amp_1_speaker),
+	SND_SOC_DAPM_SPK("AMP2 SPK", cirrus_amp_2_speaker),
+	SND_SOC_DAPM_SPK("AMP3 SPK", cirrus_amp_3_speaker),
+#endif
 };
 
 static const struct snd_soc_dapm_route mt6991_mt6681_routes[] = {
@@ -227,6 +322,12 @@ static const struct snd_soc_dapm_route mt6991_mt6681_routes_dummy[] = {};
 
 static const struct snd_kcontrol_new mt6991_mt6681_controls[] = {
 	SOC_DAPM_PIN_SWITCH(EXT_SPK_AMP_W_NAME),
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45_I2C)
+	SOC_DAPM_PIN_SWITCH("AMP0 SPK"),
+	SOC_DAPM_PIN_SWITCH("AMP1 SPK"),
+	SOC_DAPM_PIN_SWITCH("AMP2 SPK"),
+	SOC_DAPM_PIN_SWITCH("AMP3 SPK"),
+#endif
 	SOC_ENUM_EXT("MTK_SPK_TYPE_GET", mt6991_spk_type_enum[0],
 		     mt6991_spk_type_get, NULL),
 	SOC_ENUM_EXT("MTK_SPK_I2S_OUT_TYPE_GET", mt6991_spk_type_enum[1],
@@ -258,6 +359,88 @@ static int mt6991_mt6681_i2s_hw_params(struct snd_pcm_substream *substream,
 static const struct snd_soc_ops mt6991_mt6681_i2s_ops = {
 	.hw_params = mt6991_mt6681_i2s_hw_params,
 };
+
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45_I2C)
+static int cs35l45_i2sout4_init(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_card *card = rtd->card;
+	struct snd_soc_dai *codec_dai = asoc_rtd_to_codec(rtd, 0);
+	struct snd_soc_component *component = NULL;
+	unsigned int num_codecs = rtd->dai_link->num_codecs;
+	struct snd_soc_dai *dai;
+	struct snd_soc_dapm_context *dapm;
+	int i;
+
+	if (!codec_dai)
+		return 0;
+
+	component = codec_dai->component;
+	if (!component)
+		return 0;
+
+	dev_info(card->dev, "%s: num_codecs(%d)\n", __func__, num_codecs);
+	if (strstr(component->name, "cs35l45")) {
+		register_cirrus_bigdata_cb(component);
+
+		for_each_rtd_codec_dais(rtd, i, dai) {
+			dapm = snd_soc_component_get_dapm(dai->component);
+			snd_soc_dapm_ignore_suspend(dapm, "Capture");
+			snd_soc_dapm_ignore_suspend(dapm, "Playback");
+			snd_soc_dapm_ignore_suspend(dapm, "SPK");
+			snd_soc_dapm_sync(dapm);
+		}
+	}
+
+	return 0;
+}
+
+static int cs35l45_hw_params(struct snd_pcm_substream *substream,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = asoc_substream_to_rtd(substream);
+	struct snd_soc_card *card = rtd->card;
+	struct snd_soc_dai *cpu_dai;
+	struct snd_soc_dai_link *dai_link = rtd->dai_link;
+	unsigned int width, bclk, channels, rate;
+	int ret;
+	struct snd_soc_dai *codec_dai;
+	int i;
+
+	width = params_width(params);
+	channels = params_channels(params);
+	rate = params_rate(params);
+	bclk = snd_soc_params_to_bclk(params);
+
+	dev_info(card->dev, "%s: %s-%d %dch, %dHz, %dbit, bclk=%d\n",
+			__func__, dai_link->name, substream->stream,
+			channels, rate, width, bclk);
+
+	/* using bclk for sysclk */
+	cpu_dai = asoc_rtd_to_cpu(rtd, 0);
+	ret = snd_soc_dai_set_sysclk(cpu_dai, 0, bclk, SND_SOC_CLOCK_OUT);
+	if (ret < 0) {
+		dev_err(card->dev, "set sysclk failed: %d\n", ret);
+		return ret;
+	}
+
+	for_each_rtd_codec_dais(rtd, i, codec_dai) {
+		ret = snd_soc_component_set_sysclk(codec_dai->component,
+					0, 0, bclk,
+					SND_SOC_CLOCK_IN);
+		if (ret < 0) {
+			dev_err(card->dev, "%s: set amp sysclk failed: %d\n",
+				codec_dai->name, ret);
+			return ret;
+		}
+	}
+
+	return ret;
+}
+
+static const struct snd_soc_ops cs35l45_ops = {
+	.hw_params = cs35l45_hw_params,
+};
+#endif
 
 static int mt6991_mt6681_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 {
@@ -465,6 +648,12 @@ static int mt6991_mt6681_init(struct snd_soc_pcm_runtime *rtd)
 
 	/* disable ext amp connection */
 	snd_soc_dapm_disable_pin(dapm, EXT_SPK_AMP_W_NAME);
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45_I2C)
+	snd_soc_dapm_ignore_suspend(dapm, "AMP0 SPK");
+	snd_soc_dapm_ignore_suspend(dapm, "AMP1 SPK");
+	snd_soc_dapm_ignore_suspend(dapm, "AMP2 SPK");
+	snd_soc_dapm_ignore_suspend(dapm, "AMP3 SPK");
+#endif
 #if IS_ENABLED(CONFIG_SND_SOC_MT6681_ACCDET) && !defined(SKIP_ACCDET)
 	mt6681_accdet_init(codec_component, rtd->card);
 #endif
@@ -487,6 +676,27 @@ static int mt6991_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	params_set_format(params, SNDRV_PCM_FORMAT_S32_LE);
 	return 0;
 }
+
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45_I2C)
+static int mt6991_spk_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+				      struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *channels = hw_param_interval(params,
+						SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	dev_info(rtd->dev, "%s(), fix channel to 4\n", __func__);
+	/* The covert the FE channel to 4 */
+	channels->min = channels->max = 4;
+
+	dev_info(rtd->dev, "%s(), fix format to 32bit\n", __func__);
+	/* fix BE i2s format to 32bit, clean param mask first */
+	snd_mask_reset_range(hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT),
+			     0, SNDRV_PCM_FORMAT_LAST);
+
+	params_set_format(params, SNDRV_PCM_FORMAT_S32_LE);
+	return 0;
+}
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) && !defined(SKIP_SB_VOW)
 static const struct snd_pcm_hardware mt6991_mt6681_vow_hardware = {
@@ -791,6 +1001,10 @@ SND_SOC_DAILINK_DEFS(ap_dmic_ch34,
 	DAILINK_COMP_ARRAY(COMP_CPU("AP_DMIC_CH34")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(ap_dmic_ch56,
+	DAILINK_COMP_ARRAY(COMP_CPU("AP_DMIC_CH56")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(i2sin0,
 	DAILINK_COMP_ARRAY(COMP_CPU("I2SIN0")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -990,6 +1204,14 @@ SND_SOC_DAILINK_DEFS(dspspatializer,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_spatializer_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
+SND_SOC_DAILINK_DEFS(dspdynamic,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_dynamic_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
+SND_SOC_DAILINK_DEFS(dspdirect,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_direct_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 SND_SOC_DAILINK_DEFS(dspplayback,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_Playback_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -1064,6 +1286,14 @@ SND_SOC_DAILINK_DEFS(dspcalldl,
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 SND_SOC_DAILINK_DEFS(dspcallul,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_callul_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
+SND_SOC_DAILINK_DEFS(dspfastmedia,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_fast_media_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
+SND_SOC_DAILINK_DEFS(dspseparate,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_separate_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 #if IS_ENABLED(CONFIG_MTK_ADSP_AUTO_HFP_CLIENT_SUPPORT)
@@ -1742,6 +1972,13 @@ static struct snd_soc_dai_link mt6991_mt6681_dai_links[] = {
 		SND_SOC_DAILINK_REG(ap_dmic_ch34),
 	},
 	{
+		.name = "AP_DMIC_CH56",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.ignore_suspend = 1,
+		SND_SOC_DAILINK_REG(ap_dmic_ch56),
+	},
+	{
 		.name = "I2SIN0",
 		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS
 			| SND_SOC_DAIFMT_GATED,
@@ -1788,14 +2025,19 @@ static struct snd_soc_dai_link mt6991_mt6681_dai_links[] = {
 	},
 	{
 		.name = "I2SIN4",
-		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS
+		.dai_fmt = SND_SOC_DAIFMT_DSP_A | SND_SOC_DAIFMT_CBS_CFS
 			| SND_SOC_DAIFMT_GATED,
-		.ops = &mt6991_mt6681_i2s_ops,
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.ignore_suspend = 1,
 		.ignore_pmdown_time = 1,
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45_I2C)
+		.be_hw_params_fixup = mt6991_spk_i2s_hw_params_fixup,
+		.ops = &cs35l45_ops,
+#else
 		.be_hw_params_fixup = mt6991_i2s_hw_params_fixup,
+		.ops = &mt6991_mt6681_i2s_ops,
+#endif
 		SND_SOC_DAILINK_REG(i2sin4),
 	},
 	{
@@ -1868,14 +2110,20 @@ static struct snd_soc_dai_link mt6991_mt6681_dai_links[] = {
 	},
 	{
 		.name = "I2SOUT4",
-		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS
+		.dai_fmt = SND_SOC_DAIFMT_DSP_A | SND_SOC_DAIFMT_CBS_CFS
 			| SND_SOC_DAIFMT_GATED,
-		.ops = &mt6991_mt6681_i2s_ops,
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
 		.ignore_pmdown_time = 1,
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45_I2C)
+		.be_hw_params_fixup = mt6991_spk_i2s_hw_params_fixup,
+		.init = cs35l45_i2sout4_init,
+		.ops = &cs35l45_ops,
+#else
 		.be_hw_params_fixup = mt6991_i2s_hw_params_fixup,
+		.ops = &mt6991_mt6681_i2s_ops,
+#endif
 		SND_SOC_DAILINK_REG(i2sout4),
 	},
 	{
@@ -2147,6 +2395,15 @@ static struct snd_soc_dai_link mt6991_mt6681_dai_links[] = {
 		SND_SOC_DAILINK_REG(dspspatializer),
 	},
 	{
+		.name = "DSP_Playback_Dynamic",
+		.stream_name = "DSP_Playback_Dynamic",
+		SND_SOC_DAILINK_REG(dspdynamic),
+	},
+	{	.name = "DSP_Playback_Direct",
+		.stream_name = "DSP_Playback_Direct",
+		SND_SOC_DAILINK_REG(dspdirect),
+	},
+	{
 		.name = "DSP_Playback_Playback",
 		.stream_name = "DSP_Playback_Playback",
 		SND_SOC_DAILINK_REG(dspplayback),
@@ -2240,6 +2497,16 @@ static struct snd_soc_dai_link mt6991_mt6681_dai_links[] = {
 		.name = "DSP_Capture_CALLUL",
 		.stream_name = "DSP_Capture_CALLUL",
 		SND_SOC_DAILINK_REG(dspcallul),
+	},
+	{
+		.name = "DSP_Playback_Fast_Media",
+		.stream_name = "DSP_Playback_Fast_Media",
+		SND_SOC_DAILINK_REG(dspfastmedia),
+	},
+	{
+		.name = "DSP_Playback_Separate",
+		.stream_name = "DSP_Playback_Separate",
+		SND_SOC_DAILINK_REG(dspseparate),
 	},
 #if IS_ENABLED(CONFIG_MTK_ADSP_AUTO_HFP_CLIENT_SUPPORT)
 	{
@@ -2419,7 +2686,7 @@ static int mt6991_mt6681_bypass_primary_codec(struct platform_device *pdev)
 			dai_link->codecs->name = "snd-soc-dummy";
 			dai_link->codecs->dai_name = "snd-soc-dummy-dai";
 			dev_info(&pdev->dev, "%s() Primary Codec CH56 modified\n", __func__);
-		}  else if (strcmp(dai_link->name, "VOW_Capture") == 0) {
+		} else if (strcmp(dai_link->name, "VOW_Capture") == 0) {
 			dai_link->codecs->name = "snd-soc-dummy";
 			dai_link->codecs->dai_name = "snd-soc-dummy-dai";
 			dev_info(&pdev->dev, "%s() VOW_Capture modified\n", __func__);
@@ -2502,6 +2769,18 @@ static int mt6991_mt6681_dev_probe(struct platform_device *pdev)
 	else
 		dev_info(&pdev->dev, "%s snd_soc_register_card pss %d\n",
 				__func__, ret);
+
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45_I2C)
+	ret = snd_soc_dapm_add_routes(&card->dapm, cirrus_quad_routes,
+		ARRAY_SIZE(cirrus_quad_routes));
+	if (ret)
+		dev_info(&pdev->dev, "%s add cirrus route failed %d\n",
+			__func__, ret);
+	else
+		dev_info(&pdev->dev, "%s add cirrus route success %d\n",
+			__func__, ret);
+#endif
+
 	return ret;
 }
 

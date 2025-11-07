@@ -4,4 +4,13 @@ config IMGSENSOR_SYSFS
 	help
 	  If CONFIG_IMGSENSOR_SYSFS is y, then "imgsensor/src/common/sysfs/" is built.
 	  This is for camera bringup without sysfs implementation.
+	  Set this config to n, while bringup the camera.config IMGSENSOR_SYSFS
+
+config IMGSENSOR_SYSFS_V2
+	bool "Imgsensor sysfs_v2"
+	default n
+	help
+	  If CONFIG_IMGSENSOR_SYSFS_V2 is y,
+	  then "vendor/mediatek/kernel_modules/mtkcam/imgsensor/common/sysfs/" is built.
+	  This is for camera bringup without sysfs implementation.
 	  Set this config to n, while bringup the camera.

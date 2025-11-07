@@ -40,7 +40,6 @@ bool check_hifi_status(u32 mask);
 u32 read_adsp_sys_status(u32 cid);
 u32 get_adsp_sys_status(struct adsp_priv *pdata);
 bool is_adsp_axibus_idle(u32 *backup);
-bool is_infrabus_timeout(void);
 
 void adsp_hardware_init(struct adspsys_priv *adspsys);
 

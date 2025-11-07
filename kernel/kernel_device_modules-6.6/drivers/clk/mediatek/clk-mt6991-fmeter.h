@@ -204,6 +204,7 @@
 #define FM_VLP_APLL1_CKDIV_CK			56
 #define FM_VLP_APLL2_CKDIV_CK			57
 #define FM_ABIST_FQMTR_0			58
+#define FM_ULPOSC_CK				59
 #define FM_ULPOSC2_CK				60
 #define FM_ULPOSC3_CK				63
 #define FM_VLPCK_NUM				64

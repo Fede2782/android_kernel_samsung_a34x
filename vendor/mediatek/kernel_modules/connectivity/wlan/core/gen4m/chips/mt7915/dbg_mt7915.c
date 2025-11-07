@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -233,36 +233,35 @@ void mt7915_show_ple_info(
 	HAL_MCR_RD(prAdapter, WF_PLE_TOP_STATION_PAUSE4_ADDR, &sta_pause[4]);
 	HAL_MCR_RD(prAdapter, WF_PLE_TOP_STATION_PAUSE5_ADDR, &sta_pause[5]);
 	/* Configuration Info */
-	DBGLOG(HAL, DEBUG, "PLE Configuration Info:\n");
+	DBGLOG(HAL, INFO, "PLE Configuration Info:\n");
 
-	DBGLOG(HAL, DEBUG, "\tPacket Buffer Control(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tPacket Buffer Control(0x%08x): 0x%08x\n",
 		WF_PLE_TOP_PBUF_CTRL_ADDR,
 		ple_buf_ctrl);
 	pg_sz = (ple_buf_ctrl & WF_PLE_TOP_PBUF_CTRL_PAGE_SIZE_CFG_MASK) >>
 		WF_PLE_TOP_PBUF_CTRL_PAGE_SIZE_CFG_SHFT;
-	DBGLOG(HAL, DEBUG, "\t\tPage Size=%d(%d bytes per page)\n", pg_sz,
+	DBGLOG(HAL, INFO, "\t\tPage Size=%d(%d bytes per page)\n", pg_sz,
 	       (pg_sz == 1 ? 128 : 64));
-	DBGLOG(HAL, DEBUG, "\t\tPage Offset=%d(in unit of 2KB)\n",
+	DBGLOG(HAL, INFO, "\t\tPage Offset=%d(in unit of 2KB)\n",
 	       (ple_buf_ctrl & WF_PLE_TOP_PBUF_CTRL_PBUF_OFFSET_MASK) >>
 		       WF_PLE_TOP_PBUF_CTRL_PBUF_OFFSET_SHFT);
 	pg_num = (ple_buf_ctrl & WF_PLE_TOP_PBUF_CTRL_TOTAL_PAGE_NUM_MASK) >>
 		 WF_PLE_TOP_PBUF_CTRL_TOTAL_PAGE_NUM_SHFT;
-	DBGLOG(HAL, DEBUG, "\t\tTotal Page=%d pages\n", pg_num);
+	DBGLOG(HAL, INFO, "\t\tTotal Page=%d pages\n", pg_num);
 
 	/* Page Flow Control */
-	DBGLOG(HAL, DEBUG, "PLE Page Flow Control:\n");
-	DBGLOG(HAL, DEBUG, "\tFree page counter(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "PLE Page Flow Control:\n");
+	DBGLOG(HAL, INFO, "\tFree page counter(0x%08x): 0x%08x\n",
 		WF_PLE_TOP_FREEPG_CNT_ADDR,
 		pg_flow_ctrl[0]);
 	fpg_cnt = (pg_flow_ctrl[0] & WF_PLE_TOP_FREEPG_CNT_FREEPG_CNT_MASK) >>
 		WF_PLE_TOP_FREEPG_CNT_FREEPG_CNT_SHFT;
-	DBGLOG(HAL, DEBUG,
-	       "\t\tThe toal page number of free=0x%03x\n", fpg_cnt);
+	DBGLOG(HAL, INFO, "\t\tThe toal page number of free=0x%03x\n", fpg_cnt);
 	ffa_cnt = (pg_flow_ctrl[0] & WF_PLE_TOP_FREEPG_CNT_FFA_CNT_MASK) >>
 		  WF_PLE_TOP_FREEPG_CNT_FFA_CNT_SHFT;
-	DBGLOG(HAL, DEBUG, "\t\tThe free page numbers of free for all=0x%03x\n",
+	DBGLOG(HAL, INFO, "\t\tThe free page numbers of free for all=0x%03x\n",
 	       ffa_cnt);
-	DBGLOG(HAL, DEBUG, "\tFree page head and tail(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tFree page head and tail(0x%08x): 0x%08x\n",
 		WF_PLE_TOP_FREEPG_HEAD_TAIL_ADDR,
 		pg_flow_ctrl[1]);
 	fpg_head = (pg_flow_ctrl[1] &
@@ -271,14 +270,14 @@ void mt7915_show_ple_info(
 	fpg_tail = (pg_flow_ctrl[1] &
 		    WF_PLE_TOP_FREEPG_HEAD_TAIL_FREEPG_TAIL_MASK) >>
 		   WF_PLE_TOP_FREEPG_HEAD_TAIL_FREEPG_TAIL_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe tail/head page of free page list=0x%03x/0x%03x\n",
 	       fpg_tail, fpg_head);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tReserved page counter of HIF group(0x%08x): 0x%08x\n",
 		WF_PLE_TOP_PG_HIF_GROUP_ADDR,
 		pg_flow_ctrl[2]);
-	DBGLOG(HAL, DEBUG, "\tHIF group page status(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tHIF group page status(0x%08x): 0x%08x\n",
 		WF_PLE_TOP_HIF_PG_INFO_ADDR,
 		pg_flow_ctrl[3]);
 	hif_min_q = (pg_flow_ctrl[2] &
@@ -287,22 +286,22 @@ void mt7915_show_ple_info(
 	hif_max_q = (pg_flow_ctrl[2] &
 		     WF_PLE_TOP_PG_HIF_GROUP_HIF_MAX_QUOTA_MASK) >>
 		    WF_PLE_TOP_PG_HIF_GROUP_HIF_MAX_QUOTA_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe max/min quota pages of HIF group=0x%03x/0x%03x\n",
 	       hif_max_q, hif_min_q);
 	rpg_hif = (pg_flow_ctrl[3] & WF_PLE_TOP_HIF_PG_INFO_HIF_RSV_CNT_MASK) >>
 		  WF_PLE_TOP_HIF_PG_INFO_HIF_RSV_CNT_SHFT;
 	upg_hif = (pg_flow_ctrl[3] & WF_PLE_TOP_HIF_PG_INFO_HIF_SRC_CNT_MASK) >>
 		  WF_PLE_TOP_HIF_PG_INFO_HIF_SRC_CNT_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe used/reserved pages of HIF group=0x%03x/0x%03x\n",
 	       upg_hif, rpg_hif);
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"\tReserved page counter of HIF_TXCMD group(0x%08x): 0x%08x\n",
 	WF_PLE_TOP_PG_HIF_WMTXD_GROUP_ADDR,
 	pg_flow_ctrl[6]);
-	DBGLOG(HAL, DEBUG, "\tHIF_TXCMD group page status(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tHIF_TXCMD group page status(0x%08x): 0x%08x\n",
 		WF_PLE_TOP_HIF_WMTXD_PG_INFO_ADDR,
 		pg_flow_ctrl[7]);
 	cpu_min_q = (pg_flow_ctrl[6] &
@@ -311,7 +310,7 @@ void mt7915_show_ple_info(
 	cpu_max_q = (pg_flow_ctrl[6] &
 		     WF_PLE_TOP_PG_HIF_TXCMD_GROUP_HIF_TXCMD_MAX_QUOTA_MASK) >>
 		    WF_PLE_TOP_PG_HIF_TXCMD_GROUP_HIF_TXCMD_MAX_QUOTA_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe max/min quota pages of HIF_TXCMD group=0x%03x/0x%03x\n",
 	       cpu_max_q, cpu_min_q);
 	rpg_cpu = (pg_flow_ctrl[7] &
@@ -320,15 +319,15 @@ void mt7915_show_ple_info(
 	upg_cpu = (pg_flow_ctrl[7] &
 		   WF_PLE_TOP_HIF_TXCMD_PG_INFO_HIF_TXCMD_RSV_CNT_MASK) >>
 		  WF_PLE_TOP_HIF_TXCMD_PG_INFO_HIF_TXCMD_RSV_CNT_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe used/reserved pages of HIF_TXCMD group=0x%03x/0x%03x\n",
 	       upg_cpu, rpg_cpu);
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tReserved page counter of CPU group(0x%08x): 0x%08x\n",
 		WF_PLE_TOP_PG_CPU_GROUP_ADDR,
 		pg_flow_ctrl[4]);
-	DBGLOG(HAL, DEBUG, "\tCPU group page status(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tCPU group page status(0x%08x): 0x%08x\n",
 		WF_PLE_TOP_CPU_PG_INFO_ADDR,
 	       pg_flow_ctrl[5]);
 	cpu_min_q = (pg_flow_ctrl[4] &
@@ -337,44 +336,44 @@ void mt7915_show_ple_info(
 	cpu_max_q = (pg_flow_ctrl[4] &
 		     WF_PLE_TOP_PG_CPU_GROUP_CPU_MAX_QUOTA_MASK) >>
 		    WF_PLE_TOP_PG_CPU_GROUP_CPU_MAX_QUOTA_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe max/min quota pages of CPU group=0x%03x/0x%03x\n",
 	       cpu_max_q, cpu_min_q);
 	rpg_cpu = (pg_flow_ctrl[5] & WF_PLE_TOP_CPU_PG_INFO_CPU_RSV_CNT_MASK) >>
 		  WF_PLE_TOP_CPU_PG_INFO_CPU_RSV_CNT_SHFT;
 	upg_cpu = (pg_flow_ctrl[5] & WF_PLE_TOP_CPU_PG_INFO_CPU_SRC_CNT_MASK) >>
 		  WF_PLE_TOP_CPU_PG_INFO_CPU_SRC_CNT_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe used/reserved pages of CPU group=0x%03x/0x%03x\n",
 	       upg_cpu, rpg_cpu);
 
 	if ((ple_stat[0] & WF_PLE_TOP_QUEUE_EMPTY_ALL_AC_EMPTY_MASK) == 0) {
 		for (j = 0; j < 24; j = j + 6) {
 			if (j % 6 == 0) {
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"\tNonempty AC%d Q of STA#: ", j / 6);
 			}
 
 			for (i = 0; i < 32; i++) {
 				if (((ple_stat[j + 1] & (0x1 << i)) >> i) ==
 				    0) {
-					DBGLOG(HAL, DEBUG, "%d ",
+					DBGLOG(HAL, INFO, "%d ",
 						i + (j % 6) * 32);
 				}
 			}
 		}
 
-		DBGLOG(HAL, DEBUG, "\n");
+		DBGLOG(HAL, INFO, "\n");
 	}
 
-	DBGLOG(HAL, DEBUG, "Nonempty Q info:\n");
+	DBGLOG(HAL, INFO, "Nonempty Q info:\n");
 
 	for (i = 0; i < 31; i++) {
 		if (((ple_stat[0] & (0x1 << i)) >> i) == 0) {
 			uint32_t hfid, tfid, pktcnt, fl_que_ctrl[3] = {0};
 
 			if (ple_queue_empty_info[i].QueueName != NULL) {
-				DBGLOG(HAL, DEBUG, "\t%s: ",
+				DBGLOG(HAL, INFO, "\t%s: ",
 					ple_queue_empty_info[i].QueueName);
 				fl_que_ctrl[0] |=
 					WF_PLE_TOP_FL_QUE_CTRL_0_EXECUTE_MASK;
@@ -403,7 +402,7 @@ void mt7915_show_ple_info(
 				(fl_que_ctrl[2] &
 				 WF_PLE_TOP_FL_QUE_CTRL_3_QUEUE_PKT_NUM_MASK) >>
 				WF_PLE_TOP_FL_QUE_CTRL_3_QUEUE_PKT_NUM_SHFT;
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 			"tail/head fid = 0x%03x/0x%03x, pkt cnt = 0x%03x\n",
 				tfid, hfid, pktcnt);
 			if (pktcnt > 0 && fgDumpTxd)
@@ -421,7 +420,7 @@ void mt7915_show_ple_info(
 				       fl_que_ctrl[3] = {0};
 				uint32_t wmmidx = 0;
 
-				DBGLOG(HAL, DEBUG, "\tSTA%d AC%d: ", sta_num,
+				DBGLOG(HAL, INFO, "\tSTA%d AC%d: ", sta_num,
 				       ac_num);
 
 				fl_que_ctrl[0] |=
@@ -455,7 +454,7 @@ void mt7915_show_ple_info(
 				(fl_que_ctrl[2] &
 				WF_PLE_TOP_FL_QUE_CTRL_3_QUEUE_PKT_NUM_MASK) >>
 				WF_PLE_TOP_FL_QUE_CTRL_3_QUEUE_PKT_NUM_SHFT;
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 				"tail/head fid = 0x%03x/0x%03x, pkt cnt = %x",
 				tfid, hfid, pktcnt);
 
@@ -465,9 +464,9 @@ void mt7915_show_ple_info(
 				if (((dis_sta_map[j % 6] & 0x1 << i) >> i) == 1)
 					ctrl = 1;
 
-				DBGLOG(HAL, DEBUG, " ctrl = %s",
+				DBGLOG(HAL, INFO, " ctrl = %s",
 						   sta_ctrl_reg[ctrl]);
-				DBGLOG(HAL, DEBUG, " (wmmidx=%d)\n",
+				DBGLOG(HAL, INFO, " (wmmidx=%d)\n",
 					wmmidx);
 				if (pktcnt > 0 && fgDumpTxd)
 					connac2x_show_txd_Info(
@@ -477,7 +476,7 @@ void mt7915_show_ple_info(
 	}
 
 	if (~ple_txcmd_stat) {
-		DBGLOG(HAL, DEBUG, "Nonempty TXCMD Q info:\n");
+		DBGLOG(HAL, INFO, "Nonempty TXCMD Q info:\n");
 		for (i = 0; i < 31; i++) {
 			if (((ple_txcmd_stat & (0x1 << i)) >> i) == 0) {
 				uint32_t hfid, tfid;
@@ -485,7 +484,7 @@ void mt7915_show_ple_info(
 
 				if (ple_txcmd_queue_empty_info[i].QueueName !=
 				    NULL) {
-					DBGLOG(HAL, DEBUG, "\t%s: ",
+					DBGLOG(HAL, INFO, "\t%s: ",
 					       ple_txcmd_queue_empty_info[i]
 						       .QueueName);
 					fl_que_ctrl[0] |=
@@ -520,11 +519,9 @@ void mt7915_show_ple_info(
 				(fl_que_ctrl[2] &
 				WF_PLE_TOP_FL_QUE_CTRL_3_QUEUE_PKT_NUM_MASK) >>
 				WF_PLE_TOP_FL_QUE_CTRL_3_QUEUE_PKT_NUM_SHFT;
-				DBGLOG(HAL, DEBUG, "tail/head fid =");
-				DBGLOG(HAL, DEBUG,
-				       "0x%03x/0x%03x,", tfid, hfid);
-				DBGLOG(HAL, DEBUG,
-				       "pkt cnt = 0x%03x\n", pktcnt);
+				DBGLOG(HAL, INFO, "tail/head fid =");
+				DBGLOG(HAL, INFO, "0x%03x/0x%03x,", tfid, hfid);
+				DBGLOG(HAL, INFO, "pkt cnt = 0x%03x\n", pktcnt);
 			}
 		}
 	}
@@ -566,34 +563,33 @@ void mt7915_show_pse_info(
 	HAL_MCR_RD(prAdapter, WF_PSE_TOP_PG_MDP_GROUP_ADDR, &pg_flow_ctrl[18]);
 	HAL_MCR_RD(prAdapter, WF_PSE_TOP_MDP_PG_INFO_ADDR, &pg_flow_ctrl[19]);
 	/* Configuration Info */
-	DBGLOG(HAL, DEBUG, "PSE Configuration Info:\n");
-	DBGLOG(HAL, DEBUG, "\tPacket Buffer Control(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "PSE Configuration Info:\n");
+	DBGLOG(HAL, INFO, "\tPacket Buffer Control(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_PBUF_CTRL_ADDR,
 		pse_buf_ctrl);
 	pg_sz = (pse_buf_ctrl & WF_PSE_TOP_PBUF_CTRL_PAGE_SIZE_CFG_MASK) >>
 		WF_PSE_TOP_PBUF_CTRL_PAGE_SIZE_CFG_SHFT;
-	DBGLOG(HAL, DEBUG, "\t\tPage Size=%d(%d bytes per page)\n", pg_sz,
+	DBGLOG(HAL, INFO, "\t\tPage Size=%d(%d bytes per page)\n", pg_sz,
 	       (pg_sz == 1 ? 256 : 128));
-	DBGLOG(HAL, DEBUG, "\t\tPage Offset=%d(in unit of 64KB)\n",
+	DBGLOG(HAL, INFO, "\t\tPage Offset=%d(in unit of 64KB)\n",
 	       (pse_buf_ctrl & WF_PSE_TOP_PBUF_CTRL_PBUF_OFFSET_MASK) >>
 		       WF_PSE_TOP_PBUF_CTRL_PBUF_OFFSET_SHFT);
 	pg_num = (pse_buf_ctrl & WF_PSE_TOP_PBUF_CTRL_TOTAL_PAGE_NUM_MASK) >>
 		 WF_PSE_TOP_PBUF_CTRL_TOTAL_PAGE_NUM_SHFT;
-	DBGLOG(HAL, DEBUG, "\t\tTotal page numbers=%d pages\n", pg_num);
+	DBGLOG(HAL, INFO, "\t\tTotal page numbers=%d pages\n", pg_num);
 	/* Page Flow Control */
-	DBGLOG(HAL, DEBUG, "PSE Page Flow Control:\n");
-	DBGLOG(HAL, DEBUG, "\tFree page counter(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "PSE Page Flow Control:\n");
+	DBGLOG(HAL, INFO, "\tFree page counter(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_FREEPG_CNT_ADDR,
 		pg_flow_ctrl[0]);
 	fpg_cnt = (pg_flow_ctrl[0] & WF_PSE_TOP_FREEPG_CNT_FREEPG_CNT_MASK) >>
 		WF_PSE_TOP_FREEPG_CNT_FREEPG_CNT_SHFT;
-	DBGLOG(HAL, DEBUG,
-	       "\t\tThe toal page number of free=0x%03x\n", fpg_cnt);
+	DBGLOG(HAL, INFO, "\t\tThe toal page number of free=0x%03x\n", fpg_cnt);
 	ffa_cnt = (pg_flow_ctrl[0] & WF_PSE_TOP_FREEPG_CNT_FFA_CNT_MASK) >>
 		WF_PSE_TOP_FREEPG_CNT_FFA_CNT_SHFT;
-	DBGLOG(HAL, DEBUG, "\t\tThe free page numbers of free for all=0x%03x\n",
+	DBGLOG(HAL, INFO, "\t\tThe free page numbers of free for all=0x%03x\n",
 		ffa_cnt);
-	DBGLOG(HAL, DEBUG, "\tFree page head and tail(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tFree page head and tail(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_FREEPG_HEAD_TAIL_ADDR,
 		pg_flow_ctrl[1]);
 	fpg_head = (pg_flow_ctrl[1] &
@@ -602,14 +598,14 @@ void mt7915_show_pse_info(
 	fpg_tail = (pg_flow_ctrl[1] &
 		WF_PSE_TOP_FREEPG_HEAD_TAIL_FREEPG_TAIL_MASK) >>
 		WF_PSE_TOP_FREEPG_HEAD_TAIL_FREEPG_TAIL_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe tail/head page of free page list=0x%03x/0x%03x\n",
 	       fpg_tail, fpg_head);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tReserved page counter of HIF0 group(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_PG_HIF0_GROUP_ADDR,
 		pg_flow_ctrl[2]);
-	DBGLOG(HAL, DEBUG, "\tHIF0 group page status(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tHIF0 group page status(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_HIF0_PG_INFO_ADDR,
 		pg_flow_ctrl[3]);
 	min_q = (pg_flow_ctrl[2] &
@@ -618,7 +614,7 @@ void mt7915_show_pse_info(
 	max_q = (pg_flow_ctrl[2] &
 		WF_PSE_TOP_PG_HIF0_GROUP_HIF0_MAX_QUOTA_MASK) >>
 		WF_PSE_TOP_PG_HIF0_GROUP_HIF0_MAX_QUOTA_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe max/min quota pages of HIF0 group=0x%03x/0x%03x\n",
 	       max_q, min_q);
 	rsv_pg =
@@ -627,14 +623,14 @@ void mt7915_show_pse_info(
 	used_pg =
 		(pg_flow_ctrl[3] & WF_PSE_TOP_HIF0_PG_INFO_HIF0_SRC_CNT_MASK) >>
 		WF_PSE_TOP_HIF0_PG_INFO_HIF0_SRC_CNT_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe used/reserved pages of HIF0 group=0x%03x/0x%03x\n",
 	       used_pg, rsv_pg);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tReserved page counter of HIF1 group(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_PG_HIF1_GROUP_ADDR,
 		pg_flow_ctrl[4]);
-	DBGLOG(HAL, DEBUG, "\tHIF1 group page status(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tHIF1 group page status(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_HIF1_PG_INFO_ADDR,
 		pg_flow_ctrl[5]);
 	min_q = (pg_flow_ctrl[4] &
@@ -643,7 +639,7 @@ void mt7915_show_pse_info(
 	max_q = (pg_flow_ctrl[4] &
 		WF_PSE_TOP_PG_HIF1_GROUP_HIF1_MAX_QUOTA_MASK) >>
 		WF_PSE_TOP_PG_HIF1_GROUP_HIF1_MAX_QUOTA_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe max/min quota pages of HIF1 group=0x%03x/0x%03x\n",
 	       max_q, min_q);
 	rsv_pg =
@@ -652,14 +648,14 @@ void mt7915_show_pse_info(
 	used_pg =
 		(pg_flow_ctrl[5] & WF_PSE_TOP_HIF1_PG_INFO_HIF1_SRC_CNT_MASK) >>
 		WF_PSE_TOP_HIF1_PG_INFO_HIF1_SRC_CNT_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\t\tThe used/reserved pages of HIF1 group=0x%03x/0x%03x\n",
 		used_pg, rsv_pg);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tReserved page counter of CPU group(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_PG_CPU_GROUP_ADDR,
 		pg_flow_ctrl[6]);
-	DBGLOG(HAL, DEBUG, "\tCPU group page status(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tCPU group page status(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_CPU_PG_INFO_ADDR,
 		pg_flow_ctrl[7]);
 	min_q = (pg_flow_ctrl[6] &
@@ -668,21 +664,21 @@ void mt7915_show_pse_info(
 	max_q = (pg_flow_ctrl[6] &
 		 WF_PSE_TOP_PG_CPU_GROUP_CPU_MAX_QUOTA_MASK) >>
 		WF_PSE_TOP_PG_CPU_GROUP_CPU_MAX_QUOTA_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe max/min quota pages of CPU group=0x%03x/0x%03x\n",
 	       max_q, min_q);
 	rsv_pg = (pg_flow_ctrl[7] & WF_PSE_TOP_CPU_PG_INFO_CPU_RSV_CNT_MASK) >>
 		 WF_PSE_TOP_CPU_PG_INFO_CPU_RSV_CNT_SHFT;
 	used_pg = (pg_flow_ctrl[7] & WF_PSE_TOP_CPU_PG_INFO_CPU_SRC_CNT_MASK) >>
 		  WF_PSE_TOP_CPU_PG_INFO_CPU_SRC_CNT_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe used/reserved pages of CPU group=0x%03x/0x%03x\n",
 	       used_pg, rsv_pg);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tReserved page counter of LMAC0 group(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_PG_LMAC0_GROUP_ADDR,
 		pg_flow_ctrl[8]);
-	DBGLOG(HAL, DEBUG, "\tLMAC0 group page status(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tLMAC0 group page status(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_LMAC0_PG_INFO_ADDR,
 		pg_flow_ctrl[9]);
 	min_q = (pg_flow_ctrl[8] &
@@ -691,7 +687,7 @@ void mt7915_show_pse_info(
 	max_q = (pg_flow_ctrl[8] &
 		WF_PSE_TOP_PG_LMAC0_GROUP_LMAC0_MAX_QUOTA_MASK) >>
 		WF_PSE_TOP_PG_LMAC0_GROUP_LMAC0_MAX_QUOTA_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\t\tThe max/min quota pages of LMAC0 group=0x%03x/0x%03x\n",
 		max_q, min_q);
 	rsv_pg = (pg_flow_ctrl[9] &
@@ -700,14 +696,14 @@ void mt7915_show_pse_info(
 	used_pg = (pg_flow_ctrl[9] &
 		WF_PSE_TOP_LMAC0_PG_INFO_LMAC0_SRC_CNT_MASK) >>
 		WF_PSE_TOP_LMAC0_PG_INFO_LMAC0_SRC_CNT_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\t\tThe used/reserved pages of LMAC0 group=0x%03x/0x%03x\n",
 		used_pg, rsv_pg);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tReserved page counter of LMAC1 group(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_PG_LMAC1_GROUP_ADDR,
 		pg_flow_ctrl[10]);
-	DBGLOG(HAL, DEBUG, "\tLMAC1 group page status(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tLMAC1 group page status(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_LMAC1_PG_INFO_ADDR,
 		pg_flow_ctrl[11]);
 	min_q = (pg_flow_ctrl[10] &
@@ -716,7 +712,7 @@ void mt7915_show_pse_info(
 	max_q = (pg_flow_ctrl[10] &
 		WF_PSE_TOP_PG_LMAC1_GROUP_LMAC1_MAX_QUOTA_MASK) >>
 		WF_PSE_TOP_PG_LMAC1_GROUP_LMAC1_MAX_QUOTA_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\t\tThe max/min quota pages of LMAC1 group=0x%03x/0x%03x\n",
 		max_q, min_q);
 	rsv_pg = (pg_flow_ctrl[11] &
@@ -725,14 +721,14 @@ void mt7915_show_pse_info(
 	used_pg = (pg_flow_ctrl[11] &
 		WF_PSE_TOP_LMAC1_PG_INFO_LMAC1_SRC_CNT_MASK) >>
 		WF_PSE_TOP_LMAC1_PG_INFO_LMAC1_SRC_CNT_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\t\tThe used/reserved pages of LMAC1 group=0x%03x/0x%03x\n",
 		used_pg, rsv_pg);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tReserved page counter of LMAC2 group(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_PG_LMAC2_GROUP_ADDR,
 		pg_flow_ctrl[11]);
-	DBGLOG(HAL, DEBUG, "\tLMAC2 group page status(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tLMAC2 group page status(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_LMAC2_PG_INFO_ADDR,
 		pg_flow_ctrl[12]);
 	min_q = (pg_flow_ctrl[12] &
@@ -741,7 +737,7 @@ void mt7915_show_pse_info(
 	max_q = (pg_flow_ctrl[12] &
 		WF_PSE_TOP_PG_LMAC2_GROUP_LMAC2_MAX_QUOTA_MASK) >>
 		WF_PSE_TOP_PG_LMAC2_GROUP_LMAC2_MAX_QUOTA_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\t\tThe max/min quota pages of LMAC2 group=0x%03x/0x%03x\n",
 		max_q, min_q);
 	rsv_pg = (pg_flow_ctrl[13] &
@@ -750,14 +746,14 @@ void mt7915_show_pse_info(
 	used_pg = (pg_flow_ctrl[13] &
 		WF_PSE_TOP_LMAC2_PG_INFO_LMAC2_SRC_CNT_MASK) >>
 		WF_PSE_TOP_LMAC2_PG_INFO_LMAC2_SRC_CNT_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\t\tThe used/reserved pages of LMAC2 group=0x%03x/0x%03x\n",
 		used_pg, rsv_pg);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tReserved page counter of LMAC3 group(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_PG_LMAC3_GROUP_ADDR,
 		pg_flow_ctrl[16]);
-	DBGLOG(HAL, DEBUG, "\tLMAC3 group page status(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tLMAC3 group page status(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_LMAC3_PG_INFO_ADDR,
 		pg_flow_ctrl[17]);
 	min_q = (pg_flow_ctrl[16] &
@@ -766,7 +762,7 @@ void mt7915_show_pse_info(
 	max_q = (pg_flow_ctrl[16] &
 		 WF_PSE_TOP_PG_LMAC3_GROUP_LMAC3_MAX_QUOTA_MASK) >>
 		WF_PSE_TOP_PG_LMAC3_GROUP_LMAC3_MAX_QUOTA_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe max/min quota pages of LMAC3 group=0x%03x/0x%03x\n",
 	       max_q, min_q);
 	rsv_pg = (pg_flow_ctrl[17] &
@@ -775,14 +771,14 @@ void mt7915_show_pse_info(
 	used_pg = (pg_flow_ctrl[17] &
 		   WF_PSE_TOP_LMAC3_PG_INFO_LMAC3_SRC_CNT_MASK) >>
 		  WF_PSE_TOP_LMAC3_PG_INFO_LMAC3_SRC_CNT_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\t\tThe used/reserved pages of LMAC3 group=0x%03x/0x%03x\n",
 		used_pg, rsv_pg);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tReserved page counter of PLE group(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_PG_PLE_GROUP_ADDR,
 		pg_flow_ctrl[14]);
-	DBGLOG(HAL, DEBUG, "\tPLE group page status(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tPLE group page status(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_PLE_PG_INFO_ADDR,
 		pg_flow_ctrl[15]);
 	min_q = (pg_flow_ctrl[14] &
@@ -791,7 +787,7 @@ void mt7915_show_pse_info(
 	max_q = (pg_flow_ctrl[14] &
 		WF_PSE_TOP_PG_PLE_GROUP_PLE_MAX_QUOTA_MASK) >>
 		WF_PSE_TOP_PG_PLE_GROUP_PLE_MAX_QUOTA_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\t\tThe max/min quota pages of PLE group=0x%03x/0x%03x\n",
 		max_q, min_q);
 	rsv_pg = (pg_flow_ctrl[15] & WF_PSE_TOP_PLE_PG_INFO_PLE_RSV_CNT_MASK) >>
@@ -799,14 +795,14 @@ void mt7915_show_pse_info(
 	used_pg =
 		(pg_flow_ctrl[15] & WF_PSE_TOP_PLE_PG_INFO_PLE_SRC_CNT_MASK) >>
 		WF_PSE_TOP_PLE_PG_INFO_PLE_SRC_CNT_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe used/reserved pages of PLE group=0x%03x/0x%03x\n",
 	       used_pg, rsv_pg);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tReserved page counter of MDP group(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_PG_MDP_GROUP_ADDR,
 		pg_flow_ctrl[18]);
-	DBGLOG(HAL, DEBUG, "\tMDP group page status(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tMDP group page status(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_MDP_PG_INFO_ADDR,
 		pg_flow_ctrl[19]);
 	min_q = (pg_flow_ctrl[18] &
@@ -815,7 +811,7 @@ void mt7915_show_pse_info(
 	max_q = (pg_flow_ctrl[18] &
 		 WF_PSE_TOP_PG_MDP_GROUP_MDP_MAX_QUOTA_MASK) >>
 		WF_PSE_TOP_PG_MDP_GROUP_MDP_MAX_QUOTA_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe max/min quota pages of MDP group=0x%03x/0x%03x\n",
 	       max_q, min_q);
 	rsv_pg = (pg_flow_ctrl[19] & WF_PSE_TOP_MDP_PG_INFO_MDP_RSV_CNT_MASK) >>
@@ -823,15 +819,15 @@ void mt7915_show_pse_info(
 	used_pg =
 		(pg_flow_ctrl[19] & WF_PSE_TOP_MDP_PG_INFO_MDP_SRC_CNT_MASK) >>
 		WF_PSE_TOP_MDP_PG_INFO_MDP_SRC_CNT_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\t\tThe used/reserved pages of MDP group=0x%03x/0x%03x\n",
 	       used_pg, rsv_pg);
 	/* Queue Empty Status */
-	DBGLOG(HAL, DEBUG, "PSE Queue Empty Status:\n");
-	DBGLOG(HAL, DEBUG, "\tQUEUE_EMPTY(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "PSE Queue Empty Status:\n");
+	DBGLOG(HAL, INFO, "\tQUEUE_EMPTY(0x%08x): 0x%08x\n",
 		WF_PSE_TOP_QUEUE_EMPTY_ADDR,
 		pse_stat);
-	DBGLOG(HAL, DEBUG, "\t\tCPU Q0/1/2/3 empty=%d/%d/%d/%d\n",
+	DBGLOG(HAL, INFO, "\t\tCPU Q0/1/2/3 empty=%d/%d/%d/%d\n",
 	       (pse_stat & WF_PSE_TOP_QUEUE_EMPTY_CPU_Q0_EMPTY_MASK) >>
 		       WF_PSE_TOP_QUEUE_EMPTY_CPU_Q0_EMPTY_SHFT,
 	       ((pse_stat & WF_PSE_TOP_QUEUE_EMPTY_CPU_Q1_EMPTY_MASK) >>
@@ -840,7 +836,7 @@ void mt7915_show_pse_info(
 		WF_PSE_TOP_QUEUE_EMPTY_CPU_Q2_EMPTY_SHFT),
 	       ((pse_stat & WF_PSE_TOP_QUEUE_EMPTY_CPU_Q3_EMPTY_MASK) >>
 		WF_PSE_TOP_QUEUE_EMPTY_CPU_Q3_EMPTY_SHFT));
-	DBGLOG(HAL, DEBUG, "\t\tHIF Q0/1/2/3/4/5 empty=%d/%d/%d/%d/%d/%d\n",
+	DBGLOG(HAL, INFO, "\t\tHIF Q0/1/2/3/4/5 empty=%d/%d/%d/%d/%d/%d\n",
 	       ((pse_stat & WF_PSE_TOP_QUEUE_EMPTY_HIF_0_EMPTY_MASK) >>
 		WF_PSE_TOP_QUEUE_EMPTY_HIF_0_EMPTY_SHFT),
 	       ((pse_stat & WF_PSE_TOP_QUEUE_EMPTY_HIF_1_EMPTY_MASK) >>
@@ -853,40 +849,40 @@ void mt7915_show_pse_info(
 		WF_PSE_TOP_QUEUE_EMPTY_HIF_4_EMPTY_SHFT),
 	       ((pse_stat & WF_PSE_TOP_QUEUE_EMPTY_HIF_5_EMPTY_MASK) >>
 		WF_PSE_TOP_QUEUE_EMPTY_HIF_5_EMPTY_SHFT));
-	DBGLOG(HAL, DEBUG, "\t\tLMAC TX Q empty=%d\n",
+	DBGLOG(HAL, INFO, "\t\tLMAC TX Q empty=%d\n",
 	       ((pse_stat & WF_PSE_TOP_QUEUE_EMPTY_LMAC_TX_QUEUE_EMPTY_MASK) >>
 		WF_PSE_TOP_QUEUE_EMPTY_LMAC_TX_QUEUE_EMPTY_SHFT));
-	DBGLOG(HAL, DEBUG, "\t\tMDP TX Q/RX Q empty=%d/%d\n",
+	DBGLOG(HAL, INFO, "\t\tMDP TX Q/RX Q empty=%d/%d\n",
 	       ((pse_stat & WF_PSE_TOP_QUEUE_EMPTY_MDP_TX_QUEUE_EMPTY_MASK) >>
 		WF_PSE_TOP_QUEUE_EMPTY_MDP_TX_QUEUE_EMPTY_SHFT),
 	       ((pse_stat & WF_PSE_TOP_QUEUE_EMPTY_MDP_RX_QUEUE_EMPTY_MASK) >>
 		WF_PSE_TOP_QUEUE_EMPTY_MDP_RX_QUEUE_EMPTY_SHFT));
-	DBGLOG(HAL, DEBUG, "\t\tSEC TX Q/RX Q empty=%d/%d\n",
+	DBGLOG(HAL, INFO, "\t\tSEC TX Q/RX Q empty=%d/%d\n",
 	       ((pse_stat & WF_PSE_TOP_QUEUE_EMPTY_SEC_TX_QUEUE_EMPTY_MASK) >>
 		WF_PSE_TOP_QUEUE_EMPTY_SEC_TX_QUEUE_EMPTY_SHFT),
 	       ((pse_stat & WF_PSE_TOP_QUEUE_EMPTY_SEC_RX_QUEUE_EMPTY_MASK) >>
 		WF_PSE_TOP_QUEUE_EMPTY_SEC_RX_QUEUE_EMPTY_SHFT));
-	DBGLOG(HAL, DEBUG, "\t\tSFD PARK Q empty=%d\n",
+	DBGLOG(HAL, INFO, "\t\tSFD PARK Q empty=%d\n",
 	       ((pse_stat & WF_PSE_TOP_QUEUE_EMPTY_SFD_PARK_QUEUE_EMPTY_MASK) >>
 		WF_PSE_TOP_QUEUE_EMPTY_SFD_PARK_QUEUE_EMPTY_SHFT));
-	DBGLOG(HAL, DEBUG, "\t\tMDP TXIOC Q/RXIOC Q empty=%d/%d\n",
+	DBGLOG(HAL, INFO, "\t\tMDP TXIOC Q/RXIOC Q empty=%d/%d\n",
 	       ((pse_stat &
 		 WF_PSE_TOP_QUEUE_EMPTY_MDP_TXIOC_QUEUE_EMPTY_MASK) >>
 		WF_PSE_TOP_QUEUE_EMPTY_MDP_TXIOC_QUEUE_EMPTY_SHFT),
 	       ((pse_stat &
 		 WF_PSE_TOP_QUEUE_EMPTY_MDP_RXIOC_QUEUE_EMPTY_MASK) >>
 		WF_PSE_TOP_QUEUE_EMPTY_MDP_RXIOC_QUEUE_EMPTY_SHFT));
-	DBGLOG(HAL, DEBUG, "\t\tRLS Q empty=%d\n",
+	DBGLOG(HAL, INFO, "\t\tRLS Q empty=%d\n",
 	       ((pse_stat & WF_PSE_TOP_QUEUE_EMPTY_RLS_Q_EMTPY_MASK) >>
 		WF_PSE_TOP_QUEUE_EMPTY_RLS_Q_EMTPY_SHFT));
-	DBGLOG(HAL, DEBUG, "Nonempty Q info:\n");
+	DBGLOG(HAL, INFO, "Nonempty Q info:\n");
 
 	for (i = 0; i < 31; i++) {
 		if (((pse_stat & (0x1 << i)) >> i) == 0) {
 			uint32_t hfid, tfid, pktcnt, fl_que_ctrl[3] = {0};
 
 			if (pse_queue_empty_info[i].QueueName != NULL) {
-				DBGLOG(HAL, DEBUG, "\t%s: ",
+				DBGLOG(HAL, INFO, "\t%s: ",
 				       pse_queue_empty_info[i].QueueName);
 				fl_que_ctrl[0] |=
 					WF_PSE_TOP_FL_QUE_CTRL_0_EXECUTE_MASK;
@@ -916,7 +912,7 @@ void mt7915_show_pse_info(
 				(fl_que_ctrl[2] &
 				 WF_PSE_TOP_FL_QUE_CTRL_3_QUEUE_PKT_NUM_MASK) >>
 				WF_PSE_TOP_FL_QUE_CTRL_3_QUEUE_PKT_NUM_SHFT;
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 		       "tail/head fid = 0x%03x/0x%03x, pkt cnt = 0x%03x\n",
 			       tfid, hfid, pktcnt);
 		}

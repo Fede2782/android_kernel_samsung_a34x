@@ -22,8 +22,8 @@ void check_crash_key_panic(unsigned int code, int value)
 	static bool voldown_p;
 	static int loopcount;
 
-	if (is_debug_level_low()) {
-		printk("%s: returnd due to debug_level is low", __func__);	
+	if (!sec_debug_get_force_upload()) {
+		printk("%s: return if upload mode is disabled", __func__);	
 		return;
 	}
 
@@ -42,7 +42,7 @@ void check_crash_key_panic(unsigned int code, int value)
 		if (!volup_p && voldown_p) {
 			if (code == KEY_POWER) {
 				pr_info
-				    ("%s: count for enter forced upload : %d\n",
+				    ("%s: count to enter forced upload : %d\n",
 				     __func__, ++loopcount);
 				if (loopcount == 2)
 					panic("Crash Key");
@@ -80,8 +80,8 @@ int sec_crash_key_init(void)
 {
 	pr_info("%s\n", __func__);
 
-	/* only work when upload enabled*/
-	if(is_debug_level_low()) 
+	/* only work when upload mode is enabled*/
+	if(!sec_debug_get_force_upload()) 
 		return 0;
 
 	sec_kn_register_notifier(&seccmn_crash_key_notifier);

@@ -396,6 +396,8 @@ struct BUS_INFO soc5_0_bus_info = {
 	.DmaShdlInit = soc5_0DmashdlInit,
 	.setRxRingHwAddr = soc5_0SetRxRingHwAddr,
 	.wfdmaAllocRxRing = soc5_0WfdmaAllocRxRing,
+	.recordWFDMAIdx = asicConnac2xWfdmaRecord,
+	.checkIdxMismatch = asicConnac2xWfdmaChkIdxMisMatch,
 
 	.rSwWfdmaInfo = {
 		.rOps = {

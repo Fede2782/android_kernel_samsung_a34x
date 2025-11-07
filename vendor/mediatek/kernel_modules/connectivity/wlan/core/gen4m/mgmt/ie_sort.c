@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -1067,7 +1067,7 @@ void sortIE(struct ADAPTER *prAdapter,
 			prMsduInfo->u2FrameLength, offset);
 		return;
 	} else if (prMsduInfo->u2FrameLength == offset) {
-		DBGLOG(TX, DEBUG, "No payload, skip sorting\n");
+		DBGLOG(TX, INFO, "No payload, skip sorting\n");
 		return;
 	}
 
@@ -1112,28 +1112,26 @@ void sortIE(struct ADAPTER *prAdapter,
 		/* start from next ie to find fragments */
 		pos = pucBuf + IE_SIZE(pucBuf);
 		u2LastLen = IE_SIZE(pucBuf);
-		if (IE_ID(pucBuf) == ELEM_ID_VENDOR) {
-			/* Teate all vendor/fragment IE as one element
-			 * to avoid IOT problem.
-			 */
+		if (pucBuf[0] == ELEM_ID_VENDOR) {
+			/* Ensure the order of vendor IE to avoid IOT problem */
 			while (end - pos >= 2 &&
-			       (IE_ID(pos) == ELEM_ID_VENDOR ||
-				IE_ID(pos) == ELEM_ID_FRAGMENT) &&
-			       IE_SIZE(pos) <= end - pos) {
-				info[num].size += IE_SIZE(pos);
-				u2LastLen = IE_SIZE(pos);
+			       (pos[0] == ELEM_ID_VENDOR ||
+				pos[0] == ELEM_ID_FRAGMENT) &&
+			       2 + pos[1] <= end - pos) {
+				info[num].size += 2 + pos[1]; /* include hdr */
+				u2LastLen = 2 + pos[1];
 				pucBuf = (uint8_t *)pos;
-				pos += IE_SIZE(pos);
+				pos += 2 + pos[1];
 			}
 			u2Offset += info[num].size - u2LastLen;
 		} else {
 			while (end - pos >= 2 &&
-			       IE_ID(pos) == ELEM_ID_FRAGMENT &&
-			       IE_SIZE(pos) <= end - pos) {
-				info[num].size += IE_SIZE(pos);
-				u2LastLen = IE_SIZE(pos);
+			       pos[0] == ELEM_ID_FRAGMENT &&
+			       2 + pos[1] <= end - pos) {
+				info[num].size += 2 + pos[1]; /* include hdr */
+				u2LastLen = 2 + pos[1];
 				pucBuf = (uint8_t *)pos;
-				pos += IE_SIZE(pos);
+				pos += 2 + pos[1];
 			}
 			u2Offset += info[num].size - u2LastLen;
 		}
@@ -1166,8 +1164,7 @@ void sortIE(struct ADAPTER *prAdapter,
 	}
 
 #if DBG
-	DBGLOG(TX, DEBUG,
-	       "Sorted %s IE, length = %d\n", pucIeDesc, u2IEsBufLen);
+	DBGLOG(TX, INFO, "Sorted %s IE, length = %d\n", pucIeDesc, u2IEsBufLen);
 	dumpMemory8(pucDst, u2IEsBufLen);
 #endif
 

@@ -65,3 +65,4 @@ s put_swap_folio
 s scan_swap_map_try_ssd_cluster
 s swap_do_scheduled_discard
 s swapcache_free_entries
+s module_augment_kernel_taints

@@ -1255,37 +1255,39 @@ static const char *lock_string(enum usb_lock_state lock_state)
 }
 #endif
 
+static const char *const LOCK_STATE_NAMES[] = {
+    "SUNNY_WORK_MODE",     // 0: USB_NOTIFY_UNLOCK
+    "CLOUDY_WORK_MODE",    // 1: USB_NOTIFY_LOCK_USB_WORK
+    "RAINY_RESTRICT_MODE",     // 2: USB_NOTIFY_LOCK_USB_RESTRICT
+    "SKY_DEFAULT"        // 3: default
+};
+
+#define TOTAL_STATES 4
+#define VALID_INPUT_CNT 3  // "sunny", "cloudy", "rainy"
+
 static ssize_t usb_sl_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	struct usb_notify_dev *udev = (struct usb_notify_dev *)
 		dev_get_drvdata(dev);
+    const char *state;
 
 	if (udev == NULL) {
 		unl_err("udev is NULL\n");
 		return -EINVAL;
 	}
-	unl_info("%s secure_lock = %lu\n",
-		__func__, udev->secure_lock);
 
-	return sprintf(buf, "%lu\n", udev->secure_lock);
-}
+	state = LOCK_STATE_NAMES[udev->secure_lock % TOTAL_STATES];
 
-static bool valid_secure_lock_value(unsigned long secure_lock)
-{
-	bool ret = false;
+#ifndef CONFIG_DISABLE_LOCKSCREEN_USB_RESTRICTION
+    unl_info("%s %s (secure_lock = %s(%lu))\n",
+             __func__, state, lock_string(udev->secure_lock), udev->secure_lock);
+#else
+	unl_info("%s %s secure_lock = %lu\n",
+		__func__, state, udev->secure_lock);
+#endif
 
-	switch (secure_lock) {
-	case USB_NOTIFY_LOCK_USB_RESTRICT:
-	case USB_NOTIFY_LOCK_USB_WORK:
-	case USB_NOTIFY_UNLOCK:
-		ret = true;
-		break;
-	default:
-		break;
-	}
-
-	return ret;
+    return snprintf(buf, PAGE_SIZE, "%s\n", state);
 }
 
 static ssize_t usb_sl_store(
@@ -1301,6 +1303,8 @@ static ssize_t usb_sl_store(
 #endif
 	int sret = -EINVAL;
 	size_t ret = -ENOMEM;
+	char input_str[25];
+	int i;
 
 	if (udev == NULL) {
 		unl_err("udev is NULL\n");
@@ -1319,14 +1323,21 @@ static ssize_t usb_sl_store(
 		__func__, udev->secure_lock);
 #endif
 
-	sret = sscanf(buf, "%lu", &secure_lock);
-	if (sret != 1)
+	sret = sscanf(buf, "%24s", input_str);
+	if (sret != 1) {
+		unl_err("%s invalid input (%s)-\n", __func__, input_str);
 		goto error;
+	}
 
-	if (!valid_secure_lock_value(secure_lock)) {
-		unl_err("%s secure_lock is invalid (%lu)\n",
-			__func__, secure_lock);
-		ret = -EINVAL;
+	secure_lock = ~0UL;
+	for (i = 0; i < VALID_INPUT_CNT; i++) {
+		if (strcmp(input_str, LOCK_STATE_NAMES[i]) == 0) {
+			secure_lock = i;
+			break;
+		}
+	}
+	if (secure_lock == ~0UL) {
+		unl_err("%s disallow input (%s)-\n", __func__, input_str);
 		goto error;
 	}
 

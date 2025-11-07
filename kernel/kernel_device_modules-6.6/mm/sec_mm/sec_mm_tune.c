@@ -6,11 +6,21 @@
  *
  */
 
+#include <linux/gfp.h>
 #include <linux/swap.h>
 #include <linux/sec_mm.h>
 #include <linux/jiffies.h>
+#include <trace/hooks/iommu.h>
 #include <trace/hooks/mm.h>
 #include <trace/hooks/vmscan.h>
+
+static void sec_mm_adjust_alloc_flags(void *data, unsigned int order,
+		gfp_t *alloc_flags)
+{
+	if (!order)
+		return;
+	*alloc_flags &= ~__GFP_RECLAIM;
+}
 
 static void sec_mm_cma_alloc_set_max_retries(void *data, int *max_retries)
 {
@@ -75,12 +85,13 @@ enum scan_balance {
 	SCAN_FILE,
 };
 
+static unsigned long low_threshold;
+
 static void sec_mm_tune_scan_control(void *data, bool *skip_swap)
 {
-	*skip_swap = true;
+	if (!file_is_tiny(low_threshold))
+		*skip_swap = true;
 }
-
-static unsigned long low_threshold;
 
 static void sec_mm_tune_scan_type(void *data, enum scan_balance *scan_type)
 {
@@ -123,6 +134,8 @@ void init_sec_mm_tune(void)
 {
 	low_threshold = get_low_threshold();
 
+	register_trace_android_vh_adjust_alloc_flags(
+			sec_mm_adjust_alloc_flags, NULL);
 	register_trace_android_vh_cma_alloc_set_max_retries(
 			sec_mm_cma_alloc_set_max_retries, NULL);
 	register_trace_android_vh_drain_all_pages_bypass(
@@ -150,6 +163,8 @@ void init_sec_mm_tune(void)
 
 void exit_sec_mm_tune(void)
 {
+	unregister_trace_android_vh_adjust_alloc_flags(
+			sec_mm_adjust_alloc_flags, NULL);
 	unregister_trace_android_vh_cma_alloc_set_max_retries(
 			sec_mm_cma_alloc_set_max_retries, NULL);
 	unregister_trace_android_vh_drain_all_pages_bypass(

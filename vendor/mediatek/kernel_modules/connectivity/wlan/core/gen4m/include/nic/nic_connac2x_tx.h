@@ -562,7 +562,7 @@ uint32_t u4LifeTimeInUnit = ((MSEC_TO_USEC(_LifeMs) / USEC_PER_TU) \
 			    >> CONNAC2X_TX_DESC_LIFE_TIME_UNIT_IN_POWER_OF_2); \
 if (u4LifeTimeInUnit >= BIT(7)) \
 	u4LifeTimeInUnit = BITS(0, 6); \
-else if ((_LifeMs != TX_DESC_TX_TIME_NO_LIMIT) \
+else if ((u4LifeTimeInUnit != TX_DESC_TX_TIME_NO_LIMIT) \
 	&& (u4LifeTimeInUnit == TX_DESC_TX_TIME_NO_LIMIT)) \
 	u4LifeTimeInUnit = 1; \
 HAL_MAC_CONNAC2X_TXD_SET_REMAINING_LIFE_TIME(_prHwTxD, \

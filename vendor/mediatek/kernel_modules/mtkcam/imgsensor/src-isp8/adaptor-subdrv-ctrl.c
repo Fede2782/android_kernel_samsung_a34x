@@ -16,7 +16,9 @@
 #include "kd_imgsensor.h"
 #include "kd_imgsensor_define_v4l2.h"
 #include "kd_imgsensor_errcode.h"
-
+#ifdef CONFIG_IMGSENSOR_SYSFS_V2
+#include "imgsensor_sysfs_v2.h"
+#endif
 
 #include "adaptor.h"
 #include "adaptor-subdrv-ctrl.h"
@@ -39,7 +41,7 @@ static const char * const state_names[] = {
 void check_current_scenario_id_bound(struct subdrv_ctx *ctx)
 {
 	if (ctx->current_scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOGE(ctx, "invalid cur_sid:%u, mode_num:%u set default\n",
+		DRV_LOGE(ctx, "invalid cur_scenario id:%u, mode_num:%u set default\n",
 			ctx->current_scenario_id, ctx->s_ctx.sensor_mode_num);
 		ctx->current_scenario_id = 0;
 	}
@@ -183,10 +185,15 @@ void set_i2c_buffer(struct subdrv_ctx *ctx, u16 reg, u16 val)
 	}
 }
 
+/* This function is not used in SS Flow for reading caliberation data*/
 u16 i2c_multi_read_eeprom(struct subdrv_ctx *ctx, u16 addr, u16 size, u8 *pbuf)
 {
+	return 0;
+	/*
 	u8 write_id;
 	int ret = read_cam_cal(ctx->s_ctx.sensor_id, pbuf, addr, size);
+	
+	int ret;
 
 	if (ret < 0) {
 		if (ctx->eeprom_index < ctx->s_ctx.eeprom_num) {
@@ -202,6 +209,7 @@ u16 i2c_multi_read_eeprom(struct subdrv_ctx *ctx, u16 addr, u16 size, u8 *pbuf)
 	}
 
 	return 0;
+	*/
 }
 
 void get_pdaf_reg_setting(struct subdrv_ctx *ctx, u32 regNum, u16 *regDa)
@@ -264,7 +272,7 @@ bool probe_eeprom(struct subdrv_ctx *ctx)
 	struct eeprom_info_struct *info = ctx->s_ctx.eeprom_info;
 
 	if (info == NULL) {
-		DRV_LOG_MUST(ctx, "sensor no support eeprom\n");
+		DRV_LOG(ctx, "sensor no support eeprom\n");
 		return FALSE;
 	}
 
@@ -534,7 +542,7 @@ void write_frame_length_in_lut(struct subdrv_ctx *ctx, u32 fll, u32 *fll_in_lut)
 			fll_step);
 	} else {
 		DRV_LOG(ctx,
-			"sid:%u,extend_frame_length_en:%u,default won't write fll!\n",
+			"scenario id:%u,extend_frame_length_en:%u,default won't write fll!\n",
 			ctx->current_scenario_id, ctx->extend_frame_length_en);
 		return;
 	}
@@ -663,7 +671,7 @@ void set_frame_length_in_lut(struct subdrv_ctx *ctx,
 		ctx->s_ctx.s_gph((void *)ctx, 0);
 	commit_i2c_buffer(ctx);
 	DRV_LOG(ctx,
-		"sid:%u,fll(input/ctx/output_a/b/c/d/e/min):%u/%u/%u/%u/%u/%u/%u/%u\n",
+		"scenario id:%u,fll(input/ctx/output_a/b/c/d/e/min):%u/%u/%u/%u/%u/%u/%u/%u\n",
 		ctx->current_scenario_id,
 		frame_length,
 		ctx->frame_length,
@@ -769,7 +777,7 @@ void set_max_framerate(struct subdrv_ctx *ctx, u16 framerate, bool min_frameleng
 		ctx->min_frame_length = ctx->frame_length;
 	if (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF)
 		DRV_LOG(ctx,
-			"sid:%u,max_fps(input/output):%u/%u,min_fl_en:%u,fll(input/ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u/%u\n",
+			"scenario id:%u,max_fps(input/output):%u/%u,min_fl_en:%u,fll(input/ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u/%u\n",
 			ctx->current_scenario_id,
 			framerate, ctx->current_fps, min_framelength_en,
 			frame_length,
@@ -881,7 +889,7 @@ void set_max_framerate_base100(struct subdrv_ctx *ctx, u16 framerate, bool min_f
 		ctx->min_frame_length = ctx->frame_length;
 	if (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF)
 		DRV_LOG(ctx,
-			"sid:%u,max_fps(input/output):%u(100base)/%u(10base),min_fl_en:%u,fll(input/ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u/%u\n",
+			"scenario id:%u,max_fps(input/output):%u(100base)/%u(10base),min_fl_en:%u,fll(input/ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u/%u\n",
 			ctx->current_scenario_id,
 			framerate, ctx->current_fps, min_framelength_en,
 			frame_length,
@@ -906,7 +914,7 @@ void set_max_framerate_mcss_by_scenario(struct subdrv_ctx *ctx,
 	u32 frame_length_max;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOGE(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
@@ -929,7 +937,7 @@ void set_max_framerate_mcss_by_scenario(struct subdrv_ctx *ctx,
 
 	ctx->current_fps = ctx->pclk / ctx->frame_length * 10 / ctx->line_length;
 	ctx->min_frame_length = ctx->frame_length;
-	DRV_LOG(ctx, "max_fps(input/output):%u/%u(sid:%u), min_fl_en:1\n",
+	DRV_LOG(ctx, "max_fps(input/output):%u/%u(scenario id:%u), min_fl_en:1\n",
 		framerate, ctx->current_fps, scenario_id);
 	if (ctx->s_ctx.reg_addr_auto_extend ||
 			(ctx->frame_length >
@@ -952,7 +960,7 @@ void set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 	u32 frame_length_max;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOGE(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
@@ -1001,7 +1009,7 @@ void set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 						ctx->frame_length * 10 /
 						ctx->s_ctx.mode[scenario_id].linelength;
 	ctx->min_frame_length = ctx->frame_length;
-	DRV_LOG(ctx, "max_fps(input/output):%u/%u(sid:%u), min_fl_en:1, ctx->frame_length:%u\n",
+	DRV_LOG(ctx, "max_fps(input/output):%u/%u(scenario id:%u), min_fl_en:1, ctx->frame_length:%u\n",
 		framerate, ctx->current_fps, scenario_id, ctx->frame_length);
 	if (ctx->s_ctx.reg_addr_auto_extend ||
 			(ctx->frame_length >
@@ -1108,7 +1116,7 @@ void set_max_framerate_in_lut_by_scenario(struct subdrv_ctx *ctx,
 		ctx->current_fps = ctx->pclk / ctx->frame_length * 10 / ctx->line_length;
 		ctx->min_frame_length = ctx->frame_length;
 		DRV_LOG(ctx,
-			"sid:%u,max_fps(input/output):%u/%u,min_fl_en:1,lut order:%u,fll(input/ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u/%un",
+			"scenario id:%u,max_fps(input/output):%u/%u,min_fl_en:1,lut order:%u,fll(input/ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u/%un",
 			scenario_id,
 			framerate, ctx->current_fps,
 			ctx->s_ctx.mode[scenario_id].exposure_order_in_lbmf,
@@ -1213,7 +1221,7 @@ void set_max_framerate_in_lut_by_scenario(struct subdrv_ctx *ctx,
 		ctx->current_fps = ctx->pclk / ctx->frame_length * 10 / ctx->line_length;
 		ctx->min_frame_length = ctx->frame_length;
 		DRV_LOG(ctx,
-			"sid:%u,max_fps(input/output):%u/%u,min_fl_en:1,lut order:%u,fll(input/ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u/%u\n",
+			"scenario id:%u,max_fps(input/output):%u/%u,min_fl_en:1,lut order:%u,fll(input/ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u/%u\n",
 			scenario_id,
 			framerate, ctx->current_fps,
 			ctx->s_ctx.mode[scenario_id].exposure_order_in_lbmf,
@@ -1338,7 +1346,7 @@ bool set_auto_flicker(struct subdrv_ctx *ctx, bool min_framelength_en)
 
 	if (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF)
 		DRV_LOG(ctx,
-	"sid:%u,cur_fps(100base):%u,flick_en:%d,min_fl_en:%u,fll(ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u,new_fps:%llu(100base)\n",
+	"scenario id:%u,cur_fps(100base):%u,flick_en:%d,min_fl_en:%u,fll(ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u,new_fps:%llu(100base)\n",
 			ctx->current_scenario_id,
 			framerate, ctx->autoflicker_en, min_framelength_en,
 			ctx->frame_length,
@@ -1921,7 +1929,7 @@ void set_multi_shutter_frame_length_in_lut(struct subdrv_ctx *ctx,
 		}
 	}
 	DRV_LOG(ctx,
-		"sid:%u,shutter(input/lut):0x%llx/%llx/%llx,%x/%x/%x,flInLUT(input/ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u/%u,flick_en:%d\n",
+		"scenario id:%u,shutter(input/lut):0x%llx/%llx/%llx,%x/%x/%x,flInLUT(input/ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u/%u,flick_en:%d\n",
 		ctx->current_scenario_id,
 		shutters[0], shutters[1], shutters[2],
 		cit_in_lut[0], cit_in_lut[1], cit_in_lut[2],
@@ -2124,7 +2132,7 @@ void set_multi_gain_in_lut(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 			ana_gain_in_lut[i] & 0xFF);
 	}
 	DRV_LOG(ctx,
-		"sid:%u,gain(input/lut):0x%x/%x/%x,%x/%x/%x\n",
+		"scenario id:%u,gain(input/lut):0x%x/%x/%x,%x/%x/%x\n",
 		ctx->current_scenario_id,
 		gains[0], gains[1], gains[2],
 		ana_gain_in_lut[0], ana_gain_in_lut[1], ana_gain_in_lut[2]);
@@ -2297,7 +2305,7 @@ void set_multi_dig_gain_in_lut(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 	}
 
 	DRV_LOG(ctx,
-		"sid:%u,dgain(ori/lut):0x%x/%x/%x,%x/%x/%x\n",
+		"scenario id:%u,dgain(ori/lut):0x%x/%x/%x,%x/%x/%x\n",
 		ctx->current_scenario_id,
 		gains[0], gains[1], gains[2],
 		dig_gain_in_lut[0], dig_gain_in_lut[1], dig_gain_in_lut[2]);
@@ -2341,7 +2349,7 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 	struct adaptor_ctx *_adaptor_ctx = NULL;
 	struct v4l2_subdev *sd = NULL;
 
-	DRV_LOG(ctx, "E! enable:%u\n", enable);
+	DRV_LOG_MUST(ctx, "E: stream[%s]\n", enable? "ON": "OFF");
 
 	if (ctx->i2c_client)
 		sd = i2c_get_clientdata(ctx->i2c_client);
@@ -2360,7 +2368,7 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 			ctx->s_ctx.s_streaming_control((void *) ctx, enable);
 		else
 			DRV_LOG_MUST(ctx,
-				"please implement drive own streaming control!(sid:%u)\n",
+				"please implement drive own streaming control!(scenario id:%u)\n",
 				ctx->current_scenario_id);
 		ctx->is_streaming = enable;
 		DRV_LOG_MUST(ctx, "enable:%u\n", enable);
@@ -2368,7 +2376,7 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 	}
 	if (ctx->s_ctx.aov_sensor_support && ctx->s_ctx.mode[ctx->current_scenario_id].aov_mode) {
 		DRV_LOG_MUST(ctx,
-			"stream ctrl implement on scp side!(sid:%u)\n",
+			"stream ctrl implement on scp side!(scenario id:%u)\n",
 			ctx->current_scenario_id);
 		ctx->is_streaming = enable;
 		DRV_LOG_MUST(ctx, "enable:%u\n", enable);
@@ -2403,12 +2411,12 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 		}
 		subdrv_ixc_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x00);
 		if (ctx->s_ctx.reg_addr_fast_mode && ctx->fast_mode_on) {
-			ctx->fast_mode_on = FALSE;
-			ctx->ref_sof_cnt = 0;
 			DRV_LOG(ctx, "seamless_switch disabled.");
 			set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_fast_mode, 0x00);
 			commit_i2c_buffer(ctx);
 		}
+		ctx->fast_mode_on = FALSE;
+		ctx->ref_sof_cnt = 0;
 		memset(ctx->exposure, 0, sizeof(ctx->exposure));
 		memset(ctx->ana_gain, 0, sizeof(ctx->ana_gain));
 		ctx->autoflicker_en = FALSE;
@@ -2426,7 +2434,7 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 	}
 	ctx->sof_no = 0;
 	ctx->is_streaming = enable;
-	DRV_LOG(ctx, "X! enable:%u\n", enable);
+	DRV_LOG_MUST(ctx, "X: stream[%s]\n", enable? "ON": "OFF");
 }
 
 void set_video_mode(struct subdrv_ctx *ctx, u16 framerate)
@@ -2452,7 +2460,7 @@ void get_output_format_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *sensor_output_dataformat)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario_id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return;
 	}
@@ -2466,16 +2474,21 @@ void get_ana_gain_table(struct subdrv_ctx *ctx, u64 *size, void *data)
 	u32 *gain_table = ctx->s_ctx.ana_gain_table;
 
 	if (data == NULL)
-		*size =	ctx->s_ctx.ana_gain_table_size;
-	else
+		*size = ctx->s_ctx.ana_gain_table_size;
+	else if (*size >= ctx->s_ctx.ana_gain_table_size)
 		memcpy(data, (void *)gain_table, ctx->s_ctx.ana_gain_table_size);
+	else {
+		DRV_LOGE(ctx, "invalid size:%llu less than gain table size:%d\n",
+			*size, ctx->s_ctx.ana_gain_table_size);
+		memcpy(data, (void *)gain_table, *size);
+	}
 }
 
 void get_gain_range_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *min_gain, u64 *max_gain)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
@@ -2495,7 +2508,7 @@ void get_dig_gain_range_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *min_dgain, u64 *max_dgain)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
@@ -2515,7 +2528,7 @@ void get_min_shutter_by_scenario(struct subdrv_ctx *ctx,
 	u64 ratio = 1;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid cur_sid:%u, mode_num:%u set default\n",
+		DRV_LOG(ctx, "invalid cur_scenario id:%u, mode_num:%u set default\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = 0;
 	}
@@ -2543,7 +2556,7 @@ void get_pixel_clock_freq_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *pclk)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
@@ -2556,7 +2569,7 @@ void get_period_by_scenario(struct subdrv_ctx *ctx,
 	u32 ratio = 1;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
@@ -2583,7 +2596,7 @@ void get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *framerate)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOGE(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return;
 	}
@@ -2594,7 +2607,7 @@ void get_fine_integ_line_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, int *fine_integ_line)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return;
 	}
@@ -2608,7 +2621,7 @@ void set_test_pattern(struct subdrv_ctx *ctx, u32 mode)
 
 void set_test_pattern_data(struct subdrv_ctx *ctx, struct mtk_test_pattern_data *data)
 {
-	DRV_LOGE(ctx, "sensor no support.");
+	DRV_LOG(ctx, "sensor no support.");
 }
 
 void get_test_pattern_checksum_value(struct subdrv_ctx *ctx, u32 *checksum)
@@ -2632,21 +2645,21 @@ void get_crop_info(struct subdrv_ctx *ctx, enum SENSOR_SCENARIO_ID_ENUM scenario
 		struct SENSOR_WINSIZE_INFO_STRUCT *wininfo)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
 	memcpy((void *)wininfo,
 		(void *)&(ctx->s_ctx.mode[scenario_id].imgsensor_winsize_info),
 		sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
-	DRV_LOG(ctx, "sid:%u\n", scenario_id);
+	DRV_LOG(ctx, "scenario id:%u\n", scenario_id);
 }
 
 void get_pdaf_info(struct subdrv_ctx *ctx, enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 		struct SET_PD_BLOCK_INFO_T *pd_info)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
@@ -2654,7 +2667,7 @@ void get_pdaf_info(struct subdrv_ctx *ctx, enum SENSOR_SCENARIO_ID_ENUM scenario
 		memcpy((void *)pd_info,
 			(void *)(ctx->s_ctx.mode[scenario_id].imgsensor_pd_info),
 			sizeof(struct SET_PD_BLOCK_INFO_T));
-	DRV_LOG(ctx, "sid:%u\n", scenario_id);
+	DRV_LOG(ctx, "scenario id:%u\n", scenario_id);
 }
 
 void get_sensor_pdaf_capacity(struct subdrv_ctx *ctx,
@@ -2662,12 +2675,12 @@ void get_sensor_pdaf_capacity(struct subdrv_ctx *ctx,
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
 		*pdaf_cap = 0;
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return;
 	}
 	*pdaf_cap = ctx->s_ctx.mode[scenario_id].pdaf_cap;
-	DRV_LOG(ctx, "pdaf_cap:%u(sid:%u)\n", *pdaf_cap, scenario_id);
+	DRV_LOG(ctx, "pdaf_cap:%u(scenario id:%u)\n", *pdaf_cap, scenario_id);
 }
 
 void extend_frame_length(struct subdrv_ctx *ctx, u32 ns)
@@ -2722,7 +2735,7 @@ void get_seamless_scenarios(struct subdrv_ctx *ctx,
 	u32 group = 0;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOGE(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		*pScenarios = 0xff;
 		return;
@@ -2732,7 +2745,7 @@ void get_seamless_scenarios(struct subdrv_ctx *ctx,
 		if (group != 0 && i != scenario_id &&
 		(ctx->s_ctx.mode[i].seamless_switch_group == group)) {
 			*(pScenarios + num) = i;
-			DRV_LOG(ctx, "sid(input/output):%u/%u\n", scenario_id, *(pScenarios + num));
+			DRV_LOG(ctx, "scenario id(input/output):%u/%u\n", scenario_id, *(pScenarios + num));
 			num++;
 		}
 	}
@@ -2745,31 +2758,31 @@ void get_sensor_hdr_capacity(struct subdrv_ctx *ctx,
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
 		*hdr_mode = HDR_NONE;
-		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOGE(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return;
 	}
 	*hdr_mode = ctx->s_ctx.mode[scenario_id].hdr_mode;
-	DRV_LOG(ctx, "hdr_mode:%u(sid:%u)\n", *hdr_mode, scenario_id);
+	DRV_LOG(ctx, "hdr_mode:%u(scenario id:%u)\n", *hdr_mode, scenario_id);
 }
 
 void get_frame_ctrl_info_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *margin)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
 	*margin = ctx->s_ctx.mode[scenario_id].exposure_margin;
 }
 
-void get_feature_get_4cell_data(struct subdrv_ctx *ctx, u16 type, char *data)
+void get_feature_get_4cell_data(struct subdrv_ctx *ctx, u16 type, char *data, u16 size)
 {
 	u16 idx = 0;
 	u8 support = FALSE;
 	u8 *pbuf = NULL;
-	u16 size = 0;
+	u16 info_sz = 0;
 	struct eeprom_info_struct *info = ctx->s_ctx.eeprom_info;
 
 	if (!probe_eeprom(ctx))
@@ -2780,13 +2793,17 @@ void get_feature_get_4cell_data(struct subdrv_ctx *ctx, u16 type, char *data)
 	if (type == FOUR_CELL_CAL_TYPE_XTALK_CAL) {
 		support = info[idx].xtalk_support;
 		pbuf = info[idx].preload_xtalk_table;
-		size = info[idx].xtalk_size;
+		info_sz = info[idx].xtalk_size;
+		if (size < 2 + info_sz) {
+			DRV_LOGE(ctx, "XTALK data size not enough %u, expected %u", size, info_sz);
+			return;
+		}
 		if (support) {
-			data[0] = size & 0xFF;
-			data[1] = (size >> 8) & 0xFF;
-			if (pbuf != NULL && size > 0) {
-				memcpy(data + 2, pbuf, size);
-				DRV_LOG(ctx, "memcpy XTALK data done %u bytes", size);
+			data[0] = info_sz & 0xFF;
+			data[1] = (info_sz >> 8) & 0xFF;
+			if (pbuf != NULL && info_sz > 0) {
+				memcpy(data + 2, pbuf, info_sz);
+				DRV_LOG(ctx, "memcpy XTALK data done %u bytes", info_sz);
 			}
 		}
 	}
@@ -2798,7 +2815,7 @@ void get_stagger_max_exp_time(struct subdrv_ctx *ctx,
 {
 	*exposure_max = 0;
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOGE(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return;
 	}
@@ -2833,7 +2850,7 @@ void get_stagger_max_exp_time(struct subdrv_ctx *ctx,
 void get_temperature_value(struct subdrv_ctx *ctx, u32 *value)
 {
 	if (!ctx->s_ctx.temperature_support) {
-		DRV_LOGE(ctx, "temperature sensor no support\n");
+		DRV_LOG(ctx, "temperature sensor no support\n");
 		return;
 	}
 	if (ctx->s_ctx.g_temp == NULL) {
@@ -2854,7 +2871,7 @@ void get_binning_type(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *binning_ratio)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
@@ -2888,7 +2905,7 @@ void get_mipi_pixel_rate(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *mipi_pixel_rate)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
@@ -2900,12 +2917,12 @@ void get_sensor_rgbw_output_mode(struct subdrv_ctx *ctx,
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
 		*rgbw_output_mode = 0;
-		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOGE(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return;
 	}
 	*rgbw_output_mode = ctx->s_ctx.mode[scenario_id].rgbw_output_mode;
-	DRV_LOG(ctx, "rgbw_output_mode:%u(sid:%u)\n", *rgbw_output_mode, scenario_id);
+	DRV_LOG(ctx, "rgbw_output_mode:%u(scenario id:%u)\n", *rgbw_output_mode, scenario_id);
 }
 
 void get_readout_by_scenario(struct subdrv_ctx *ctx,
@@ -2914,7 +2931,7 @@ void get_readout_by_scenario(struct subdrv_ctx *ctx,
 	u32 ratio = 1;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return;
 	}
@@ -2930,7 +2947,7 @@ void get_exposure_count_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *scenario_exp_cnt)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return;
 	}
@@ -2943,7 +2960,7 @@ void get_dcg_gain_ratio_table_by_scenario(struct subdrv_ctx *ctx,
 	u32 *gain_ratio_table = NULL;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		*size = 0;
 		return;
@@ -2961,7 +2978,7 @@ void get_dcg_gain_ratio_range_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *min_gain_ratio, u64 *max_gain_ratio)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
@@ -2976,7 +2993,7 @@ void get_dcg_type_by_scenario(struct subdrv_ctx *ctx,
 	enum IMGSENSOR_HDR_MODE_ENUM hdr_mode = 0;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
@@ -2994,7 +3011,7 @@ void get_multi_exp_gain_range_by_scenario(struct subdrv_ctx *ctx,
 		u64 *exp_cnt, void *data)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
@@ -3010,7 +3027,7 @@ void get_multi_exp_shutter_range_by_scenario(struct subdrv_ctx *ctx,
 		u64 *exp_cnt, void *data)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
@@ -3038,7 +3055,7 @@ void get_exp_line_by_scenario(struct subdrv_ctx *ctx,
 	u64 shutter = 0;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOGE(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
@@ -3090,7 +3107,7 @@ void update_hw_init_time(struct subdrv_ctx *ctx, u64 fisrt_vsync_time)
 				? MAX_UPDATED_TIMES : times+1;
 	}
 	DRV_LOG_MUST(ctx,
-			"sid:%d, fisrt_vsync_time:%llu, stream_ctrl_start_time:%llu, stream_ctrl_start_time_mono:%llu, cur_init_time:%llu, new_init_time:%llu, old_init_time:%llu, times:%u, shutter_time:%llu, shutter_lines:%u, line_time_ns:%llu\n",
+			"scenario id:%d, fisrt_vsync_time:%llu, stream_ctrl_start_time:%llu, stream_ctrl_start_time_mono:%llu, cur_init_time:%llu, new_init_time:%llu, old_init_time:%llu, times:%u, shutter_time:%llu, shutter_lines:%u, line_time_ns:%llu\n",
 			cur_id,
 			fisrt_vsync_time,
 			ctx->stream_ctrl_start_time,
@@ -3222,20 +3239,17 @@ void sensor_init(struct subdrv_ctx *ctx)
 
 	/* write init setting */
 	if (ctx->s_ctx.init_setting_table != NULL) {
-		DRV_LOG(ctx, "S: size:%u\n", ctx->s_ctx.init_setting_len);
+		DRV_LOG_MUST(ctx, "S: size:%u\n", ctx->s_ctx.init_setting_len);
 		if ((ctx->power_on_profile_en != NULL) &&
 			(*ctx->power_on_profile_en))
 			time_boot_begin = ktime_get_boottime_ns();
 
 		ixc_time = ixc_table_write(ctx, ctx->s_ctx.init_setting_table, ctx->s_ctx.init_setting_len);
 
-		if ((ctx->power_on_profile_en != NULL) &&
-			(*ctx->power_on_profile_en)) {
-			ctx->sensor_pw_on_profile.i2c_init_period =
-				ktime_get_boottime_ns() - time_boot_begin;
-
-			 ctx->sensor_pw_on_profile.i2c_init_table_len =
-							ctx->s_ctx.init_setting_len;
+		if ((ctx->power_on_profile_en != NULL) && (*ctx->power_on_profile_en)) {
+			ctx->sensor_pw_on_profile.i2c_init_period = ktime_get_boottime_ns() - time_boot_begin;
+			ctx->sensor_pw_on_profile.i2c_init_table_len = ctx->s_ctx.init_setting_len;
+			DRV_LOG_MUST(ctx, "[profile] sensor init:%llu ms\n", (ctx->sensor_pw_on_profile.i2c_init_period / 1000 / 1000));
 		}
 		DRV_LOG_MUST(ctx, "X: size:%u, time(us):%lld\n", ctx->s_ctx.init_setting_len,
 			ixc_time);
@@ -3258,8 +3272,12 @@ int common_open(struct subdrv_ctx *ctx)
 	u32 scenario_id = 0;
 
 	/* get sensor id */
-	if (common_get_imgsensor_id(ctx, &sensor_id) != ERROR_NONE)
+	if (common_get_imgsensor_id(ctx, &sensor_id) != ERROR_NONE) {
+#ifdef IMGSENSOR_HW_PARAM
+		imgsensor_increase_hw_param_sensor_err_cnt(imgsensor_get_sensor_position(ctx->s_ctx.sensor_id));
+#endif
 		return ERROR_SENSOR_CONNECT_FAIL;
+	}
 
 	/* initail setting */
 	if (ctx->s_ctx.aov_sensor_support && !ctx->s_ctx.init_in_open)
@@ -3333,11 +3351,11 @@ int common_get_info(struct subdrv_ctx *ctx,
 	(void) sensor_config_data;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	} else {
-		DRV_LOG(ctx, "sid:%u\n", scenario_id);
+		DRV_LOG(ctx, "scenario id:%u\n", scenario_id);
 	}
 
 	sensor_info->SensorClockPolarity = SENSOR_CLOCK_POLARITY_LOW;
@@ -3747,7 +3765,7 @@ int common_get_resolution(struct subdrv_ctx *ctx,
 void update_mode_info(struct subdrv_ctx *ctx, enum SENSOR_SCENARIO_ID_ENUM scenario_id)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOGE(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return;
 	}
@@ -3797,7 +3815,7 @@ bool check_is_no_crop(struct subdrv_ctx *ctx, enum SENSOR_SCENARIO_ID_ENUM scena
 	struct SENSOR_WINSIZE_INFO_STRUCT *pinfo;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOGE(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return false;
 	}
@@ -3835,7 +3853,7 @@ int common_control(struct subdrv_ctx *ctx,
 	}
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOGE(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 		ret = ERROR_INVALID_SCENARIO_ID;
@@ -3845,8 +3863,10 @@ int common_control(struct subdrv_ctx *ctx,
 	update_mode_info(ctx, scenario_id);
 
 	if (ctx->s_ctx.mode[scenario_id].mode_setting_table != NULL) {
-		DRV_LOG(ctx, "E: sid:%u size:%u\n", scenario_id,
-			ctx->s_ctx.mode[scenario_id].mode_setting_len);
+		DRV_LOG_MUST(ctx, "E: mode setting(%u)-(%dx%d), setting size:%u\n", scenario_id,
+				ctx->s_ctx.mode[scenario_id].frame_desc->bus.csi2.hsize,
+				ctx->s_ctx.mode[scenario_id].frame_desc->bus.csi2.vsize,
+				ctx->s_ctx.mode[scenario_id].mode_setting_len);
 		if ((ctx->power_on_profile_en != NULL) &&
 			(*ctx->power_on_profile_en))
 			time_boot_begin = ktime_get_boottime_ns();
@@ -3884,19 +3904,17 @@ int common_control(struct subdrv_ctx *ctx,
 			break;
 		}
 
-		if ((ctx->power_on_profile_en != NULL) &&
-			(*ctx->power_on_profile_en)) {
-			ctx->sensor_pw_on_profile.i2c_cfg_period =
-					ktime_get_boottime_ns() - time_boot_begin;
-
-			ctx->sensor_pw_on_profile.i2c_cfg_table_len =
-					ctx->s_ctx.mode[scenario_id].mode_setting_len;
+		if ((ctx->power_on_profile_en != NULL) && (*ctx->power_on_profile_en)) {
+			ctx->sensor_pw_on_profile.i2c_cfg_period = ktime_get_boottime_ns() - time_boot_begin;
+			ctx->sensor_pw_on_profile.i2c_cfg_table_len = ctx->s_ctx.mode[scenario_id].mode_setting_len;
+			DRV_LOG_MUST(ctx, "[profile] mode(%d) setting:%llu ms\n",
+					scenario_id, (ctx->sensor_pw_on_profile.i2c_cfg_period / 1000 / 1000));
 		}
-		DRV_LOG_MUST(ctx, "X: sid:%u size:%u, ixc_time(us): %lld\n", scenario_id,
-			ctx->s_ctx.mode[scenario_id].mode_setting_len,
-			ixc_time);
+		DRV_LOG_MUST(ctx, "X: mode setting(%u)-(%dx%d)\n", scenario_id,
+				ctx->s_ctx.mode[scenario_id].frame_desc->bus.csi2.hsize,
+				ctx->s_ctx.mode[scenario_id].frame_desc->bus.csi2.vsize);
 	} else {
-		DRV_LOGE(ctx, "please implement mode setting(sid:%u)!\n", scenario_id);
+		DRV_LOGE(ctx, "please implement mode setting(scenario id:%u)!\n", scenario_id);
 	}
 
 	if (check_is_no_crop(ctx, scenario_id) && probe_eeprom(ctx)) {
@@ -4125,7 +4143,7 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_GET_4CELL_DATA:
 		get_feature_get_4cell_data(ctx, (u16)(*feature_data),
-			(char *)(uintptr_t)(*(feature_data + 1)));
+			(char *)(uintptr_t)(*(feature_data + 1)), (u16)(*(feature_data + 2)));
 		break;
 	case SENSOR_FEATURE_GET_MAX_EXP_LINE:
 	case SENSOR_FEATURE_GET_STAGGER_MAX_EXP_TIME:
@@ -4382,7 +4400,7 @@ int common_get_csi_param(struct subdrv_ctx *ctx,
 	struct mtk_csi_param *csi_param)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid scenario id:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return 0;
 	}

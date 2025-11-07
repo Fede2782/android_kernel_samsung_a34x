@@ -61,6 +61,47 @@ void unset_clkdbg_ops(void)
 }
 EXPORT_SYMBOL(unset_clkdbg_ops);
 
+static struct device *dev_from_name(const char *name)
+{
+	struct generic_pm_domain **pds = pdchk_get_all_genpd();
+
+	for (; pds != NULL && *pds != NULL; pds++) {
+		struct pm_domain_data *pdd;
+		struct generic_pm_domain *pd = *pds;
+
+		if (IS_ERR_OR_NULL(pd))
+			continue;
+
+		list_for_each_entry(pdd, &pd->dev_list, list_node) {
+			struct device *dev = pdd->dev;
+			const char *dev_n = dev_name(dev);
+			struct platform_device *pdev = to_platform_device(dev);
+
+			if (!dev_n) {
+				if (pdev && pdev->name) {
+					if (strcmp(name, pdev->name) == 0)
+						return &pdev->dev;
+				}
+
+				continue;
+			}
+
+			pr_notice("%s\n", dev_n);
+			if (strcmp(name, dev_n) == 0)
+				return dev;
+		}
+	}
+
+	return NULL;
+}
+
+struct device *clkdbg_dev_from_name(const char *name)
+{
+	return dev_from_name(name);
+}
+EXPORT_SYMBOL_GPL(clkdbg_dev_from_name);
+
+#if IS_ENABLED(CONFIG_MTK_CLKMGR_DEBUG)
 static const struct fmeter_clk *get_all_fmeter_clks(void)
 {
 	if (clkdbg_ops == NULL || clkdbg_ops->get_all_fmeter_clks  == NULL)
@@ -739,7 +780,7 @@ static int clkdbg_clk_notify(struct seq_file *s, void *v)
 	return r;
 }
 
-#if IS_ENABLED(CONFIG_MTK_CLKMGR_DEBUG)
+#if IS_ENABLED(CONFIG_MTK_CLKMGR_DEBUG_REG_RW)
 static void *reg_from_str(const char *str)
 {
 	static phys_addr_t phys;
@@ -916,45 +957,7 @@ static int clkdbg_reg_clr(struct seq_file *s, void *v)
 /*
  * pm_domain support
  */
-static struct device *dev_from_name(const char *name)
-{
-	struct generic_pm_domain **pds = pdchk_get_all_genpd();
 
-	for (; pds != NULL && *pds != NULL; pds++) {
-		struct pm_domain_data *pdd;
-		struct generic_pm_domain *pd = *pds;
-
-		if (IS_ERR_OR_NULL(pd))
-			continue;
-
-		list_for_each_entry(pdd, &pd->dev_list, list_node) {
-			struct device *dev = pdd->dev;
-			const char *dev_n = dev_name(dev);
-			struct platform_device *pdev = to_platform_device(dev);
-
-			if (!dev_n) {
-				if (pdev && pdev->name) {
-					if (strcmp(name, pdev->name) == 0)
-						return &pdev->dev;
-				}
-
-				continue;
-			}
-
-			pr_notice("%s\n", dev_n);
-			if (strcmp(name, dev_n) == 0)
-				return dev;
-		}
-	}
-
-	return NULL;
-}
-
-struct device *clkdbg_dev_from_name(const char *name)
-{
-	return dev_from_name(name);
-}
-EXPORT_SYMBOL_GPL(clkdbg_dev_from_name);
 
 struct genpd_dev_state {
 	struct device *dev;
@@ -1618,7 +1621,7 @@ static const struct cmd_fn common_cmds[] = {
 	CMDFN("disable_unprepare_provider", clkdbg_disable_unprepare_provider),
 	CMDFN("set_parent", clkdbg_set_parent),
 	CMDFN("set_rate", clkdbg_set_rate),
-#if IS_ENABLED(CONFIG_MTK_CLKMGR_DEBUG)
+#if IS_ENABLED(CONFIG_MTK_CLKMGR_DEBUG_REG_RW)
 	CMDFN("reg_read", clkdbg_reg_read),
 	CMDFN("reg_write", clkdbg_reg_write),
 	CMDFN("reg_set", clkdbg_reg_set),
@@ -1708,10 +1711,14 @@ static const struct proc_ops clkdbg_fops = {
 	.proc_release	= single_release,
 };
 
+#endif /* CONFIG_MTK_CLKMGR_DEBUG */
+
 int clk_dbg_driver_register(struct platform_driver *drv, const char *name)
 {
 	static struct platform_device *clk_dbg_dev;
+#if IS_ENABLED(CONFIG_MTK_CLKMGR_DEBUG)
 	struct proc_dir_entry *entry;
+#endif
 	int r = 0;
 
 	if (name) {
@@ -1725,10 +1732,11 @@ int clk_dbg_driver_register(struct platform_driver *drv, const char *name)
 		return r;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_CLKMGR_DEBUG)
 	entry = proc_create("clkdbg", 0644, NULL, &clkdbg_fops);
 	if (entry == 0)
 		return -ENOMEM;
-
+#endif
 	if (name)
 		r = platform_driver_register(drv);
 

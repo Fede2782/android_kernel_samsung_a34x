@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -809,7 +809,7 @@ void soc7_0_show_wfdma_dbg_probe_info(struct ADAPTER *prAdapter,
 			pos += kalSnprintf(buf + pos, u4BufferSize - pos, "\n");
 	}
 
-	DBGLOG(HAL, DEBUG, "%s", buf);
+	DBGLOG(HAL, INFO, "%s", buf);
 	kalMemFree(buf, VIR_MEM_TYPE, u4BufferSize);
 }
 
@@ -835,7 +835,7 @@ void soc7_0_show_wfdma_wrapper_info(struct ADAPTER *prAdapter,
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr[1], &u4RegValue[1]);
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr[2], &u4RegValue[2]);
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr[3], &u4RegValue[3]);
-		DBGLOG(INIT, DEBUG, DUMP_WRAPPER_STR,
+		DBGLOG(INIT, INFO, DUMP_WRAPPER_STR,
 				u4DmaCfgCr[0], u4RegValue[0],
 				u4DmaCfgCr[1], u4RegValue[1],
 				u4DmaCfgCr[2], u4RegValue[2],
@@ -938,7 +938,7 @@ void soc7_0_get_rx_link_stats(struct ADAPTER *prAdapter,
 	uint32_t mcsIdx;
 
 	if (prAdapter->rWifiVar.fgLinkStatsDump)
-		DBGLOG(RX, DEBUG,
+		DBGLOG(RX, INFO,
 			"RXV: pmbl=%lu nsts=%lu stbc=%lu bw=%lu mcs=%lu",
 			RXV_GET_TXMODE(u4RxV0),
 			RXV_GET_RX_NSTS(u4RxV0),
@@ -946,7 +946,8 @@ void soc7_0_get_rx_link_stats(struct ADAPTER *prAdapter,
 			RXV_GET_FR_MODE(u4RxV0),
 			RXV_GET_RX_RATE(u4RxV0));
 
-	if (!IS_RX_MPDU_BEGIN(prSwRfb->ucPayloadFormat))
+	if (!(prSwRfb->ucPayloadFormat == RX_PAYLOAD_FORMAT_MSDU ||
+	      prSwRfb->ucPayloadFormat == RX_PAYLOAD_FORMAT_FIRST_SUB_AMSDU))
 		return;
 
 	rate.preamble = TX_MODE_2_LLS_MODE[RXV_GET_TXMODE(u4RxV0)];
@@ -1003,14 +1004,13 @@ void soc7_0_get_rx_link_stats(struct ADAPTER *prAdapter,
 	}
 
 	if (prAdapter->rWifiVar.fgLinkStatsDump)
-		DBGLOG(RX, DEBUG, "rate preamble=%u, nss=%u, bw=%u, mcsIdx=%u",
+		DBGLOG(RX, INFO, "rate preamble=%u, nss=%u, bw=%u, mcsIdx=%u",
 			rate.preamble, rate.nss, rate.bw, mcsIdx);
 	return;
 
 wrong_rate:
-	DBGLOG_LIMITED(RX, WARN,
-		       "Invalid rate preamble=%u, nss=%u, bw=%u, mcsIdx=%u",
-		       rate.preamble, rate.nss, rate.bw, mcsIdx);
+	DBGLOG(RX, WARN, "Invalid rate preamble=%u, nss=%u, bw=%u, mcsIdx=%u",
+			rate.preamble, rate.nss, rate.bw, mcsIdx);
 #endif
 }
 

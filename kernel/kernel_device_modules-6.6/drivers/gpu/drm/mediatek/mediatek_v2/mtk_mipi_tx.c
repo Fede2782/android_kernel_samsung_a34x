@@ -2808,7 +2808,7 @@ bool mtk_is_mipi_tx_enable(struct clk_hw *hw)
 	return ((tmp & mipi_tx->driver_data->dsi_pll_en) > 0);
 }
 
-static unsigned int _dsi_get_pcw_mt6983(unsigned long data_rate,
+static int _dsi_get_pcw_mt6983(unsigned long data_rate,
 	unsigned int pcw_ratio)
 {
 	unsigned int pcw, tmp, pcw_floor, fbksel, div3 = 0;
@@ -2849,7 +2849,7 @@ static unsigned int _dsi_get_pcw_mt6983(unsigned long data_rate,
 
 	return tmp;
 }
-static unsigned int _dsi_get_pcw_mt6886(unsigned long data_rate,
+static int _dsi_get_pcw_mt6886(unsigned long data_rate,
 	unsigned int pcw_ratio)
 {
 	unsigned int pcw, tmp, pcw_floor, fbksel, div3 = 0;
@@ -2895,7 +2895,7 @@ static unsigned int _dsi_get_pcw_mt6886(unsigned long data_rate,
 	return tmp;
 }
 
-static unsigned int _dsi_get_pcw_mt6897(unsigned long data_rate,
+static int _dsi_get_pcw_mt6897(unsigned long data_rate,
 	unsigned int pcw_ratio)
 {
 	unsigned int pcw, tmp, pcw_floor, fbksel, div3 = 1;
@@ -2924,7 +2924,7 @@ static unsigned int _dsi_get_pcw_mt6897(unsigned long data_rate,
 	return tmp;
 }
 
-static unsigned int _dsi_get_pcw_khz_mt6989(unsigned long data_rate_khz,
+static int _dsi_get_pcw_khz_mt6989(unsigned long data_rate_khz,
 	unsigned int pcw_ratio)
 {
 	unsigned int pcw, tmp, pcw_floor, fbksel, div3 = 1;
@@ -2955,7 +2955,7 @@ static unsigned int _dsi_get_pcw_khz_mt6989(unsigned long data_rate_khz,
 
 	return tmp;
 }
-static unsigned int _dsi_get_pcw_mt6989(unsigned long data_rate,
+static int _dsi_get_pcw_mt6989(unsigned long data_rate,
 	unsigned int pcw_ratio)
 {
 	unsigned int pcw, tmp, pcw_floor, fbksel, div3 = 1;
@@ -2984,7 +2984,7 @@ static unsigned int _dsi_get_pcw_mt6989(unsigned long data_rate,
 	return tmp;
 }
 
-unsigned int _dsi_get_pcw(unsigned long data_rate,
+int _dsi_get_pcw(unsigned long data_rate,
 	unsigned int pcw_ratio)
 {
 	unsigned int pcw, tmp, pcw_floor;

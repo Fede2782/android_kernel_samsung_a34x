@@ -22,7 +22,6 @@
 */
 #define TWT_INCORRECT_FLOW_ID   0xFF
 #define TWT_MAX_FLOW_NUM        8
-#define RTWT_MAX_FLOW_NUM       32
 #define TWT_MAX_WAKE_INTVAL_EXP (TWT_REQ_TYPE_TWT_WAKE_INTVAL_EXP >> \
 	TWT_REQ_TYPE_TWT_WAKE_INTVAL_EXP_OFFSET)
 
@@ -196,10 +195,6 @@ struct _TWT_SMART_STA_T {
 	(((ucRecomm) << BTWT_REQ_TYPE_RECOMMENDATION_OFFSET) & \
 		BTWT_REQ_TYPE_RECOMMENDATION)
 
-#define GET_BTWT_RECOMMENDATION(ucRecomm) \
-	(((ucRecomm) & BTWT_REQ_TYPE_RECOMMENDATION) >> \
-		BTWT_REQ_TYPE_RECOMMENDATION_OFFSET)
-
 #define SET_BTWT_RESERVED(fgReserved) \
 	(((fgReserved) << BTWT_REQ_TYPE_RESERVED_OFFSET) & \
 		BTWT_REQ_TYPE_RESERVED)
@@ -232,50 +227,6 @@ struct _TWT_SMART_STA_T {
 	(((ucLastParm) & BTWT_REQ_TYPE_LAST_BCAST_PARAM) >> \
 	BTWT_REQ_TYPE_LAST_BCAST_PARAM_OFFSET)
 
-#endif
-
-#if (CFG_SUPPORT_RTWT == 1)
-#define SET_BTWT_RTWT_TRAFFIC_INFO_PRESENT(ucPresent) \
-	(((ucPresent) << BTWT_INFO_RTWT_TRAFFIC_INFO_PRESENT_OFFSET) & \
-		BTWT_INFO_RTWT_TRAFFIC_INFO_PRESENT)
-
-#define GET_BTWT_RTWT_TRAFFIC_INFO_PRESENT(ucBrdInfo) \
-	(((ucBrdInfo) & BTWT_INFO_RTWT_TRAFFIC_INFO_PRESENT) >> \
-		BTWT_INFO_RTWT_TRAFFIC_INFO_PRESENT_OFFSET)
-
-#define SET_BTWT_RTWT_SCHEDULE_INFO(u2Schedule) \
-	(((u2Schedule) << BTWT_INFO_RTWT_SCHEDULE_INFO_OFFSET) & \
-		BTWT_INFO_RTWT_SCHEDULE_INFO)
-
-#define GET_BTWT_RTWT_SCHEDULE_INFO(ucBrdInfo) \
-	(((ucBrdInfo) & BTWT_INFO_RTWT_SCHEDULE_INFO) >> \
-		BTWT_INFO_RTWT_SCHEDULE_INFO_OFFSET)
-
-#define SET_RTWT_TRAFFIC_INFO_DL_TID_BITMAP_VALID(_Traffic_Info) \
-	(((_Traffic_Info) << RTWT_TRAFFIC_INFO_DL_TID_BITMAP_VALID_OFFSET) & \
-		RTWT_TRAFFIC_INFO_DL_TID_BITMAP_VALID)
-#define GET_RTWT_TRAFFIC_INFO_DL_TID_BITMAP_VALID(_Traffic_Info) \
-	(((_Traffic_Info) & RTWT_TRAFFIC_INFO_DL_TID_BITMAP_VALID) >> \
-			RTWT_TRAFFIC_INFO_DL_TID_BITMAP_VALID_OFFSET)
-#define SET_RTWT_TRAFFIC_INFO_UL_TID_BITMAP_VALID(_Traffic_Info) \
-	(((_Traffic_Info) << RTWT_TRAFFIC_INFO_UL_TID_BITMAP_VALID_OFFSET) & \
-		RTWT_TRAFFIC_INFO_UL_TID_BITMAP_VALID)
-#define GET_RTWT_TRAFFIC_INFO_UL_TID_BITMAP_VALID(_Traffic_Info) \
-	(((_Traffic_Info) & RTWT_TRAFFIC_INFO_UL_TID_BITMAP_VALID) >> \
-		RTWT_TRAFFIC_INFO_UL_TID_BITMAP_VALID_OFFSET)
-
-#define SET_RTWT_TRAFFIC_INFO_DL_TID_BITMAP(_Traffic_Info) \
-	(((_Traffic_Info) << RTWT_TRAFFIC_INFO_DL_TID_BITMAP_OFFSET) & \
-		RTWT_TRAFFIC_INFO_DL_TID_BITMAP)
-#define GET_RTWT_TRAFFIC_INFO_DL_TID_BITMAP(_Traffic_Info) \
-	(((_Traffic_Info) & RTWT_TRAFFIC_INFO_DL_TID_BITMAP) >> \
-		RTWT_TRAFFIC_INFO_DL_TID_BITMAP_VALID_OFFSET)
-#define SET_RTWT_TRAFFIC_INFO_UL_TID_BITMAP(_Traffic_Info) \
-	(((_Traffic_Info) << RTWT_TRAFFIC_INFO_UL_TID_BITMAP_OFFSET) & \
-		RTWT_TRAFFIC_INFO_UL_TID_BITMAP)
-#define GET_RTWT_TRAFFIC_INFO_UL_TID_BITMAP(_Traffic_Info) \
-	(((_Traffic_Info) & RTWT_TRAFFIC_INFO_UL_TID_BITMAP) >> \
-		RTWT_TRAFFIC_INFO_UL_TID_BITMAP_OFFSET)
 #endif
 
 #if (CFG_SUPPORT_802_11BE_ML_TWT == 1)
@@ -433,36 +384,6 @@ uint8_t btwtGetTxSetupFlowId(
 	struct MSDU_INFO *prMsduInfo);
 #endif
 
-#if (CFG_SUPPORT_RTWT == 1)
-void rtwtFillTWTElement(
-	struct _IE_RTWT_T *prTWTBuf,
-	uint8_t ucTWTFlowId,
-	struct _TWT_PARAMS_T *prTWTParams,
-	uint8_t ucSetupFrameByteLength);
-
-uint32_t rtwtSendSetupFrame(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	u_int8_t ucTWTFlowId,
-	struct _TWT_PARAMS_T *prTWTParams,
-	PFN_TX_DONE_HANDLER pfTxDoneHandler);
-
-uint32_t rtwtSendTeardownFrame(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	u_int8_t ucTWTFlowId,
-	u_int8_t fgTeardownAll,
-	PFN_TX_DONE_HANDLER pfTxDoneHandler);
-
-uint8_t rtwtGetTxSetupFlowId(
-	struct MSDU_INFO *prMsduInfo);
-
-void rtwtParseTWTElement(
-	struct _IE_RTWT_T *prRTWTIE,
-	struct _TWT_PARAMS_T *prTWTParams);
-#endif
-
-
 #if (CFG_SUPPORT_802_11BE_ML_TWT == 1)
 uint32_t mltwtParseTWTElement(
 	struct ADAPTER *prAdapter,
@@ -484,7 +405,7 @@ uint32_t mltwtSendSetupFrameAllInOne(
 	struct _TWT_PARAMS_T *prTWTParams,
 	PFN_TX_DONE_HANDLER pfTxDoneHandler);
 
-uint8_t mltwtGetLinkCount(
+uint32_t mltwtGetLinkCount(
 	struct ADAPTER *prAdapter,
 	struct BSS_INFO *prBssInfo,
 	uint8_t ucTWTFlowId);

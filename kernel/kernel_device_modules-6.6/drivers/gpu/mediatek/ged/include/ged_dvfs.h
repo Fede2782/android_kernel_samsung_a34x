@@ -186,8 +186,8 @@ enum ged_gpu_power_state {
 void ged_dvfs_gpu_clock_switch_notify(enum ged_gpu_power_state power_state);
 void ged_gpu_autosuspend_timeout_notify(int autosuspend_timeout_ms);
 
-unsigned int ged_gpu_whitebox_power_test_case(int replace);
-unsigned int ged_gpu_whitebox_power_test_support(int support_flag);
+unsigned int ged_gpu_whitebox_power_test_case(unsigned int replace);
+unsigned int ged_gpu_whitebox_power_test_support(unsigned int support_flag);
 unsigned int ged_get_whitebox_power_test_case(void);
 unsigned int ged_get_whitebox_power_test_support(void);
 unsigned int ged_get_whitebox_power_test_case_clear(void);
@@ -238,6 +238,7 @@ bool ged_gpu_predict_apo_notify(void);
 unsigned int ged_get_apo_autosuspend_delay_ms(void);
 int ged_get_apo_autosuspend_delay_ref_count(void);
 void ged_set_apo_autosuspend_delay_ctrl(int ctrl);
+int ged_get_apo_autosuspend_delay_ctrl(void);
 int ged_get_apo_autosuspend_delay_target_ref_count(void);
 void ged_set_apo_autosuspend_delay_target_ref_count(int apo_autosuspend_delay_target_ref_count);
 void ged_set_apo_autosuspend_delay_ms_ref_idletime_nolock(long long idle_time);
@@ -307,6 +308,9 @@ void set_api_sync_flag(int flag);
 int get_api_sync_flag(void);
 void ged_reset_api_sync_ts(void);
 unsigned long long ged_get_api_sync_ts(void);
+unsigned long long ged_get_api_boost_end_ts(void);
+unsigned long long ged_get_api_boost_interval(void);
+void ged_reset_api_boost_interval(void);
 #define LOADING_ACTIVE 0
 #define LOADING_MAX_3DTA_COM 1
 #define LOADING_MAX_3DTA 2

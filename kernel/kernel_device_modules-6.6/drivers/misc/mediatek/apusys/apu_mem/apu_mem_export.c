@@ -138,7 +138,7 @@ int apu_mem_rvs_get_pool_size(uint32_t type, uint32_t *size)
 
 /* APUMMU only API */
 int apu_mem_map_iova(uint32_t type, uint64_t session, uint64_t device_va,
-			uint32_t buf_size, uint64_t *eva)
+			uint64_t buf_size, uint64_t *eva)
 {
 	if (apu_mem_plat_op_set.apu_mem_ops->apu_mem_map_iova == NULL)
 		return -EOPNOTSUPP;

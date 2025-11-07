@@ -160,11 +160,6 @@
 #define EHT_MAC_CAP_BYTE_NUM                    (2)
 #define EHT_PHY_CAP_BYTE_NUM                    (9)
 
-#if (CFG_HW_DETECT_REPORT == 1)
-/* UNI_EVENT_HW_DETECT_REPORT usage */
-#define HW_DETECT_REPORT_STR_MAX_LEN          64
-#define HW_DETECT_REPORT_STR_TO_NODE_MAX_LEN  (HW_DETECT_REPORT_STR_MAX_LEN + 7)
-#endif
 /*****************************************************************************
 *                             D A T A   T Y P E S
 ******************************************************************************
@@ -237,6 +232,7 @@ enum ENUM_CMD_ID {
 	CMD_ID_SET_FILTER_COEFFICIENT,      /* 0x29 (Set) */
 
 	CMD_ID_SET_ACL_POLICY       = 0x2A, /* 0x2A (Set) */
+	CMD_ID_SET_P2P_GC_CSA       = 0x2B, /* 0x2B (Set) */
 
 	/* SLT commands */
 	CMD_ID_RANDOM_RX_RESET_EN   = 0x2C, /* 0x2C (Set ) */
@@ -266,7 +262,7 @@ enum ENUM_CMD_ID {
 	CMD_ID_SET_PATH_COMPASATION,        /* 0x43 (Set) */
 	CMD_ID_RTT_GET_CAPABILITIES = 0x44, /* 0x44 (Query) */
 	CMD_ID_RTT_RANGE_REQUEST,           /* 0x45 (Set) */
-	CMD_ID_RTT_INSTALL_LTF_KEYSEED,     /* 0x46 (Set) */
+	CMD_ID_GET_RTT_RANGE_UPDATE,        /* 0x46 (Set), NO USE */
 	CMD_ID_SET_BATCH_REQ,               /* 0x47 (Set), NO USE */
 	CMD_ID_SET_NVRAM_SETTINGS,          /* 0x48 (Set) */
 	CMD_ID_SET_COUNTRY_POWER_LIMIT,     /* 0x49 (Set) */
@@ -306,10 +302,7 @@ enum ENUM_CMD_ID {
 	CMD_ID_FAST_SCAN_DUMMY3,            /* 0x69 (Get), NO USE */
 
 	CMD_ID_UPDATE_AC_PARMS = 0x6A,     /* 0x6A (Set) */
-#if CFG_SUPPORT_WIFI_ICCM
-	CMD_ID_SET_ICCM = 0x6B,				/* 0x6B (Set) */
-#endif
-	CMD_ID_SET_ROAMING_SKIP = 0x6D,
+
 	/* 0x6D (Set) used to setting roaming skip*/
 	CMD_ID_SET_DROP_PACKET_CFG = 0x6E,
 	/* 0x6E (Set/Query) used to setting drop packet */
@@ -352,10 +345,6 @@ enum ENUM_CMD_ID {
 #if (CFG_SUPPORT_TSF_SYNC == 1)
 	CMD_ID_BEACON_TSF_SYNC = 0x94,		/* 0x94 (Set / Query) */
 #endif
-#if (CFG_SUPPORT_PHY_ICS == 1)
-	CMD_ID_SET_PHY_ICS_EVENT = 0x96,		/* 0x96 (Set) */
-	CMD_ID_SET_PHY_ICS_START = 0x97,		/* 0x97 (Set) */
-#endif
 	CMD_ID_SET_SAP_SUS     = 0x9E,      /* 0x9E (Set) */
 	CMD_ID_SET_SAP_RPS     = 0x9F,      /* 0x9F (Set) */
 	CMD_ID_WFC_KEEP_ALIVE = 0xA0,       /* 0xA0 (Set) */
@@ -374,7 +363,6 @@ enum ENUM_CMD_ID {
 #endif
 	CMD_ID_LP_DBG_CTRL = 0xB3,             /* 0xB3 (Set / Query) */
 	CMD_ID_SET_PWR_LIMIT_EMI_INFO = 0xB4,   /* 0xB4 (Set)*/
-
 	CMD_ID_ACCESS_REG           = 0xc0, /* 0xc0 (Set / Query) */
 	CMD_ID_MAC_MCAST_ADDR,              /* 0xc1 (Set / Query) */
 	CMD_ID_802_11_PMKID,                /* 0xc2 (Set / Query) */
@@ -429,7 +417,7 @@ enum ENUM_CMD_ID {
 	CMD_ID_HIF_CTRL             = 0xF6,
 	/* 0xF6 (Set) USB suspend/resume */
 #if (CFG_PCIE_GEN_SWITCH == 1)
-	CMD_ID_UPDATE_LP             = 0xF7,
+	CMD_ID_UPDATE_LP            = 0xF7,
 #endif
 	CMD_ID_GET_BUILD_DATE_CODE = 0xF8,   /* 0xf8 (Query) */
 	CMD_ID_GET_BSS_INFO = 0xF9,          /* 0xF9 (Query) */
@@ -442,6 +430,10 @@ enum ENUM_CMD_ID {
 
 	/* For trigger MDVT */
 	CMD_ID_SET_MDVT = 0xFE,
+#if (CFG_PCIE_GEN_SWITCH == 1)
+	CMD_ID_UPDATE_PCIE			= 0xFF,
+#endif
+
 	CMD_ID_END
 };
 
@@ -532,8 +524,6 @@ enum ENUM_EVENT_ID {
 	EVENT_ID_ACCESS_RX_STAT = 0x45,
 	/* 0x45 (Query - CMD_ID_ACCESS_RX_STAT) */
 	EVENT_ID_LIST_MODE = 0x48,
-	EVENT_ID_MDNS_RECORD = 0x4e,
-	/* 0x4E (Query CMD_ID_SET_MDNS_RECORD ) */
 
 	EVENT_ID_RDD_SEND_PULSE = 0x50,
 	EVENT_ID_PFMU_TAG_READ = 0x51,
@@ -582,6 +572,7 @@ enum ENUM_EVENT_ID {
 	EVENT_ID_MLR_FSM_UPDATE = 0x76,
 #endif
 	/*query info from cmd.*/
+	EVENT_ID_GC_CSA = 0x77,        /* 0x77 (Unsolicited) */
 	EVENT_ID_DBDC_SWITCH_DONE = 0x78,
 	EVENT_ID_GET_CNM = 0x79,
 	EVENT_ID_COEX_CTRL = 0x7C,
@@ -638,15 +629,9 @@ enum ENUM_EVENT_ID {
 	/* 0xEC (Query - CMD_ID_GET_NIC_CAPABILITY_V2) */
 	EVENT_ID_LAYER_0_EXT_MAGIC_NUM  = 0xED,
 	/* magic number for Extending MT6630 original EVENT header  */
-#if (CFG_HW_DETECT_REPORT == 1)
-	EVENT_ID_HW_DETECT_REPROT = 0xEF,
-#endif
 	EVENT_ID_ASSERT_DUMP = 0xF0,
 #if (CFG_VOLT_INFO == 1)
 	EVEN_ID_GET_VOLT_INFO = 0xF3,
-#endif
-#if (CFG_SURVEY_DUMP_FULL_CHANNEL == 1)
-	EVENT_ID_CHANNEL_TIME = 0xF5,
 #endif
 	EVENT_ID_HIF_CTRL = 0xF6,
 	EVENT_ID_BUILD_DATE_CODE = 0xF8,
@@ -782,13 +767,6 @@ enum ENUM_WEP_STATUS {
 	ENUM_ENCRYPTION_NUM
 };
 
-enum ENUM_RSN_OVERRIDE {
-	RSN_OVERRIDE_NOT_USED,
-	RSN_OVERRIDE_RSNE,
-	RSN_OVERRIDE_RSNE_OVERRIDE,
-	RSN_OVERRIDE_RSNE_OVERRIDE_2,
-};
-
 /*---------------------------------------------------------------------------*/
 /* CMD Packets                                                            */
 /*---------------------------------------------------------------------------*/
@@ -860,7 +838,6 @@ struct CMD_SET_BSS_RLM_PARAM {
 	uint8_t      ucUseShortPreamble;
 	uint8_t      ucUseShortSlotTime;
 	uint8_t      ucVhtChannelWidth;
-	/* Means CCFS0 for spec, means center freq for FW */
 	uint8_t      ucVhtChannelFrequencyS1;
 	uint8_t      ucVhtChannelFrequencyS2;
 	uint16_t     u2VhtBasicMcsSet;
@@ -967,8 +944,7 @@ struct CMD_SET_BSS_INFO {
 	uint8_t  ucHiddenSsidMode;
 	uint8_t  ucDisconnectDetectThreshold;
 	uint8_t  ucIotApAct;
-	uint8_t  uc6GPwrRegBitMap;
-	uint8_t  aucPadding1[1];
+	uint8_t  aucPadding1[2];
 	uint32_t u4PrivateData;
 	struct CMD_SET_BSS_RLM_PARAM rBssRlmParam; /*68*/
 	uint8_t  ucDBDCBand;  /*90, ENUM_CMD_REQ_DBDC_BAND_T*/
@@ -981,12 +957,7 @@ struct CMD_SET_BSS_INFO {
 	uint16_t u2HeBasicMcsSet;
 	uint8_t  ucMaxBSSIDIndicator;
 	uint8_t  ucMBSSIDIndex;
-#if (CFG_SUPPORT_IOT_AP_BLOCKLIST == 1)
-	uint64_t u8IotApAct;
-	uint8_t  aucPadding[4];
-#else
 	uint8_t  aucPadding[12];
-#endif
 };
 
 struct CMD_HTVHT_BA_SIZE {
@@ -1157,7 +1128,10 @@ struct CMD_UPDATE_STA_RECORD {
 #else
 	uint8_t  aucPadding4[32];
 #endif
-#if CFG_SUPPORT_RXSMM_ALLOWLIST
+#if (CFG_SUPPORT_802_11BE_MLO == 1)
+	uint8_t ucTidBitmap;
+#endif
+#if CFG_SUPPORT_RXSMM_WHITELIST
 	uint8_t  u1RxsmmEnable;
 #endif
 };
@@ -1222,6 +1196,13 @@ struct CMD_CUSTOM_OPPPS_PARAM_STRUCT {
 	/* bit0~6 : CTWindow(unit: TU), bit7:OppPS bit (1:enable, 0:disable)*/
 	uint8_t   ucBssIdx;
 	uint8_t   aucReserved[3];
+};
+
+struct CMD_SET_GC_CSA_STRUCT {
+	uint8_t ucBssIdx;
+	uint8_t ucChannel;
+	uint8_t ucband;
+	uint8_t aucReserved[1];
 };
 
 struct CMD_SET_P2P_LO_START_STRUCT {
@@ -1344,32 +1325,34 @@ struct CMD_SCAN_REQ_V2 {
 	uint8_t          ucSSIDExtNum;
 	uint16_t         u2ChannelMinDwellTime;
 	struct CHANNEL_INFO  arChannelListExtend[32];
-	struct PARAM_SSID    arSSIDExtend[6];
+	struct PARAM_SSID    arSSIDExtend[SCAN_CMD_EXT_SSID_NUM];
 	uint8_t          aucBSSID[MAC_ADDR_LEN];
 	uint8_t          aucRandomMac[MAC_ADDR_LEN];
 	uint8_t          aucExtBSSID[CFG_SCAN_OOB_MAX_NUM][MAC_ADDR_LEN];
 	uint8_t          ucShortSSIDNum;
-	uint8_t		 ucBssidMatchCh[CFG_SCAN_OOB_MAX_NUM];
-	uint8_t		 ucBssidMatchSsidInd[CFG_SCAN_OOB_MAX_NUM];
-	uint8_t		 aucPadding_1[3];
-	uint32_t	 u4ScnFuncMaskExtend;
+	uint8_t          ucBssidMatchCh[CFG_SCAN_OOB_MAX_NUM];
+	uint8_t          ucBssidMatchSsidInd[CFG_SCAN_OOB_MAX_NUM];
+	uint8_t          aucPadding_1[3];
+	uint32_t         u4ScnFuncMaskExtend;
 	uint8_t          ucScnSourceMask;
-	uint16_t	 u2OpChStayTimeMs;
-	uint8_t		 ucDfsChDwellTimeMs;
-	uint8_t		 ucPerScanChannelCnt;
-	uint8_t		 aucPadding_3[19];
+	uint16_t         u2OpChStayTimeMs;
+	uint8_t          ucDfsChDwellTimeMs;
+	uint8_t          ucPerScanChannelCnt;
+	uint16_t         u2LLWMaxDwellTimeMs;
+	uint16_t         u2LLWMinDwellTimeMs;
+	uint8_t          aucPadding_3[15];
 #ifdef CFG_SUPPORT_UNIFIED_COMMAND
-	uint8_t		 aucShortSSID[CFG_SCAN_OOB_MAX_NUM][MAX_SHORT_SSID_LEN];
-	uint8_t		 ucBssidMatchShortSsidInd[CFG_SCAN_OOB_MAX_NUM];
-	uint16_t	 u2IELenMl;
-	uint8_t		 aucIEMl[100];  /*depends on u2IELen24G*/
-	uint16_t	 u2IELen2G4;
-	uint8_t		 aucIE2G4[100];  /*depends on u2IELen24G*/
-	uint16_t	 u2IELen5G;
-	uint8_t		 aucIE5G[100];  /*depends on u2IELen5G*/
+	uint8_t          aucShortSSID[CFG_SCAN_OOB_MAX_NUM][MAX_SHORT_SSID_LEN];
+	uint8_t          ucBssidMatchShortSsidInd[CFG_SCAN_OOB_MAX_NUM];
+	uint16_t         u2IELenMl;
+	uint8_t          aucIEMl[100];  /*depends on u2IELen24G*/
+	uint16_t         u2IELen2G4;
+	uint8_t          aucIE2G4[100];  /*depends on u2IELen24G*/
+	uint16_t         u2IELen5G;
+	uint8_t          aucIE5G[100];  /*depends on u2IELen5G*/
 #if (CFG_SUPPORT_WIFI_6G == 1)
-	uint16_t	 u2IELen6G;
-	uint8_t		aucIE6G[100];  /*depends on u2IELen6G*/
+	uint16_t         u2IELen6G;
+	uint8_t          aucIE6G[100];  /*depends on u2IELen6G*/
 #endif
 #endif
 };
@@ -1485,8 +1468,15 @@ struct CMD_RTT_CALIBR {
 };
 
 struct CMD_SET_SCHED_SCAN_ENABLE {
-	uint8_t      ucSchedScanAct;  /*ENUM_SCHED_SCAN_ACT*/
-	uint8_t      aucReserved[3];
+	uint8_t ucSchedScanAct;  /*ENUM_SCHED_SCAN_ACT*/
+#if CFG_SUPPORT_LLW_SCAN
+	uint8_t ucOpChStayTimeMs;
+	uint8_t ucDfsChDwellTimeMs;
+	uint8_t ucPerScanChannelCnt;
+#else
+	uint8_t aucReserved[3];
+#endif
+	uint8_t ucChannelMaxDwellTime;
 };
 
 struct SCAN_SCHED_SSID_MATCH_SETS {
@@ -1992,7 +1982,8 @@ enum ENUM_BEACON_TIMEOUT_REASON {
 struct EVENT_BSS_BEACON_TIMEOUT {
 	uint8_t      ucBssIndex;
 	uint8_t      ucReasonCode;
-	uint8_t      aucReserved[2];
+	uint8_t      ucLinkDtThreshold;
+	uint8_t      aucReserved;
 };
 
 struct EVENT_STA_AGING_TIMEOUT {
@@ -2266,74 +2257,8 @@ enum ENUM_TX_POWER_LIMIT_PER_RATE_CMD_FORMAT_T {
 	TXPWR_LIMIT_PER_RATE_CMD_FORMAT_ANT_SAR = 1,
 	TXPWR_LIMIT_PER_RATE_CMD_FORMAT_CH_SKU_1SS_1T = 2,
 	TXPWR_LIMIT_PER_RATE_CMD_FORMAT_CH_SKU_LEGACY = 3,
-#if (CFG_SUPPORT_CE_6G_PWR_REGULATIONS == 1)
-	TXPWR_LIMIT_PER_RATE_CMD_FORMAT_CH_SKU_VLP = 4,
-	TXPWR_LIMIT_PER_RATE_CMD_FORMAT_TPE = 5,
-#endif  /*CFG_SUPPORT_CE_6G_PWR_REGULATIONS == 1*/
 	TXPWR_LIMIT_PER_RATE_CMD_FORMAT_END
 };
-
-#if (CFG_SUPPORT_CE_6G_PWR_REGULATIONS == 1)
-#define SINGLE_SKU_SECTION_NUM 35
-struct CMD_TXPOWER_CHANNEL_POWER_LIMIT_VLP {
-	uint8_t u1CentralCh;
-	int8_t i1PwrLimit[SINGLE_SKU_SECTION_NUM];
-};
-
-struct CMD_SET_TXPOWER_COUNTRY_TX_POWER_LIMIT_VLP {
-	/* DWORD_0 - Common info*/
-	uint8_t ucCmdVer;
-	uint8_t aucPadding0[1];
-	uint16_t u2CmdLen;
-
-	/* DWORD_1 - CMD hint*/
-	uint8_t ucNum; /* channel #*/
-	uint8_t eBand; /* 2.4g or 5g*/
-	uint8_t bCmdFinished;
-	/* hint for whether 2.4g/5g tx power limit value all be sent*/
-	uint8_t eLimitType; /* aucPadding1[1]; */
-
-	/* DWORD_2 - Country code*/
-	uint32_t u4CountryCode;
-
-	/* WORD_3 ~ 10 - Padding*/
-	uint8_t aucPadding2[32];
-
-	/* DWORD_11 ~ - Tx power limit values*/
-	struct CMD_TXPOWER_CHANNEL_POWER_LIMIT_VLP rChannelPowerLimit[];
-};
-
-struct CMD_TXPOWER_CHANNEL_POWER_LIMIT_ENV {
-	uint8_t fgPwrLmtEnable;
-	uint8_t ucBand;
-	uint8_t ucPriCh;
-	uint8_t ucPwrLmtNum;
-	int8_t acMaxTxPwrLmt[MAX_ANTENNA_NUM][TX_PWR_ENV_MAX_TXPWR_BW_NUM];
-};
-
-struct CMD_SET_TXPOWER_COUNTRY_TX_POWER_LIMIT_ENV {
-	/* DWORD_0 - Common info*/
-	uint8_t ucCmdVer;
-	uint8_t aucPadding0[1];
-	uint16_t u2CmdLen;
-
-	/* DWORD_1 - CMD hint*/
-	uint8_t ucNum; /* channel #*/
-	uint8_t eBand; /* 2.4g or 5g*/
-	uint8_t bCmdFinished;
-	/* hint for whether 2.4g/5g tx power limit value all be sent*/
-	uint8_t eLimitType; /* aucPadding1[1]; */
-
-	/* DWORD_2 - Country code*/
-	uint32_t u4CountryCode;
-
-	/* WORD_3 ~ 10 - Padding*/
-	uint8_t aucPadding2[32];
-
-	/* DWORD_11 ~ - Tx power limit values*/
-	struct CMD_TXPOWER_CHANNEL_POWER_LIMIT_ENV rTxPowerEnvLimit;
-};
-#endif  /*CFG_SUPPORT_CE_6G_PWR_REGULATIONS == 1*/
 
 struct CMD_SET_TXPOWER_COUNTRY_TX_POWER_LIMIT_PER_RATE {
 	/* DWORD_0 - Common info*/
@@ -2403,8 +2328,6 @@ enum ENUM_EVENT_OPMODE_CHANGE_REASON {
 	EVENT_OPMODE_CHANGE_REASON_USER_CONFIG = 9,
 	EVENT_OPMODE_CHANGE_REASON_RDD    = 10,
 	EVENT_OPMODE_CHANGE_REASON_TX_ANT_CTRL = 11,
-	EVENT_OPMODE_CHANGE_REASON_START_BW_UPDATE    = 19,
-	EVENT_OPMODE_CHANGE_REASON_HW_CONSTRIAN_CAP   = 20,
 };
 
 struct EVENT_OPMODE_CHANGE {
@@ -2419,8 +2342,7 @@ struct EVENT_OPMODE_CHANGE {
 	uint8_t  ucOpRxNss;      /*0: don't care*/
 
 	uint8_t  ucReason;       /* ENUM_EVENT_OPMODE_CHANGE_REASON_T*/
-	uint8_t  ucBandWidth;    /* ENUM_MAX_BANDWIDTH_SETTING */
-	uint8_t  aucPadding1[62];
+	uint8_t  aucPadding1[63];
 };
 
 struct EVENT_RDD_OPMODE_CHANGE {
@@ -2438,6 +2360,13 @@ struct EVENT_RDD_OPMODE_CHANGE {
 	uint8_t  ucChBw;
 	uint8_t  ucAction;
 	uint8_t  aucPadding1[60];
+};
+
+struct EVENT_GC_CSA_T {
+	uint8_t ucBssIndex;
+	uint8_t ucChannel;
+	uint8_t ucBand;
+	uint8_t aucReserved[2];
 };
 
 #define P2P_LO_STOPPED_REASON_COMPLETE 0

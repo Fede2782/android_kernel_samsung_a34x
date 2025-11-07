@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2025 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -2313,7 +2313,14 @@ void kbase_mem_kref_free(struct kref *kref)
 #endif
 			kbase_remove_dma_buf_usage(alloc->imported.umm.kctx, alloc);
 		}
-
+#if MALI_USE_CSF
+		/* Check if delegation of free is required. On true, return directly. The
+		 * alloc will be freed by the deferral-control later when the deferral end
+		 * condition is satisfied.
+		 */
+		if (kbase_csf_scheduler_delegate_imported_buf_alloc_free(alloc))
+			return;
+#endif
 		dma_buf_detach(alloc->imported.umm.dma_buf, alloc->imported.umm.dma_attachment);
 		dma_buf_put(alloc->imported.umm.dma_buf);
 		break;
@@ -2322,6 +2329,14 @@ void kbase_mem_kref_free(struct kref *kref)
 		case KBASE_USER_BUF_STATE_PINNED:
 		case KBASE_USER_BUF_STATE_DMA_MAPPED:
 		case KBASE_USER_BUF_STATE_GPU_MAPPED: {
+#if MALI_USE_CSF
+			/* Check if delegation of free is required. On true, return directly. The
+			 * alloc will be freed by the deferral-control later when the deferral end
+			 * condition is satisfied.
+			 */
+			if (kbase_csf_scheduler_delegate_imported_buf_alloc_free(alloc))
+				return;
+#endif
 			/* It's too late to undo all of the operations that might have been
 			 * done on an imported USER_BUFFER handle, as references have been
 			 * lost already.

@@ -123,6 +123,16 @@ config MEDIATEK_SPMI_PMIC_ADC
 	  This driver can also be built as a module. If so, the module will be
 	  called mtk-spmi-pmic-adc.
 
+config MEDIATEK_SPMI_TIA_ADC
+	tristate "MediaTek SPMI TIA ADC Support"
+	depends on MEDIATEK_SPMI_PMIC_ADC
+	help
+	  Say yes here to enable support for MediaTek SPMI PMIC TIA ADC.
+	  The driver supports multiple channels read.
+
+	  This driver can also be built as a module. If so, the module will be
+	  called mtk-spmi-tia-adc.
+
 config RT9490_ADC
 	tristate "Richtek RT9490 ADC"
 	depends on MFD_RT9490 || COMPILE_TEST

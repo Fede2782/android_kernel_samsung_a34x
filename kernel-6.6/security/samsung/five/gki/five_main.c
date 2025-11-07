@@ -27,29 +27,34 @@
 #include <linux/xattr.h>
 #include <crypto/hash_info.h>
 #include <linux/ptrace.h>
-#include <linux/task_integrity.h>
-#include <linux/reboot.h>
 #include <linux/debugfs.h>
 #include <linux/fs.h>
+#include <linux/sched.h>
+
 #include <linux/shmem_fs.h>
+#include <linux/version.h>
+#include <trace/hooks/fs.h>
+#include <trace/hooks/ptrace.h>
+#include <trace/hooks/mm.h>
+#include <trace/hooks/security.h>
+#include <trace/hooks/sched.h>
+
 
 #include "five.h"
+#include "task_integrity.h"
 #include "five_audit.h"
 #include "five_hooks.h"
 #include "five_state.h"
-#include "five_pa.h"
 #include "five_porting.h"
 #include "five_cache.h"
 #include "five_dmverity.h"
-#include "five_tint_dev.h"
+#include "five_init.h"
+#include "five_vfs.h"
+#include "five_iint.h"
 
-static const bool unlink_on_error;	// false
-
-static const bool check_dex2oat_binary = true;
 static const bool check_memfd_file = true;
 
 static struct file *memfd_file __ro_after_init;
-static bool is_five_initialized __ro_after_init;
 
 static struct workqueue_struct *g_five_workqueue;
 
@@ -61,6 +66,9 @@ static inline struct processing_event_list *five_event_create(
 		struct file *file, int function, gfp_t flags);
 static inline void five_event_destroy(
 		const struct processing_event_list *file);
+static int five_fork(struct task_struct *task, struct task_struct *child_task);
+static int five_ptrace(struct task_struct *task, long request);
+static int five_process_vm_rw(struct task_struct *task, int write);
 
 #ifdef CONFIG_FIVE_DEBUG
 static int five_enabled = 1;
@@ -100,10 +108,70 @@ static ssize_t five_enabled_read(struct file *file, char __user *user_buf,
 	return simple_read_from_buffer(user_buf, count, pos, buf, sizeof(buf));
 }
 
+static ssize_t five_debugfs_integrity_write(struct file *file, const char __user *user_buf, size_t count, loff_t *pos)
+{
+	pid_t pid = 0;
+	struct task_struct *task = NULL;
+	struct pid *pid_struct = NULL;
+	char *tmp = NULL;
+	char *pathname;
+
+	/* Read the PID directly from the user_buf */
+	if (kstrtoint_from_user(user_buf, count, 10, &pid) || pid < 0) {
+		pr_info("FIVE: debugfs, invalid pid");
+		goto out;
+	}
+
+	/* Find task_struct */
+	rcu_read_lock();
+	pid_struct = find_vpid(pid);
+	if (pid_struct)
+		task = pid_task(pid_struct, PIDTYPE_PID);
+	else
+		pr_info("FIVE: debugfs, no such pid");
+	rcu_read_unlock();
+
+	if (task != NULL) {
+		pr_info("FIVE: Process PID: %d, Process Name: %s, ",
+				task->pid, task->comm);
+		pr_info("FIVE: Parent PID: %d, Task integrity value: %x\n",
+				task->real_parent->pid,
+				task_integrity_user_read(TASK_INTEGRITY(task)));
+
+
+		if (TASK_INTEGRITY(task)->reset_cause)
+			pr_info("FIVE: RESET CAUSE: %s\n",
+						tint_reset_cause_to_string(TASK_INTEGRITY(task)->reset_cause));
+		else
+			pr_info("FIVE: NO RESET CAUSE\n");
+
+		if (!TASK_INTEGRITY(task)->reset_file) {
+			pr_info("FIVE: NO RESET file\n");
+		} else {
+			tmp = (char *)__get_free_page(GFP_KERNEL);
+			if (!tmp)
+				return -ENOMEM;
+			pathname = d_path(&TASK_INTEGRITY(task)->reset_file->f_path, tmp, PAGE_SIZE);
+			if (IS_ERR(pathname))
+				goto out;
+			pr_info("FIVE: RESET FILE: %s\n", pathname);
+			free_page((unsigned long)tmp);
+		}
+	}
+
+out:
+	return count;
+}
+
 static const struct file_operations five_enabled_fops = {
 	.owner = THIS_MODULE,
 	.read  = five_enabled_read,
 	.write = five_enabled_write
+};
+
+static const struct file_operations five_integrity_fops = {
+	.owner = THIS_MODULE,
+	.write = five_debugfs_integrity_write
 };
 
 static int __init init_fs(void)
@@ -124,6 +192,24 @@ error:
 	return -EEXIST;
 }
 
+static int __init init_debugfs_integrity(void)
+{
+	struct dentry *debug_file = NULL;
+	umode_t umode = (S_IRUGO | S_IWUSR | S_IWGRP);
+
+	debug_file = debugfs_create_file(
+		"five_integrity", umode, NULL, NULL, &five_integrity_fops);
+	if (IS_ERR_OR_NULL(debug_file))
+		goto error;
+
+	return 0;
+error:
+	if (debug_file)
+		return -PTR_ERR(debug_file);
+
+	return -EEXIST;
+}
+
 static inline int is_five_enabled(void)
 {
 	return five_enabled;
@@ -133,7 +219,7 @@ int five_fcntl_debug(struct file *file, void __user *argp)
 {
 	struct inode *inode;
 	struct five_stat stat = {0};
-	struct integrity_iint_cache *iint;
+	struct five_iint_cache *iint;
 
 	if (unlikely(!file || !argp))
 		return -EINVAL;
@@ -141,7 +227,7 @@ int five_fcntl_debug(struct file *file, void __user *argp)
 	inode = file_inode(file);
 
 	inode_lock(inode);
-	iint = integrity_inode_get(inode);
+	iint = five_inode_get(inode);
 	if (unlikely(!iint)) {
 		inode_unlock(inode);
 		return -ENOMEM;
@@ -167,6 +253,11 @@ static int __init init_fs(void)
 static inline int is_five_enabled(void)
 {
 	return 1;
+}
+
+static int __init init_debugfs_integrity(void)
+{
+	return 0;
 }
 #endif
 
@@ -424,7 +515,7 @@ void task_integrity_delayed_reset(struct task_struct *task,
 	push_reset_event(task, cause, file);
 }
 
-static void five_check_last_writer(struct integrity_iint_cache *iint,
+static void five_check_last_writer(struct five_iint_cache *iint,
 				  struct inode *inode, struct file *file)
 {
 	fmode_t mode = file->f_mode;
@@ -450,23 +541,16 @@ static void five_check_last_writer(struct integrity_iint_cache *iint,
 void five_file_free(struct file *file)
 {
 	struct inode *inode = file_inode(file);
-	struct integrity_iint_cache *iint;
+	struct five_iint_cache *iint;
 
 	if (!S_ISREG(inode->i_mode))
 		return;
 
-	fivepa_fsignature_free(file);
-
-	iint = integrity_iint_find(inode);
+	iint = five_iint_find(inode);
 	if (!iint)
 		return;
 
 	five_check_last_writer(iint, inode, file);
-}
-
-void five_task_free(struct task_struct *task)
-{
-	task_integrity_put(TASK_INTEGRITY(task));
 }
 
 /* Returns string representation of input function */
@@ -485,69 +569,6 @@ const char *five_get_string_fn(enum five_hooks fn)
 	return "unknown-function";
 }
 
-static inline bool is_dex2oat_binary(const struct file *file)
-{
-	const char *pathname = NULL;
-	char *pathbuf = NULL;
-	const char * const dex2oat_full_path[] = {
-		/* R OS */
-		"/apex/com.android.art/bin/dex2oat",
-		"/apex/com.android.art/bin/dex2oat32",
-		"/apex/com.android.art/bin/dex2oat64",
-		/* Q OS */
-		"/apex/com.android.runtime/bin/dex2oat"
-	};
-	char filename[NAME_MAX];
-	bool res = false;
-	size_t i;
-
-	if (!file || !file->f_path.dentry)
-		return false;
-
-	if (strncmp(file->f_path.dentry->d_iname, "dex2oat",
-			sizeof("dex2oat")) &&
-	    strncmp(file->f_path.dentry->d_iname, "dex2oat32",
-			sizeof("dex2oat32")) &&
-	    strncmp(file->f_path.dentry->d_iname, "dex2oat64",
-			sizeof("dex2oat64")))
-		return false;
-
-	pathname = five_d_path(&file->f_path, &pathbuf, filename);
-
-	for (i = 0; i < ARRAY_SIZE(dex2oat_full_path); ++i) {
-		if (!strncmp(pathname, dex2oat_full_path[i],
-					strlen(dex2oat_full_path[i]) + 1)) {
-			res = true;
-			break;
-		}
-	}
-
-	if (pathbuf)
-		__putname(pathbuf);
-
-	return res;
-}
-
-static inline bool match_trusted_executable(const struct five_cert *cert,
-				const struct integrity_iint_cache *iint,
-				const struct file *file)
-{
-	const struct five_cert_header *hdr = NULL;
-
-	if (!cert)
-		return check_dex2oat_binary && is_dex2oat_binary(file);
-
-	if (five_get_cache_status(iint) != FIVE_FILE_RSA)
-		return false;
-
-	hdr = (const struct five_cert_header *)cert->body.header->value;
-
-	if (hdr->privilege == FIVE_PRIV_ALLOW_SIGN)
-		return true;
-
-	return false;
-}
-
 static inline void task_integrity_processing(struct task_integrity *tint)
 {
 	tint->user_value = INTEGRITY_PROCESSING;
@@ -564,19 +585,15 @@ static void process_file(struct task_struct *task,
 			struct file_verification_result *result)
 {
 	struct inode *inode = d_real_inode(file_dentry(file));
-	struct integrity_iint_cache *iint = NULL;
-	struct five_cert cert = { {0} };
-	struct five_cert *pcert = NULL;
+	struct five_iint_cache *iint = NULL;
 	int rc = -ENOMEM;
-	char *xattr_value = NULL;
-	int xattr_len = 0;
 
 	if (!S_ISREG(inode->i_mode)) {
 		rc = 0;
 		goto out;
 	}
 
-	iint = integrity_inode_get(inode);
+	iint = five_inode_get(inode);
 	if (!iint)
 		goto out;
 
@@ -586,27 +603,7 @@ static void process_file(struct task_struct *task,
 		goto out;
 	}
 
-	xattr_len = five_read_xattr(d_real_comp(file->f_path.dentry),
-			&xattr_value);
-	if (xattr_value && xattr_len) {
-		rc = five_cert_fillout(&cert, xattr_value, xattr_len);
-		if (rc) {
-			pr_err("FIVE: certificate is incorrect inode=%lu\n",
-								inode->i_ino);
-			goto out;
-		}
-
-		pcert = &cert;
-
-		if (file->f_flags & O_DIRECT) {
-			rc = -EACCES;
-			goto out;
-		}
-	}
-
-	rc = five_appraise_measurement(task, function, iint, file, pcert);
-	if (!rc && match_trusted_executable(pcert, iint, file))
-		iint->five_flags |= FIVE_TRUSTED_FILE;
+	rc = five_appraise_measurement(task, function, iint, file, NULL);
 
 out:
 	if (rc && iint)
@@ -616,8 +613,8 @@ out:
 	result->task = task;
 	result->iint = iint;
 	result->fn = function;
-	result->xattr = xattr_value;
-	result->xattr_len = (size_t)xattr_len;
+	result->xattr = NULL;
+	result->xattr_len = 0;
 
 	if (!iint || five_get_cache_status(iint) == FIVE_FILE_UNKNOWN
 			|| five_get_cache_status(iint) == FIVE_FILE_FAIL)
@@ -671,6 +668,29 @@ static bool is_memfd_file(struct file *file)
 	return false;
 }
 
+static bool is_dalvik_cache_file(struct file *file)
+{
+	static const char dalvik_prefix[] = "/data/dalvik-cache/arm";
+
+	const char *pathname = NULL;
+	char *pathbuf = NULL;
+
+	char filename[NAME_MAX];
+	bool res = false;
+
+	if (!file || !file->f_path.dentry)
+		return false;
+
+	pathname = five_d_path(&file->f_path, &pathbuf, filename);
+	if (!strncmp(pathname, dalvik_prefix, strlen(dalvik_prefix)))
+		res = true;
+
+	if (pathbuf)
+		__putname(pathbuf);
+
+	return res;
+}
+
 /**
  * five_file_mmap - measure files being mapped executable based on
  * the process_measurement() policy decision.
@@ -685,14 +705,14 @@ int five_file_mmap(struct file *file, unsigned long prot)
 	struct task_struct *task = current;
 	struct task_integrity *tint = TASK_INTEGRITY(task);
 
-	if (unlikely(!is_five_initialized) || five_check_params(task, file))
+	if (five_check_params(task, file))
 		return 0;
 
 	if (check_memfd_file && is_memfd_file(file))
 		return 0;
 
 	if (file && task_integrity_user_read(tint)) {
-		if (prot & PROT_EXEC) {
+		if ((prot & PROT_EXEC) && !is_dalvik_cache_file(file)) {
 			rc = push_file_event_bunch(task, file, MMAP_CHECK);
 			if (rc)
 				return rc;
@@ -719,16 +739,15 @@ int five_file_mmap(struct file *file, unsigned long prot)
  *
  * On success return 0.
  */
-int five_bprm_check(struct linux_binprm *bprm)
+int __five_bprm_check(struct linux_binprm *bprm, int depth)
 {
 	int rc = 0;
 	struct task_struct *task = current;
 	struct task_integrity *old_tint = TASK_INTEGRITY(task);
-
-	if (unlikely(!is_five_initialized) || unlikely(task->ptrace))
+	if (unlikely(task->ptrace))
 		return rc;
 
-	if (bprm->recursion_depth > 0) {
+	if (depth > 0) {
 		rc = push_file_event_bunch(task, bprm->file, MMAP_CHECK);
 	} else {
 		struct task_integrity *tint = task_integrity_alloc();
@@ -746,91 +765,20 @@ int five_bprm_check(struct linux_binprm *bprm)
 	return rc;
 }
 
-/* Does `unlink' of the `file'.
- * This function breaks delegation (drops file's leases. See
- * man 2 fcntl "Leases"). do_unlinkat function in fs/namei.c was used
- * as an example.
- */
-static int five_unlink(struct file *file)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
+int five_bprm_check(struct linux_binprm *bprm, int depth)
 {
-	int rc;
-	struct dentry *dentry = file->f_path.dentry;
-	struct inode *inode = d_backing_inode(dentry->d_parent);
-	struct inode *delegated_inode = NULL;
-	bool retry;
-
-	do {
-		delegated_inode = NULL;
-		retry = false;
-		inode_lock_nested(inode, I_MUTEX_PARENT);
-		ihold(inode);
-		rc = vfs_unlink(inode, dentry, &delegated_inode);
-		inode_unlock(inode);
-		iput(inode);
-		if (rc == -EWOULDBLOCK && delegated_inode) {
-			rc = break_deleg_wait(&delegated_inode);
-			if (!rc)
-				retry = true;
-		}
-	} while (retry);
-
-	five_audit_info(current, file, "five_unlink", 0, 0,
-			"Unlink a file", rc);
-
-	return rc;
+	return __five_bprm_check(bprm, depth);
 }
+#else
+int five_bprm_check(struct linux_binprm *bprm)
+{
+	return __five_bprm_check(bprm, bprm->recursion_depth);
+}
+#endif
 
-/**
- * This function handles two situations:
- * 1. Device had been rebooted before five_sign finished.
- *    Then xattr_len will be zero and iint->five_signing will be false.
- * 2. The file is being signing when another process tries to open it.
- *    Then xattr_len will be zero and iint->five_signing will be true.
- *
- * - five_fcntl_edit stores the xattr with zero length and set
- *   iint->five_signing to true
- * - five_fcntl_sign stores correct certificates and set
- *   iint->five_signing to false
- *
- * On success returns 0
- */
 int five_file_open(struct file *file)
 {
-	ssize_t xattr_len;
-	struct inode *inode = file_inode(file);
-
-	if (!S_ISREG(inode->i_mode))
-		return 0;
-
-	xattr_len = vfs_getxattr(file->f_path.dentry, XATTR_NAME_FIVE,
-					NULL, 0);
-	if (xattr_len == 0) {
-		struct integrity_iint_cache *iint;
-		bool is_signing = false;
-
-		if (!unlink_on_error) {
-			five_audit_info(current, file, "five_unlink", 0, 0,
-					"Found a dummy-cert", 0);
-			return 0;
-		}
-
-		inode_lock(inode);
-		iint = integrity_iint_find(inode);
-		if (iint)
-			is_signing = iint->five_signing;
-		inode_unlock(inode);
-
-		if (!is_signing) {
-			int rc;
-
-			rc = five_unlink(file);
-			rc = rc ?: -ENOENT;
-
-			return rc;
-		}
-		return -EPERM;
-	}
-
 	return 0;
 }
 
@@ -852,11 +800,7 @@ int five_file_verify(struct task_struct *task, struct file *file)
 
 	return rc;
 }
-
-static struct notifier_block five_reboot_nb = {
-	.notifier_call = five_reboot_notifier,
-	.priority = INT_MAX,
-};
+EXPORT_SYMBOL_GPL(five_file_verify);
 
 int five_hash_algo __ro_after_init = HASH_ALGO_SHA1;
 
@@ -874,6 +818,192 @@ static int __init hash_setup(const char *str)
 	return 1;
 }
 
+static void five_ptrace_wrapper(void *data, struct task_struct *p, long request)
+{
+	five_ptrace(p, request);
+}
+
+static void copy_process_wrapper(void *data, unsigned long clone_flags,
+				 struct task_struct *p, int *ret)
+{
+	int retval = 0;
+
+	if (!(clone_flags & CLONE_VM))
+		retval = five_fork(current, p);
+
+	*ret = retval;
+}
+
+static void process_vm_rw_wrapper(void *data, struct task_struct *task,
+				  int vm_write, ssize_t *ret)
+{
+	*ret = five_process_vm_rw(task, vm_write);
+}
+
+static void exec_binprm_fail_wrapper(void *data, struct task_struct *p,
+				     struct file *f)
+{
+	task_integrity_delayed_reset(p, CAUSE_EXEC, f);
+}
+
+static void five_file_free_wrapper(void *data, struct file *f)
+{
+	five_file_free(f);
+}
+
+static void post_setattr_wrapper(void *data, struct dentry *d)
+{
+	five_inode_post_setattr(current, d);
+}
+
+static void task_alloc_wrapper(void *data, struct task_struct *task,
+			       unsigned long clone_flags, int *r)
+{
+	struct task_integrity *tint;
+
+	if (unlikely(!task || !r))
+		return;
+
+	*r = 0;
+
+	tint = TASK_INTEGRITY(current);
+	if (!tint) {
+		tint = task_integrity_alloc();
+		if (!tint) {
+			*r = -ENOMEM;
+			return;
+		}
+
+		task_integrity_assign(current, tint);
+	}
+
+	if (clone_flags & CLONE_VM) {
+		task_integrity_get(tint);
+	} else {
+		tint = task_integrity_alloc();
+		if (!tint) {
+			*r = -ENOMEM;
+			return;
+		}
+	}
+
+	task_integrity_assign(task, tint);
+}
+
+static void task_free_wrapper(void *data, struct task_struct *task)
+{
+	task_integrity_put(TASK_INTEGRITY(task));
+}
+
+static void file_open_wrapper(void *data, struct file *file, int *r)
+{
+	*r = five_file_open(file);
+}
+
+static void mmap_file_wrapper(void *data, struct file *file,
+			      unsigned long prot, unsigned long flags, int *r)
+{
+	*r = five_file_mmap(file, prot);
+}
+
+static void inode_removexattr_wrapper(void *data, struct dentry *dentry,
+				      const char *xattr_name, int *r)
+{
+	*r = five_inode_removexattr(dentry, xattr_name);
+}
+
+
+static void inode_setxattr_wrapper(void *data, struct dentry *dentry,
+				const char *xattr_name, const void *xattr_value,
+				size_t xattr_value_len, int flags, int *r)
+{
+	*r = five_inode_setxattr(dentry, xattr_name,
+			    xattr_value, xattr_value_len);
+}
+
+static void bprm_check_wrapper(void *data, struct linux_binprm *bprm, int depth)
+{
+	five_bprm_check(bprm, depth);
+}
+
+static void inode_free_wrapper(void *data, struct inode *inode)
+{
+	if (!inode)
+		return;
+	five_inode_free(inode);
+}
+
+static int __init register_vendor_hooks(void)
+{
+	int error;
+
+	error = register_trace_android_rvh_ptrace(five_ptrace_wrapper, NULL);
+	if (error)
+		goto out;
+
+	error = register_trace_android_rvh_copy_process_integrity(
+					copy_process_wrapper, NULL);
+	if (error)
+		goto out;
+
+	error = register_trace_android_rvh_process_vm_rw_core(
+					process_vm_rw_wrapper, NULL);
+	if (error)
+		goto out;
+
+	error = register_trace_android_rvh_exec_binprm_fail(
+					exec_binprm_fail_wrapper, NULL);
+	if (error)
+		goto out;
+
+	error = register_trace_android_rvh_security_file_free(five_file_free_wrapper,
+					NULL);
+	if (error)
+		goto out;
+
+	error = register_trace_android_rvh_post_setattr(post_setattr_wrapper,
+					NULL);
+	if (error)
+		goto out;
+
+	error = register_trace_android_rvh_security_task_alloc(
+					task_alloc_wrapper, NULL);
+	if (error)
+		goto out;
+
+	error = register_trace_android_rvh_security_task_free(
+					task_free_wrapper, NULL);
+	if (error)
+		goto out;
+	error = register_trace_android_rvh_security_file_open(
+					file_open_wrapper, NULL);
+	if (error)
+		goto out;
+	error = register_trace_android_rvh_security_mmap_file(
+					mmap_file_wrapper, NULL);
+	if (error)
+		goto out;
+	error = register_trace_android_rvh_security_inode_setxattr(
+					inode_setxattr_wrapper, NULL);
+	if (error)
+		goto out;
+	error = register_trace_android_rvh_security_inode_removexattr(
+					inode_removexattr_wrapper, NULL);
+	if (error)
+		goto out;
+
+	error = register_trace_android_rvh_exec_binprm_check(
+					bprm_check_wrapper, NULL);
+	if (error)
+		goto out;
+	error = register_trace_android_rvh_security_inode_free(
+					inode_free_wrapper, NULL);
+	if (error)
+		goto out;
+out:
+	return error;
+}
+
 static int __init init_five(void)
 {
 	int error;
@@ -884,11 +1014,23 @@ static int __init init_five(void)
 		return -ENOMEM;
 
 	hash_setup(CONFIG_FIVE_DEFAULT_HASH);
-	error = five_init();
+	error = five_keyring_init();
 	if (error)
 		return error;
 
-	error = register_reboot_notifier(&five_reboot_nb);
+	error = five_load_built_x509();
+	if (error)
+		return error;
+
+	error = five_task_integrity_cache_init();
+	if (error)
+		return error;
+
+	error = five_iintcache_init();
+	if (error)
+		return error;
+
+	error = five_init_crypto();
 	if (error)
 		return error;
 
@@ -904,7 +1046,7 @@ static int __init init_five(void)
  * __shmem_file_setup() sets S_PRIVATE flag in inode->i_flags:
 	inode->i_flags |= i_flags;
  */
-	memfd_file = shmem_file_setup(
+	memfd_file = shmem_kernel_file_setup(
 				"five_memfd_check", 0, VM_NORESERVE);
 	if (IS_ERR(memfd_file)) {
 		error = PTR_ERR(memfd_file);
@@ -917,14 +1059,22 @@ static int __init init_five(void)
 	if (error)
 		return error;
 
+	error = init_debugfs_integrity();
+	if (error)
+		return error;
+
 	error = five_init_dmverity();
 	if (error)
 		return error;
 
-	error = five_tint_init_dev();
+	error = register_vendor_hooks();
+	pr_err("FIVE: Register vendor hook\n");
+	if (error) {
+		pr_err("FIVE: Can't register vendor hook returned: %d\n", error);
+		return error;
+	}
 
-	if (!error)
-		is_five_initialized = true;
+	error = five_tint_init_dev();
 
 	return error;
 }
@@ -968,10 +1118,7 @@ static void bprm_hook_handler(struct work_struct *in_data)
 	if (unlikely(!context))
 		return;
 
-	five_hook_task_forked(context->task, context->child_task,
-						  context->parent_tint_value,
-						  context->child_tint_value);
-
+	five_hook_task_forked(context->task, context->child_task);
 	put_task_struct(context->task);
 	put_task_struct(context->child_task);
 
@@ -982,6 +1129,9 @@ int five_fork(struct task_struct *task, struct task_struct *child_task)
 {
 	int rc = 0;
 	struct bprm_hook_context *context;
+
+	if (!TASK_INTEGRITY(task))
+		return 0;
 
 	spin_lock(&TASK_INTEGRITY(task)->list_lock);
 
@@ -1016,7 +1166,7 @@ int five_fork(struct task_struct *task, struct task_struct *child_task)
 			}
 
 			list_add_tail(&five_file->list,
-				      &TASK_INTEGRITY(child_task)->events.list);
+					&TASK_INTEGRITY(child_task)->events.list);
 		}
 
 		context->tint = TASK_INTEGRITY(child_task);
@@ -1055,7 +1205,7 @@ int five_fork(struct task_struct *task, struct task_struct *child_task)
 	return rc;
 }
 
-int five_ptrace(struct task_struct *task, long request)
+static int five_ptrace(struct task_struct *task, long request)
 {
 	switch (request) {
 	case PTRACE_TRACEME:
@@ -1100,7 +1250,7 @@ int five_ptrace(struct task_struct *task, long request)
 	return 0;
 }
 
-int five_process_vm_rw(struct task_struct *task, int write)
+static int five_process_vm_rw(struct task_struct *task, int write)
 {
 	if (write) {
 		struct task_integrity *tint = TASK_INTEGRITY(task);
@@ -1174,3 +1324,4 @@ late_initcall(init_five);
 
 MODULE_DESCRIPTION("File-based process Integrity Verifier");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);

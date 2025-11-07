@@ -82,7 +82,11 @@ struct cred_kdp_init init_cred_use_cnt = {
 	},
 };
 
+#ifdef CONFIG_UH_PKVM
+struct cred_kdp init_cred_kdp = {
+#else
 struct cred_kdp init_cred_kdp __kdp_ro = {
+#endif
 	.cred.usage			= ATOMIC_LONG_INIT(KDP_CRED_MAGIC + 4),
 	.cred.uid			= GLOBAL_ROOT_UID,
 	.cred.gid			= GLOBAL_ROOT_GID,

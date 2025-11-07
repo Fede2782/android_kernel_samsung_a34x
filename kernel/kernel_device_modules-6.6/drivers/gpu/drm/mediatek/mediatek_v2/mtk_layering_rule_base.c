@@ -58,6 +58,7 @@ extern unsigned int g_mml_mode;
 
 static struct drm_mtk_layering_info layering_info;
 static bool g_hrt_valid;
+static bool g_blank_lyr_valid;
 #ifdef HRT_UT_DEBUG
 static int debug_resolution_level;
 #endif
@@ -832,6 +833,7 @@ int mtk_rollback_resize_layer_to_GPU_range(
 		     i <= disp_info->gles_tail[idx]; i++) {
 			lc = &disp_info->input_config[idx][i];
 			lc->ext_sel_layer = -1;
+			lc->layer_caps &= ~MTK_DISP_RSZ_LAYER;
 		}
 	}
 
@@ -1971,9 +1973,20 @@ void calc_mml_layer_weight(struct drm_mtk_layering_info *disp_info,
 	int idx, int layer_idx, int *overlap_w)
 {
 	u32 ratio = 0;
+	struct drm_mtk_layer_config *layer_info;
 
 	if (disp_info == NULL || overlap_w == NULL || idx >= LYE_CRTC || idx < 0)
 		return;
+
+	layer_info = &disp_info->input_config[idx][layer_idx];
+
+	if (l_rule_info->ovl_exdma_rule) {
+		/* need to check ovl dl hrt */
+		if (mtk_has_layer_cap(layer_info, MTK_MML_DISP_DIRECT_LINK_LAYER)) {
+			*overlap_w = 0;
+			return ;
+		}
+	}
 
 	ratio = calc_mml_rsz_ratio(&disp_info->mml_cfg[idx][layer_idx]);
 	if (ratio == 100)
@@ -2801,12 +2814,13 @@ static int mtk_lye_get_comp_id(int disp_idx, int disp_list, struct drm_device *d
 	uint16_t ovl_mapping_tb = l_rule_ops->get_mapping_table(
 		drm_dev, disp_idx, disp_list, DISP_HW_OVL_TB, 0);
 	struct mtk_drm_private *priv = drm_dev->dev_private;
-	unsigned int temp, temp1, i, comp_id_nr, *comp_id_list = NULL;
+	unsigned int temp, temp1, i, *comp_id_list = NULL;
+	int comp_id_nr = 0;
 	unsigned int valid_ovl_map, idx = 0;
 
 	if (get_layering_opt(LYE_OPT_SPDA_OVL_SWITCH)) {
 		comp_id_nr = mtk_ddp_ovl_resource_list(priv, &comp_id_list);
-		if (unlikely(comp_id_nr > DDP_COMPONENT_ID_MAX)) {
+		if (unlikely(comp_id_nr > DDP_COMPONENT_ID_MAX)|| (comp_id_nr < 0)) {
 			DDPPR_ERR("%s gets invalid ovl comp_id_list\n", __func__);
 			return comp_id_nr;
 		}
@@ -3050,7 +3064,12 @@ static int mtk_lye_get_exdma_comp_id(int disp_idx, int layer_idx,
 		else if (priv->data->mmsys_id == MMSYS_MT6991) {
 			int exdma_comp = 0;
 
-			exdma_comp = DDP_COMPONENT_OVL1_EXDMA6  + ((layer_idx - fun_lye) * 2);
+			if (mtk_crtc->path_data->is_exdma_dual_layer)
+				exdma_comp = DDP_COMPONENT_OVL1_EXDMA6 + ((layer_idx - fun_lye) * 2);
+			else if (mtk_crtc->path_data->is_exdma_triple_layer)
+				exdma_comp = DDP_COMPONENT_OVL1_EXDMA4 + ((layer_idx - fun_lye) * 3);
+			else
+				exdma_comp = DDP_COMPONENT_OVL1_EXDMA6  + ((layer_idx - fun_lye) * 2);
 
 			return exdma_comp;
 		}
@@ -3093,7 +3112,7 @@ static int mtk_lye_get_exdma_comp_id(int disp_idx, int layer_idx,
 
 static int mtk_lye_get_blender_comp_id(int disp_idx, int layer_idx,
 	struct mtk_drm_private *priv, struct mtk_drm_crtc *mtk_crtc,
-	int blender_lye, int dual_blender)
+	int blender_lye, int blender_offset)
 {
 	/* TODO: The component ID should be changed by ddp path and platforms */
 	if (disp_idx == 0) {
@@ -3102,7 +3121,7 @@ static int mtk_lye_get_blender_comp_id(int disp_idx, int layer_idx,
 		if (priv->data->mmsys_id == MMSYS_MT6991) {
 			first_bld = DDP_COMPONENT_OVL0_BLENDER1;
 
-			bld_comp = first_bld + layer_idx - blender_lye + dual_blender;
+			bld_comp = first_bld + layer_idx - blender_lye + blender_offset;
 
 			return bld_comp;
 		}
@@ -3125,8 +3144,16 @@ static int mtk_lye_get_blender_comp_id(int disp_idx, int layer_idx,
 				return comp->id;
 		} else if (priv->data->mmsys_id == MMSYS_MT6991) {
 			int bld_comp = 0;
+			int first_bld = 0;
 
-			bld_comp = DDP_COMPONENT_OVL1_BLENDER5  + ((layer_idx - blender_lye) * 2);
+			if (mtk_crtc->path_data->is_exdma_dual_layer)
+				first_bld = DDP_COMPONENT_OVL1_BLENDER5;
+			else if (mtk_crtc->path_data->is_exdma_triple_layer)
+				first_bld = DDP_COMPONENT_OVL1_BLENDER3;
+			else
+				first_bld = DDP_COMPONENT_OVL1_BLENDER5;
+
+			bld_comp = first_bld + layer_idx - blender_lye + blender_offset;
 
 			return bld_comp;
 		}
@@ -3169,27 +3196,38 @@ static int mtk_lye_get_blender_comp_id(int disp_idx, int layer_idx,
 static int mtk_lye_get_dual_exdma_id(int comp_id, struct mtk_drm_crtc *mtk_crtc,
 				struct mtk_drm_private *priv)
 {
-	if (priv->data->mmsys_id == MMSYS_MT6991) {
-		if (mtk_crtc->path_data->is_exdma_dual_layer)
-			return comp_id + 1;
-		else
-			return 0;
-	}
-	return 0;
+	if (priv->data->mmsys_id == MMSYS_MT6991)
+		return comp_id + 1;
+	else
+		return 0;
 }
 
 static int mtk_lye_get_dual_blender_id(int comp_id, struct mtk_drm_crtc *mtk_crtc,
 				struct mtk_drm_private *priv)
 {
-	if (priv->data->mmsys_id == MMSYS_MT6991) {
-		if (mtk_crtc->path_data->is_exdma_dual_layer)
-			return comp_id + 1;
-		else
-			return 0;
-	}
-	return 0;
+	if (priv->data->mmsys_id == MMSYS_MT6991)
+		return comp_id + 1;
+	else
+		return 0;
 }
 
+static int mtk_lye_get_triple_exdma_id(int comp_id, struct mtk_drm_crtc *mtk_crtc,
+				struct mtk_drm_private *priv)
+{
+	if (priv->data->mmsys_id == MMSYS_MT6991)
+		return comp_id + 2;
+	else
+		return 0;
+}
+
+static int mtk_lye_get_triple_blender_id(int comp_id, struct mtk_drm_crtc *mtk_crtc,
+				struct mtk_drm_private *priv)
+{
+	if (priv->data->mmsys_id == MMSYS_MT6991)
+		return comp_id + 2;
+	else
+		return 0;
+}
 
 static int mtk_lye_get_lye_id(int disp_idx, int disp_list, struct drm_device *drm_dev,
 			      int layer_map_idx)
@@ -3274,7 +3312,7 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info,
 		{
 			c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
 
-			if (!(priv->data->ovl_exdma_rule) &&
+			if (!(l_rule_info->ovl_exdma_rule) &&
 				(c->src_width != c->dst_width ||
 			     c->src_height != c->dst_height) &&
 			    !mtk_has_layer_cap(c, MTK_MDP_RSZ_LAYER)) {
@@ -3333,12 +3371,13 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 	static u32 last_mml_ir_lye;
 	bool exclusive_chance = false;
 	u32 rpo_comp = 0, mml_comp = 0;
-	unsigned int *comp_id_list = NULL, comp_id_nr;
+	unsigned int *comp_id_list = NULL;
+	int comp_id_nr = 0;
 	struct drm_crtc *crtc = NULL;
 	struct mtk_drm_crtc *mtk_crtc = NULL;
 	struct mtk_drm_private *priv = drm_dev->dev_private;
 	int fun_lye = 0, rsz_lye = 0, rpo_mml_lye = 0;
-	int blender_lye = 0, dual_blender = 0;
+	int blender_lye = 0, blender_offset = 0;
 	int mml_decouple2 = 0;
 	int last_blender = 0;
 
@@ -3362,8 +3401,10 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 				      MTK_DISP_CLIENT_CLEAR_LAYER)) {
 			clear_idx = i;
 			break;
-		} else if (mtk_has_layer_cap(layer_info, MTK_DISP_RSZ_LAYER)) {
+		} else if (mtk_has_layer_cap(layer_info, MTK_DISP_RSZ_LAYER) &&
+			!mtk_is_gles_layer(disp_info, idx, i)) {
 			rsz_lye++;
+			DDPINFO("%s L%d is rsz, rsz_lye:%d\n", __func__, i, rsz_lye);
 		}
 	}
 
@@ -3381,13 +3422,17 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 			lyeblob_ids->fbt_gles_tail = disp_info->gles_tail[HRT_PRIMARY];
 		}
 	}
-	DDPMSG("%s layer_num = %d\n",__func__, disp_info->layer_num[idx]);
+	DDPINFO("%s layer_num=%d rsz_lye=%d\n",__func__, disp_info->layer_num[idx], rsz_lye);
 	for (i = 0; i < disp_info->layer_num[idx]; i++) {
 
 		layer_info = &disp_info->input_config[idx][i];
 		rpo_mml_lye = 0;
+		comp_state.comp_id = 0;
+		comp_state.blender_comp_id = 0;
 		comp_state.dual_comp_id = 0;
 		comp_state.dual_blender_comp_id = 0;
+		comp_state.triple_comp_id = 0;
+		comp_state.triple_blender_comp_id = 0;
 
 		if (clear_idx < 0 &&
 		    mtk_has_layer_cap(layer_info, MTK_DISP_CLIENT_CLEAR_LAYER))
@@ -3419,8 +3464,10 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 		}
 
 		layer_map_idx = HRT_GET_FIRST_SET_BIT(layer_map);
-		if (priv->data->ovl_exdma_rule) {
+		if (l_rule_info->ovl_exdma_rule) {
 
+			DDPINFO("%s lye_idx[%d] caps[%08x]\n",
+				__func__, i, layer_info->layer_caps);
 			if (mtk_has_layer_cap(layer_info, MTK_MML_DISP_DIRECT_DECOUPLE_LAYER)) {
 				comp_state.comp_id = DDP_COMPONENT_OVL_EXDMA0;
 				fun_lye++;
@@ -3450,10 +3497,19 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 				if (mtk_crtc->path_data->is_exdma_dual_layer)
 					comp_state.dual_comp_id =
 						mtk_lye_get_dual_exdma_id(comp_state.comp_id, mtk_crtc, priv);
+				else if (mtk_crtc->path_data->is_exdma_triple_layer) {
+					comp_state.dual_comp_id =
+						mtk_lye_get_dual_exdma_id(comp_state.comp_id, mtk_crtc, priv);
+					comp_state.triple_comp_id =
+						mtk_lye_get_triple_exdma_id(comp_state.comp_id, mtk_crtc, priv);
+				}
 			}
-			DDPINFO("%s disp_idx %d, i %d, fun_lye %d, rsz_lye %d, comp %s dual %s\n", __func__,
-				disp_idx, i, fun_lye, rsz_lye, mtk_dump_comp_str_id(comp_state.comp_id),
-				mtk_dump_comp_str_id(comp_state.dual_comp_id));
+			DDPINFO("%s disp_idx %d, i %d, fun_lye %d, rsz_lye %d, comp %s, dual %s, triple %s\n",
+				__func__,
+				disp_idx, i, fun_lye, rsz_lye,
+				mtk_dump_comp_str_id(comp_state.comp_id),
+				mtk_dump_comp_str_id(comp_state.dual_comp_id),
+				mtk_dump_comp_str_id(comp_state.triple_comp_id));
 			comp_state.lye_id = 0;
 		} else {
 			comp_state.comp_id =
@@ -3490,7 +3546,10 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 			ext_cnt++;
 			if (mtk_crtc->path_data->is_exdma_dual_layer &&
 				comp_state.comp_id == prev_comp_id && rpo_mml_lye == 0)
-				dual_blender--;
+				blender_offset--;
+			else if (mtk_crtc->path_data->is_exdma_triple_layer &&
+				comp_state.comp_id == prev_comp_id && rpo_mml_lye == 0)
+				blender_offset -= 2;
 		} else {
 			if (comp_state.comp_id != prev_comp_id)
 				ext_cnt = 0;
@@ -3499,18 +3558,25 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 
 		if (priv->data->ovl_exdma_rule) {
 			comp_state.blender_comp_id =
-				mtk_lye_get_blender_comp_id(disp_idx, i, priv, mtk_crtc, blender_lye, dual_blender);
+				mtk_lye_get_blender_comp_id(disp_idx, i, priv, mtk_crtc, blender_lye, blender_offset);
 			if (mtk_crtc->path_data->is_exdma_dual_layer && rpo_mml_lye == 0) {
-				dual_blender++;
+				blender_offset++;
 				comp_state.dual_blender_comp_id =
 					mtk_lye_get_dual_blender_id(comp_state.blender_comp_id, mtk_crtc, priv);
+			} else if (mtk_crtc->path_data->is_exdma_triple_layer && rpo_mml_lye == 0) {
+				blender_offset += 2;
+				comp_state.dual_blender_comp_id =
+					mtk_lye_get_dual_blender_id(comp_state.blender_comp_id, mtk_crtc, priv);
+				comp_state.triple_blender_comp_id =
+					mtk_lye_get_triple_blender_id(comp_state.blender_comp_id, mtk_crtc, priv);
 			}
-		}
 
-		DDPINFO("dispatch comp %s ,bind %s dual_bind %s, fun_lye %d\n",
+		}
+		DDPINFO("dispatch comp %s ,bind %s, dual_bind %s, triple_bind %s, fun_lye %d\n",
 			mtk_dump_comp_str_id(comp_state.comp_id),
 			mtk_dump_comp_str_id(comp_state.blender_comp_id),
-			mtk_dump_comp_str_id(comp_state.dual_blender_comp_id), blender_lye);
+			mtk_dump_comp_str_id(comp_state.dual_blender_comp_id),
+			mtk_dump_comp_str_id(comp_state.triple_blender_comp_id), blender_lye);
 
 		if (disp_idx == 0 &&
 			((comp_state.comp_id == DDP_COMPONENT_OVL0_2L) ||
@@ -4067,6 +4133,7 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 	lyeblob_ids->ref_cnt_mask = crtc_mask;
 	lyeblob_ids->free_cnt_mask = crtc_mask;
 	lyeblob_ids->hrt_valid = g_hrt_valid;
+	lyeblob_ids->blank_lyr_valid = g_blank_lyr_valid;
 	lyeblob_ids->disp_status = l_info->disp_list;
 	INIT_LIST_HEAD(&lyeblob_ids->list);
 	mutex_lock(&priv->lyeblob_list_mutex);
@@ -4299,9 +4366,21 @@ static int RPO_rule(struct drm_crtc *crtc,
 
 		if (!is_rsz_valid(c))
 			continue;
-
-		if (same_ratio_limitation(crtc, c, RATIO_LIMIT, disp_w, disp_h))
-			continue;
+		if (!(!(mtk_crtc->is_dual_pipe) &&
+			(i == 0 && private && private->data &&
+			((private->data->mmsys_id == MMSYS_MT6761) ||
+			(private->data->mmsys_id == MMSYS_MT6765) ||
+			(private->data->mmsys_id == MMSYS_MT6768) ||
+			(private->data->mmsys_id == MMSYS_MT6781) ||
+			(private->data->mmsys_id == MMSYS_MT6877) ||
+			(private->data->mmsys_id == MMSYS_MT6833) ||
+			(private->data->mmsys_id == MMSYS_MT6853) ||
+			(private->data->mmsys_id == MMSYS_MT6885) ||
+			(private->data->mmsys_id == MMSYS_MT6991))))) {
+			if (same_ratio_limitation(crtc, c, RATIO_LIMIT,
+				disp_w, disp_h))
+				continue;
+		}
 
 		mtk_rect_make(&src_layer_roi,
 			((c->dst_offset_x * c->src_width * 10) / c->dst_width + 5) / 10,
@@ -4577,8 +4656,11 @@ static void check_is_mml_layer(const int disp_idx,
 					/* Check line time and slbc state once per HRT */
 					mutex_lock(&priv->commit.lock);
 					output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-					if (output_comp && (mtk_ddp_comp_get_type(output_comp->id) == MTK_DSI))
-						mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_GET_LINE_TIME_NS, &ns);
+					if (output_comp && (mtk_ddp_comp_get_type(output_comp->id) == MTK_DSI)) {
+						ns = disp_info->disp_mode_idx[0];
+						mtk_ddp_comp_io_cmd(output_comp, NULL,
+							DSI_GET_LINE_TIME_NS_BY_MODE, &ns);
+					}
 
 					mutex_unlock(&priv->commit.lock);
 				}
@@ -4655,6 +4737,14 @@ static void check_is_mml_layer(const int disp_idx,
 		mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
 		if (!mml_ctx) {
 			DDPPR_ERR("%s !mml_ctx\n", __func__);
+			for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
+				c = &disp_info->input_config[disp_idx][i];
+				if (MTK_CLIENT_CLEAR_LAYER & c->layer_caps) {
+					DDPINFO("disp_idx %d/L%d caps clear MTK_CLIENT_CLEAR_LAYER\n",
+						disp_idx, i, c->layer_caps);
+					c->layer_caps &= ~MTK_CLIENT_CLEAR_LAYER;
+				}
+			}
 			rollback_all_to_GPU(&layering_info, HRT_PRIMARY);
 			vfree(multi_mml_info);
 			return;
@@ -5029,9 +5119,13 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	 * else hrt bandwidth will be 0 at boot logo scenario
 	 * and underflow/underrun issue may happened
 	 */
-	if (g_hrt_valid == false &&
-	    layering_info.layer_num[HRT_PRIMARY] > 0)
-		g_hrt_valid = true;
+	if (g_hrt_valid == false) {
+		if (layering_info.layer_num[HRT_PRIMARY] > 0) {
+			g_hrt_valid = true;
+			g_blank_lyr_valid = false;
+		} else
+			g_blank_lyr_valid = true;
+	}
 
 	hrt_idx = _layering_rule_get_hrt_idx(disp_idx);
 	if (++hrt_idx == 0xffffffff)

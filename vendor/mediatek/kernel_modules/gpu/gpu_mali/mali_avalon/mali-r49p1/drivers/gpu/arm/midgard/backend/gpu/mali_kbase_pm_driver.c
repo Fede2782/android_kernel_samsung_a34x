@@ -3155,11 +3155,19 @@ int kbase_pm_wait_for_l2_powered(struct kbase_device *kbdev)
 
 	/* Wait for cores */
 #if KERNEL_VERSION(4, 13, 1) <= LINUX_VERSION_CODE
+#if IS_ENABLED(CONFIG_MALI_MTK_FW_ERR_DEBUG)
+	remaining = wait_event_killable_timeout_on_fw(kbdev, kbdev->pm.backend.gpu_in_desired_state_wait,
+#else
 	remaining = wait_event_killable_timeout(kbdev->pm.backend.gpu_in_desired_state_wait,
+#endif /* CONFIG_MALI_MTK_FW_ERR_DEBUG */
 						kbase_pm_is_in_desired_state_with_l2_powered(kbdev),
 						(long)timeout);
 #else
+#if IS_ENABLED(CONFIG_MALI_MTK_FW_ERR_DEBUG)
+	remaining = wait_event_timeout_on_fw(kbdev, kbdev->pm.backend.gpu_in_desired_state_wait,
+#else
 	remaining = wait_event_timeout(kbdev->pm.backend.gpu_in_desired_state_wait,
+#endif /* CONFIG_MALI_MTK_FW_ERR_DEBUG */
 				       kbase_pm_is_in_desired_state_with_l2_powered(kbdev),
 				       (long)timeout);
 #endif
@@ -3194,14 +3202,24 @@ static int pm_wait_for_desired_state(struct kbase_device *kbdev, bool killable_w
 	/* Wait for cores */
 #if KERNEL_VERSION(4, 13, 1) <= LINUX_VERSION_CODE
 	if (killable_wait)
+#if IS_ENABLED(CONFIG_MALI_MTK_FW_ERR_DEBUG)
+		remaining = wait_event_killable_timeout_on_fw(kbdev,
+							kbdev->pm.backend.gpu_in_desired_state_wait,
+#else
 		remaining = wait_event_killable_timeout(kbdev->pm.backend.gpu_in_desired_state_wait,
+#endif /* CONFIG_MALI_MTK_FW_ERR_DEBUG */
 							kbase_pm_is_in_desired_state(kbdev),
 							timeout);
 #else
 	killable_wait = false;
 #endif
 	if (!killable_wait)
+#if IS_ENABLED(CONFIG_MALI_MTK_FW_ERR_DEBUG)
+		remaining = wait_event_timeout_on_fw(kbdev,
+						   kbdev->pm.backend.gpu_in_desired_state_wait,
+#else
 		remaining = wait_event_timeout(kbdev->pm.backend.gpu_in_desired_state_wait,
+#endif /* CONFIG_MALI_MTK_FW_ERR_DEBUG */
 					       kbase_pm_is_in_desired_state(kbdev), timeout);
 	if (!remaining) {
 		kbase_pm_timed_out(kbdev, "Wait for power transition timed out");
@@ -3263,10 +3281,18 @@ int kbase_pm_wait_for_cores_down_scale(struct kbase_device *kbdev)
 
 	/* Wait for core mask update to complete  */
 #if KERNEL_VERSION(4, 13, 1) <= LINUX_VERSION_CODE
+#if IS_ENABLED(CONFIG_MALI_MTK_FW_ERR_DEBUG)
+	remaining = wait_event_killable_timeout_on_fw(kbdev, kbdev->pm.backend.gpu_in_desired_state_wait,
+#else
 	remaining = wait_event_killable_timeout(kbdev->pm.backend.gpu_in_desired_state_wait,
+#endif /* CONFIG_MALI_MTK_FW_ERR_DEBUG */
 						core_mask_update_done(kbdev), timeout);
 #else
+#if IS_ENABLED(CONFIG_MALI_MTK_FW_ERR_DEBUG)
+	remaining = wait_event_timeout_on_fw(kbdev, kbdev->pm.backend.gpu_in_desired_state_wait,
+#else
 	remaining = wait_event_timeout(kbdev->pm.backend.gpu_in_desired_state_wait,
+#endif /* CONFIG_MALI_MTK_FW_ERR_DEBUG */
 				       core_mask_update_done(kbdev), timeout);
 #endif
 

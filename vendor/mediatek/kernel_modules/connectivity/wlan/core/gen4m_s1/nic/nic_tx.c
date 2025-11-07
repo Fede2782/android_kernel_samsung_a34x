@@ -3721,6 +3721,7 @@ uint32_t nicTxEnqueueMsdu(IN struct ADAPTER *prAdapter,
 					prCmdInfo->pucInfoBuffer = NULL;
 					prCmdInfo->prMsduInfo = prMsduInfoHead;
 					prCmdInfo->pfCmdDoneHandler = NULL;
+					prCmdInfo->pCmdDoneHandlerStr = NULL;
 					prCmdInfo->pfCmdTimeoutHandler = NULL;
 					prCmdInfo->fgIsOid = FALSE;
 					prCmdInfo->fgSetQuery = TRUE;

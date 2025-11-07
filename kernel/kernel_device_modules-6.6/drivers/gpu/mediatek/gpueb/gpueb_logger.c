@@ -42,7 +42,7 @@ static struct log_ctrl_s *gpueb_log_ctl;
 unsigned int r_pos_debug;
 unsigned int log_ctl_debug;
 
-static unsigned int gpueb_log_enable_set(unsigned int enable)
+static int gpueb_log_enable_set(unsigned int enable)
 {
 	int ret = 0;
 	int channel_id;

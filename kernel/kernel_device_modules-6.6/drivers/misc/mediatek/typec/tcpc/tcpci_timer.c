@@ -462,7 +462,7 @@ static void tcpc_handle_timer_triggered(struct tcpc_device *tcpc)
 		if (!(tick & RT_MASK64(i)))
 			continue;
 		TCPC_TIMER_DBG("Trigger %s, en = %d\n", tcpc_timer_desc[i].name,
-					tcpc->tcpc_timer[i].en);
+			       tcpc->tcpc_timer[i].en);
 		if (!tcpc->tcpc_timer[i].en)
 			continue;
 		on_pe_timer_timeout(tcpc, i);

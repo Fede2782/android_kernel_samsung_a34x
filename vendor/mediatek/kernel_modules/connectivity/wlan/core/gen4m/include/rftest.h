@@ -299,8 +299,6 @@ enum ENUM_RF_AT_FUNCID {
 	RF_AT_FUNCID_SET_ANT_SWP = 153,
 #endif
 
-	/* TMR Toae Cal and Restore */
-	RF_AT_FUNCID_SET_TMR_TOAE_CAL_RESOTRE = 225,
 };
 
 /* Command */

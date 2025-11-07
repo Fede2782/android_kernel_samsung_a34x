@@ -95,6 +95,8 @@ enum feature_types_20 {
 	feature_immutable_dst_exception = (1 << 14),
 	feature_immutable_root = (1 << 15),
 	feature_immutable_root_status = (1 << 16),
+	feature_immutable_root_v2 = (1 << 17),
+	feature_immutable_tgt_exception = (1 << 18),
 
 	/* version 2.0 */
 	d_tree_item_path = (1UL << 31),
@@ -106,6 +108,7 @@ enum feature_types_20 {
 	d_tree_item_byte = (1 << 25),
 	d_tree_item_word = (1 << 24),
 	d_tree_item_dword = (1 << 23),
+	d_tree_item_wildcard = (1 << 22),
 };
 
 
@@ -187,6 +190,9 @@ const char *d_tree_get_text(struct d_tree_item *item, unsigned int *text_size);
 const unsigned char *d_tree_get_integrity(struct d_tree_item *item, unsigned int *data_size);
 const unsigned char *d_tree_get_bin(struct d_tree_item *item, unsigned int index,
 		unsigned int *data_size);
+int d_tree_compare_item_name(struct d_tree_item *item, const char *name, size_t l);
+size_t d_tree_unpack_wildcard(const char *packed_str, size_t packed_size, char *unpacked_str,
+		size_t unpacked_size);
 struct d_tree_item *d_tree_lookup_dir_init(struct d_tree_item *parent_item,
 	struct d_tree_item *child_item);
 struct d_tree_item *d_tree_next_child(struct d_tree_item *parent_item,
@@ -224,6 +230,8 @@ extern unsigned int packfiles_size;
 
 void init_tree_data(enum d_tree_version version);
 void free_tree_data(void);
+int d_tree_get_wildcard_offset(const char *src_ptr, size_t l);
+char *d_tree_pack_wildcard(const char *src_ptr, size_t l);
 size_t d_tree_write_header(void *data, struct d_tree *the_tree);
 unsigned short d_tree_calc_item_size(struct d_tree_item *item);
 unsigned short d_tree_calc_max_child_size(struct d_tree_item *base);

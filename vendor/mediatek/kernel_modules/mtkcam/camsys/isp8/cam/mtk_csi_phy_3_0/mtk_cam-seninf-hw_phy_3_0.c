@@ -25,6 +25,10 @@
 #include "mtk_cam-seninf-event-handle.h"
 #include "mtk_cam-seninf-sentest-ioctrl.h"
 #include "imgsensor-user.h"
+#if IS_ENABLED(CONFIG_IMGSENSOR_SYSFS_V2)
+#include "kd_imgsensor_sysfs_adapter_v2.h"
+#endif
+
 #define SENINF_CK 312000000
 #define CYCLE_MARGIN 1
 #define RESYNC_DMY_CNT 4
@@ -685,7 +689,7 @@ static u32 seninf_get_outmux_rg_val(struct seninf_ctx *ctx, int outmux_idx, u32 
 	/* test parameter */
 	if (outmux_idx < 0 || outmux_idx >= _seninf_ops->outmux_num) {
 		seninf_logi(ctx, "invalid outmux %d\n", outmux_idx);
-		return -EINVAL;
+		return 0;
 	}
 
 	pSeninf_outmux = ctx->reg_if_outmux[outmux_idx];
@@ -700,7 +704,7 @@ static u32 seninf_get_outmux_rg_val_inner(struct seninf_ctx *ctx, int outmux_idx
 	/* test parameter */
 	if (outmux_idx < 0 || outmux_idx >= _seninf_ops->outmux_num) {
 		seninf_logi(ctx, "invalid outmux %d\n", outmux_idx);
-		return -EINVAL;
+		return 0;
 	}
 
 	pSeninf_outmux = ctx->reg_if_outmux_inner[outmux_idx];
@@ -3205,6 +3209,8 @@ static int csirx_phy_setting(struct seninf_ctx *ctx)
 	else
 		csirx_cphy_setting(ctx);
 
+	ctx->core->cdr_delay = 0;
+	ctx->core->cdr_delay_new = 0;
 	return 0;
 }
 
@@ -4481,9 +4487,13 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		ret = 0;
 	}
 
-	if ((mac_irq & 0xE000E3FE) != 0x324 || (seninf_irq & 0xFFFFFFFF)) {
+	/* changed checking value of mipi error(ALPS10096684) */
+	if ((mac_irq & 0x200043FE) != 0x324 || (seninf_irq & 0xFFFFFFFF)) {
 		seninf_logi(ctx, "CSI_MAC%d_CSI2_IRQ_STATUS:0x%x or SENINF_CSI2_IRQ_STATUS:0x%x is abnormal\n",
 			ctx->portNum, mac_irq, seninf_irq);
+#if IS_ENABLED(CONFIG_IMGSENSOR_SYSFS_V2)
+		IMGSENSOR_SYSFS_WRITE_CDR_RESULT(false, 1000);
+#endif
 	}
 
 	if (!strcasecmp(_seninf_ops->iomem_ver, MT6991_IOMOM_VERSIONS)) {
@@ -5654,7 +5664,7 @@ static int mtk_cam_seninf_eye_scan(struct seninf_ctx *ctx, u32 key, int val_sign
 	u32 get_rg_val = 0;
 	dev_info(ctx->dev, "[EYE_SCAN] key=%u val_signed=%d\n",key,val_signed);
 
-	log_len += snprintf(plog + log_len, logbuf_size - log_len, "[EYE_SCAN SUCCESS] set register:\n");
+	//log_len += snprintf(plog + log_len, logbuf_size - log_len, "[EYE_SCAN SUCCESS] set register:\n");
 	if (!ctx->streaming) {
 		log_len = 0;
 		log_len += snprintf(plog + log_len, logbuf_size - log_len, "[EYE_SCAN FAIL] is not streaming\n");
@@ -5753,6 +5763,12 @@ static int mtk_cam_seninf_eye_scan(struct seninf_ctx *ctx, u32 key, int val_sign
 		}
 		break;
 	case EYE_SCAN_KEYS_CDR_DELAY:
+		if (ctx->core->cdr_delay == ctx->core->cdr_delay_new) {
+			ctx->core->cdr_delay_new = val;
+			dev_info(ctx->dev, "[EYE_SCAN] CDR_DELAY will update %d -> %d next frame done\n",
+				ctx->core->cdr_delay, val);
+			break;
+		}
 		if (!ctx->is_cphy) {
 			if (val > 254) {
 				log_len = 0;
@@ -5766,36 +5782,33 @@ static int mtk_cam_seninf_eye_scan(struct seninf_ctx *ctx, u32 key, int val_sign
 				// L0
 				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_6,
 						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L0_DELAY_CODE, (val & 0b11111111));
-				mdelay(1);
+				udelay(50);
 				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_6,
 						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L0_DELAY_APPLY, 0x0);
-				mdelay(1);
+				udelay(50);
 				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_6,
 						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L0_DELAY_APPLY, 0x1);
 				// L1
 				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_7,
 						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L1_DELAY_CODE, (val & 0b11111111));
-				mdelay(1);
+				udelay(50);
 				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_7,
 						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L1_DELAY_APPLY, 0x0);
-				mdelay(1);
+				udelay(50);
 				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_7,
 						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L1_DELAY_APPLY, 0x1);
 				// L2
 				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_8,
 						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L2_DELAY_CODE, (val & 0b11111111));
-				mdelay(1);
+				udelay(50);
 				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_8,
 						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L2_DELAY_APPLY, 0x0);
-				mdelay(1);
+				udelay(50);
 				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_8,
 						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L2_DELAY_APPLY, 0x1);
 
-				log_len += snprintf(plog + log_len, logbuf_size - log_len,
-				"EYE_SCAN_KEYS_CDR_DELAY input val_signed=%d, write to reg val=0x%x\n",
-					val, (val & 0b11111111));
 				dev_info(ctx->dev,
-				"EYE_SCAN_KEYS_CDR_DELAY input val_signed=%d, write to reg val=0x%x\n",
+				"DPHY EYE_SCAN_KEYS_CDR_DELAY input val_signed=%d, write to reg val=0x%x\n",
 					val, (val & 0b11111111));
 			}
 
@@ -5850,10 +5863,11 @@ static int mtk_cam_seninf_eye_scan(struct seninf_ctx *ctx, u32 key, int val_sign
 					((val & 0x38) >> 3), (val & 0x7), val);
 				}
 				dev_info(ctx->dev,
-				"EYE_SCAN_KEYS_CDR_DELAY input val_signed=%d, write to reg val=0x%x\n",
+				"CPHY EYE_SCAN_KEYS_CDR_DELAY input val_signed=%d, write to reg val=0x%x\n",
 					val, val);
 			}
 		}
+		ctx->core->cdr_delay = val;
 		break;
 	case EYE_SCAN_KEYS_GET_CRC_STATUS:
 		//base_seninf = ctx->reg_if_csi2[(unsigned int)ctx->seninfAsyncIdx];
@@ -5885,37 +5899,37 @@ static int mtk_cam_seninf_eye_scan(struct seninf_ctx *ctx, u32 key, int val_sign
 			// L0
 			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_6,
            		RG_SW_FORCE_EN_DA_CSI0_DPHY_L0_DELAY_EN, 0x1);
-			mdelay(1);
+			udelay(100);
 			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_6,
 				RG_SW_FORCE_EN_DA_CSI0_DPHY_L0_DELAY_CODE, 0x1);
-			mdelay(1);
+			udelay(100);
 			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_6,
 					RG_SW_FORCE_EN_DA_CSI0_DPHY_L0_DELAY_APPLY, 0x1);
-			mdelay(1);
+			udelay(100);
 			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_6,
            		RG_SW_FORCE_VAL_DA_CSI0_DPHY_L0_DELAY_EN, 0x1);
 			// L1
 			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_7,
            		RG_SW_FORCE_EN_DA_CSI0_DPHY_L1_DELAY_EN, 0x1);
-			mdelay(1);
+			udelay(100);
 			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_7,
 				RG_SW_FORCE_EN_DA_CSI0_DPHY_L1_DELAY_CODE, 0x1);
-			mdelay(1);
+			udelay(100);
 			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_7,
 					RG_SW_FORCE_EN_DA_CSI0_DPHY_L1_DELAY_APPLY, 0x1);
-			mdelay(1);
+			udelay(100);
 			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_7,
            		RG_SW_FORCE_VAL_DA_CSI0_DPHY_L1_DELAY_EN, 0x1);
 			// L2
 			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_8,
            		RG_SW_FORCE_EN_DA_CSI0_DPHY_L2_DELAY_EN, 0x1);
-			mdelay(1);
+			udelay(100);
 			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_8,
 				RG_SW_FORCE_EN_DA_CSI0_DPHY_L2_DELAY_CODE, 0x1);
-			mdelay(1);
+			udelay(100);
 			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_8,
 					RG_SW_FORCE_EN_DA_CSI0_DPHY_L2_DELAY_APPLY, 0x1);
-			mdelay(1);
+			udelay(100);
 			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_8,
            		RG_SW_FORCE_VAL_DA_CSI0_DPHY_L2_DELAY_EN, 0x1);
 

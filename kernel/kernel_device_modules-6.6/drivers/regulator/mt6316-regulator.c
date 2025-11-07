@@ -144,7 +144,7 @@ static unsigned int mt6316_regulator_get_mode(struct regulator_dev *rdev)
 	ret = regmap_read(rdev->regmap, info->modeset_reg, &regval);
 	if (ret != 0) {
 		dev_err(&rdev->dev, "Failed to get mt6316 buck mode: %d\n", ret);
-		return ret;
+		return 0;
 	}
 
 	modeset_mask = info->modeset_mask;
@@ -155,7 +155,7 @@ static unsigned int mt6316_regulator_get_mode(struct regulator_dev *rdev)
 	ret = regmap_read(rdev->regmap, info->lp_mode_reg, &regval);
 	if (ret != 0) {
 		dev_err(&rdev->dev, "Failed to get mt6316 buck lp mode: %d\n", ret);
-		return ret;
+		return 0;
 	}
 
 	if (regval & info->lp_mode_mask)
@@ -167,7 +167,8 @@ static unsigned int mt6316_regulator_get_mode(struct regulator_dev *rdev)
 static int mt6316_regulator_set_mode(struct regulator_dev *rdev, u32 mode)
 {
 	struct mt6316_regulator_info *info;
-	int ret = 0, val, curr_mode;
+	int ret = 0, val;
+	unsigned int curr_mode;
 	u32 modeset_mask;
 
 	info = container_of(rdev->desc, struct mt6316_regulator_info, desc);

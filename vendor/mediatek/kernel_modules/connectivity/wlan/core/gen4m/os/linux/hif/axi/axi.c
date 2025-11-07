@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -101,7 +101,6 @@ const struct of_device_id mtk_axi_of_ids[] = {
  */
 static probe_card pfWlanProbe;
 static remove_card pfWlanRemove;
-static remove_card pfWlanShutdown;
 
 static struct platform_driver mtk_axi_driver = {
 	.driver = {
@@ -115,7 +114,6 @@ static struct platform_driver mtk_axi_driver = {
 	.id_table = mtk_axi_ids,
 	.probe = NULL,
 	.remove = NULL,
-	.shutdown = NULL,
 };
 
 static struct GLUE_INFO *g_prGlueInfo;
@@ -279,7 +277,7 @@ static bool axiCsrIoremap(struct platform_device *pdev)
 #endif
 
 	if (!CSRBaseAddress) {
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 			"ioremap failed for device %s, region 0x%X @ 0x%lX\n",
 			axi_name(pdev), g_u4CsrSize, g_u8CsrOffset);
 		release_mem_region(g_u8CsrOffset, g_u4CsrSize);
@@ -294,7 +292,7 @@ static bool axiCsrIoremap(struct platform_device *pdev)
 	prChipInfo->u4HostCsrOffset = 0;
 	prChipInfo->u4HostCsrSize = 0;
 
-	DBGLOG(INIT, DEBUG,
+	DBGLOG(INIT, INFO,
 	       "CSRBaseAddress:0x%llX ioremap idx:%u region 0x%X @ 0x%llX\n",
 	       (uint64_t)CSRBaseAddress, idx, g_u4CsrSize, g_u8CsrOffset);
 
@@ -337,18 +335,17 @@ static irqreturn_t mtk_axi_interrupt(int irq, void *dev_instance)
 	prGlueInfo = (struct GLUE_INFO *)dev_instance;
 	if (!prGlueInfo) {
 #if AXI_ISR_DEBUG_LOG
-		DBGLOG(HAL, DEBUG, "No glue info in %s()\n", __func__);
+		DBGLOG(HAL, INFO, "No glue info in mtk_axi_interrupt()\n");
 #endif
 		return IRQ_NONE;
 	}
 
-	prGlueInfo->u8HifIntTime = sched_clock();
 	GLUE_INC_REF_CNT(prGlueInfo->prAdapter->rHifStats.u4HwIsrCount);
 	halDisableInterrupt(prGlueInfo->prAdapter);
 
 	if (test_bit(GLUE_FLAG_HALT_BIT, &prGlueInfo->ulFlag)) {
 #if AXI_ISR_DEBUG_LOG
-		DBGLOG(HAL, DEBUG, "GLUE_FLAG_HALT skip INT\n");
+		DBGLOG(HAL, INFO, "GLUE_FLAG_HALT skip INT\n");
 #endif
 		return IRQ_NONE;
 	}
@@ -405,7 +402,7 @@ static void axiSetupFwFlavor(struct platform_device *pdev,
 				    &driver_data->fw_flavor))
 		return;
 
-	DBGLOG(HAL, DEBUG, "fw_flavor: %s\n", driver_data->fw_flavor);
+	DBGLOG(HAL, INFO, "fw_flavor: %s\n", driver_data->fw_flavor);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -441,48 +438,27 @@ static int mtk_axi_probe(struct platform_device *pdev)
 	if (ret)
 		goto exit;
 
-#if (CFG_MTK_ANDROID_WMT == 1)
 	emi_mem_init(prChipInfo, pdev);
 	ret = halAllocHifMem(pdev, prDriverData);
 	if (ret)
 		goto exit;
-#endif
 
 exit:
-	DBGLOG(INIT, DEBUG, "%s() done, ret: %d\n", __func__, ret);
+	DBGLOG(INIT, INFO, "mtk_axi_probe() done, ret: %d\n", ret);
 	return ret;
 }
 
-#if (KERNEL_VERSION(6, 11, 0) > LINUX_VERSION_CODE)
 static int mtk_axi_remove(struct platform_device *pdev)
-#else
-static void mtk_axi_remove(struct platform_device *pdev)
-#endif
 {
 	struct mt66xx_hif_driver_data *prDriverData =
 		platform_get_drvdata(pdev);
 	struct mt66xx_chip_info *prChipInfo = prDriverData->chip_info;
 
 	axiCsrIounmap(pdev, prChipInfo);
-#if (CFG_MTK_ANDROID_WMT == 1)
 	halFreeHifMem(pdev, WIFI_RSV_MEM_WFDMA);
-#endif
 	emi_mem_uninit(prChipInfo, pdev);
 	platform_set_drvdata(pdev, NULL);
-
-#if (KERNEL_VERSION(6, 11, 0) > LINUX_VERSION_CODE)
 	return 0;
-#endif
-}
-
-static void mtk_axi_shutdown(struct platform_device *pdev)
-{
-	DBGLOG(INIT, INFO, "enter shutdown\n");
-	if (g_fgDriverProbed && pfWlanShutdown) {
-		DBGLOG(INIT, INFO, "do shutdown\n");
-		pfWlanShutdown();
-		g_fgDriverProbed = FALSE;
-	}
 }
 
 static int mtk_axi_suspend(struct platform_device *pdev,
@@ -498,24 +474,6 @@ int mtk_axi_resume(struct platform_device *pdev)
 
 /*----------------------------------------------------------------------------*/
 /*!
- * \brief This function will register shutdownCB
- *
- * \param[in] pfProbe    Function pointer to remove card when shutdown
- *
- * \return The result of registering pci bus
- */
-/*----------------------------------------------------------------------------*/
-uint32_t glRegisterShutdownCB(remove_card pfShutdown)
-{
-	ASSERT(pfShutdown);
-	pfWlanShutdown = pfShutdown;
-
-	mtk_axi_driver.shutdown = mtk_axi_shutdown;
-	return 0;
-}
-
-/*----------------------------------------------------------------------------*/
-/*!
  * \brief This function will register pci bus to the os
  *
  * \param[in] pfProbe    Function pointer to detect card
@@ -526,7 +484,7 @@ uint32_t glRegisterShutdownCB(remove_card pfShutdown)
 /*----------------------------------------------------------------------------*/
 uint32_t glRegisterBus(probe_card pfProbe, remove_card pfRemove)
 {
-	uint32_t ret = 0;
+	int ret = 0;
 
 	ASSERT(pfProbe);
 	ASSERT(pfRemove);
@@ -589,6 +547,8 @@ void glSetHifInfo(struct GLUE_INFO *prGlueInfo, unsigned long ulCookie)
 	prHif->pdev = (struct platform_device *)ulCookie;
 	prHif->prDmaDev = &prHif->pdev->dev;
 
+	prHif->CSRBaseAddress = CSRBaseAddress;
+
 	SET_NETDEV_DEV(prGlueInfo->prDevHandler, &prHif->pdev->dev);
 
 	prGlueInfo->u4InfType = MT_DEV_INF_AXI;
@@ -610,15 +570,12 @@ void glSetHifInfo(struct GLUE_INFO *prGlueInfo, unsigned long ulCookie)
 	prMemOps->copyEvent = halCopyPathCopyEvent;
 	prMemOps->copyTxData = halCopyPathCopyTxData;
 	prMemOps->copyRxData = halCopyPathCopyRxData;
-	prMemOps->mapTxDataBuf = NULL;
-	prMemOps->mapTxCmdBuf = NULL;
+	prMemOps->mapTxBuf = NULL;
 	prMemOps->mapRxBuf = NULL;
-	prMemOps->unmapTxDataBuf = NULL;
-	prMemOps->unmapTxCmdBuf = NULL;
+	prMemOps->unmapTxBuf = NULL;
 	prMemOps->unmapRxBuf = NULL;
 	prMemOps->freeDesc = NULL;
-	prMemOps->freeCmdBuf = NULL;
-	prMemOps->freeDataBuf = NULL;
+	prMemOps->freeBuf = NULL;
 	prMemOps->freePacket = NULL;
 	prMemOps->dumpTx = halCopyPathDumpTx;
 	prMemOps->dumpRx = halCopyPathDumpRx;
@@ -734,22 +691,22 @@ int32_t glBusSetIrq(void *pvData, void *pfnIsr, void *pvCookie)
 			"WIFI-OF: get wifi device node fail\n");
 #endif
 #if (CFG_SUPPORT_CONNINFRA == 1)
-	DBGLOG(INIT, DEBUG, "%s: request_irq num(%d), num(%d)\n", __func__,
+	DBGLOG(INIT, INFO, "glBusSetIrq: request_irq num(%d), num(%d)\n",
 	       prHifInfo->u4IrqId, prHifInfo->u4IrqId_1);
 #else
-	DBGLOG(INIT, DEBUG, "%s: request_irq num(%d)\n", __func__,
+	DBGLOG(INIT, INFO, "glBusSetIrq: request_irq num(%d)\n",
 	       prHifInfo->u4IrqId);
 #endif /*end of CFG_SUPPORT_CONNINFRA == 1*/
 	ret = request_irq(prHifInfo->u4IrqId, mtk_axi_interrupt, IRQF_SHARED,
 			  prNetDevice->name, prGlueInfo);
 	if (ret != 0) {
-		DBGLOG(INIT, DEBUG, "request_irq(%u) ERROR(%d)\n",
+		DBGLOG(INIT, INFO, "request_irq(%u) ERROR(%d)\n",
 				prHifInfo->u4IrqId, ret);
 		goto exit;
 	}
 	en_wake_ret = enable_irq_wake(prHifInfo->u4IrqId);
 	if (en_wake_ret)
-		DBGLOG(INIT, DEBUG, "enable_irq_wake(%u) ERROR(%d)\n",
+		DBGLOG(INIT, INFO, "enable_irq_wake(%u) ERROR(%d)\n",
 				prHifInfo->u4IrqId, en_wake_ret);
 #if (CFG_SUPPORT_CONNINFRA == 1)
 	ret = request_threaded_irq(prHifInfo->u4IrqId_1,
@@ -759,14 +716,14 @@ int32_t glBusSetIrq(void *pvData, void *pfnIsr, void *pvCookie)
 		prNetDevice->name,
 		prGlueInfo->prAdapter);
 	if (ret != 0) {
-		DBGLOG(INIT, DEBUG, "request_irq(%u) ERROR(%d)\n",
+		DBGLOG(INIT, INFO, "request_irq(%u) ERROR(%d)\n",
 				prHifInfo->u4IrqId_1, ret);
 		goto exit;
 	}
 
 	en_wake_ret = enable_irq_wake(prHifInfo->u4IrqId_1);
 	if (en_wake_ret)
-		DBGLOG(INIT, DEBUG, "enable_irq_wake(%u) ERROR(%d)\n",
+		DBGLOG(INIT, INFO, "enable_irq_wake(%u) ERROR(%d)\n",
 				prHifInfo->u4IrqId_1, en_wake_ret);
 #endif
 
@@ -793,14 +750,14 @@ void glBusFreeIrq(void *pvData, void *pvCookie)
 
 	ASSERT(pvData);
 	if (!pvData) {
-		DBGLOG(INIT, DEBUG, "%s null pvData\n", __func__);
+		DBGLOG(INIT, INFO, "%s null pvData\n", __func__);
 		return;
 	}
 	prNetDevice = (struct net_device *)pvData;
 	prGlueInfo = (struct GLUE_INFO *) pvCookie;
 	ASSERT(prGlueInfo);
 	if (!prGlueInfo) {
-		DBGLOG(INIT, DEBUG, "%s no glue info\n", __func__);
+		DBGLOG(INIT, INFO, "%s no glue info\n", __func__);
 		return;
 	}
 

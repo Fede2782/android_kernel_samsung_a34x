@@ -85,21 +85,7 @@
  *                           P R I V A T E   D A T A
  *******************************************************************************
  */
-#ifdef CFG_SUPPORT_TWT_EXT
-static int16_t teardown_to_sched_mapping[256] = {
-    [TEARDOWN_BY_HOST] = -1, // No direct mapping
-    [TEARDOWN_BY_PEER] = -1, // No direct mapping
-    [TEARDOWN_BY_MLCHANNEL] = SCHED_TEARDOWN_BY_MLCHANNEL,
-    [TEARDOWN_BY_MLCONNECT] = SCHED_TEARDOWN_BY_MLCHANNEL, /* NAN and P2P/MHS are classified as MLCHANNEL in scheduled PM. */
-    [TEARDOWN_BY_CHSWITCH] = SCHED_TEARDOWN_BY_CHSWITCH,
-    [TEARDOWN_BY_COEX] = -1, // No direct mapping
-    [TEARDOWN_NORSP] = -1, // No direct mapping
-    [TEARDOWN_BY_PSDISABLE] = SCHED_TEARDOWN_BY_PSDISABLE,
-    [TEARDOWN_BY_MLO] = SCHED_TEARDOWN_BY_MLO,
-    [TEARDOWN_BY_DEFAULT] = SCHED_TEARDOWN_BY_DEFAULT,
-    [TEARDOWN_BY_OTHERS] = SCHED_TEARDOWN_BY_OTHERS
-};
-#endif
+
 /*******************************************************************************
  *                                 M A C R O S
  *******************************************************************************
@@ -113,13 +99,16 @@ static int16_t teardown_to_sched_mapping[256] = {
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
 void twtmldCheckTeardown(
 	struct ADAPTER *prAdapter,
-	unsigned long long u8ActiveStaBitmap)
+	uint32_t u4ActiveStaBitmap)
 {
 	if (!prAdapter)
 		return;
 
-	if (u8ActiveStaBitmap == 0 ||
-		(u8ActiveStaBitmap & (u8ActiveStaBitmap - 1)) != 0) {
+	if (u4ActiveStaBitmap == 0 ||
+		(u4ActiveStaBitmap & (u4ActiveStaBitmap - 1)) != 0) {
+
+		scheduledpm_action(prAdapter, SCHED_PM_TEARDOWN, NULL, FALSE,
+			SCHED_TEARDOWN_BY_MLO);
 
 		if (IS_FEATURE_ENABLED(
 			prAdapter->rWifiVar.ucTWTRequester))
@@ -145,14 +134,14 @@ struct STA_RECORD *twtmldGetActiveStaRec(
 		return sta_rec;
 
 	for (i = 0; i < CFG_STA_REC_NUM; i++) {
-		if ((prMldStarec->u8ActiveStaBitmap & BIT(i)) == 0)
+		if ((prMldStarec->u4ActiveStaBitmap & BIT(i)) == 0)
 			continue;
 
 		sta_rec = cnmGetStaRecByIndex(prAdapter, i);
 		if (sta_rec)
 			break;
 	}
-	DBGLOG(REQ, TRACE, "u8ActiveStaBitmap=%d, sta=%d\n", prMldStarec->u8ActiveStaBitmap, i);
+	DBGLOG(REQ, TRACE, "u4ActiveStaBitmap=%d, sta=%d\n", prMldStarec->u4ActiveStaBitmap, i);
 	return sta_rec;
 }
 #endif
@@ -315,7 +304,6 @@ twtPlannerCheckTeardownSuspend(
 	bool fgIs2GMcc = false, fgIs2GScc = false;
 	bool fgIs5GScc = false, fgIs5GMcc = false;
 	uint8_t ucLast2GChNum = 0, ucLast5GChNum = 0;
-	int ScheduledPmReason = 0;
 
 	if (!prAdapter) {
 		DBGLOG(TWT_PLANNER, ERROR,
@@ -403,28 +391,14 @@ twtPlannerCheckTeardownSuspend(
 		return;
 	}
 
-	DBGLOG(TWT_PLANNER, DEBUG,
+	DBGLOG(TWT_PLANNER, INFO,
 		"condtion force[%d:%d], scc/mcc[%d:%d:%d:%d]\n",
 		fgForce, fgTeardown,
 		fgIs2GScc, fgIs5GScc,
 		fgIs2GMcc, fgIs5GMcc);
 
 	if(fgTeardown) {
-		if (prTWTAgrt->ucFlowId != TWT_MAX_FLOW_NUM - 1) // TWT case
-		{
-			prAdapter->ucTWTTearDownReason = eReason;
-		}
-		else // Scheduled PM case
-		{
-			ScheduledPmReason = teardown_to_sched_mapping[eReason];
-
-			if (ScheduledPmReason >= 0)
-			{
-				scheduledpmEventNotify(prAdapter,
-					prStaRec->ucBssIndex,
-					ENUM_SCHED_EVENT_TEARDOWN, ScheduledPmReason);
-			}
-		}
+		prAdapter->ucTWTTearDownReason = eReason;
 
 		twtPlannerSendReqTeardown(prAdapter,
 			prStaRec, prTWTAgrt->ucFlowId);
@@ -466,6 +440,8 @@ twtPlannerCheckResume(
 	}
 
 	if (!fgIsFind) {
+		DBGLOG(TWT_PLANNER, INFO,
+			"TWT flow not find\n");
 		return;
 	}
 
@@ -547,7 +523,7 @@ bool twt_check_is_exist(
 	}
 
 	if (fgIsFind == TRUE) {
-		DBGLOG(REQ, DEBUG,
+		DBGLOG(REQ, INFO,
 			"TWT flow already existed : %d %d\n",
 			i4SetupFlowId,
 			prTWTAgrt->ucFlowId);
@@ -597,13 +573,13 @@ int twt_get_status(
 
 		/* Check FW response msg */
 		u2MsgSize = rChipConfigInfo.u2MsgSize;
-		DBGLOG(REQ, DEBUG,
+		DBGLOG(REQ, INFO,
 			"Type[%u], MsgLen[%u], BufLen[%u]\n",
 			rChipConfigInfo.ucRespType,
 			rChipConfigInfo.u2MsgSize, u4BufLen);
 
 		if (u2MsgSize > sizeof(rChipConfigInfo.aucCmd)) {
-			DBGLOG(REQ, DEBUG, "invalid ret u2MsgSize\n");
+			DBGLOG(REQ, INFO, "invalid ret u2MsgSize\n");
 			return -1;
 		}
 
@@ -767,14 +743,13 @@ int twt_teardown(
 			/* In the case of directly establishing a new TWT session,
 				there is no need to notify the framework */
 			prAdapter->ucTWTTearDownReason = eReason;
-			i4BytesWritten = priv_driver_cmds(prGlueInfo,
-				prNetdev, cmd, index);
+			i4BytesWritten = priv_driver_cmds(prNetdev, cmd, index);
 		} else {
-			DBGLOG(REQ, DEBUG, "Action=%d\n", TWT_PARAM_ACTION_DEL);
-			DBGLOG(REQ, DEBUG, "TWT Flow ID=%d\n", i4FlowId);
+			DBGLOG(REQ, INFO, "Action=%d\n", TWT_PARAM_ACTION_DEL);
+			DBGLOG(REQ, INFO, "TWT Flow ID=%d\n", i4FlowId);
 
 			if (i4FlowId >= TWT_MAX_FLOW_NUM) {
-				DBGLOG(REQ, DEBUG, "Invalid TWT Params\n");
+				DBGLOG(REQ, INFO, "Invalid TWT Params\n");
 				return -1;
 			}
 
@@ -903,7 +878,7 @@ int twt_set_para(
 	struct ADAPTER *prAdapter;
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
 	struct MLD_STA_RECORD *prMldStaRec = NULL;
-	unsigned long long u8ActiveStaBitmap;
+	uint32_t u4ActiveStaBitmap = 0;
 #endif
 
 	WIPHY_PRIV(wiphy, prGlueInfo);
@@ -963,9 +938,9 @@ int twt_set_para(
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
 		prMldStaRec = mldStarecGetByStarec(prAdapter, prStaRec);
 		if (prMldStaRec) {
-			u8ActiveStaBitmap = prMldStaRec->u8ActiveStaBitmap;
-			if (u8ActiveStaBitmap == 0 ||
-				(u8ActiveStaBitmap & (u8ActiveStaBitmap - 1)) != 0) {
+			u4ActiveStaBitmap = prMldStaRec->u4ActiveStaBitmap;
+			if (u4ActiveStaBitmap == 0 ||
+				(u4ActiveStaBitmap & (u4ActiveStaBitmap - 1)) != 0) {
 					DBGLOG(REQ, WARN, "Only support one link active\n");
 					i4BytesWritten = -3;
 					kalSprintf(rsp, "%d", i4BytesWritten);
@@ -1122,8 +1097,7 @@ int twt_set_para(
 			return -1;
 		}
 
-		i4BytesWritten = priv_driver_cmds(prGlueInfo,
-			prNetdev, cmd, index);
+		i4BytesWritten = priv_driver_cmds(prNetdev, cmd, index);
 
 	}else if ((strnicmp(apcArgv[0], "TWT_TEARDOWN", 12) == 0) && (i4Argc == TWT_TEARDOWN_SUSPEND_PARAMS)) {
 		if (ai4Setting[0] > 0) {
@@ -1193,7 +1167,7 @@ int scheduledpm_set_status(
 	uint32_t u4BufLen = 0;
 
 	u2CmdLen = kalStrLen(pcCommand);
-	DBGLOG(REQ, DEBUG, "Notify FW %s, strlen=%d\n", pcCommand, u2CmdLen);
+	DBGLOG(REQ, INFO, "Notify FW %s, strlen=%d\n", pcCommand, u2CmdLen);
 
 	rChipConfigInfo.ucType = CHIP_CONFIG_TYPE_ASCII;
 	rChipConfigInfo.u2MsgSize = u2CmdLen;
@@ -1208,16 +1182,21 @@ void LeakyApEvent(
 	struct ADAPTER *prAdapter,
 	uint8_t ucDectionType)
 {
+	struct SCHED_PM_PARAMS *prSchedPmParams = NULL;
 
 	if (prAdapter == NULL) {
 		DBGLOG(REQ, ERROR, "prAdapter null");
 		return;
 	}
 
-	DBGLOG(REQ, DEBUG, "Leaky AP tection: %d\n",
-		ucDectionType);
+	prSchedPmParams = &prAdapter->rSchedPmParams;
+	if (prSchedPmParams == NULL)
+		return;
 
-	scheduledpmEventNotify(prAdapter, 0,
+	DBGLOG(REQ, INFO, "Leaky AP tection: %d, Bss: %d\n",
+		ucDectionType, prSchedPmParams->ucBssIdx);
+
+	scheduledpmEventNotify(prAdapter, prSchedPmParams->ucBssIdx,
 		ENUM_SCHED_EVENT_LEAKYAP, 0);
 }
 
@@ -1301,16 +1280,12 @@ int scheduledpm_set_para(
 	struct STA_RECORD *prStaRec = NULL;
 	struct BSS_INFO *prBssInfo = NULL;
 	struct SCAN_INFO *prScanInfo = NULL;
+	struct SCHED_PM_PARAMS *prSchedPmParams = NULL;
 	char rsp[256];
-	char cmd[256] = {0};
-	char twtprefix[] = "SET_TWT_PARAMS";
-	uint8_t index = 0;
-	int32_t tempout = 0;
-	char separator[] = "\0";
-	struct net_device *prNetdev = NULL;
+	bool fgIsSetup = FALSE;
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
 	struct MLD_STA_RECORD *prMldStaRec = NULL;
-	unsigned long long u8ActiveStaBitmap;
+	uint32_t u4ActiveStaBitmap = 0;
 #endif
 
 	WIPHY_PRIV(wiphy, prGlueInfo);
@@ -1348,9 +1323,9 @@ int scheduledpm_set_para(
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
 		prMldStaRec = mldStarecGetByStarec(prAdapter, prStaRec);
 		if (prMldStaRec) {
-			u8ActiveStaBitmap = prMldStaRec->u8ActiveStaBitmap;
-			if (u8ActiveStaBitmap == 0 ||
-				(u8ActiveStaBitmap & (u8ActiveStaBitmap - 1)) != 0) {
+			u4ActiveStaBitmap = prMldStaRec->u4ActiveStaBitmap;
+			if (u4ActiveStaBitmap == 0 ||
+				(u4ActiveStaBitmap & (u4ActiveStaBitmap - 1)) != 0) {
 					DBGLOG(REQ, WARN, "Only support one link active\n");
 					i4BytesWritten = -3;
 					kalSprintf(rsp, "%d", i4BytesWritten);
@@ -1412,93 +1387,44 @@ int scheduledpm_set_para(
 							rsp, sizeof(rsp));
 		}
 
-		if (twt_check_is_setup(wiphy, prAdapter, TWT_MAX_FLOW_NUM - 1)) {
-			i4BytesWritten = twt_teardown(wiphy, prAdapter, TWT_MAX_FLOW_NUM - 1,
-			TRUE, TEARDOWN_BY_DEFAULT);
-		}
-
-		index += kalSprintf(cmd + index, "%s", twtprefix);
-		for (i = 0; i < TWT_CMD_SETUP_LEN; i++) {
-			tempout = 0;
-			switch (i) {
-			case TWT_PARAMS_ACTION:
-				tempout = TWT_PARAM_ACTION_ADD_BYPASS;
-				break;
-			case TWT_PARAMS_FLOWID:
-				tempout = TWT_MAX_FLOW_NUM - 1;
-				break;
-			case TWT_PARAMS_SETUPCMD:
-				tempout = TWT_SETUP_CMD_ID_SUGGEST;
-				break;
-			case TWT_PARAMS_TRIGGER:
-				tempout = 0;
-				break;
-			case TWT_PARAMS_UNANNOUNCED:
-				tempout = 0;
-				break;
-			case TWT_PARAMS_WAKEINTERVALEXP:
-				tempout = 10; /*1024us*/
-				break;
-			case TWT_PARAMS_PROTECTION:
-				tempout = 0; /*disalbe*/
-				break;
-			case TWT_PARAMS_MINWAKEDURATION:
-				if (ai4Setting[0] >= TWT_DURATION_UNIT)
-					tempout = ai4Setting[0] / TWT_DURATION_UNIT;
-				else
-					DBGLOG(REQ, WARN,
-						"twtparams wrong wake duration : %d\n", ai4Setting[0]);
-				break;
-			case TWT_PARAMS_WAKEINTERVALMAN:
-				if (ai4Setting[1] >= 1024)
-					tempout = ai4Setting[1] / 1024;
-				else
-					DBGLOG(REQ, WARN,
-						"twtparams wrong wake interval : %d\n", ai4Setting[1]);
-				break;
-			case TWT_PARAMS_DESIREWAKETIME:
-				tempout = 0;
-				break;
-			case TWT_PARAMS_WAKEINTVALMIN:
-				tempout = 0;
-				break;
-			case TWT_PARAMS_WAKEINTVALMAX:
-				tempout = 0;
-				break;
-			case TWT_PARAMS_WAKEDURMIN:
-				tempout = 0;
-				break;
-			case TWT_PARAMS_WAKEDURMAX:
-				tempout = 0;
-				break;
-			default:
-				break;
-			};
-			index += kalSprintf(cmd + index, " %d", tempout);
-		}
-
-		kalMemCopy(cmd + index, separator, 1);
-		index++;
-		prNetdev = wlanGetNetDev(prGlueInfo, ucBssIndex);
-		if (!prNetdev) {
-			DBGLOG(REQ, ERROR, "prNetdev error!\n");
+		prSchedPmParams = &prAdapter->rSchedPmParams;
+		if (!prSchedPmParams)
 			return -1;
-		}
 
-		i4BytesWritten = priv_driver_cmds(prGlueInfo,
-			prNetdev, cmd, index);
-		leaky_AP_detect_action(prAdapter, LEAKY_AP_DETECT_PASSIVE_START,
-			NULL, NULL, (uint32_t)ai4Setting[2], 0);
+		if (prSchedPmParams->u4Duration > 0
+			&& prSchedPmParams->u4Interval > 0)
+			fgIsSetup = TRUE;
+
+#if (CFG_SUPPORT_802_11BE_MLO == 1)
+		prStaRec = twtmldGetActiveStaRec(prAdapter, ucBssIndex);
+		if (prStaRec)
+			prSchedPmParams->ucBssIdx = prStaRec->ucBssIndex;
+		else
+			prSchedPmParams->ucBssIdx = ucBssIndex;
+#else
+		prSchedPmParams->ucBssIdx = ucBssIndex;
+#endif
+		prSchedPmParams->u4Duration = (uint32_t)ai4Setting[0];
+		prSchedPmParams->u4Interval = (uint32_t)ai4Setting[1];
+		prSchedPmParams->u4DurationAdd = (uint32_t)ai4Setting[2];
+		prSchedPmParams->u4IntervalMin = (uint32_t)ai4Setting[3];
+		prSchedPmParams->u4IntervalMax = (uint32_t)ai4Setting[4];
+		prSchedPmParams->u4DurationMin = (uint32_t)ai4Setting[5];
+		prSchedPmParams->u4DurationMax = (uint32_t)ai4Setting[6];
+
+		i4BytesWritten = scheduledpm_action(prAdapter, SCHED_PM_SETUP, NULL, fgIsSetup, 0);
 
 	} else if ((strnicmp(apcArgv[0], "SCHED_PM_TEARDOWN", 17) == 0) && (i4Argc == 1)) {
-		i4BytesWritten = twt_teardown(wiphy, prAdapter, TWT_MAX_FLOW_NUM - 1, FALSE,
-			TEARDOWN_BY_DEFAULT);
+		i4BytesWritten = scheduledpm_action(prAdapter, SCHED_PM_TEARDOWN, NULL, FALSE,
+							SCHED_TEARDOWN_BY_DEFAULT);
 	} else if ((strnicmp(apcArgv[0], "GET_SCHED_PM_STATUS", 19) == 0) && (i4Argc == 1)) {
-		index += kalSprintf(cmd + index, "%s", "GET_TWT_STATUS");
-		index += kalSprintf(cmd + index, " %d", TWT_MAX_FLOW_NUM - 1);
-		twt_get_status(wiphy, prAdapter, cmd, rsp);
+		scheduledpm_action(prAdapter, SCHED_PM_GET_STATUS, rsp, FALSE, 0);
 		return mtk_cfg80211_process_str_cmd_reply(wiphy,
-						rsp + 2, sizeof(rsp) - 2); // ignore flow id for schedueld PM
+						rsp, sizeof(rsp));
+	} else if ((strnicmp(apcArgv[0], "SCHED_PM_SUSPEND", 16) == 0) && (i4Argc == 1)) {
+		i4BytesWritten = scheduledpm_action(prAdapter, SCHED_PM_SUSPEND, NULL, FALSE, 0);
+	} else if ((strnicmp(apcArgv[0], "SCHED_PM_RESUME", 15) == 0) && (i4Argc == 1)) {
+		i4BytesWritten = scheduledpm_action(prAdapter, SCHED_PM_RESUME, NULL, FALSE, 0);
 	} else if ((strnicmp(apcArgv[0], "LEAKY_AP_ACTIVE_DETECTION", 15) == 0) && (i4Argc == 4)) {
 		kalStrtoint(apcArgv[3], 0, &(ai4Setting[0]));
 		i4BytesWritten = leaky_AP_detect_action(prAdapter, LEAKY_AP_DETECT_ACTIVE,
@@ -1518,12 +1444,107 @@ int scheduledpm_set_para(
 		return -EOPNOTSUPP;
 	}
 
-	if (i4BytesWritten > 0)
-		i4BytesWritten = 0;
-
 	kalSprintf(rsp, "%d", i4BytesWritten);
 	return mtk_cfg80211_process_str_cmd_reply(wiphy,
 					rsp, sizeof(rsp));
+}
+
+int scheduledpm_action(
+	struct ADAPTER *prAdapter,
+	enum SCHED_PM_ACTION_TYPE eType,
+	char *rsp,
+	bool fgDoubleSetup,
+	enum SCHED_TEARDOWN_REASON eReason)
+{
+	struct SCHED_PM_PARAMS *prSchedPmParams = NULL;
+	int32_t i4BytesWritten = 0;
+	char prcmd[256] = {0};
+	char prrep[256] = {0};
+	char scheduledPMprefix[] = "SCHED_PM";
+	uint32_t index = 0;
+
+	if (prAdapter == NULL) {
+		DBGLOG(REQ, ERROR, "prAdapter null\n");
+		return -1;
+	}
+
+	prSchedPmParams = &prAdapter->rSchedPmParams;
+	if (prSchedPmParams == NULL)
+		return -1;
+
+	index += kalSprintf(prcmd + index, "%s", scheduledPMprefix);
+
+	if (eType == SCHED_PM_SETUP) {
+		if (fgDoubleSetup) {
+			kalSprintf(prcmd + index, " %d\0", (uint32_t)SCHED_PM_TEARDOWN);
+			twt_get_status(NULL, prAdapter, prcmd, prrep);
+		}
+
+		index += kalSprintf(prcmd + index, " %d", (uint32_t)eType);
+		index += kalSprintf(prcmd + index, " %d", prSchedPmParams->u4Duration);
+		index += kalSprintf(prcmd + index, " %d", prSchedPmParams->u4Interval);
+		index += kalSprintf(prcmd + index, " %d", prSchedPmParams->u4DurationAdd);
+		index += kalSprintf(prcmd + index, " %d", prSchedPmParams->u4IntervalMin);
+		index += kalSprintf(prcmd + index, " %d", prSchedPmParams->u4IntervalMax);
+		index += kalSprintf(prcmd + index, " %d", prSchedPmParams->u4DurationMin);
+		index += kalSprintf(prcmd + index, " %d", prSchedPmParams->u4DurationMax);
+		kalMemCopy(prcmd + index, "\0", 1);
+
+		twt_get_status(NULL, prAdapter, prcmd, prrep);
+
+	} else if (eType == SCHED_PM_GET_STATUS) {
+
+		if (rsp == NULL)
+			return -1; // need reply buffer
+
+		index += kalSprintf(prcmd + index, " %d", (uint32_t)eType);
+		kalMemCopy(prcmd + index, "\0", 1);
+		twt_get_status(NULL, prAdapter, prcmd, rsp);
+
+	} else if (eType == SCHED_PM_SUSPEND || eType == SCHED_PM_RESUME
+				|| eType == SCHED_PM_TEARDOWN) {
+		if (prSchedPmParams->u4Duration > 0
+			&& prSchedPmParams->u4Interval > 0) {
+
+			if (eType == SCHED_PM_TEARDOWN &&
+				eReason == SCHED_TEARDOWN_BY_MLCHANNEL) {
+				i4BytesWritten = twt_check_channelusage(prAdapter);
+				if (i4BytesWritten >= 0)
+					return i4BytesWritten;
+			}
+
+			index += kalSprintf(prcmd + index, " %d", (uint32_t)eType);
+			kalMemCopy(prcmd + index, "\0", 1);
+			scheduledpm_set_status(prAdapter, prcmd);
+
+			if (eType == SCHED_PM_TEARDOWN) {
+				if (eReason != SCHED_TEARDOWN_BY_DEFAULT) {
+					/* NAN and P2P/MHS are classified as MLCHANNEL in scheduled PM. */
+					if (eReason == SCHED_TEARDOWN_BY_MLCONNECT)
+						eReason = SCHED_TEARDOWN_BY_MLCHANNEL;
+
+					scheduledpmEventNotify(prAdapter,
+						prSchedPmParams->ucBssIdx,
+						ENUM_SCHED_EVENT_TEARDOWN, eReason);
+				}
+
+				prSchedPmParams->ucBssIdx = 0;
+				prSchedPmParams->u4Duration = 0;
+				prSchedPmParams->u4Interval = 0;
+				prSchedPmParams->u4DurationAdd = 0;
+				prSchedPmParams->u4IntervalMin = 0;
+				prSchedPmParams->u4IntervalMax = 0;
+				prSchedPmParams->u4DurationMin = 0;
+				prSchedPmParams->u4DurationMax = 0;
+			}
+		}
+		else {
+			i4BytesWritten = -1;
+		}
+	} else {
+		i4BytesWritten = -1;
+	}
+	return i4BytesWritten;
 }
 
 int leaky_AP_detect_action(
@@ -1556,7 +1577,7 @@ int leaky_AP_detect_action(
 	}
 
 	kalMemCopy(prcmd + index, "\0", 1);
-	DBGLOG(REQ, DEBUG, "Notify FW %s\n", prcmd);
+	DBGLOG(REQ, INFO, "Notify FW %s\n", prcmd);
 	scheduledpm_set_status(prAdapter, prcmd);
 
 	return i4BytesWritten;
@@ -1644,13 +1665,13 @@ int delay_wakeup_set_para(
 
 		/* Check FW response msg */
 		u2MsgSize = rChipConfigInfo.u2MsgSize;
-		DBGLOG(REQ, DEBUG,
+		DBGLOG(REQ, INFO,
 			"Resp=%s, Type[%u], MsgLen[%u], BufLen[%u]\n",
 			rChipConfigInfo.aucCmd, rChipConfigInfo.ucRespType,
 			rChipConfigInfo.u2MsgSize, u4BufLen);
 
 		if (u2MsgSize > sizeof(rChipConfigInfo.aucCmd)) {
-			DBGLOG(REQ, DEBUG, "invalid ret u2MsgSize\n");
+			DBGLOG(REQ, INFO, "invalid ret u2MsgSize\n");
 			return -1;
 		}
 
@@ -1711,12 +1732,11 @@ void DelayedWakeupEventNotify(
 	for (i = 0; i < ucDataLen; i++) {
 		kalSprintf((prDelayedWakeupInfo->data) + (i * 2), "%02X", data[i]);
 	}
-	DBGLOG(REQ, DEBUG, "[DW]: STR[%s]\n", prDelayedWakeupInfo->data);
+	DBGLOG(REQ, INFO, "[DW]: STR[%s]\n", prDelayedWakeupInfo->data);
 
 	mtk_cfg80211_vendor_event_generic_response(
 		wiphy, wdev, size, (uint8_t *)prDelayedWakeupInfo);
 	kalMemFree(prDelayedWakeupInfo, VIR_MEM_TYPE, size);
 }
-
 #endif /* CFG_SUPPORT_TWT_EXT */
 

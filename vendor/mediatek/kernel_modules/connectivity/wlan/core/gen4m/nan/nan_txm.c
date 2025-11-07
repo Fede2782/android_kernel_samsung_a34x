@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -6,7 +6,7 @@
 #include "precomp.h"
 #include "nan_txm.h"
 
-#if (CFG_SUPPORT_NAN == 1)
+#if CFG_SUPPORT_NAN
 
 /*******************************************************************************
  *                         C O M P I L E R   F L A G S
@@ -69,9 +69,9 @@ nanTxUtTxDone(struct ADAPTER *prAdapter, struct MSDU_INFO *prMsduInfo,
 		return WLAN_STATUS_FAILURE;
 	}
 
-	DBGLOG(TX, DEBUG, "EVENT-TX DONE: Status:%d\n", rTxDoneStatus);
+	DBGLOG(TX, INFO, "EVENT-TX DONE: Status:%d\n", rTxDoneStatus);
 
 	return WLAN_STATUS_SUCCESS;
 }
 
-#endif /* CFG_SUPPORT_NAN */
+#endif

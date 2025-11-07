@@ -95,10 +95,9 @@ extern u_int8_t fgIsBusAccessFailed;
 #if CFG_MTK_WIFI_PCIE_SUPPORT
 extern u_int8_t fgIsPcieDataTransDisabled;
 #endif /* CFG_MTK_WIFI_PCIE_SUPPORT */
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 extern u_int8_t fgTriggerDebugSop;
 #endif
-extern u_int32_t u4SdesDetectTime;
 
 /*******************************************************************************
  *                         C O M P I L E R   F L A G S
@@ -146,7 +145,6 @@ extern u_int32_t u4SdesDetectTime;
 #define FW_LOG_CMD_ON_OFF		0
 #define FW_LOG_CMD_SET_LEVEL		1
 
-#define CONTROL_BUFFER_SIZE		(1025)
 /*******************************************************************************
  *                    E X T E R N A L   R E F E R E N C E S
  *******************************************************************************
@@ -162,6 +160,7 @@ extern u_int32_t u4SdesDetectTime;
 #define GLUE_FLAG_OID                   BIT(2)
 #define GLUE_FLAG_TIMEOUT               BIT(3)
 #define GLUE_FLAG_TXREQ                 BIT(4)
+#define GLUE_FLAG_SUB_MOD_MULTICAST     BIT(7)
 #define GLUE_FLAG_FRAME_FILTER          BIT(8)
 #define GLUE_FLAG_FRAME_FILTER_AIS      BIT(9)
 
@@ -170,6 +169,7 @@ extern u_int32_t u4SdesDetectTime;
 #define GLUE_FLAG_OID_BIT               (2)
 #define GLUE_FLAG_TIMEOUT_BIT           (3)
 #define GLUE_FLAG_TXREQ_BIT             (4)
+#define GLUE_FLAG_SUB_MOD_MULTICAST_BIT (7)
 #define GLUE_FLAG_FRAME_FILTER_BIT      (8)
 #define GLUE_FLAG_FRAME_FILTER_AIS_BIT  (9)
 
@@ -205,12 +205,6 @@ extern u_int32_t u4SdesDetectTime;
 #define GLUE_FLAG_CNS_PWR_LEVEL			BIT(21)
 #define GLUE_FLAG_CNS_PWR_TEMP			BIT(22)
 #endif
-
-#define HIF_FLAG_AER_RESET		BIT(0)
-#define HIF_FLAG_AER_RESET_BIT	(0)
-
-#define HIF_FLAG_MSI_RECOVERY		BIT(1)
-#define HIF_FLAG_MSI_RECOVERY_BIT	(1)
 
 #if CFG_ENABLE_BT_OVER_WIFI
 #define GLUE_BOW_KFIFO_DEPTH        (1024)
@@ -328,7 +322,6 @@ struct GL_IO_REQ {
 	uint32_t *pu4QryInfoLen;
 	uint32_t rStatus;
 	uint32_t u4Flag;
-	struct CMD_INFO *prCmdInfo;
 };
 
 #if CFG_ENABLE_BT_OVER_WIFI
@@ -379,23 +372,15 @@ struct GL_SCAN_CACHE_INFO {
 
 #if CFG_SUPPORT_PERF_IND
 struct GL_PERF_IND_INFO {
-	uint32_t u4CurTxBytes[MAX_BSSID_NUM]; /* Byte */
-	uint32_t u4CurRxBytes[MAX_BSSID_NUM]; /* Byte */
-	uint16_t u2CurRxRate[MAX_BSSID_NUM]; /* Unit 500 Kbps */
-	uint8_t ucCurRxRCPI0[MAX_BSSID_NUM];
-	uint8_t ucCurRxRCPI1[MAX_BSSID_NUM];
-	uint8_t ucCurRxNss[MAX_BSSID_NUM]; /* 1NSS Data Counter */
-	uint8_t ucCurRxNss2[MAX_BSSID_NUM]; /* 2NSS Data Counter */
+	uint32_t u4CurTxBytes[BSSID_NUM]; /* Byte */
+	uint32_t u4CurRxBytes[BSSID_NUM]; /* Byte */
+	uint16_t u2CurRxRate[BSSID_NUM]; /* Unit 500 Kbps */
+	uint8_t ucCurRxRCPI0[BSSID_NUM];
+	uint8_t ucCurRxRCPI1[BSSID_NUM];
+	uint8_t ucCurRxNss[BSSID_NUM]; /* 1NSS Data Counter */
+	uint8_t ucCurRxNss2[BSSID_NUM]; /* 2NSS Data Counter */
 };
 #endif /* CFG_SUPPORT_SCAN_CACHE_RESULT */
-
-struct GL_CH_SWITCH_WORK {
-
-};
-
-struct GL_CH_SWITCH_START_WORK {
-
-};
 
 struct FT_IES {
 	uint16_t u2MDID;
@@ -431,6 +416,7 @@ struct GLUE_INFO {
 	uint32_t u4TxStartTh[MAX_BSSID_NUM];
 	int32_t ai4TxPendingFrameNumPerQueue[MAX_BSSID_NUM][CFG_MAX_TXQ_NUM];
 	int32_t i4TxPendingFrameNum;
+	int32_t i4TxPendingCmdDataFrameNum;
 	int32_t i4TxPendingCmdNum;
 
 	uint32_t u4RoamFailCnt;
@@ -484,9 +470,6 @@ struct GLUE_INFO {
 
 	u_int8_t fgIsInSuspendMode;
 
-	/* current IO request for kalIoctl */
-	struct GL_IO_REQ OidEntry;
-
 	/* registry info */
 	struct REG_INFO rRegInfo;
 
@@ -523,7 +506,6 @@ struct GLUE_INFO {
 	kal_completion rPendComp;	/* indicate main thread halt complete */
 
 	unsigned long ulFlag;		/* GLUE_FLAG_XXX */
-	unsigned long ulHifFlag;	/* HIF_FLAG_XXX */
 
 	/* Host interface related information */
 	/* defined in related hif header file */
@@ -531,14 +513,6 @@ struct GLUE_INFO {
 
 #if (CFG_SUPPORT_RETURN_TASK == 1)
 	uint32_t rRxRfbRetTask;
-#endif
-#if (CFG_SURVEY_DUMP_FULL_CHANNEL == 1)
-	struct CHANNEL_TIMING_T  rChanTimeRecord[CH_MAX_NUM];
-	uint8_t u1NoiseLevel;
-#endif
-
-#if CFG_WIFI_TESTMODE_FW_REDOWNLOAD
-	u_int8_t fgTestFwDl;
 #endif
 };
 
@@ -655,8 +629,6 @@ struct NETDEV_PRIVATE_GLUE_INFO {
 	uint8_t ucBssIdx;
 	u_int8_t ucIsP2p;
 	u_int8_t ucMddpSupport;
-	uint8_t ucMldBssIdx;
-	uint32_t u4OsMgmtFrameFilter;
 };
 
 struct PACKET_PRIVATE_DATA {
@@ -669,13 +641,12 @@ struct PACKET_PRIVATE_DATA {
 	/* only tx use cb */
 	uint8_t ucTid;		/* 1byte */
 	uint8_t ucHeaderLen;	/* 1byte */
-	uint8_t ucFlag;		/* 1byte */
+	uint8_t ucProfilingFlag;	/* 1byte */
 	uint8_t ucSeqNo;		/* 1byte */
 	uint16_t u2Flag;		/* 2byte total:24 */
 
 	uint16_t u2IpId;		/* 2byte */
 	uint16_t u2FrameLen;	/* 2byte */
-	uint16_t u2Sn;		/* 2byte */
 	OS_SYSTIME rArrivalTime;/* 4byte total:32 */
 
 	uint64_t u8ArriveTime;	/* 8byte total:40 */
@@ -807,22 +778,10 @@ enum nl80211_wpa_versions {
 	    (GLUE_GET_PKT_PRIVATE_DATA(_p)->ucSeqNo)
 
 #define GLUE_SET_PKT_FLAG_PROF_MET(_p) \
-	(GLUE_GET_PKT_PRIVATE_DATA(_p)->ucFlag |= BIT(0))
+	    (GLUE_GET_PKT_PRIVATE_DATA(_p)->ucProfilingFlag |= BIT(0))
 
 #define GLUE_GET_PKT_IS_PROF_MET(_p) \
-	(GLUE_GET_PKT_PRIVATE_DATA(_p)->ucFlag & BIT(0))
-
-#define GLUE_SET_PKT_CONTROL_PORT_TX(_p) \
-	(GLUE_GET_PKT_PRIVATE_DATA(_p)->ucFlag |= BIT(1))
-
-#define GLUE_GET_PKT_IS_CONTROL_PORT_TX(_p) \
-	(GLUE_GET_PKT_PRIVATE_DATA(_p)->ucFlag & BIT(1))
-
-#define GLUE_SET_PKT_SN_VALID(_p) \
-	(GLUE_GET_PKT_PRIVATE_DATA(_p)->ucFlag |= BIT(2))
-
-#define GLUE_GET_PKT_IS_SN_VALID(_p) \
-	(GLUE_GET_PKT_PRIVATE_DATA(_p)->ucFlag & BIT(2))
+	    (GLUE_GET_PKT_PRIVATE_DATA(_p)->ucProfilingFlag & BIT(0))
 
 #define GLUE_SET_PKT_XTIME(_p, _rSysTime) \
 	(GLUE_GET_PKT_PRIVATE_DATA(_p)->u8ArriveTime = (uint64_t)(_rSysTime))
@@ -845,15 +804,6 @@ enum nl80211_wpa_versions {
 
 #define GLUE_RX_GET_PKT_RX_TIME(_p) \
 	(GLUE_GET_PKT_PRIVATE_RX_DATA(_p)->u8RxTime)
-
-#define GLUE_SET_PKT_SN(_p, _rSn) \
-	do { \
-		GLUE_GET_PKT_PRIVATE_DATA(_p)->u2Sn = (uint16_t)(_rSn); \
-		GLUE_SET_PKT_SN_VALID(_p); \
-	} while (0)
-
-#define GLUE_GET_PKT_SN(_p)    \
-	(GLUE_GET_PKT_PRIVATE_DATA(_p)->u2Sn)
 
 /* TODO: os-related implementation */
 #define GLUE_GET_TX_PKT_ETHER_DEST_ADDR(_p)
@@ -947,10 +897,10 @@ enum nl80211_wpa_versions {
  */
 #if WLAN_INCLUDE_PROC
 int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo);
-int32_t procRemoveProcfs(struct GLUE_INFO *prGlueInfo);
+int32_t procRemoveProcfs(void);
 
 
-int32_t procInitFs(struct GLUE_INFO *prGlueInfo);
+int32_t procInitFs(void);
 int32_t procUninitProcFs(void);
 
 
@@ -965,8 +915,12 @@ u_int8_t glRegisterAmpc(struct GLUE_INFO *prGlueInfo);
 u_int8_t glUnregisterAmpc(struct GLUE_INFO *prGlueInfo);
 #endif
 
+#if CFG_ENABLE_WIFI_DIRECT
+void p2pSetMulticastListWorkQueueWrapper(struct GLUE_INFO
+		*prGlueInfo);
+#endif
+
 struct GLUE_INFO *wlanGetGlueInfo(void);
-struct GLUE_INFO *wlanGetGlueInfoByWiphy(struct wiphy *wiphy);
 
 #ifdef CFG_REMIND_IMPLEMENT
 #define wlanSelectQueue(_dev, _skb) \
@@ -1003,8 +957,6 @@ uint32_t wlanConnacDownloadBufferBin(struct ADAPTER
 
 uint32_t wlanConnac2XDownloadBufferBin(struct ADAPTER *prAdapter);
 
-uint32_t wlanConnac3XDownloadBufferBin(struct ADAPTER *prAdapter);
-
 void *wlanGetAisNetDev(struct GLUE_INFO *prGlueInfo,
 	uint8_t ucAisIndex);
 
@@ -1021,6 +973,7 @@ void *wlanGetNetDev(struct GLUE_INFO *prGlueInfo,
 #if (CFG_SUPPORT_CONNAC3X == 1 && CFG_SUPPORT_UPSTREAM_TOOL == 1)
 extern struct wireless_dev *gprWdev[KAL_AIS_NUM];
 #endif
+extern uint32_t g_u4DevIdx[KAL_P2P_NUM];
 extern enum ENUM_NVRAM_STATE g_NvramFsm;
 
 extern uint8_t g_aucNvram[];

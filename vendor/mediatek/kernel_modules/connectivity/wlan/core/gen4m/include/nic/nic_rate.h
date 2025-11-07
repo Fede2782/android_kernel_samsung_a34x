@@ -51,8 +51,6 @@ enum ENUM_BAND_WIDTH {
 #define TX_RATE_MODE_HTGF	3
 #define TX_RATE_MODE_VHT	4
 #define TX_RATE_MODE_PLR	5
-#define TX_RATE_MODE_MLRP	6
-#define TX_RATE_MODE_ALR	7
 #define TX_RATE_MODE_HE_SU      8
 #define TX_RATE_MODE_HE_ER      9
 #define TX_RATE_MODE_HE_TRIG    10
@@ -72,7 +70,6 @@ enum ENUM_BAND_WIDTH {
  * For current rate, this table support the actual rate in use.
  * For max rate, limit the return values based on standard defined max index.
  */
-#define MCS_IDX_MAX_RATE_PLR 1
 #define MCS_IDX_MAX_RATE_CCK  3
 #define MCS_IDX_MAX_RATE_OFDM  7
 #define MCS_IDX_MAX_RATE_HT  7
@@ -148,14 +145,7 @@ enum HE_LTF {
  *                                 M A C R O S
  *******************************************************************************
  */
-#if (CFG_SUPPORT_CONNAC5X == 1)
-#define HW_TX_RATE_TO_MODE(_x)		CONNAC5X_HW_TX_RATE_TO_MODE(_x)
-#define HW_TX_RATE_TO_NSS(_x)		CONNAC5X_HW_TX_RATE_TO_NSS(_x)
-#define HW_TX_RATE_TO_STBC(_x)		CONNAC5X_HW_TX_RATE_TO_STBC(_x)
-#define HW_TX_RATE_TO_MCS(_x)		CONNAC5X_HW_TX_RATE_TO_MCS(_x)
-#define HW_TX_RATE_TO_DCM(_x)		CONNAC5X_HW_TX_RATE_TO_DCM(_x)
-#define HW_TX_RATE_TO_106T(_x)		CONNAC5X_HW_TX_RATE_TO_106T(_x)
-#elif (CFG_SUPPORT_CONNAC3X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 #define HW_TX_RATE_TO_MODE(_x)		CONNAC3X_HW_TX_RATE_TO_MODE(_x)
 #define HW_TX_RATE_TO_NSS(_x)		CONNAC3X_HW_TX_RATE_TO_NSS(_x)
 #define HW_TX_RATE_TO_STBC(_x)		CONNAC3X_HW_TX_RATE_TO_STBC(_x)
@@ -176,19 +166,7 @@ enum HE_LTF {
 #define HW_TX_RATE_TO_MCS(_x)		((_x) & (0x3f))
 #endif
 
-#if (CFG_SUPPORT_CONNAC5X == 1)
-#define TX_VECTOR_GET_TX_RATE(_txv)	CONNAC5X_TXV_GET_TX_RATE(_txv)
-#define TX_VECTOR_GET_TX_LDPC(_txv)	CONNAC5X_TXV_GET_TX_LDPC(_txv)
-#define TX_VECTOR_GET_TX_STBC(_txv)	CONNAC5X_TXV_GET_TX_STBC(_txv)
-#define TX_VECTOR_GET_TX_FRMODE(_txv)	CONNAC5X_TXV_GET_TX_FRMODE(_txv)
-#define TX_VECTOR_GET_TX_MODE(_txv)	CONNAC5X_TXV_GET_TX_MODE(_txv)
-#define TX_VECTOR_GET_TX_NSTS(_txv)	CONNAC5X_TXV_GET_TX_NSTS(_txv)
-#define TX_VECTOR_GET_TX_PWR(_txv)	CONNAC5X_TXV_GET_TX_PWR(_txv)
-#define TX_VECTOR_GET_TX_SGI(_txv)	CONNAC5X_TXV_GET_TX_SGI(_txv)
-#define TX_VECTOR_GET_TX_SPE_IDX(_txv)	CONNAC5X_TXV_GET_TX_SPE_IDX(_txv)
-#define TX_VECTOR_GET_TX_DCM(_txv)	CONNAC5X_TXV_GET_TX_DCM(_txv)
-#define TX_VECTOR_GET_TX_106T(_txv)	CONNAC5X_TXV_GET_TX_106T(_txv)
-#elif (CFG_SUPPORT_CONNAC3X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 #define TX_VECTOR_GET_TX_RATE(_txv)	CONNAC3X_TXV_GET_TX_RATE(_txv)
 #define TX_VECTOR_GET_TX_LDPC(_txv)	CONNAC3X_TXV_GET_TX_LDPC(_txv)
 #define TX_VECTOR_GET_TX_STBC(_txv)	CONNAC3X_TXV_GET_TX_STBC(_txv)

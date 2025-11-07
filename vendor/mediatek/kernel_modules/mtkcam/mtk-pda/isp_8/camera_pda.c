@@ -1899,6 +1899,8 @@ static void free_alldmabufferandfdarraytable(void)
 	if (pda_log_dbg_en == 1)
 		LOG_INF("+\n");
 
+	mutex_lock(&pda_mutex);
+
 	// ------------- free image related (include blending) -------------------
 	for (i = 0; i < ARRAY_SIZE(fd_l_img_rec); ++i) {
 		if (pda_log_dbg_en == 1)
@@ -1910,8 +1912,9 @@ static void free_alldmabufferandfdarraytable(void)
 				LOG_INF("unmap img done\n");
 			break;
 		}
-		fd_l_img_rec[i] = 0;
+
 		pda_put_dma_buffer(&g_image_mmu[i]);
+		fd_l_img_rec[i] = 0;
 		g_Address_LI[i] = 0;
 		g_Address_RI[i] = 0;
 	}
@@ -1927,8 +1930,9 @@ static void free_alldmabufferandfdarraytable(void)
 				LOG_INF("unmap tbl done\n");
 			break;
 		}
-		fd_l_tbl_rec[i] = 0;
+
 		pda_put_dma_buffer(&g_table_mmu[i]);
+		fd_l_tbl_rec[i] = 0;
 		g_Address_LT[i] = 0;
 		g_Address_RT[i] = 0;
 	}
@@ -1944,8 +1948,9 @@ static void free_alldmabufferandfdarraytable(void)
 				LOG_INF("unmap output done\n");
 			break;
 		}
-		fd_out_rec[i] = 0;
+
 		pda_put_dma_buffer(&g_output_mmu[i]);
+		fd_out_rec[i] = 0;
 		g_OutputBufferAddr[i] = 0;
 	}
 
@@ -1953,6 +1958,8 @@ static void free_alldmabufferandfdarraytable(void)
 	g_ring_img_idx = 0;
 	g_ring_tbl_idx = 0;
 	g_ring_out_idx = 0;
+
+	mutex_unlock(&pda_mutex);
 
 	if (pda_log_dbg_en == 1)
 		LOG_INF("-\n");

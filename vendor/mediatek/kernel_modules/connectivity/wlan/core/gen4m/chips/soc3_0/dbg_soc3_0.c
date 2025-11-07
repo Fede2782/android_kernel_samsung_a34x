@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -971,7 +971,7 @@ void soc3_0_show_wfdma_dbg_probe_info(struct ADAPTER *prAdapter,
 		u4DbgIdxValue = 0x100 + i;
 		HAL_MCR_WR(prAdapter, u4DbgIdxAddr, u4DbgIdxValue);
 		HAL_MCR_RD(prAdapter, u4DbgProbeAddr, &u4DbgProbeValue);
-		DBGLOG(HAL, DEBUG, "\t Write(0x%2x) DBG_PROBE[0x%X]=0x%08X\n",
+		DBGLOG(HAL, INFO, "\t Write(0x%2x) DBG_PROBE[0x%X]=0x%08X\n",
 			u4DbgIdxValue, u4DbgProbeAddr, u4DbgProbeValue);
 	}
 }
@@ -997,7 +997,7 @@ static void DumpPPDebugCr(struct ADAPTER *prAdapter)
 	ReadRegValue[3] = 0x820CC100;
 	HAL_MCR_RD(prAdapter, ReadRegValue[3], &u4Value[3]);
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	"PP[0x%08x]=0x%08x,[0x%08x]=0x%08x,[0x%08x]=0x%08x,[0x%08x]=0x%08x,",
 		ReadRegValue[0], u4Value[0],
 		ReadRegValue[1], u4Value[1],
@@ -1050,7 +1050,7 @@ static void dump_wfdma_dbg_value(
 			get_debug_value,
 			set_debug_flag_value == 0x112 ? "\n" : "; ");
 	}
-	DBGLOG(HAL, DEBUG, "%s", buf);
+	DBGLOG(HAL, INFO, "%s", buf);
 	kalMemFree(buf, VIR_MEM_TYPE, BUF_SIZE);
 }
 
@@ -1123,17 +1123,17 @@ void soc3_0_show_dmashdl_info(struct ADAPTER *prAdapter)
 	uint32_t ple_upg_hif;
 	uint8_t is_mismatch = FALSE;
 
-	DBGLOG(HAL, DEBUG, "DMASHDL info:\n");
+	DBGLOG(HAL, INFO, "DMASHDL info:\n");
 
 	asicConnac2xDmashdlGetRefill(prAdapter);
 	asicConnac2xDmashdlGetPktMaxPage(prAdapter);
 
 	HAL_MCR_RD(prAdapter, WF_HIF_DMASHDL_TOP_ERROR_FLAG_CTRL_ADDR, &value);
-	DBGLOG(HAL, DEBUG, "DMASHDL ERR FLAG CTRL(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "DMASHDL ERR FLAG CTRL(0x%08x): 0x%08x\n",
 		WF_HIF_DMASHDL_TOP_ERROR_FLAG_CTRL_ADDR, value);
 
 	for (idx = 0; idx < ENUM_DMASHDL_GROUP_2; idx++) {
-		DBGLOG(HAL, DEBUG, "Group %d info:\n", idx);
+		DBGLOG(HAL, INFO, "Group %d info:\n", idx);
 		asicConnac2xDmashdlGetGroupControl(prAdapter, idx);
 		rsv_cnt = asicConnac2xDmashdlGetRsvCount(prAdapter, idx);
 		src_cnt = asicConnac2xDmashdlGetSrcCount(prAdapter, idx);
@@ -1147,54 +1147,54 @@ void soc3_0_show_dmashdl_info(struct ADAPTER *prAdapter)
 	free_pg_cnt = (value &
 		WF_HIF_DMASHDL_TOP_STATUS_RD_FREE_PAGE_CNT_MASK) >>
 		WF_HIF_DMASHDL_TOP_STATUS_RD_FREE_PAGE_CNT_SHFT;
-	DBGLOG(HAL, DEBUG, "\tDMASHDL Status_RD(0x%08x): 0x%08x\n",
+	DBGLOG(HAL, INFO, "\tDMASHDL Status_RD(0x%08x): 0x%08x\n",
 		WF_HIF_DMASHDL_TOP_STATUS_RD_ADDR, value);
-	DBGLOG(HAL, DEBUG, "\tfree page cnt = 0x%03x, ffa cnt = 0x%03x\n",
+	DBGLOG(HAL, INFO, "\tfree page cnt = 0x%03x, ffa cnt = 0x%03x\n",
 		free_pg_cnt, ffa_cnt);
 
-	DBGLOG(HAL, DEBUG, "\nDMASHDL Counter Check:\n");
+	DBGLOG(HAL, INFO, "\nDMASHDL Counter Check:\n");
 	HAL_MCR_RD(prAdapter, WF_PLE_TOP_HIF_PG_INFO_ADDR, &value);
 	ple_rpg_hif = (value & WF_PLE_TOP_HIF_PG_INFO_HIF_RSV_CNT_MASK) >>
 		  WF_PLE_TOP_HIF_PG_INFO_HIF_RSV_CNT_SHFT;
 	ple_upg_hif = (value & WF_PLE_TOP_HIF_PG_INFO_HIF_SRC_CNT_MASK) >>
 		  WF_PLE_TOP_HIF_PG_INFO_HIF_SRC_CNT_SHFT;
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tPLE:The used/reserved pages of PLE HIF group=0x%03x/0x%03x\n",
 		 ple_upg_hif, ple_rpg_hif);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tDMASHDL:The total used pages of group0~14=0x%03x\n",
 		total_src_cnt);
 
 	if (ple_upg_hif != total_src_cnt) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"\tPLE used pages & total used pages mismatch!\n");
 		is_mismatch = TRUE;
 	}
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tThe total reserved pages of group0~14=0x%03x\n",
 		total_rsv_cnt);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tThe total ffa pages of group0~14=0x%03x\n",
 		ffa_cnt);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"\tThe total free pages of group0~14=0x%03x\n",
 		free_pg_cnt);
 
 	if (free_pg_cnt != total_rsv_cnt + ffa_cnt) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"\tmismatch(total_rsv_cnt + ffa_cnt in DMASHDL)\n");
 		is_mismatch = TRUE;
 	}
 
 	if (free_pg_cnt != ple_rpg_hif) {
-		DBGLOG(HAL, DEBUG, "\tmismatch(reserved pages in PLE)\n");
+		DBGLOG(HAL, INFO, "\tmismatch(reserved pages in PLE)\n");
 		is_mismatch = TRUE;
 	}
 
 
 	if (!is_mismatch)
-		DBGLOG(HAL, DEBUG, "DMASHDL: no counter mismatch\n");
+		DBGLOG(HAL, INFO, "DMASHDL: no counter mismatch\n");
 }
 
 void soc3_0_dump_mac_info(struct ADAPTER *prAdapter)
@@ -1236,28 +1236,28 @@ void soc3_0_dump_mac_info(struct ADAPTER *prAdapter)
 
 	char *buf = (char *) kalMemAlloc(BUF_SIZE, VIR_MEM_TYPE);
 
-	DBGLOG(HAL, DEBUG, "Dump for band0\n");
+	DBGLOG(HAL, INFO, "Dump for band0\n");
 	HAL_MCR_WR(prAdapter, 0x7C006100, 0x1F);
 	HAL_MCR_WR(prAdapter, 0x7C006104, 0x07070707);
 	HAL_MCR_WR(prAdapter, 0x7C006108, 0x0D0D0C0C);
 	HAL_MCR_RD(prAdapter, 0x820D0000, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820D0000 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820D0000 = 0x%08x\n", value);
 	HAL_MCR_RD(prAdapter, 0x820E3080, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820E3080 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820E3080 = 0x%08x\n", value);
 	HAL_MCR_RD(prAdapter, 0x820C0028, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820C0028 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820C0028 = 0x%08x\n", value);
 	HAL_MCR_RD(prAdapter, 0x820C8028, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820C8028 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820C8028 = 0x%08x\n", value);
 	HAL_MCR_RD(prAdapter, 0x820C8030, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820C8030 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820C8030 = 0x%08x\n", value);
 	/* Band 0 TXV_C and TXV_P */
 	for (i = 0x820E412C; i < 0x820E4160; i += 4) {
 		HAL_MCR_RD(prAdapter, i, &value);
-		DBGLOG(HAL, DEBUG, "Dump CR: 0x%08x = 0x%08x\n", i, value);
+		DBGLOG(HAL, INFO, "Dump CR: 0x%08x = 0x%08x\n", i, value);
 		kalMdelay(1);
 	}
 	HAL_MCR_RD(prAdapter, 0x820E206C, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820E206C = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820E206C = 0x%08x\n", value);
 
 	if (buf) {
 		kalMemZero(buf, BUF_SIZE);
@@ -1268,34 +1268,34 @@ void soc3_0_dump_mac_info(struct ADAPTER *prAdapter)
 					"0x%08x = 0x%08x%s", cr_band0[j], value,
 					j == CR_COUNT - 1 ? ";" : ",");
 			}
-			DBGLOG(HAL, DEBUG, "Dump CR: %s\n", buf);
+			DBGLOG(HAL, INFO, "Dump CR: %s\n", buf);
 			pos = 0;
 			kalMdelay(1);
 		}
 	}
 
-	DBGLOG(HAL, DEBUG, "Dump for band1\n");
+	DBGLOG(HAL, INFO, "Dump for band1\n");
 	HAL_MCR_WR(prAdapter, 0x7C006400, 0x1F);
 	HAL_MCR_WR(prAdapter, 0x7C006404, 0x07070707);
 	HAL_MCR_WR(prAdapter, 0x7C006408, 0x0D0D0C0C);
 	HAL_MCR_RD(prAdapter, 0x820D0000, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820D0000 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820D0000 = 0x%08x\n", value);
 	HAL_MCR_RD(prAdapter, 0x820F3080, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820F3080 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820F3080 = 0x%08x\n", value);
 	HAL_MCR_RD(prAdapter, 0x820C0028, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820C0028 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820C0028 = 0x%08x\n", value);
 	HAL_MCR_RD(prAdapter, 0x820C8028, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820C8028 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820C8028 = 0x%08x\n", value);
 	HAL_MCR_RD(prAdapter, 0x820C8030, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820C8030 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820C8030 = 0x%08x\n", value);
 	/* Band 0 TXV_C and TXV_P */
 	for (i = 0x820F412C; i < 0x820F4160; i += 4) {
 		HAL_MCR_RD(prAdapter, i, &value);
-		DBGLOG(HAL, DEBUG, "Dump CR: 0x%08x = 0x%08x\n", i, value);
+		DBGLOG(HAL, INFO, "Dump CR: 0x%08x = 0x%08x\n", i, value);
 		kalMdelay(1);
 	}
 	HAL_MCR_RD(prAdapter, 0x820F206C, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820F206C = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820F206C = 0x%08x\n", value);
 
 	if (buf) {
 		kalMemZero(buf, BUF_SIZE);
@@ -1306,7 +1306,7 @@ void soc3_0_dump_mac_info(struct ADAPTER *prAdapter)
 					"0x%08x = 0x%08x%s", cr_band1[j], value,
 					j == CR_COUNT - 1 ? ";" : ",");
 			}
-			DBGLOG(HAL, DEBUG, "Dump CR: %s\n", buf);
+			DBGLOG(HAL, INFO, "Dump CR: %s\n", buf);
 			pos = 0;
 			kalMdelay(1);
 		}
@@ -1355,7 +1355,7 @@ void show_wfdma_interrupt_info_without_adapter(
 			&u4RegValueByWFDMA[idx]);
 	}
 
-	DBGLOG(INIT, DEBUG,
+	DBGLOG(INIT, INFO,
 	"G_INT_S(0x%08x):0x%08x,W_%d(0x%08x):0x%08x, W_%d(0x%08x):0x%08x\n",
 		u4DmaCfgCrAddr, u4RegValue,
 		0, u4DmaCfgCrAddrByWFDMA[0], u4RegValueByWFDMA[0],
@@ -1391,7 +1391,7 @@ void show_wfdma_interrupt_info_without_adapter(
 			&u4RegValueByWFDMA[idx]);
 	}
 
-	DBGLOG(INIT, DEBUG,
+	DBGLOG(INIT, INFO,
 	"G_INT_E(0x%08x):0x%08x,W_%d(0x%08x):0x%08x, W_%d(0x%08x):0x%08x\n",
 		u4DmaCfgCrAddr, u4RegValue,
 		0, u4DmaCfgCrAddrByWFDMA[0], u4RegValueByWFDMA[0],
@@ -1421,7 +1421,7 @@ void show_wfdma_glo_info_without_adapter(
 
 		wf_ioremap_read(u4DmaCfgCrAddr, &GloCfgValue.word);
 
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 		"WFDMA_%d GLO(0x%08x):0x%08x,EN T/R=(%d/%d), Busy T/R=(%d/%d)\n",
 			idx, u4DmaCfgCrAddr, GloCfgValue.word,
 			GloCfgValue.field_conn2x.tx_dma_en,
@@ -1476,7 +1476,7 @@ void show_wfdma_ring_info_without_adapter(
 			(u4_hw_cidx_value - u4_hw_didx_value) :
 			(u4_hw_cidx_value - u4_hw_didx_value + u4_hw_cnt_value);
 
-		DBGLOG(HAL, DEBUG, "%4d %16s %8x %10x %6x %6x %6x %6x\n",
+		DBGLOG(HAL, INFO, "%4d %16s %8x %10x %6x %6x %6x %6x\n",
 					idx,
 					group->name,
 					u4DmaCfgCrAddr, u4_hw_desc_base_value,
@@ -1516,7 +1516,7 @@ void show_wfdma_ring_info_without_adapter(
 			(u4_hw_didx_value - u4_hw_cidx_value
 			+ u4_hw_cnt_value - 1);
 
-		DBGLOG(HAL, DEBUG, "%4d %16s %8x %10x %6x %6x %6x %6x\n",
+		DBGLOG(HAL, INFO, "%4d %16s %8x %10x %6x %6x %6x %6x\n",
 					idx,
 					group->name,
 					u4DmaCfgCrAddr, u4_hw_desc_base_value,
@@ -1542,7 +1542,7 @@ static void dump_dbg_value_without_adapter(
 	wf_ioremap_read(get_debug_cr, &get_debug_value);
 
 	if (isMandatoryDump == 1) {
-		DBGLOG(INIT, DEBUG, "set(0x%08x):0x%08x, get(0x%08x):0x%08x,",
+		DBGLOG(INIT, INFO, "set(0x%08x):0x%08x, get(0x%08x):0x%08x,",
 						set_debug_cr, set_value,
 						get_debug_cr, get_debug_value);
 	} else {

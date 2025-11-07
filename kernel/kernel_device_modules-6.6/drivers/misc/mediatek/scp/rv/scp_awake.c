@@ -88,7 +88,6 @@ int scp_awake_lock(void *_scp_id)
 
 	/*set a direct IPI to awake SCP */
 	/*pr_debug("scp_awake_lock: try to awake %s\n", core_id);*/
-	scp_lpm_req_infra();
 	if (scpreg.scpsys_regmap_en)
 		regmap_write(scpreg.scpsys_regmap,
 				INFRA_IRQ_SET_OFS, 0xA0 | (1 << AP_AWAKE_LOCK));
@@ -192,7 +191,6 @@ int scp_awake_lock(void *_scp_id)
 			pr_notice("%s: scp resetting\n", __func__);
 #endif
 	}
-	scp_lpm_rel_infra();
 	return ret;
 }
 EXPORT_SYMBOL_GPL(scp_awake_lock);
@@ -236,7 +234,6 @@ int scp_awake_unlock(void *_scp_id)
 
 	/* WE1: set a direct IPI to release awake SCP */
 	/*pr_debug("scp_awake_lock: try to awake %s\n", core_id);*/
-	scp_lpm_req_infra();
 	if (scpreg.scpsys_regmap_en)
 		regmap_write(scpreg.scpsys_regmap,
 				INFRA_IRQ_SET_OFS, 0xA0 | (1 << AP_AWAKE_UNLOCK));
@@ -345,7 +342,6 @@ int scp_awake_unlock(void *_scp_id)
 			pr_notice("%s: scp resetting\n", __func__);
 #endif
 	}
-	scp_lpm_rel_infra();
 	return ret;
 }
 EXPORT_SYMBOL_GPL(scp_awake_unlock);

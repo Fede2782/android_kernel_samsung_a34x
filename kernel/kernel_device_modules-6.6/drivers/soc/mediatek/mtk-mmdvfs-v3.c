@@ -2415,7 +2415,7 @@ static unsigned long mmdvfs_mux_get_rate(const char *name)
 
 	if (i >= ARRAY_SIZE(mmdvfs_user)) {
 		MMDVFS_ERR("invalid name:%s", name);
-		return -EINVAL;
+		return ~0UL;
 	}
 
 	if (log_level & (1 << log_clk_ops))

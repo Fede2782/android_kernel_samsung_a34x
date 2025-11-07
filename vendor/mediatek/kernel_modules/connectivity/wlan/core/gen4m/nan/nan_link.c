@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -25,20 +25,43 @@ struct BSS_INFO *nanGetDefaultLinkBssInfo(
 	if (!ad)
 		return bss;
 
-	for (i = 0; i < ad->ucSwBssIdNum; i++) {
+	for (i = 0; i < ad->ucHwBssIdNum; i++) {
 		prBssInfo = ad->aprBssInfo[i];
 
 		if (prBssInfo &&
-			IS_BSS_NAN(prBssInfo))
+			IS_BSS_NAN(prBssInfo) &&
+			IS_BSS_ALIVE(ad, prBssInfo))
 			return prBssInfo;
 	}
 
 	return bss;
 }
 
+u_int8_t nanIsMultiLink(
+	struct ADAPTER *prAdapter)
+{
+#if (CFG_SUPPORT_NAN_DBDC == 1)
+	if (!prAdapter)
+		return FALSE;
+
+	if (prAdapter->rWifiVar.ucNanMldLinkMax <= 1)
+		return FALSE;
+
+	return TRUE;
+#else
+	return FALSE;
+#endif
+}
+
 u_int8_t nanLinkNeedMlo(
 	struct ADAPTER *prAdapter)
 {
+	if (!prAdapter)
+		return FALSE;
+
+	if (prAdapter->rWifiVar.ucNanMldLinkMax <= 1)
+		return FALSE;
+
 #if (CFG_SUPPORT_NAN_11BE_MLO == 1)
 	return mldIsMultiLinkEnabled(prAdapter,
 		NETWORK_TYPE_NAN, FALSE);
@@ -78,9 +101,7 @@ nanGetRoleIndexbyLink(
 	return NAN_BSS_INDEX_BAND0;
 }
 
-uint8_t
-nanGetLinkIndexbyRole(
-	enum NAN_BSS_ROLE_INDEX eRole)
+uint8_t nanGetLinkIndexbyRole(enum NAN_BSS_ROLE_INDEX eRole)
 {
 #if (CFG_SUPPORT_NAN_DBDC == 1)
 	/* TBD */
@@ -117,7 +138,7 @@ nanGetLinkIndexbyBand(
 		if ((prBssInfo != NULL) &&
 			(prBssInfo->eBand == eBand) &&
 			(ucIdx < ad->rWifiVar.ucNanMldLinkMax)) {
-			DBGLOG(NAN, INFO,
+			DBGLOG(NAN, VOC,
 				"Band%d, Idx%d\n",
 				eBand, ucIdx);
 			return ucIdx;
@@ -127,13 +148,14 @@ nanGetLinkIndexbyBand(
 	return NAN_MAIN_LINK_INDEX;
 }
 
-uint8_t
-nanGetLinkIndexbyOpClass(
+uint8_t nanGetLinkIndexbyOpClass(
+	struct ADAPTER *prAdapter,
 	uint32_t op)
 {
 #if (CFG_SUPPORT_NAN_DBDC == 1)
 	/* TBD */
-	if (!IS_2G_OP_CLASS(op))
+	if (!IS_2G_OP_CLASS(op) &&
+		nanLinkNeedMlo(prAdapter))
 		return NAN_HIGH_LINK_INDEX;
 #endif
 
@@ -157,9 +179,8 @@ void nanGetLinkWmmQueSet(
 		prBssInfo->fgIsWmmInited = TRUE;
 		prBssInfo->ucWmmQueSet = bss->ucWmmQueSet;
 
-		/* if (bss != prBssInfo)
-		 *	prBssInfo->ucOwnMacIndex = bss->ucOwnMacIndex;
-		 */
+		if (bss != prBssInfo)
+			prBssInfo->ucOwnMacIndex = bss->ucOwnMacIndex;
 	} else
 #endif
 	{
@@ -167,7 +188,7 @@ void nanGetLinkWmmQueSet(
 		cnmWmmIndexDecision(prAdapter, prBssInfo);
 	}
 
-	DBGLOG(NAN, DEBUG, "bss%d, wmm=%d, omac=%d\n",
+	DBGLOG(NAN, INFO, "bss%d, wmm=%d, omac=%d\n",
 		prBssInfo->ucBssIndex,
 		prBssInfo->ucWmmQueSet,
 		prBssInfo->ucOwnMacIndex);
@@ -231,7 +252,7 @@ void nanDumpStaRec(
 			ucBssIndex = s->ucBssIndex;
 		}
 
-		DBGLOG(NAN, DEBUG,
+		DBGLOG(NAN, INFO,
 			"CxtId:%d, Sta:%d, Bss:%d, Enrollee:%d\n",
 			cxt->ucId,
 			ucIndex,
@@ -262,6 +283,39 @@ void nanSetLinkStaRec(
 	cxt->prNanStaRec[ucLinkIdx] = sta;
 }
 
+uint32_t nanSetPreferWlanIndex(
+	struct ADAPTER *ad,
+	struct _NAN_NDP_CONTEXT_T *cxt,
+	uint8_t idx)
+{
+	uint32_t i = 0;
+	struct STA_RECORD *sta = NULL;
+
+	if (!cxt)
+		return WLAN_STATUS_FAILURE;
+
+	for (i = 0;
+		i < ad->rWifiVar.ucNanMldLinkMax;
+		i++) {
+		sta = nanGetLinkStaRec(cxt, i);
+		if (!sta) {
+			DBGLOG(NAN, ERROR,
+				"prNanStaRec error\n");
+			return WLAN_STATUS_FAILURE;
+		}
+
+		DBGLOG(NAN, LOUD,
+			"Check sta%d, bss%d\n",
+			sta->ucWlanIndex,
+			sta->ucBssIndex);
+
+		sta->ucPreferWlanIndex = idx;
+	}
+
+	return WLAN_STATUS_SUCCESS;
+}
+
+
 uint32_t nanSetPreferLinkStaRec(
 	struct ADAPTER *ad,
 	struct _NAN_NDP_CONTEXT_T *cxt,
@@ -286,14 +340,16 @@ uint32_t nanSetPreferLinkStaRec(
 			return WLAN_STATUS_FAILURE;
 		}
 
-		DBGLOG(NAN, DEBUG,
+		DBGLOG(NAN, INFO,
 			"Check sta%d, bss%d\n",
 			sta->ucWlanIndex,
 			sta->ucBssIndex);
 
 		if (sta->ucBssIndex == idx) {
 			cxt->prNanPreferStaRec = sta;
-			DBGLOG(NAN, INFO,
+			nanSetPreferWlanIndex(ad,
+				cxt, sta->ucWlanIndex);
+			DBGLOG(NAN, VOC,
 				"Prefer sta %d\n",
 				sta->ucWlanIndex);
 			return WLAN_STATUS_SUCCESS;
@@ -376,18 +432,8 @@ void nanMldBssInit(struct ADAPTER *prAdapter)
 {
 	if (nanLinkNeedMlo(prAdapter)) {
 		if (gprNanMldBssInfo == NULL) {
-			struct BSS_INFO *bss;
-
-			/* main bss must assign wmm first */
-			bss = nanGetDefaultLinkBssInfo(
-				prAdapter,
-				NULL);
-			if (bss) {
-				DBGLOG(INIT, TRACE, "\n");
-				gprNanMldBssInfo =
-					mldBssAlloc(prAdapter,
-					bss->aucOwnMacAddr);
-			}
+			DBGLOG(INIT, TRACE, "\n");
+			gprNanMldBssInfo = mldBssAlloc(prAdapter);
 		}
 	}
 }
@@ -418,7 +464,7 @@ void nanMldBssRegister(struct ADAPTER *prAdapter,
 		}
 
 		if (nanLinkNeedMlo(prAdapter)) {
-			prNanBssInfo->ucLinkId =
+			prNanBssInfo->ucLinkIndex =
 				prMldBssInfo->rBssList.u4NumElem;
 		}
 
@@ -441,18 +487,15 @@ void nanMldBssUnregister(struct ADAPTER *prAdapter,
 			break;
 		}
 
-		mldBssUnregister(prAdapter,
-			prMldBssInfo,
-			prNanBssInfo);
+		mldBssUnregister(prAdapter, prMldBssInfo, prNanBssInfo);
 
 		nanMldBssUninit(prAdapter);
 	} while (FALSE);
 }
 
-void nanMldStaRecRegister(
-	struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec,
-	uint8_t ucLinkIndex)
+void nanMldStaRecRegister(struct ADAPTER *prAdapter,
+			  struct STA_RECORD *prStaRec,
+			  uint8_t ucLinkIndex)
 {
 	struct MLD_STA_RECORD *prMldStarec = NULL;
 	struct MLD_BSS_INFO *prMldBssInfo = gprNanMldBssInfo;
@@ -462,10 +505,8 @@ void nanMldStaRecRegister(
 		return;
 	}
 
-	prMldStarec = mldStarecGetByMldAddr(
-		prAdapter,
-		prMldBssInfo,
-		prStaRec->aucMacAddr);
+	prMldStarec = mldStarecGetByMldAddr(prAdapter, prMldBssInfo,
+					    prStaRec->aucMacAddr);
 	if (!prMldStarec) {
 		prMldStarec = mldStarecAlloc(prAdapter,
 			prMldBssInfo,
@@ -479,19 +520,11 @@ void nanMldStaRecRegister(
 		}
 	}
 
-	mldStarecRegister(
-		prAdapter,
-		prMldStarec,
-		prStaRec,
-		ucLinkIndex);
+	mldStarecRegister(prAdapter, prMldStarec, prStaRec, ucLinkIndex);
 
-	mldStarecSetSetupIdx(
-		prAdapter,
-		prStaRec);
+	mldStarecSetSetupIdx(prAdapter, prStaRec);
 
-	nanUpdateMbmcIdx(prAdapter,
-		prStaRec->ucBssIndex,
-		ucLinkIndex);
+	nanUpdateMbmcIdx(prAdapter, prStaRec->ucBssIndex, ucLinkIndex);
 }
 #endif
 

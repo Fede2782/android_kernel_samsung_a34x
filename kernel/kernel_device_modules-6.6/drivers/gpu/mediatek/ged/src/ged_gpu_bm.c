@@ -186,4 +186,5 @@ u32 qos_get_frame_nr(void)
 {
 	return qos_frame_nr;
 }
+EXPORT_SYMBOL(qos_get_frame_nr);
 #endif /* MTK_GPU_BM_2 */

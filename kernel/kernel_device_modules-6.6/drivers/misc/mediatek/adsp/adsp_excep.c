@@ -34,7 +34,9 @@
 #include "adsp_bus_monitor.h"
 
 #if IS_ENABLED(CONFIG_SND_SOC_SAMSUNG_AUDIO)
+#if !IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_MT6991)
 #include <sound/samsung/sec_audio_sysfs.h>
+#endif
 #endif
 
 #define ADSP_MAGIC_PATTERN      (0xAD5BAD5B)
@@ -269,11 +271,14 @@ static void adsp_exception_dump(struct adsp_exception_control *ctrl)
 		msleep(20);
 		return;
 	}
-
+#if 0
+	/* Block temporarily to get SYS_ADSP_DUMP in AEE DB - ALPS09054676 */
 	if (aee_get_mode() >= AEE_MODE_CUSTOMER_USER) {
 		dump_flag = false;
 		pr_info("%s, bypass coredump, aee customer user mode", __func__);
 	}
+#endif
+	pr_info("%s, check aee mode %d", __func__, aee_get_mode());
 
 	if (dump_flag) {
 		ret = dump_buffer(ctrl, coredump_id);
@@ -410,7 +415,9 @@ void adsp_aed_worker(struct work_struct *ws)
 	adsp_exception_dump(ctrl);
 #endif
 #if IS_ENABLED(CONFIG_SND_SOC_SAMSUNG_AUDIO)
+#if !IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_MT6991)
 	send_adsp_silent_reset_ev();
+#endif
 	snprintf(env, sizeof(env), "ADSP_LAST_MSG");
 	kobject_uevent_env(&ctrl->wakeup_lock->dev->kobj, KOBJ_CHANGE, envp);
 #endif
@@ -436,12 +443,9 @@ void adsp_aed_worker(struct work_struct *ws)
 		mtk_emidbg_dump();
 #endif
 		pr_info("%s, adsp dead, wait dump dead body", __func__);
-		if (is_infrabus_timeout())
-			BUG(); /* reboot for bus dump */
-		else
-			aee_kernel_exception_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
-						 "[ADSP]",
-						 "ASSERT: ADSP DEAD! Recovery Fail");
+		aee_kernel_exception_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
+					 "[ADSP]",
+					 "ASSERT: ADSP DEAD! Recovery Fail");
 	}
 #endif
 	adsp_disable_clock();

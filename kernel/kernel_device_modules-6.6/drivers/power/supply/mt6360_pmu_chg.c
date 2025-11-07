@@ -31,7 +31,7 @@
 
 #include <linux/mfd/mt6360-private.h>
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #include <tcpm.h>
 #if IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 #include <linux/usb/typec/common/pdic_notifier.h>
@@ -72,7 +72,7 @@ module_param(dbg_log_en, bool, 0644);
 #define MT6360_PMU_CHG_CTRL7		0x317
 #define MT6360_PMU_CHG_CTRL9		0x319
 #define MT6360_PMU_CHG_CTRL10		0x31A
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #define MT6360_PMU_CHG_CTRL11		0x31B
 #endif
 #define MT6360_PMU_CHG_CTRL12		0x31C
@@ -117,7 +117,7 @@ module_param(dbg_log_en, bool, 0644);
 #define MT6360_HZ_EN_MASK		BIT(2)
 #define MT6360_OPA_MODE_MASK		BIT(0)
 /* MT6360_PMU_CHG_CTRL2 : 0x312 */
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #define MT6360_BATDET_DIS_DLY_MASK		BIT(6)
 #endif
 #define MT6360_IINLMTSEL_SHFT		(2)
@@ -140,13 +140,13 @@ module_param(dbg_log_en, bool, 0644);
 /* MT6360_PMU_CHG_CTRL7 : 0x317 */
 #define MT6360_ICHG_SHFT		(2)
 #define MT6360_ICHG_MASK		GENMASK(7, 2)
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #define MT6360_EOC_TIMER_MASK	GENMASK(1, 0)
 #endif
 /* MT6360_PMU_CHG_CTRL9 : 0x319 */
 #define MT6360_IEOC_SHFT		(4)
 #define MT6360_IEOC_MASK		GENMASK(7, 4)
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #define MT6360_EOC_EN_MASK		BIT(3)
 #endif
 /* MT6360_PMU_CHG_AICC_RESULT : 0x321 */
@@ -155,7 +155,7 @@ module_param(dbg_log_en, bool, 0644);
 /* MT6360_PMU_CHG_CTRL10 : 0x31A */
 #define MT6360_OTG_OC_SHFT		(0)
 #define MT6360_OTG_OC_MASK		GENMASK(2, 0)
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 /* MT6360_PMU_CHG_CTRL11 : 0x1B */
 #define MT6360_MASK_VRECH	(0x03)
 #endif
@@ -227,7 +227,7 @@ module_param(dbg_log_en, bool, 0644);
 #define MT6360_OTPI_MASK		BIT(7)
 #define MT6360_CHG_TMRI_MASK		BIT(3)
 /* MT6360_PMU_CHG_STAT5 : 0x3E4 */
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #define MT6360_CHG_IEOCI_MASK		BIT(7)
 #endif
 #define MT6360_WDTMRI_MASK		BIT(3)
@@ -261,7 +261,7 @@ module_param(dbg_log_en, bool, 0644);
 #define MT6360_IEOC_STEP	50000
 
 /* If use EXT_HEALTH property, set to 1 */
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #define POWER_SUPPLY_EXT_HEALTH	1
 #else
 #define POWER_SUPPLY_EXT_HEALTH	0
@@ -411,7 +411,7 @@ struct mt6360_chg_info {
 	/* otg_vbus */
 	struct regulator_dev *otg_rdev;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	struct delayed_work sec_cable_work;
 	unsigned int f_mode;
 	int sec_cable_type;
@@ -472,7 +472,7 @@ static const char __maybe_unused *mt6360_chg_status_name[] = {
 };
 
 static const struct mt6360_chg_platform_data def_platform_data = {
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	.ichg = 2000000,		/* uA */
 	.aicr = 500000,			/* uA */
 	.mivr = 4400000,		/* uV */
@@ -487,7 +487,7 @@ static const struct mt6360_chg_platform_data def_platform_data = {
 	.ircmp_resistor = 25000,	/* uohm */
 	.ircmp_vclamp = 32000,		/* uV */
 #endif
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	.en_te = true,
 #endif
 	.en_wdt = true,
@@ -500,7 +500,7 @@ static const struct mt6360_chg_platform_data def_platform_data = {
 /* ================== */
 /* Internal Functions */
 /* ================== */
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 static u32 mt6360_trans_ichg_sel(u32 uA)
 {
 	u32 data;
@@ -970,7 +970,7 @@ out:
 }
 #endif /* MT6360_APPLE_SAMSUNG_TA_SUPPORT */
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 static void mt6360_wake_up_charger(struct mt6360_chg_info *mci)
 {
 	struct power_supply *chg_psy = NULL;
@@ -993,7 +993,7 @@ static void mt6360_wake_up_charger(struct mt6360_chg_info *mci)
 
 static int mt6360_chgdet_pre_process(struct mt6360_chg_info *mci)
 {
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	int cable_work_delay = 0;
 #endif
 	int attach = ATTACH_TYPE_NONE;
@@ -1017,14 +1017,14 @@ static int mt6360_chgdet_pre_process(struct mt6360_chg_info *mci)
 		case ATTACH_TYPE_PD_SDP:
 			mci->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 			mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 			mci->sec_cable_type = SEC_BATTERY_CABLE_USB;
 #endif
 			break;
 		case ATTACH_TYPE_PD_DCP:
 			mci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
 			mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 			mci->sec_cable_type = SEC_BATTERY_CABLE_TA;
 #endif
 			break;
@@ -1032,12 +1032,12 @@ static int mt6360_chgdet_pre_process(struct mt6360_chg_info *mci)
 		default:
 			mci->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 			mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 			mci->sec_cable_type = SEC_BATTERY_CABLE_TA;
 #endif
 			break;
 		}
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #if !IS_ENABLED(CONFIG_SEC_FACTORY)
 		if (mci->sec_cable_type != SEC_BATTERY_CABLE_NONE)
 			cable_work_delay = 250;
@@ -1046,7 +1046,7 @@ static int mt6360_chgdet_pre_process(struct mt6360_chg_info *mci)
 		queue_delayed_work(mci->pe_wq, &mci->sec_cable_work, msecs_to_jiffies(cable_work_delay));
 #endif
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		mt6360_wake_up_charger(mci);
 #else
 		power_supply_changed(mci->psy);
@@ -1085,7 +1085,7 @@ static int mt6360_chgdet_post_process(struct mt6360_chg_info *mci)
 	bool inform_psy = true;
 	u8 usb_status = MT6360_CHG_TYPE_NOVBUS;
 	unsigned int regval;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	int cable_work_delay = 0;
 #endif
 
@@ -1094,7 +1094,7 @@ static int mt6360_chgdet_post_process(struct mt6360_chg_info *mci)
 	else
 		attach = mci->pwr_rdy;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	if (mci->attach == attach && atomic_read(&mci->bc12_nsdp_cnt) == 0) {
 #else
 	if (mci->attach == attach) {
@@ -1111,7 +1111,7 @@ static int mt6360_chgdet_post_process(struct mt6360_chg_info *mci)
 		dev_info(mci->dev, "%s: Charger Type: UNKONWN\n", __func__);
 		mci->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
 		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		mci->sec_cable_type = SEC_BATTERY_CABLE_NONE;
 		atomic_set(&mci->bc12_nsdp_cnt, 0);
 #endif
@@ -1134,7 +1134,7 @@ static int mt6360_chgdet_post_process(struct mt6360_chg_info *mci)
 			  "%s: Charger Type: STANDARD_HOST\n", __func__);
 		mci->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		mci->sec_cable_type = SEC_BATTERY_CABLE_USB;
 #endif
 		break;
@@ -1143,7 +1143,7 @@ static int mt6360_chgdet_post_process(struct mt6360_chg_info *mci)
 			  "%s: Charger Type: NONSTANDARD_CHARGER\n", __func__);
 		mci->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		mci->sec_cable_type = SEC_BATTERY_CABLE_TIMEOUT;
 #endif
 		break;
@@ -1152,7 +1152,7 @@ static int mt6360_chgdet_post_process(struct mt6360_chg_info *mci)
 			  "%s: Charger Type: CHARGING_HOST\n", __func__);
 		mci->psy_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
 		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_CDP;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		mci->sec_cable_type = SEC_BATTERY_CABLE_USB_CDP;
 #endif
 		break;
@@ -1161,13 +1161,13 @@ static int mt6360_chgdet_post_process(struct mt6360_chg_info *mci)
 			  "%s: Charger Type: STANDARD_CHARGER\n", __func__);
 		mci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
 		mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		mci->sec_cable_type = SEC_BATTERY_CABLE_TA;
 #endif
 		break;
 	}
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	/* BC12 workaround (NONSTD) */
 	if (usb_status == MT6360_CHG_TYPE_SDPNSTD) {
 		if (atomic_read(&mci->bc12_nsdp_cnt) < 1) {
@@ -1206,7 +1206,7 @@ static int mt6360_chgdet_post_process(struct mt6360_chg_info *mci)
 			case APPLE_2_4A_CHARGER:
 				mci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
 				mci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 				mci->sec_cable_type = SEC_BATTERY_CABLE_TA;
 #endif
 				break;
@@ -1225,7 +1225,7 @@ out:
 	if (!inform_psy)
 		return ret;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #if !IS_ENABLED(CONFIG_SEC_FACTORY)
 	if (mci->sec_cable_type != SEC_BATTERY_CABLE_NONE)
 		cable_work_delay = 250;
@@ -1234,7 +1234,7 @@ out:
 	queue_delayed_work(mci->pe_wq, &mci->sec_cable_work, msecs_to_jiffies(cable_work_delay));
 #endif
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	mt6360_wake_up_charger(mci);
 #else
 	power_supply_changed(mci->psy);
@@ -1547,7 +1547,7 @@ static int __mt6360_enable_otg(struct mt6360_chg_info *mci, bool en)
 				  MT6360_OPA_MODE_MASK, en ? 0xff : 0);
 }
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 static void mt6360_sec_cable_work_func(struct work_struct *work)
 {
 	struct mt6360_chg_info *mci = container_of(work,
@@ -1959,7 +1959,7 @@ static int mt6360_run_aicc(struct charger_device *chg_dev, u32 *uA)
 	long timeout;
 	bool mivr_stat = false;
 	unsigned int regval;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	union power_supply_propval propval = {0, };
 #endif
 
@@ -2038,7 +2038,7 @@ out:
 	ret = regmap_update_bits(mci->regmap, MT6360_PMU_CHG_CTRL14,
 				 MT6360_RG_EN_AICC_MASK, 0);
 	mutex_unlock(&mci->pe_lock);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	if (aicc_val > 0) {
 		propval.intval = (aicc_val / 1000);
 		psy_do_property("sec-mtk-charger", set,
@@ -2239,7 +2239,7 @@ static int mt6360_get_adc(struct charger_device *chg_dev, enum adc_channel chan,
 	return __mt6360_get_adc(mci, channel, min, max);
 }
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 static int mt6360_get_vsys(struct charger_device *chg_dev, u32 *vsys)
 {
 	return mt6360_get_adc(chg_dev, ADC_CHANNEL_VSYS, vsys, vsys);
@@ -2362,7 +2362,7 @@ out:
 	return ret;
 }
 
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 static int mt6360_is_charging_done(struct charger_device *chg_dev,
 					   bool *done)
 {
@@ -2553,7 +2553,7 @@ static int mt6360_get_ctd_dischg_status(struct charger_device *chg_dev,
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 /* ALPS09479827 Charger: add charger class APIs of MT6360 for factory */
 static int mt6360_set_eoc_timer(struct charger_device *chg_dev,
 					unsigned int time)
@@ -2857,7 +2857,7 @@ static const struct charger_ops mt6360_chg_ops = {
 	.enable_chg_type_det = mt6360_enable_chg_type_det,
 	/* ADC */
 	.get_adc = mt6360_get_adc,
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	.get_vsys_adc = mt6360_get_vsys,
 #endif
 	.get_vbus_adc = mt6360_get_vbus,
@@ -2869,7 +2869,7 @@ static const struct charger_ops mt6360_chg_ops = {
 	/* misc */
 	.safety_check = mt6360_safety_check,
 	.reset_eoc_state = mt6360_reset_eoc_state,
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	.is_charging_done = mt6360_is_charging_eoc,
 #else
 	.is_charging_done = mt6360_is_charging_done,
@@ -2891,7 +2891,7 @@ static const struct charger_ops mt6360_chg_ops = {
 	.get_health = mt6360_get_health,
 	.get_charge_type = mt6360_get_charge_type,
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	.set_eoc_timer = mt6360_set_eoc_timer,
 	.enable_eoc = mt6360_enable_eoc,
 	.enable_ship_mode = mt6360_enable_ship_mode,
@@ -3367,7 +3367,7 @@ out:
 }
 
 static const struct mt6360_pdata_prop mt6360_pdata_props[] = {
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	MT6360_PDATA_VALPROP(ichg, struct mt6360_chg_platform_data,
 			     MT6360_PMU_CHG_CTRL7, 2, 0xFC,
 			     mt6360_trans_ichg_sel, 0),
@@ -3396,7 +3396,7 @@ static const struct mt6360_pdata_prop mt6360_pdata_props[] = {
 };
 
 static const struct mt6360_val_prop mt6360_val_props[] = {
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	MT6360_DT_VALPROP(ichg, struct mt6360_chg_platform_data),
 	MT6360_DT_VALPROP(aicr, struct mt6360_chg_platform_data),
 	MT6360_DT_VALPROP(mivr, struct mt6360_chg_platform_data),
@@ -3406,7 +3406,7 @@ static const struct mt6360_val_prop mt6360_val_props[] = {
 #endif
 	MT6360_DT_VALPROP(ircmp_resistor, struct mt6360_chg_platform_data),
 	MT6360_DT_VALPROP(ircmp_vclamp, struct mt6360_chg_platform_data),
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	MT6360_DT_VALPROP(en_te, struct mt6360_chg_platform_data),
 #endif
 	MT6360_DT_VALPROP(en_wdt, struct mt6360_chg_platform_data),
@@ -3455,7 +3455,7 @@ static int mt6360_chg_init_setting(struct mt6360_chg_info *mci)
 
 	dev_info(mci->dev, "%s\n", __func__);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	if (!f_mode)
 		mci->f_mode = NO_MODE;
 	else if ((strncmp(f_mode, "OB", 2) == 0) || (strncmp(f_mode, "DL", 2) == 0))
@@ -3551,7 +3551,7 @@ static int mt6360_chg_init_setting(struct mt6360_chg_info *mci)
 		return ret;
 	}
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	/* ALPS05385820 : recharging VREC set to MAX, */
 	/* to inform topoff timer and */
 	/* for using samsung's recharging routine */
@@ -3690,7 +3690,7 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 		val->intval = attach;
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		if (val->intval == SEC_BATTERY_CABLE_TYPE_FROM_MTK)
 			val->intval = mci->sec_cable_type;
 		else
@@ -3797,7 +3797,7 @@ static const struct power_supply_desc mt6360_charger_desc = {
 };
 
 static char *mt6360_charger_supplied_to[] = {
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	"mtk-fg-battery",
 #else
 	"battery",
@@ -3980,7 +3980,7 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	atomic_set(&mci->mivr_cnt, 0);
 	atomic_set(&mci->tcpc_attach, 0);
 	init_waitqueue_head(&mci->mivr_wq);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	atomic_set(&mci->bc12_nsdp_cnt, 0);
 #endif
 	if (!IS_ENABLED(CONFIG_TCPC_CLASS) && pdata->bc12_sel == 0)
@@ -3988,7 +3988,7 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, mci);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	INIT_DELAYED_WORK(&mci->sec_cable_work, mt6360_sec_cable_work_func);
 #endif
 	/* get parent regmap */
@@ -4057,7 +4057,7 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	}
 	INIT_WORK(&mci->pe_work, mt6360_trigger_pep_work_handler);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	INIT_DELAYED_WORK(&mci->sec_cable_work, mt6360_sec_cable_work_func);
 #endif
 
@@ -4096,7 +4096,7 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	if (!IS_ENABLED(CONFIG_TCPC_CLASS) && pdata->bc12_sel == 0)
 		schedule_work(&mci->chgdet_work);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	/* samsung cable type init value = 1 */
 	mci->sec_cable_type = SEC_BATTERY_CABLE_NONE;
 

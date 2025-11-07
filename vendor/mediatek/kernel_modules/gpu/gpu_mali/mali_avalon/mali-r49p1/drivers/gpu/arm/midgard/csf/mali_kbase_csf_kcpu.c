@@ -61,10 +61,15 @@ static DEFINE_SPINLOCK(kbase_csf_fence_lock);
 #endif /* CONFIG_MALI_MTK_MBRAIN_SUPPORT */
 
 #if IS_ENABLED(CONFIG_MALI_MTK_FENCE_DEBUG)
+#include <linux/freezer.h>
 #define FENCE_WAIT_TIMEOUT_MS 2000
 #else /* CONFIG_MALI_MTK_FENCE_DEBUG */
 #define FENCE_WAIT_TIMEOUT_MS 3000
 #endif /* CONFIG_MALI_MTK_FENCE_DEBUG */
+
+#if IS_ENABLED(CONFIG_SEC_ABC)
+#include <linux/sti/abc_common.h>
+#endif
 
 static int kbase_kcpu_map_import_prepare(struct kbase_kcpu_command_queue *kcpu_queue,
 					 struct base_kcpu_command_import_info *import_info,
@@ -1431,6 +1436,7 @@ static void fence_timeout_callback(struct timer_list *timer)
 	struct dma_fence_array *fence_array;
 	struct dma_fence **fences = NULL;
 	unsigned int i, num_fences;
+	struct kbase_sync_fence_info fence_array_member_info;
 #endif /* CONFIG_MALI_MTK_FENCE_DEBUG */
 
 	if (cmd->type != BASE_KCPU_COMMAND_TYPE_FENCE_WAIT) {
@@ -1527,14 +1533,15 @@ static void fence_timeout_callback(struct timer_list *timer)
 
 				for (i = 0; i < num_fences; i++) {
 					if (fences[i]) {
-						dev_info(kctx->kbdev->dev, "context#seqno:%s dma_fence_array[%d] (driver=%s, timeline=%s) status=%s",
+						kbase_sync_fence_info_get(fences[i], &fence_array_member_info);
+						dev_info(kctx->kbdev->dev, "context#seqno:%s dma_fence_array[%d] (driver=%s, timeline=%s, name=%s) status=%s",
 							info.name, i, fences[i]->ops->get_driver_name(fences[i]), fences[i]->ops->get_timeline_name(fences[i]),
-							dma_fence_is_signaled(fences[i]) ? "signaled" : "not signaled");
+							fence_array_member_info.name, dma_fence_is_signaled(fences[i]) ? "signaled" : "not signaled");
 #if IS_ENABLED(CONFIG_MALI_MTK_LOG_BUFFER)
 						mtk_logbuffer_type_print(kctx->kbdev, MTK_LOGBUFFER_TYPE_CRITICAL | MTK_LOGBUFFER_TYPE_EXCEPTION,
-							"context#seqno:%s dma_fence_array[%d] (driver=%s, timeline=%s) status=%s\n",
+							"context#seqno:%s dma_fence_array[%d] (driver=%s, timeline=%s, name=%s) status=%s\n",
 							info.name, i, fences[i]->ops->get_driver_name(fences[i]), fences[i]->ops->get_timeline_name(fences[i]),
-							dma_fence_is_signaled(fences[i]) ? "signaled" : "not signaled");
+							fence_array_member_info.name, dma_fence_is_signaled(fences[i]) ? "signaled" : "not signaled");
 #endif /* CONFIG_MALI_MTK_LOG_BUFFER */
 #if IS_ENABLED(CONFIG_MALI_MTK_FENCE_DEBUG)
 							/* Check if fence array include the non signal display fence */
@@ -2132,6 +2139,8 @@ static void kcpu_fence_timeout_dump(struct kbase_kcpu_command_queue *queue,
 	unsigned int fence_signal_command_timeout_counter;
 	const unsigned int sf_shift_ms = 300;
 	char sf_name[] = "surfaceflinger";
+	struct task_struct *task;
+	struct pid *pid_struct;
 #endif /* CONFIG_MALI_MTK_FENCE_DEBUG */
 
 	mutex_lock(&queue->lock);
@@ -2221,6 +2230,22 @@ static void kcpu_fence_timeout_dump(struct kbase_kcpu_command_queue *queue,
 				fence_signal_command_timeout_ms,
 				fence, info.name,
 				fence->ops->get_driver_name(fence), fence->ops->get_timeline_name(fence));
+
+			pid_struct = find_get_pid(kctx->tgid);
+			if (pid_struct) {
+				rcu_read_lock();
+				task = pid_task(pid_struct, PIDTYPE_PID);
+				if (task && task->group_leader && task->signal) {
+					mtk_logbuffer_type_print(kctx->kbdev, MTK_LOGBUFFER_TYPE_DEFERRED | MTK_LOGBUFFER_TYPE_CRITICAL | MTK_LOGBUFFER_TYPE_EXCEPTION,
+						"ctx:%d_%d, process_name:%s, state:0x%llx, exit_state:0x%llx, signal->flags:%lld, freezing:%d\n",
+						kctx->tgid, kctx->id, task->group_leader->comm, (unsigned long long) task->__state,
+						(unsigned long long) task->exit_state, (unsigned long long) task->signal->flags, freezing(task)
+					);
+				}
+
+				rcu_read_unlock();
+				put_pid(pid_struct);
+			}
 		} else {
 			if (fence_signal_command_timeout_counter == 5) {
 				/* Log the 2s, 3s timeout dump */
@@ -2291,6 +2316,9 @@ static void kcpu_fence_timeout_dump(struct kbase_kcpu_command_queue *queue,
 				dev_info(kctx->kbdev->dev, "KCPU queue command timeouts(%d ms)! Trigger GPU reset",
 					fence_signal_command_timeout_ms);
 #endif /* CONFIG_MALI_MTK_DEFERRED_LOGGING */
+#if IS_ENABLED(CONFIG_SEC_ABC)
+				sec_abc_send_event("MODULE=gpu@WARN=gpu_job_timeout");
+#endif /* CONFIG_SEC_ABC */
 #if IS_ENABLED(CONFIG_MALI_MTK_LOG_BUFFER)
 				mtk_logbuffer_type_print(kctx->kbdev, MTK_LOGBUFFER_TYPE_CRITICAL | MTK_LOGBUFFER_TYPE_EXCEPTION,
 					"KCPU queue command timeouts(%d ms)! Trigger GPU reset\n",
@@ -2378,6 +2406,40 @@ static void kcpu_queue_timeout_worker(struct work_struct *data)
 	struct kbase_kcpu_command_queue *queue =
 		container_of(data, struct kbase_kcpu_command_queue, timeout_work);
 	struct kbasep_printer *kbpr = NULL;
+
+#if IS_ENABLED(CONFIG_MALI_MTK_FENCE_DEBUG)
+	struct task_struct *task;
+	struct pid *pid_struct;
+	bool if_pending_freezing = false;
+
+	/* Prevent monitor fence when process in the zombie, dead or frozen state */
+	pid_struct = find_get_pid(queue->kctx->tgid);
+	if (pid_struct) {
+		rcu_read_lock();
+		task = pid_task(pid_struct, PIDTYPE_PID);
+		if (task) {
+			if_pending_freezing = freezing(task);
+			if ((task->exit_state == EXIT_ZOMBIE) || (task->exit_state == EXIT_DEAD) ||
+				(task->__state & TASK_FROZEN) || if_pending_freezing) {
+				dev_info(queue->kctx->kbdev->dev,
+					"[%d_%d] Bypass fence monitor, process is in unexpected state:0x%llx, exit_state:0x%llx, freezing:%d",
+					queue->kctx->tgid, queue->kctx->id, (unsigned long long) task->__state,
+					(unsigned long long) task->exit_state, if_pending_freezing);
+#if IS_ENABLED(CONFIG_MALI_MTK_LOG_BUFFER)
+				mtk_logbuffer_type_print(queue->kctx->kbdev, MTK_LOGBUFFER_TYPE_CRITICAL | MTK_LOGBUFFER_TYPE_EXCEPTION,
+					"[%d_%d] Bypass fence monitor, process is in unexpected state:0x%llx, exit_state:0x%llx, freezing:%d\n",
+					queue->kctx->tgid, queue->kctx->id, (unsigned long long) task->__state,
+					(unsigned long long) task->exit_state, if_pending_freezing);
+#endif /* CONFIG_MALI_MTK_LOG_BUFFER */
+				rcu_read_unlock();
+				put_pid(pid_struct);
+				return;
+			}
+		}
+		rcu_read_unlock();
+		put_pid(pid_struct);
+	}
+#endif /* CONFIG_MALI_MTK_FENCE_DEBUG */
 
 	kbpr = kbasep_printer_buffer_init(queue->kctx->kbdev, KBASEP_PRINT_TYPE_DEV_WARN);
 #if IS_ENABLED(CONFIG_MALI_MTK_FENCE_DEBUG)

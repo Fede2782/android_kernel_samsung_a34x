@@ -1,18 +1,18 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include "precomp.h"
 #include "gl_fw_log.h"
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 #include "connv3_debug_utility.h"
 #include "connsyslog/connv3_mcu_log.h"
 #else
 #include "connsys_debug_utility.h"
 #endif
 
-#if CFG_SUPPORT_CONNAC1X
+#if IS_ENABLED(CFG_SUPPORT_CONNAC1X)
 #define CONNLOG_TYPE_WF			CONNLOG_TYPE_WIFI
 #elif (CFG_SUPPORT_CONNAC2X == 1)
 #define CONNLOG_TYPE_WF			CONN_DEBUG_TYPE_WIFI
@@ -67,7 +67,7 @@ static ssize_t fw_log_wifi_read(struct file *filp, char __user *buf,
 {
 	ssize_t sz = 0;
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 	sz = connv3_log_read_to_user(CONNLOG_TYPE_WF, buf, len);
 #else
 	sz = connsys_log_read_to_user(CONNLOG_TYPE_WF, buf, len);
@@ -83,7 +83,7 @@ static unsigned int fw_log_wifi_poll(struct file *filp, poll_table *wait)
 
 	poll_wait(filp, &prInf->wq, wait);
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 	if (connv3_log_get_buf_size(CONNLOG_TYPE_WF) > 0)
 		ret = (POLLIN | POLLRDNORM);
 #else
@@ -128,7 +128,7 @@ static long fw_log_wifi_unlocked_ioctl(struct file *filp, unsigned int cmd,
 				 prInf->ver_length))
 			ret = -EFAULT;
 
-		DBGLOG(INIT, DEBUG, "ver_name=%s\n", prInf->ver_name);
+		DBGLOG(INIT, INFO, "ver_name=%s\n", prInf->ver_name);
 		break;
 	}
 	default:
@@ -178,11 +178,11 @@ uint32_t fw_log_notify_rcv(enum ENUM_FW_LOG_CTRL_TYPE type,
 	uint32_t size)
 {
 	uint32_t written = 0;
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 	enum connv3_log_type eType = CONNV3_LOG_TYPE_PRIMARY;
 #endif
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 	switch (type) {
 	case ENUM_FW_LOG_CTRL_TYPE_MCU:
 		eType = CONNV3_LOG_TYPE_MCU;
@@ -197,15 +197,15 @@ uint32_t fw_log_notify_rcv(enum ENUM_FW_LOG_CTRL_TYPE type,
 	}
 	written = connv3_log_handler(CONNV3_DEBUG_TYPE_WIFI, eType,
 		buffer, size);
-	if (written == 0)
+	if (written == 0) {
 #if (CFG_TC10_FEATURE == 1)
 		if (type != ENUM_FW_LOG_CTRL_TYPE_MCU)
 #endif
 			DBGLOG(INIT, WARN,
 				"[%d] connv3 driver buffer full.\n",
 				type);
-	else
-		DBGLOG(INIT, LOUD,
+	} else
+		DBGLOG(INIT, TRACE,
 			"[%d] connv3_log_handler written=%d\n",
 			type,
 			written);
@@ -223,7 +223,7 @@ int fw_log_wifi_inf_init(void)
 	init_waitqueue_head(&prInf->wq);
 	sema_init(&prInf->ioctl_mtx, 1);
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 	ret = connv3_log_init(CONNLOG_TYPE_WF,
 			      RING_BUFFER_SIZE_WF_FW,
 			      RING_BUFFER_SIZE_WF_MCU,
@@ -295,7 +295,7 @@ cdev_del:
 unregister_chrdev_region:
 	unregister_chrdev_region(prInf->devno, 1);
 connsys_deinit:
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 	connv3_log_deinit(CONNLOG_TYPE_WF);
 #else
 	connsys_log_register_event_cb(CONNLOG_TYPE_WF, NULL);
@@ -318,7 +318,7 @@ void fw_log_wifi_inf_deinit(void)
 	cdev_del(&prInf->cdev);
 	unregister_chrdev_region(prInf->devno, 1);
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 	connv3_log_deinit(CONNLOG_TYPE_WF);
 #else
 	connsys_log_register_event_cb(CONNLOG_TYPE_WF, NULL);
@@ -326,3 +326,88 @@ void fw_log_wifi_inf_deinit(void)
 #endif
 }
 
+#if CFG_LOGGER_FWLOG_POLLING
+unsigned int fw_log_get_buf_size(void)
+{
+	unsigned int size = 0;
+
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
+	size = connv3_log_get_buf_size(CONNLOG_TYPE_WF);
+#else
+	size = connsys_log_get_buf_size(CONNLOG_TYPE_WF);
+#endif
+	return size;
+}
+
+ssize_t fw_logger_read(char *buf, size_t len)
+{
+	ssize_t sz = 0;
+
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
+	sz = connv3_log_read(CONNLOG_TYPE_WF, buf, len);
+#else
+	sz = connsys_log_read(CONNLOG_TYPE_WF, buf, len);
+#endif
+	return sz;
+}
+#endif
+
+int fw_logger_ioctl(unsigned int cmd, unsigned long arg)
+{
+	struct fw_log_wifi_interface *prInf = &fw_log_wifi_inf;
+	int ret = 0;
+
+	down(&prInf->ioctl_mtx);
+
+	switch (cmd) {
+	case WIFI_FW_LOG_IOCTL_ON_OFF:{
+		int log_on_off = (int)arg;
+
+		if (prInf->cb)
+			prInf->cb(WIFI_FW_LOG_CMD_ON_OFF, log_on_off);
+		break;
+	}
+	case WIFI_FW_LOG_IOCTL_SET_LEVEL:{
+		int log_level = (int)arg;
+
+		if (prInf->cb)
+			prInf->cb(WIFI_FW_LOG_CMD_SET_LEVEL, log_level);
+		break;
+	}
+	case WIFI_FW_LOG_IOCTL_GET_VERSION:{
+		prInf->ver_length = 0;
+		kalMemZero(prInf->ver_name, MANIFEST_BUFFER_SIZE);
+		schedule_work(&prInf->getFwVerQ);
+		flush_work(&prInf->getFwVerQ);
+		DBGLOG(INIT, INFO, "ver_name=%s\n", prInf->ver_name);
+		break;
+	}
+	default:
+		ret = -EINVAL;
+	}
+
+	up(&prInf->ioctl_mtx);
+
+	return ret;
+}
+
+#if CFG_LOGGER_FWLOG_POLLING
+int fw_logger_start(void)
+{
+	int ret;
+
+	DBGLOG(INIT, INFO, "\n");
+	ret = fw_logger_ioctl(WIFI_FW_LOG_IOCTL_ON_OFF, 1);
+	ret = fw_logger_ioctl(WIFI_FW_LOG_IOCTL_SET_LEVEL, 3);
+	return ret;
+}
+
+int fw_logger_stop(void)
+{
+	int ret;
+
+	DBGLOG(INIT, INFO, "\n");
+	ret = fw_logger_ioctl(WIFI_FW_LOG_IOCTL_ON_OFF, 0);
+	return ret;
+}
+#endif

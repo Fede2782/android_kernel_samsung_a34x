@@ -734,6 +734,11 @@ int ccu_run(struct ccu_run_s *info)
 		LOG_ERR("CCU RUN failed, bin_mem NULL\n");
 		return -EINVAL;
 	}
+	if (bin_mem->align_mva < CCU_CACHE_BASE) {
+		LOG_ERR("mva error: align_mva 0x%08x < CCU_CACHE_BASE 0x%08x.",
+			bin_mem->align_mva, CCU_CACHE_BASE);
+		return -EINVAL;
+	}
 	remapOffset = bin_mem->align_mva - CCU_CACHE_BASE;
 	ccu_H2X_MSB = ccu_read_reg_bit(ccu_base, CTRL, H2X_MSB);
 	ccu_write_reg(ccu_base, AXI_REMAP, remapOffset);
@@ -1412,8 +1417,6 @@ void *ccu_da_to_va(u64 da, int len)
 		return NULL;
 	}
 
-	mva_offset = bin_mem->align_mva - bin_mem->mva;
-
 	if (da < CCU_CACHE_BASE) {
 		offset = da;
 		if ((offset >= 0) && ((offset + len) < CCU_PMEM_SIZE)) {
@@ -1432,6 +1435,12 @@ void *ccu_da_to_va(u64 da, int len)
 		offset = da - CCU_CACHE_BASE;
 		if ((offset >= 0) &&
 		((offset + len) < CCU_CTRL_BUF_TOTAL_SIZE)) {
+			if (bin_mem->align_mva < bin_mem->mva) {
+				LOG_ERR("0x%x - 0x%x would overrun",
+					bin_mem->align_mva, bin_mem->mva);
+				return NULL;
+			}
+			mva_offset = bin_mem->align_mva - bin_mem->mva;
 			LOG_INF_MUST("da(0x%llx) to va(0x%llx)",
 				da, (uint64_t)(bin_mem->va + mva_offset + offset));
 			return (uint32_t *)(bin_mem->va + mva_offset + offset);

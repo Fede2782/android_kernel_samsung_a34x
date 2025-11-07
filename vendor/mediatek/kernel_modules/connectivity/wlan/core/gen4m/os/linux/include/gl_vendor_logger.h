@@ -10,13 +10,21 @@
 #if CFG_SUPPORT_LOGGER
 
 #define LOGGER_RING_NAME		"logger_ring"
-
-#define LOGGER_BUF_SIZE			(2*1024*1024) /* 2MB */
 #define LOGGER_RING_NAME_MAX		32
 
-#define CFG80211_VENDOR_EVT_SKB_SZ	(1024*1024) /* 1MB */
+#define CFG80211_VENDOR_EVT_SKB_SZ	(12*1024) /* 12KB */
 #define RING_DATA_HDR_SIZE		16
 #define RING_DATA_ENTRY_HDR_SIZE	12
+
+/* Need to choose one among FW and DRV */
+#define LOGGER_MODE_DRV	1
+#define LOGGER_MODE_FW	0
+
+#define LOGGER_DRV_RING_SIZE		(128*1024) /* 128KB */
+#define LOGGER_FW_RING_SIZE		(2*1024*1024) /* 2MB */
+#define LOGGER_FW_READ_SIZE		(256*1024) /* 256KB */
+#define LOGGER_FW_POLL_PERIOD		1000 /* 1000msec */
+#define LOGGER_FW_BUF_SIZE		(1024*1024) /* 1MB */
 
 struct logger_ring {
 	/* ring related variable */
@@ -26,13 +34,14 @@ struct logger_ring {
 };
 
 struct logger_dev {
-	uint8_t		name[LOGGER_RING_NAME_MAX];
-	uint32_t	log_level;
-	uint32_t	flags;
-	uint32_t	interval;
-	uint32_t	threshold;
-	bool		sched_pull;
-	struct logger_ring	iRing;
+	uint8_t name[LOGGER_RING_NAME_MAX];
+	uint32_t log_level;
+	uint32_t flags;
+	uint32_t interval;
+	uint32_t threshold;
+	bool sched_pull;
+	struct logger_ring DrvRing;
+	struct logger_ring FwRing;
 };
 
 struct logger_ring_status {
@@ -85,7 +94,11 @@ static int logger_start_logging(
 	uint32_t threshold);
 static int logger_reset_logging(struct GLUE_INFO *prGlueInfo);
 static void logger_poll_worker(struct work_struct *work);
+#if CFG_LOGGER_FWLOG_POLLING
+static void logger_poll_fw(struct work_struct *work);
+#endif
 static ssize_t logger_read(char *buf, size_t count);
+static ssize_t logger_read_fw(char *buf, size_t count);
 static ssize_t logger_get_buf_size(struct logger_ring *iRing);
 
 int logger_init(struct GLUE_INFO *prGlueInfo);
@@ -93,7 +106,8 @@ int logger_deinit(struct GLUE_INFO *prGlueInfo);
 int logger_work_init(struct GLUE_INFO *prGlueInfo);
 int logger_work_uninit(struct GLUE_INFO *prGlueInfo);
 
-ssize_t wifi_logger_write(char *buf, size_t count);
-
+ssize_t logger_write_wifidrv(char *buf, size_t count);
+ssize_t logger_write_wififw(char *buf, size_t count);
+int logger_mode_wifi(void);
 #endif /* CFG_SUPPORT_LOGGER */
 #endif /* _GL_VENDOR_LOGGER_H_ */

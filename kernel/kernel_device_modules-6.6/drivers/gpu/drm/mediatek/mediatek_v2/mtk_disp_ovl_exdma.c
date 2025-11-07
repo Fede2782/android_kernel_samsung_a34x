@@ -85,6 +85,7 @@ module_param_array(debug_module_bw, int, NULL, 0644);
 	#define INIEN_ROI_TIMING_0 REG_FLD_MSB_LSB(15, 15)
 #define DISP_REG_OVL_INTSTA			(0x0008)
 #define DISP_REG_OVL_EN_CON			(0x000CUL)
+	#define OP_8_BIT_MODE			BIT(4)
 	#define EN_FLD_BLOCK_EXT_ULTRA			REG_FLD_MSB_LSB(18, 18)
 	#define EN_FLD_BLOCK_EXT_PREULTRA		REG_FLD_MSB_LSB(19, 19)
 #define DISP_REG_OVL_EN				(0x0020UL)
@@ -451,10 +452,30 @@ static s32 sRGB_to_DCI_P3[CSC_COEF_NUM] = {
 8702,   253442,      0,
 4478,    18979, 238687};
 
+static s32 sRGB_to_BT2020[CSC_COEF_NUM] = {
+164470,  86320,  11354,
+18113,  241052,   2979,
+4297,    23072, 234775};
+
 static s32 DCI_P3_to_sRGB[CSC_COEF_NUM] = {
 321111, -58967,      0,
 -11025, 273169,      0,
 -5148,  -20614, 287906};
+
+static s32 DCI_P3_to_BT2020[CSC_COEF_NUM] = {
+197613,  52061,  12470,
+11991,  246881,   3271,
+-317,     4614, 257847};
+
+static s32 BT2020_to_sRGB[CSC_COEF_NUM] = {
+435288,-154047, -19097,
+-32650, 296983,  -2189,
+-4758,  -26366, 293268};
+
+static s32 BT2020_to_DCI_P3[CSC_COEF_NUM] = {
+352211, -73972, -16095,
+-17117, 282011,  -2750,
+740,     -5138, 266542};
 
 static s32 identity[CSC_COEF_NUM] = {
 262144,      0,      0,
@@ -465,6 +486,7 @@ static s32 identity[CSC_COEF_NUM] = {
 #define DECLARE_MTK_OVL_COLORSPACE(EXPR)                                       \
 	{EXPR(OVL_SRGB)                                                         \
 	EXPR(OVL_P3)                                                           \
+	EXPR(OVL_BT2020)                                                       \
 	EXPR(OVL_CS_NUM)                                                       \
 	EXPR(OVL_CS_UNKNOWN)}
 
@@ -555,7 +577,7 @@ resource_size_t mtk_ovl_mmsys_mapping_MT6991(struct mtk_ddp_comp *comp)
 	}
 }
 
-unsigned int mtk_ovl_sys_mapping_MT6991(struct mtk_ddp_comp *comp)
+int mtk_ovl_sys_mapping_MT6991(struct mtk_ddp_comp *comp)
 {
 	switch (comp->id) {
 	case DDP_COMPONENT_OVL_EXDMA0:
@@ -720,20 +742,25 @@ static void mtk_ovl_update_hrt_usage(struct mtk_drm_crtc *mtk_crtc,
 	struct drm_framebuffer *fb = plane_state->base.fb;
 	unsigned int fmt = 0;
 	unsigned int phy_id = 0;
+	int ovl_fmt, ovl_compr;
 
 	//Don't use Pending.format here. At this time, Pending is still the previous old information.
 	if (IS_ERR_OR_NULL(fb) || IS_ERR_OR_NULL(fb->format))
 		return;
 
 	fmt = fb->format->format;
-	if (ovl->data->ovl_phy_mapping) {
-		phy_id = ovl->data->ovl_phy_mapping(comp);
-		if (ext_lye_id == 0) {
-			mtk_crtc->usage_ovl_fmt[(phy_id + lye_id)] = mtk_get_format_bpp(fmt);
-			mtk_crtc->usage_ovl_compr[(phy_id + lye_id)] =
-					plane_state->prop_val[PLANE_PROP_COMPRESS];
-		}
-	}
+
+	if (!ovl->data->ovl_phy_mapping)
+		return;
+
+	phy_id = ovl->data->ovl_phy_mapping(comp);
+	ovl_fmt = mtk_get_format_bpp(fmt);
+	ovl_compr = plane_state->prop_val[PLANE_PROP_COMPRESS];
+
+	if (ovl_fmt > mtk_crtc->usage_ovl_fmt[phy_id])
+		mtk_crtc->usage_ovl_fmt[phy_id] = ovl_fmt;
+	if (ovl_compr > mtk_crtc->usage_ovl_compr[phy_id])
+		mtk_crtc->usage_ovl_compr[phy_id] = ovl_compr;
 }
 
 int mtk_ovl_exdma_aid_bit(struct mtk_ddp_comp *comp, bool is_ext, int id)
@@ -836,13 +863,6 @@ static void mtk_ovl_exdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 		       comp->regs_pa + DISP_REG_OVL_RDMA_BURST_CON1,
 		       value, mask);
 
-	value = 0;
-	mask = 0;
-	SET_VAL_MASK(value, mask, 1, FLD_DISP_OVL_EXT_DDR_EN_OPT);
-	SET_VAL_MASK(value, mask, 1, FLD_DDISP_OVL_FORCE_EXT_DDR_EN);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-			   comp->regs_pa + DISP_REG_OVL_DUMMY_REG,
-			   value, mask);
 	value = 0;
 	mask = 0;
 	SET_VAL_MASK(value, mask, 1, DATAPATH_CON_FLD_LAYER_SMI_ID_EN);
@@ -1270,13 +1290,13 @@ static enum mtk_ovl_colorspace mtk_ovl_map_cs(enum mtk_drm_dataspace ds)
 	case MTK_DRM_DATASPACE_STANDARD_DCI_P3:
 		cs = OVL_P3;
 		break;
-	case MTK_DRM_DATASPACE_STANDARD_ADOBE_RGB:
-		DDPPR_ERR("%s: ovl get cs ADOBE_RGB\n", __func__);
-		fallthrough;
 	case MTK_DRM_DATASPACE_STANDARD_BT2020:
 		fallthrough;
 	case MTK_DRM_DATASPACE_STANDARD_BT2020_CONSTANT_LUMINANCE:
-		DDPMSG("[E] %s: ovl does not support BT2020\n", __func__);
+		cs = OVL_BT2020;
+		break;
+	case MTK_DRM_DATASPACE_STANDARD_ADOBE_RGB:
+		DDPMSG("%s: ovl get cs ADOBE_RGB\n", __func__);
 		fallthrough;
 	default:
 		cs = OVL_SRGB;
@@ -1359,6 +1379,22 @@ static unsigned int mtk_crtc_WCG_by_color_mode(struct drm_crtc *crtc)
 	return 0;
 }
 
+static unsigned int mtk_crtc_WCG_DP_OFF(struct drm_crtc *crtc, enum mtk_drm_dataspace ds)
+{
+	struct mtk_drm_private *priv = NULL;
+	int ret = 0;
+
+	if (crtc && crtc->dev)
+		priv = crtc->dev->dev_private;
+	if (priv && mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_WCG_DP_OFF_HDR_DS))
+		if ((drm_crtc_index(crtc) == 1) && ds == MTK_DRM_DATASPACE_BT2020_PQ)
+			ret = true;
+
+
+	DDPINFO("%s ret[%d]\n", __func__, ret);
+	return ret;
+}
+
 static unsigned int mtk_crtc_get_color_mode(struct drm_crtc *crtc)
 {
 	struct mtk_crtc_state *mtk_crtc_state;
@@ -1375,7 +1411,8 @@ static unsigned int mtk_crtc_get_color_mode(struct drm_crtc *crtc)
 }
 
 static s32 *mtk_get_ovl_csc(enum mtk_ovl_colorspace in,
-			    enum mtk_ovl_colorspace out, struct drm_crtc *crtc)
+			    enum mtk_ovl_colorspace out, enum mtk_drm_dataspace plane_ds,
+			    struct drm_crtc *crtc)
 {
 	static s32 *ovl_csc[OVL_CS_NUM][OVL_CS_NUM];
 	static unsigned int inited = 0xffffffff;
@@ -1391,7 +1428,7 @@ static s32 *mtk_get_ovl_csc(enum mtk_ovl_colorspace in,
 		in = 0;
 	}
 
-	if (mtk_crtc_WCG_by_color_mode(crtc)) {
+	if (mtk_crtc_WCG_by_color_mode(crtc) && !mtk_crtc_WCG_DP_OFF(crtc, plane_ds)) {
 		/* WCG by color mode */
 		unsigned int color_mode = mtk_crtc_get_color_mode(crtc);
 
@@ -1403,16 +1440,36 @@ static s32 *mtk_get_ovl_csc(enum mtk_ovl_colorspace in,
 				ovl_csc[i][j] = identity;
 
 		switch (color_mode) {
+		case HAL_COLOR_MODE_BT2020:
+		case HAL_COLOR_MODE_BT2100_PQ:
+		case HAL_COLOR_MODE_BT2100_HLG:
+		case HAL_COLOR_MODE_DISPLAY_BT2020:
+			DDPDBG("WCG by color mode[%d], BT2020 mode\n", color_mode);
+			ovl_csc[OVL_SRGB][OVL_SRGB] = sRGB_to_BT2020;
+			ovl_csc[OVL_SRGB][OVL_P3] = sRGB_to_BT2020;
+			ovl_csc[OVL_SRGB][OVL_BT2020] = sRGB_to_BT2020;
+			ovl_csc[OVL_P3][OVL_SRGB] = DCI_P3_to_BT2020;
+			ovl_csc[OVL_P3][OVL_P3] = DCI_P3_to_BT2020;
+			ovl_csc[OVL_P3][OVL_BT2020] = DCI_P3_to_BT2020;
+			break;
 		case HAL_COLOR_MODE_DISPLAY_P3:
 		case HAL_COLOR_MODE_DCI_P3:
 			DDPDBG("WCG by color mode[%d], P3 mode\n", color_mode);
 			ovl_csc[OVL_SRGB][OVL_SRGB] = sRGB_to_DCI_P3;
 			ovl_csc[OVL_SRGB][OVL_P3] = sRGB_to_DCI_P3;
+			ovl_csc[OVL_SRGB][OVL_BT2020] = sRGB_to_DCI_P3;
+			ovl_csc[OVL_BT2020][OVL_SRGB] = BT2020_to_DCI_P3;
+			ovl_csc[OVL_BT2020][OVL_P3] = BT2020_to_DCI_P3;
+			ovl_csc[OVL_BT2020][OVL_BT2020] = BT2020_to_DCI_P3;
 			break;
 		case HAL_COLOR_MODE_SRGB:
 			DDPDBG("WCG by color mode[%d], SRGB mode\n", color_mode);
 			ovl_csc[OVL_P3][OVL_SRGB] = DCI_P3_to_sRGB;
 			ovl_csc[OVL_P3][OVL_P3] = DCI_P3_to_sRGB;
+			ovl_csc[OVL_P3][OVL_BT2020] = DCI_P3_to_sRGB;
+			ovl_csc[OVL_BT2020][OVL_SRGB] = BT2020_to_sRGB;
+			ovl_csc[OVL_BT2020][OVL_P3] = BT2020_to_sRGB;
+			ovl_csc[OVL_BT2020][OVL_BT2020] = BT2020_to_sRGB;
 			break;
 		case HAL_COLOR_MODE_NATIVE:
 		default:
@@ -1432,7 +1489,11 @@ static s32 *mtk_get_ovl_csc(enum mtk_ovl_colorspace in,
 
 		DDPDBG("original WCG mode\n");
 		ovl_csc[OVL_SRGB][OVL_P3] = sRGB_to_DCI_P3;
+		ovl_csc[OVL_SRGB][OVL_BT2020] = sRGB_to_BT2020;
 		ovl_csc[OVL_P3][OVL_SRGB] = DCI_P3_to_sRGB;
+		ovl_csc[OVL_P3][OVL_BT2020] = DCI_P3_to_BT2020;
+		ovl_csc[OVL_BT2020][OVL_SRGB] = BT2020_to_sRGB;
+		ovl_csc[OVL_BT2020][OVL_P3] = BT2020_to_DCI_P3;
 		inited = 1;
 	}
 
@@ -1452,7 +1513,10 @@ static int mtk_ovl_do_csc(unsigned int idx, enum mtk_drm_dataspace plane_ds,
 
 	DDPDBG("%s+ idx:%d csc:%s->%s\n", __func__, idx,
 	       mtk_ovl_get_colorspace_str(in), mtk_ovl_get_colorspace_str(out));
-	if (mtk_crtc_WCG_by_color_mode(crtc))
+
+	if (mtk_crtc_WCG_DP_OFF(crtc, plane_ds))
+		en = 0;
+	else if (mtk_crtc_WCG_by_color_mode(crtc))
 		en = 1;
 	else
 		en = in != out;
@@ -1469,7 +1533,7 @@ static int mtk_ovl_do_csc(unsigned int idx, enum mtk_drm_dataspace plane_ds,
 		return 0;
 	}
 
-	*csc = mtk_get_ovl_csc(in, out, crtc);
+	*csc = mtk_get_ovl_csc(in, out, plane_ds, crtc);
 	if (!(*csc)) {
 		DDPPR_ERR("%s+ idx:%d no ovl csc %s to %s, disable csc\n",
 			  __func__, idx, mtk_ovl_get_colorspace_str(in),
@@ -1486,6 +1550,18 @@ mtk_ovl_map_lcm_color_mode(enum mtk_drm_color_mode cm)
 	enum mtk_drm_dataspace ds = MTK_DRM_DATASPACE_SRGB;
 
 	switch (cm) {
+	case HAL_COLOR_MODE_BT2020:
+		ds = MTK_DRM_DATASPACE_BT2020;
+		break;
+	case HAL_COLOR_MODE_BT2100_PQ:
+		ds = MTK_DRM_DATASPACE_BT2020_PQ;
+		break;
+	case HAL_COLOR_MODE_BT2100_HLG:
+		ds = MTK_DRM_DATASPACE_BT2020_HLG;
+		break;
+	case HAL_COLOR_MODE_DISPLAY_BT2020:
+		ds = MTK_DRM_DATASPACE_DISPLAY_BT2020;
+		break;
 	case MTK_DRM_COLOR_MODE_DISPLAY_P3:
 		ds = MTK_DRM_DATASPACE_DISPLAY_P3;
 		break;
@@ -1801,10 +1877,11 @@ done:
 
 	DDPDBG("%s, lye_idx%d,ext_lye_idx%d,csc_wcg_en%d,ovl_csc_en%d,wcg_value0x%x,sel_value0x%x\n",
 		__func__, lye_idx, ext_lye_idx, csc_wcg_en, csc_bc_en, wcg_value, sel_value);
-	DDPDBG("%s, WCG Dymanic off = %d, WCG by color mode[%d][%d]\n", __func__,
+	DDPDBG("%s, WCG Dymanic off = %d, WCG by color mode[%d][%d] DP_WCG[%d]\n", __func__,
 		mtk_crtc_dynamic_WCG_off(crtc),
 		mtk_crtc_WCG_by_color_mode(crtc),
-		mtk_crtc_get_color_mode(crtc));
+		mtk_crtc_get_color_mode(crtc),
+		mtk_crtc_WCG_DP_OFF(crtc, plane_ds));
 
 	/* enable, gamma, igamma */
 	cmdq_pkt_write(handle, comp->cmdq_base,
@@ -2291,9 +2368,9 @@ static void mtk_ovl_exdma_stash_config(struct mtk_ddp_comp *comp, struct cmdq_pk
 		return;
 	}
 
-	hdr_roi_stall = (125 * 100 + hdr_fifo_l * 10) / l_time / 10;
-	roi_stall = (125 * 100 + fifo_l * 10) / l_time / 10;
-	gmc_stall = 125 * 100 / l_time / 10;
+	hdr_roi_stall = (200 * 100 + hdr_fifo_l * 10) / l_time / 10;
+	roi_stall = (200 * 100 + fifo_l * 10) / l_time / 10;
+	gmc_stall = 200 * 100 / l_time / 10;
 	DDPDBG("%s, l_time=%d, fifo_l=%d, hdr_fifo_l=%d, hdr_roi_stall=%d, roi_stall=%d, gmc_stall=%d\n",
 		__func__, l_time, fifo_l, hdr_fifo_l, hdr_roi_stall, roi_stall, gmc_stall);
 
@@ -2400,7 +2477,7 @@ static void mtk_ovl_exdma_layer_config(struct mtk_ddp_comp *comp, unsigned int i
 			mtk_crtc_is_frame_trigger_mode(crtc))
 			pending->enable = false;
 
-		DDPPR_ERR("%s, %s, idx:%d, lye_idx:%d, ext_idx:%d, en:%d\n",
+		DDPCUSTINFO("%s, %s, idx:%d, lye_idx:%d, ext_idx:%d, en:%d\n",
 			__func__, mtk_dump_comp_str_id(comp->id), idx, lye_idx,
 			ext_lye_idx, pending->enable);
 		ovl->ovl_dis = false;
@@ -2459,7 +2536,7 @@ static void mtk_ovl_exdma_layer_config(struct mtk_ddp_comp *comp, unsigned int i
 		_get_bg_roi(comp, &bg_h, &bg_w);
 		offset = ((bg_h - pending->height - pending->dst_y) << 16) +
 			 (bg_w - pending->width - pending->dst_x);
-		DDPINFO("bg(%d,%d) (%d,%d,%dx%d)\n", bg_w, bg_h, pending->dst_x,
+		DDPCUSTINFO("bg(%d,%d) (%d,%d,%dx%d)\n", bg_w, bg_h, pending->dst_x,
 			pending->dst_y, pending->width, pending->height);
 		con |= (CON_HORI_FLIP + CON_VERTICAL_FLIP);
 	} else {
@@ -2485,6 +2562,13 @@ static void mtk_ovl_exdma_layer_config(struct mtk_ddp_comp *comp, unsigned int i
 		con |= REG_FLD_VAL(L_CON_FLD_MTX_EN, 1);
 		/* if format is DRM_FORMAT_Y410, enable Y2R inside OVL */
 	}
+
+	if (fmt == DRM_FORMAT_Y410)
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_EN_CON,
+			OP_8_BIT_MODE, OP_8_BIT_MODE);
+	else
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_EN_CON,
+			0x0, OP_8_BIT_MODE);
 
 	if (ext_lye_idx != LYE_NORMAL) {
 		unsigned int id = ext_lye_idx - 1;
@@ -2583,8 +2667,6 @@ static void mtk_ovl_exdma_layer_config(struct mtk_ddp_comp *comp, unsigned int i
 			if (ext_lye_idx == 0)
 				mtk_crtc->usage_ovl_fmt[(ovl->data->ovl_phy_mapping(comp) + lye_idx)] =
 					mtk_get_format_bpp(fmt);
-		} else {
-			mtk_crtc->usage_ovl_fmt[(ovl->data->ovl_phy_mapping(comp) + lye_idx)] = 0;
 		}
 	}
 
@@ -2592,14 +2674,14 @@ static void mtk_ovl_exdma_layer_config(struct mtk_ddp_comp *comp, unsigned int i
 #define _LAYER_CONFIG_FMT \
 	"%s %s idx:%d lye_idx:%d ext_idx:%d en:%d fmt:0x%x " \
 	"addr:0x%lx compr:%d con:0x%x offset:0x%x lye_cap:%x mml:%d layer_src:%d\n"
-	DDPINFO(_LAYER_CONFIG_FMT, __func__,
+	DDPCUSTINFO(_LAYER_CONFIG_FMT, __func__,
 		mtk_dump_comp_str_id(comp->id), idx, lye_idx, ext_lye_idx,
 		pending->enable, pending->format, (unsigned long)pending->addr,
 		(unsigned int)pending->prop_val[PLANE_PROP_COMPRESS], con, offset,
 		state->comp_state.layer_caps & (MTK_DISP_RSZ_LAYER | DISP_MML_CAPS_MASK),
 		pending->mml_mode, layer_src);
 
-	DDPINFO("%s alpha= 0x%x, con=0x%x, blend = 0x%x, reg_ovl_pitch=0x%x\n",
+	DDPCUSTINFO("%s alpha= 0x%x, con=0x%x, blend = 0x%x, reg_ovl_pitch=0x%x\n",
 		 __func__,
 		alpha,
 		alpha_con,
@@ -2646,7 +2728,7 @@ static void mtk_ovl_exdma_layer_config(struct mtk_ddp_comp *comp, unsigned int i
 			vact = mode->vdisplay;
 			ratio_tmp = vtotal * 100 / vact;
 		} else
-			ratio_tmp = 125;
+			ratio_tmp = 100;
 
 		DDPDBG("%s, vrefresh=%d, ratio_tmp=%d\n",
 			__func__, vrefresh, ratio_tmp);
@@ -2767,7 +2849,7 @@ static void mtk_ovl_exdma_layer_config(struct mtk_ddp_comp *comp, unsigned int i
 			if (temp_bw <= 0)
 				temp_bw = 1;
 
-			DDPINFO("BWM:frame idx:%u alloc id:%lu key:%llu lye_idx:%u bw:%llu(%llu)\n",
+			DDPCUSTINFO("BWM:frame idx:%u alloc id:%lu key:%llu lye_idx:%u bw:%llu(%llu)\n",
 					frame_idx, alloc_id, key, idx, temp_bw, temp_bw_old);
 		}
 
@@ -2846,10 +2928,10 @@ bool compr_ovl_exdma_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	crtc = &mtk_crtc->base;
 	priv = crtc->dev->dev_private;
 
-	DDPINFO("%s:%d, addr:0x%lx, pitch:%d, vpitch:%d\n",
+	DDPCUSTINFO("%s:%d, addr:0x%lx, pitch:%d, vpitch:%d\n",
 		__func__, __LINE__, (unsigned long)addr,
 		pitch, vpitch);
-	DDPINFO("%s src:(%d,%d,%d,%d), fmt:%d, Bpp:%d, compress:%d\n",__func__,
+	DDPCUSTINFO("%s src:(%d,%d,%d,%d), fmt:%d, Bpp:%d, compress:%d\n",__func__,
 		src_x, src_y,
 		src_w, src_h,
 		fmt, Bpp,
@@ -3364,7 +3446,7 @@ static void mtk_ovl_exdma_config_begin(struct mtk_ddp_comp *comp, struct cmdq_pk
 	if (!comp->mtk_crtc)
 		return;
 
-	DDPINFO("%s,%s\n", __func__, mtk_dump_comp_str_id(comp->id));
+	DDPCUSTINFO("%s,%s\n", __func__, mtk_dump_comp_str_id(comp->id));
 
 	/* no need connect to OVL PQ_LOOP or PQ_OUT path for external display so far */
 	if (comp->mtk_crtc->base.index != 0)
@@ -3826,6 +3908,7 @@ static int mtk_ovl_exdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 		u32 hdr_bw_val = 0;
 		u32 stash_bw_val = 0;
 		u32 hdr_stash_bw_val = 0;
+		u32 trans_size = 256;
 
 		if (!mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_MMQOS_SUPPORT))
@@ -3843,6 +3926,8 @@ static int mtk_ovl_exdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 		usage_ovl_compr = mtk_crtc->usage_ovl_compr[phy_id];
 
 		bw_val = (bw_val * usage_ovl_fmt) >> 2;
+		if ((priv->data->mmsys_id == MMSYS_MT6991) && (bw_val > 0))
+			bw_val += trans_size;
 
 		if (debug_module_bw[phy_id])
 			bw_val = debug_module_bw[phy_id];
@@ -3854,10 +3939,14 @@ static int mtk_ovl_exdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 				priv->data->respective_ostdl);
 			comp->last_hrt_bw = bw_val;
 		}
+		if ((priv->data->mmsys_id == MMSYS_MT6991) && (bw_val > 0))
+			bw_val -= trans_size;
 
 		if (!IS_ERR(comp->hdr_qos_req)) {
-			if (bw_val && usage_ovl_compr)
+			if (bw_val && usage_ovl_compr) {
 				hdr_bw_val = (bw_val > 32) ? (bw_val / 32) : 1;
+				hdr_bw_val = (hdr_bw_val > 129) ? hdr_bw_val : 129; //set low bound
+			}
 
 			if (hdr_bw_val != comp->last_hdr_bw) {
 				DDPDBG("%s hdr_bw_val %u -> %u\n",
@@ -3875,7 +3964,7 @@ static int mtk_ovl_exdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 				else
 					stash_bw_val = bw_val / 256;
 
-				stash_bw_val = stash_bw_val > 17 ? stash_bw_val : 17; //set low bound
+				stash_bw_val = stash_bw_val > 49 ? stash_bw_val : 49; //set low bound
 			}
 
 			if (stash_bw_val != comp->last_stash_bw) {
@@ -3894,7 +3983,7 @@ static int mtk_ovl_exdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 				else
 					hdr_stash_bw_val = bw_val / 32 / 256;
 
-				hdr_stash_bw_val = hdr_stash_bw_val > 17 ? hdr_stash_bw_val : 17; //set low bound
+				hdr_stash_bw_val = hdr_stash_bw_val > 49 ? hdr_stash_bw_val : 49; //set low bound
 			}
 
 			if (hdr_stash_bw_val != comp->last_hdr_stash_bw) {
@@ -3917,6 +4006,7 @@ static int mtk_ovl_exdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 		u32 hdr_bw_val = 0;
 		u32 stash_bw_val = 0;
 		u32 hdr_stash_bw_val = 0;
+		u32 trans_size = 256;
 
 		if (!mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_MMQOS_SUPPORT))
@@ -3939,6 +4029,8 @@ static int mtk_ovl_exdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 		usage_ovl_compr = mtk_crtc->usage_ovl_compr[phy_id];
 
 		bw_val = (bw_val * usage_ovl_fmt) >> 2;
+		if ((priv->data->mmsys_id == MMSYS_MT6991) && (bw_val > 0))
+			bw_val += trans_size;
 
 		if (debug_module_bw[phy_id])
 			bw_val = debug_module_bw[phy_id];
@@ -3959,10 +4051,14 @@ static int mtk_ovl_exdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 				bw_val, ~0);
 		}
 		comp->last_hrt_bw = bw_val;
+		if ((priv->data->mmsys_id == MMSYS_MT6991) && (bw_val > 0))
+			bw_val -= trans_size;
 
 		if (!IS_ERR(comp->hdr_qos_req)) {
-			if (bw_val && usage_ovl_compr)
+			if (bw_val && usage_ovl_compr) {
 				hdr_bw_val = (bw_val > 32) ? (bw_val / 32) : 1;
+				hdr_bw_val = (hdr_bw_val > 129) ? hdr_bw_val : 129; //set low bound
+			}
 
 			if (hdr_bw_val > comp->last_hdr_bw) {
 				DDPDBG("%s hdr_bw fast up %u -> %u\n",
@@ -3989,7 +4085,7 @@ static int mtk_ovl_exdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 				else
 					stash_bw_val = bw_val / 256;
 
-				stash_bw_val = stash_bw_val > 17 ? stash_bw_val : 17; //set low bound
+				stash_bw_val = stash_bw_val > 49 ? stash_bw_val : 49; //set low bound
 			}
 
 			if (stash_bw_val > comp->last_stash_bw) {
@@ -4017,7 +4113,7 @@ static int mtk_ovl_exdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 				else
 					hdr_stash_bw_val = bw_val / 32 / 256;
 
-				hdr_stash_bw_val = hdr_stash_bw_val > 17 ? hdr_stash_bw_val : 17; //set low bound
+				hdr_stash_bw_val = hdr_stash_bw_val > 49 ? hdr_stash_bw_val : 49; //set low bound
 			}
 
 			if (hdr_stash_bw_val > comp->last_hdr_stash_bw) {
@@ -4158,7 +4254,7 @@ static int mtk_ovl_exdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 		__mtk_disp_set_module_srt(comp->qos_req, comp->id, comp->qos_bw, 0,
 					    DISP_BW_NORMAL_MODE, priv->data->real_srt_ostdl);
 		comp->last_qos_bw = comp->qos_bw;
-		if (!force_update) {
+		if (!force_update && update_pending) {
 			mtk_crtc->total_srt += comp->qos_bw;
 			if (channel_id < 4)
 				priv->srt_channel_bw_sum[crtc_idx][channel_id] += comp->qos_bw;
@@ -4271,7 +4367,10 @@ void mtk_ovl_exdma_dump_golden_setting(struct mtk_ddp_comp *comp)
 	}
 
 	rg0 = DISP_REG_OVL_RDMA_BURST_CON1;
-	DDPDUMP("0x%03lx:0x%08x\n", rg0, readl(rg0 + baddr));
+	rg1 = DISP_REG_OVL_DUMMY_REG;
+	DDPDUMP("0x%03lx:0x%08x 0x%03lx:0x%08x\n",
+		rg0, readl(rg0 + baddr),
+		rg1, readl(rg1 + baddr));
 
 	rg0 = DISP_REG_OVL_RDMA_GREQ_NUM;
 	rg1 = DISP_REG_OVL_RDMA_GREQ_URG_NUM;

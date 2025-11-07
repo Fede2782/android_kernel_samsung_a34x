@@ -137,6 +137,12 @@ wlanoidSetNetworkAddress(struct ADAPTER *prAdapter,
 		uint32_t u4SetBufferLen,
 		uint32_t *pu4SetInfoLen);
 
+uint32_t
+wlanoidSetP2PMulticastList(struct ADAPTER *prAdapter,
+		void *pvSetBuffer,
+		uint32_t u4SetBufferLen,
+		uint32_t *pu4SetInfoLen);
+
 /*--------------------------------------------------------------*/
 /* Service Discovery Subroutines                                */
 /*--------------------------------------------------------------*/

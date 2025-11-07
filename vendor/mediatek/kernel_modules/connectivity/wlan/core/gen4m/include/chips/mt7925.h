@@ -34,9 +34,14 @@
 #define MT7925_CONNINFRA_VERSION_ID			0x03010001
 #define USB_VND_PWR_ON_ADDR				(MCU_SW_CR_BASE + 0x20)
 #define USB_VND_PWR_ON_ACK_BIT				BIT(0)
+#if defined(_HIF_USB) /* TODO */
 #define CONNAC3X_TOP_HCR				0x70010200
 #define CONNAC3X_TOP_HVR				0x70010204
-#define CONNAC3X_TOP_FVR				0x70010208
+#else
+#define CONNAC3X_TOP_HCR				0x88000000
+#define CONNAC3X_TOP_HVR				0x88000000
+#endif
+#define CONNAC3X_TOP_FVR				0x88000004
 #define MT7925_TOP_CFG_BASE				NIC_CONNAC_CFG_BASE
 #define MT7925_PATCH_START_ADDR				0x00900000
 #define MT7925_ARB_AC_MODE_ADDR				(0x820E315C)
@@ -62,16 +67,6 @@
 
 #define MTK_CUSTOM_OID_INTERFACE_VERSION     0x00000200	/* for WPDWifi DLL */
 #define MTK_EM_INTERFACE_VERSION		0x0001
-
-#if CFG_PCIE_LTR_UPDATE
-#define LTR_SNOOP_LATENCY_REQUIREMENT BIT(15)
-#define LTR_NONSNOOP_LATENCY_REQUIREMENT BIT(31)
-#define PCIE_LOW_LATENCY_LTR_VALUE  \
-	(LTR_NONSNOOP_LATENCY_REQUIREMENT | LTR_SNOOP_LATENCY_REQUIREMENT)
-#define PCIE_HIGH_LATENCY_LTR_VALUE \
-	(LTR_NONSNOOP_LATENCY_REQUIREMENT | LTR_SNOOP_LATENCY_REQUIREMENT \
-	| 0x10011001) /* 1 ms */
-#endif
 
 extern struct PLE_TOP_CR rMt7925PleTopCr;
 extern struct PSE_TOP_CR rMt7925PseTopCr;
@@ -137,7 +132,7 @@ void mt7925_icapRiseVcoreClockRate(void);
 void mt7925_icapDownVcoreClockRate(void);
 
 void mt7925_dumpWfsyscpupcr(struct ADAPTER *ad);
-void mt7925_DumpBusStatus(struct ADAPTER *ad);
+void mt7925_DumpBusHangCr(struct ADAPTER *ad);
 #if CFG_SUPPORT_LINK_QUALITY_MONITOR
 int mt7925_get_rx_rate_info(const uint32_t *prRxV,
 	struct RxRateInfo *prRxRateInfo);

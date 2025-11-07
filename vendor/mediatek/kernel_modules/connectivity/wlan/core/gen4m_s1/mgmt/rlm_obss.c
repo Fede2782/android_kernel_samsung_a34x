@@ -127,7 +127,7 @@ void rlmObssInit(struct ADAPTER *prAdapter)
 		prBssInfo = prAdapter->aprBssInfo[i];
 
 		cnmTimerInitTimer(prAdapter, &prBssInfo->rObssScanTimer,
-				  (PFN_MGMT_TIMEOUT_FUNC) rlmObssScanTimeout,
+				  rlmObssScanTimeout,
 				  (unsigned long) prBssInfo);
 	}
 }

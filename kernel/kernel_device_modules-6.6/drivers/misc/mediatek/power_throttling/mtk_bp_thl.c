@@ -18,6 +18,7 @@
 
 static struct task_struct *bp_notify_thread;
 static bool bp_notify_flag;
+static bool bp_hpt_notify_only_flag;
 static bool bp_md_notify_flag;
 static DECLARE_WAIT_QUEUE_HEAD(bp_notify_waiter);
 static struct wakeup_source *bp_notify_lock;
@@ -67,7 +68,11 @@ void register_bp_thl_notify(
 	bpcb_tb[prio_val].bpcb = bp_cb;
 	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
 
-	if (bp_thl_data->bp_thl_lv > BATTERY_PERCENT_LEVEL_0 &&
+	if (bp_thl_data->bp_thl_lv < BATTERY_PERCENT_LEVEL_NUM && bp_hpt_notify_only_flag == true &&
+		prio_val == BATTERY_PERCENT_PRIO_HPT && bpcb_tb[prio_val].bpcb) {
+		bp_cb(bp_thl_data->bp_thl_lv);
+		bp_hpt_notify_only_flag = false;
+	} else if (bp_thl_data->bp_thl_lv > BATTERY_PERCENT_LEVEL_0 &&
 		bp_thl_data->bp_thl_lv < BATTERY_PERCENT_LEVEL_NUM &&
 		bpcb_tb[prio_val].bpcb) {
 		bp_cb(bp_thl_data->bp_thl_lv);
@@ -108,6 +113,9 @@ void exec_bp_thl_callback(enum BATTERY_PERCENT_LEVEL_TAG bp_level)
 	if (bp_thl_data->bp_thl_stop == 1) {
 		pr_info("[%s] bp_thl_data->bp_thl_stop=%d\n"
 			, __func__, bp_thl_data->bp_thl_stop);
+	} else if (bp_hpt_notify_only_flag == true && (bpcb_tb[BATTERY_PERCENT_PRIO_HPT].bpcb != NULL)) {
+		bpcb_tb[BATTERY_PERCENT_PRIO_HPT].bpcb(bp_level);
+		bp_hpt_notify_only_flag = false;
 	} else {
 		for (i = 0; i < BPCB_MAX_NUM; i++) {
 			if (bpcb_tb[i].bpcb != NULL)
@@ -291,7 +299,7 @@ static void soc_handler(struct work_struct *work)
 
 	psy =  bp_thl_data->psy;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	if (strcmp(psy->desc->name, "mtk-fg-battery") != 0)
 #else
 	if (strcmp(psy->desc->name, "battery") != 0)
@@ -360,7 +368,11 @@ static void soc_handler(struct work_struct *work)
 		}
 	} while (loop);
 	new_lv = bp_thl_data->throttle_table[soc_stage+temp_stage*(bp_thl_data->soc_max_stage+1)];
-	if (new_lv != bp_thl_data->bp_thl_lv) {
+	if (last_soc == MAX_VALUE) {
+		bp_thl_data->bp_thl_lv = new_lv;
+		bp_hpt_notify_only_flag = true;
+		bp_notify_flag = true;
+	} else if (new_lv != bp_thl_data->bp_thl_lv) {
 		bp_thl_data->bp_thl_lv = new_lv;
 		bp_notify_flag = true;
 	}

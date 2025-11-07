@@ -94,6 +94,7 @@ int proca_table_add_task_descr(struct proca_table *table,
 	unsigned long app_hash_key;
 	unsigned long irqsave_flags;
 	struct proca_identity *identity;
+	struct proca_task_descr *iter;
 
 	PROCA_BUG_ON(!table || !descr);
 
@@ -106,6 +107,15 @@ int proca_table_add_task_descr(struct proca_table *table,
 			identity->parsed_cert.app_name_size);
 
 	spin_lock_irqsave(&table->maps_lock, irqsave_flags);
+
+	hlist_for_each_entry(iter, &table->pid_map[pid_hash_key], pid_map_node) {
+		if (iter->task == descr->task) {
+			//entry already exists in the table
+			spin_unlock_irqrestore(&table->maps_lock, irqsave_flags);
+			return -1;
+		}
+	}
+
 	hlist_add_head(&descr->pid_map_node, &table->pid_map[pid_hash_key]);
 
 	if (identity->certificate)

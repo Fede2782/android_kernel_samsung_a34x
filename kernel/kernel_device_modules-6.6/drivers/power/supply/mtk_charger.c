@@ -66,7 +66,7 @@
 #include "mtk_charger.h"
 #include "mtk_battery.h"
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #include "mtk_pd.h"
 #if IS_ENABLED(CONFIG_PDIC_NOTIFIER)
 #include <linux/usb/typec/common/pdic_notifier.h>
@@ -1490,7 +1490,7 @@ static ssize_t mtk_chg_set_cv_write(struct file *file,
 			info->data.battery_cv = cv;
 			chr_info("%s: adjust charge voltage = %dV\n", __func__, cv);
 		}
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 		psy = power_supply_get_by_name("battery");
@@ -1618,7 +1618,7 @@ static ssize_t mtk_chg_en_power_path_write(struct file *file,
 
 	ret = kstrtou32(desc, 10, &enable);
 	if (ret == 0) {
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		charger_dev_enable_powerpath(info->chg1_dev, enable);
 #endif
 		chr_info("%s: enable power path = %d\n", __func__, enable);
@@ -2539,7 +2539,7 @@ static void charger_check_status(struct mtk_charger *info)
 			goto stop_charging;
 		}
 	} else {
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		if (thermal->enable_min_charge_temp) {
 			if (temperature < thermal->min_charge_temp) {
 				chr_err("Battery Under Temperature or NTC fail %d %d\n",
@@ -2883,7 +2883,7 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 	struct chg_alg_device *alg;
 	struct chg_alg_notify notify;
 	int i;
-#if  IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if  defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	union power_supply_propval propval = {0, };
 #endif
 
@@ -2905,7 +2905,7 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 		chg_alg_plugout_reset(alg);
 	}
 	memset(&info->sc.data, 0, sizeof(struct scd_cmd_param_t_1));
-#if !IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if !defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	charger_dev_set_input_current(info->chg1_dev, 100000);
 #endif
 	charger_dev_set_mivr(info->chg1_dev, info->data.min_charger_voltage);
@@ -2915,7 +2915,7 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 	if (info->enable_vbat_mon)
 		charger_dev_enable_6pin_battery_charging(info->chg1_dev, false);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	propval.intval = SEC_BATTERY_CABLE_NONE;
 	pr_info("%s: charger plug out : battery ONLINE with: %d\n",
 		__func__, propval.intval);
@@ -3029,7 +3029,7 @@ static void kpoc_power_off_check(struct mtk_charger *info)
 	int vbus = 0;
 	int counter = 0;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	return;
 #endif
 	/* 8 = KERNEL_POWER_OFF_CHARGING_BOOT */
@@ -3214,7 +3214,7 @@ static int charger_routine_thread(void *arg)
 				info->ta_status[info->select_adapter_idx], get_ibat(info), chg_cv, info->cmd_pp);
 
 		if (is_disable_charger(info) == false &&
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 			is_charger_on == true) {  /* do not use "info->can_charging" condition */
 #else
 			is_charger_on == true &&
@@ -3317,7 +3317,7 @@ static void mtk_charger_init_timer(struct mtk_charger *info)
 
 }
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 void mtk_charger_timer_force_start(struct mtk_charger *info)
 {
 	chr_err("%s\n", __func__);
@@ -3557,6 +3557,7 @@ static const enum power_supply_property charger_psy_properties[] = {
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
 	POWER_SUPPLY_PROP_VOLTAGE_BOOT,
 	POWER_SUPPLY_PROP_USB_TYPE,
+	POWER_SUPPLY_PROP_CHARGE_NOW,
 };
 
 static int psy_charger_get_property(struct power_supply *psy,
@@ -3664,7 +3665,7 @@ static int mtk_charger_enable_power_path(struct mtk_charger *info,
 	bool is_en = true;
 	struct charger_device *chg_dev = NULL;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	return 0;
 #endif
 
@@ -3716,7 +3717,7 @@ static int mtk_charger_force_disable_power_path(struct mtk_charger *info,
 	int ret = 0;
 	struct charger_device *chg_dev = NULL;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	return 0;
 #endif
 
@@ -3823,7 +3824,7 @@ static int psy_charger_set_property(struct power_supply *psy,
 		else
 			info->enable_hv_charging = false;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		{
 			union power_supply_propval propval = {0, };
 
@@ -3859,7 +3860,7 @@ static int psy_charger_set_property(struct power_supply *psy,
 		mtk_charger_set_constant_voltage(info, idx, info->data.battery_cv);
 		/* ALPS09857764 No need call _wake_up_charger() */
 		return 0;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_START_THRESHOLD:
 		if (val->intval > 0)
 			mtk_charger_timer_force_start(info);
@@ -4036,7 +4037,7 @@ int chg_alg_event(struct notifier_block *notifier,
 }
 
 static char *mtk_charger_supplied_to[] = {
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	"mtk-fg-battery"
 #else
 	"battery"
@@ -4268,7 +4269,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	if (info != NULL && info->bootmode != 8 && info->bootmode != 9)
 		mtk_charger_force_disable_power_path(info, CHG1_SETTING, true);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	info->wake_up_charger = _wake_up_charger;
 #endif
 

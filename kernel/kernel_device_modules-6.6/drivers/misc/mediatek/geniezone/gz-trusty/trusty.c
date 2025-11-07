@@ -529,7 +529,7 @@ u32 trusty_get_api_version(struct device *dev)
 	struct trusty_state *s;
 
 	if (IS_ERR_OR_NULL(dev))
-		return -EINVAL;
+		return 0;
 
 	s = platform_get_drvdata(to_platform_device(dev));
 	return s->api_version;

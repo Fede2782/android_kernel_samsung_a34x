@@ -123,13 +123,179 @@ struct NanSubscribeServiceCancelRspMsg {
 	u16 value;
 } PACKED;
 
+#if CFG_SUPPORT_NAN_R4_PAIRING
+struct NanPairingBootStrapMsg {
+	uint8_t bootstrap_type;
+	uint16_t bootstrap_method;
+	uint8_t bootstrap_status;
+	uint8_t bootstrap_reason;
+	uint16_t u2ComebackAfter;
+} PACKED;
+
+struct NanPairingCapabilityMsg {
+	u8 enable_pairing_setup:1;
+	u8 enable_pairing_cache:1;
+	u8 enable_pairing_verification:1;
+	u8 reserved3:5;
+	u16 supported_bootstrapping_methods;
+/* for AOSP */
+	u8 nan_identity_key[NAN_IDENTITY_KEY_LEN];
+} PACKED;
+
+struct NanPairingNiraMsg {
+	u64 NiraTag;
+	u64 NiraNonce;
+} PACKED;
+
+
+struct _NanPairingRequestParams {
+	u32 requestor_instance_id;
+	u8 peer_disc_mac_addr[NAN_MAC_ADDR_LEN];
+	enum NanPairingRequestType nan_pairing_request_type;
+	u8 is_opportunistic;
+	enum NanAkm akm;
+	u8 enable_pairing_cache;
+	u8 nan_identity_key[NAN_IDENTITY_KEY_LEN];
+	u32 cipher_type;
+	u8 key_type;
+	u32 key_len;
+	u8 key_data[NAN_SECURITY_MAX_PASSPHRASE_LEN];
+} PACKED;
+
+struct _NanPairingRequestMsg {
+	struct _NanMsgHeader fwHeader;
+	struct _NanPairingRequestParams PairingRequestParams;
+} PACKED;
+
+struct _NanPairingRequestRspMsg {
+	struct _NanMsgHeader fwHeader;
+	u16 status;
+	u16 value;
+} PACKED;
+
+struct NanIdentityResolutionAttribute {
+	u8 nonce[NAN_IDENTITY_NONCE_LEN];
+	u8 tag[NAN_IDENTITY_TAG_LEN];
+};
+
+struct _NanPairingRequestIndParams {
+	u16 publish_subscribe_id;
+	u32 requestor_instance_id;
+	u32 pairing_instance_id;
+	u8 peer_disc_mac_addr[NAN_MAC_ADDR_LEN];
+	enum NanPairingRequestType nan_pairing_request_type;
+	u8 enable_pairing_cache;
+	struct NanIdentityResolutionAttribute nira;
+} PACKED;
+
+struct _NanPairingRequestIndMsg {
+	struct _NanMsgHeader fwHeader;
+	struct _NanPairingRequestIndParams pairingRequestIndParams;
+	u8 ptlv[];
+} PACKED;
+
+/* Pairing request Responder's response */
+enum NanPairingResponseCode {
+	NAN_PAIRING_REQUEST_ACCEPT = 0,
+	NAN_PAIRING_REQUEST_REJECT
+};
+
+struct _NanPairingConfirmIndParams {
+	u32 pairing_instance_id;
+	enum NanPairingResponseCode rsp_code;
+	enum NanStatusType reason_code;
+	enum NanPairingRequestType nan_pairing_request_type;
+	u8 enable_pairing_cache;
+	struct NpkSecurityAssociation npk_security_association;
+} PACKED;
+
+struct _NanPairingConfirmIndMsg {
+	struct _NanMsgHeader fwHeader;
+	struct _NanPairingConfirmIndParams pairingConfirmIndParams;
+	u8 ptlv[];
+} PACKED;
+
+struct _NanPairingResponseParams {
+	u32 pairing_instance_id;
+	u8 nan_pairing_request_type;
+	u8 rsp_code;
+	u8 is_opportunistic;
+	u8 akm;
+	u8 enable_pairing_cache;
+	u8 nan_identity_key[NAN_IDENTITY_KEY_LEN];
+	u32 cipher_type;
+
+	u8 key_type;
+	u32 key_len;
+	u8 key_data[NAN_SECURITY_MAX_PASSPHRASE_LEN];
+/* for verification */
+	u8 pmkid[NAN_PAIRING_KEY_ID_LEN];
+} PACKED;
+
+struct _NanPairingResponseMsg {
+	struct _NanMsgHeader fwHeader;
+	struct _NanPairingResponseParams PairingResponseParams;
+	u8 ptlv[];
+} PACKED;
+
+struct _NanPairingResponseRspMsg {
+	struct _NanMsgHeader fwHeader;
+	u16 status;
+	u16 value;
+} PACKED;
+
+#define NAN_NPK_LEN 32
+#define NAN_ND_PMK_LEN 32
+#define NAN_ND_TK_MAX_LEN 32
+#define NAN_NM_TK_MAX_LEN 32
+#define NAN_NM_KCK_MAX_LEN 32
+#define NAN_NM_KDK_MAX_LEN 32
+#define NAN_NM_KEK_MAX_LEN 32
+#define NAN_GTK_MAX_LEN 32
+#define NAN_IGTK_MAX_LEN 32
+#define NAN_BIGTK_MAX_LEN 32
+
+struct nan_pairing_keys_t {
+	u8 peer_mac_addr[NAN_MAC_ADDR_LEN];
+	int selected_pairwise_cipher;
+	u8 npk[NAN_NPK_LEN];
+	int npk_len;
+	u8 nm_tk[NAN_NM_TK_MAX_LEN];
+	int nm_tk_len;
+	u8 nm_kck[NAN_NM_KCK_MAX_LEN];
+	int nm_kck_len;
+	u8 nm_kdk[NAN_NM_KDK_MAX_LEN];
+	int nm_kdk_len;
+	u8 nm_kek[NAN_NM_KEK_MAX_LEN];
+	int nm_kek_len;
+	u8 nd_pmk[NAN_ND_PMK_LEN];
+	int nd_pmk_len;
+	u8 nd_tk[NAN_ND_TK_MAX_LEN];
+	u8 igtk[NAN_IGTK_MAX_LEN];
+	u8 bigtk[NAN_BIGTK_MAX_LEN];
+	u8 gtk[NAN_GTK_MAX_LEN];
+} PACKED;
+
+#endif /* CFG_SUPPORT_NAN_R4_PAIRING */
+
 /* NAN Transmit Followup Rsp */
 struct NanTransmitFollowupRspMsg {
 	struct _NanMsgHeader fwHeader;
 	/* status of the request */
 	u16 status;
 	u16 value;
+#if CFG_SUPPORT_NAN_R4_PAIRING
+	u8 ptlv[];
+#endif
 } PACKED;
+
+#if CFG_SUPPORT_NAN_R4_PAIRING
+struct NanTransmitFollowupRspMsg_p {
+	struct NanTransmitFollowupRspMsg *pfollowRsp;
+	uint8_t bootstrap_type;
+	uint8_t bootstrap_status;
+};
+#endif
 
 #if CFG_SUPPORT_NAN_EXT
 #define NAN_MAX_EXT_DATA_SIZE 512
@@ -203,12 +369,12 @@ struct NanPublishRepliedIndMsg {
 	struct _NanMsgHeader fwHeader;
 	struct _NanPublishRepliedIndParams publishRepliedIndParams;
 	/*
-     * Excludes TLVs
-     *
-	 * Required: MAC Address
-	 * Optional: Received RSSI Value
-	 *
-	 */
+	* Excludes TLVs
+	*
+	* Required: MAC Address
+	* Optional: Received RSSI Value
+	*
+	*/
 	u8 ptlv[];
 } PACKED;
 
@@ -245,6 +411,11 @@ struct NanFollowupIndMsg {
 	struct _NanMsgHeader fwHeader;
 	struct _NanFollowupIndParams followupIndParams;
 	u8 ptlv[];
+} PACKED;
+
+struct NanSelfFollowupIndMsg {
+	struct _NanMsgHeader fwHeader;
+	u32 reason;
 } PACKED;
 
 /* Event Ind */
@@ -321,11 +492,11 @@ struct NanFWRangeReqMsg {
 } PACKED;
 
 struct NanDebugParams {
-    /* To indicate the debug command type. */
+/* To indicate the debug command type. */
 	u32 cmd;
-    /* To hold the data for the above command
-     * type.
-     */
+/* To hold the data for the above command
+ * type.
+ */
 	u8 debug_cmd_data[NAN_MAX_DEBUG_MESSAGE_DATA_LEN];
 } PACKED;
 
@@ -385,6 +556,14 @@ enum NanMsgId {
 	NAN_MSG_ID_SELF_TRANSMIT_FOLLOWUP_IND = 35,
 	NAN_MSG_ID_RANGING_REQUEST_RECEVD_IND = 36,
 	NAN_MSG_ID_RANGING_RESULT_IND = 37,
+	NAN_MSG_ID_BOOTSTRAPPING_REQ_IND    = 65,
+	NAN_MSG_ID_BOOTSTRAPPING_RSP_IND    = 66,
+	NAN_MSG_ID_PAIRING_REQUEST          = 67,
+	NAN_MSG_ID_PAIRING_REQUEST_RSP      = 68,
+	NAN_MSG_ID_PAIRING_RESPONSE         = 69,
+	NAN_MSG_ID_PAIRING_RESPONSE_RSP     = 70,
+	NAN_MSG_ID_PAIRING_INDICATION       = 71,
+	NAN_MSG_ID_PAIRING_CONFIRM          = 72,
 	NAN_MSG_ID_EXT_CMD = 92,
 	NAN_MSG_ID_EXT_IND = 93,
 	NAN_MSG_ID_TESTMODE_REQ = 1025,
@@ -429,6 +608,13 @@ enum NanTlvType {
 	NAN_TLV_TYPE_NAN_PASSPHRASE = 27,
 	NAN_TLV_TYPE_SDEA_SERVICE_SPECIFIC_INFO = 28,
 	NAN_TLV_TYPE_DEV_CAP_ATTR_CAPABILITY = 29,
+#if CFG_SUPPORT_NAN_R4_PAIRING
+	NAN_TLV_TYPE_NAN40_PAIRING_BOOTSTRAPPING = 30,
+	NAN_TLV_TYPE_NAN40_PAIRING = 31,
+	NAN_TLV_TYPE_NAN40_PAIRING_RAWFRAME = 32,
+	NAN_TLV_TYPE_NAN40_PAIRING_CAPABILITY = 33,
+	NAN_TLV_TYPE_NAN40_PAIRING_NIRA = 34,
+#endif
 	NAN_TLV_TYPE_EXT_CMD = 92,
 	NAN_TLV_TYPE_SDF_LAST = 4095,
 
@@ -476,8 +662,6 @@ enum NanTlvType {
 	NAN_TLV_TYPE_DW_EARLY_TERMINATION = 4136,
 	NAN_TLV_TYPE_TX_RX_CHAINS = 4137,
 	NAN_TLV_TYPE_ENABLE_DEVICE_RANGING = 4138,
-	NAN_TLV_TYPE_ENABLE_INSTANT_MODE = 4140,
-	NAN_TLV_TYPE_ENABLE_INSTANT_MODE_CHANNEL = 4141,
 	NAN_TLV_TYPE_CONFIG_LAST = 8191,
 
 	/* Attributes types */
@@ -591,6 +775,22 @@ enum NanDebugModeCmd {
 	NAN_TEST_MODE_CMD_DEVICE_TYPE = 14,
 	NAN_TEST_MODE_CMD_DISABLE_NDPE = 15,
 	NAN_TEST_MODE_CMD_ENABLE_NDP = 16,
+	NAN_TEST_MODE_CMD_ENABLE_PAIRING = 17,
+	NAN_TEST_MODE_CMD_CIPHERSUITEI_ID = 18,
+	NAN_TEST_MODE_CMD_CIPHERSUITEI_ID_LIST = 19,
+	NAN_TEST_MODE_CMD_BOOTSTRAP_METHOD = 20,
+	NAN_TEST_MODE_CMD_BOOTSTRAP_TYPE = 21,
+	NAN_TEST_MODE_CMD_BOOTSTRAP_STATUS = 22,
+	NAN_TEST_MODE_CMD_BOOTSTRAP_COMEBACK = 23,
+	NAN_TEST_MODE_CMD_BOOTSTRAP_COMEBACK_AFTER = 24,
+	NAN_TEST_MODE_CMD_NAN_ID_KEY = 25,
+	NAN_TEST_MODE_CMD_PAIRING_SETUP = 26,
+	NAN_TEST_MODE_CMD_PAIRING_VERIFICATION = 27,
+	NAN_TEST_MODE_CMD_NIRA_PRESENCE = 28,
+	NAN_TEST_MODE_CMD_NPK_NIK_CACHE = 29,
+	NAN_TEST_MODE_CMD_FOLLOWUP_TYPE = 30,
+	NAN_TEST_MODE_CMD_PASSWORD_PINCODE = 31,
+	NAN_TEST_MODE_CMD_PASSWORD_PASSPHRASE = 32,
 };
 
 /* NAN Resp status type */
@@ -725,6 +925,17 @@ enum NanInternalStatusType {
 #define PUB_PUBLISH_TYPE BITS(1, 2)
 #define PUB_REPLY_IND_FLAG BIT(0)
 
+#if CFG_SUPPORT_NAN_R4_PAIRING
+#define PUB_PAIRING_RESERVED3 BITS(3, 7)
+#define PUB_PAIRING_VERIFICATION BIT(2)
+#define PUB_PAIRING_CACHE BIT(1)
+#define PUB_PAIRING_SETUP BIT(0)
+#define SUB_PAIRING_RESERVED3 BITS(3, 7)
+#define SUB_PAIRING_VERIFICATION BIT(2)
+#define SUB_PAIRING_CACHE BIT(1)
+#define SUB_PAIRING_SETUP BIT(0)
+#endif
+
 /* Subscribe Service Req parameters bit map */
 #define SUB_CONNMAP BITS(24, 31)
 #define SUB_RESERVED BITS(21, 23)
@@ -792,6 +1003,18 @@ enum NanInternalStatusType {
 #define GET_PUB_TX_TYPE(flags) ((flags & PUB_TX_TYPE) >> 3)
 #define GET_PUB_PUBLISH_TYPE(flags) ((flags & PUB_PUBLISH_TYPE) >> 1)
 
+#if CFG_SUPPORT_NAN_R4_PAIRING
+#define GET_PUB_PAIRING_ENABLE(flags) (flags & PUB_PAIRING_SETUP)
+#define GET_PUB_PAIRING_CACHE_ENABLE(flags) ((flags & PUB_PAIRING_CACHE) >> 1)
+#define GET_PUB_PAIRING_VERIFICATION_ENABLE(flags)                             \
+	((flags & PUB_PAIRING_VERIFICATION) >> 2)
+
+#define GET_SUB_PAIRING_ENABLE(flags) (flags & SUB_PAIRING_SETUP)
+#define GET_SUB_PAIRING_CACHE_ENABLE(flags) ((flags & SUB_PAIRING_CACHE) >> 1)
+#define GET_SUB_PAIRING_VERIFICATION_ENABLE(flags)                             \
+	((flags & SUB_PAIRING_VERIFICATION) >> 2)
+#endif /* CFG_SUPPORT_NAN_R4_PAIRING */
+
 /* Get Subscribe Request Parameters */
 #define GET_SUB_CONNMAP(flags) ((flags & SUB_CONNMAP) >> 24)
 
@@ -836,8 +1059,23 @@ void nanMapSdeaCtrlParams(u32 *pIndata,
 void nanMapRangingConfigParams(u32 *pIndata,
 			       struct NanRangingCfg *prNanRangingCfg);
 void
-nanMapNan20RangingReqParams(struct ADAPTER *prAdapter, u32 *pIndata,
+nanMapNan20RangingReqParams(u32 *pIndata,
 			    struct NanRangeResponseCfg *prNanRangeRspCfgParms);
+
+#if CFG_SUPPORT_NAN_R4_PAIRING
+u16
+nanMapPublishPairingReqParams(u32 *pIndata,
+			struct NanPublishRequest *pOutparams);
+u16
+nanMapSubscribePairingReqParams(u32 *pIndata,
+			struct NanSubscribeRequest *pOutparams);
+int mtk_cfg80211_vendor_nan_pasn_rsp(struct wiphy *wiphy,
+			struct wireless_dev *wdev,
+			const void *data, int data_len);
+int mtk_cfg80211_vendor_nan_pasn_setkey(struct wiphy *wiphy,
+			struct wireless_dev *wdev,
+			const void *data, int data_len);
+#endif
 int mtk_cfg80211_vendor_nan(struct wiphy *wiphy, struct wireless_dev *wdev,
 			    const void *data, int data_len);
 #if CFG_SUPPORT_NAN_EXT
@@ -849,10 +1087,6 @@ int mtk_cfg80211_vendor_nan_ext_indication(struct ADAPTER *prAdapter,
 int mtk_cfg80211_vendor_event_nan_event_indication(struct ADAPTER *prAdapter,
 						   uint8_t *pcuEvtBuf);
 int mtk_cfg80211_vendor_event_nan_schedule_config(
-	struct ADAPTER *prAdapter,
-	uint8_t *pcuEvtBuf);
-int
-mtk_cfg80211_vendor_event_nan_lowpower_ctrl(
 	struct ADAPTER *prAdapter,
 	uint8_t *pcuEvtBuf);
 int
@@ -882,6 +1116,15 @@ mtk_cfg80211_vendor_event_nan_match_expire(struct ADAPTER *prAdapter,
 int
 mtk_cfg80211_vendor_event_nan_disable_indication(struct ADAPTER *prAdapter,
 						uint8_t *pcuEvtBuf);
+#if CFG_SUPPORT_NAN_R4_PAIRING
+
+int
+mtk_cfg80211_vendor_event_nan_pairing_indication(struct ADAPTER *prAdapter,
+	  uint8_t *pcuEvtBuf, struct SW_RFB *prSwRfb);
+int
+mtk_cfg80211_vendor_event_nan_pairing_confirm(struct ADAPTER *prAdapter,
+	  uint8_t *pcuEvtBuf);
+#endif
 void
 nanNdpDissolve(struct ADAPTER *prAdapter,
 	uint32_t u4Timeout);

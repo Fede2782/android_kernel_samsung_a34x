@@ -86,15 +86,11 @@ struct HIF_MEM_OPS {
 			   struct RTMP_DMACB *pRxCell,
 			   struct RTMP_DMABUF *prDmaBuf,
 			   struct SW_RFB *prSwRfb);
-	phys_addr_t (*mapTxDataBuf)(struct GL_HIF_INFO *prHifInfo,
-			  void *pucBuf, uint32_t u4Offset, uint32_t u4Len);
-	phys_addr_t (*mapTxCmdBuf)(struct GL_HIF_INFO *prHifInfo,
+	phys_addr_t (*mapTxBuf)(struct GL_HIF_INFO *prHifInfo,
 			  void *pucBuf, uint32_t u4Offset, uint32_t u4Len);
 	phys_addr_t (*mapRxBuf)(struct GL_HIF_INFO *prHifInfo,
 			  void *pucBuf, uint32_t u4Offset, uint32_t u4Len);
-	void (*unmapTxDataBuf)(struct GL_HIF_INFO *prHifInfo,
-			   phys_addr_t rDmaAddr, uint32_t u4Len);
-	void (*unmapTxCmdBuf)(struct GL_HIF_INFO *prHifInfo,
+	void (*unmapTxBuf)(struct GL_HIF_INFO *prHifInfo,
 			   phys_addr_t rDmaAddr, uint32_t u4Len);
 	void (*unmapRxBuf)(struct GL_HIF_INFO *prHifInfo,
 			   phys_addr_t rDmaAddr, uint32_t u4Len);
@@ -102,9 +98,7 @@ struct HIF_MEM_OPS {
 			 struct RTMP_DMABUF *prDescRing);
 	void (*freeExtBuf)(struct GL_HIF_INFO *prHifInfo,
 			   struct RTMP_DMABUF *prDescRing);
-	void (*freeDataBuf)(void *pucSrc, uint32_t u4Len,
-				phys_addr_t rDmaAddr, uint32_t u4Idx);
-	void (*freeCmdBuf)(void *pucSrc, uint32_t u4Len);
+	void (*freeBuf)(void *pucSrc, uint32_t u4Len);
 	void (*freePacket)(struct GL_HIF_INFO *prHifInfo,
 			   void *pvPacket, uint32_t u4Num);
 	struct HIF_MEM *(*getWifiMiscRsvEmi)(
@@ -118,27 +112,12 @@ struct HIF_MEM_OPS {
 		       uint32_t u4Idx, uint32_t u4DumpLen);
 };
 
-#if CFG_SUPPORT_HIF_RX_NAPI
-struct HIF_NAPI_DEVICE {
-	struct net_device dev;
-	struct napi_struct napi;
-	struct GLUE_INFO *prGlueInfo;
-	struct task_struct *napi_thread;
-	uint32_t u4ThreadPid;
-	u_int8_t fgIsRun;
-	unsigned long ulFlag;
-	uint32_t u4DrvOwnCnt;
-	uint32_t u4DataCnt;
-};
-#endif /* CFG_SUPPORT_HIF_RX_NAPI */
-
 /* host interface's private data structure, which is attached to os glue
  ** layer info structure.
  */
 struct GL_HIF_INFO {
 	struct platform_device *pdev;
 	struct device *prDmaDev;
-	struct GLUE_INFO *prGlueInfo;
 	struct HIF_MEM_OPS rMemOps;
 
 	uint32_t u4IrqId;
@@ -146,6 +125,9 @@ struct GL_HIF_INFO {
 	uint32_t u4IrqId_1;
 #endif
 	int32_t u4HifCnt;
+
+	/* AXI MMIO Base Address, all access will use */
+	void *CSRBaseAddress;
 
 	/* Shared memory of all 1st pre-allocated
 	 * TxBuf associated with each TXD
@@ -160,22 +142,10 @@ struct GL_HIF_INFO {
 #if CFG_MTK_WIFI_WFDMA_WB
 	struct RTMP_DMABUF rRingDmyRd;
 	struct RTMP_DMABUF rRingDmyWr;
-	struct RTMP_DMABUF rRingDmyDbg;
-	struct RTMP_DMABUF rRingIntSta;
-	struct RTMP_DMABUF rRingDidx;
-	struct RTMP_DMABUF rRingCidx;
-	struct RTMP_DMABUF rHwDoneFlag;
-	struct RTMP_DMABUF rSwDoneFlag;
-
-	struct RTMP_DMABUF rRingMdIntSta;
-	struct RTMP_DMABUF rRingMdDidx;
-
-	struct WFDMA_EMI_DONE_FLAG rIntFlag;
-	u_int8_t fgIsUrgentCidxFetch;
-	u_int8_t fgIsNeeidxFetchFlag;
-	unsigned long ulCidxFetchTimeout;
-	uint32_t u4WbIntSta;
-	uint32_t u4WbMdIntSta;
+	struct RTMP_DMABUF rRingIdx0;
+	struct RTMP_DMABUF rRingIntSta0;
+	struct RTMP_DMABUF rRingIdx1;
+	struct RTMP_DMABUF rRingIntSta1;
 #endif /* CFG_MTK_WIFI_WFDMA_WB */
 	uint32_t u4RxDataRingSize;
 	uint32_t u4RxEvtRingSize;
@@ -211,11 +181,7 @@ struct GL_HIF_INFO {
 	uint32_t u4TxDataQLen[NUM_OF_TX_RING];
 	spinlock_t rTxDataQLock[NUM_OF_TX_RING];
 #if (CFG_SUPPORT_TX_DATA_DELAY == 1)
-#if CFG_SUPPORT_HRTIMER
 	struct hrtimer rTxDelayTimer;
-#else
-	struct timer_list rTxDelayTimer;
-#endif
 	unsigned long rTxDelayTimerData;
 	unsigned long ulTxDataTimeout;
 #endif /* CFG_SUPPORT_TX_DATA_DELAY == 1 */
@@ -227,16 +193,6 @@ struct GL_HIF_INFO {
 	bool fgIsBackupIntSta;
 
 	unsigned long ulHifIntEnBits;
-	uint32_t u4IntBitSetCnt;
-
-#if CFG_SUPPORT_HIF_RX_NAPI
-	struct HIF_NAPI_DEVICE rRxNapiDev;
-#endif /* CFG_SUPPORT_HIF_RX_NAPI */
-#if CFG_SUPPORT_HIF_TX_NAPI
-	struct HIF_NAPI_DEVICE rTxNapiDev;
-#endif /* CFG_SUPPORT_HIF_TX_NAPI */
-
-	u_int8_t fgIsTriggerRxTimeout;
 };
 
 struct BUS_INFO {
@@ -336,7 +292,6 @@ struct BUS_INFO {
 	void (*processTxInterrupt)(struct ADAPTER *prAdapter);
 	void (*processRxInterrupt)(struct ADAPTER *prAdapter);
 	void (*processAbnormalInterrupt)(struct ADAPTER *prAdapter);
-	void (*lowPowerOwnInit)(struct ADAPTER *prAdapter);
 	void (*lowPowerOwnRead)(struct ADAPTER *prAdapter, u_int8_t *pfgResult);
 	void (*lowPowerOwnSet)(struct ADAPTER *prAdapter, u_int8_t *pfgResult);
 	void (*lowPowerOwnClear)(struct ADAPTER *prAdapter,
@@ -346,9 +301,6 @@ struct BUS_INFO {
 				 uint32_t u4Register);
 	void (*getMailboxStatus)(struct ADAPTER *prAdapter, uint32_t *pu4Val);
 	void (*setDummyReg)(struct GLUE_INFO *prGlueInfo);
-	void (*recordWFDMAIdx)(struct ADAPTER *prAdapter);
-	void (*checkIdxMismatch)(u_int32_t u4Idx,
-		struct RTMP_TX_RING *prTxRing);
 	void (*checkDummyReg)(struct GLUE_INFO *prGlueInfo);
 	void (*tx_ring_ext_ctrl)(struct GLUE_INFO *prGlueInfo,
 		struct RTMP_TX_RING *tx_ring, uint32_t index);
@@ -406,16 +358,12 @@ struct BUS_INFO {
 	u_int8_t (*checkPortForRxEventFromPse)(struct ADAPTER *prAdapter,
 		uint8_t u2Port);
 #endif
-	uint64_t u8HifIntUs;
-	uint32_t u4EnHifIntUs;
+	struct timespec64 rHifIntTs;
+	uint32_t u4EnHifIntTs;
 	uint32_t u4HifIntTsCnt;
 
 	u_int8_t fgUpdateWfdmaTh;
 	uint32_t u4WfdmaTh;
-
-#if CFG_NEW_HIF_DEV_REG_IF
-	uint32_t u4MmioReadReasonCnt[HIF_DEV_REG_MAX];
-#endif /* CFG_NEW_HIF_DEV_REG_IF */
 };
 
 /*******************************************************************************
@@ -441,10 +389,6 @@ struct BUS_INFO {
  *                   F U N C T I O N   D E C L A R A T I O N S
  *******************************************************************************
  */
-#if CFG_MTK_ANDROID_WMT
-uint32_t glRegisterShutdownCB(remove_card pfShutdown);
-#endif
-
 uint32_t glRegisterBus(probe_card pfProbe, remove_card pfRemove);
 
 void glUnregisterBus(remove_card pfRemove);

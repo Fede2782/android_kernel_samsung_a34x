@@ -182,6 +182,9 @@ static int mtk_hw_set_value_wrap(struct mtk_pinctrl *hw, unsigned int gpio,
 #define mtk_pctrl_set_drv(hw, gpio, val)		\
 	mtk_hw_set_value_wrap(hw, gpio, val, PINCTRL_PIN_REG_DRV)
 
+#define mtk_pctrl_set_eh(hw, gpio, val)		\
+	mtk_hw_set_value_wrap(hw, gpio, val, PINCTRL_PIN_REG_DRV_EH)
+
 #define mtk_pctrl_set_pullen(hw, gpio, val)		\
 	mtk_hw_set_value_wrap(hw, gpio, val, PINCTRL_PIN_REG_PULLEN)
 
@@ -364,6 +367,9 @@ static ssize_t mtk_gpio_write(struct file *file, const char __user *ubuf,
 	} else if ((!strncmp(buf, "smt", 3))
 		&& (sscanf(buf+3, "%d %d", &gpio, &val) == 2)) {
 		mtk_pctrl_set_smt(hw, gpio, val);
+	} else if ((!strncmp(buf, "eh", 2))
+		&& (sscanf(buf+2, "%d %d", &gpio, &val) == 2)) {
+		mtk_pctrl_set_eh(hw, gpio, val);
 	} else if ((!strncmp(buf, "driving", 7))
 		&& (sscanf(buf+7, "%d %d", &gpio, &val) == 2)) {
 		if (hw->soc->drive_set) {

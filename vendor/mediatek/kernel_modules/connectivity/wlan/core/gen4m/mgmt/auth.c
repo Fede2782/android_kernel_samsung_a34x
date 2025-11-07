@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -244,7 +244,9 @@ struct MSDU_INFO *authComposeAuthFrame(struct ADAPTER *prAdapter,
 	/* + Extra IE Length */
 	u2EstimatedExtraIELen = 0;
 
-	for (i = 0; i < ARRAY_SIZE(txAuthIETable); i++) {
+	for (i = 0;
+	     i < sizeof(txAuthIETable) / sizeof(struct APPEND_VAR_IE_ENTRY);
+	     i++) {
 		if (txAuthIETable[i].u2EstimatedFixedIELen != 0)
 			u2EstimatedExtraIELen +=
 				txAuthIETable[i].u2EstimatedFixedIELen;
@@ -336,7 +338,9 @@ struct MSDU_INFO *authComposeAuthFrame(struct ADAPTER *prAdapter,
 		nicTxConfigPktOption(prMsduInfo, MSDU_OPT_PROTECTED_FRAME,
 				     TRUE);
 	/* 4 <4> Compose IEs in MSDU_INFO_T */
-	for (i = 0; i < ARRAY_SIZE(txAuthIETable); i++) {
+	for (i = 0;
+	     i < sizeof(txAuthIETable) / sizeof(struct APPEND_VAR_IE_ENTRY);
+	     i++) {
 		if (txAuthIETable[i].pfnAppendIE)
 			txAuthIETable[i].pfnAppendIE(prAdapter, prMsduInfo);
 	}
@@ -384,11 +388,7 @@ authSendAuthFrame(struct ADAPTER *prAdapter,
 	prAuthFrame = (struct WLAN_AUTH_FRAME *)
 		((uintptr_t)(prMsduInfo->prPacket) + MAC_TX_RESERVED_FIELD);
 	DBGLOG(SAA, INFO,
-	       "%sTX_AUTH algo=%d asn=%d status=%d seq=%d SA=" MACSTR
-	       " DA=" MACSTR "\n",
-		IS_BSS_INDEX_AIS(prAdapter, prStaRec->ucBssIndex) ?
-		"<CONN> " : "",
-	       prAuthFrame->u2AuthAlgNum,
+	       "Send Auth, TranSeq: %d, Status: %d, Seq: %d, SA: " MACSTR ", DA: " MACSTR "\n",
 	       u2TransactionSeqNum, u2StatusCode, prMsduInfo->ucTxSeqNum,
 	       MAC2STR(prAuthFrame->aucSrcAddr),
 	       MAC2STR(prAuthFrame->aucDestAddr));
@@ -490,17 +490,33 @@ uint32_t authCheckRxAuthFrameTransSeq(struct ADAPTER *prAdapter,
 	}
 
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
-
 	if (prStaRec &&
-		(IS_STA_IN_AIS(prAdapter, prStaRec) ||
-		(IS_STA_IN_P2P(prAdapter, prStaRec) &&
-		 IS_AP_STA(prStaRec)))) {
+		(IS_STA_IN_AIS(prStaRec) ||
+		(IS_STA_IN_P2P(prStaRec) && IS_AP_STA(prStaRec)))) {
 		if (prStaRec->eAuthAssocState == SAA_STATE_EXTERNAL_AUTH) {
-			DBGLOG(SAA, INFO, "External auth\n");
 			saaFsmRunEventRxAuth(prAdapter, prSwRfb);
 			return WLAN_STATUS_SUCCESS;
 		}
 	}
+#if CFG_SUPPORT_NAN
+#if (CFG_SUPPORT_NAN_R4_PAIRING == 1)
+	if (prAdapter->rWifiVar.ucNanEnablePairing == 1) {
+		uint8_t aucBssid[MAC_ADDR_LEN] = {0};
+
+		nanDevGetClusterId(prAdapter, aucBssid);
+		/* Paring auth */
+		if ((prAuthFrame->u2AuthAlgNum == AUTH_ALGORITHM_NUM_PASN)
+			&& (kalMemCmp(prAuthFrame->aucBSSID,
+				aucBssid, MAC_ADDR_LEN) == 0)) {
+			nanPasnRxAuthFrame(prAdapter, prSwRfb);
+			DBGLOG(NAN, INFO,
+			"[pairing-pasn][%s]Auth Alg(%02x) PASN-M%u to engine\n",
+			__func__, prAuthFrame->u2AuthAlgNum,
+			prAuthFrame->u2AuthTransSeqNo);
+		}
+	}
+#endif
+#endif
 
 	/* 4 <3> Parse the Fixed Fields of Authentication Frame Body. */
 	/* WLAN_GET_FIELD_16(&prAuthFrame->u2AuthTransSeqNo,
@@ -517,7 +533,7 @@ uint32_t authCheckRxAuthFrameTransSeq(struct ADAPTER *prAdapter,
 	case AUTH_TRANSACTION_SEQ_2:
 	case AUTH_TRANSACTION_SEQ_4:
 #if CFG_SUPPORT_AAA
-		if (prStaRec && IS_STA_IN_P2P(prAdapter, prStaRec) &&
+		if (prStaRec && IS_STA_IN_P2P(prStaRec) &&
 			!IS_AP_STA(prStaRec))
 			aaaFsmRunEventRxAuth(prAdapter, prSwRfb);
 		else
@@ -593,16 +609,10 @@ authCheckRxAuthFrameStatus(struct ADAPTER *prAdapter,
 	prAuthFrame = (struct WLAN_AUTH_FRAME *)prSwRfb->pvHeader;
 
 	DBGLOG(SAA, INFO,
-		"%sRX_AUTH algo=%d auth_seq=%d sn=%d status=%d SA="
-		MACSTR " DA=" MACSTR "\n",
-		IS_BSS_INDEX_AIS(prAdapter, prStaRec->ucBssIndex) ?
-		"<CONN> " : "",
-		prAuthFrame->u2AuthAlgNum,
-		prAuthFrame->u2AuthTransSeqNo,
-		prAuthFrame->u2SeqCtrl,
-		prAuthFrame->u2StatusCode,
-		MAC2STR(prAuthFrame->aucSrcAddr),
-		MAC2STR(prAuthFrame->aucDestAddr));
+	       "Rx Auth, Status: %d, SA: " MACSTR ", DA: " MACSTR "\n",
+	       prAuthFrame->u2StatusCode,
+	       MAC2STR(prAuthFrame->aucSrcAddr),
+	       MAC2STR(prAuthFrame->aucDestAddr));
 
 	/* 4 <2> Parse the Fixed Fields of Authentication Frame Body. */
 	/* WLAN_GET_FIELD_16(&prAuthFrame->u2AuthAlgNum, &u2RxAuthAlgNum); */
@@ -639,8 +649,7 @@ authCheckRxAuthFrameStatus(struct ADAPTER *prAdapter,
 	}
 
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
-	if (prAuthFrame->u2StatusCode == STATUS_CODE_SUCCESSFUL &&
-	    !mldSanityCheck(prAdapter, prSwRfb->pvHeader,
+	if (!mldSanityCheck(prAdapter, prSwRfb->pvHeader,
 		prSwRfb->u2PacketLen, prStaRec, prStaRec->ucBssIndex)) {
 		DBGLOG(SAA, WARN, "Discard Auth frame with wrong ML IE\n");
 		*pu2StatusCode = STATUS_CODE_DENIED_EHT_NOT_SUPPORTED;
@@ -649,7 +658,10 @@ authCheckRxAuthFrameStatus(struct ADAPTER *prAdapter,
 #endif
 
 	/* 4 <3> Get the Status code */
+	/* WLAN_GET_FIELD_16(&prAuthFrame->u2StatusCode, &u2RxStatusCode); */
+	/* *pu2StatusCode = u2RxStatusCode; */
 	*pu2StatusCode = prAuthFrame->u2StatusCode;
+	/* NOTE(Kevin): Optimized for ARM */
 
 #if (CFG_SUPPORT_CONN_LOG == 1)
 	connLogAuthResp(prAdapter,
@@ -774,7 +786,10 @@ uint32_t authProcessRxAuth2_Auth4Frame(struct ADAPTER *prAdapter,
 		ucIEID = IE_ID(pucIEsBuffer);
 		ucIEExtID = IE_ID_EXT(pucIEsBuffer);
 
-		for (i = 0; i < ARRAY_SIZE(rxAuthIETable); i++) {
+		for (i = 0;
+		     i <
+		     (sizeof(rxAuthIETable) / sizeof(struct HANDLE_IE_ENTRY));
+		     i++) {
 			if (ucIEID != rxAuthIETable[i].ucElemID)
 				continue;
 			if (ucIEID == ELEM_ID_EXTENSION && ucIEExtID !=
@@ -897,7 +912,7 @@ authSendDeauthFrame(struct ADAPTER *prAdapter,
 	OS_SYSTIME rCurrentTime;
 	int32_t i4NewEntryIndex, i;
 	uint8_t ucStaRecIdx = STA_REC_INDEX_NOT_FOUND;
-	uint8_t ucBssIndex = prAdapter->ucSwBssIdNum;
+	uint8_t ucBssIndex = prAdapter->ucHwBssIdNum;
 	uint8_t aucBMC[] = BC_MAC_ADDR;
 
 	/* NOTE(Kevin): The best way to reply the Deauth is according to
@@ -934,7 +949,7 @@ authSendDeauthFrame(struct ADAPTER *prAdapter,
 		       MAC2STR(prWlanMacHeader->aucAddr3),
 		       prWlanMacHeader->u2SeqCtrl);
 		/* Check if corresponding BSS is able to send Deauth */
-		for (i = 0; i < prAdapter->ucSwBssIdNum; i++) {
+		for (i = 0; i < prAdapter->ucHwBssIdNum; i++) {
 			prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, i);
 			if (!prBssInfo) {
 				DBGLOG(SAA, ERROR, "prBssInfo is null\n");
@@ -998,7 +1013,6 @@ authSendDeauthFrame(struct ADAPTER *prAdapter,
 					      prDeauthInfo->rLastSendTime,
 					      MSEC_TO_SYSTIME
 					      (MIN_DEAUTH_INTERVAL_MSEC))) {
-
 				i4NewEntryIndex = i;
 			} else if (EQUAL_MAC_ADDR(pucReceiveAddr,
 						  prDeauthInfo->aucRxAddr) &&
@@ -1079,7 +1093,7 @@ authSendDeauthFrame(struct ADAPTER *prAdapter,
 				aisGetAisFsmInfo(prAdapter, ucBssIndex)
 					->encryptedDeauthIsInProcess = TRUE;
 			}
-			DBGLOG(SAA, INFO,
+			DBGLOG(SAA, VOC,
 			       "Reason=%d, DestAddr=" MACSTR
 			       " srcAddr=" MACSTR " BSSID=" MACSTR "\n",
 			       prDeauthFrame->u2ReasonCode,
@@ -1280,30 +1294,16 @@ authProcessRxAuthFrame(struct ADAPTER *prAdapter,
 	}
 
 	/* 4 <4> Parse the Fixed Fields of Authentication Frame Body. */
-	switch (prAuthFrame->u2AuthAlgNum) {
-	case AUTH_ALGORITHM_NUM_OPEN_SYSTEM:
-		if (prAuthFrame->u2AuthTransSeqNo != AUTH_TRANSACTION_SEQ_1)
-			u2ReturnStatusCode = STATUS_CODE_AUTH_OUT_OF_SEQ;
-		break;
-
-	case AUTH_ALGORITHM_NUM_SAE:
-		if (prAuthFrame->u2AuthTransSeqNo != AUTH_TRANSACTION_SEQ_1 &&
-			prAuthFrame->u2AuthTransSeqNo != AUTH_TRANSACTION_SEQ_2)
-			u2ReturnStatusCode = STATUS_CODE_AUTH_OUT_OF_SEQ;
-		break;
-
-#if CFG_SUPPORT_PASN
-	case AUTH_ALGORITHM_NUM_PASN:
-		if (prAuthFrame->u2AuthTransSeqNo != AUTH_TRANSACTION_SEQ_1 &&
-			prAuthFrame->u2AuthTransSeqNo != AUTH_TRANSACTION_SEQ_3)
-			u2ReturnStatusCode = STATUS_CODE_AUTH_OUT_OF_SEQ;
-		break;
-#endif
-
-	default:
+	if (prAuthFrame->u2AuthAlgNum != AUTH_ALGORITHM_NUM_OPEN_SYSTEM &&
+		prAuthFrame->u2AuthAlgNum != AUTH_ALGORITHM_NUM_SAE)
 		u2ReturnStatusCode = STATUS_CODE_AUTH_ALGORITHM_NOT_SUPPORTED;
-		break;
-	}
+	else if (prAuthFrame->u2AuthAlgNum == AUTH_ALGORITHM_NUM_OPEN_SYSTEM &&
+		prAuthFrame->u2AuthTransSeqNo != AUTH_TRANSACTION_SEQ_1)
+		u2ReturnStatusCode = STATUS_CODE_AUTH_OUT_OF_SEQ;
+	else if (prAuthFrame->u2AuthAlgNum == AUTH_ALGORITHM_NUM_SAE &&
+		prAuthFrame->u2AuthTransSeqNo != AUTH_TRANSACTION_SEQ_1 &&
+		prAuthFrame->u2AuthTransSeqNo != AUTH_TRANSACTION_SEQ_2)
+		u2ReturnStatusCode = STATUS_CODE_AUTH_OUT_OF_SEQ;
 
 #if (CFG_SUPPORT_802_11BE_MLO == 1)
 	if (!mldSanityCheck(prAdapter, prSwRfb->pvHeader,

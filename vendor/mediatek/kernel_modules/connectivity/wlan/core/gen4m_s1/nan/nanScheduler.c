@@ -3793,7 +3793,6 @@ nanSchedPeerUpdateUawAttr(struct ADAPTER *prAdapter, uint8_t *pucNmiAddr,
 		prPeerSchRecord =
 			nanSchedLookupPeerSchRecord(prAdapter, pucNmiAddr);
 		if (prPeerSchRecord == NULL) {
-			rStatus = WLAN_STATUS_FAILURE;
 			break;
 		}
 
@@ -6511,6 +6510,10 @@ nanSchedNegoGenDefCrb(struct ADAPTER *prAdapter,
 				/* no local channel allocation case */
 				rSelChnlInfo = nanSchedConvergeChnlInfo(
 					prAdapter, rRmtChnlInfo);
+				if (rSelChnlInfo.rChannel.u4PrimaryChnl !=
+					g_r2gDwChnl.rChannel.u4PrimaryChnl &&
+				    u4SlotOffset == (NAN_2G_DW_INDEX + 1))
+					continue;
 				if (rSelChnlInfo.rChannel.u4PrimaryChnl
 					!= 0) {
 					/* Clear this slot before

@@ -3,7 +3,7 @@
 #
 
 config PROCA
-	bool "Process Authenticator"
+	tristate "Process Authenticator"
 	depends on FIVE
 	default n
 	help
@@ -16,6 +16,14 @@ config PROCA_GKI_10
 	default n
 	help
 	   Build GKI 1.0 compatible version of PROCA
+
+config PROCA_GKI_20
+	bool "GKI 2.0 compatible version of PROCA"
+	depends on PROCA
+	default y if FIVE_GKI_20
+	default n
+	help
+	   Build GKI 2.0 compatible version of PROCA
 
 config PROCA_S_OS
 	bool "S OS compatible version of PROCA"
@@ -45,7 +53,7 @@ endchoice
 
 config PROCA_CERT_ENG
     string "PROCA certificate to verify signatures for eng binary"
-    depends on PROCA
+    depends on PROCA_DEBUG
     default "x509_proca_eng.der"
     help
       Path to CERT which will be built-in to eng binary
@@ -59,15 +67,15 @@ config PROCA_CERT_USER
 
 config PROCA_CERT_DEVICE
 	bool "PROCA certificate device"
-	depends on PROCA_CERTIFICATES_DB && !SAMSUNG_PRODUCT_SHIP
-	default n
+	depends on PROCA_CERTIFICATES_DB && PROCA_DEBUG
+	default y
 	help
 	   Enable the certificate device /dev/proca_cert for reading and
 	   updating test database in /data/proca.db
 
 config PROCA_DEBUG
 	bool "PROCA Debug mode"
-	depends on PROCA && !SAMSUNG_PRODUCT_SHIP
+	depends on PROCA
 	default n
 	help
 	   Enable the debug mode in the PROCA. When this option is enabled

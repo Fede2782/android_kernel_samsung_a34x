@@ -1005,9 +1005,12 @@ static inline int port_adjust_skb(struct port_t *port, struct sk_buff *skb)
 int port_recv_skb(struct port_t *port, struct sk_buff *skb)
 {
 	unsigned long flags;
-	struct ccci_header *ccci_h = (struct ccci_header *)skb->data;
+	struct ccci_header ccci_h;
 	unsigned long rem_nsec;
 	u64 ts_nsec;
+
+	memset(&ccci_h, 0, sizeof(struct ccci_header));
+	memcpy((void *)(&ccci_h), skb->data, sizeof(struct ccci_header));
 
 	spin_lock_irqsave(&port->rx_skb_list.lock, flags);
 	CCCI_DEBUG_LOG(0, TAG,
@@ -1017,24 +1020,24 @@ int port_recv_skb(struct port_t *port, struct sk_buff *skb)
 		port->flags &= ~PORT_F_RX_FULLED;
 		if (port->flags & PORT_F_ADJUST_HEADER)
 			port_adjust_skb(port, skb);
-		if (ccci_h->channel == CCCI_STATUS_RX)
+		if (ccci_h.channel == CCCI_STATUS_RX)
 			port->skb_handler(port, skb);
 		else  {
 			__skb_queue_tail(&port->rx_skb_list, skb);
-			if (ccci_h->channel == CCCI_SYSTEM_RX) {
+			if (ccci_h.channel == CCCI_SYSTEM_RX) {
 				ts_nsec = sched_clock();
 				rem_nsec = do_div(ts_nsec, 1000000000);
 				CCCI_HISTORY_LOG(0, TAG,
 					"[%5lu.%06lu]sysmsg+%08x %08x %04x\n",
 					(unsigned long)ts_nsec, rem_nsec / 1000,
-					ccci_h->data[1], ccci_h->reserved,
-					ccci_h->seq_num);
+					ccci_h.data[1], ccci_h.reserved,
+					ccci_h.seq_num);
 			}
 		}
 
 #ifdef CONFIG_MTK_SRIL_SUPPORT
-		if (ccci_h->channel == CCCI_RIL_IPC0_RX
-			|| ccci_h->channel == CCCI_RIL_IPC1_RX) {
+		if (ccci_h.channel == CCCI_RIL_IPC0_RX
+			|| ccci_h.channel == CCCI_RIL_IPC1_RX) {
 			print_hex_dump(KERN_INFO, "2. mif: RX: ",
 				DUMP_PREFIX_NONE, 32, 1, skb->data, 32, 0);
 		}
@@ -1042,7 +1045,7 @@ int port_recv_skb(struct port_t *port, struct sk_buff *skb)
 		atomic_inc(&port->rx_pkg_cnt);
 		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
 		//print log after unlock
-		if (ccci_h->channel == CCCI_STATUS_RX) {
+		if (ccci_h.channel == CCCI_STATUS_RX) {
 			CCCI_NORMAL_LOG(0, TAG,
 				"received MD status response 0x%x\n", *(((u32 *)skb->data) + 2));
 			ccci_free_skb(skb);

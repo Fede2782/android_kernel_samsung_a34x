@@ -72,7 +72,7 @@ int get_uisoc(struct mtk_charger *info)
 
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
 		chr_err("%s retry to get bat_psy\n", __func__);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		bat_psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 		bat_psy = power_supply_get_by_name("battery");
@@ -354,7 +354,7 @@ bool is_battery_exist(struct mtk_charger *info)
 
 	if (bat_psy == NULL || IS_ERR(bat_psy)) {
 		chr_err("%s retry to get bat_psy\n", __func__);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		bat_psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 		bat_psy = power_supply_get_by_name("battery");

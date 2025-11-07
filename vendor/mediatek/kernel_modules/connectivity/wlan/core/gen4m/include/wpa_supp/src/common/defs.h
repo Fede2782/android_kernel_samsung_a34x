@@ -98,7 +98,7 @@ wpa_key_mgmt_sae(int akm) {
 static inline int
 wpa_key_mgmt_sha256(int akm) {
 #if CFG_SUPPORT_NAN
-	DBGLOG(NAN, DEBUG, "[WPA][%s]\n", __func__);
+	DBGLOG(NAN, INFO, "[WPA][%s]\n", __func__);
 #endif
 	return !!(akm &
 		  (WPA_KEY_MGMT_PSK_SHA256 | WPA_KEY_MGMT_IEEE8021X_SHA256 |
@@ -108,7 +108,7 @@ wpa_key_mgmt_sha256(int akm) {
 static inline int
 wpa_key_mgmt_sha384(int akm) {
 #if CFG_SUPPORT_NAN
-	DBGLOG(NAN, DEBUG, "[WPA][%s]\n", __func__);
+	DBGLOG(NAN, INFO, "[WPA][%s]\n", __func__);
 #endif
 	return !!(akm & WPA_KEY_MGMT_IEEE8021X_SUITE_B_192);
 }
@@ -116,7 +116,7 @@ wpa_key_mgmt_sha384(int akm) {
 static inline int
 wpa_key_mgmt_suite_b(int akm) {
 #if CFG_SUPPORT_NAN
-	DBGLOG(NAN, DEBUG, "[WPA][%s]\n", __func__);
+	DBGLOG(NAN, INFO, "[WPA][%s]\n", __func__);
 #endif
 	return !!(akm & (WPA_KEY_MGMT_IEEE8021X_SUITE_B |
 			 WPA_KEY_MGMT_IEEE8021X_SUITE_B_192));

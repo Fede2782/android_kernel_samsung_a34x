@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -790,7 +790,7 @@ void soc5_0_show_wfdma_dbg_probe_info(struct ADAPTER *prAdapter,
 		u4DbgIdxValue = 0x100 + dbg_cr_idx[i];
 		HAL_MCR_WR(prAdapter, u4DbgIdxAddr, u4DbgIdxValue);
 		HAL_MCR_RD(prAdapter, u4DbgProbeAddr, &u4DbgProbeValue);
-		DBGLOG(HAL, DEBUG, "\t Write(0x%2x) DBG_PROBE[0x%X]=0x%08X\n",
+		DBGLOG(HAL, INFO, "\t Write(0x%2x) DBG_PROBE[0x%X]=0x%08X\n",
 			u4DbgIdxValue, u4DbgProbeAddr, u4DbgProbeValue);
 	}
 }
@@ -807,118 +807,37 @@ void soc5_0_show_wfdma_wrapper_info(struct ADAPTER *prAdapter,
 	if (enum_wfdma_type == WFDMA_TYPE_HOST) {
 		u4DmaCfgCr = 0x7c027044;
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_HIF_MISC(0x%08x): 0x%08x\n",
+		DBGLOG(INIT, INFO, "WFDMA_HIF_BUSY(0x%08x): 0x%08x\n",
 				u4DmaCfgCr,
 				u4RegValue);
 
 		u4DmaCfgCr = 0x7c027050;
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_AXI_SLPPROT_CTRL(0x%08x): 0x%08x\n",
-				u4DmaCfgCr,
-				u4RegValue);
-
-		u4DmaCfgCr = 0x7c027074;
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_DCM_CTRL(0x%08x): 0x%08x\n",
+		DBGLOG(INIT, INFO, "WFDMA_AXI_SLPPROT_CTRL(0x%08x): 0x%08x\n",
 				u4DmaCfgCr,
 				u4RegValue);
 
 		u4DmaCfgCr = 0x7c027078;
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_SLPPROT_DBG0(0x%08x): 0x%08x\n",
-				u4DmaCfgCr,
-				u4RegValue);
-
-		u4DmaCfgCr = 0x7c02707C;
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_SLPPROT_DBG1(0x%08x): 0x%08x\n",
-				u4DmaCfgCr,
-				u4RegValue);
-
-		u4DmaCfgCr = 0x7c02750C;
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_AXI0_R2A_STS(0x%08x): 0x%08x\n",
-				u4DmaCfgCr,
-				u4RegValue);
-
-		u4DmaCfgCr = 0x7c027510;
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG,
-			"WFDMA_AXI0_R2A_DMAWR_PROBE(0x%08x): 0x%08x\n",
-				u4DmaCfgCr,
-				u4RegValue);
-
-		u4DmaCfgCr = 0x7c027514;
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG,
-			"WFDMA_AXI0_R2A_DMAWD_PROBE(0x%08x): 0x%08x\n",
-				u4DmaCfgCr,
-				u4RegValue);
-
-		u4DmaCfgCr = 0x7c027518;
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG,
-			"WFDMA_AXI0_R2A_WR_DBG_AXIM_OUT0(0x%08x): 0x%08x\n",
-				u4DmaCfgCr,
-				u4RegValue);
-
-		u4DmaCfgCr = 0x7c02751C;
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG,
-			"WFDMA_AXI0_R2A_WR_DBG_AXIM_OUT1(0x%08x): 0x%08x\n",
-				u4DmaCfgCr,
-				u4RegValue);
-
-		u4DmaCfgCr = 0x7c027520;
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG,
-			"WFDMA_AXI0_R2A_AXI_SLP_STS(0x%08x): 0x%08x\n",
-				u4DmaCfgCr,
-				u4RegValue);
-
-		u4DmaCfgCr = 0x7c027524;
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG,
-			"WFDMA_AXI0_R2A_RD_DBG_AXIM_OUT0(0x%08x): 0x%08x\n",
-				u4DmaCfgCr,
-				u4RegValue);
-
-		u4DmaCfgCr = 0x7c027528;
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG,
-			"WFDMA_AXI0_R2A_RD_DBG_AXIM_OUT1(0x%08x): 0x%08x\n",
-				u4DmaCfgCr,
-				u4RegValue);
-
-		u4DmaCfgCr = 0x7c02752C;
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG,
-			"WFDMA_AXI0_R2A_FSM_CMD_ST(0x%08x): 0x%08x\n",
-				u4DmaCfgCr,
-				u4RegValue);
-
-		u4DmaCfgCr = 0x7c027530;
-		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG,
-			"WFDMA_AXI0_R2A_FSM_DAT_ST(0x%08x): 0x%08x\n",
+		DBGLOG(INIT, INFO, "WFDMA_AXI_SLPPROT0_CTRL(0x%08x): 0x%08x\n",
 				u4DmaCfgCr,
 				u4RegValue);
 	} else {
 		u4DmaCfgCr = 0x57000044;
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_HIF_BUSY(0x%08x): 0x%08x\n",
+		DBGLOG(INIT, INFO, "WFDMA_HIF_BUSY(0x%08x): 0x%08x\n",
 				u4DmaCfgCr,
 				u4RegValue);
 
 		u4DmaCfgCr = 0x57000050;
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_AXI_SLPPROT_CTRL(0x%08x): 0x%08x\n",
+		DBGLOG(INIT, INFO, "WFDMA_AXI_SLPPROT_CTRL(0x%08x): 0x%08x\n",
 				u4DmaCfgCr,
 				u4RegValue);
 
 		u4DmaCfgCr = 0x57000078;
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_AXI_SLPPROT0_CTRL(0x%08x): 0x%08x\n",
+		DBGLOG(INIT, INFO, "WFDMA_AXI_SLPPROT0_CTRL(0x%08x): 0x%08x\n",
 				u4DmaCfgCr,
 				u4RegValue);
 	}
@@ -992,47 +911,47 @@ void soc5_0_dump_mac_info(struct ADAPTER *prAdapter)
 
 	char *buf = (char *) kalMemAlloc(BUF_SIZE, VIR_MEM_TYPE);
 
-	DBGLOG(HAL, DEBUG, "Dump for band0\n");
+	DBGLOG(HAL, INFO, "Dump for band0\n");
 	HAL_MCR_WR(prAdapter, 0x7C060390, 0x1F);
 	HAL_MCR_WR(prAdapter, 0x7C060394, 0x07070707);
 	HAL_MCR_WR(prAdapter, 0x7C060398, 0x0A0A0B09);
 
 	/* #define WF_LMACON_CFG_TOP_LOCGCR0_ADDR */
 	HAL_MCR_RD(prAdapter, 0x820D0000, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820D0000 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820D0000 = 0x%08x\n", value);
 
 	/* #define BN0_WF_ARB_TOP_SCR_ADDR */
 	HAL_MCR_RD(prAdapter, 0x820E3000, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820E3000 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820E3000 = 0x%08x\n", value);
 
 	/* #define WF_PLE_TOP_INT_N9_ERR_STS_ADDR */
 	HAL_MCR_RD(prAdapter, 0x820C0304, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820C0304 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820C0304 = 0x%08x\n", value);
 
 	/* #define WF_PLE_TOP_INT_N9_ERR_STS_1_ADDR */
 	HAL_MCR_RD(prAdapter, 0x820C0308, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820C0308 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820C0308 = 0x%08x\n", value);
 
 	/* #define WF_PSE_TOP_INT_N9_ERR_STS_ADDR */
 	HAL_MCR_RD(prAdapter, 0x820C8034, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820C8034 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820C8034 = 0x%08x\n", value);
 
 	/* #define WF_PSE_TOP_INT_N9_ERR1_STS_ADDR */
 	HAL_MCR_RD(prAdapter, 0x820C8038, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820C8038 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820C8038 = 0x%08x\n", value);
 
 	/* Band 0 TXV_C and TXV_P */
 	/* #define BN0_WF_TMAC_TOP_TXV0_ADDR */
 	/* #define BN0_WF_TMAC_TOP_TXV11_ADDR */
 	for (i = 0x820E4378; i < 0x820E43A8; i += 4) {
 		HAL_MCR_RD(prAdapter, i, &value);
-		DBGLOG(HAL, DEBUG, "Dump CR: 0x%08x = 0x%08x\n", i, value);
+		DBGLOG(HAL, INFO, "Dump CR: 0x%08x = 0x%08x\n", i, value);
 		kalMdelay(1);
 	}
 
 	/* #define BN0_WF_AGG_TOP_PCR0_ADDR */
 	HAL_MCR_RD(prAdapter, 0x820E2040, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820E2040 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820E2040 = 0x%08x\n", value);
 
 	if (buf) {
 		kalMemZero(buf, BUF_SIZE);
@@ -1043,53 +962,53 @@ void soc5_0_dump_mac_info(struct ADAPTER *prAdapter)
 					"0x%08x = 0x%08x%s", cr_band0[j], value,
 					j == CR_COUNT - 1 ? ";" : ",");
 			}
-			DBGLOG(HAL, DEBUG, "Dump CR: %s\n", buf);
+			DBGLOG(HAL, INFO, "Dump CR: %s\n", buf);
 			pos = 0;
 			kalMdelay(1);
 		}
 	}
 
-	DBGLOG(HAL, DEBUG, "Dump for band1\n");
+	DBGLOG(HAL, INFO, "Dump for band1\n");
 	HAL_MCR_WR(prAdapter, 0x7C06039C, 0x1F);
 	HAL_MCR_WR(prAdapter, 0x7C0603A0, 0x07070707);
 	HAL_MCR_WR(prAdapter, 0x7C0603A4, 0x0A0A0B09);
 
 	/* #define WF_LMACON_CFG_TOP_LOCGCR0_ADDR */
 	HAL_MCR_RD(prAdapter, 0x820D0000, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820D0000 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820D0000 = 0x%08x\n", value);
 
 	/* #define BN1_WF_ARB_TOP_SCR_ADDR */
 	HAL_MCR_RD(prAdapter, 0x820F3000, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820F3000 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820F3000 = 0x%08x\n", value);
 
 	/* #define WF_PLE_TOP_INT_N9_ERR_STS_ADDR */
 	HAL_MCR_RD(prAdapter, 0x820C0304, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820C0304 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820C0304 = 0x%08x\n", value);
 
 	/* #define WF_PLE_TOP_INT_N9_ERR_STS_1_ADDR */
 	HAL_MCR_RD(prAdapter, 0x820C0308, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820C0308 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820C0308 = 0x%08x\n", value);
 
 	/* #define WF_PSE_TOP_INT_N9_ERR_STS_ADDR */
 	HAL_MCR_RD(prAdapter, 0x820C8034, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820C8034 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820C8034 = 0x%08x\n", value);
 
 	/* #define WF_PSE_TOP_INT_N9_ERR1_STS_ADDR */
 	HAL_MCR_RD(prAdapter, 0x820C8038, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820C8038 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820C8038 = 0x%08x\n", value);
 
 	/* Band 1 TXV_C and TXV_P */
 	/* #define BN1_WF_TMAC_TOP_TXV0_ADDR */
 	/* #define BN1_WF_TMAC_TOP_TXV11_ADDR */
 	for (i = 0x820F4378; i < 0x820F43A8; i += 4) {
 		HAL_MCR_RD(prAdapter, i, &value);
-		DBGLOG(HAL, DEBUG, "Dump CR: 0x%08x = 0x%08x\n", i, value);
+		DBGLOG(HAL, INFO, "Dump CR: 0x%08x = 0x%08x\n", i, value);
 		kalMdelay(1);
 	}
 
 	/* #define BN1_WF_AGG_TOP_PCR0_ADDR */
 	HAL_MCR_RD(prAdapter, 0x820F2040, &value);
-	DBGLOG(HAL, DEBUG, "Dump CR: 0x820F2040 = 0x%08x\n", value);
+	DBGLOG(HAL, INFO, "Dump CR: 0x820F2040 = 0x%08x\n", value);
 
 	if (buf) {
 		kalMemZero(buf, BUF_SIZE);
@@ -1100,7 +1019,7 @@ void soc5_0_dump_mac_info(struct ADAPTER *prAdapter)
 					"0x%08x = 0x%08x%s", cr_band1[j], value,
 					j == CR_COUNT - 1 ? ";" : ",");
 			}
-			DBGLOG(HAL, DEBUG, "Dump CR: %s\n", buf);
+			DBGLOG(HAL, INFO, "Dump CR: %s\n", buf);
 			pos = 0;
 			kalMdelay(1);
 		}
@@ -1205,17 +1124,19 @@ void soc5_0_get_rx_link_stats(struct ADAPTER *prAdapter,
 	struct STA_RECORD *prStaRec;
 	uint32_t u4RxV0 = pu4RxV[0];
 	uint32_t mcsIdx;
+	uint8_t i;
+	uint8_t ucHwBandIdx = prSwRfb->ucHwBandIdx;
 
 	if (prAdapter->rWifiVar.fgLinkStatsDump)
-		DBGLOG(RX, DEBUG,
-			"RXV: pmbl=%lu nsts=%lu stbc=%lu bw=%lu mcs=%lu\n",
+		DBGLOG(RX, INFO, "RXV: pmbl=%u nsts=%u stbc=%u bw=%u mcs=%u",
 			RXV_GET_TXMODE(u4RxV0),
 			RXV_GET_RX_NSTS(u4RxV0),
 			RXV_GET_STBC(u4RxV0),
 			RXV_GET_FR_MODE(u4RxV0),
 			RXV_GET_RX_RATE(u4RxV0));
 
-	if (!IS_RX_MPDU_BEGIN(prSwRfb->ucPayloadFormat))
+	if (!(prSwRfb->ucPayloadFormat == RX_PAYLOAD_FORMAT_MSDU ||
+	      prSwRfb->ucPayloadFormat == RX_PAYLOAD_FORMAT_FIRST_SUB_AMSDU))
 		return;
 
 	rate.preamble = TX_MODE_2_LLS_MODE[RXV_GET_TXMODE(u4RxV0)];
@@ -1272,14 +1193,13 @@ void soc5_0_get_rx_link_stats(struct ADAPTER *prAdapter,
 	}
 
 	if (prAdapter->rWifiVar.fgLinkStatsDump)
-		DBGLOG(RX, DEBUG, "rate preamble=%u, nss=%u, bw=%u, mcsIdx=%u",
+		DBGLOG(RX, INFO, "rate preamble=%u, nss=%u, bw=%u, mcsIdx=%u",
 			rate.preamble, rate.nss, rate.bw, mcsIdx);
 	return;
 
 wrong_rate:
-	DBGLOG_LIMITED(RX, WARN,
-		       "Invalid rate preamble=%u, nss=%u, bw=%u, mcsIdx=%u",
-		       rate.preamble, rate.nss, rate.bw, mcsIdx);
+	DBGLOG(RX, WARN, "Invalid rate preamble=%u, nss=%u, bw=%u, mcsIdx=%u",
+			rate.preamble, rate.nss, rate.bw, mcsIdx);
 #endif
 }
 

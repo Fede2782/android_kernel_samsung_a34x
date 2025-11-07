@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -225,9 +225,9 @@ void mt7668PdmaConfig(struct GLUE_INFO *prGlueInfo, u_int8_t enable,
 	union WPDMA_GLO_CFG_STRUCT GloCfg;
 	union WPDMA_INT_MASK IntMask;
 
-	HAL_MCR_RD(prGlueInfo->prAdapter, WPDMA_GLO_CFG, &GloCfg.word);
+	kalDevRegRead(prGlueInfo, WPDMA_GLO_CFG, &GloCfg.word);
 
-	HAL_MCR_RD(prGlueInfo->prAdapter, WPDMA_INT_MSK, &IntMask.word);
+	kalDevRegRead(prGlueInfo, WPDMA_INT_MSK, &IntMask.word);
 
 	if (enable == TRUE) {
 		/*0x4208 = 5440_1E70*/
@@ -507,7 +507,6 @@ struct mt66xx_chip_info mt66xx_chip_info_mt7668 = {
 	.sw_ready_bit_offset = MT7668_SW_SYNC0_RDY_OFFSET,
 	.patch_addr = MT7668_PATCH_START_ADDR,
 	.is_support_cr4 = TRUE,
-	.sw_sync_emi_info = NULL,
 	.txd_append_size = MT7668_TX_DESC_APPEND_LENGTH,
 	.rxd_size = MT7668_RX_DESC_LENGTH,
 	.init_evt_rxd_size = MT7668_RX_DESC_LENGTH,

@@ -35,7 +35,7 @@
 #endif
 #include <linux/of_gpio.h>
 #include <linux/gpio.h>
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_MTK_NO_BAT_BOOT_SUPPORT)
 #include <../drivers/battery/common/sec_charging_common.h>
 #define SEC_BATTERY_FAKE_CAPACITY 0
 static char __read_mostly *f_mode;
@@ -136,7 +136,7 @@ struct mtk_battery *get_mtk_battery(void)
 	struct power_supply *psy;
 
 	if (bm == NULL) {
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 		psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 		psy = power_supply_get_by_name("battery");
@@ -846,7 +846,7 @@ int force_get_tbat_internal(struct mtk_battery *gm)
 		tmp_time = ktime_to_timespec64(dtime);
 	}
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	gm->tbat_adc = bat_temperature_volt;
 #endif
 	return bat_temperature_val;
@@ -3117,7 +3117,7 @@ static void fg_drv_update_hw_status(struct mtk_battery *gm)
 #if defined(CONFIG_MTK_NO_BAT_BOOT_SUPPORT)
 	/* Factory bin & OB Mode(nobattery condition) */
 	/* need regular update for vsys_to_vsoc_for_factory_mode */
-#if IS_ENABLED(CONFIG_SEC_FACTORY) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if IS_ENABLED(CONFIG_SEC_FACTORY)
 	if (gm->f_mode == OB_MODE) {
 		if (gm->disableGM30)
 			battery_update(gm->bm);
@@ -3436,7 +3436,7 @@ int battery_init(struct platform_device *pdev)
 
 	mutex_init(&gm->fg_update_lock);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG) && IS_ENABLED(CONFIG_SEC_MTK_CHARGER)
+#if defined(CONFIG_MTK_NO_BAT_BOOT_SUPPORT)
 	if (!f_mode)
 		gm->f_mode = NO_MODE;
 	else if ((strncmp(f_mode, "OB", 2) == 0) || (strncmp(f_mode, "DL", 2) == 0))

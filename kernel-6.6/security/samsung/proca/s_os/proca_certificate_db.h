@@ -49,6 +49,7 @@ enum db_status {
 	NOT_READY,
 	INITED,
 	ABSENT,
+	FAILED
 };
 
 struct certificates_db {
@@ -71,6 +72,8 @@ void deinit_proca_db(struct certificates_db *db);
 
 int load_db(const char *file_path,
 		struct certificates_db *proca_db);
+
+int load_all_db(void);
 
 int proca_digsig_verify(const char *signature, int sig_len,
 			const char *hash, int hash_len, uint32_t key_id);

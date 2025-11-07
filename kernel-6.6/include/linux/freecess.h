@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+
 #ifndef KFRECESS_H
 #define KFRECESS_H
 
@@ -53,12 +55,10 @@ typedef struct {
  *  For Q, because 8bytes ->12 bytes issue, use version 1
  *  If new featue added, version increased.
  */
-#define FREECESS_KERNEL_VERSION 1
 #define FREECESS_PEER_VERSION(version)   (((version) & 0xF0000000) >> 28)
 #define FREECESS_PACK_VERSION(version)    ((version) << 28)
 
-struct kfreecess_msg_data
-{
+struct kfreecess_msg_data {
 	int type;
 	int mod;
 	int src_portid;
@@ -77,7 +77,7 @@ struct kfreecess_msg_data
 
 extern int freecess_fw_version;    // record freecess framework version
 
-typedef void (*freecess_hook)(void* data, unsigned int len);
+typedef void (*freecess_hook)(void *data, unsigned int len);
 
 int sig_report(struct task_struct *p, bool report_pid);
 int binder_report(struct task_struct *p, int code, const char *str, int flag);
@@ -85,5 +85,6 @@ int pkg_report(int target_uid);
 int cfb_report(int target_uid, const char *reason);
 int register_kfreecess_hook(int mod, freecess_hook hook);
 int unregister_kfreecess_hook(int mod);
-int thread_group_is_frozen(struct task_struct* task);
+int thread_group_is_frozen(struct task_struct *task);
+bool cgroup2_frozen(struct task_struct *task);
 #endif

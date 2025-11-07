@@ -104,22 +104,22 @@ uint32_t nanProcessPA(struct ADAPTER *prAdapter, const uint8_t *buf,
 	struct IE_NAN_PA_CMD *c = (struct IE_NAN_PA_CMD *)buf;
 	uint32_t offset = 0;
 
-	DBGLOG(NAN, DEBUG, "Enter %s, consuming %zu bytes\n",
-	       __func__, sizeof(struct IE_NAN_PA_CMD));
-	DBGLOG_HEX(NAN, DEBUG, buf, sizeof(struct IE_NAN_PA_CMD));
+	DBGLOG(NAN, INFO, "Consuming %zu bytes\n",
+	       sizeof(struct IE_NAN_PA_CMD));
+	DBGLOG_HEX(NAN, INFO, buf, sizeof(struct IE_NAN_PA_CMD));
 
-	DBGLOG(NAN, DEBUG, "OUI: %d(%02X) (%s)\n",
+	DBGLOG(NAN, INFO, "OUI: %d(%02X) (%s)\n",
 	       c->ucNanOui, c->ucNanOui, oui_str(c->ucNanOui));
-	DBGLOG(NAN, DEBUG, "Length: %d\n", c->ucLength);
-	DBGLOG(NAN, DEBUG, "v%d.%d\n", c->ucMajorVersion, c->ucMinorVersion);
-	DBGLOG(NAN, DEBUG, "ReqId: %d\n", c->ucRequestId);
-	DBGLOG(NAN, DEBUG, "Type: %d\n", c->type);
-	DBGLOG(NAN, DEBUG, "Status: %d\n", c->status);
-	DBGLOG(NAN, DEBUG, "Minor Reason: %u\n", c->ucMinorReason);
-	DBGLOG(NAN, DEBUG, "Capa: %u\n", c->capability);
-	DBGLOG(NAN, DEBUG, "ServiceReq: %u\n", c->service_request);
-	DBGLOG(NAN, DEBUG, "NdpReq: %u\n", c->ndp_setup_request);
-	DBGLOG(NAN, DEBUG, "Reserved: %u\n", c->reserved);
+	DBGLOG(NAN, INFO, "Length: %d\n", c->ucLength);
+	DBGLOG(NAN, INFO, "v%d.%d\n", c->ucMajorVersion, c->ucMinorVersion);
+	DBGLOG(NAN, INFO, "ReqId: %d\n", c->ucRequestId);
+	DBGLOG(NAN, INFO, "Type: %d\n", c->type);
+	DBGLOG(NAN, INFO, "Status: %d\n", c->status);
+	DBGLOG(NAN, INFO, "Minor Reason: %u\n", c->ucMinorReason);
+	DBGLOG(NAN, INFO, "Capa: %u\n", c->capability);
+	DBGLOG(NAN, INFO, "ServiceReq: %u\n", c->service_request);
+	DBGLOG(NAN, INFO, "NdpReq: %u\n", c->ndp_setup_request);
+	DBGLOG(NAN, INFO, "Reserved: %u\n", c->reserved);
 
 	offset += sizeof(struct IE_NAN_PA_CMD);
 

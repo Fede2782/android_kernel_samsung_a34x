@@ -15,6 +15,7 @@
 #include "mtk-afe-fe-dai.h"
 #include "mtk-afe-platform-driver.h"
 #include "mt6991-afe-gpio.h"
+#include <linux/regulator/consumer.h>
 
 #if !defined(SKIP_SB_PBM)
 #include <mtk_peak_power_budget.h>
@@ -853,13 +854,28 @@ static int mt6991_afe_vow_scp_dmic_set(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	struct mt6991_afe_private *afe_priv = afe->platform_priv;
 	int val = ucontrol->value.integer.value[0];
+	int status = 0;
 
 	dev_info(afe->dev, "%s(), %d\n", __func__, val);
-	if (val == true)
+	if (val == true) {
+		if (!IS_ERR(afe_priv->reg_vib18)) {
+			status = regulator_enable(afe_priv->reg_vib18);
+			if (status)
+				dev_info(afe->dev, "%s() failed to enable vib18(%d)\n",
+					__func__, status);
+		}
 		mt6991_afe_gpio_request(afe, true, MT6991_DAI_VOW_SCP_DMIC, 0);
-	else if (val == false)
+	} else if (val == false) {
 		mt6991_afe_gpio_request(afe, false, MT6991_DAI_VOW_SCP_DMIC, 0);
+		if (!IS_ERR(afe_priv->reg_vib18)) {
+			status = regulator_disable(afe_priv->reg_vib18);
+			if (status)
+				dev_info(afe->dev, "%s() failed to disable vib18(%d)\n",
+					__func__, status);
+		}
+	}
 	return 0;
 }
 

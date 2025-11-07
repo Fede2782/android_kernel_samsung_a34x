@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -179,8 +179,7 @@ os_get_time(struct os_time *t) {
 }
 
 int
-os_snprintf(char *str, size_t size, const char *format, ...)
-{
+os_snprintf(char *str, size_t size, const char *format, ...) {
 	va_list ap;
 	int ret = 0;
 

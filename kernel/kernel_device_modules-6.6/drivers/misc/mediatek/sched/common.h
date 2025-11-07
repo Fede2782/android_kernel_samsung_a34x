@@ -238,6 +238,9 @@ bool is_dsu_idle_enable(void);
 void set_runnable_boost_enable(bool boost_ctrl);
 void unset_runnable_boost_enable(void);
 bool is_runnable_boost_enable(void);
+void set_runnable_boost_with_cpumask(bool boost_ctrl, int runnable_boost_cpus);
+bool is_runnable_boost_all(void);
+struct cpumask *get_runnable_boost_cpumask(void);
 
 unsigned long mtk_cpu_util_next(int cpu, struct task_struct *p, int dst_cpu, int boost);
 

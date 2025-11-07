@@ -30,7 +30,7 @@
 #define VALID_CONTOUR_HIST_VALUE (0x07FFFFFF)
 #define call_hw_op(_comp, op, ...) \
 	(_comp->hw_ops->op ? _comp->hw_ops->op(_comp, ##__VA_ARGS__) : 0)
-
+#define OFFSET(m, n) ((m > n) ? (m - n) : 0)
 
 enum mml_tdshp_reg_index {
 	TDSHP_00,
@@ -651,15 +651,35 @@ static s32 tdshp_config_tile(struct mml_comp *comp, struct mml_task *task,
 	tdshp_hist_top_start =
 		(tile->out.ys > tdshp_frm->out_hist_ys) ? tile->out.ys  : tdshp_frm->out_hist_ys;
 
-	hist_win_x_start = tdshp_hist_left_start - tile->in.xs;
-	if (task->config->dual && !ccfg->pipe && (idx + 1 >= tile_cnt))
-		hist_win_x_end = tdshp_frm->cut_pos_x - tile->in.xs - 1;
+	if (tdshp_hist_left_start >= tile->in.xs)
+		hist_win_x_start = OFFSET(tdshp_hist_left_start, tile->in.xs);
 	else
-		hist_win_x_end = tile->out.xe - tile->in.xs;
+		mml_pq_err("compute to negative value error! (%x - %x)",
+			tdshp_hist_left_start, tile->in.xs);
+	if (task->config->dual && !ccfg->pipe && (idx + 1 >= tile_cnt))
+		if (tdshp_frm->cut_pos_x >= (tile->in.xs - 1))
+			hist_win_x_end = OFFSET(tdshp_frm->cut_pos_x, tile->in.xs - 1);
+		else
+			mml_pq_err("compute to negative value error! (%x - %x)",
+				tdshp_frm->cut_pos_x, tile->in.xs - 1);
+	else {
+		if (tile->out.xe >= tile->in.xs)
+			hist_win_x_end = (u32)(tile->out.xe - tile->in.xs);
+		else
+			mml_pq_err("compute to negative value error! (%x - %x)",
+				tile->out.xe, tile->in.xs);
+	}
 
-	hist_win_y_start = tdshp_hist_top_start - tile->in.ys;
-	hist_win_y_end = tile->out.xe - tile->in.xs;
-
+	if (tdshp_hist_top_start >= tile->in.ys)
+		hist_win_y_start = OFFSET(tdshp_hist_top_start, tile->in.ys);
+	else
+		mml_pq_err("compute to negative value error! (%x - %x)",
+			tdshp_hist_top_start, tile->in.ys);
+	if (tile->out.xe >= tile->in.xs)
+		hist_win_y_end = OFFSET(tile->out.xe, tile->in.xs);
+	else
+		mml_pq_err("compute to negative value error! (%x - %x)",
+			tile->out.xe, tile->in.xs);
 
 	if (!idx) {
 		if (task->config->dual && ccfg->pipe)

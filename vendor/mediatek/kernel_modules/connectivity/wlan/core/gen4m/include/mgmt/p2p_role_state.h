@@ -53,8 +53,8 @@ p2pRoleStateAbort_AP_CHNL_DETECTION(struct ADAPTER *prAdapter,
 
 void
 p2pRoleStateInit_GC_JOIN(struct ADAPTER *prAdapter,
-			 struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo,
-			 struct P2P_JOIN_INFO *prJoinInfo);
+		struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo,
+		struct P2P_CHNL_REQ_INFO *prChnlReqInfo);
 
 void
 p2pRoleStateAbort_GC_JOIN(struct ADAPTER *prAdapter,
@@ -76,13 +76,14 @@ p2pRoleStateAbort_DFS_CAC(struct ADAPTER *prAdapter,
 
 void
 p2pRoleStateInit_SWITCH_CHANNEL(struct ADAPTER *prAdapter,
-				struct P2P_CSA_REQ_INFO *prCsaReqInfo,
-				struct P2P_CHNL_REQ_INFO *prChnlReqInfo);
+		uint8_t ucBssIdx,
+		struct P2P_CHNL_REQ_INFO *prChnlReqInfo);
 
 void
 p2pRoleStateAbort_SWITCH_CHANNEL(struct ADAPTER *prAdapter,
-				 struct P2P_CSA_REQ_INFO *prCsaReqInfo,
-				 struct P2P_CHNL_REQ_INFO *prChnlReqInfo);
+		struct BSS_INFO *prP2pRoleBssInfo,
+		struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo,
+		enum ENUM_P2P_ROLE_STATE eNextState);
 
 void
 p2pRoleStatePrepare_To_DFS_CAC_STATE(struct ADAPTER *prAdapter,

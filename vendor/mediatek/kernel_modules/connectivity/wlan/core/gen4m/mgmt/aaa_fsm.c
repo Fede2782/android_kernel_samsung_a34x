@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -24,8 +24,6 @@
  *                              C O N S T A N T S
  ******************************************************************************
  */
-
-#define MIN_AUTH_TIME_DIFF          100
 
 /******************************************************************************
  *                             D A T A   T Y P E S
@@ -146,6 +144,7 @@ void aaaFsmRunEventRxAuth(struct ADAPTER *prAdapter,
 	u_int8_t fgReplyAuth = FALSE;
 	struct WLAN_AUTH_FRAME *prAuthFrame = (struct WLAN_AUTH_FRAME *) NULL;
 	uint32_t rStatus;
+	struct P2P_CONNECTION_SETTINGS *prP2pConnSettings = NULL;
 	uint16_t u2MinPayloadLen;
 
 	ASSERT(prAdapter);
@@ -175,9 +174,7 @@ void aaaFsmRunEventRxAuth(struct ADAPTER *prAdapter,
 		}
 
 		DBGLOG(AAA, INFO,
-			"Rx Auth, DA: " MACSTR ", SA: " MACSTR ", bssid: "
-			MACSTR", Seq:%d, Alg:%d, Sta:%d\n",
-			MAC2STR(prAuthFrame->aucDestAddr),
+			"Rx Auth, SA: " MACSTR ", bssid: " MACSTR ", Seq:%d, Alg:%d, Sta:%d\n",
 			MAC2STR(prAuthFrame->aucSrcAddr),
 			MAC2STR(prAuthFrame->aucBSSID),
 			prAuthFrame->u2AuthTransSeqNo,
@@ -309,21 +306,6 @@ bow_proc:
 	} while (FALSE);
 
 	if (prStaRec) {
-#if ((CFG_SUPPORT_BALANCE_MLRV2 == 1) || (CFG_SUPPORT_BALANCE_MLRP_ALR == 1))
-		/* update MLR/ALR/MLRP capability */
-		uint8_t ucRxMode;
-
-		ucRxMode = nicRxGetRxModeValueFromRxv(prAdapter, prSwRfb);
-
-		if (ucRxMode == TX_RATE_MODE_PLR) {
-			prStaRec->ucMlrSupportBitmap |=
-				(MLR_MODE_MLR_V1 | MLR_MODE_MLR_V2);
-		} else if (ucRxMode == TX_RATE_MODE_ALR) {
-			prStaRec->ucMlrSupportBitmap |= MLR_MODE_ALR;
-		} else if (ucRxMode == TX_RATE_MODE_MLRP) {
-			prStaRec->ucMlrSupportBitmap |= MLR_MODE_MLR_PLUS;
-		}
-#endif
 		/* update RCPI */
 		ASSERT(prSwRfb->prRxStatusGroup3);
 		prStaRec->ucRCPI = nicRxGetRcpiValueFromRxv(
@@ -331,112 +313,125 @@ bow_proc:
 			RCPI_MODE_MAX,
 			prSwRfb);
 	}
-
-	if (!fgReplyAuth && prStaRec) {
-		cnmStaRecFree(prAdapter, prStaRec);
-		return;
-	}
-
-	if (!prStaRec) {
-		/* NOTE(Kevin): We should have STA_RECORD_T
-		 * if the status code was successful
-		 */
-		ASSERT(!(u2StatusCode == STATUS_CODE_SUCCESSFUL));
-		return;
-	}
-
 	/* 4 <3> Update STA_RECORD_T and
 	 * reply Auth_2(Response to Auth_1) Frame
 	 */
-#if CFG_SUPPORT_802_11W
-	if (rsnCheckBipKeyInstalled(prAdapter, prStaRec)) {
-		/* do nothing */
-	} else
-#endif
-	{
-		if (u2StatusCode == STATUS_CODE_SUCCESSFUL) {
-			if (prStaRec->eAuthAssocState
-				!= AA_STATE_IDLE) {
-				uint32_t rAuthTime;
-				uint32_t rTimeDiff;
+	if (fgReplyAuth) {
 
-				DBGLOG(AAA, WARN,
-					"Prev AAState (%d) != IDLE.\n",
-					prStaRec->eAuthAssocState);
-				GET_CURRENT_SYSTIME(&rAuthTime);
-				rTimeDiff = rAuthTime -
-					prStaRec->rUpdateTime;
-				if (IS_BSS_AP(prAdapter, prBssInfo) &&
-					prAuthFrame
-					->u2AuthTransSeqNo ==
-					AUTH_TRANSACTION_SEQ_1 &&
-					rTimeDiff <
-					MIN_AUTH_TIME_DIFF) {
+#if CFG_SUPPORT_802_11W
+		if (prStaRec && rsnCheckBipKeyInstalled(prAdapter, prStaRec)) {
+			/* do nothing */
+		} else
+#endif
+		if (prStaRec) {
+
+			if (u2StatusCode == STATUS_CODE_SUCCESSFUL) {
+				if (prStaRec->eAuthAssocState
+					!= AA_STATE_IDLE) {
+
+					prP2pConnSettings =
+						prAdapter->rWifiVar
+						.prP2PConnSettings[
+						prBssInfo->u4PrivateData];
+
 					DBGLOG(AAA, WARN,
-						"dup auth 1 got.\n",
-					prStaRec->eAuthAssocState);
-					return;
+						"Prev AAState (%d) != IDLE.\n",
+						prStaRec->eAuthAssocState);
+					if (p2pFuncIsAPMode(
+						prP2pConnSettings) &&
+						prAuthFrame
+						->u2AuthTransSeqNo ==
+						AUTH_TRANSACTION_SEQ_1 &&
+						p2pFuncAuthTimeCheck(prAdapter,
+							prSwRfb,
+							prStaRec)
+						) {
+						DBGLOG(AAA, WARN,
+							"dup auth 1 got.\n",
+						prStaRec->eAuthAssocState);
+						return;
+					}
 				}
+
+				prStaRec->eAuthAssocState =
+					AAA_STATE_SEND_AUTH2;
+			} else {
+				prStaRec->eAuthAssocState = AA_STATE_IDLE;
+
+				/* NOTE(Kevin): Change to STATE_1 */
+				cnmStaRecChangeState(prAdapter,
+					prStaRec, STA_STATE_1);
 			}
 
-			prStaRec->eAuthAssocState =
-				AAA_STATE_SEND_AUTH2;
+			/* Update the record join time. */
+			GET_CURRENT_SYSTIME(&prStaRec->rUpdateTime);
+
+			/* Update Station Record - Status/Reason Code */
+			prStaRec->u2StatusCode = u2StatusCode;
+
+			prStaRec->ucAuthAlgNum = prAuthFrame->u2AuthAlgNum;
 		} else {
-			prStaRec->eAuthAssocState = AA_STATE_IDLE;
-
-			/* NOTE(Kevin): Change to STATE_1 */
-			cnmStaRecChangeState(prAdapter,
-				prStaRec, STA_STATE_1);
-		}
-
-		/* Update the record join time. */
-		GET_CURRENT_SYSTIME(&prStaRec->rUpdateTime);
-
-		/* Update Station Record - Status/Reason Code */
-		prStaRec->u2StatusCode = u2StatusCode;
-
-		prStaRec->ucAuthAlgNum = prAuthFrame->u2AuthAlgNum;
-	}
-
-	DBGLOG(AAA, INFO,
-		"u4RsnSelectedAKMSuite=%x, algo=%d\n",
-		prBssInfo->u4RsnSelectedAKMSuite,
-		prStaRec->ucAuthAlgNum);
-
-	if (rsnKeyMgmtSae(prBssInfo->u4RsnSelectedAKMSuite) ||
-#if CFG_SUPPORT_PASN
-		prStaRec->ucAuthAlgNum == AUTH_ALGORITHM_NUM_PASN ||
-#endif
-		prBssInfo->u4RsnSelectedAKMSuite == RSN_AKM_SUITE_OWE) {
-		kalP2PIndicateRxMgmtFrame(prAdapter,
-			prAdapter->prGlueInfo,
-			prSwRfb,
-			FALSE,
-			(uint8_t)prBssInfo->u4PrivateData,
-			(uint32_t)prBssInfo->ucLinkId);
-		DBGLOG(AAA, INFO, "Forward RxAuth Seq: %d\n",
-			prAuthFrame->u2AuthTransSeqNo);
-
-#if CFG_SUPPORT_PASN
-		if (prStaRec->ucAuthAlgNum == AUTH_ALGORITHM_NUM_PASN &&
-			prAuthFrame->u2AuthTransSeqNo ==
-				AUTH_TRANSACTION_SEQ_3) {
-			DBGLOG(AAA, INFO, "Receive PASN AUTH 3\n");
-			prStaRec->eAuthAssocState =
-				SAA_STATE_EXTERNAL_AUTH;
-			cnmTimerStopTimer(prAdapter,
-				&prStaRec->rTxReqDoneOrRxRespTimer);
-
-			cnmStaRecChangeState(prAdapter, prStaRec,
-				STA_STATE_3);
-
+			/* NOTE(Kevin): We should have STA_RECORD_T
+			 * if the status code was successful
+			 */
+			ASSERT(!(u2StatusCode == STATUS_CODE_SUCCESSFUL));
 			return;
 		}
-#endif
+
+		if (rsnKeyMgmtSae(prBssInfo->u4RsnSelectedAKMSuite) ||
+		    prBssInfo->u4RsnSelectedAKMSuite ==	RSN_AKM_SUITE_OWE) {
+			kalP2PIndicateRxMgmtFrame(prAdapter,
+				prAdapter->prGlueInfo,
+				prSwRfb,
+				FALSE,
+				(uint8_t)prBssInfo->u4PrivateData);
+			DBGLOG(AAA, INFO, "Forward RxAuth\n");
+			if (prStaRec && prStaRec->fgIsInUse) {
+				cnmTimerStopTimer(prAdapter,
+					&prStaRec->rTxReqDoneOrRxRespTimer);
+
+				cnmTimerInitTimer(prAdapter,
+					&prStaRec->rTxReqDoneOrRxRespTimer,
+					(PFN_MGMT_TIMEOUT_FUNC)
+					aaaFsmRunEventTxReqTimeOut,
+					(uintptr_t) prStaRec);
+
+				cnmTimerStartTimer(prAdapter,
+					&prStaRec->rTxReqDoneOrRxRespTimer,
+					TU_TO_MSEC(
+					DOT11_RSNA_SAE_RETRANS_PERIOD_TU));
+			}
+			return;
+		}
+
+		/* NOTE: Ignore the return status for AAA */
+		/* 4 <4> Reply  Auth */
+		rStatus = authSendAuthFrame(prAdapter,
+					prStaRec,
+					prBssInfo->ucBssIndex,
+					prSwRfb,
+					AUTH_TRANSACTION_SEQ_2,
+					u2StatusCode);
+		if (rStatus != WLAN_STATUS_SUCCESS) {
+			if (prStaRec)
+				cnmStaRecFree(prAdapter, prStaRec);
+			DBGLOG(AAA, WARN, "Send Auth Fail!\n");
+			return;
+		}
+
+		/*sta_rec might be removed
+		 * when client list full, skip timer setting
+		 */
+		/*
+		 * check if prStaRec valid as authSendAuthFrame may free
+		 * StaRec when TX resource is not enough
+		 */
 		if (prStaRec && prStaRec->fgIsInUse) {
 			cnmTimerStopTimer(prAdapter,
 				&prStaRec->rTxReqDoneOrRxRespTimer);
-
+			/*ToDo:Init Timer to check get
+			 * Auth Txdone avoid sta_rec not clear
+			 */
 			cnmTimerInitTimer(prAdapter,
 				&prStaRec->rTxReqDoneOrRxRespTimer,
 				(PFN_MGMT_TIMEOUT_FUNC)
@@ -446,50 +441,13 @@ bow_proc:
 			cnmTimerStartTimer(prAdapter,
 				&prStaRec->rTxReqDoneOrRxRespTimer,
 				TU_TO_MSEC(
-				DOT11_RSNA_SAE_RETRANS_PERIOD_TU));
+					TX_AUTHENTICATION_RESPONSE_TIMEOUT_TU));
 		}
-		return;
-	}
 
-	/* NOTE: Ignore the return status for AAA */
-	/* 4 <4> Reply  Auth */
-	rStatus = authSendAuthFrame(prAdapter,
-				prStaRec,
-				prBssInfo->ucBssIndex,
-				prSwRfb,
-				AUTH_TRANSACTION_SEQ_2,
-				u2StatusCode);
-	if (rStatus != WLAN_STATUS_SUCCESS) {
-		if (prStaRec)
-			cnmStaRecFree(prAdapter, prStaRec);
-		DBGLOG(AAA, WARN, "Send Auth Fail!\n");
-		return;
-	}
 
-	/*sta_rec might be removed
-	 * when client list full, skip timer setting
-	 */
-	/*
-	 * check if prStaRec valid as authSendAuthFrame may free
-	 * StaRec when TX resource is not enough
-	 */
-	if (prStaRec && prStaRec->fgIsInUse) {
-		cnmTimerStopTimer(prAdapter,
-			&prStaRec->rTxReqDoneOrRxRespTimer);
-		/*ToDo:Init Timer to check get
-		 * Auth Txdone avoid sta_rec not clear
-		 */
-		cnmTimerInitTimer(prAdapter,
-			&prStaRec->rTxReqDoneOrRxRespTimer,
-			(PFN_MGMT_TIMEOUT_FUNC)
-			aaaFsmRunEventTxReqTimeOut,
-			(uintptr_t) prStaRec);
 
-		cnmTimerStartTimer(prAdapter,
-			&prStaRec->rTxReqDoneOrRxRespTimer,
-			TU_TO_MSEC(
-				TX_AUTHENTICATION_RESPONSE_TIMEOUT_TU));
-	}
+	} else if (prStaRec)
+		cnmStaRecFree(prAdapter, prStaRec);
 }				/* end of aaaFsmRunEventRxAuth() */
 
 /*---------------------------------------------------------------------------*/
@@ -509,7 +467,7 @@ uint32_t aaaFsmRunEventRxAssoc(struct ADAPTER *prAdapter,
 {
 	struct BSS_INFO *prBssInfo = NULL;
 	struct STA_RECORD *prStaRec = (struct STA_RECORD *) NULL;
-	uint16_t u2StatusCode = STATUS_CODE_SUCCESSFUL;
+	uint16_t u2StatusCode = STATUS_CODE_RESERVED;
 	uint16_t u2RxFrameCtrl;
 	u_int8_t fgReplyAssocResp = FALSE;
 	u_int8_t fgSendSAQ = FALSE;
@@ -548,8 +506,7 @@ uint32_t aaaFsmRunEventRxAssoc(struct ADAPTER *prAdapter,
 
 		u2RxFrameCtrl = prAssocReqFrame->u2FrameCtrl & MASK_FRAME_TYPE;
 		DBGLOG(AAA, INFO,
-			"Rx %sAssoc Req, SA: " MACSTR ", bssid: " MACSTR
-			", sta idx: %d\n",
+			"Rx %sAssoc Req, SA: " MACSTR ", bssid: " MACSTR ", sta idx: %d\n",
 			u2RxFrameCtrl == MAC_FRAME_REASSOC_REQ ? "Re" : "",
 			MAC2STR(prAssocReqFrame->aucSrcAddr),
 			MAC2STR(prAssocReqFrame->aucBSSID),
@@ -590,8 +547,8 @@ uint32_t aaaFsmRunEventRxAssoc(struct ADAPTER *prAdapter,
 
 		/* 4 <2> Check P2P network conditions */
 #if CFG_ENABLE_WIFI_DIRECT
-		if ((prAdapter->fgIsP2PRegistered) &&
-		    (IS_STA_IN_P2P(prAdapter, prStaRec))) {
+		if ((prAdapter->fgIsP2PRegistered)
+			&& (IS_STA_IN_P2P(prStaRec))) {
 
 			prBssInfo =
 				GET_BSS_INFO_BY_INDEX(prAdapter,
@@ -713,8 +670,8 @@ uint32_t aaaFsmRunEventRxAssoc(struct ADAPTER *prAdapter,
 		if (u2StatusCode == STATUS_CODE_SUCCESSFUL) {
 
 #if CFG_ENABLE_WIFI_DIRECT
-			if ((prAdapter->fgIsP2PRegistered) &&
-			    (IS_STA_IN_P2P(prAdapter, prStaRec))) {
+			if ((prAdapter->fgIsP2PRegistered)
+				&& (IS_STA_IN_P2P(prStaRec))) {
 				prBssInfo =
 					GET_BSS_INFO_BY_INDEX(prAdapter,
 						prStaRec->ucBssIndex);
@@ -722,7 +679,7 @@ uint32_t aaaFsmRunEventRxAssoc(struct ADAPTER *prAdapter,
 					prStaRec, prBssInfo)
 					== WLAN_STATUS_SUCCESS) {
 					prStaRec->u2AssocId =
-						prBssInfo->u2P2pAssocIdCounter;
+						bssAssignAssocID(prStaRec);
 					/* prStaRec->eAuthAssocState
 					 * = AA_STATE_IDLE;
 					 */
@@ -767,7 +724,7 @@ uint32_t aaaFsmRunEventRxAssoc(struct ADAPTER *prAdapter,
 				 * prStaRec) == WLAN_STATUS_SUCCESS) {
 				 */
 				prStaRec->u2AssocId =
-					prBssInfo->u2P2pAssocIdCounter;
+					bssAssignAssocID(prStaRec);
 
 				/* NOTE(Kevin): for TX done */
 				prStaRec->eAuthAssocState =
@@ -810,7 +767,7 @@ uint32_t aaaFsmRunEventRxAssoc(struct ADAPTER *prAdapter,
 				 */
 				if ((prStaRec->ucStaState > STA_STATE_1) &&
 				     prAdapter->fgIsP2PRegistered &&
-				     (IS_STA_IN_P2P(prAdapter, prStaRec))) {
+				     (IS_STA_IN_P2P(prStaRec))) {
 					struct BSS_INFO *prBssInfo = NULL;
 
 					prBssInfo = GET_BSS_INFO_BY_INDEX(
@@ -847,8 +804,7 @@ uint32_t aaaFsmRunEventRxAssoc(struct ADAPTER *prAdapter,
 				prAdapter->prGlueInfo,
 				prSwRfb,
 				FALSE,
-				(uint8_t)prBssInfo->u4PrivateData,
-				(uint32_t)prBssInfo->ucLinkId);
+				(uint8_t)prBssInfo->u4PrivateData);
 			DBGLOG(AAA, INFO, "[OWE] Forward RxAssoc\n");
 		} else
 			assocSendReAssocRespFrame(prAdapter, prStaRec);
@@ -902,7 +858,7 @@ aaaFsmRunEventTxDone(struct ADAPTER *prAdapter,
 	if ((!prStaRec) || (!prStaRec->fgIsInUse))
 		return WLAN_STATUS_SUCCESS;
 
-	ASSERT(prStaRec->ucBssIndex <= prAdapter->ucSwBssIdNum);
+	ASSERT(prStaRec->ucBssIndex <= prAdapter->ucHwBssIdNum);
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prStaRec->ucBssIndex);
 	if (!prBssInfo)
@@ -1008,8 +964,7 @@ aaaFsmRunEventTxDone(struct ADAPTER *prAdapter,
 						p2pRoleFsmRunEventAAASuccess(
 							prAdapter,
 							prStaRec,
-							prBssInfo,
-							prMsduInfo);
+							prBssInfo);
 #endif /* CFG_ENABLE_WIFI_DIRECT */
 
 #if CFG_ENABLE_BT_OVER_WIFI
@@ -1063,31 +1018,8 @@ aaaFsmRunEventTxDone(struct ADAPTER *prAdapter,
 		 */
 		/* 2017-01-12 Do nothing only when STA is in state 3 */
 		/* Free the StaRec if found any unexpected status */
-		if (prStaRec->ucStaState != STA_STATE_3) {
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-			struct MLD_STA_RECORD *prMldSta;
-#endif
-
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-			prMldSta = mldStarecGetByStarec(prAdapter, prStaRec);
-			if (prMldSta) {
-				struct LINK *prStarecList;
-				struct STA_RECORD *prCurrStarec, *prNextStarec;
-
-				prStarecList = &prMldSta->rStarecList;
-				LINK_FOR_EACH_ENTRY_SAFE(prCurrStarec,
-							 prNextStarec,
-							 prStarecList,
-							 rLinkEntryMld,
-							 struct STA_RECORD) {
-					cnmStaRecFree(prAdapter, prCurrStarec);
-				}
-			} else
-#endif
-			{
-				cnmStaRecFree(prAdapter, prStaRec);
-			}
-		}
+		if (prStaRec->ucStaState != STA_STATE_3)
+			cnmStaRecFree(prAdapter, prStaRec);
 		break;
 
 	default:
@@ -1195,8 +1127,7 @@ void aaaMulAPAgentChanNoiseInitWorkHandler(
 	struct GLUE_INFO *prGlueInfo;
 	uint32_t rStatus = WLAN_STATUS_SUCCESS;
 
-	prGlueInfo = CONTAINER_OF(work, struct GLUE_INFO,
-				  rChanNoiseControlWork);
+	prGlueInfo = ENTRY_OF(work, struct GLUE_INFO, rChanNoiseControlWork);
 
 	/* Disable traffic report and noise histogram */
 	rStatus = aaaMulAPAgentChanNoiseControl(prGlueInfo, FALSE);
@@ -1239,8 +1170,7 @@ void  aaaMulAPAgentChanNoiseCollectionWorkHandler(
 	struct T_MULTI_AP_BSS_METRICS_RESP *sBssMetricsResp = NULL;
 	int32_t i4Ret = 0;
 
-	prGlueInfo = CONTAINER_OF(work, struct GLUE_INFO,
-				  rChanNoiseGetInfoWork);
+	prGlueInfo = ENTRY_OF(work, struct GLUE_INFO, rChanNoiseGetInfoWork);
 
 	cmd_traffic = (struct CMD_RLM_AIRTIME_MON *)
 		kalMemAlloc(sizeof(*cmd_traffic), VIR_MEM_TYPE);
@@ -1259,7 +1189,7 @@ void  aaaMulAPAgentChanNoiseCollectionWorkHandler(
 	if (p2pFuncRoleToBssIdx(prGlueInfo->prAdapter,
 			ucRoleIdx, &ucBssIdx) != WLAN_STATUS_SUCCESS)
 		goto error;
-	DBGLOG(REQ, DEBUG, "ucRoleIdx = %d\n", ucRoleIdx);
+	DBGLOG(REQ, INFO, "ucRoleIdx = %d\n", ucRoleIdx);
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prGlueInfo->prAdapter, ucBssIdx);
 	if (!prBssInfo) {
 		DBGLOG(REQ, WARN, "bss is not active\n");
@@ -1359,19 +1289,19 @@ void  aaaMulAPAgentChanNoiseCollectionWorkHandler(
 	sBssMetricsResp->u8ChanUtil = prBssInfo->u4ChanUtil;
 	sBssMetricsResp->iChanNoise = prBssInfo->i4NoiseHistogram;
 
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 		"[SAP_Test] uIfIndex = %u\n", sBssMetricsResp->uIfIndex);
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 		"[SAP_Test] mBssid = " MACSTR "\n",
 		MAC2STR(sBssMetricsResp->mBssid));
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 		"[SAP_Test] u8Channel = %d\n", sBssMetricsResp->u8Channel);
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 		"[SAP_Test] u16AssocStaNum = %d\n",
 		sBssMetricsResp->u16AssocStaNum);
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 		"[SAP_Test] u8ChanUtil = %d\n", sBssMetricsResp->u8ChanUtil);
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 		"[SAP_Test] iChanNoise = %d\n", sBssMetricsResp->iChanNoise);
 
 	i4Ret = MulAPAgentMontorSendMsg(EV_WLAN_MULTIAP_BSS_METRICS_RESPONSE,
@@ -1509,7 +1439,7 @@ void aaaMulAPAgentUnassocStaMeasureTimeout(
 	}
 
 	for (ucIndex = 0; ucIndex < SAP_UNASSOC_METRICS_STA_MAX; ucIndex++) {
-		DBGLOG(REQ, DEBUG,
+		DBGLOG(REQ, INFO,
 			"[SAP_Test] [Report] arUnAssocSTA[%d]="MACSTR
 			",time=%u, RSSI=%d, ch=%d\n",
 			ucIndex,
@@ -1519,13 +1449,13 @@ void aaaMulAPAgentUnassocStaMeasureTimeout(
 			sStaUnAssocMetricsResp->tMetrics[ucIndex].iRssi,
 			sStaUnAssocMetricsResp->tMetrics[ucIndex].u8Channel);
 	}
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 		"[SAP_Test] uIfIndex = %u\n",
 		sStaUnAssocMetricsResp->uIfIndex);
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 		"[SAP_Test] mBssid = " MACSTR "\n",
 		MAC2STR(sStaUnAssocMetricsResp->mBssid));
-	DBGLOG(REQ, DEBUG,
+	DBGLOG(REQ, INFO,
 		"[SAP_Test] u8StaNum = %u\n",
 		sStaUnAssocMetricsResp->u8StaNum);
 

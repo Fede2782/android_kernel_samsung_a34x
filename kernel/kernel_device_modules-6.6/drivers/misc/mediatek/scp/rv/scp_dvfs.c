@@ -163,7 +163,6 @@ static struct regulator *dvfsrc_vscp_power;
 static struct regulator *reg_vcore;
 static struct regulator *reg_vsram;
 
-static int scp_pm_event(struct notifier_block *notifier, unsigned long pm_event, void *unused);
 
 /* ulposc calibration data */
 static void turn_onoff_ulposc2(enum ulposc_onoff_enum on);
@@ -1093,12 +1092,6 @@ static ssize_t mt_scp_dvfs_sleep_cnt_proc_write(
 				__func__, ret);
 			return -ESCP_DVFS_IPI_FAILED;
 		}
-#if IS_ENABLED(CONFIG_PM)
-	} else if (!strcmp(cmd, "pm_suspend_prepare")) {
-		scp_pm_event(NULL, PM_SUSPEND_PREPARE, NULL);
-	} else if (!strcmp(cmd, "pm_post_suspend")) {
-		scp_pm_event(NULL, PM_POST_SUSPEND, NULL);
-#endif /* IS_ENABLED(CONFIG_PM) */
 	} else {
 		pr_notice("[%s]: invalid command: %s\n", __func__, cmd);
 		return -ESCP_DVFS_DBG_INVALID_CMD;
@@ -2310,27 +2303,6 @@ FINISH:
 	return 0;
 }
 
-static int scp_pm_event(struct notifier_block *notifier,
-		unsigned long pm_event, void *unused)
-{
-	switch (pm_event) {
-	case PM_SUSPEND_PREPARE:
-		mt_scp_dump_sleep_count();
-		if (scpreg.low_pwr_dbg)
-			mt_scp_start_res_prof();
-		return NOTIFY_DONE;
-	case PM_POST_SUSPEND:
-		mt_scp_dump_sleep_count();
-		if (scpreg.low_pwr_dbg)
-			mt_scp_stop_res_prof();
-		return NOTIFY_DONE;
-	}
-	return NOTIFY_OK;
-}
-
-static struct notifier_block scp_pm_notifier_func = {
-	.notifier_call = scp_pm_event,
-};
 #endif /* IS_ENABLED(CONFIG_PM) */
 
 static int __init mt_scp_dts_init_scp_clk_hw(struct device_node *node)
@@ -2880,6 +2852,28 @@ int scp_dvfs_feature_enable(void)
 	return atomic_read(&g_is_scp_dvfs_feature_enable);
 }
 
+static int scp_suspend_cb(struct device *dev)
+{
+	mt_scp_dump_sleep_count();
+	if(scpreg.low_pwr_dbg)
+		mt_scp_start_res_prof();
+	return 0;
+}
+
+static int scp_resume_cb(struct device *dev)
+{
+	mt_scp_dump_sleep_count();
+	if(scpreg.low_pwr_dbg)
+		mt_scp_stop_res_prof();
+	return 0;
+}
+
+static const struct dev_pm_ops scp_pm_ops= {
+	SET_SYSTEM_SLEEP_PM_OPS(scp_suspend_cb, scp_resume_cb)
+};
+
+#define DEV_PM_OPS (IS_ENABLED(CONFIG_PM) ? &scp_pm_ops : NULL)
+
 static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -2908,14 +2902,6 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 
 	scp_dvfs_lock = wakeup_source_register(NULL, "scp wakelock");
 
-#if IS_ENABLED(CONFIG_PM)
-	ret = register_pm_notifier(&scp_pm_notifier_func);
-	if (ret) {
-		pr_notice("[%s]: failed to register PM notifier.\n", __func__);
-		WARN_ON(1);
-	}
-#endif /* IS_ENABLED(CONFIG_PM) */
-
 #if IS_ENABLED(CONFIG_PROC_FS)
 	/* init proc */
 	if (mt_scp_dvfs_create_procfs()) {
@@ -2923,6 +2909,8 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 		WARN_ON(1);
 	}
 #endif /* CONFIG_PROC_FS */
+
+	device_enable_async_suspend(&pdev->dev);
 
 	atomic_set(&g_scp_dvfs_init_done, 1);
 	pr_notice("[%s]: scp_dvfs probe done\n", __func__);
@@ -2960,6 +2948,7 @@ static struct platform_driver mt_scp_dvfs_pdrv __refdata = {
 	.driver = {
 		.name = "scp-dvfs",
 		.owner = THIS_MODULE,
+		.pm = DEV_PM_OPS,
 		.of_match_table = scpdvfs_of_ids,
 	},
 };

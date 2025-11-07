@@ -29,7 +29,9 @@
 
 #define GET_SWINF(x)	(((x) >> 1) & 0x7)
 #define GET_SWINF_ERR(x)	(((x) >> 18) & 0x1)
+#define GET_SWINF_SYS_BUSY(x)	(((x) >> 17) & 0x1)
 #define GET_SPMI_NACK_SLVID(x)	(((x) >> 8) & 0xf)
+#define GET_SPMI_NACK_ERR_TYPE(x)   (((x) >> 4) & 0xf)
 
 #define PMIF_CMD_REG_0		0
 #define PMIF_CMD_REG		1
@@ -68,6 +70,21 @@
 #define PMIC_RG_DEBUG_DIS_TRIG_ADDR                              (0x42d)
 #define PMIC_RG_DEBUG_DIS_TRIG_SHIFT                             (7)
 #define PMIC_RG_DEBUG_EN_RD_CMD_ADDR                             (0x42e)
+
+#define PMIC_RG_SYSTEM_INFO_CON0_L                              (0xd9b)
+#define PMIC_RG_SYSTEM_INFO_CON0_H                              (0xd9c)
+#define PMIC_RG_SYSTEM_INFO_CON1_L                              (0xd9d)
+#define PMIC_RG_SYSTEM_INFO_CON1_H                              (0xd9e)
+#define PMIC_RG_SYSTEM_INFO_CON2_L                              (0xd9f)
+#define PMIC_RG_SYSTEM_INFO_CON2_H                              (0xda0)
+
+enum {
+	SPMI_WRITE_NACK = 1,
+	SPMI_READ_PARITY_ERROR,
+	SPMI_BYTECNT_ERROR,
+	SPMI_GIP_READ_ERROR,
+	PMIF_MPU_VIOLATION
+};
 
 enum {
 	SPMI_MASTER_0 = 0,
@@ -516,6 +533,68 @@ unsigned long long get_current_time_ms(void)
 	return cur_ts;
 }
 
+static void store_nack_info(struct pmif *arb, unsigned int nack_rec0, unsigned int nack_rec1)
+{
+	u8 wdata = 0;
+	u8 slvid = 0;
+	u8 error_type = 0;
+	u8 cur_time_24 = 0, cur_time_23_16 = 0, cur_time_15_8 = 0, cur_time_7_0 = 0;
+	unsigned long long cur_krn_time_sec = 0;
+
+	/* Address [7:0] */
+	wdata = (nack_rec0 >> 16) & 0xff;
+	arb->spmic->write_cmd(arb->spmic, SPMI_CMD_EXT_WRITEL, 0x4,
+		PMIC_RG_SYSTEM_INFO_CON0_H, &wdata, 1);
+
+	/* Data [7:0] */
+	wdata = nack_rec1 & 0xff;
+	arb->spmic->write_cmd(arb->spmic, SPMI_CMD_EXT_WRITEL, 0x4,
+		PMIC_RG_SYSTEM_INFO_CON0_L, &wdata, 1);
+
+	/* Slvid [7:4] | error_type [3:1] | timer_24[0] */
+	slvid = GET_SPMI_NACK_SLVID(nack_rec0);
+
+	wdata = slvid << 4;
+
+	error_type = GET_SPMI_NACK_ERR_TYPE(nack_rec0);
+
+	if (error_type & (0x1 << 0))
+		wdata |= (SPMI_WRITE_NACK << 1);
+	else if (error_type & (0x1 << 1))
+		wdata |= (SPMI_READ_PARITY_ERROR << 1);
+	else if (error_type & (0x1 << 2))
+		wdata |= (SPMI_BYTECNT_ERROR << 1);
+	else if (error_type & (0x1 << 3))
+		wdata |= (SPMI_GIP_READ_ERROR << 1);
+	else
+		wdata |= (PMIF_MPU_VIOLATION << 1);
+
+	cur_krn_time_sec = get_current_time_ms() / 1000;
+	cur_time_24 = (cur_krn_time_sec >> 24) & (0x1);
+	cur_time_23_16 = (cur_krn_time_sec >> 16) & (0xff);
+	cur_time_15_8 = (cur_krn_time_sec >> 8) & (0xff);
+	cur_time_7_0 = (cur_krn_time_sec) & (0xff);
+
+	wdata |= cur_time_24;
+	arb->spmic->write_cmd(arb->spmic, SPMI_CMD_EXT_WRITEL, 0x4,
+		PMIC_RG_SYSTEM_INFO_CON1_H, &wdata, 1);
+
+	/* timer_23_16[7:0] */
+	wdata = cur_time_23_16;
+	arb->spmic->write_cmd(arb->spmic, SPMI_CMD_EXT_WRITEL, 0x4,
+		PMIC_RG_SYSTEM_INFO_CON1_L, &wdata, 1);
+
+	/* timer_15_8[7:0] */
+	wdata = cur_time_15_8;
+	arb->spmic->write_cmd(arb->spmic, SPMI_CMD_EXT_WRITEL, 0x4,
+		PMIC_RG_SYSTEM_INFO_CON2_H, &wdata, 1);
+
+	/* timer_7_0[7:0] */
+	wdata = cur_time_7_0;
+	arb->spmic->write_cmd(arb->spmic, SPMI_CMD_EXT_WRITEL, 0x4,
+		PMIC_RG_SYSTEM_INFO_CON2_L, &wdata, 1);
+}
+
 static u32 pmif_readl(void __iomem *addr, struct pmif *arb, enum pmif_regs reg)
 {
 	return readl(addr + arb->regs[reg]);
@@ -693,9 +772,9 @@ static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 		return -EINVAL;
 
 	raw_spin_lock_irqsave(&arb->lock_m, flags_m);
-	/* Wait for Software Interface FSM state to be IDLE. */
+	/* Wait for Software Interface SYS BUSY to be IDLE. */
 	ret = readl_poll_timeout_atomic(arb->pmif_base[spmidev[sid].path] + arb->regs[inf_reg->ch_sta],
-					data, GET_SWINF(data) == SWINF_IDLE,
+					data, GET_SWINF_SYS_BUSY(data) == SWINF_IDLE,
 					PMIF_DELAY_US, PMIF_TIMEOUT);
 	if (ret < 0) {
 		dev_err(&ctrl->dev, "check IDLE timeout, read 0x%x, sta=0x%x, SPMI_DBG=0x%x\n",
@@ -719,9 +798,9 @@ static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 		    (opc << 30) | BIT(29) | (sid << 24) | (bc << 16) | addr,
 		    inf_reg->ch_send);
 
-	/* Wait for Software Interface FSM state to be IDLE. */
+	/* Wait for Software Interface SYS BUSY to be IDLE. */
 	ret = readl_poll_timeout_atomic(arb->pmif_base[spmidev[sid].path] + arb->regs[inf_reg->ch_sta],
-					data, GET_SWINF(data) == SWINF_IDLE,
+					data, GET_SWINF_SYS_BUSY(data) == SWINF_IDLE,
 					PMIF_DELAY_US, PMIF_TIMEOUT);
 	if (ret < 0) {
 		dev_err(&ctrl->dev, "check IDLE timeout, read 0x%x, sta=0x%x, SPMI_DBG=0x%x\n",
@@ -816,6 +895,7 @@ EXPORT_SYMBOL(register_spmi_md_force_assert);
 
 static void pmif_pmif_acc_vio_irq_handler(int irq, void *data)
 {
+	struct pmif *arb = data;
 	u32 vio_chan = 0xFFFFFFFF;
 	spmi_dump_pmif_record_reg(0, 0);
 	vio_chan = spmi_dump_pmif_acc_vio_reg();
@@ -829,6 +909,9 @@ static void pmif_pmif_acc_vio_irq_handler(int irq, void *data)
 	} else {
 		pr_notice("[PMIF] Other channel violation!\n");
 	}
+
+	store_nack_info(arb, 0, 0);
+
 #if (IS_ENABLED(CONFIG_MTK_AEE_FEATURE))
 	aee_kernel_warning("PMIF", "PMIF:pmif_acc_vio");
 #endif
@@ -1434,6 +1517,13 @@ static irqreturn_t spmi_nack_irq_handler(int irq, void *data)
 		spmi_p_mst_nack = mtk_spmi_readl(arb->spmimst_base[1], arb, SPMI_MST_DBG);
 		spmi_p_wdt_rec = mtk_spmi_readl(arb->spmimst_base[1], arb, SPMI_WDT_REC);
 	}
+
+	if (spmi_p_nack)
+		store_nack_info(arb, spmi_p_nack, spmi_p_nack_data);
+
+	pr_notice("SPMI_REC0 m/p:0x%x/0x%x SPMI_REC1 m/p 0x%x/0x%x\n",
+		spmi_nack, spmi_p_nack, spmi_nack_data, spmi_p_nack_data);
+
 	// Write fail nack, causing OP_ST_NACK/PMIF_NACK/PMIF_BYTE_ERR/PMIF_GRP_RD_ERR
 	if ((spmi_nack & 0xD8) || (spmi_p_nack & 0xD8)) {
 		dump_spmi_pmic_dbg_rg(arb, spmi_nack, spmi_p_nack);

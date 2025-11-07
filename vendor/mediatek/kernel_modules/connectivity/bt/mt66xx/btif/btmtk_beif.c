@@ -355,6 +355,12 @@ int beif_send_data(const unsigned char *p_buf, unsigned int len)
 	do {
 		push = EMI_READ32(&h->tx_push);
 		pop = EMI_READ32(&f->rx_pop);
+		if (push >= g_h2c_buf_size || pop >= g_h2c_buf_size) {
+			pr_info("%s push(%u) or pop(%u) is out of range.(%u)\n", __func__,
+				push, pop, g_h2c_buf_size);
+			return -1;
+		}
+
 		space = (push >= pop) ?
 			(g_h2c_buf_size - (push - pop) - 1) : (pop - push - 1);
 

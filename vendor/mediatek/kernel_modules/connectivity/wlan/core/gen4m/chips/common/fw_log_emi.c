@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -15,6 +15,7 @@
 #include "precomp.h"
 #include "gl_fw_log.h"
 #include "fw_log_emi.h"
+#include "gl_ics.h"
 
 /*******************************************************************************
  *                              C O N S T A N T S
@@ -55,8 +56,7 @@ static void fw_log_emi_update_rp(struct ADAPTER *ad,
 	struct FW_LOG_EMI_SUB_CTRL *sub_ctrl,
 	uint32_t rp)
 {
-	ACQUIRE_POWER_CONTROL_FROM_PM(ad,
-		DRV_OWN_SRC_FW_LOG_EMI_UPDATE);
+	ACQUIRE_POWER_CONTROL_FROM_PM(ad);
 
 	if (ad->fgIsFwOwn == FALSE) {
 		DBGLOG(INIT, LOUD,
@@ -68,8 +68,8 @@ static void fw_log_emi_update_rp(struct ADAPTER *ad,
 					     sub_ctrl->type,
 					     rp);
 	}
-	RECLAIM_POWER_CONTROL_TO_PM(ad, FALSE,
-		DRV_OWN_SRC_FW_LOG_EMI_UPDATE);
+
+	RECLAIM_POWER_CONTROL_TO_PM(ad, FALSE);
 }
 
 static u_int8_t fw_log_emi_is_empty(struct FW_LOG_EMI_SUB_CTRL *sub_ctrl)
@@ -89,6 +89,10 @@ static void __fw_log_emi_sub_handler(struct ADAPTER *ad,
 	struct FW_LOG_EMI_SUB_STATS *sub_stats =
 		&stats->sub_stats[sub_ctrl->type];
 	uint32_t offset = 0, rp = 0, recv = 0, handled = 0;
+#if (CFG_SUPPORT_FW_LOG_SPLIT_AND_REDIRECT == 1)
+	struct WIFI_VAR *prWifiVar = &ad->rWifiVar;
+	uint32_t u4FwLevel = 0;
+#endif
 
 	fw_log_emi_refresh_sub_header(ad, ctrl, sub_ctrl);
 
@@ -139,14 +143,180 @@ static void __fw_log_emi_sub_handler(struct ADAPTER *ad,
 		recv -= size;
 	}
 
+#if (CFG_SUPPORT_FW_LOG_SPLIT_AND_REDIRECT == 1)
+	wlanDbgGetGlobalLogLevel(ENUM_WIFI_LOG_MODULE_FW, &u4FwLevel);
+
+	if (IS_FEATURE_ENABLED(prWifiVar->fgEnFwLogRedir)
+		&& sub_ctrl->type == ENUM_FW_LOG_CTRL_TYPE_WIFI
+		&& u4FwLevel == ENUM_WIFI_LOG_LEVEL_VOC) {
+		uint8_t *pucSpecLogBuf = NULL;
+		uint8_t *pucDbgLogBuff = NULL;
+		uint32_t u4SpecLogBufSize = 0;
+		uint32_t u4DbgLogBufSize = 0;
+		uint32_t u4ProcessedLogBufSize = 0;
+		uint32_t u4HandledLogBufSize = 0;
+		u_int8_t fgHasMemAllocFail = FALSE;
+		enum FwSpecLogDest eFinalFwSpecLogDst;
+		enum FwDbgLogDest eFinalFwDbgLogDst;
+		ssize_t ret;
+
+		switch (prWifiVar->ucFwSpecLogDst) {
+		case FW_SPEC_LOG_DEST_FW_LOG_RING:
+		case FW_SPEC_LOG_DEST_ICS_LOG_RING:
+			pucSpecLogBuf = kalMemAlloc(handled, VIR_MEM_TYPE);
+			if (!pucSpecLogBuf) {
+				fgHasMemAllocFail = TRUE;
+				DBGLOG(MEM, WARN,
+					"pucSpecLogBuf MemAlloc fail, type: %d sz: %u\n",
+					VIR_MEM_TYPE, handled);
+			}
+			break;
+		default:
+			break;
+		}
+
+		switch (prWifiVar->ucFwDbgLogDst) {
+		case FW_DBG_LOG_DEST_FW_LOG_RING:
+		case FW_DBG_LOG_DEST_ICS_LOG_RING:
+		case FW_DBG_LOG_DEST_GET_RING_DATA:
+			pucDbgLogBuff = kalMemAlloc(handled, VIR_MEM_TYPE);
+			if (!pucDbgLogBuff) {
+				fgHasMemAllocFail = TRUE;
+				DBGLOG(MEM, WARN,
+					"pucDbgLogBuff MemAlloc fail, type: %d sz: %u\n",
+					VIR_MEM_TYPE, handled);
+			}
+			break;
+		default:
+			break;
+		}
+
+		if (!fgHasMemAllocFail) {
+			eFinalFwSpecLogDst = prWifiVar->ucFwSpecLogDst;
+			eFinalFwDbgLogDst = prWifiVar->ucFwDbgLogDst;
+			u4ProcessedLogBufSize = fw_log_redir_handler(ad,
+				sub_ctrl->buffer, handled,
+				pucSpecLogBuf, &u4SpecLogBufSize,
+				pucDbgLogBuff, &u4DbgLogBufSize,
+				eFinalFwSpecLogDst, eFinalFwDbgLogDst);
+		} else {
+			/* While memory alloc fail, change to inline log path */
+			eFinalFwSpecLogDst = prWifiVar->ucFwSpecLogDstForError;
+			eFinalFwDbgLogDst = prWifiVar->ucFwDbgLogDstForError;
+			u4ProcessedLogBufSize = fw_log_redir_handler(ad,
+				sub_ctrl->buffer, handled,
+				NULL, NULL,
+				NULL, NULL,
+				eFinalFwSpecLogDst,
+				eFinalFwDbgLogDst);
+		}
+
+		if (abs(handled - u4ProcessedLogBufSize) > 3)
+			DBGLOG(INIT, WARN,
+				"Size Mismatch Handled:%u, Processed:%u\n",
+				handled, u4ProcessedLogBufSize);
+
+		/* Handle spec log buffer */
+		if (eFinalFwSpecLogDst ==
+			FW_SPEC_LOG_DEST_FW_LOG_RING) {
+			/* default */
+			u4HandledLogBufSize = fw_log_notify_rcv(sub_ctrl->type,
+				pucSpecLogBuf, u4SpecLogBufSize);
+		} else if (eFinalFwSpecLogDst ==
+			FW_SPEC_LOG_DEST_FW_LOG_RING_INLINE) {
+			/* Write in fw_log_redir_handler */
+		} else if (eFinalFwSpecLogDst ==
+			FW_SPEC_LOG_DEST_ICS_LOG_RING) {
+			ret = kalIcsWrite(pucSpecLogBuf, u4SpecLogBufSize);
+			if (ret != u4SpecLogBufSize)
+				DBGLOG(INIT, WARN,
+					"Write FW Spec Log to ics log ring fail [len=%u|wlen=%zd]\n",
+					u4SpecLogBufSize, ret);
+		} else if (eFinalFwSpecLogDst ==
+			FW_SPEC_LOG_DEST_ICS_LOG_RING_INLINE) {
+			/* Write in fw_log_redir_handler */
+		} else
+			DBGLOG(INIT, WARN,
+				"An error eFinalFwSpecLogDst setting [%d]\n",
+				eFinalFwSpecLogDst);
+
+		/* Handle debug log buffer */
+		if (eFinalFwDbgLogDst ==
+			FW_DBG_LOG_DEST_FW_LOG_RING) {
+			u4HandledLogBufSize = 0;
+			u4HandledLogBufSize = fw_log_notify_rcv(sub_ctrl->type,
+				pucDbgLogBuff, u4DbgLogBufSize);
+		} else if (eFinalFwDbgLogDst ==
+			FW_DBG_LOG_DEST_FW_LOG_RING_INLINE) {
+			/* Write in fw_log_redir_handler */
+		} else if (eFinalFwDbgLogDst ==
+			FW_DBG_LOG_DEST_ICS_LOG_RING) {
+			ret = kalIcsWrite(pucDbgLogBuff, u4DbgLogBufSize);
+			if (ret != u4DbgLogBufSize)
+				DBGLOG(INIT, WARN,
+					"Write FW Dbg Log to ics log ring fail [len=%u|wlen=%zd]\n",
+					u4DbgLogBufSize, ret);
+		} else if (eFinalFwDbgLogDst ==
+			FW_DBG_LOG_DEST_ICS_LOG_RING_INLINE) {
+			/* Write in fw_log_redir_handler */
+		} else if (prWifiVar->ucFwDbgLogDst ==
+			FW_DBG_LOG_DEST_GET_RING_DATA) {
+			logger_write_wififw(pucDbgLogBuff, u4DbgLogBufSize);
+		} else if (eFinalFwDbgLogDst ==
+			FW_DBG_LOG_DEST_GET_RING_DATA_INLINE) {
+			/* Write to GET_RING_DATA in fw_log_redir_handler */
+		} else
+			DBGLOG(INIT, WARN,
+				"An error eFinalFwDbgLogDst setting [%d]\n",
+				eFinalFwDbgLogDst);
+
+		if (pucSpecLogBuf)
+			kalMemFree(pucSpecLogBuf, VIR_MEM_TYPE, handled);
+		if (pucDbgLogBuff)
+			kalMemFree(pucDbgLogBuff, VIR_MEM_TYPE, handled);
+
+		sub_stats->handle_size += handled;
+		sub_ctrl->irp += handled;
+		sub_ctrl->irp %= sub_ctrl->length;
+		fw_log_emi_update_rp(ad, ctrl, sub_ctrl, sub_ctrl->irp);
+	} else {
+		handled = fw_log_notify_rcv(sub_ctrl->type,
+						sub_ctrl->buffer,
+						handled);
+
+		sub_stats->handle_size += handled;
+
+		sub_ctrl->irp += handled;
+		sub_ctrl->irp %= sub_ctrl->length;
+		fw_log_emi_update_rp(ad, ctrl, sub_ctrl, sub_ctrl->irp);
+	}
+#else
 	handled = fw_log_notify_rcv(sub_ctrl->type,
-				    sub_ctrl->buffer,
-				    handled);
+					sub_ctrl->buffer,
+					handled);
+
+#if defined(CFG_SUPPORT_FW_CS_LOG_TO_ICS_LOG_RING) && \
+	(CFG_SUPPORT_FW_CS_LOG_TO_ICS_LOG_RING == 1)
+		if (sub_ctrl->type == ENUM_FW_LOG_CTRL_TYPE_WIFI) {
+			uint32_t u4FwLevel = 0;
+
+			wlanDbgGetGlobalLogLevel(ENUM_WIFI_LOG_MODULE_FW,
+				&u4FwLevel);
+			if (u4FwLevel == ENUM_WIFI_LOG_LEVEL_VOC)
+				/* FW log is not split, only FW CUSTOM_STATE LOG
+				 * are extracted to ics_log_ring
+				 */
+				fw_log_parse_buffer(sub_ctrl->buffer, handled);
+		}
+#endif
+
 	sub_stats->handle_size += handled;
 
 	sub_ctrl->irp += handled;
 	sub_ctrl->irp %= sub_ctrl->length;
 	fw_log_emi_update_rp(ad, ctrl, sub_ctrl, sub_ctrl->irp);
+#endif
+
 }
 
 static int32_t __fw_log_emi_handler(u_int8_t force)
@@ -315,7 +485,7 @@ static int32_t fw_log_emi_refresh_common_header(struct ADAPTER *ad,
 			continue;
 		}
 
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 			"[%d %s] base_addr: 0x%x, length: 0x%x\n",
 			i,
 			fw_log_type_to_str(i),
@@ -389,7 +559,7 @@ static uint32_t fw_log_emi_sub_ctrl_init(struct ADAPTER *ad,
 	} else {
 		status = WLAN_STATUS_INVALID_LENGTH;
 	}
-	DBGLOG(INIT, DEBUG, "[%d %s] buf_base_addr: 0x%x, status: 0x%x\n",
+	DBGLOG(INIT, INFO, "[%d %s] buf_base_addr: 0x%x, status: 0x%x\n",
 		sub_ctrl->type,
 		fw_log_type_to_str(sub_ctrl->type),
 		sub_ctrl->buf_base_addr,
@@ -471,7 +641,7 @@ void fw_log_emi_set_enabled(struct ADAPTER *ad, u_int8_t enabled)
 {
 	struct FW_LOG_EMI_CTRL *ctrl = &g_fw_log_emi_ctx;
 
-	DBGLOG(INIT, DEBUG, "enabled: %d\n", enabled);
+	DBGLOG(INIT, INFO, "enabled: %d\n", enabled);
 
 	if (enabled)
 		__fw_log_emi_force_reset_buffer(ad, ctrl);
@@ -556,6 +726,6 @@ static void fw_log_emi_stats_dump(struct ADAPTER *ad,
 				       sub_ctrl->wp,
 				       sub_ctrl->iwp);
 	}
-	DBGLOG(INIT, DEBUG, "%s\n", buf);
+	DBGLOG(INIT, LOUD, "%s\n", buf);
 }
 

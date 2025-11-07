@@ -15,8 +15,15 @@
 #include "mtu3_dr.h"
 #include "mtu3_debug.h"
 
+#if IS_ENABLED(CONFIG_USB_CONFIGFS_F_SS_MON_GADGET)
+#include <../ss_function/f_ss_mon_gadget.h>
+#endif
+
 #if IS_ENABLED(CONFIG_USB_NOTIFY_LAYER)
 #include <linux/usb_notify.h>
+#endif
+#if IS_ENABLED(CONFIG_USB_REPEATER)
+#include <linux/phy/repeater_core.h>
 #endif
 
 #define USB2_PORT 2
@@ -122,7 +129,11 @@ static void switch_port_to_on(struct ssusb_mtk *ssusb, enum phy_mode mode)
 	/* reset USB MAC/PHY */
 	ssusb_reset(ssusb);
 
+	ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
 	ssusb_vsvoter_set(ssusb);
+#if IS_ENABLED(CONFIG_USB_REPEATER)
+	repeater_enable(true);
+#endif
 	ssusb_phy_power_on(ssusb);
 	ssusb_phy_set_mode(ssusb, mode);
 	ssusb_ip_sw_reset(ssusb);
@@ -135,8 +146,12 @@ static void switch_port_to_off(struct ssusb_mtk *ssusb)
 	synchronize_irq(ssusb->u3d->irq);
 	ssusb_ip_sleep(ssusb);
 	ssusb_phy_set_mode(ssusb, PHY_MODE_INVALID);
+#if IS_ENABLED(CONFIG_USB_REPEATER)
+	repeater_enable(false);
+#endif
 	ssusb_phy_power_off(ssusb);
 	ssusb_vsvoter_clr(ssusb);
+	ssusb_set_power_state(ssusb, MTU3_STATE_POWER_OFF);
 	ssusb_clks_disable(ssusb);
 
 	pm_runtime_put(ssusb->dev);
@@ -193,6 +208,9 @@ static void ssusb_host_register(struct ssusb_mtk *ssusb, bool on)
 	} else {
 		platform_driver_unregister(ssusb->xhci_pdrv);
 	}
+#if IS_ENABLED(CONFIG_IF_CB_MANAGER)
+	usbpd_set_host_on(ssusb->man, on);
+#endif
 }
 
 int ssusb_set_vbus(struct otg_switch_mtk *otg_sx, int is_on)
@@ -265,7 +283,7 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 		mdelay(50);
 		/* unregister host driver */
 		ssusb_host_register(ssusb, false);
-		ssusb_set_power_state(ssusb, MTU3_STATE_POWER_OFF);
+		ssusb_wait_power_state(ssusb, MTU3_STATE_POWER_OFF);
 		ssusb_host_disable(ssusb);
 		switch_port_to_off(ssusb);
 		/* wait for hw to complete host off */
@@ -273,6 +291,9 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 		break;
 	case USB_ROLE_DEVICE:
 		spin_lock_irqsave(&mtu->lock, flags);
+#if IS_ENABLED(CONFIG_USB_CONFIGFS_F_SS_MON_GADGET)
+		vbus_session_notify(&mtu->g, true, EAGAIN);
+#endif
 		mtu3_stop(mtu);
 		/* report disconnect */
 		if (mtu->g.speed != USB_SPEED_UNKNOWN)
@@ -287,7 +308,6 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 			pm_runtime_put(ssusb->dev);
 		}
 		spin_unlock_irqrestore(&mtu->lock, flags);
-		ssusb_set_power_state(ssusb, MTU3_STATE_POWER_OFF);
 		mtu3_device_disable(mtu);
 		switch_port_to_off(ssusb);
 		pm_relax(ssusb->dev);
@@ -303,7 +323,6 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 	case USB_ROLE_HOST:
 		switch_port_to_on(ssusb, PHY_MODE_USB_HOST);
 		ssusb_host_enable(ssusb);
-		ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
 		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_HOST);
 		/* register host driver */
 		ssusb_host_register(ssusb, true);
@@ -319,8 +338,10 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 		pm_stay_awake(ssusb->dev);
 		switch_port_to_on(ssusb, PHY_MODE_USB_DEVICE);
 		mtu3_device_enable(mtu);
-		ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
 		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_DEVICE);
+#if IS_ENABLED(CONFIG_USB_CONFIGFS_F_SS_MON_GADGET)
+		vbus_session_notify(&mtu->g, true, EAGAIN);
+#endif
 		mtu3_start(mtu);
 		break;
 	case USB_ROLE_NONE:
@@ -361,15 +382,6 @@ static void ssusb_mode_sw_work(struct work_struct *work)
 
 	if (current_role == desired_role)
 		goto same_role;
-#if IS_ENABLED(CONFIG_USB_NOTIFY_LAYER)
-	if (desired_role == USB_ROLE_HOST && is_blocked(get_otg_notify(), NOTIFY_BLOCK_TYPE_HOST)) {
-		dev_err(ssusb->dev, "NOTIFY_BLOCK_TYPE_HOST\n");
-		goto same_role;
-	} else if (desired_role == USB_ROLE_DEVICE && is_blocked(get_otg_notify(), NOTIFY_BLOCK_TYPE_CLIENT)) {
-		dev_err(ssusb->dev, "NOTIFY_BLOCK_TYPE_CLIENT\n");
-		goto same_role;
-	}
-#endif
 
 	dev_dbg(ssusb->dev, "set role : %s\n", usb_role_string(desired_role));
 	mtu3_dbg_trace(ssusb->dev, "set role : %s", usb_role_string(desired_role));
@@ -613,9 +625,17 @@ static ssize_t mode_store(struct device *dev,
 			/* switch usb role to latest role */
 			break;
 		case MTU3_DR_OPERATION_HOST:
+#if IS_ENABLED(CONFIG_USB_NOTIFY_LAYER)
+			if (is_blocked(get_otg_notify(), NOTIFY_BLOCK_TYPE_HOST))
+				return -EINVAL;
+#endif
 			otg_sx->latest_role = USB_ROLE_HOST;
 			break;
 		case MTU3_DR_OPERATION_DEVICE:
+#if IS_ENABLED(CONFIG_USB_NOTIFY_LAYER)
+			if (is_blocked(get_otg_notify(), NOTIFY_BLOCK_TYPE_CLIENT))
+				return -EINVAL;
+#endif
 			otg_sx->latest_role = USB_ROLE_DEVICE;
 			break;
 		default:
@@ -790,6 +810,37 @@ static ssize_t host_dev_show(struct device *dev,
 }
 static DEVICE_ATTR_RW(host_dev);
 
+static ssize_t force_vcore_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+	int airplane_mode;
+
+	if (kstrtoint(buf, 10, &airplane_mode))
+		return -EINVAL;
+
+	if (airplane_mode != 0 && airplane_mode != 1)
+		return -EINVAL;
+
+	ssusb->force_vcore = (airplane_mode == 1) ? true : false;
+
+	dev_info(dev, "force_vcore %d\n", ssusb->force_vcore);
+
+	return count;
+}
+
+static ssize_t force_vcore_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", ssusb->force_vcore ? 1 : 0);
+}
+static DEVICE_ATTR_RW(force_vcore);
+
+
 static struct attribute *ssusb_dr_attrs[] = {
 	&dev_attr_mode.attr,
 	&dev_attr_role_mode.attr,
@@ -797,6 +848,7 @@ static struct attribute *ssusb_dr_attrs[] = {
 	&dev_attr_saving.attr,
 	&dev_attr_u3_lpm.attr,
 	&dev_attr_host_dev.attr,
+	&dev_attr_force_vcore.attr,
 	NULL
 };
 
@@ -828,7 +880,10 @@ int ssusb_otg_switch_init(struct ssusb_mtk *ssusb)
 		ret = ssusb_role_sw_register(otg_sx);
 	else
 		ret = ssusb_extcon_register(otg_sx);
-
+#if IS_ENABLED(CONFIG_IF_CB_MANAGER)
+	ssusb->usb_d.data = (void *)ssusb;
+	ssusb->man = register_usb(&ssusb->usb_d);
+#endif
 	return ret;
 }
 

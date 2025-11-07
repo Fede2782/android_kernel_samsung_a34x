@@ -500,8 +500,8 @@ static int mtk_vdec_get_lpw_limit(struct mtk_vcodec_ctx *ctx)
 	if (ctx->dynamic_low_latency)
 		return 1;
 
-	if (ctx->picinfo.buf_w * ctx->picinfo.buf_h > MTK_VDEC_4K_WH)
-		default_limit = mtk_vdec_lpw_limit - 2;
+	if (ctx->dec_params.svp_mode || ctx->picinfo.buf_w * ctx->picinfo.buf_h > MTK_VDEC_4K_WH)
+		default_limit = mtk_vdec_lpw_limit - 3;
 
 	return (ctx->input_slot > 0) ? MAX(1, MIN(default_limit, ctx->input_slot - 2)) : default_limit;
 }
@@ -588,14 +588,18 @@ static void mtk_vdec_lpw_start_timer(struct mtk_vcodec_ctx *ctx)
 		limit_time = ctx->lpw_ts_diff * ctx->group_dec_cnt;
 		if (!ctx->lpw_timer_wait) {
 			curr_time = jiffies_to_nsecs(jiffies);
-			if (curr_time <= ctx->group_start_time) {
+			if (curr_time < ctx->group_start_time) {
 				dec_time = MS_TO_NS(10); // 10ms
 				group_time = dec_time * ctx->group_dec_cnt;
 				delay_time = dec_time * delay_cnt;
-				mtk_lpw_err("[%d] curr_time %lld.%06d <= group_start_time %lld.%06d not valid, set dec_time to default %lld ms",
+				mtk_lpw_err("[%d] curr_time %lld.%06d < group_start_time %lld.%06d not valid, set dec_time to default %lld ms",
 					ctx->id, NS_TO_MS(curr_time), NS_MOD_MS(curr_time),
 					NS_TO_MS(ctx->group_start_time),
 					NS_MOD_MS(ctx->group_start_time), NS_TO_MS(dec_time));
+			} else if (curr_time == ctx->group_start_time) {
+				group_time = jiffies_to_nsecs(1); // 1 tick
+				dec_time = div_u64(group_time, ctx->group_dec_cnt);
+				delay_time = dec_time * delay_cnt;
 			} else {
 				group_time = curr_time - ctx->group_start_time;
 				dec_time = div_u64(group_time, ctx->group_dec_cnt);

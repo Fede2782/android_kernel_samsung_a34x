@@ -226,7 +226,7 @@ static ssize_t cpufreq_min_store(struct kobject *kobj,
 	struct freq_qos_request *req;
 	struct cpufreq_policy *policy;
 	s32 cpufreq_min;
-	int io_cpus;
+	unsigned long io_cpus;
 	int i;
 	char *sptr = (char *)buf;
 	char *token;
@@ -235,14 +235,14 @@ static ssize_t cpufreq_min_store(struct kobject *kobj,
 	if (!token || !sptr)
 		return -EINVAL;
 
-	if (kstrtoint(token, 16, &io_cpus))
+	if (kstrtoul(token, 16, &io_cpus))
 		return -EINVAL;
 
 	if (kstrtoint(sptr, 10, &cpufreq_min))
 		return -EINVAL;
 
 	for_each_possible_cpu(i) {
-		if (!test_bit(i, (unsigned long *)&io_cpus))
+		if (!test_bit(i, &io_cpus))
 			continue;
 
 		req = &per_cpu(cpufreq_req, i);

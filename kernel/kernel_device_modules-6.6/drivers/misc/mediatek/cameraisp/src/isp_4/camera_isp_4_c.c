@@ -618,7 +618,6 @@ struct S_START_T {
  */
 static unsigned int g_regScen = 0xa5a5a5a5; /* remove later */
 
-static unsigned int g_virtual_cq_cnt[2] = {0, 0};
 static unsigned int g_virtual_cq_cnt_a;
 static unsigned int g_virtual_cq_cnt_b;
 
@@ -7493,23 +7492,26 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			}
 		}
 		break;
-	case ISP_SET_VIR_CQCNT:
+	case ISP_SET_VIR_CQCNT: {
+		unsigned int g_virtual_cq_cnt[2] = {0};
+
 		if (copy_from_user(&g_virtual_cq_cnt, (void *)Param,
 			sizeof(unsigned int)*2) == 0) {
 			LOG_DBG("From hw_module:%d Virtual CQ count from user land : %d\n",
 				g_virtual_cq_cnt[0], g_virtual_cq_cnt[1]);
+			if (g_virtual_cq_cnt[0] == 0) {
+				g_virtual_cq_cnt_a = g_virtual_cq_cnt[1];
+				LOG_DBG("Update Virtual CQ cnt for hw_module:0\n");
+			} else if (g_virtual_cq_cnt[0] == 1) {
+				g_virtual_cq_cnt_b = g_virtual_cq_cnt[1];
+				LOG_DBG("Update Virtual CQ cnt for hw_module:1\n");
+			}
 		} else {
 			LOG_DBG(
 				"Virtual CQ count copy_from_user failed\n");
 			Ret = -EFAULT;
 		}
-		if (g_virtual_cq_cnt[0] == 0) {
-			g_virtual_cq_cnt_a = g_virtual_cq_cnt[1];
-			LOG_DBG("Update Virtual CQ cnt for hw_module:0\n");
-		} else if (g_virtual_cq_cnt[0] == 1) {
-			g_virtual_cq_cnt_b = g_virtual_cq_cnt[1];
-			LOG_DBG("Update Virtual CQ cnt for hw_module:1\n");
-		}
+	}
 		break;
 	default:
 	{

@@ -52,4 +52,9 @@ static inline int fw_log_wifi_inf_init(void) { return 0; }
 static inline void fw_log_wifi_inf_deinit(void) {}
 #endif
 
+#if CFG_LOGGER_FWLOG_POLLING
+ssize_t fw_logger_read(char *buf, size_t len);
+int fw_logger_start(void);
+int fw_logger_stop(void);
+#endif
 #endif /* _GL_FW_LOG_H */

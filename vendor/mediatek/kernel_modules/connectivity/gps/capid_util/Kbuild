@@ -1,0 +1,19 @@
+###############################################################################
+ccflags-y += -I$(src)/include
+# Support GKI mixed build
+ifeq ($(DEVICE_MODULES_PATH),)
+DEVICE_MODULES_PATH = $(srctree)
+else
+LINUXINCLUDE := $(DEVCIE_MODULES_INCLUDE) $(LINUXINCLUDE)
+TOP := $(srctree)/../..
+endif
+
+ifeq ($(CONFIG_MTK_GPS_SUPPORT), y)
+
+MODULE_NAME := gps_meta_capid_util
+obj-m += $(MODULE_NAME).o
+
+$(MODULE_NAME)-objs += capid_util.o pmic_op.o chip/pmic_chip_data.o chip/mt6685_pmic_chip.o
+
+endif #ifeq ($(CONFIG_MTK_GPS_SUPPORT), y)
+# EOF

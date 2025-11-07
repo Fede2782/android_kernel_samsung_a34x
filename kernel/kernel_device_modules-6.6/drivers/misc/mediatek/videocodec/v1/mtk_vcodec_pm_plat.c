@@ -111,7 +111,7 @@ void mtk_prepare_venc_emi_bw(struct mtk_vcodec_dev *dev)
 
 	for (i = 0; i < port_num; i++) {
 		dev->venc_qos_req[i] = of_mtk_icc_get(&pdev->dev, path_strs[i]);
-		pr_info("[VENC] %d %p %s", i, dev->venc_qos_req[i], path_strs[i]);
+		pr_debug("[VENC] %d %p %s", i, dev->venc_qos_req[i], path_strs[i]);
 	}
 #endif
 }
@@ -153,8 +153,7 @@ void set_venc_bw(struct mtk_vcodec_dev *dev, u64 target_bw)
 
 	for (i = 0; i < MTK_VENC_PORT_NUM; i++) {
 		mtk_icc_set_bw(dev->venc_qos_req[i], MBps_to_icc((u32)target_bw), 0);
-		pr_debug("[VENC] port %d set larb %llu bw",
-			i, target_bw);
+		pr_debug("[VENC] port %d set larb %llu bw", i, target_bw);
 	}
 }
 
@@ -231,7 +230,7 @@ void mtk_prepare_vdec_emi_bw(struct mtk_vcodec_dev *dev)
 
 	for (i = 0; i < port_num; i++) {
 		dev->vdec_qos_req[i] = of_mtk_icc_get(&pdev->dev, path_strs[i]);
-		pr_info("[VDEC] qos port[%d] name %s", i, path_strs[i]);
+		pr_debug("[VDEC] qos port[%d] name %s", i, path_strs[i]);
 	}
 #endif
 }
@@ -271,8 +270,7 @@ void set_vdec_bw(struct mtk_vcodec_dev *dev, u64 target_bw)
 		return;
 	for (i = 0; i < MTK_VDEC_PORT_NUM; i++) {
 		mtk_icc_set_bw(dev->vdec_qos_req[i], MBps_to_icc((u32)target_bw), 0);
-		pr_debug("[VDEC] port %d set larb %llu bw",
-			i, target_bw);
+		pr_debug("[VDEC] port %d set larb %llu bw", i, target_bw);
 	}
 }
 

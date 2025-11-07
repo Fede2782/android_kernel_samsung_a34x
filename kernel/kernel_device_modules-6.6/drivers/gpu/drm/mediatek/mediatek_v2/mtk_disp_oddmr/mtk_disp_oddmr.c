@@ -719,7 +719,7 @@ static uint32_t g_od_udma_merge_lines_cand[] = {
 };
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
-
+#define OFFSET(m, n) ((m > n) ? (m - n) : 0)
 
 static unsigned char lookup[16] = {
 	0x0, 0x8, 0x4, 0xc, 0x2, 0xa, 0x6, 0xe,
@@ -4557,7 +4557,7 @@ static int mtk_oddmr_dbi_fps_lookup(unsigned int fps, struct mtk_drm_dbi_cfg_inf
 	}
 
 	if(i >= fps_dbv_node->FPS_num)
-		fps_node_tmp = fps_dbv_node->FPS_num -1;
+		fps_node_tmp = OFFSET(fps_dbv_node->FPS_num, 1);
 	else
 		fps_node_tmp = (i>0)?(i-1):i;
 
@@ -4676,7 +4676,7 @@ static int mtk_oddmr_dbi_dbv_lookup(unsigned int dbv, unsigned int *dbv_node_arr
 	}
 
 	if(i >= dbv_node_num)
-		dbv_node_tmp = dbv_node_num -1;
+		dbv_node_tmp = OFFSET(dbv_node_num, 1);
 	else
 		dbv_node_tmp = (i>0)?(i-1):i;
 
@@ -5440,7 +5440,7 @@ static void mtk_cal_oddmr_valid_partial_roi(struct mtk_ddp_comp *comp,
 		/* align to scale factor v*/
 		if (partial_roi->y % scale_factor_v != 0) {
 			dbi_y_diff =
-				partial_roi->y - (partial_roi->y / scale_factor_v) * scale_factor_v;
+				OFFSET(partial_roi->y, (partial_roi->y / scale_factor_v) * scale_factor_v);
 			partial_roi->y -= dbi_y_diff;
 		}
 		partial_roi->height += dbi_y_diff;
@@ -10345,8 +10345,8 @@ static int mtk_oddmr_set_partial_update(struct mtk_ddp_comp *comp,
 
 	/* update y ini */
 	if (oddmr->set_partial_update == 1) {
-		dbi_y_ini = partial_roi.y - overhead_v;
-		dmr_y_ini = partial_roi.y - overhead_v;
+		dbi_y_ini = OFFSET(partial_roi.y, overhead_v);
+		dmr_y_ini = OFFSET(partial_roi.y, overhead_v);
 	} else {
 		dbi_y_ini = 0;
 		dmr_y_ini = 0;

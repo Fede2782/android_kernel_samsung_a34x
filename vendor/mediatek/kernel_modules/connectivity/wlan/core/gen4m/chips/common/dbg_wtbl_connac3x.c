@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -14,7 +14,6 @@
  *******************************************************************************
  */
 #include "precomp.h"
-#if (DBG_DISABLE_ALL_INFO == 0)
 #include "dbg_wtbl_connac3x.h"
 #ifdef BELLWETHER
 #include "coda/bellwether/wf_wtblon_top.h"
@@ -51,11 +50,6 @@
 #include "coda/mt7925/wf_uwtbl_top.h"
 #include "coda/mt7925/wf_ds_uwtbl.h"
 #include "coda/mt7925/wf_ds_lwtbl.h"
-#endif
-#ifdef MT7935
-#include "coda/mt7935/wf_wtblon_top.h"
-#include "coda/mt7935/wf_uwtbl_top.h"
-#include "coda/mt7935/wf_ds_uwtbl.h"
 #endif
 
 /*******************************************************************************
@@ -116,7 +110,7 @@ uint32_t halWtblReadRaw(
 	while (sizeInDW--) {
 		uint32_t u4Value = 0;
 
-		HAL_RMCR_RD(WTBL_DBG, prAdapter, u4SrcAddr, &u4Value);
+		HAL_MCR_RD(prAdapter, u4SrcAddr, &u4Value);
 		*dest_cpy++ = u4Value;
 		u4SrcAddr += 4;
 	}
@@ -349,7 +343,7 @@ static int32_t connac3x_dump_helper_wtbl_info(
 			"Dump WTBL info of WLAN_IDX	    = %d\n",
 		u4Index);
 
-	DBGLOG(REQ, DEBUG, "====DW0~1====\n");
+	DBGLOG(REQ, INFO, "====DW0~1====\n");
 	/* DW0~DW1 */
 	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen, i4BytesWritten,
 		"\tADDR="MACSTR"\n",
@@ -368,15 +362,7 @@ static int32_t connac3x_dump_helper_wtbl_info(
 		pWtbl->peer_basic_info.wtbl_d0.field.wpi_flg);
 
 	/* DW2~4 */
-	DBGLOG(REQ, DEBUG, "====DW2~4====\n");
-#ifdef MT6653
-	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen, i4BytesWritten,
-		"\tAID12/GID_SU/DUAL_PTEC_EN/DUAL_CTS_EN:%d/%d/%d/%d\n",
-		pWtbl->trx_cap.wtbl_d2.field.aid12,
-		pWtbl->trx_cap.wtbl_d2.field.gid_su,
-		pWtbl->trx_cap.wtbl_d2.field.dual_ptec_en,
-		pWtbl->trx_cap.wtbl_d2.field.dual_cts_cap);
-#else
+	DBGLOG(REQ, INFO, "====DW2~4====\n");
 	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen, i4BytesWritten,
 		"\tAID12/GID_SU/SPP_EN/WPI_EVEN/AAD_OM:%d/%d/%d/%d/%d\n",
 		pWtbl->trx_cap.wtbl_d2.field.aid12,
@@ -384,7 +370,6 @@ static int32_t connac3x_dump_helper_wtbl_info(
 		pWtbl->trx_cap.wtbl_d2.field.spp_en,
 		pWtbl->trx_cap.wtbl_d2.field.wpi_even,
 		pWtbl->trx_cap.wtbl_d2.field.aad_om);
-#endif
 
 	/* DUMP DW14 for BMC entry only */
 	if (pWtbl->peer_basic_info.wtbl_d0.field.muar_idx
@@ -448,31 +433,6 @@ static int32_t connac3x_dump_helper_wtbl_info(
 		pWtbl->trx_cap.wtbl_d3.field.tbf_vht,
 		pWtbl->trx_cap.wtbl_d3.field.tbf_he,
 		pWtbl->trx_cap.wtbl_d3.field.tbf_eht);
-#ifdef MT6653
-	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen,
-		i4BytesWritten,
-		"\tRIBF/ULPF/BYPASS_TXSMM:%d/%d/%d\n",
-		pWtbl->trx_cap.wtbl_d3.field.ribf,
-		pWtbl->trx_cap.wtbl_d3.field.ulpf,
-		pWtbl->trx_cap.wtbl_d3.field.bypass_txSMM);
-	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen,
-		i4BytesWritten,
-		"\tNEGO_WINSZ [0~7]:%d/%d/%d/%d/%d/%d/%d/%d\n",
-		pWtbl->trx_cap.wtbl_d4.field.nego_winsize0,
-		pWtbl->trx_cap.wtbl_d4.field.nego_winsize1,
-		pWtbl->trx_cap.wtbl_d4.field.nego_winsize2,
-		pWtbl->trx_cap.wtbl_d4.field.nego_winsize3,
-		pWtbl->trx_cap.wtbl_d4.field.nego_winsize4,
-		pWtbl->trx_cap.wtbl_d4.field.nego_winsize5,
-		pWtbl->trx_cap.wtbl_d4.field.nego_winsize6,
-		pWtbl->trx_cap.wtbl_d4.field.nego_winsize7);
-	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen,
-		i4BytesWritten,
-		"\tPE/DIS_RHTR/BA_MODE:%d/%d/%d\n",
-		pWtbl->trx_cap.wtbl_d4.field.pe,
-		pWtbl->trx_cap.wtbl_d4.field.dis_rhtr,
-		pWtbl->trx_cap.wtbl_d4.field.ba_mode);
-#else
 	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen,
 		i4BytesWritten,
 		"\tANT_ID[0~7]:%d/%d/%d/%d/%d/%d/%d/%d\n",
@@ -489,20 +449,9 @@ static int32_t connac3x_dump_helper_wtbl_info(
 		"\tPE/DIS_RHTR:%d/%d\n",
 		pWtbl->trx_cap.wtbl_d4.field.pe,
 		pWtbl->trx_cap.wtbl_d4.field.dis_rhtr);
-#endif
+
 	/* DW5 */
-	DBGLOG(REQ, DEBUG, "====DW5====\n");
-#ifdef MT6653
-	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen,
-		i4BytesWritten,
-		"\tAF/BSA_EN/RTS/SMPS/DYNBW/MMSS:%d/%d/%d/%d/%d/%d\n",
-		pWtbl->trx_cap.wtbl_d5.field.af,
-		pWtbl->trx_cap.wtbl_d5.field.bsa_en,
-		pWtbl->trx_cap.wtbl_d5.field.rts,
-		pWtbl->trx_cap.wtbl_d5.field.smps,
-		pWtbl->trx_cap.wtbl_d5.field.dyn_bw,
-		pWtbl->trx_cap.wtbl_d5.field.mmss);
-#else
+	DBGLOG(REQ, INFO, "====DW5====\n");
 	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen,
 		i4BytesWritten,
 		"\tAF/AFHE/RTS/SMPS/DYNBW/MMSS:%d/%d/%d/%d/%d/%d\n",
@@ -512,7 +461,6 @@ static int32_t connac3x_dump_helper_wtbl_info(
 		pWtbl->trx_cap.wtbl_d5.field.smps,
 		pWtbl->trx_cap.wtbl_d5.field.dyn_bw,
 		pWtbl->trx_cap.wtbl_d5.field.mmss);
-#endif
 	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen,
 		i4BytesWritten,
 		"\tUSR/SR_R/SR_A/TXPWR_OFST:%d/%d/%d/%d\n",
@@ -536,7 +484,7 @@ static int32_t connac3x_dump_helper_wtbl_info(
 		pWtbl->trx_cap.wtbl_d5.field.skip_tx);
 
 	/* DW6 */
-	DBGLOG(REQ, DEBUG, "====DW6====\n");
+	DBGLOG(REQ, INFO, "====DW6====\n");
 	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen,
 		i4BytesWritten,
 		"\tCBRN/DBNSS_EN/BAFEN/RDGBA/R:%d/%d/%d/%d/%d\n",
@@ -569,7 +517,7 @@ static int32_t connac3x_dump_helper_wtbl_info(
 		pWtbl->trx_cap.wtbl_d6.field.g16_ltf);
 
 	/* DW7 */
-	DBGLOG(REQ, DEBUG, "====DW7====\n");
+	DBGLOG(REQ, INFO, "====DW7====\n");
 	if (pWtbl->trx_cap.wtbl_d2.field.qos)
 		i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen,
 			i4BytesWritten,
@@ -592,7 +540,7 @@ static int32_t connac3x_dump_helper_wtbl_info(
 			(pWtbl->trx_cap.wtbl_d7.field.ba_win_size_tid7));
 
 	/* DW8 */
-	DBGLOG(REQ, DEBUG, "====DW8====\n");
+	DBGLOG(REQ, INFO, "====DW8====\n");
 	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen, i4BytesWritten,
 		"\tCHK_PER/P_AID:%d/%d\n",
 		pWtbl->trx_cap.wtbl_d8.field.chk_per,
@@ -600,7 +548,7 @@ static int32_t connac3x_dump_helper_wtbl_info(
 
 
 	/* DW9 */
-	DBGLOG(REQ, DEBUG, "====DW9====\n");
+	DBGLOG(REQ, INFO, "====DW9====\n");
 	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen, i4BytesWritten,
 		"\tPRITX[SW_M/ERSU/PLR/DCM/ER106T]:%d/%d/%d/%d/%d\n",
 		pWtbl->trx_cap.wtbl_d9.field.pritx_sw_mode,
@@ -616,7 +564,7 @@ static int32_t connac3x_dump_helper_wtbl_info(
 		pWtbl->trx_cap.wtbl_d9.field.mpdu_ok_cnt);
 
 	/* DW28 */
-	DBGLOG(REQ, DEBUG, "====DW28====\n");
+	DBGLOG(REQ, INFO, "====DW28====\n");
 	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen, i4BytesWritten,
 		"\tRELATED[IDX0/BN0/IDX1/BN1]:%d/%d/%d/%d\n",
 		pWtbl->mlo_info.wtbl_d28.field.related_idx0,
@@ -629,7 +577,7 @@ static int32_t connac3x_dump_helper_wtbl_info(
 		pWtbl->mlo_info.wtbl_d28.field.sec_mld_band);
 
 	/* DW29 */
-	DBGLOG(REQ, DEBUG, "====DW29~30====\n");
+	DBGLOG(REQ, INFO, "====DW29~30====\n");
 	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen, i4BytesWritten,
 		"\tDISP_POL[0~7]:%d/%d/%d/%d/%d/%d/%d/%d\n",
 		pWtbl->mlo_info.wtbl_d29.field.dispatch_policy0,
@@ -659,7 +607,7 @@ static int32_t connac3x_dump_helper_wtbl_info(
 		pWtbl->mlo_info.wtbl_d30.field.dispatch_ratio);
 
 	/* DW34 */
-	DBGLOG(REQ, DEBUG, "====DW34~35====\n");
+	DBGLOG(REQ, INFO, "====DW34~35====\n");
 	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen, i4BytesWritten,
 		"\tRSSI= %d %d %d %d\n",
 		RCPI_TO_dBm(pWtbl->rx_stat.wtbl_d34.field.resp_rcpi_0),
@@ -713,29 +661,6 @@ static void connac3x_print_wtbl_info(
 		pWtbl->ppdu_counters.wtbl_d19.field.mgnt_retry_cnt
 	);
 
-#ifdef MT6653
-	LOG_FUNC(
-	"====DW31====\n"
-	"\tBFTX_TB/CASCAD/ALL_ACK/DROP/MPDU_SZ:%d/%d/%d/%d/%d\n"
-	"\tRXD_DUP_MODE/ACK_EN:%d/%d\n",
-		pWtbl->resp_info.wtbl_d31.field.bftx_tb,
-		pWtbl->resp_info.wtbl_d31.field.cascad,
-		pWtbl->resp_info.wtbl_d31.field.all_ack,
-		pWtbl->resp_info.wtbl_d31.field.drop,
-		pWtbl->resp_info.wtbl_d31.field.mpdu_size,
-		pWtbl->resp_info.wtbl_d31.field.rxd_dup_mode,
-		pWtbl->resp_info.wtbl_d31.field.ack_en
-	);
-	LOG_FUNC(
-	"====DW32====\n"
-	"\tOM_INFO_HE:%d OM_INFO_EHT:%d\n"
-	"\tRXD_DUP[W_LIST/FROM_OM_CHG]:%d/%d\n",
-		pWtbl->rx_dup_info.wtbl_d32.field.om_info,
-		pWtbl->rx_dup_info.wtbl_d32.field.om_info_eht,
-		pWtbl->rx_dup_info.wtbl_d32.field.rxd_dup_white_list,
-		pWtbl->rx_dup_info.wtbl_d32.field.rxd_dup_from_om_chg
-	);
-#else
 	LOG_FUNC(
 	"====DW31====\n"
 	"\tCASCAD/ALL_ACK/DROP/BA_MODE/MPDU_SZ:%d/%d/%d/%d/%d\n"
@@ -766,7 +691,6 @@ static void connac3x_print_wtbl_info(
 		pWtbl->rx_dup_info.wtbl_d32.field.rxd_dup_white_list,
 		pWtbl->rx_dup_info.wtbl_d32.field.rxd_dup_from_om_chg
 	);
-#endif
 
 	LOG_FUNC(
 	"====DW33====\n"
@@ -827,16 +751,15 @@ void connac3x_get_lwtbl(
 	uint32_t wtbl_offset, addr;
 
 	prChipInfo = prAdapter->chip_info;
-	ACQUIRE_POWER_CONTROL_FROM_PM(prAdapter,
-		DRV_OWN_SRC_GET_LWTBL);
+	ACQUIRE_POWER_CONTROL_FROM_PM(prAdapter);
 	CONNAC3X_LWTBL_CONFIG(prAdapter, prChipInfo->u4LmacWtblDUAddr, u4Index);
 	wtbl_lmac_baseaddr = CONNAC3X_LWTBL_IDX2BASE(
 		prChipInfo->u4LmacWtblDUAddr, u4Index, 0);
 
-	HAL_RMCR_RD(WTBL_DBG, prAdapter, prChipInfo->u4LmacWtblDUAddr,
+	HAL_MCR_RD(prAdapter, prChipInfo->u4LmacWtblDUAddr,
 				&u4Value);
 
-	DBGLOG(REQ, DEBUG, "LMAC WTBL Addr: group: 0x%x=0x%x addr: 0x%x\n",
+	DBGLOG(REQ, INFO, "LMAC WTBL Addr: group: 0x%x=0x%x addr: 0x%x\n",
 		prChipInfo->u4LmacWtblDUAddr,
 		u4Value,
 		wtbl_lmac_baseaddr);
@@ -846,14 +769,13 @@ void connac3x_get_lwtbl(
 		sizeof(struct bwtbl_lmac_struct);
 		wtbl_offset += 4) {
 		addr = wtbl_lmac_baseaddr + wtbl_offset;
-		HAL_RMCR_RD(WTBL_DBG, prAdapter, addr,
+		HAL_MCR_RD(prAdapter, addr,
 			   &u4Value);
 		kalMemCopy(
 			(uint32_t *)&wtbl_raw_dw[wtbl_offset],
 			&u4Value, sizeof(uint32_t));
 	}
-	RECLAIM_POWER_CONTROL_TO_PM(prAdapter, FALSE,
-		DRV_OWN_SRC_GET_LWTBL);
+	RECLAIM_POWER_CONTROL_TO_PM(prAdapter, FALSE);
 }
 
 void connac3x_get_rssi_from_wtbl(
@@ -871,14 +793,12 @@ void connac3x_get_rssi_from_wtbl(
 
 	prGlueInfo = prAdapter->prGlueInfo;
 	prChipInfo = prAdapter->chip_info;
-	DBGLOG(REQ, DEBUG, "WTBL : index = %d\n", u4Index);
+	DBGLOG(REQ, INFO, "WTBL : index = %d\n", u4Index);
 
-	ACQUIRE_POWER_CONTROL_FROM_PM(prAdapter,
-		DRV_OWN_SRC_GET_RSSI_FROM_WTBL);
+	ACQUIRE_POWER_CONTROL_FROM_PM(prAdapter);
 	rCmdAccessReg.u4Address = CONNAC3X_LWTBL_IDX2BASE(
 		prChipInfo->u4LmacWtblDUAddr, u4Index, 34);
-	RECLAIM_POWER_CONTROL_TO_PM(prAdapter, FALSE,
-		DRV_OWN_SRC_GET_RSSI_FROM_WTBL);
+	RECLAIM_POWER_CONTROL_TO_PM(prAdapter, FALSE);
 
 	rStatus = kalIoctl(prGlueInfo, wlanoidQueryMcrRead,
 			   &rCmdAccessReg, sizeof(rCmdAccessReg),
@@ -914,7 +834,6 @@ void connac3x_get_rssi_from_wtbl(
 
 static bool is_wtbl_bigtk_exist(struct ADAPTER *prAdapter, uint32_t u4Index)
 {
-#ifdef WF_DS_LWTBL_BASE
 	struct mt66xx_chip_info *prChipInfo;
 	uint32_t wtbl_lmac_baseaddr;
 	uint32_t dw_value = 0;
@@ -924,13 +843,13 @@ static bool is_wtbl_bigtk_exist(struct ADAPTER *prAdapter, uint32_t u4Index)
 	CONNAC3X_LWTBL_CONFIG(prAdapter, prChipInfo->u4LmacWtblDUAddr, u4Index);
 	wtbl_lmac_baseaddr = CONNAC3X_LWTBL_IDX2BASE(
 		prChipInfo->u4LmacWtblDUAddr, u4Index, 0);
-	HAL_RMCR_RD(WTBL_DBG, prAdapter,
+	HAL_MCR_RD(prAdapter,
 		prChipInfo->u4LmacWtblDUAddr + WF_LWTBL_MUAR_DW * 4,
 				&dw_value);
 
 	if (((dw_value & WF_LWTBL_MUAR_MASK) >> WF_LWTBL_MUAR_SHIFT) ==
 					MUAR_INDEX_OWN_MAC_ADDR_BC_MC) {
-		HAL_RMCR_RD(WTBL_DBG, prAdapter,
+		HAL_MCR_RD(prAdapter,
 			(prChipInfo->u4LmacWtblDUAddr +
 				WF_LWTBL_CIPHER_SUIT_BIGTK_DW * 4),
 			&dw_value);
@@ -939,7 +858,6 @@ static bool is_wtbl_bigtk_exist(struct ADAPTER *prAdapter, uint32_t u4Index)
 			IGTK_CIPHER_SUIT_NONE)
 			return TRUE;
 	}
-#endif
 
 	return FALSE;
 }
@@ -954,8 +872,8 @@ static void dump_key_table(
 	uint16_t x;
 	uint32_t u4Value = 0;
 
-	DBGLOG(HAL, DEBUG, "\t\n");
-	DBGLOG(HAL, DEBUG, "\t%s:%d\n", "keyloc0", keyloc0);
+	DBGLOG(HAL, INFO, "\t\n");
+	DBGLOG(HAL, INFO, "\t%s:%d\n", "keyloc0", keyloc0);
 	if (keyloc0 != INVALID_KEY_ENTRY) {
 
 		/* Don't swap below two lines, halWtblReadRaw will
@@ -963,15 +881,13 @@ static void dump_key_table(
 		*/
 		halWtblReadRaw(prAdapter, keyloc0,
 			WTBL_TYPE_KEY, 0, ONE_KEY_ENTRY_LEN_IN_DW, keytbl);
-		HAL_RMCR_RD(WTBL_DBG, prAdapter,
-			       WF_UWTBL_TOP_WDUCR_ADDR, &u4Value);
-		DBGLOG(HAL, DEBUG,
-		       "\t\tKEY WTBL Addr: group:0x%x=0x%x addr: 0x%x\n",
-		       WF_UWTBL_TOP_WDUCR_ADDR,
-		       u4Value,
-		       KEYTBL_IDX2BASE(keyloc0, 0));
+		HAL_MCR_RD(prAdapter, WF_UWTBL_TOP_WDUCR_ADDR, &u4Value);
+		DBGLOG(HAL, INFO, "\t\tKEY WTBL Addr: group:0x%x=0x%x addr: 0x%x\n",
+			WF_UWTBL_TOP_WDUCR_ADDR,
+			u4Value,
+			KEYTBL_IDX2BASE(keyloc0, 0));
 		for (x = 0; x < ONE_KEY_ENTRY_LEN_IN_DW; x++) {
-			DBGLOG(HAL, DEBUG, "\t\tDW%02d: %02x %02x %02x %02x\n",
+			DBGLOG(HAL, INFO, "\t\tDW%02d: %02x %02x %02x %02x\n",
 				x,
 				keytbl[x * 4 + 3],
 				keytbl[x * 4 + 2],
@@ -980,22 +896,20 @@ static void dump_key_table(
 		}
 	}
 
-	DBGLOG(HAL, DEBUG, "\t%s:%d\n", "keyloc1", keyloc1);
+	DBGLOG(HAL, INFO, "\t%s:%d\n", "keyloc1", keyloc1);
 	if (keyloc1 != INVALID_KEY_ENTRY) {
 		/* Don't swap below two lines, halWtblReadRaw will
 		* write new value WF_WTBLON_TOP_WDUCR_ADDR
 		*/
 		halWtblReadRaw(prAdapter, keyloc1,
 			WTBL_TYPE_KEY, 0, ONE_KEY_ENTRY_LEN_IN_DW, keytbl);
-		HAL_RMCR_RD(WTBL_DBG, prAdapter,
-			       WF_UWTBL_TOP_WDUCR_ADDR, &u4Value);
-		DBGLOG(HAL, DEBUG,
-		       "\t\tKEY WTBL Addr: group:0x%x=0x%x addr: 0x%x\n",
-		       WF_UWTBL_TOP_WDUCR_ADDR,
-		       u4Value,
-		       KEYTBL_IDX2BASE(keyloc1, 0));
+		HAL_MCR_RD(prAdapter, WF_UWTBL_TOP_WDUCR_ADDR, &u4Value);
+		DBGLOG(HAL, INFO, "\t\tKEY WTBL Addr: group:0x%x=0x%x addr: 0x%x\n",
+			WF_UWTBL_TOP_WDUCR_ADDR,
+			u4Value,
+			KEYTBL_IDX2BASE(keyloc1, 0));
 		for (x = 0; x < ONE_KEY_ENTRY_LEN_IN_DW; x++) {
-			DBGLOG(HAL, DEBUG, "\t\tDW%02d: %02x %02x %02x %02x\n",
+			DBGLOG(HAL, INFO, "\t\tDW%02d: %02x %02x %02x %02x\n",
 				x,
 				keytbl[x * 4 + 3],
 				keytbl[x * 4 + 2],
@@ -1004,22 +918,20 @@ static void dump_key_table(
 		}
 	}
 
-	DBGLOG(HAL, DEBUG, "\t%s:%d\n", "keyloc2", keyloc2);
+	DBGLOG(HAL, INFO, "\t%s:%d\n", "keyloc2", keyloc2);
 	if (keyloc2 != INVALID_KEY_ENTRY) {
 		/* Don't swap below two lines, halWtblReadRaw will
 		* write new value WF_WTBLON_TOP_WDUCR_ADDR
 		*/
 		halWtblReadRaw(prAdapter, keyloc2,
 			WTBL_TYPE_KEY, 0, ONE_KEY_ENTRY_LEN_IN_DW, keytbl);
-		HAL_RMCR_RD(WTBL_DBG, prAdapter,
-			       WF_UWTBL_TOP_WDUCR_ADDR, &u4Value);
-		DBGLOG(HAL, DEBUG,
-		       "\t\tKEY WTBL Addr: group:0x%x=0x%x addr: 0x%x\n",
-		       WF_UWTBL_TOP_WDUCR_ADDR,
-		       u4Value,
-		       KEYTBL_IDX2BASE(keyloc2, 0));
+		HAL_MCR_RD(prAdapter, WF_UWTBL_TOP_WDUCR_ADDR, &u4Value);
+		DBGLOG(HAL, INFO, "\t\tKEY WTBL Addr: group:0x%x=0x%x addr: 0x%x\n",
+			WF_UWTBL_TOP_WDUCR_ADDR,
+			u4Value,
+			KEYTBL_IDX2BASE(keyloc2, 0));
 		for (x = 0; x < ONE_KEY_ENTRY_LEN_IN_DW; x++) {
-			DBGLOG(HAL, DEBUG, "\t\tDW%02d: %02x %02x %02x %02x\n",
+			DBGLOG(HAL, INFO, "\t\tDW%02d: %02x %02x %02x %02x\n",
 				x,
 				keytbl[x * 4 + 3],
 				keytbl[x * 4 + 2],
@@ -1047,22 +959,18 @@ int32_t connac3x_show_umac_wtbl_info(
 	uint16_t keyloc2 = INVALID_KEY_ENTRY;
 	uint32_t amsdu_len = 0;
 
-	DBGLOG(HAL, DEBUG, "UMAC WTBL Addr: group:0x%x=0x%x addr: 0x%x\n",
+	DBGLOG(HAL, INFO, "UMAC WTBL Addr: group:0x%x=0x%x addr: 0x%x\n",
 		WF_UWTBL_TOP_WDUCR_ADDR,
 		u4Value,
 		UWTBL_IDX2BASE(u4Index, 0));
 
 	prChipInfo = prAdapter->chip_info;
-
-	ACQUIRE_POWER_CONTROL_FROM_PM(prAdapter,
-		DRV_OWN_SRC_SHOW_UMAC_WTBL_INFO);
-
+	ACQUIRE_POWER_CONTROL_FROM_PM(prAdapter);
 	/* UMAC */
 	CONNAC3X_UWTBL_CONFIG(prAdapter, prChipInfo->u4UmacWtblDUAddr, u4Index);
 	wtbl_umac_baseaddr = CONNAC3X_UWTBL_IDX2BASE(
 		prChipInfo->u4UmacWtblDUAddr, u4Index, 0);
-	HAL_RMCR_RD(WTBL_DBG, prAdapter,
-		       prChipInfo->u4UmacWtblDUAddr, &u4Value);
+	HAL_MCR_RD(prAdapter, prChipInfo->u4UmacWtblDUAddr, &u4Value);
 	LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
 		"UMAC WTBL Addr: group: 0x%x=0x%x addr: 0x%x\n",
 		prChipInfo->u4UmacWtblDUAddr,
@@ -1080,7 +988,7 @@ int32_t connac3x_show_umac_wtbl_info(
 		sizeof(struct bwtbl_umac_struct);
 		wtbl_offset += 4) {
 		addr = wtbl_umac_baseaddr + wtbl_offset;
-		HAL_RMCR_RD(WTBL_DBG, prAdapter, addr,
+		HAL_MCR_RD(prAdapter, addr,
 			   &u4Value);
 		kalMemCopy(
 			(uint32_t *)&wtbl_raw_dw[wtbl_offset],
@@ -1169,9 +1077,7 @@ int32_t connac3x_show_umac_wtbl_info(
 		puwtbl->key_msdu_mlo.wtbl_d7.field.key_loc0,
 		puwtbl->key_msdu_mlo.wtbl_d7.field.key_loc1,
 		keyloc2);
-
-	RECLAIM_POWER_CONTROL_TO_PM(prAdapter, FALSE,
-		DRV_OWN_SRC_SHOW_UMAC_WTBL_INFO);
+	RECLAIM_POWER_CONTROL_TO_PM(prAdapter, FALSE);
 
 	/* UMAC WTBL DW 8 */
 	amsdu_len = puwtbl->key_msdu_mlo.wtbl_d8.field.amsdu_len;
@@ -1191,15 +1097,6 @@ int32_t connac3x_show_umac_wtbl_info(
 			256 * amsdu_len,
 			256 * (amsdu_len + 1) - 1,
 			amsdu_len);
-#ifdef MT6653
-	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen,
-			i4BytesWritten,
-			"\tSEC_ADDR_MODE:%d SPP_EN:%d WPI_EVEN:%d AAD_OM:%d\n",
-			puwtbl->key_msdu_mlo.wtbl_d8.field.sec_addr_mode,
-			puwtbl->key_msdu_mlo.wtbl_d8.field.spp_en,
-			puwtbl->key_msdu_mlo.wtbl_d8.field.wpi_even,
-			puwtbl->key_msdu_mlo.wtbl_d8.field.aad_om);
-#endif
 	i4BytesWritten = SHOW_DBGLOG(pcCommand, i4TotalLen,
 			i4BytesWritten,
 			"\tWMM_Q:%d QoS:%d HT:%d HDRT_MODE:%d\n",
@@ -1231,5 +1128,4 @@ int32_t connac3x_show_umac_wtbl_info(
 	return i4BytesWritten;
 }
 
-#endif /* DBG_DISABLE_ALL_INFO */
 #endif /* CFG_SUPPORT_CONNAC3X */

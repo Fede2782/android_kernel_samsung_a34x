@@ -15,11 +15,6 @@ DRIVER_DIR=$(src)
 #CC_BIN := $(CROSS_CC)/bin/
 #BIN_PREFIX := arm-none-eabi-
 CC := $(CC_BIN)$(BIN_PREFIX)gcc
-GCC_VERSION := $(shell gcc -dumpversion)
-GCC_VERSION_MAJOR := $(word 1, $(subst ., ,$(GCC_VERSION)))
-
-# Function to check GCC version greater than or equal to required version
-gver_ge = $(shell expr $(GCC_VERSION_MAJOR) \>= $(1))
 
 # CFLAGS initial
 # by pass undefined reference for linker
@@ -29,11 +24,6 @@ gver_ge = $(shell expr $(GCC_VERSION_MAJOR) \>= $(1))
 CFLAGS := -Wl,--warn-once
 #-Wimplicit -O -Wstrict-aliasing=2
 #CFLAGS += -Wshadow # Local variable is shadow by other local var
-
-ifeq ($(call gver_ge, 9), 1)
-CFLAGS += -Wno-address-of-packed-member
-endif
-
 # CFG_REMIND_IMPLEMENT:
 # flag for change header file prototype to define
 # to remind user of driver who port this driver to other os
@@ -75,6 +65,8 @@ export CONFIG_MTK_SUPPORT_OS=none
 export CONFIG_CHIP_RESET_SUPPORT=n
 
 export CONFIG_MSCS_FAST_PATH_SUPPORT=y
+
+export CONFIG_MTK_WIFI_APS_SUPPORT=y
 
 # leverage Makefile for common build option
 KO_CODE_PATH := $(if $(filter /%,$(src)),,$(srctree)/)$(src)

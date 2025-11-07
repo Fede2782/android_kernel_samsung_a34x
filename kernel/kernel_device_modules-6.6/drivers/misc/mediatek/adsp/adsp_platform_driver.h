@@ -120,11 +120,6 @@ struct adspsys_priv {
 	const struct adspsys_description *desc;
 };
 
-struct adsp_c2c_share_dram_info_t {
-	u32 share_dram_addr;
-	u32 share_dram_size;
-};
-
 extern const struct file_operations adspsys_file_ops;
 extern struct attribute_group adsp_excep_attr_group;
 extern const struct file_operations adsp_debug_ops;

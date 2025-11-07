@@ -109,6 +109,10 @@ static struct proc_dir_entry *proc_root;
 #include <platform/mtk_platform_common/mtk_platform_whitebox_missing_doorbell.h>
 #endif /* CONFIG_MALI_MTK_WHITEBOX_MISSING_DOORBELL */
 
+#if IS_ENABLED(CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG)
+#include <platform/mtk_platform_common/mtk_platform_upf_counter.h>
+#endif /* CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG */
+
 static bool mfg_powered;
 static DEFINE_MUTEX(mfg_pm_lock);
 static DEFINE_MUTEX(common_debug_lock);
@@ -173,6 +177,14 @@ bool mtk_common_whitebox_missing_doorbell_enable(void)
 	return mtk_whitebox_missing_doorbell_enable();
 }
 #endif /* CONFIG_MALI_MTK_WHITEBOX_MISSING_DOORBELL */
+
+#if IS_ENABLED(CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG)
+void mtk_common_upf_counter_add(void)
+{
+	return mtk_upf_counter_add();
+}
+#endif /* CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG */
+
 #if IS_ENABLED(CONFIG_MALI_MTK_DIAGNOSIS_MODE)
 #if IS_ENABLED(CONFIG_MALI_MTK_POWER_TRANSITION_TIMEOUT_DEBUG)
 #define MAX_STATES_NUM 16
@@ -722,6 +734,10 @@ void mtk_common_debugfs_init(struct kbase_device *kbdev)
 #if IS_ENABLED(CONFIG_MALI_MTK_DEFERRED_LOGGING)
 	mtk_logbuffer_deferred_enable_debugfs_init(kbdev);
 #endif /* CONFIG_MALI_MTK_DEFERRED_LOGGING */
+
+#if IS_ENABLED(CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG)
+	mtk_upf_counter_debugfs_init(kbdev);
+#endif /* CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG */
 }
 
 #if IS_ENABLED(CONFIG_MALI_CSF_SUPPORT)
@@ -825,6 +841,10 @@ int mtk_common_device_init(struct kbase_device *kbdev)
 	mtk_whitebox_missing_doorbell_init();
 #endif /* CONFIG_MALI_MTK_WHITEBOX_MISSING_DOORBELL */
 
+#if IS_ENABLED(CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG)
+	mtk_upf_counter_init();
+#endif /* CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG */
+
 #if IS_ENABLED(CONFIG_MALI_MTK_GPU_RESET_DEBUG)
 	kbdev->reset_exception_mask = 0;
 	if (!of_property_read_u32(kbdev->dev->of_node, "reset-exception-mask", &kbdev->reset_exception_mask))
@@ -913,3 +933,14 @@ int mtk_set_gpufreq_clock_parking(int clksrc)
 	return ret;
 }
 #endif /* CONFIG_MALI_MTK_SHADER_PWR_CTL_WA */
+
+#if IS_ENABLED(CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG)
+unsigned long long mtk_common_upf_counter_get(void)
+{
+	return mtk_upf_counter_get();
+}
+void mtk_common_upf_counter_reset(void)
+{
+	mtk_upf_counter_reset();
+}
+#endif /* CONFIG_MALI_MTK_UNHANDLED_PAGE_FAULT_DEBUG */

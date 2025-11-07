@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -589,7 +589,7 @@ uint32_t filsRxAuthRSNE(struct ADAPTER *ad,
 
 	sta = cnmGetStaRecByIndex(ad, rfb->ucStaRecIdx);
 	if (!sta) {
-		DBGLOG(FILS, ERROR, "No starec=%p\n");
+		DBGLOG(FILS, ERROR, "No starec\n");
 		return WLAN_STATUS_FAILURE;
 	}
 
@@ -602,7 +602,7 @@ uint32_t filsRxAuthRSNE(struct ADAPTER *ad,
 		return WLAN_STATUS_FAILURE;
 	}
 
-	if (!rsnParseRsnIE(ad, (uint8_t *)ie, &rRsnInfo)) {
+	if (!rsnParseRsnIE(ad, (struct RSN_INFO_ELEM *)ie, &rRsnInfo)) {
 		DBGLOG(FILS, ERROR, "Parse RSNE failed\n");
 		return WLAN_STATUS_FAILURE;
 	}
@@ -1095,7 +1095,7 @@ uint32_t filsRxAuthWrapped(struct ADAPTER *ad,
 		while (tmp_end - tmp_pos >= 2 &&
 		       IE_ID(tmp_pos) == ELEM_ID_FRAGMENT &&
 		       IE_SIZE(tmp_pos) <= tmp_end - tmp_pos) {
-			kalMemCopy(p, IE_DATA(tmp_pos), IE_LEN(tmp_pos));
+			kalMemCopy(p, &IE_DATA(tmp_pos), IE_LEN(tmp_pos));
 			p += IE_LEN(tmp_pos);
 			tmp_pos += IE_SIZE(tmp_pos);
 		}
@@ -1300,7 +1300,8 @@ uint32_t filsDecryptAssocResp(struct ADAPTER *ad, struct SW_RFB *rfb,
 	size_t aad_len[5];
 	struct WLAN_ASSOC_RSP_FRAME *mgmt;
 
-	pos = end = (uint8_t *)rfb->pvHeader + rfb->u2PacketLen;
+	end = (uint8_t *)rfb->pvHeader + rfb->u2PacketLen;
+	pos = end;
 	crypt_len = filsFindIeAfterSession(ad,
 		rfb->pvHeader, rfb->u2PacketLen, &pos);
 
@@ -1347,7 +1348,7 @@ uint32_t filsDecryptAssocResp(struct ADAPTER *ad, struct SW_RFB *rfb,
 		DBGLOG(FILS, INFO,
 			   "FILS: Invalid AES-SIV data in the frame");
 		kalMemFree(crypt, crypt_len, VIR_MEM_TYPE);
-		return -1;
+		return WLAN_STATUS_FAILURE;
 	}
 
 	DBGDUMP_MEM8(FILS, TRACE, "Plain text\n",
@@ -1452,7 +1453,7 @@ uint32_t filsValidateAssocResp(struct ADAPTER *ad, struct SW_RFB *rfb,
 				if (selector == RSN_KEY_DATA_GROUPKEY) {
 					if (left > FILS_GTK_MAX_LEN + 2) {
 						DBGLOG(FILS, ERROR,
-							"wrong gtk len=%d",
+							"wrong gtk len=%zu",
 							left);
 						continue;
 					}
@@ -1462,7 +1463,7 @@ uint32_t filsValidateAssocResp(struct ADAPTER *ad, struct SW_RFB *rfb,
 					if (left > FILS_IGTK_MAX_LEN +
 						IGTK_KDE_PREFIX_LEN) {
 						DBGLOG(FILS, ERROR,
-							"wrong igtk len=%d",
+							"wrong igtk len=%zu",
 							left);
 						continue;
 					}
@@ -1472,7 +1473,7 @@ uint32_t filsValidateAssocResp(struct ADAPTER *ad, struct SW_RFB *rfb,
 					if (left > FILS_BIGTK_MAX_LEN +
 						BIGTK_KDE_PREFIX_LEN) {
 						DBGLOG(FILS, ERROR,
-							"wrong bigtk len=%d",
+							"wrong bigtk len=%zu",
 							left);
 						continue;
 					}
@@ -1617,7 +1618,7 @@ uint32_t filsFillParamKey(struct PARAM_KEY *param, uint8_t *bssid,
 		param->u4KeyIndex,
 		param->u4KeyLength,
 		MAC2STR(param->arBSSID),
-		param->rKeyRSC,
+		(uint32_t)param->rKeyRSC,
 		param->ucBssIdx,
 		param->ucCipher);
 
@@ -1630,6 +1631,9 @@ void filsRemoveKey(struct ADAPTER *ad, uint32_t keyidx, uint8_t bssidx)
 	uint32_t len;
 	struct PARAM_REMOVE_KEY param;
 
+	DBGLOG(FILS, INFO, "Bss%d BSSID[" MACSTR "] remove key %d\n",
+		bssidx, MAC2STR(param.arBSSID), keyidx);
+
 	if (!bss)
 		return;
 
@@ -1639,9 +1643,6 @@ void filsRemoveKey(struct ADAPTER *ad, uint32_t keyidx, uint8_t bssidx)
 	COPY_MAC_ADDR(param.arBSSID, bss->aucBSSID);
 	if (bss->aucBSSID[0] != '\0')
 		param.u4KeyIndex |= BIT(30);
-
-	DBGLOG(FILS, INFO, "Bss%d BSSID[" MACSTR "] remove key %d\n",
-		bssidx, MAC2STR(param.arBSSID), keyidx);
 
 	wlanSetRemoveKey(ad,
 		(void *)&param,
@@ -1792,8 +1793,10 @@ uint32_t filsInstallIGTK(struct ADAPTER *ad, struct STA_RECORD *sta)
 		return WLAN_STATUS_FAILURE;
 	}
 
-	if (!bss)
+	if (bss == NULL) {
+		DBGLOG(FILS, ERROR, "NULL pointer to BSS structure");
 		return WLAN_STATUS_FAILURE;
+	}
 
 	if (bss->filskeyUsed[keyidx]) {
 		DBGLOG(FILS, WARN, "Bss%d key %d not cleard\n",	bssidx, keyidx);

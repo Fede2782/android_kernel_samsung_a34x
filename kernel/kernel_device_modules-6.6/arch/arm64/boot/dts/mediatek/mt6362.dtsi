@@ -432,7 +432,7 @@
 				/* 0x0002d0c8 : 9V, 2A<0x04019032 0x04019064> */
 
 				/*
-				 * No DP, host + device
+				 * No DP Sink capability
 				 *	pd,id-vdo-size = <3>;
 				 *	pd,id-vdo-data =
 						<0xd00029cf 0x0 0x00010000>;

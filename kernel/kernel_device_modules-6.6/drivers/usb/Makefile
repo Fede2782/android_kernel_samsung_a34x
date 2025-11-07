@@ -9,3 +9,5 @@ obj-$(CONFIG_DEVICE_MODULES_USB_MTU3)		+= mtu3/
 
 obj-$(CONFIG_DEVICE_MODULES_USB_SS_FUNCTIONS)	+= ss_function/
 
+obj-$(CONFIG_SEC_USB_LINKLAYER_TEST)	+= misc/
+

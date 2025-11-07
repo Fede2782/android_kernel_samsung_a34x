@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (c) 2023 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include "gl_os.h"
@@ -11,7 +11,6 @@
 #include <linux/cpufreq.h>
 #endif
 #include <linux/pm_qos.h>
-#include <linux/gpio.h>
 #include "precomp.h"
 
 #ifdef CONFIG_WLAN_MTK_EMI
@@ -25,15 +24,10 @@
 #endif
 
 #define CONN_INFRA_ID	0x02050601
-
-#define MAX_CPU_FREQ (2500 * 1000)
+#define MAX_CPU_FREQ (3050 * 1000)
 #define MID_BIG_CPU_FREQ (2000 * 1000)
 #define MID_LITTLE_CPU_FREQ (1000 * 1000)
 #define AUTO_CPU_FREQ (0)
-#define BIG_CPU_FREQ_MAX (3250 * 1000)
-#define BIG_CPU_FREQ_MIN (1250 * 1000)
-#define LITTLE_CPU_FREQ_MAX (2000 * 1000)
-#define LITTLE_CPU_FREQ_MIN (600 * 1000)
 #define UNDEFINED_CPU_FREQ (-2)
 #define CPU_ALL_CORE (0xff)
 #define CPU_BIG_CORE (0xf0)
@@ -41,7 +35,6 @@
 #define CPU_X_CORE (0x80)
 #define CPU_HP_CORE (CPU_BIG_CORE - CPU_X_CORE)
 #define CPU_LITTLE_CORE (CPU_ALL_CORE - CPU_BIG_CORE)
-#define CPU_MID_LITTLE_CORE (CPU_ALL_CORE - CPU_X_CORE)
 #define AUTO_PRIORITY 0
 #define HIGH_PRIORITY 100
 
@@ -51,11 +44,6 @@
 #define RPS_LITTLE_CORE (CPU_LITTLE_CORE - 0x01)
 
 #define TX_CPU_BIG_CORE (CPU_BIG_CORE - 0x20)
-
-#define BOOST_CPU_TABLE_NUM (PERF_MON_TP_MAX_THRESHOLD + 1)
-
-#define OPP_BW_MAX_NUM 9
-
 
 #if (KERNEL_VERSION(5, 10, 0) <= CFG80211_VERSION_CODE)
 #include <linux/regulator/consumer.h>
@@ -68,10 +56,14 @@
 #include "dvfsrc-exp.h"
 #include <linux/interconnect.h>
 
+#if defined(MT6639)
+static uint32_t u4EmiMetOffset = 0x98000;
+#else
 static uint32_t u4EmiMetOffset = 0x18000;
+#endif
 static uint32_t u4ProjectId = 6991;
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 #define RST_PIN_MIN_WAIT_TIME		200 /* ms */
 
 static struct pinctrl *pinctrl_ptr;
@@ -92,14 +84,13 @@ enum ENUM_CPU_BOOST_STATUS {
 	ENUM_CPU_BOOST_STATUS_INIT = 0,
 	ENUM_CPU_BOOST_STATUS_LV0,
 	ENUM_CPU_BOOST_STATUS_LV1,
+	ENUM_CPU_BOOST_STATUS_LV1_1,
 	ENUM_CPU_BOOST_STATUS_LV2,
 	ENUM_CPU_BOOST_STATUS_LV3,
-	ENUM_CPU_BOOST_STATUS_LV4,
 	ENUM_CPU_BOOST_STATUS_NUM
 };
-static enum ENUM_CPU_BOOST_STATUS eCurrBoost;
 
-enum ENUM_CPU_BOOST_STATUS eBoostCpuTable[BOOST_CPU_TABLE_NUM] = {
+enum ENUM_CPU_BOOST_STATUS eBoostCpuTable[] = {
 	ENUM_CPU_BOOST_STATUS_LV0, /* 0 */
 	ENUM_CPU_BOOST_STATUS_LV0, /* 1 */
 	ENUM_CPU_BOOST_STATUS_LV0, /* 2 */
@@ -109,10 +100,26 @@ enum ENUM_CPU_BOOST_STATUS eBoostCpuTable[BOOST_CPU_TABLE_NUM] = {
 	ENUM_CPU_BOOST_STATUS_LV0, /* 6 */
 	ENUM_CPU_BOOST_STATUS_LV0, /* 7 */
 	ENUM_CPU_BOOST_STATUS_LV1, /* 8: 1200Mbps */
-	ENUM_CPU_BOOST_STATUS_LV2, /* 9: 2000Mbps */
-	ENUM_CPU_BOOST_STATUS_LV3, /* 10: 3000Mbps */
-	ENUM_CPU_BOOST_STATUS_LV4, /* 11: 4000Mbps */
-	ENUM_CPU_BOOST_STATUS_LV4  /* 12: 5000Mbps */
+	ENUM_CPU_BOOST_STATUS_LV1, /* 9: 2000Mbps */
+	ENUM_CPU_BOOST_STATUS_LV2, /* 10: 3000Mbps */
+	ENUM_CPU_BOOST_STATUS_LV2, /* 11: 4000Mbps*/
+	ENUM_CPU_BOOST_STATUS_LV3  /* 12: 5000Mbps */
+};
+
+enum ENUM_CPU_BOOST_STATUS eSTABoostCpuTable[] = {
+	ENUM_CPU_BOOST_STATUS_LV0, /* 0 */
+	ENUM_CPU_BOOST_STATUS_LV0, /* 1 */
+	ENUM_CPU_BOOST_STATUS_LV0, /* 2 */
+	ENUM_CPU_BOOST_STATUS_LV0, /* 3: 100Mbps */
+	ENUM_CPU_BOOST_STATUS_LV0, /* 4 */
+	ENUM_CPU_BOOST_STATUS_LV1_1, /* 5: 250Mbps */
+	ENUM_CPU_BOOST_STATUS_LV1_1, /* 6: 300Mbps */
+	ENUM_CPU_BOOST_STATUS_LV1_1, /* 7: 500Mbps */
+	ENUM_CPU_BOOST_STATUS_LV1_1, /* 8: 1200Mbps */
+	ENUM_CPU_BOOST_STATUS_LV1_1, /* 9: 2000Mbps */
+	ENUM_CPU_BOOST_STATUS_LV2, /* 10: 3000Mbps */
+	ENUM_CPU_BOOST_STATUS_LV2, /* 11: 4000Mbps*/
+	ENUM_CPU_BOOST_STATUS_LV3  /* 12: 5000Mbps */
 };
 
 struct BOOST_INFO rBoostInfo[] = {
@@ -126,27 +133,19 @@ struct BOOST_INFO rBoostInfo[] = {
 			.i4BigCpuFreq = AUTO_CPU_FREQ
 		},
 		.rHifThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
+			.u4CpuMask = CPU_LITTLE_CORE,
 			.u4Priority = AUTO_PRIORITY
 		},
 		.rMainThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
+			.u4CpuMask = CPU_LITTLE_CORE,
 			.u4Priority = AUTO_PRIORITY
 		},
 		.rRxThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
+			.u4CpuMask = CPU_LITTLE_CORE,
 			.u4Priority = AUTO_PRIORITY
 		},
 		.rRxNapiThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.rHifRxNapiThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.rHifTxNapiThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
+			.u4CpuMask = CPU_LITTLE_CORE,
 			.u4Priority = AUTO_PRIORITY
 		},
 		.u4RpsMap = RPS_LITTLE_CORE,
@@ -155,14 +154,10 @@ struct BOOST_INFO rBoostInfo[] = {
 		.i4TxWorkCpu = -1,
 		.i4RxWorkCpu = -1,
 		.i4RxNapiWorkCpu = -1,
-		.i4HifTxWorkCpu = -1,
 		.fgKeepPcieWakeup = FALSE,
 		.u4WfdmaTh = 0,
 		.i4TxFreeMsduWorkCpu = -1,
-		.fgWifiNappingForceDis = FALSE,
-		.i4DramBoostLv = -1,
-		.eSkbAllocWorkCoreType = CPU_CORE_NONE,
-		.eTxFreeSkbWorkCoreType = CPU_CORE_NONE,
+		.fgDramBoost = FALSE
 	},
 	{
 		/* ENUM_CPU_BOOST_STATUS_LV1 */
@@ -171,146 +166,110 @@ struct BOOST_INFO rBoostInfo[] = {
 			.i4BigCpuFreq = AUTO_CPU_FREQ
 		},
 		.rHifThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
+			.u4CpuMask = CPU_MID_CORE,
 			.u4Priority = AUTO_PRIORITY
 		},
 		.rMainThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
+			.u4CpuMask = CPU_MID_CORE,
 			.u4Priority = AUTO_PRIORITY
 		},
 		.rRxThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
+			.u4CpuMask = CPU_MID_CORE,
 			.u4Priority = AUTO_PRIORITY
 		},
 		.rRxNapiThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.rHifRxNapiThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.rHifTxNapiThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.u4RpsMap = RPS_LITTLE_CORE,
-		.u4ISRMask = CPU_LITTLE_CORE,
-		.i4TxFreeMsduWorkCpu = -1,
-		.i4RxRfbRetWorkCpu = -1,
-		.i4TxWorkCpu = -1,
-		.i4RxWorkCpu = -1,
-		.i4RxNapiWorkCpu = 1,
-		.i4HifTxWorkCpu = -1,
-		.fgKeepPcieWakeup = FALSE,
-		.u4WfdmaTh = 1,
-		.fgWifiNappingForceDis = TRUE,
-		.i4DramBoostLv = -1,
-		.eSkbAllocWorkCoreType = CPU_CORE_LITTLE,
-		.eTxFreeSkbWorkCoreType = CPU_CORE_LITTLE,
-	},
-	{
-		/* ENUM_CPU_BOOST_STATUS_LV2 */
-		.rCpuInfo = {
-			.i4LittleCpuFreq = MID_LITTLE_CPU_FREQ,
-			.i4BigCpuFreq = AUTO_CPU_FREQ
-		},
-		.rHifThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.rMainThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.rRxThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.rRxNapiThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.rHifRxNapiThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.rHifTxNapiThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.u4RpsMap = RPS_LITTLE_CORE,
-		.u4ISRMask = CPU_LITTLE_CORE,
-		.i4TxFreeMsduWorkCpu = -1,
-		.i4RxRfbRetWorkCpu = -1,
-		.i4TxWorkCpu = -1,
-		.i4RxWorkCpu = -1,
-		.i4RxNapiWorkCpu = 1,
-		.i4HifTxWorkCpu = -1,
-		.fgKeepPcieWakeup = TRUE,
-		.u4WfdmaTh = 1,
-		.fgWifiNappingForceDis = TRUE,
-		.i4DramBoostLv = -1,
-		.eSkbAllocWorkCoreType = CPU_CORE_LITTLE,
-		.eTxFreeSkbWorkCoreType = CPU_CORE_LITTLE,
-	},
-	{
-		/* ENUM_CPU_BOOST_STATUS_LV3 */
-		.rCpuInfo = {
-			.i4LittleCpuFreq = MID_LITTLE_CPU_FREQ,
-			.i4BigCpuFreq = AUTO_CPU_FREQ
-		},
-		.rHifThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.rMainThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.rRxThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.rRxNapiThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.rHifRxNapiThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
-		.rHifTxNapiThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
+			.u4CpuMask = CPU_MID_CORE,
 			.u4Priority = AUTO_PRIORITY
 		},
 		.u4RpsMap = RPS_BIG_CORE,
 		.u4ISRMask = CPU_BIG_CORE,
-		.i4TxFreeMsduWorkCpu = -1,
-		.i4RxRfbRetWorkCpu = -1,
-		.i4TxWorkCpu = -1,
-		.i4RxWorkCpu = -1,
+		.i4TxFreeMsduWorkCpu = 4,
+		.i4RxRfbRetWorkCpu = 2,
+		.i4TxWorkCpu = 2,
+		.i4RxWorkCpu = 3,
 		.i4RxNapiWorkCpu = 1,
-		.i4HifTxWorkCpu = -1,
-		.fgKeepPcieWakeup = TRUE,
+		.fgKeepPcieWakeup = FALSE,
 		.u4WfdmaTh = 1,
-		.fgWifiNappingForceDis = TRUE,
-		.i4DramBoostLv = -1,
-		.eSkbAllocWorkCoreType = CPU_CORE_LITTLE,
-		.eTxFreeSkbWorkCoreType = CPU_CORE_BIG,
+		.fgDramBoost = FALSE
 	},
 	{
-		/* ENUM_CPU_BOOST_STATUS_LV4 */
+		/* ENUM_CPU_BOOST_STATUS_LV1_1 */
+		.rCpuInfo = {
+			.i4LittleCpuFreq = MID_LITTLE_CPU_FREQ,
+			.i4BigCpuFreq = AUTO_CPU_FREQ
+		},
+		.rHifThreadInfo = {
+			.u4CpuMask = CPU_MID_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.rMainThreadInfo = {
+			.u4CpuMask = CPU_MID_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.rRxThreadInfo = {
+			.u4CpuMask = CPU_MID_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.rRxNapiThreadInfo = {
+			.u4CpuMask = CPU_MID_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.u4RpsMap = RPS_BIG_CORE,
+		.u4ISRMask = CPU_BIG_CORE,
+		.i4TxFreeMsduWorkCpu = 4,
+		.i4RxRfbRetWorkCpu = 2,
+		.i4TxWorkCpu = 2,
+		.i4RxWorkCpu = 3,
+		.i4RxNapiWorkCpu = 1,
+		.fgKeepPcieWakeup = FALSE,
+		.u4WfdmaTh = 1,
+		.fgDramBoost = FALSE
+	},
+	{
+		/* ENUM_CPU_BOOST_STATUS_LV2 */
+		.rCpuInfo = {
+			.i4LittleCpuFreq = MAX_CPU_FREQ,
+			.i4BigCpuFreq = MID_BIG_CPU_FREQ
+		},
+		.rHifThreadInfo = {
+			.u4CpuMask = CPU_BIG_CORE,
+			.u4Priority = HIGH_PRIORITY
+		},
+		.rMainThreadInfo = {
+			.u4CpuMask = CPU_BIG_CORE,
+			.u4Priority = HIGH_PRIORITY
+		},
+		.rRxThreadInfo = {
+			.u4CpuMask = CPU_BIG_CORE,
+			.u4Priority = HIGH_PRIORITY
+		},
+		.rRxNapiThreadInfo = {
+			.u4CpuMask = CPU_BIG_CORE,
+			.u4Priority = HIGH_PRIORITY
+		},
+		.u4RpsMap = RPS_BIG_CORE,
+		.u4ISRMask = CPU_X_CORE,
+		.i4TxFreeMsduWorkCpu = 4,
+		.i4RxRfbRetWorkCpu = 2,
+		.i4TxWorkCpu = 2,
+		.i4RxWorkCpu = 3,
+		.i4RxNapiWorkCpu = 5,
+		.fgKeepPcieWakeup = TRUE,
+		.u4WfdmaTh = 2,
+		.fgDramBoost = TRUE
+	},
+	{
+		/* ENUM_CPU_BOOST_STATUS_LV3 */
 		.rCpuInfo = {
 			.i4LittleCpuFreq = MAX_CPU_FREQ,
 			.i4BigCpuFreq = MAX_CPU_FREQ
 		},
 		.rHifThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
+			.u4CpuMask = CPU_BIG_CORE,
 			.u4Priority = HIGH_PRIORITY
 		},
 		.rMainThreadInfo = {
-			.u4CpuMask = CPU_MID_LITTLE_CORE,
+			.u4CpuMask = CPU_BIG_CORE,
 			.u4Priority = HIGH_PRIORITY
 		},
 		.rRxThreadInfo = {
@@ -321,33 +280,194 @@ struct BOOST_INFO rBoostInfo[] = {
 			.u4CpuMask = CPU_BIG_CORE,
 			.u4Priority = HIGH_PRIORITY
 		},
-		.rHifRxNapiThreadInfo = {
-			.u4CpuMask = CPU_BIG_CORE,
-			.u4Priority = HIGH_PRIORITY
-		},
-		.rHifTxNapiThreadInfo = {
-			.u4CpuMask = CPU_BIG_CORE,
-			.u4Priority = AUTO_PRIORITY
-		},
 		.u4RpsMap = RPS_BIG_CORE,
 		.u4ISRMask = CPU_X_CORE,
-		.i4TxFreeMsduWorkCpu = -1,
-		.i4RxRfbRetWorkCpu = -1,
+		.i4TxFreeMsduWorkCpu = 4,
+		.i4RxRfbRetWorkCpu = 6,
 		.i4TxWorkCpu = 6,
-		.i4RxWorkCpu = -1,
-		.i4RxNapiWorkCpu = 5,
-		.i4HifTxWorkCpu = -1,
+		.i4RxWorkCpu = 5,
+		.i4RxNapiWorkCpu = 7,
 		.fgKeepPcieWakeup = TRUE,
 		.u4WfdmaTh = 2,
-		.fgWifiNappingForceDis = TRUE,
-		.i4DramBoostLv = 3,
-		.eSkbAllocWorkCoreType = CPU_CORE_LITTLE,
-		.eTxFreeSkbWorkCoreType = CPU_CORE_BIG,
+		.fgDramBoost = TRUE
 	}
 };
 
+struct BOOST_INFO rSTABoostInfo[] = {
+	{
+		/* ENUM_CPU_BOOST_STATUS_INIT */
+	},
+	{
+		/* ENUM_CPU_BOOST_STATUS_LV0 */
+		.rCpuInfo = {
+			.i4LittleCpuFreq = AUTO_CPU_FREQ,
+			.i4BigCpuFreq = AUTO_CPU_FREQ
+		},
+		.rHifThreadInfo = {
+			.u4CpuMask = CPU_LITTLE_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.rMainThreadInfo = {
+			.u4CpuMask = CPU_LITTLE_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.rRxThreadInfo = {
+			.u4CpuMask = CPU_LITTLE_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.rRxNapiThreadInfo = {
+			.u4CpuMask = CPU_LITTLE_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.u4RpsMap = RPS_LITTLE_CORE,
+		.u4ISRMask = CPU_LITTLE_CORE,
+		.i4RxRfbRetWorkCpu = -1,
+		.i4TxWorkCpu = -1,
+		.i4RxWorkCpu = -1,
+		.i4RxNapiWorkCpu = -1,
+		.fgKeepPcieWakeup = FALSE,
+		.u4WfdmaTh = 0,
+		.i4TxFreeMsduWorkCpu = -1,
+		.fgDramBoost = FALSE
+	},
+	{
+		/* ENUM_CPU_BOOST_STATUS_LV1 */
+		.rCpuInfo = {
+			.i4LittleCpuFreq = MID_LITTLE_CPU_FREQ,
+			.i4BigCpuFreq = AUTO_CPU_FREQ
+		},
+		.rHifThreadInfo = {
+			.u4CpuMask = CPU_MID_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.rMainThreadInfo = {
+			.u4CpuMask = CPU_MID_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.rRxThreadInfo = {
+			.u4CpuMask = CPU_MID_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.rRxNapiThreadInfo = {
+			.u4CpuMask = CPU_MID_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.u4RpsMap = RPS_BIG_CORE,
+		.u4ISRMask = CPU_BIG_CORE,
+		.i4TxFreeMsduWorkCpu = 4,
+		.i4RxRfbRetWorkCpu = 2,
+		.i4TxWorkCpu = 2,
+		.i4RxWorkCpu = 3,
+		.i4RxNapiWorkCpu = 1,
+		.fgKeepPcieWakeup = FALSE,
+		.u4WfdmaTh = 1,
+		.fgDramBoost = FALSE
+	},
+	{
+		/* ENUM_CPU_BOOST_STATUS_LV1_1 */
+		.rCpuInfo = {
+			.i4LittleCpuFreq = MAX_CPU_FREQ,
+			.i4BigCpuFreq = MAX_CPU_FREQ
+		},
+		.rHifThreadInfo = {
+			.u4CpuMask = CPU_MID_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.rMainThreadInfo = {
+			.u4CpuMask = CPU_MID_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.rRxThreadInfo = {
+			.u4CpuMask = CPU_MID_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.rRxNapiThreadInfo = {
+			.u4CpuMask = CPU_MID_CORE,
+			.u4Priority = AUTO_PRIORITY
+		},
+		.u4RpsMap = RPS_BIG_CORE,
+		.u4ISRMask = CPU_BIG_CORE,
+		.i4TxFreeMsduWorkCpu = 4,
+		.i4RxRfbRetWorkCpu = 2,
+		.i4TxWorkCpu = 2,
+		.i4RxWorkCpu = 3,
+		.i4RxNapiWorkCpu = 1,
+		.fgKeepPcieWakeup = FALSE,
+		.u4WfdmaTh = 1,
+		.fgDramBoost = FALSE
+	},
+	{
+		/* ENUM_CPU_BOOST_STATUS_LV2 */
+		.rCpuInfo = {
+			.i4LittleCpuFreq = MAX_CPU_FREQ,
+			.i4BigCpuFreq = MID_BIG_CPU_FREQ
+		},
+		.rHifThreadInfo = {
+			.u4CpuMask = CPU_BIG_CORE,
+			.u4Priority = HIGH_PRIORITY
+		},
+		.rMainThreadInfo = {
+			.u4CpuMask = CPU_BIG_CORE,
+			.u4Priority = HIGH_PRIORITY
+		},
+		.rRxThreadInfo = {
+			.u4CpuMask = CPU_BIG_CORE,
+			.u4Priority = HIGH_PRIORITY
+		},
+		.rRxNapiThreadInfo = {
+			.u4CpuMask = CPU_BIG_CORE,
+			.u4Priority = HIGH_PRIORITY
+		},
+		.u4RpsMap = RPS_BIG_CORE,
+		.u4ISRMask = CPU_X_CORE,
+		.i4TxFreeMsduWorkCpu = 4,
+		.i4RxRfbRetWorkCpu = 2,
+		.i4TxWorkCpu = 2,
+		.i4RxWorkCpu = 3,
+		.i4RxNapiWorkCpu = 5,
+		.fgKeepPcieWakeup = TRUE,
+		.u4WfdmaTh = 2,
+		.fgDramBoost = TRUE
+	},
+	{
+		/* ENUM_CPU_BOOST_STATUS_LV3 */
+		.rCpuInfo = {
+			.i4LittleCpuFreq = MAX_CPU_FREQ,
+			.i4BigCpuFreq = MAX_CPU_FREQ
+		},
+		.rHifThreadInfo = {
+			.u4CpuMask = CPU_BIG_CORE,
+			.u4Priority = HIGH_PRIORITY
+		},
+		.rMainThreadInfo = {
+			.u4CpuMask = CPU_BIG_CORE,
+			.u4Priority = HIGH_PRIORITY
+		},
+		.rRxThreadInfo = {
+			.u4CpuMask = CPU_BIG_CORE,
+			.u4Priority = HIGH_PRIORITY
+		},
+		.rRxNapiThreadInfo = {
+			.u4CpuMask = CPU_BIG_CORE,
+			.u4Priority = HIGH_PRIORITY
+		},
+		.u4RpsMap = RPS_BIG_CORE,
+		.u4ISRMask = CPU_X_CORE,
+		.i4TxFreeMsduWorkCpu = 4,
+		.i4RxRfbRetWorkCpu = 6,
+		.i4TxWorkCpu = 6,
+		.i4RxWorkCpu = 5,
+		.i4RxNapiWorkCpu = 7,
+		.fgKeepPcieWakeup = TRUE,
+		.u4WfdmaTh = 2,
+		.fgDramBoost = TRUE
+	}
+};
+
+
 uint32_t kalGetCpuBoostThreshold(void)
 {
+	DBGLOG(SW4, TRACE, "enter kalGetCpuBoostThreshold\n");
 	/* 5, stands for 250Mbps */
 	return 5;
 }
@@ -368,41 +488,6 @@ int32_t kalCheckTputLoad(struct ADAPTER *prAdapter,
 	       i4Pending >= pendingTh &&
 	       u4Used >= usedTh ?
 	       TRUE : FALSE;
-}
-
-u_int8_t kalCheckBoostCpuMargin(struct ADAPTER *prAdapter)
-{
-	struct PERF_MONITOR *prPerMonitor;
-	enum ENUM_CPU_BOOST_STATUS eNewBoost;
-	uint32_t u4Margin;
-	uint64_t maxTput = 0;
-
-	prPerMonitor = &prAdapter->rPerMonitor;
-
-	if (!prPerMonitor->fgPolicyReady)
-		return FALSE;
-
-	maxTput = prPerMonitor->ulThroughput >> 20;
-
-	eNewBoost = eBoostCpuTable[prPerMonitor->u4PrevPerfLevel];
-	if (prPerMonitor->u4PrevPerfLevel
-		&& (rBoostInfo[eNewBoost].rCpuInfo.i4BigCpuFreq
-			!= AUTO_CPU_FREQ
-			|| rBoostInfo[eNewBoost].rCpuInfo.i4LittleCpuFreq
-				!= AUTO_CPU_FREQ)) {
-		u4Margin = kal_div_u64(prPerMonitor->ulStableTput, 10);
-
-		if (maxTput < (prPerMonitor->ulStableTput + u4Margin)
-			&& maxTput > (prPerMonitor->ulStableTput - u4Margin)) {
-			return TRUE;
-		}
-		DBGLOG(INIT, TRACE, "Out of Margin, [%u/%u/%u]",
-			prPerMonitor->ulStableTput - u4Margin,
-			maxTput,
-			prPerMonitor->ulStableTput + u4Margin);
-	}
-
-	return FALSE;
 }
 
 #if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
@@ -440,14 +525,9 @@ void kalSetTaskUtilMinPct(int pid, unsigned int min)
 		get_task_struct(p);
 	rcu_read_unlock();
 
-	/* sched_setattr_nocheck */
+	/* sched_setattr */
 	if (likely(p)) {
-		ret = sched_setattr_nocheck(p, &attr);
-		if (ret < 0) {
-			DBGLOG(INIT, ERROR,
-				"sched_setattr_nocheck pid[%u] min[%u] fail\n",
-				pid, min);
-		}
+		ret = sched_setattr(p, &attr);
 		put_task_struct(p);
 	}
 }
@@ -479,7 +559,7 @@ void kalSetCpuFreq(int32_t freq, uint32_t set_mask)
 			ret = freq_qos_add_request(&policy->constraints,
 				&wReq->qos_req, FREQ_QOS_MIN, AUTO_CPU_FREQ);
 			if (ret < 0) {
-				DBGLOG(INIT, DEBUG,
+				DBGLOG(INIT, INFO,
 					"freq_qos_add_request fail cpu%d ret=%d\n",
 					wReq->cpu, ret);
 				kfree(wReq);
@@ -497,24 +577,24 @@ void kalSetCpuFreq(int32_t freq, uint32_t set_mask)
 
 		ret = freq_qos_update_request(&wReq->qos_req, freq);
 		if (ret < 0) {
-			DBGLOG(INIT, DEBUG,
+			DBGLOG(INIT, INFO,
 				"freq_qos_update_request fail cpu%d freq=%d ret=%d\n",
 				wReq->cpu, freq, ret);
 		}
 	}
 }
 
-void kalSetDramBoost(struct ADAPTER *prAdapter, int32_t iLv)
+void kalSetDramBoost(struct ADAPTER *prAdapter, u_int8_t onoff)
 {
 	struct platform_device *pdev;
 #ifdef CONFIG_OF
 	struct device_node *node;
 	static struct icc_path *bw_path;
 #endif /* CONFIG_OF */
-	static unsigned int peak_bw[OPP_BW_MAX_NUM], current_bw;
-	unsigned int prev_bw = 0, i;
+	static unsigned int peak_bw, current_bw;
+	unsigned int prev_bw = 0;
 
-	kalGetPlatDev(&pdev);
+	__kalGetPlatDev(&pdev);
 	if (!pdev) {
 		DBGLOG(INIT, ERROR, "pdev is NULL\n");
 		return;
@@ -532,8 +612,7 @@ void kalSetDramBoost(struct ADAPTER *prAdapter, int32_t iLv)
 		}
 
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
-		for (i = 0; i < OPP_BW_MAX_NUM; i++)
-			peak_bw[i] = dvfsrc_get_required_opp_peak_bw(node, i);
+		peak_bw = dvfsrc_get_required_opp_peak_bw(node, 0);
 #endif /* CONFIG_MTK_DVFSRC */
 #endif /* CONFIG_OF */
 	}
@@ -541,14 +620,14 @@ void kalSetDramBoost(struct ADAPTER *prAdapter, int32_t iLv)
 	if (!IS_ERR(bw_path)) {
 		prev_bw = current_bw;
 
-		if (iLv != -1 && iLv < OPP_BW_MAX_NUM)
-			current_bw = peak_bw[iLv];
+		if (onoff)
+			current_bw = peak_bw;
 		else
 			current_bw = 0;
 
 		icc_set_bw(bw_path, 0, current_bw);
-		DBGLOG(INIT, DEBUG, "[%d] bw %u => %u\n",
-			iLv, prev_bw, current_bw);
+		DBGLOG(INIT, INFO, "[%d] bw %u => %u\n",
+			onoff, prev_bw, current_bw);
 	}
 }
 
@@ -571,14 +650,9 @@ static int kalSetCpuMask(struct task_struct *task, uint32_t set_mask)
 				cpumask_or(&cpu_mask, &cpu_mask, cpumask_of(i));
 		r = set_cpus_allowed_ptr(task, &cpu_mask);
 	}
-	DBGLOG(INIT, DEBUG, "set_cpus_allowed_ptr()=%d", r);
+	DBGLOG(INIT, INFO, "set_cpus_allowed_ptr()=%d", r);
 #endif
 	return r;
-}
-
-void kalSetRunOnNonXCore(struct task_struct *task)
-{
-	kalSetCpuMask(task, CPU_HP_CORE | CPU_LITTLE_CORE);
 }
 
 /**
@@ -629,26 +703,6 @@ void kalSetCpuBoost(struct ADAPTER *prAdapter,
 	}
 #endif /* CFG_SUPPORT_RX_NAPI_THREADED */
 
-#if CFG_SUPPORT_HIF_RX_NAPI
-	if (prGlueInfo->rHifInfo.rRxNapiDev.napi_thread) {
-		kalSetCpuMask(prGlueInfo->rHifInfo.rRxNapiDev.napi_thread,
-			prBoostInfo->rHifRxNapiThreadInfo.u4CpuMask);
-		kalSetTaskUtilMinPct(
-			prGlueInfo->rHifInfo.rRxNapiDev.u4ThreadPid,
-			prBoostInfo->rHifRxNapiThreadInfo.u4Priority);
-	}
-#endif /* CFG_SUPPORT_HIF_RX_NAPI */
-
-#if CFG_SUPPORT_HIF_TX_NAPI
-	if (prGlueInfo->rHifInfo.rTxNapiDev.napi_thread) {
-		kalSetCpuMask(prGlueInfo->rHifInfo.rTxNapiDev.napi_thread,
-			prBoostInfo->rHifTxNapiThreadInfo.u4CpuMask);
-		kalSetTaskUtilMinPct(
-			prGlueInfo->rHifInfo.rTxNapiDev.u4ThreadPid,
-			prBoostInfo->rHifTxNapiThreadInfo.u4Priority);
-	}
-#endif /* CFG_SUPPORT_HIF_TX_NAPI */
-
 	kalSetRpsMap(prGlueInfo, prBoostInfo->u4RpsMap);
 	kalSetISRMask(prAdapter, prBoostInfo->u4ISRMask);
 
@@ -657,20 +711,10 @@ void kalSetCpuBoost(struct ADAPTER *prAdapter,
 			prBoostInfo->i4TxFreeMsduWorkCpu);
 #endif /* CFG_SUPPORT_TX_FREE_MSDU_WORK */
 
-#if CFG_SUPPORT_TX_FREE_SKB_WORK
-	kalTxFreeSkbWorkSetCpu(prGlueInfo,
-			prBoostInfo->eTxFreeSkbWorkCoreType);
-#endif /* CFG_SUPPORT_TX_FREE_SKB_WORK */
-
 #if CFG_SUPPORT_RETURN_WORK
 	kalRxRfbReturnWorkSetCpu(prGlueInfo,
 			prBoostInfo->i4RxRfbRetWorkCpu);
 #endif /* CFG_SUPPORT_RETURN_WORK */
-
-#if CFG_SUPPORT_SKB_ALLOC_WORK
-	kalSkbAllocWorkSetCpu(prGlueInfo,
-			prBoostInfo->eSkbAllocWorkCoreType);
-#endif /* CFG_SUPPORT_SKB_ALLOC_WORK */
 
 #if CFG_SUPPORT_TX_WORK
 	kalTxWorkSetCpu(prGlueInfo, prBoostInfo->i4TxWorkCpu);
@@ -684,16 +728,12 @@ void kalSetCpuBoost(struct ADAPTER *prAdapter,
 	kalRxNapiWorkSetCpu(prGlueInfo, prBoostInfo->i4RxNapiWorkCpu);
 #endif /* CFG_SUPPORT_RX_NAPI_WORK */
 
-#if CFG_SUPPORT_HIF_TX_NAPI
-	kalHifTxWorkSetCpu(prGlueInfo, prBoostInfo->i4HifTxWorkCpu);
-#endif /* CFG_SUPPORT_HIF_TX_NAPI */
-
 #if defined(_HIF_PCIE)
 	kalSetPcieKeepWakeup(prGlueInfo, prBoostInfo->fgKeepPcieWakeup);
 	kalConfigWfdmaTh(prGlueInfo, prBoostInfo->u4WfdmaTh);
 #endif
 
-	kalSetDramBoost(prAdapter, prBoostInfo->i4DramBoostLv);
+	kalSetDramBoost(prAdapter, prBoostInfo->fgDramBoost);
 
 
 #if CFG_SUPPORT_TX_FREE_MSDU_WORK
@@ -727,45 +767,23 @@ void kalSetCpuBoost(struct ADAPTER *prAdapter,
 #endif /* CFG_SUPPORT_RX_NAPI_WORK */
 
 #if CFG_SUPPORT_RX_NAPI_THREADED
-#if CFG_SUPPORT_HIF_RX_NAPI
-#define PLAT_THREAD_INFO "ThreadInfo:[%02x:%02x:%02x:%02x:%02x][%u:%u:%u:%u:%u] "
-#else
 #define PLAT_THREAD_INFO "ThreadInfo:[%02x:%02x:%02x:%02x][%u:%u:%u:%u] "
-#endif /* CFG_SUPPORT_HIF_RX_NAPI */
 #else /* CFG_SUPPORT_RX_NAPI_THREADED */
-#if CFG_SUPPORT_HIF_RX_NAPI
-#define PLAT_THREAD_INFO "ThreadInfo:[%02x:%02x:%02x:%02x][%u:%u:%u:%u] "
-#else
 #define PLAT_THREAD_INFO "ThreadInfo:[%02x:%02x:%02x][%u:%u:%u] "
-#endif /* CFG_SUPPORT_HIF_RX_NAPI */
 #endif /* CFG_SUPPORT_RX_NAPI_THREADED */
-
-#if CFG_SUPPORT_SKB_ALLOC_WORK
-#define SKB_ALLOC_WORK_TEMPLATE " SkbAllocWork:[%u]"
-#else /* CFG_SUPPORT_SKB_ALLOC_WORK */
-#define SKB_ALLOC_WORK_TEMPLATE ""
-#endif /* CFG_SUPPORT_SKB_ALLOC_WORK */
-
-#if CFG_SUPPORT_TX_FREE_SKB_WORK
-#define TX_FREE_SKB_WORK_TEMPLATE " TxFreeSkbWork:[%u]"
-#else /* CFG_SUPPORT_TX_FREE_SKB_WORK */
-#define TX_FREE_SKB_WORK_TEMPLATE ""
-#endif /* CFG_SUPPORT_TX_FREE_SKB_WORK */
 
 #define TEMP_LOG_TEMPLATE \
 	"CPUInfo[%d:%d] " \
 	PLAT_THREAD_INFO \
-	"Rps:[%02x] ISR:[%02x] D:[%d] Pcie:[%u]" \
+	"Rps:[%02x] ISR:[%02x] D:[%u] Pcie:[%u]" \
 	TX_FREE_MSDU_WORK_TEMPLATE \
 	RETURN_WORK_TEMPLATE \
 	TX_WORK_TEMPLATE \
 	RX_WORK_TEMPLATE \
 	RX_NAPI_WORK_TEMPLATE \
-	SKB_ALLOC_WORK_TEMPLATE \
-	TX_FREE_SKB_WORK_TEMPLATE \
-	"%s\n"
+	"\n"
 
-	DBGLOG(INIT, DEBUG,
+	DBGLOG(INIT, INFO,
 		TEMP_LOG_TEMPLATE,
 		prBoostInfo->rCpuInfo.i4LittleCpuFreq,
 		prBoostInfo->rCpuInfo.i4BigCpuFreq,
@@ -775,21 +793,15 @@ void kalSetCpuBoost(struct ADAPTER *prAdapter,
 #if CFG_SUPPORT_RX_NAPI_THREADED
 		prBoostInfo->rRxNapiThreadInfo.u4CpuMask,
 #endif /* CFG_SUPPORT_RX_NAPI_THREADED */
-#if CFG_SUPPORT_HIF_RX_NAPI
-		prBoostInfo->rHifRxNapiThreadInfo.u4CpuMask,
-#endif /* CFG_SUPPORT_HIF_RX_NAPI */
 		prBoostInfo->rHifThreadInfo.u4Priority,
 		prBoostInfo->rMainThreadInfo.u4Priority,
 		prBoostInfo->rRxThreadInfo.u4Priority,
 #if CFG_SUPPORT_RX_NAPI_THREADED
 		prBoostInfo->rRxNapiThreadInfo.u4Priority,
 #endif /* CFG_SUPPORT_RX_NAPI_THREADED */
-#if CFG_SUPPORT_HIF_RX_NAPI
-		prBoostInfo->rHifRxNapiThreadInfo.u4Priority,
-#endif /* CFG_SUPPORT_HIF_RX_NAPI */
 		prBoostInfo->u4RpsMap,
 		prBoostInfo->u4ISRMask,
-		prBoostInfo->i4DramBoostLv,
+		prBoostInfo->fgDramBoost,
 		prBoostInfo->fgKeepPcieWakeup,
 #if CFG_SUPPORT_TX_FREE_MSDU_WORK
 		prBoostInfo->i4TxFreeMsduWorkCpu,
@@ -801,18 +813,12 @@ void kalSetCpuBoost(struct ADAPTER *prAdapter,
 		prBoostInfo->i4TxWorkCpu,
 #endif /* CFG_SUPPORT_TX_WORK */
 #if CFG_SUPPORT_RX_WORK
-		prBoostInfo->i4RxWorkCpu,
+		prBoostInfo->i4RxWorkCpu
 #endif /* CFG_SUPPORT_RX_WORK */
 #if CFG_SUPPORT_RX_NAPI_WORK
-		prBoostInfo->i4RxNapiWorkCpu,
+		, prBoostInfo->i4RxNapiWorkCpu
 #endif /* CFG_SUPPORT_RX_NAPI_WORK */
-#if CFG_SUPPORT_SKB_ALLOC_WORK
-		prBoostInfo->eSkbAllocWorkCoreType,
-#endif /* CFG_SUPPORT_SKB_ALLOC_WORK */
-#if CFG_SUPPORT_TX_FREE_SKB_WORK
-		prBoostInfo->eTxFreeSkbWorkCoreType,
-#endif /* CFG_SUPPORT_TX_FREE_SKB_WORK */
-		"");
+		);
 #undef TEMP_LOG_TEMPLATE
 }
 
@@ -835,200 +841,54 @@ void kalUpdateBoostInfo(struct ADAPTER *prAdapter)
 	}
 }
 
-static void __kalBoostCpuInit(struct ADAPTER *prAdapter)
-{
-	/* initially enable RPS working at small cores */
-	if (eCurrBoost == ENUM_CPU_BOOST_STATUS_INIT) {
-		eCurrBoost = ENUM_CPU_BOOST_STATUS_LV0;
-		kalUpdateBoostInfo(prAdapter);
-		kalSetCpuBoost(prAdapter, &rBoostInfo[eCurrBoost]);
-	}
-}
-
-void kalBoostCpuInit(struct ADAPTER *prAdapter)
-{
-	eCurrBoost = ENUM_CPU_BOOST_STATUS_INIT;
-	__kalBoostCpuInit(prAdapter);
-}
-
 int32_t kalBoostCpu(struct ADAPTER *prAdapter,
 		    uint32_t u4TarPerfLevel,
 		    uint32_t u4BoostCpuTh)
 {
+	static enum ENUM_CPU_BOOST_STATUS eCurrBoost =
+			ENUM_CPU_BOOST_STATUS_INIT;
 	enum ENUM_CPU_BOOST_STATUS eNewBoost;
 
 	if (prAdapter->rWifiVar.fgBoostCpuEn == FEATURE_DISABLED)
 		return 0;
 
-	__kalBoostCpuInit(prAdapter);
+	/* initially enable RPS working at small cores */
+	if (eCurrBoost == ENUM_CPU_BOOST_STATUS_INIT) {
+		eCurrBoost = ENUM_CPU_BOOST_STATUS_LV0;
+		kalUpdateBoostInfo(prAdapter);
+		if (u4BoostCpuTh != 999)
+			kalSetCpuBoost(prAdapter, &rBoostInfo[eCurrBoost]);
+		else
+			kalSetCpuBoost(prAdapter, &rSTABoostInfo[eCurrBoost]);
+	}
 
-	if (u4TarPerfLevel >= BOOST_CPU_TABLE_NUM)
-		eNewBoost = eBoostCpuTable[BOOST_CPU_TABLE_NUM - 1];
-	else
-		eNewBoost = eBoostCpuTable[u4TarPerfLevel];
+	if (u4TarPerfLevel >= ARRAY_SIZE(eBoostCpuTable)) {
+		eNewBoost = ENUM_CPU_BOOST_STATUS_NUM - 1;
+	} else {
+		if (u4BoostCpuTh != 999)
+			eNewBoost = eBoostCpuTable[u4TarPerfLevel];
+		else
+			eNewBoost = eSTABoostCpuTable[u4TarPerfLevel];
+	}
 
 	if (eCurrBoost != eNewBoost) {
-		DBGLOG(INIT, DEBUG, "TputLv:%u BoostLv[%u->%u]\n",
+		DBGLOG(INIT, INFO,
+			"kalBoostCpu IsSTA:%u TputLv:%u BoostLv[%u->%u]\n",
+			u4BoostCpuTh == 999 ? TRUE : FALSE,
 			u4TarPerfLevel, eCurrBoost, eNewBoost);
-		kalTraceEvent("%s TputLv:%u BoostLv[%u->%u]\n", __func__,
+		kalTraceEvent(
+			"kalBoostCpu IsSTA:%u TputLv:%u BoostLv[%u->%u]\n",
+			u4BoostCpuTh == 999 ? TRUE : FALSE,
 			u4TarPerfLevel, eCurrBoost, eNewBoost);
-		kalSetCpuBoost(prAdapter, &rBoostInfo[eNewBoost]);
+		if (u4BoostCpuTh != 999)
+			kalSetCpuBoost(prAdapter, &rBoostInfo[eNewBoost]);
+		else
+			kalSetCpuBoost(prAdapter, &rSTABoostInfo[eNewBoost]);
 		eCurrBoost = eNewBoost;
 	}
 
 	return 0;
 }
-
-int32_t kalBoostCpuPolicy(struct ADAPTER *prAdapter)
-{
-	struct PERF_MONITOR *prPerMonitor = &prAdapter->rPerMonitor;
-	static struct BOOST_INFO rPolicyBoostInfo;
-	static enum ENUM_CPU_BOOST_STATUS ePolicyBoost;
-	static unsigned long ulMeanTput, ulPrevTxCnt, ulPrevTxFailCnt;
-	static uint8_t ucTriggerCnt, ucOutOfMarginCnt;
-	unsigned long ulCurrTxCnt, ulCurrTxFailCnt, ulTput;
-	uint32_t u4NewBigCpuFreq = 0;
-	uint32_t u4NewLitteCpuFreq = 0;
-	uint32_t u4BigCpuFreq, u4LitteCpuFreq;
-	uint32_t u4PER;
-
-	if (prAdapter->rWifiVar.fgBoostCpuPolicyEn == FEATURE_DISABLED)
-		return 0;
-
-	if (rBoostInfo[eCurrBoost].rCpuInfo.i4BigCpuFreq
-		== AUTO_CPU_FREQ
-		&& rBoostInfo[eCurrBoost].rCpuInfo.i4LittleCpuFreq
-			== AUTO_CPU_FREQ) {
-		prPerMonitor->fgPolicyReady = FALSE;
-		goto reset;
-	}
-
-	ulCurrTxCnt = GLUE_GET_REF_CNT(
-		prAdapter->rHifStats.u4DataMsduRptCount);
-	ulCurrTxFailCnt = prAdapter->rMsduReportStats.rCounting.u4TxFail;
-
-	u4PER = (ulCurrTxCnt - ulPrevTxCnt) == 0 ? 0 :
-			(1000 * (ulCurrTxFailCnt - ulPrevTxFailCnt)) /
-				(ulCurrTxCnt - ulPrevTxCnt);
-
-	ulPrevTxCnt = ulCurrTxCnt;
-	ulPrevTxFailCnt = ulCurrTxFailCnt;
-	DBGLOG(INIT, TRACE, "PerErrorRate=%u.%1u%%, Tx Total:Fail[%u:%u]",
-			u4PER / 10, u4PER % 10,
-			ulCurrTxCnt, ulCurrTxFailCnt);
-
-	/*shift for int claculation, e.g u4PerErrorRate = 10 => PER = 1% */
-	if (u4PER > 10) {
-		DBGLOG(INIT, TRACE, "PerErrorRate=%u.%1u%% > 1%",
-			u4PER / 10, u4PER % 10);
-	}
-
-	if (ePolicyBoost != eCurrBoost
-		&& (eCurrBoost == ENUM_CPU_BOOST_STATUS_LV0
-			|| !kalCheckBoostCpuMargin(prAdapter))) {
-		DBGLOG(INIT, TRACE,
-				"Boost new:Curr[%u:%u], PolicyReady:FALSE ",
-				ePolicyBoost,
-				eCurrBoost);
-		ePolicyBoost = eCurrBoost;
-		prPerMonitor->fgPolicyReady = FALSE;
-		kalMemCopy(&rPolicyBoostInfo, &rBoostInfo[ePolicyBoost],
-			sizeof(struct BOOST_INFO));
-		goto reset;
-	}
-
-	ucTriggerCnt++;
-	ulTput = prPerMonitor->ulThroughput >> 20;
-	ulMeanTput = (ulMeanTput == 0)
-		? ulTput : (ulMeanTput >> 1) + (ulTput >> 1);
-
-	/* If Stable Tput isn't initialized, fgPolicyReady = FALSE
-	 * and calculate avg 10 times Tput and padding offset
-	 * as Stable Tput.
-	 */
-	if (!prPerMonitor->fgPolicyReady) {
-		if (ucTriggerCnt >= 10) {
-			prPerMonitor->ulStableTput =
-				kal_div_u64(ulMeanTput * 95, 100);
-			prPerMonitor->fgPolicyReady = TRUE;
-			DBGLOG(INIT, TRACE, "PolicyReady: True, StableTput: %u",
-				prPerMonitor->ulStableTput);
-			goto reset;
-		}
-		return 0;
-	}
-
-	if (!kalCheckBoostCpuMargin(prAdapter)) {
-		ucOutOfMarginCnt++;
-		if (ucOutOfMarginCnt > 5)
-			prPerMonitor->fgPolicyReady = FALSE;
-	} else {
-		ucOutOfMarginCnt = 0;
-	}
-
-	if (ucTriggerCnt < 5)
-		return 0;
-
-	if (ulMeanTput > prPerMonitor->ulStableTput) {
-		if (rPolicyBoostInfo.rCpuInfo.i4BigCpuFreq) {
-			u4BigCpuFreq =
-				rPolicyBoostInfo.rCpuInfo.i4BigCpuFreq
-					- 200000;
-			u4NewBigCpuFreq =
-				(u4BigCpuFreq < BIG_CPU_FREQ_MIN)
-				? BIG_CPU_FREQ_MIN : u4BigCpuFreq;
-		}
-		if (rPolicyBoostInfo.rCpuInfo.i4LittleCpuFreq) {
-			u4LitteCpuFreq =
-				rPolicyBoostInfo.rCpuInfo.i4LittleCpuFreq
-					- 200000;
-			u4NewLitteCpuFreq =
-				(u4LitteCpuFreq < LITTLE_CPU_FREQ_MIN)
-				? LITTLE_CPU_FREQ_MIN : u4LitteCpuFreq;
-		}
-	} else {
-		if (rPolicyBoostInfo.rCpuInfo.i4BigCpuFreq) {
-			u4BigCpuFreq = rPolicyBoostInfo.rCpuInfo.i4BigCpuFreq
-				+ 200000;
-			u4NewBigCpuFreq = (u4BigCpuFreq > BIG_CPU_FREQ_MAX)
-				? BIG_CPU_FREQ_MAX : u4BigCpuFreq;
-		}
-		if (rPolicyBoostInfo.rCpuInfo.i4LittleCpuFreq) {
-			u4LitteCpuFreq =
-				rPolicyBoostInfo.rCpuInfo.i4LittleCpuFreq
-					+ 200000;
-			u4NewLitteCpuFreq =
-				(u4LitteCpuFreq > LITTLE_CPU_FREQ_MAX)
-				? LITTLE_CPU_FREQ_MAX : u4LitteCpuFreq;
-		}
-	}
-	DBGLOG(INIT, LOUD,
-		"Tput[Mean:Curr:Th][%u:%u:%u] Freq[B][L][%u->%u][%u->%u]",
-		(unsigned long) (ulMeanTput),
-		(unsigned long) (ulTput),
-		prPerMonitor->ulStableTput,
-		rPolicyBoostInfo.rCpuInfo.i4BigCpuFreq,
-		u4NewBigCpuFreq,
-		rPolicyBoostInfo.rCpuInfo.i4LittleCpuFreq,
-		u4NewLitteCpuFreq);
-
-	rPolicyBoostInfo.rCpuInfo.i4BigCpuFreq = u4NewBigCpuFreq;
-	rPolicyBoostInfo.rCpuInfo.i4LittleCpuFreq = u4NewLitteCpuFreq;
-	kalSetCpuBoost(prAdapter, &rPolicyBoostInfo);
-
-reset:
-	ucTriggerCnt = 0;
-	ulMeanTput = 0;
-
-	return 0;
-}
-
-#if CFG_SUPPORT_MCC_BOOST_CPU
-u_int8_t kalIsMccBoost(struct ADAPTER *prAdapter)
-{
-	return FALSE;
-}
-#endif /* CFG_SUPPORT_MCC_BOOST_CPU */
 #endif
 
 uint32_t kalGetEmiMetOffset(void)
@@ -1046,16 +906,6 @@ void kalSetEmiMetOffset(uint32_t newEmiMetOffset)
 	u4EmiMetOffset = newEmiMetOffset;
 }
 
-void kalDumpPlatGPIOStat(void)
-{
-	DBGLOG(INIT, DEBUG, "GPIO 244, val=%d\n",
-		gpio_get_value(512 + 244));
-	DBGLOG(INIT, DEBUG, "GPIO 248, val=%d\n",
-		gpio_get_value(512 + 248));
-	DBGLOG(INIT, DEBUG, "GPIO 249, val=%d\n",
-		gpio_get_value(512 + 249));
-}
-
 #ifdef CONFIG_WLAN_MTK_EMI
 void kalSetEmiMpuProtection(phys_addr_t emiPhyBase, bool enable)
 {
@@ -1064,14 +914,14 @@ void kalSetEmiMpuProtection(phys_addr_t emiPhyBase, bool enable)
 void kalSetDrvEmiMpuProtection(phys_addr_t emiPhyBase, uint32_t offset,
 			       uint32_t size)
 {
-#if KERNEL_VERSION(6, 0, 0) >= LINUX_VERSION_CODE
+#if KERNEL_VERSION(6, 0, 0) >= CFG80211_VERSION_CODE
 	struct emimpu_region_t region;
 	unsigned long long start = emiPhyBase + offset;
 	unsigned long long end = emiPhyBase + offset + size - 1;
 	int ret;
 
-	DBGLOG(INIT, DEBUG, "emiPhyBase: %pa, offset: %d, size: %d\n",
-				&emiPhyBase, offset, size);
+	DBGLOG(INIT, INFO, "emiPhyBase: 0x%p, offset: %d, size: %d\n",
+				emiPhyBase, offset, size);
 
 	ret = mtk_emimpu_init_region(&region, 18);
 	if (ret) {
@@ -1145,16 +995,22 @@ int32_t kalCheckVcoreBoost(struct ADAPTER *prAdapter,
 #endif
 }
 
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 int32_t kalPlatOpsInit(void)
 {
-#if defined(MT6653)
-	struct mt66xx_hif_driver_data *driver_data =
-		&mt66xx_driver_data_mt6653;
-	struct mt66xx_chip_info *chip = driver_data->chip_info;
+	struct mt66xx_hif_driver_data *driver_data = NULL;
+	struct mt66xx_chip_info *chip = NULL;
 
-	chip->pinctrl_ops = &mt6991_pinctrl_ops;
+#if defined(MT6653)
+	driver_data = &mt66xx_driver_data_mt6653;
+#elif defined(MT6639)
+	driver_data = &mt66xx_driver_data_mt6639;
 #endif
+
+	if (driver_data && driver_data->chip_info) {
+		chip = driver_data->chip_info;
+		chip->pinctrl_ops = &mt6991_pinctrl_ops;
+	}
 
 	return 0;
 }
@@ -1164,7 +1020,7 @@ static int32_t mt6991_wlan_pinctrl_init(struct mt66xx_chip_info *chip_info)
 	struct platform_device *pdev;
 	int32_t ret = 0;
 
-	kalGetPlatDev(&pdev);
+	__kalGetPlatDev(&pdev);
 	if (!pdev) {
 		DBGLOG(INIT, ERROR, "NULL platform_device\n");
 		ret = -EINVAL;
@@ -1203,10 +1059,17 @@ static void ensure_rst_pin_min_wait_time(int8_t state)
 			break;
 		else if (CHECK_FOR_TIMEOUT(current_time,
 					   last_toggle_time,
-					   RST_PIN_MIN_WAIT_TIME))
+					   RST_PIN_MIN_WAIT_TIME) ||
+					   retry > 300) {
+			DBGLOG(INIT, INFO,
+				"retry:%d, cur_time:%u, last_time:%u\n",
+				retry, current_time, last_toggle_time);
 			break;
+		}
 
-		DBGLOG_LIMITED(INIT, LOUD, "retry: %d.\n", retry);
+		DBGLOG_LIMITED(INIT, INFO,
+			"retry:%d, cur_time:%u, last_time:%u\n",
+			retry, current_time, last_toggle_time);
 		retry++;
 		kalMdelay(1);
 	}
@@ -1264,7 +1127,7 @@ static int32_t mt6991_wlan_pinctrl_action(struct mt66xx_chip_info *chip_info,
 	}
 
 	ret = pinctrl_select_state(pinctrl_ptr, pinctrl);
-	DBGLOG(INIT, DEBUG,
+	DBGLOG(INIT, INFO,
 		"pinctrl_select_state msg: %d, ret: %d.\n",
 		msg, ret);
 
@@ -1273,57 +1136,20 @@ exit:
 }
 #endif
 
-int32_t kalGetScpDumpInfo(u64 *addr, unsigned int *size)
-{
-	struct device_node *scp_node = NULL;
-
-	scp_node = of_find_compatible_node(NULL, NULL,
-		"mediatek,mt6991-conn_scp");
-	if (!scp_node) {
-		DBGLOG(INIT, ERROR, "kernel option CONFIG_OF not enabled.\n");
-		return -EINVAL;
-	}
-
-	if (of_property_read_u64(scp_node, "dfd-value-addr", addr))
-		return -EINVAL;
-
-	if (of_property_read_u32(scp_node, "dfd-value-size", size))
-		return -EINVAL;
-
-	return 0;
-}
-
-#if CFG_MTK_WIFI_PCIE_SR
-u_int8_t kalIsSupportPcieL2(void)
-{
-	return TRUE;
-}
-#endif
-
 #if (CFG_SUPPORT_HOST_OFFLOAD == 1)
 u_int8_t kalIsSupportMawd(void)
 {
-	return FALSE;
+	return TRUE;
 }
 
 u_int8_t kalIsSupportSdo(void)
 {
-	return FALSE;
+	return TRUE;
 }
 
 u_int8_t kalIsSupportRro(void)
 {
-	return FALSE;
-}
-
-uint32_t kalGetMawdVer(void)
-{
-	return MAWD_VER_1_1;
-}
-
-uint32_t kalGetConnInfraId(void)
-{
-	return CONN_INFRA_ID;
+	return TRUE;
 }
 #endif
 
@@ -1331,15 +1157,3 @@ uint32_t kalGetTxBigCpuMask(void)
 {
 	return TX_CPU_BIG_CORE;
 }
-
-#if (CFG_VOLT_INFO == 1)
-uint8_t kalVnfGetEnInitStatus(void)
-{
-	return FEATURE_ENABLED;
-}
-
-uint32_t kalVnfGetVoltLowBnd(void)
-{
-	return VOLT_INFO_LOW_BOUND;
-}
-#endif /* #if (CFG_VOLT_INFO == 1) */

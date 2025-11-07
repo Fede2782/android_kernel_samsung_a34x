@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -13,10 +13,10 @@
  *[Copyright]
  *    Copyright (C) 2015 MediaTek Incorporation. All Rights Reserved.
  ******************************************************************************/
+
 #ifdef MT7925
 
 #include "precomp.h"
-#if (DBG_DISABLE_ALL_INFO == 0)
 #include "mt7925.h"
 #include "dbg_mt7925.h"
 #if defined(_HIF_PCIE)
@@ -26,7 +26,7 @@
 #include "coda/mt7925/wf_pse_top.h"
 #include "coda/mt7925/wf_wfdma_host_dma0.h"
 #include "coda/mt7925/wf_hif_dmashdl_top.h"
-#if (CFG_MTK_WIFI_CONNV3_SUPPORT == 1)
+#if IS_ENABLED(CFG_MTK_WIFI_CONNV3_SUPPORT)
 #include "connv3.h"
 #include "connectivity_build_in_adapter.h"
 #endif
@@ -2146,7 +2146,7 @@ void mt7925_show_wfdma_dbg_probe_info(struct ADAPTER *prAdapter,
 		u4DbgIdxValue = 0x100 + dbg_cr_idx[i];
 		HAL_MCR_WR(prAdapter, u4DbgIdxAddr, u4DbgIdxValue);
 		HAL_MCR_RD(prAdapter, u4DbgProbeAddr, &u4DbgProbeValue);
-		DBGLOG(HAL, DEBUG, "\t Write(0x%2x) DBG_PROBE[0x%X]=0x%08X\n",
+		DBGLOG(HAL, INFO, "\t Write(0x%2x) DBG_PROBE[0x%X]=0x%08X\n",
 			u4DbgIdxValue, u4DbgProbeAddr, u4DbgProbeValue);
 	}
 }
@@ -2163,25 +2163,25 @@ void mt7925_show_wfdma_wrapper_info(struct ADAPTER *prAdapter,
 	if (enum_wfdma_type == WFDMA_TYPE_HOST) {
 		u4DmaCfgCr = 0x7c027044;
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_HIF_BUSY(0x%08x): 0x%08x\n",
+		DBGLOG(INIT, INFO, "WFDMA_HIF_BUSY(0x%08x): 0x%08x\n",
 				u4DmaCfgCr,
 				u4RegValue);
 
 		u4DmaCfgCr = 0x7c027050;
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_AXI_SLPPROT_CTRL(0x%08x): 0x%08x\n",
+		DBGLOG(INIT, INFO, "WFDMA_AXI_SLPPROT_CTRL(0x%08x): 0x%08x\n",
 				u4DmaCfgCr,
 				u4RegValue);
 
 		u4DmaCfgCr = 0x7c027078;
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_AXI_SLPPROT0_CTRL(0x%08x): 0x%08x\n",
+		DBGLOG(INIT, INFO, "WFDMA_AXI_SLPPROT0_CTRL(0x%08x): 0x%08x\n",
 				u4DmaCfgCr,
 				u4RegValue);
 
 		u4DmaCfgCr = 0x7c02707C;
 		HAL_MCR_RD(prAdapter, u4DmaCfgCr, &u4RegValue);
-		DBGLOG(INIT, DEBUG, "WFDMA_AXI_SLPPROT1_CTRL(0x%08x): 0x%08x\n",
+		DBGLOG(INIT, INFO, "WFDMA_AXI_SLPPROT1_CTRL(0x%08x): 0x%08x\n",
 				u4DmaCfgCr,
 				u4RegValue);
 	}
@@ -2192,57 +2192,57 @@ void mt7925_dumpCbtopReg(struct ADAPTER *ad)
 {
 	uint32_t u4Value = 0;
 
-	DBGLOG(HAL, DEBUG, "Start mt6639_dumpCbtopReg.\n");
+	DBGLOG(HAL, INFO, "Start mt6639_dumpCbtopReg.\n");
 
 	/* 1. dump 0x18023C00[31:0] -> 0x7c023c00 */
 	HAL_MCR_RD(ad, 0x7c023c00, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x7c023c00] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x7c023c00] value[0x%08x]\n", u4Value);
 
 	/* 2. dump 0x70007204, read patch version */
 	HAL_MCR_RD(ad, 0x70007204, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x70007204] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x70007204] value[0x%08x]\n", u4Value);
 
 	/* 3. dump 0x7002500C, cb_infra_slp_status */
 	HAL_MCR_RD(ad, 0x7002500C, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x7002500C] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x7002500C] value[0x%08x]\n", u4Value);
 
 	/* 4. dump slp_ctrl setting: 0x70025004/0x7002500C/0x70025014 */
 	HAL_MCR_RD(ad, 0x70025004, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x70025004] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x70025004] value[0x%08x]\n", u4Value);
 	HAL_MCR_RD(ad, 0x7002500C, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x7002500C] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x7002500C] value[0x%08x]\n", u4Value);
 	HAL_MCR_RD(ad, 0x70025014, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x70025014] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x70025014] value[0x%08x]\n", u4Value);
 
 	/* 5. dump slp_ctrl cnt: 0x70025400/0x70025404 */
 	HAL_MCR_RD(ad, 0x70025400, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x70025400] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x70025400] value[0x%08x]\n", u4Value);
 	HAL_MCR_RD(ad, 0x70025404, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x70025404] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x70025404] value[0x%08x]\n", u4Value);
 
 	/* 6. dump ap2conn gals dbg : 0x70026008 */
 	HAL_MCR_RD(ad, 0x70026008, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x70026008] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x70026008] value[0x%08x]\n", u4Value);
 
 	/* 7. dump conn2ap gals dbg : 0x70026000 */
 	HAL_MCR_RD(ad, 0x70026000, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x70026000] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x70026000] value[0x%08x]\n", u4Value);
 
 	/* 8. dump dma2ap gals dbg : 0x70026100 */
 	HAL_MCR_RD(ad, 0x70026100, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x70026100] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x70026100] value[0x%08x]\n", u4Value);
 
 	/* 9. dump 0x70025300  // debug index */
 	HAL_MCR_RD(ad, 0x70025300, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x70025300] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x70025300] value[0x%08x]\n", u4Value);
 
 	/* 10. dump 0x70026550 // debug index */
 	HAL_MCR_RD(ad, 0x70026550, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x70026550] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x70026550] value[0x%08x]\n", u4Value);
 
 	/* 11. dump 0x7002801C // debug index */
 	HAL_MCR_RD(ad, 0x7002801C, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x7002801C] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x7002801C] value[0x%08x]\n", u4Value);
 
 	/* 12. write 0x70003020 = 0x0 // set vlp_uds_ctrl probe 00 */
 	HAL_MCR_WR(ad, 0x70003020, 0);
@@ -2252,23 +2252,23 @@ void mt7925_dumpCbtopReg(struct ADAPTER *ad)
 
 	/* 14. CBTOP REGs dump 0x70007154 */
 	HAL_MCR_RD(ad, 0x70007154, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x70007154] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x70007154] value[0x%08x]\n", u4Value);
 
 	/* 15.PCIE LTSSM dump: 0x74030150 */
 	HAL_MCR_RD(ad, 0x74030150, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x74030150] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x74030150] value[0x%08x]\n", u4Value);
 
 	/* 16. PCIE LP state dump: 0x74030154 */
 	HAL_MCR_RD(ad, 0x74030154, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x74030154] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x74030154] value[0x%08x]\n", u4Value);
 
 	/* 17. PCIE INT status dump: 0x74030184 */
 	HAL_MCR_RD(ad, 0x74030184, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x74030184] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x74030184] value[0x%08x]\n", u4Value);
 
 	/* 18. PCIE Cfg BAR check: 0x74031010 */
 	HAL_MCR_RD(ad, 0x74031010, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x74031010] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x74031010] value[0x%08x]\n", u4Value);
 
 	/* 19. write PCIE debug partition: 0x74030168 = 0x22cc0100 */
 	HAL_MCR_WR(ad, 0x74030168, 0x22cc0100);
@@ -2278,7 +2278,7 @@ void mt7925_dumpCbtopReg(struct ADAPTER *ad)
 
 	/* 21. PCIE debug monitor dump: 0x7403002C */
 	HAL_MCR_RD(ad, 0x7403002C, &u4Value);
-	DBGLOG(HAL, DEBUG, "CR[0x7403002C] value[0x%08x]\n", u4Value);
+	DBGLOG(HAL, INFO, "CR[0x7403002C] value[0x%08x]\n", u4Value);
 }
 void mt7925_dumpWfsyscpupcr(struct ADAPTER *ad)
 {
@@ -2334,14 +2334,14 @@ void mt7925_dumpWfsyscpupcr(struct ADAPTER *ad)
 			    var_lp);
 	}
 
-	DBGLOG(HAL, DEBUG, "wm pc=%s%s%s%s%s\n",
+	DBGLOG(HAL, INFO, "wm pc=%s%s%s%s%s\n",
 		log_buf_pc[0],
 		log_buf_pc[1],
 		log_buf_pc[2],
 		log_buf_pc[3],
 		log_buf_pc[4]);
 
-	DBGLOG(HAL, DEBUG, "wm lp=%s%s%s%s%s\n",
+	DBGLOG(HAL, INFO, "wm lp=%s%s%s%s%s\n",
 		log_buf_lp[0],
 		log_buf_lp[1],
 		log_buf_lp[2],
@@ -2358,7 +2358,7 @@ static void mt7925_dumpPcGprLog(struct ADAPTER *ad)
 	uint32_t pc_dump[PC_LOG_NUM];
 	uint32_t gpr_dump[GPR_LOG_NUM];
 
-	DBGLOG(HAL, DEBUG, "Dump PC log / GPR log\n");
+	DBGLOG(HAL, INFO, "Dump PC log / GPR log\n");
 
 	HAL_MCR_WR_FIELD(ad,
 		CONN_DBG_CTL_WF_MCU_DBGOUT_SEL_ADDR,
@@ -2406,7 +2406,7 @@ static void mt7925_dumpWfTopMiscOn(struct ADAPTER *ad)
 	u4WrAddr = CONN_HOST_CSR_TOP_WF_ON_MONFLG_EN_FR_HIF_ADDR;
 	u4WrVal = 0x00000001;
 	HAL_MCR_WR(ad, u4WrAddr, u4WrVal);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"=PSOP_3_1_A%d=0x%08X=0x%08X\n",
 		indexA,
 		u4Val,
@@ -2419,7 +2419,7 @@ static void mt7925_dumpWfTopMiscOn(struct ADAPTER *ad)
 		u4WrVal = au4List[u4Idx];
 		HAL_MCR_WR(ad, u4WrAddr, u4WrVal);
 		HAL_MCR_RD(ad, u4RdAddr, &u4Val);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"=PSOP_3_1_A%d=0x%08X=0x%08X\n",
 		indexA,
 		u4Val,
@@ -2440,7 +2440,7 @@ static void mt7925_dumpWfTopMiscVon(struct ADAPTER *ad)
 	u4WrAddr = CONN_HOST_CSR_TOP_ADDR_WF_VON_MONFLG_EN_FR_HIF_ADDR;
 	u4WrVal = 0x00000001;
 	HAL_MCR_WR(ad, u4WrAddr, u4WrVal);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\tW 0x%08x=[0x%08x]\n",
 	       u4WrAddr, u4WrVal);
 
@@ -2450,7 +2450,7 @@ static void mt7925_dumpWfTopMiscVon(struct ADAPTER *ad)
 		u4WrVal = au4List[u4Idx];
 		HAL_MCR_WR(ad, u4WrAddr, u4WrVal);
 		HAL_MCR_RD(ad, u4RdAddr, &u4Val);
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"=PSOP_3_1_B%d=0x%08X=0x%08X\n",
 			indexB,
 			u4Val,
@@ -2503,7 +2503,7 @@ static void mt7925_dumpWfTopCfgon(struct ADAPTER *ad)
 	for (u4Idx = 0; u4Idx < ARRAY_SIZE(au4List); u4Idx++) {
 		u4RdAddr = au4List[u4Idx];
 		HAL_MCR_RD(ad, u4RdAddr, &u4Val);
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"=PSOP_3_1_C%d=0x%08X=0x%08X\n",
 			indexC,
 			u4Val,
@@ -2539,7 +2539,7 @@ static void mt7925_dumpHostVdnrTimeoutInfo(struct ADAPTER *ad)
 	u4WrVal = 0x4;
 	HAL_MCR_RD(ad, u4RdAddr, &u4Val);
 	HAL_MCR_WR(ad, u4WrAddr, u4WrVal);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"=PSOP_4_1_A%d=0x%08X=0x%08X\n",
 		indexA,
 		u4Val,
@@ -2552,7 +2552,7 @@ static void mt7925_dumpHostVdnrTimeoutInfo(struct ADAPTER *ad)
 		u4WrVal = au4List[u4Idx];
 		HAL_MCR_WR(ad, u4WrAddr, u4WrVal);
 		HAL_MCR_RD(ad, u4RdAddr, &u4Val);
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"=PSOP_4_1_A%d=0x%08X=0x%08X\n",
 			indexA,
 			u4Val,
@@ -2585,7 +2585,7 @@ static void mt7925_dumpWfVdnrTimeoutInfo(struct ADAPTER *ad)
 
 	u4RdAddr = 0x1802362C;
 	HAL_MCR_RD(ad, u4RdAddr, &u4Val);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"=PSOP_4_1_B%d=0x%08X=0x%08X\n",
 		indexB,
 		u4Val,
@@ -2604,7 +2604,7 @@ static void mt7925_dumpWfVdnrTimeoutInfo(struct ADAPTER *ad)
 	for (u4Idx = 0; u4Idx < ARRAY_SIZE(au4List); u4Idx++) {
 		u4RdAddr = au4List[u4Idx];
 		HAL_MCR_RD(ad, u4RdAddr, &u4Val);
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"=PSOP_4_1_B%d=0x%08X=0x%08X\n",
 			indexB,
 			u4Val,
@@ -2633,7 +2633,7 @@ static void mt7925_dumpAhbApbTimeoutInfo(struct ADAPTER *ad)
 	for (u4Idx = 0; u4Idx < ARRAY_SIZE(au4List); u4Idx++) {
 		u4RdAddr = au4List[u4Idx];
 		HAL_MCR_RD(ad, u4RdAddr, &u4Val);
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"=PSOP_4_1_C%d=0x%08X=0x%08X\n",
 			indexC,
 			u4Val,
@@ -2654,7 +2654,7 @@ static void mt7925_dumpWfBusReg(struct ADAPTER *ad)
 	mt7925_dumpAhbApbTimeoutInfo(ad);
 }
 
-void mt7925_DumpBusStatus(struct ADAPTER *ad)
+void mt7925_DumpBusHangCr(struct ADAPTER *ad)
 {
 	if (!ad) {
 		DBGLOG(HAL, ERROR, "NULL ADAPTER.\n");
@@ -2748,15 +2748,15 @@ void mt7925_get_rx_link_stats(struct ADAPTER *prAdapter,
 	uint32_t mcsIdx;
 
 	if (prAdapter->rWifiVar.fgLinkStatsDump)
-		DBGLOG(RX, DEBUG,
-			"RXV: pmbl=%lu nsts=%lu stbc=%lu bw=%lu mcs=%lu\n",
+		DBGLOG(RX, INFO, "RXV: pmbl=%u nsts=%u stbc=%u bw=%u mcs=%u",
 			RXV_GET_TXMODE(pu4RxV[2]),
 			RXV_GET_RX_NSTS(pu4RxV[0]),
 			RXV_GET_STBC(pu4RxV[2]),
 			RXV_GET_FR_MODE(pu4RxV[2]),
 			RXV_GET_RX_RATE(pu4RxV[0]));
 
-	if (!IS_RX_MPDU_BEGIN(prSwRfb->ucPayloadFormat))
+	if (!(prSwRfb->ucPayloadFormat == RX_PAYLOAD_FORMAT_MSDU ||
+		prSwRfb->ucPayloadFormat == RX_PAYLOAD_FORMAT_FIRST_SUB_AMSDU))
 		return;
 
 	rate.preamble = TX_MODE_2_LLS_MODE[RXV_GET_TXMODE(pu4RxV[2])];
@@ -2818,7 +2818,7 @@ void mt7925_get_rx_link_stats(struct ADAPTER *prAdapter,
 	}
 
 	if (prAdapter->rWifiVar.fgLinkStatsDump)
-		DBGLOG(RX, DEBUG, "rate preamble=%u, nss=%u, bw=%u, mcsIdx=%u",
+		DBGLOG(RX, INFO, "rate preamble=%u, nss=%u, bw=%u, mcsIdx=%u",
 			rate.preamble, rate.nss, rate.bw, mcsIdx);
 	return;
 
@@ -2839,7 +2839,7 @@ static u_int8_t usb_mt7925_ConninfraAp2WfRdableChk(struct ADAPTER *ad)
 /* CONN_DBG_CTL_WF_MCUSYS_INFRA_VDNR_GEN_DEBUG_CTRL_AO_BUS_TIMEOUT_IRQ_ADDR */
 	u4RdAddr = 0x1802362C;
 	HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	   "\tR 0x%08x=[0x%08x]\n",
 	   u4RdAddr, u4Val);
 
@@ -2847,7 +2847,7 @@ static u_int8_t usb_mt7925_ConninfraAp2WfRdableChk(struct ADAPTER *ad)
 	  MAP_DRIVER_SIDE(CONN_BUS_CR_ADDR_CONN2SUBSYS_0_AHB_GALS_DBG_ADDR);
 	HAL_UHW_RD_FIELD(ad, u4RdAddr, 26, BIT(26), &u4Val);
 	if (u4Val != 0) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 		  "conn2wf sleep protect not release, skip further sop dump!\n");
 
 		return FALSE;
@@ -2855,12 +2855,12 @@ static u_int8_t usb_mt7925_ConninfraAp2WfRdableChk(struct ADAPTER *ad)
 
 	u4RdAddr = 0x184B0010;
 	HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	   "\tR 0x%08x=[0x%08x]\n",
 	   u4RdAddr, u4Val);
 
 	if (u4Val != WIFI_IP_VER) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 		  "wifi IP ver not match, skip further sop dump!\n");
 
 		return FALSE;
@@ -2880,7 +2880,7 @@ static u_int8_t usb_mt7925_ConninfraOffRdableChk(struct ADAPTER *ad)
 	  MAP_DRIVER_SIDE(CONN_DBG_CTL_CONN_INFRA_BUS_CLK_DETECT_ADDR);
 	HAL_UHW_WR_FIELD(ad, u4Addr, 1, 0, 0x1);
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	   "\tW 0x%08x[0]=[0x1]\n", u4Addr);
 
 	for (i = 0; i <= CONNINFRA_OFF_POLLING_TIME; i++) {
@@ -2889,7 +2889,7 @@ static u_int8_t usb_mt7925_ConninfraOffRdableChk(struct ADAPTER *ad)
 		if (u4Val == 0x3)
 			break;
 		else if (i == CONNINFRA_OFF_POLLING_TIME) {
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 			  "clock not exist, skip further sop dump!\n");
 
 			return FALSE;
@@ -2898,12 +2898,12 @@ static u_int8_t usb_mt7925_ConninfraOffRdableChk(struct ADAPTER *ad)
 	}
 	u4RdAddr = MAP_DRIVER_SIDE(CONN_CFG_IP_VERSION_ADDR);
 	HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	   "\tR 0x%08x=[0x%08x]\n",
 	   u4RdAddr, u4Val);
 
 	if (u4Val != CONNINFRA_IP_VER) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 		  "IP ver not match, skip further sop dump!\n");
 
 		return FALSE;
@@ -2911,12 +2911,12 @@ static u_int8_t usb_mt7925_ConninfraOffRdableChk(struct ADAPTER *ad)
 	u4RdAddr =
 	  MAP_DRIVER_SIDE(CONN_DBG_CTL_CONN_INFRA_BUS_TIMEOUT_IRQ_ADDR);
 	HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	   "\tR 0x%08x=[0x%08x]\n",
 	   u4RdAddr, u4Val);
 
 	if (u4Val != 0) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 		  "conn_infra off bus maybe hang, skip further sop dump!\n");
 
 		return FALSE;
@@ -2933,12 +2933,12 @@ static u_int8_t usb_mt7925_ConninfraOnRdableChk(struct ADAPTER *ad)
 	HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
 	HAL_UHW_RD_FIELD(ad, u4RdAddr, 6, (BIT(6) | BIT(7)), &u4Val);
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	   "\tR 0x%08x[7:6]=[0x%08x]\n",
 	   u4RdAddr, u4Val);
 
 	if (u4Val != 0) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 		  "sleep protect not release, skip further sop dump!\n");
 		return FALSE;
 	}
@@ -2987,7 +2987,7 @@ u_int8_t fgOnDomain)
 					u4Addr,
 					&u4Val,
 					&fgStatus);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"=PSOP_2_1_B%d=0x%08X=0x%08X\n",
 					indexB,
 					u4Val,
@@ -3014,7 +3014,7 @@ u_int8_t fgOnDomain)
 					u4Addr,
 					&u4Val,
 					&fgStatus);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"=PSOP_2_1_C%d=0x%08X=0x%08X\n",
 					indexC,
 					u4Val,
@@ -3034,7 +3034,7 @@ u_int8_t fgOnDomain)
 		for (i = 0; i < size; i++) {
 			u4Addr = dump[i].addr;
 			u4Val = mtk_sys_usb_spi_read(ad, u4Addr);
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 				"=PSOP_2_1_D%d=0x%08X=0x%08X\n",
 				indexD[i],
 				u4Val,
@@ -3046,7 +3046,7 @@ u_int8_t fgOnDomain)
 		for (i = 0; i < size; i++) {
 			u4Addr = dump[i].addr;
 			u4Val = mtk_sys_usb_spi_read(ad, u4Addr);
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 				"=PSOP_2_1_E%d=0x%08X=0x%08X\n",
 				indexE,
 				u4Val,
@@ -3083,7 +3083,7 @@ static void usb_mt7925_dumpConninfraBusDbg(struct ADAPTER *ad,
 					u4Addr,
 					&u4Val,
 					&fgStatus);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"=PSOP_1_1_A%d=0x%08X=0x%08X\n",
 					indexA,
 					u4Val,
@@ -3112,7 +3112,7 @@ static void usb_mt7925_dumpConninfraBusDbg(struct ADAPTER *ad,
 					u4Addr,
 					&u4Val,
 					&fgStatus);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"=PSOP_1_1_B%d=0x%08X=0x%08X\n",
 					indexB,
 					u4Val,
@@ -3134,7 +3134,7 @@ static void usb_mt7925_dumpConninfraBusDbg(struct ADAPTER *ad,
 			HAL_UHW_WR(ad, u4WrAddr, u4Idx, &fgStatus);
 
 			HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 				"=PSOP_1_1_B%d=0x%08X=0x%08X\n",
 				indexB,
 				u4Val,
@@ -3146,7 +3146,7 @@ static void usb_mt7925_dumpConninfraBusDbg(struct ADAPTER *ad,
 			HAL_UHW_WR(ad, u4WrAddr, u4Idx, &fgStatus);
 
 			HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 				"=PSOP_1_1_B%d=0x%08X=0x%08X\n",
 				indexB,
 				u4Val,
@@ -3168,7 +3168,7 @@ static void usb_mt7925_dumpConninfraBusDbg(struct ADAPTER *ad,
 					u4Addr,
 					&u4Val,
 					&fgStatus);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"=PSOP_1_1_B%d=0x%08X=0x%08X\n",
 					indexB,
 					u4Val,
@@ -3196,7 +3196,7 @@ static void usb_mt7925_dumpConninfraBusDbg(struct ADAPTER *ad,
 					u4Addr,
 					&u4Val,
 					&fgStatus);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"=PSOP_1_1_C%d=0x%08X=0x%08X\n",
 					indexC,
 					u4Val,
@@ -3212,7 +3212,7 @@ static void usb_mt7925_dumpConninfraBusDbg(struct ADAPTER *ad,
 		}
 		u4Addr = 0x70028730;
 		HAL_UHW_RD(ad, u4Addr, &u4Val, &fgStatus);
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"=PSOP_1_1_C%d=0x%08X=0x%08X\n",
 			indexC, u4Val, u4Addr);
 	}
@@ -3244,7 +3244,7 @@ static void usb_mt7925_dumpConninfraClkDbg(struct ADAPTER *ad,
 					u4Addr,
 					&u4Val,
 					&fgStatus);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"=PSOP_8_1_A%d=0x%08X=0x%08X\n",
 					indexA,
 					u4Val,
@@ -3256,7 +3256,7 @@ static void usb_mt7925_dumpConninfraClkDbg(struct ADAPTER *ad,
 					dump[i].value,
 					dump[i].shift,
 					dump[i].mask);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"WR 0x%08x=0x%08x\n",
 					u4Addr,
 					dump[i].value);
@@ -3277,7 +3277,7 @@ static void usb_mt7925_dumpConninfraClkDbg(struct ADAPTER *ad,
 					u4Addr,
 					&u4Val,
 					&fgStatus);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"=PSOP_8_1_B%d=0x%08X=0x%08X\n",
 					indexB,
 					u4Val,
@@ -3289,7 +3289,7 @@ static void usb_mt7925_dumpConninfraClkDbg(struct ADAPTER *ad,
 					dump[i].value,
 					dump[i].shift,
 					dump[i].mask);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"WR 0x%08x=0x%08x\n",
 					u4Addr,
 					dump[i].value);
@@ -3308,7 +3308,7 @@ static void usb_mt7925_dumpConninfraReg(struct ADAPTER *ad)
 
 	u4RdAddr = MAP_DRIVER_SIDE(CONN_HOST_CSR_TOP_CONNSYS_PWR_STATES_ADDR);
 	HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\tR 0x%08x=[0x%08x]\n",
 	       u4RdAddr, u4Val);
 
@@ -3341,7 +3341,7 @@ static void usb_mt7925_dumpWfTopMiscOn(struct ADAPTER *ad)
 	  MAP_DRIVER_SIDE(CONN_HOST_CSR_TOP_WF_ON_MONFLG_EN_FR_HIF_ADDR);
 	u4WrVal = 0x00000001;
 	HAL_UHW_WR(ad, u4WrAddr, u4WrVal, &fgStatus);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\tW 0x%08x=[0x%08x]\n",
 	       u4WrAddr, u4WrVal);
 
@@ -3353,7 +3353,7 @@ static void usb_mt7925_dumpWfTopMiscOn(struct ADAPTER *ad)
 		u4WrVal = au4List[u4Idx];
 		HAL_UHW_WR(ad, u4WrAddr, u4WrVal, &fgStatus);
 		HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"=PSOP_3_1_A%d=0x%08X=0x%08X\n",
 			indexA,
 			u4Val,
@@ -3376,7 +3376,7 @@ static void usb_mt7925_dumpWfTopMiscVon(struct ADAPTER *ad)
 	  MAP_DRIVER_SIDE(CONN_HOST_CSR_TOP_ADDR_WF_VON_MONFLG_EN_FR_HIF_ADDR);
 	u4WrVal = 0x00000001;
 	HAL_UHW_WR(ad, u4WrAddr, u4WrVal, &fgStatus);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\tW 0x%08x=[0x%08x]\n",
 	       u4WrAddr, u4WrVal);
 
@@ -3388,7 +3388,7 @@ static void usb_mt7925_dumpWfTopMiscVon(struct ADAPTER *ad)
 		u4WrVal = au4List[u4Idx];
 		HAL_UHW_WR(ad, u4WrAddr, u4WrVal, &fgStatus);
 		HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"=PSOP_3_1_B%d=0x%08X=0x%08X\n",
 			indexB,
 			u4Val,
@@ -3418,7 +3418,7 @@ static void usb_mt7925_dumpWfTopCfgon(struct ADAPTER *ad)
 	for (u4Idx = 0; u4Idx < ARRAY_SIZE(au4List); u4Idx++) {
 		u4RdAddr = au4List[u4Idx];
 		HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"=PSOP_3_1_C%d=0x%08X=0x%08X\n",
 			indexC,
 			u4Val,
@@ -3444,14 +3444,14 @@ static void usb_mt7925_dumpHostVdnrTimeoutInfo(struct ADAPTER *ad)
 	u4WrVal = 0x4;
 
 	HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"=PSOP_4_1_A%d=0x%08X=0x%08X\n",
 		indexA,
 		u4Val,
 		u4RdAddr);
 	indexA++;
 	HAL_UHW_WR(ad, u4WrAddr, u4WrVal, &fgStatus);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\tR 0x%08x=[0x%08x], W 0x%08x=[0x%08x]\n",
 	       u4RdAddr, u4Val, u4WrAddr, u4WrVal);
 
@@ -3463,7 +3463,7 @@ static void usb_mt7925_dumpHostVdnrTimeoutInfo(struct ADAPTER *ad)
 		u4WrVal = au4List[u4Idx];
 		HAL_UHW_WR(ad, u4WrAddr, u4WrVal, &fgStatus);
 		HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"=PSOP_4_1_A%d=0x%08X=0x%08X\n",
 			indexA,
 			u4Val,
@@ -3488,7 +3488,7 @@ static void usb_mt7925_dumpWfVdnrTimeoutInfo(struct ADAPTER *ad)
 
 	u4RdAddr = 0x1802362C;
 	HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 		"=PSOP_4_1_B%d=0x%08X=0x%08X\n",
 		indexB,
 		u4Val,
@@ -3503,7 +3503,7 @@ static void usb_mt7925_dumpWfVdnrTimeoutInfo(struct ADAPTER *ad)
 	u4WrAddr = 0x18400120;
 	u4WrVal = 0x810F0000;
 	HAL_UHW_WR(ad, u4WrAddr, u4WrVal, &fgStatus);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\tW 0x%08x=[0x%08x]\n",
 	       u4WrAddr, u4WrVal);
 	indexB++;
@@ -3511,7 +3511,7 @@ static void usb_mt7925_dumpWfVdnrTimeoutInfo(struct ADAPTER *ad)
 	for (u4Idx = 0; u4Idx < ARRAY_SIZE(au4List); u4Idx++) {
 		u4RdAddr = au4List[u4Idx];
 		HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"=PSOP_4_1_B%d=0x%08X=0x%08X\n",
 			indexB,
 			u4Val,
@@ -3536,14 +3536,14 @@ static void usb_mt7925_dumpAhbApbTimeoutInfo(struct ADAPTER *ad)
 	u4WrAddr = 0x18400120;
 	u4WrVal = 0x830C0000;
 	HAL_UHW_WR(ad, u4WrAddr, u4WrVal, &fgStatus);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\tW 0x%08x=[0x%08x]\n",
 	       u4WrAddr, u4WrVal);
 
 	for (u4Idx = 0; u4Idx < ARRAY_SIZE(au4List); u4Idx++) {
 		u4RdAddr = au4List[u4Idx];
 		HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 			"=PSOP_4_1_C%d=0x%08X=0x%08X\n",
 			indexC,
 			u4Val,
@@ -3613,7 +3613,7 @@ u_int8_t mt7925_usb_show_mcu_debug_info(struct ADAPTER *ad,
 
 	HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
 
-	DBGLOG(INIT, DEBUG, "Current PC LOG: 0x%08x\n", u4Val);
+	DBGLOG(INIT, INFO, "Current PC LOG: 0x%08x\n", u4Val);
 	if (pucBuf)
 		LOGBUF(pucBuf, u4Max, *pu4Length,
 		"Current PC LOG: 0x%08x\n", u4Val);
@@ -3634,10 +3634,10 @@ u_int8_t mt7925_usb_show_mcu_debug_info(struct ADAPTER *ad,
 
 		HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
 
-		DBGLOG(INIT, DEBUG, "PC log control=0x%08x\n", u4Val);
+		DBGLOG(INIT, INFO, "PC log contorl=0x%08x\n", u4Val);
 		if (pucBuf)
 			LOGBUF(pucBuf, u4Max, *pu4Length,
-			"PC log control=0x%08x\n", u4Val);
+			"PC log contorl=0x%08x\n", u4Val);
 
 		u4Addr =
 		  MAP_DRIVER_SIDE(CONN_DBG_CTL_WF_MCU_DBG_PC_LOG_SEL_ADDR);
@@ -3654,7 +3654,7 @@ u_int8_t mt7925_usb_show_mcu_debug_info(struct ADAPTER *ad,
 
 		HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
 
-		DBGLOG(INIT, DEBUG, "PC log(%d)=0x%08x\n", i, u4Val);
+		DBGLOG(INIT, INFO, "PC log(%d)=0x%08x\n", i, u4Val);
 		if (pucBuf)
 			LOGBUF(pucBuf, u4Max, *pu4Length,
 			"PC log(%d)=0x%08x\n", i, u4Val);
@@ -3680,7 +3680,7 @@ u_int8_t mt7925_usb_show_mcu_debug_info(struct ADAPTER *ad,
 
 		HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
 
-		DBGLOG(INIT, DEBUG, "LR log control=0x%08x\n", u4Val);
+		DBGLOG(INIT, INFO, "LR log contorl=0x%08x\n", u4Val);
 
 		u4Addr =
 		  MAP_DRIVER_SIDE(CONN_DBG_CTL_WF_MCU_DBG_GPR_LOG_SEL_ADDR);
@@ -3690,7 +3690,7 @@ u_int8_t mt7925_usb_show_mcu_debug_info(struct ADAPTER *ad,
 
 		if (pucBuf)
 			LOGBUF(pucBuf, u4Max, *pu4Length,
-			"LR log control=0x%08x\n", u4Val);
+			"LR log contorl=0x%08x\n", u4Val);
 
 		for (i = 0; i < GPR_LOG_NUM_CE; i++) {
 			HAL_UHW_WR_FIELD(ad,
@@ -3701,7 +3701,7 @@ u_int8_t mt7925_usb_show_mcu_debug_info(struct ADAPTER *ad,
 
 			HAL_UHW_RD(ad, u4RdAddr, &u4Val, &fgStatus);
 
-			DBGLOG(INIT, DEBUG, "LR log(%d)=0x%08x\n", i, u4Val);
+			DBGLOG(INIT, INFO, "LR log(%d)=0x%08x\n", i, u4Val);
 			if (pucBuf)
 				LOGBUF(pucBuf, u4Max, *pu4Length,
 				"LR log(%d)=0x%08x\n", i, u4Val);
@@ -3738,12 +3738,12 @@ static u_int8_t mt7925_ConninfraOnRdableChk(struct ADAPTER *ad)
 	HAL_MCR_RD(ad, u4RdAddr, &u4Val);
 	HAL_MCR_RD_FIELD(ad, u4RdAddr, 6, (BIT(6) | BIT(7)), &u4Val);
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	   "\tR 0x%08x[7:6]=[0x%08x]\n",
 	   u4RdAddr, u4Val);
 
 	if (u4Val != 0) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 		  "sleep protect not release, skip further sop dump!\n");
 		return FALSE;
 	}
@@ -3761,7 +3761,7 @@ static u_int8_t mt7925_ConninfraOffRdableChk(struct ADAPTER *ad)
 	u4Addr = CONN_DBG_CTL_CONN_INFRA_BUS_CLK_DETECT_ADDR;
 	HAL_MCR_WR_FIELD(ad, u4Addr, 1, 0, 0x1);
 
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	   "\tW 0x%08x[0]=[0x1]\n", u4Addr);
 
 	for (i = 0; i <= CONNINFRA_OFF_POLLING_TIME; i++) {
@@ -3770,7 +3770,7 @@ static u_int8_t mt7925_ConninfraOffRdableChk(struct ADAPTER *ad)
 		if (u4Val == 0x3)
 			break;
 		else if (i == CONNINFRA_OFF_POLLING_TIME) {
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 			  "clock not exist, skip further sop dump!\n");
 
 			return FALSE;
@@ -3779,24 +3779,24 @@ static u_int8_t mt7925_ConninfraOffRdableChk(struct ADAPTER *ad)
 	}
 	u4RdAddr = CONN_CFG_IP_VERSION_ADDR;
 	HAL_MCR_RD(ad, u4RdAddr, &u4Val);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	   "\tR 0x%08x=[0x%08x]\n",
 	   u4RdAddr, u4Val);
 
 	if (u4Val != CONNINFRA_IP_VER) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 		  "IP ver not match, skip further sop dump!\n");
 
 		return FALSE;
 	}
 	u4RdAddr = CONN_DBG_CTL_CONN_INFRA_BUS_TIMEOUT_IRQ_ADDR;
 	HAL_MCR_RD(ad, u4RdAddr, &u4Val);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	   "\tR 0x%08x=[0x%08x]\n",
 	   u4RdAddr, u4Val);
 
 	if (u4Val != 0) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 		  "conn_infra off bus maybe hang, skip further sop dump!\n");
 
 		return FALSE;
@@ -3814,14 +3814,14 @@ static u_int8_t mt7925_ConninfraAp2WfRdableChk(struct ADAPTER *ad)
 /* CONN_DBG_CTL_WF_MCUSYS_INFRA_VDNR_GEN_DEBUG_CTRL_AO_BUS_TIMEOUT_IRQ_ADDR */
 	u4RdAddr = 0x7C02362C;
 	HAL_MCR_RD(ad, u4RdAddr, &u4Val);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	   "\tR 0x%08x=[0x%08x]\n",
 	   u4RdAddr, u4Val);
 
 	u4RdAddr = CONN_BUS_CR_ADDR_CONN2SUBSYS_0_AHB_GALS_DBG_ADDR;
 	HAL_MCR_RD_FIELD(ad, u4RdAddr, 26, BIT(26), &u4Val);
 	if (u4Val != 0) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 		  "conn2wf sleep protect not release, skip further sop dump!\n");
 
 		return FALSE;
@@ -3829,12 +3829,12 @@ static u_int8_t mt7925_ConninfraAp2WfRdableChk(struct ADAPTER *ad)
 
 	u4RdAddr = 0x184B0010;
 	HAL_MCR_RD(ad, u4RdAddr, &u4Val);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	   "\tR 0x%08x=[0x%08x]\n",
 	   u4RdAddr, u4Val);
 
 	if (u4Val != WIFI_IP_VER) {
-		DBGLOG(HAL, DEBUG,
+		DBGLOG(HAL, INFO,
 		  "wifi IP ver not match, skip further sop dump!\n");
 
 		return FALSE;
@@ -3862,7 +3862,7 @@ static void mt7925_dumpConninfraPwrDbg(struct ADAPTER *ad, u_int8_t fgOnDomain)
 				HAL_MCR_RD(ad,
 					dump[i].addr,
 					&u4Val);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"=PSOP_2_1_B%d=0x%08X=0x%08X\n",
 					indexB,
 					u4Val,
@@ -3884,7 +3884,7 @@ static void mt7925_dumpConninfraPwrDbg(struct ADAPTER *ad, u_int8_t fgOnDomain)
 				HAL_MCR_RD(ad,
 					dump[i].addr,
 					&u4Val);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"=PSOP_2_1_C%d=0x%08X=0x%08X\n",
 					indexC,
 					u4Val,
@@ -3902,7 +3902,7 @@ static void mt7925_dumpConninfraPwrDbg(struct ADAPTER *ad, u_int8_t fgOnDomain)
 		size = ARRAY_SIZE(conninfra_pwr_adie_common_dump_list);
 		for (i = 0; i < size; i++) {
 			u4Val = mtk_sys_pci_spi_read(ad, dump[i].addr);
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 				"=PSOP_2_1_D%d=0x%08X=0x%08X\n",
 				indexD[i],
 				u4Val,
@@ -3913,7 +3913,7 @@ static void mt7925_dumpConninfraPwrDbg(struct ADAPTER *ad, u_int8_t fgOnDomain)
 		size = ARRAY_SIZE(conninfra_pwr_adie_7971_dump_list);
 		for (i = 0; i < size; i++) {
 			u4Val = mtk_sys_pci_spi_read(ad, dump[i].addr);
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 				"=PSOP_2_1_E%d=0x%08X=0x%08X\n",
 				indexE,
 				u4Val,
@@ -3942,7 +3942,7 @@ static void mt7925_dumpConninfraBusDbg(struct ADAPTER *ad,
 				HAL_MCR_RD(ad,
 					   dump[i].addr,
 					   &u4Val);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"=PSOP_1_1_A%d=0x%08X=0x%08X\n",
 					indexA,
 					u4Val,
@@ -3964,7 +3964,7 @@ static void mt7925_dumpConninfraBusDbg(struct ADAPTER *ad,
 				HAL_MCR_RD(ad,
 					   dump[i].addr,
 					   &u4Val);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"=PSOP_1_1_B%d=0x%08X=0x%08X\n",
 					indexB,
 					u4Val,
@@ -3984,7 +3984,7 @@ static void mt7925_dumpConninfraBusDbg(struct ADAPTER *ad,
 			HAL_MCR_WR(ad, u4WrAddr, u4Idx);
 
 			HAL_MCR_RD(ad, u4RdAddr, &u4Val);
-			DBGLOG(HAL, DEBUG,
+			DBGLOG(HAL, INFO,
 				"=PSOP_1_1_B%d=0x%08X=0x%08X\n",
 				indexB,
 				u4Val,
@@ -3999,7 +3999,7 @@ static void mt7925_dumpConninfraBusDbg(struct ADAPTER *ad,
 				HAL_MCR_RD(ad,
 					   dump[i].addr,
 					   &u4Val);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 				"=PSOP_1_1_B%d=0x%08X=0x%08X\n",
 				indexB,
 				u4Val,
@@ -4020,7 +4020,7 @@ static void mt7925_dumpConninfraBusDbg(struct ADAPTER *ad,
 				HAL_MCR_RD(ad,
 					   dump[i].addr,
 					   &u4Val);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 				"=PSOP_1_1_C%d=0x%08X=0x%08X\n",
 				indexC,
 				u4Val,
@@ -4055,7 +4055,7 @@ static void mt7925_dumpConninfraClkDbg(struct ADAPTER *ad,
 				HAL_MCR_RD(ad,
 					   dump[i].addr,
 					   &u4Val);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"=PSOP_8_1_A%d=0x%08X=0x%08X\n",
 					indexA,
 					u4Val,
@@ -4077,7 +4077,7 @@ static void mt7925_dumpConninfraClkDbg(struct ADAPTER *ad,
 				HAL_MCR_RD(ad,
 					   dump[i].addr,
 					   &u4Val);
-				DBGLOG(HAL, DEBUG,
+				DBGLOG(HAL, INFO,
 					"=PSOP_8_1_B%d=0x%08X=0x%08X\n",
 					indexB,
 					u4Val,
@@ -4104,7 +4104,7 @@ static void mt7925_dumpConninfraReg(struct ADAPTER *ad)
 
 	u4RdAddr = CONN_HOST_CSR_TOP_CONNSYS_PWR_STATES_ADDR;
 	HAL_MCR_RD(ad, u4RdAddr, &u4Val);
-	DBGLOG(HAL, DEBUG,
+	DBGLOG(HAL, INFO,
 	       "\tR 0x%08x=[0x%08x]\n",
 	       u4RdAddr, u4Val);
 
@@ -4177,7 +4177,7 @@ u_int8_t mt7925_pcie_show_mcu_debug_info(struct ADAPTER *ad,
 		CONN_DBG_CTL_WF_MCU_DBG_PC_LOG_ADDR,
 		&u4Val);
 
-	DBGLOG(INIT, DEBUG, "Current PC LOG: 0x%08x\n", u4Val);
+	DBGLOG(INIT, INFO, "Current PC LOG: 0x%08x\n", u4Val);
 	if (pucBuf)
 		LOGBUF(pucBuf, u4Max, *pu4Length,
 		"Current PC LOG: 0x%08x\n", u4Val);
@@ -4198,10 +4198,10 @@ u_int8_t mt7925_pcie_show_mcu_debug_info(struct ADAPTER *ad,
 			CONN_DBG_CTL_WF_MCU_DBG_PC_LOG_ADDR,
 			&u4Val);
 
-		DBGLOG(INIT, DEBUG, "PC log control=0x%08x\n", u4Val);
+		DBGLOG(INIT, INFO, "PC log contorl=0x%08x\n", u4Val);
 		if (pucBuf)
 			LOGBUF(pucBuf, u4Max, *pu4Length,
-			"PC log control=0x%08x\n", u4Val);
+			"PC log contorl=0x%08x\n", u4Val);
 
 		for (i = 0; i < PC_LOG_NUM_CE; i++) {
 			HAL_MCR_WR_FIELD(ad,
@@ -4213,7 +4213,7 @@ u_int8_t mt7925_pcie_show_mcu_debug_info(struct ADAPTER *ad,
 			  CONN_DBG_CTL_WF_MCU_DBG_PC_LOG_ADDR,
 			  &u4Val);
 
-			DBGLOG(INIT, DEBUG, "PC log(%d)=0x%08x\n", i, u4Val);
+			DBGLOG(INIT, INFO, "PC log(%d)=0x%08x\n", i, u4Val);
 			if (pucBuf)
 				LOGBUF(pucBuf, u4Max, *pu4Length,
 				"PC log(%d)=0x%08x\n", i, u4Val);
@@ -4231,10 +4231,10 @@ u_int8_t mt7925_pcie_show_mcu_debug_info(struct ADAPTER *ad,
 		HAL_MCR_RD(ad,
 			CONN_DBG_CTL_WF_MCU_GPR_BUS_DBGOUT_LOG_ADDR,
 			&u4Val);
-		DBGLOG(INIT, DEBUG, "LR log control=0x%08x\n", u4Val);
+		DBGLOG(INIT, INFO, "LR log contorl=0x%08x\n", u4Val);
 		if (pucBuf)
 			LOGBUF(pucBuf, u4Max, *pu4Length,
-			"LR log control=0x%08x\n", u4Val);
+			"LR log contorl=0x%08x\n", u4Val);
 
 		for (i = 0; i < GPR_LOG_NUM_CE; i++) {
 			HAL_MCR_WR_FIELD(ad,
@@ -4245,7 +4245,7 @@ u_int8_t mt7925_pcie_show_mcu_debug_info(struct ADAPTER *ad,
 			HAL_MCR_RD(ad,
 			  CONN_DBG_CTL_WF_MCU_GPR_BUS_DBGOUT_LOG_ADDR,
 			  &u4Val);
-			DBGLOG(INIT, DEBUG, "LR log(%d)=0x%08x\n", i, u4Val);
+			DBGLOG(INIT, INFO, "LR log(%d)=0x%08x\n", i, u4Val);
 			if (pucBuf)
 				LOGBUF(pucBuf, u4Max, *pu4Length,
 				"LR log(%d)=0x%08x\n", i, u4Val);
@@ -4278,5 +4278,4 @@ u_int8_t mt7925_show_debug_sop_info(struct ADAPTER *ad,
 
 	return TRUE;
 }
-#endif /* DBG_DISABLE_ALL_INFO */
 #endif /* MT7925 */

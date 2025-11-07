@@ -17,7 +17,6 @@ int wlan_precal_docal_v2(void);
 int wlan_precal_err(void);
 void set_cal_enabled(u_int8_t enabled);
 u_int8_t is_cal_flow_finished(void);
-void wlan_precal_done_notify(void);
 #endif
 uint32_t wlanPhyAction(struct ADAPTER *prAdapter);
 void wlanCalDebugCmd(uint32_t cmd, uint32_t para);
@@ -25,4 +24,5 @@ void wlanCalDebugCmd(uint32_t cmd, uint32_t para);
 static void set_cal_enabled(u_int8_t enabled) {}
 static u_int8_t is_cal_flow_finished(void) { return TRUE; }
 #endif
+
 #endif

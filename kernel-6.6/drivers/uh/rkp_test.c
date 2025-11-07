@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 #include <linux/module.h>
 #include <linux/sched/signal.h>
 #include <linux/proc_fs.h>
@@ -25,41 +26,6 @@
 /* BUF define */
 #define RKP_BUF_SIZE	8192
 #define RKP_LINE_MAX	80
-
-/* FIMC */
-#define CDH_SIZE		SZ_128K		/* CDH : Camera Debug Helper */
-#define IS_RCHECKER_SIZE_RO	(SZ_4M + SZ_1M)
-#define IS_RCHECKER_SIZE_RW	(SZ_256K)
-#define RCHECKER_SIZE	(IS_RCHECKER_SIZE_RO + IS_RCHECKER_SIZE_RW)
-
-#ifdef CONFIG_KASAN
-#define LIB_OFFSET		(VMALLOC_START + 0xF6000000 - 0x8000000)
-#else
-#define LIB_OFFSET		(VMALLOC_START + 0x1000000000UL + 0xF6000000 - 0x8000000)
-#endif
-
-#define __LIB_START		(LIB_OFFSET + 0x04000000 - CDH_SIZE)
-#define LIB_START		(__LIB_START)
-
-#define VRA_LIB_ADDR	(LIB_START + CDH_SIZE)
-#define VRA_LIB_SIZE	(SZ_512K + SZ_256K)
-
-#define DDK_LIB_ADDR	(LIB_START + VRA_LIB_SIZE + CDH_SIZE)
-#define DDK_LIB_SIZE	((SZ_2M + SZ_1M + SZ_256K) + SZ_1M + RCHECKER_SIZE)
-
-#define RTA_LIB_ADDR	(LIB_START + VRA_LIB_SIZE + DDK_LIB_SIZE + CDH_SIZE)
-#define RTA_LIB_SIZE	(SZ_2M + SZ_2M)
-
-#define VRA_CODE_SIZE	SZ_512K
-#define VRA_DATA_SIZE	SZ_256K
-
-#define DDK_CODE_SIZE	(SZ_2M + SZ_1M + SZ_256K + IS_RCHECKER_SIZE_RO)
-#define DDK_DATA_SIZE	SZ_1M
-
-#define RTA_CODE_SIZE	SZ_2M
-#define RTA_DATA_SIZE	SZ_2M
-
-#define LIB_END			(RTA_LIB_ADDR + RTA_CODE_SIZE + RTA_DATA_SIZE)
 
 static char rkp_test_buf[RKP_BUF_SIZE];
 static unsigned long rkp_test_len = 0;
@@ -383,8 +349,9 @@ static void walk_pgd(struct mm_struct *mm, int level, struct test_data *test)
 #define ALLOC_DELAY 10
 #define ALLOC_TRY_MAX 20
 
-static int test_case_guest_mem_alloc_and_free(void) {
-	u64* robufs;
+static int test_case_guest_mem_alloc_and_free(void)
+{
+	u64 *robufs;
 	int i, size = 0, alloc_try_cnt;
 
 	robufs = kmalloc_array(ROBUFS_MAX, sizeof(u64), GFP_KERNEL);
@@ -488,22 +455,10 @@ static int test_case_kernel_range_rwx(void)
 	u64 va_temp;
 
 	struct mem_range test_ranges[] = {
-		{(u64)VMALLOC_START, ((u64)_text) - ((u64)VMALLOC_START), "VMALLOC -  STEXT", false, true},
-		{((u64)_text), ((u64)_etext) - ((u64)_text), "STEXT - ETEXT", true, false},
+		{(u64)VMALLOC_START, ((u64)_stext) - ((u64)VMALLOC_START), "VMALLOC - STEXT", false, true},
+		{((u64)_stext), ((u64)_etext) - ((u64)_stext), "STEXT - ETEXT", true, false},
 		{((u64)_etext), ((u64) __end_rodata) - ((u64)_etext), "ETEXT - ERODATA", true, true},
-#ifdef CONFIG_USE_DIRECT_IS_CONTROL /* FIMC */
-		{((u64) __end_rodata), VRA_LIB_ADDR-((u64) __end_rodata), "ERODATA - S_FIMC", false, true},
-		{VRA_LIB_ADDR, VRA_CODE_SIZE, "VRA CODE", true, false},
-		{VRA_LIB_ADDR + VRA_CODE_SIZE, VRA_DATA_SIZE, "VRA DATA", false, true},
-		{DDK_LIB_ADDR, DDK_CODE_SIZE, "DDK CODE", true, false},
-		{DDK_LIB_ADDR + DDK_CODE_SIZE, DDK_DATA_SIZE, "DDK_DATA", false, true},
-		{RTA_LIB_ADDR, RTA_CODE_SIZE, "RTA CODE", true, false},
-		{RTA_LIB_ADDR + RTA_CODE_SIZE, RTA_DATA_SIZE, "RTA DATA", false, true},
-		{LIB_END, MEM_END - LIB_END, "E_FIMC - MEM END", false, true},
-#else
-		{((u64) __end_rodata), MEM_END-((u64) __end_rodata), "ERODATA -MEM_END", false, true},
-#endif
-
+		{((u64)__end_rodata), MEM_END -((u64)__end_rodata), "ERODATA - MEM_END", false, true},
 	};
 	int len = sizeof(test_ranges)/sizeof(struct mem_range);
 
@@ -567,7 +522,7 @@ ssize_t	rkp_read(struct file *filep, char __user *buffer, size_t count, loff_t *
 	};
 	int tc_num = sizeof(tc_funcs)/sizeof(struct test_case);
 
-	static bool done = false;
+	static bool done;
 
 	if (done)
 		return 0;

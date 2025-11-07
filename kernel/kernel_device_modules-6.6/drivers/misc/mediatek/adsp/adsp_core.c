@@ -132,6 +132,32 @@ bool has_system_l2sram(void)
 }
 EXPORT_SYMBOL(has_system_l2sram);
 
+int adsp_copy_to_sharedmem_tcm(struct adsp_priv *pdata, int id, const void *src,
+			   int count)
+{
+	void __iomem *dst = NULL;
+	const struct sharedmem_info *item;
+
+	if (unlikely(id >= ADSP_SHAREDMEM_NUM))
+		return 0;
+
+	item = pdata->mapping_table + id;
+
+	if (item->offset)
+		dst = pdata->dtcm + pdata->dtcm_size - item->offset;
+
+	if (unlikely(!dst || !src))
+		return 0;
+
+	if (count > item->size)
+		count = item->size;
+
+	memcpy_toio(dst, src, count);
+
+	return count;
+}
+EXPORT_SYMBOL(adsp_copy_to_sharedmem_tcm);
+
 int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, const void *src,
 			   int count)
 {
@@ -633,6 +659,9 @@ int adsp_reset(void)
 		/* v1: adsp mpu info reinit */
 		if (adspsys->desc->version == 1)
 			adsp_update_mpu_memory_info(pdata);
+
+		if ((cid == 0) && (get_adsp_core_total() > 1))
+			adsp_update_c2c_memory_info(pdata); /* only 2 core needed */
 
 		reinit_completion(&pdata->done);
 		adsp_core_start(cid);

@@ -4367,7 +4367,7 @@ static kal_uint32 get_sensor_temperature(void)
 	/* LOG_INF("temp_c(%d), read_reg(%d)\n", */
 	/* temperature_convert, temperature); */
 
-	return temperature_convert;
+	return (temperature_convert < 0) ? 0 : temperature_convert;
 }
 
 static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,

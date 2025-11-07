@@ -131,22 +131,19 @@ static void mdw_mem_delete(struct mdw_mem *m)
 static struct mdw_mem *mdw_mem_create(struct mdw_fpriv *mpriv)
 {
 	struct mdw_mem *m = NULL;
-	struct mdw_device *mdev = mpriv->mdev;
 
 	m = kzalloc(sizeof(*m), GFP_KERNEL);
 	if (m) {
 		m->mpriv = mpriv;
 		m->release = mdw_mem_delete;
 		m->handle = -1;
+		m->belong_list = false;
 		m->pool = NULL;
 		INIT_LIST_HEAD(&m->p_chunk);
 		mutex_init(&m->mtx);
 		INIT_LIST_HEAD(&m->maps);
 		mdw_mem_show(m);
 		mpriv->get(mpriv);
-		mutex_lock(&mdev->m_mtx);
-		list_add_tail(&m->d_node, &mdev->m_list);
-		mutex_unlock(&mdev->m_mtx);
 	}
 
 	return m;
@@ -216,6 +213,7 @@ struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, enum mdw_mem_type type,
 	uint64_t size, uint64_t align, uint64_t flags, bool need_handle)
 {
 	struct mdw_mem *m = NULL;
+	struct mdw_device *mdev = mpriv->mdev;
 	int ret = -EINVAL;
 
 	mdw_trace_begin("apumdw:mem_alloc|size:%llu align:%llu",
@@ -233,7 +231,6 @@ struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, enum mdw_mem_type type,
 	m->type = type;
 	m->belong_apu = true;
 	m->need_handle = need_handle;
-	list_add_tail(&m->u_item, &mpriv->mems);
 
 	/* alloc mem */
 	ret = mdw_mem_alloc_internal(m);
@@ -253,13 +250,21 @@ struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, enum mdw_mem_type type,
 			goto out;
 		}
 	}
+	/* insert to list */
+	mutex_lock(&mdev->m_mtx);
+	if (m->belong_list == false) {
+		list_add_tail(&m->d_node, &mdev->m_list);
+		list_add_tail(&m->u_item, &mpriv->mems);
+		m->belong_list = true;
+	}
+	mutex_unlock(&mdev->m_mtx);
 
 	mdw_mem_show(m);
 	goto out;
 
 delete_mem:
 	/* delete mem struct */
-	mdw_mem_release(m, true);
+	kfree(m);
 	m = NULL;
 out:
 	mdw_trace_end();
@@ -830,14 +835,23 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 	ret = mdw_mem_map(mpriv, m);
 	if (ret && m->belong_apu == false) {
 		mdw_drv_err("map dmabuf(%d) fail\n", handle);
-		mdw_mem_release(m, true);
-		m = NULL;
-		goto out;
+		goto delete_mem;
 	}
+	/* insert to mdev m_list */
+	mutex_lock(&mpriv->mdev->m_mtx);
+	if (m->belong_list == false) {
+		list_add_tail(&m->d_node, &mpriv->mdev->m_list);
+		m->belong_list = true;
+	}
+	mutex_unlock(&mpriv->mdev->m_mtx);
+
 
 	mdw_mem_show(m);
 	goto out;
 
+delete_mem:
+	kfree(m);
+	m = NULL;
 out:
 	if (m) {
 		args->out.map.device_va = m->device_va;

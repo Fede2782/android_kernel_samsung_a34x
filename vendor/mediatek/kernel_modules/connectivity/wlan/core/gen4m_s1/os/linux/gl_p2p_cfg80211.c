@@ -4428,7 +4428,7 @@ int mtk_p2p_cfg80211_testmode_sw_cmd(IN struct wiphy *wiphy,
 		prParams = (struct NL80211_DRIVER_SW_CMD_PARAMS *) data;
 		if (prParams->set == 1) {
 			rstatus = kalIoctl(prGlueInfo,
-				(PFN_OID_HANDLER_FUNC) wlanoidSetSwCtrlWrite,
+				wlanoidSetSwCtrlWrite,
 				&prParams->adr, (uint32_t) 8,
 				FALSE, FALSE, TRUE, &u4SetInfoLen);
 		}

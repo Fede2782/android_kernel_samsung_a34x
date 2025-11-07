@@ -172,7 +172,7 @@ static int mtk_qinspect_cpuq_internal_dump(struct kbase_context *kctx, enum mtk_
 #endif /* CONFIG_MALI_MTK_CPUQ_DUMP_ENHANCEMENT*/
 	mutex_unlock(&kctx->csf.lock);
 
-	timeout = wait_for_completion_timeout(&kctx->csf.cpu_queue.dump_cmp, msecs_to_jiffies(3000));
+	timeout = wait_for_completion_timeout(&kctx->csf.cpu_queue.dump_cmp, msecs_to_jiffies(500));
 
 	mutex_lock(&kctx->csf.lock);
 #if IS_ENABLED(CONFIG_MALI_MTK_CPUQ_DUMP_ENHANCEMENT)

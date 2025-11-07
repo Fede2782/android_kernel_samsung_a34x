@@ -72,7 +72,7 @@ struct apummu_tbl {
 
 int ammu_DRAM_FB_alloc(uint64_t session, uint32_t vlm_size, uint32_t subcmd_num);
 int addr_encode_and_write_stable(enum AMMU_BUF_TYPE type, uint64_t session,
-			uint64_t iova, uint32_t buf_size, uint64_t *eva);
+			uint64_t iova, uint64_t buf_size, uint64_t *eva);
 int apummu_eva_decode(uint64_t eva, uint64_t *iova, enum AMMU_BUF_TYPE type);
 int apummu_stable_buffer_remove(uint64_t session, uint64_t device_va,
 			uint32_t buf_size);

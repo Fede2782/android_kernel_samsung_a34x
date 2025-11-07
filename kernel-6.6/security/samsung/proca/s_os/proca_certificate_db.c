@@ -437,6 +437,7 @@ int load_db(const char *file_path,
 	db = &proca_db->proca_certificates_db;
 	res = parse_proca_db(data_buff, db_size, db);
 	if (res) {
+		atomic_set(&proca_db->status, FAILED);
 		mutex_unlock(&proca_db->lock);
 		PROCA_ERROR_LOG("Failed to parse DB asn1 data\n");
 		deinit_proca_db(proca_db);
@@ -448,6 +449,7 @@ int load_db(const char *file_path,
 	else {
 		res = proca_verify_digsig(proca_db);
 		if (res) {
+			atomic_set(&proca_db->status, FAILED);
 			mutex_unlock(&proca_db->lock);
 			PROCA_ERROR_LOG("Failed to verify DB digsig\n");
 			deinit_proca_db(proca_db);
@@ -461,6 +463,7 @@ int load_db(const char *file_path,
 		atomic_set(&proca_db->status, INITED);
 	}
 	mutex_unlock(&proca_db->lock);
+	PROCA_INFO_LOG("%s database is loaded.\n", file_path);
 
 do_clean:
 	filp_close(f, NULL);
@@ -468,6 +471,22 @@ do_clean:
 		vfree(data_buff);
 do_exit:
 	return res;
+}
+
+int load_all_db(void)
+{
+#if defined(CONFIG_PROCA_DEBUG)
+	if (atomic_read(&proca_test_db.status) == NOT_READY)
+		load_db(proca_test_db.path, &proca_test_db);
+#endif
+
+	if (atomic_read(&system_db.status) == NOT_READY)
+		load_db(system_db.path, &system_db);
+
+	if (atomic_read(&vendor_db.status) == NOT_READY)
+		load_db(vendor_db.path, &vendor_db);
+
+	return 0;
 }
 
 static int init_db_validation_hash(void)

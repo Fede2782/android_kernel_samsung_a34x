@@ -47,6 +47,10 @@
 #define NL80211_SCAN_FLAG_LOW_SPAN (1 << 8)
 #endif
 
+#ifndef CONNECT_REQ_MLO_SUPPORT
+#define CONNECT_REQ_MLO_SUPPORT BIT(6)
+#endif
+
 /*******************************************************************************
  *                             D A T A   T Y P E S
  *******************************************************************************
@@ -182,9 +186,13 @@ enum ENUM_TESTMODE_STA_STATISTICS_ATTR {
  *                                 M A C R O S
  *******************************************************************************
  */
-#define SET_CUSTOM_TX_POWER_CALLING_PARA_NUM 13
+#define SET_CUSTOM_TX_POWER_CALLING_PARA_NUM 12
 #define SET_CUSTOM_TX_POWER_CALLING_DISABLE -1
-#define CUSTOM_TX_POWER_CALLING_BUFFER_SIZE 256
+#define GET_MAX_TX_POWER_BUFFER_SIZE 256
+#define GET_MAX_TX_POWER_VAL_NOT_SUPPORT -1
+#if (CFG_SUPPORT_WIFI_6G_PWR_MODE == 1)
+#define GET_WIFI6E_CAHNNELS_MSG_MAX_SIZE 1024
+#endif
 /*******************************************************************************
  *                  F U N C T I O N   D E C L A R A T I O N S
  *******************************************************************************
@@ -470,16 +478,6 @@ int mtk_cfg_change_iface(struct wiphy *wiphy,
 			 enum nl80211_iftype type, u32 *flags,
 			 struct vif_params *params);
 #endif
-
-#if (KERNEL_VERSION(6, 0, 0) <= CFG80211_VERSION_CODE) && \
-	(CFG_SUPPORT_802_11BE_MLO == 1)
-int mtk_cfg_add_intf_link(struct wiphy *wiphy,
-	struct wireless_dev *wdev, unsigned int link_id);
-
-void mtk_cfg_del_intf_link(struct wiphy *wiphy,
-	struct wireless_dev *wdev, unsigned int link_id);
-#endif
-
 #if (CFG_ADVANCED_80211_MLO == 1) || \
 	(KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE)
 int mtk_cfg_add_key(struct wiphy *wiphy,
@@ -517,9 +515,6 @@ int mtk_cfg_set_default_mgmt_key(struct wiphy *wiphy,
 		struct net_device *ndev, u8 key_index);
 #endif
 
-#if (CFG_SUPPORT_BCN_PROT == 1) && \
-	((KERNEL_VERSION(5, 7, 0) <= CFG80211_VERSION_CODE) || \
-	(CFG_ADVANCED_80211_BCN_PROT == 1))
 #if (CFG_ADVANCED_80211_MLO == 1) || \
 	(KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE)
 int mtk_cfg_set_default_beacon_key(struct wiphy *wiphy,
@@ -527,8 +522,7 @@ int mtk_cfg_set_default_beacon_key(struct wiphy *wiphy,
 #else
 int mtk_cfg_set_default_beacon_key(struct wiphy *wiphy,
 		struct net_device *ndev, u8 key_index);
-#endif /* CFG_ADVANCED_80211_MLO */
-#endif /* CFG_SUPPORT_BCN_PROT */
+#endif
 
 #if (CFG_ADVANCED_80211_MLO == 1) || \
 	(KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE)
@@ -741,11 +735,7 @@ int mtk_cfg_testmode_cmd(struct wiphy *wiphy, void *data,
 int mtk_cfg_start_radar_detection(struct wiphy *wiphy,
 				  struct net_device *dev,
 				  struct cfg80211_chan_def *chandef,
-#if (KERNEL_VERSION(6, 12, 0) > CFG80211_VERSION_CODE)
 				  unsigned int cac_time_ms);
-#else
-				  unsigned int cac_time_ms, int link_id);
-#endif
 #else
 int mtk_cfg_start_radar_detection(struct wiphy *wiphy,
 				  struct net_device *dev,
@@ -777,15 +767,9 @@ int mtk_cfg_disassoc(struct wiphy *wiphy,
 int mtk_cfg_start_ap(struct wiphy *wiphy,
 		     struct net_device *dev,
 		     struct cfg80211_ap_settings *settings);
-#if KERNEL_VERSION(6, 7, 0) <= CFG80211_VERSION_CODE
-int mtk_cfg_change_beacon(struct wiphy *wiphy,
-			  struct net_device *dev,
-			  struct cfg80211_ap_update *info);
-#else
 int mtk_cfg_change_beacon(struct wiphy *wiphy,
 			  struct net_device *dev,
 			  struct cfg80211_beacon_data *info);
-#endif
 #if (KERNEL_VERSION(5, 19, 2) <= CFG80211_VERSION_CODE) || \
 	(CFG_ADVANCED_80211_MLO == 1)
 int mtk_cfg_stop_ap(struct wiphy *wiphy, struct net_device *dev,
@@ -829,16 +813,10 @@ int mtk_cfg80211_external_auth(struct wiphy *wiphy, struct net_device *dev,
 			       struct cfg80211_external_auth_params *params);
 #endif
 
-#if (KERNEL_VERSION(6, 0, 0) <= CFG80211_VERSION_CODE) && \
-	(CFG_SUPPORT_CONTROL_PORT_OVER_NL80211 == 1)
-int mtk_cfg80211_tx_control_port(struct wiphy *wiphy, struct net_device *dev,
-				 const u8 *buf, size_t len,
-				 const u8 *dest, __be16 proto, bool unencrypted,
-				 int link_id, u64 *cookie);
-#endif
-
 int mtk_IsP2PNetDevice(struct GLUE_INFO *prGlueInfo,
 			  struct net_device *ndev);
+int mtk_IsNANNetDevice(struct GLUE_INFO *prGlueInfo,
+		       struct net_device *ndev);
 
 /* nl80211 vendor string command handler */
 int testmode_disable_tdls_ps(struct wiphy *wiphy,
@@ -853,9 +831,9 @@ int testmode_cmd_example(struct wiphy *wiphy,
 	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
 int testmode_reassoc(struct wiphy *wiphy,
 	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
-int testmode_set_ax_blocklist(struct wiphy *wiphy,
+int testmode_set_disable_btm(struct wiphy *wiphy,
 	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
-int testmode_set_cus_blocklist(struct wiphy *wiphy,
+int testmode_set_ax_blacklist(struct wiphy *wiphy,
 	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
 int testmode_rtt_test(struct wiphy *wiphy,
 	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
@@ -865,29 +843,33 @@ int testmode_force_stbc(struct wiphy *wiphy,
 	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
 int testmode_force_mrc(struct wiphy *wiphy,
 	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
-#if (CFG_WIFI_AUTO_RECOVER == 1)
-int testmode_mtk_action(struct wiphy *wiphy,
+#if (CFG_TC10_FEATURE == 1)
+int testmode_set_custom_tx_power_calling(struct wiphy *wiphy,
 	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
-int testmode_mtk_action_query(struct wiphy *wiphy,
+int testmode_set_tx_power_calling(struct wiphy *wiphy,
 	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
-#endif
-#if CFG_SUPPORT_LLW_SCAN
-int testmode_set_scan_param(struct wiphy *wiphy,
-	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
-int testmode_set_latency_crt_data(struct wiphy *wiphy,
+int testmode_set_tx_power_sub6_band(struct wiphy *wiphy,
 	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
 #endif
-#if (CFG_SUPPORT_MLC == 1)
+#if (CFG_SUPPORT_WIFI_6G_PWR_MODE == 1)
+int testmode_get_wifi6e_channels(struct wiphy *wiphy,
+	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
+#endif
+#if (CFG_SUPPORT_802_11BE_MLO == 1)
 int testmode_set_ml_link_state(struct wiphy *wiphy,
 	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
 int testmode_get_ml_link_state(struct wiphy *wiphy,
 	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
-#endif
-#if (CFG_SUPPORT_ML_CHNL_CONDITION == 1)
 int testmode_get_ml_chnl_condition(struct wiphy *wiphy,
 	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
-#endif /* CFG_SUPPORT_ML_CHNL_CONDITION */
-int testmode_set_custom_tx_power_calling(struct wiphy *wiphy,
+#endif
+#if (CFG_TC10_FEATURE == 1)
+int testmode_get_tas_mode(struct wiphy *wiphy,
+	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
+int testmode_get_max_tx_power(struct wiphy *wiphy,
+	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
+#endif
+int testmode_set_keep_alive_interval(struct wiphy *wiphy,
 	struct wireless_dev *wdev, char *pcCommand, int i4TotalLen);
 /*******************************************************************************
  *                              F U N C T I O N S

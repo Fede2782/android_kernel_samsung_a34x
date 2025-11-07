@@ -925,7 +925,7 @@ void wlanOnPostFirmwareReady(IN struct ADAPTER *prAdapter,
 	/* OID timeout timer initialize */
 	cnmTimerInitTimer(prAdapter,
 			  &prAdapter->rOidTimeoutTimer,
-			  (PFN_MGMT_TIMEOUT_FUNC) wlanReleasePendingOid,
+			  wlanReleasePendingOid,
 			  (unsigned long) NULL);
 
 	prAdapter->ucOidTimeoutCount = 0;
@@ -935,8 +935,7 @@ void wlanOnPostFirmwareReady(IN struct ADAPTER *prAdapter,
 	/* Return Indicated Rfb list timer */
 	cnmTimerInitTimer(prAdapter,
 			  &prAdapter->rPacketDelaySetupTimer,
-			  (PFN_MGMT_TIMEOUT_FUNC)
-				wlanReturnPacketDelaySetupTimeout,
+			  wlanReturnPacketDelaySetupTimeout,
 			  (unsigned long) NULL);
 
 	/* Power state initialization */
@@ -2139,8 +2138,8 @@ void wlanTxCmdDoneCb(IN struct ADAPTER *prAdapter,
 	KAL_SPIN_LOCK_DECLARATION();
 
 	if ((!prCmdInfo->fgSetQuery) || (prCmdInfo->fgNeedResp)) {
-		DBGLOG(TX, INFO, "Add command: %p, %ps, cmd=0x%02X, seq=%u",
-			prCmdInfo, prCmdInfo->pfCmdDoneHandler,
+		DBGLOG(TX, INFO, "Add command: %p, %s, cmd=0x%02X, seq=%u",
+			prCmdInfo, prCmdInfo->pCmdDoneHandlerStr,
 			prCmdInfo->ucCID, prCmdInfo->ucCmdSeqNum);
 
 		KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_CMD_PENDING);
@@ -3056,8 +3055,9 @@ void wlanReturnPacket(IN struct ADAPTER *prAdapter,
  */
 /*----------------------------------------------------------------------------*/
 uint32_t
-wlanQueryInformation(IN struct ADAPTER *prAdapter,
+__wlanQueryInformation(IN struct ADAPTER *prAdapter,
 		     IN PFN_OID_HANDLER_FUNC pfnOidQryHandler,
+		     IN const char *pOidQryHandlerStr,
 		     IN void *pvInfoBuf, IN uint32_t u4InfoBufLen,
 		     OUT uint32_t *pu4QryInfoLen)
 {
@@ -3084,7 +3084,7 @@ wlanQueryInformation(IN struct ADAPTER *prAdapter,
 	/* most OID handler will just queue a command packet */
 	status = pfnOidQryHandler(prAdapter, pvInfoBuf,
 				  u4InfoBufLen, pu4QryInfoLen);
-	DBGLOG(NIC, TRACE, "%ps returns %u", pfnOidQryHandler, status);
+	DBGLOG(NIC, TRACE, "%s returns %u", pOidQryHandlerStr, status);
 #else
 	if (wlanIsHandlerNeedHwAccess(pfnOidQryHandler, FALSE)) {
 		ACQUIRE_POWER_CONTROL_FROM_PM(prAdapter);
@@ -3126,8 +3126,9 @@ wlanQueryInformation(IN struct ADAPTER *prAdapter,
  */
 /*----------------------------------------------------------------------------*/
 uint32_t
-wlanSetInformation(IN struct ADAPTER *prAdapter,
+__wlanSetInformation(IN struct ADAPTER *prAdapter,
 		   IN PFN_OID_HANDLER_FUNC pfnOidSetHandler,
+		   IN const char *pOidSetHandlerStr,
 		   IN void *pvInfoBuf, IN uint32_t u4InfoBufLen,
 		   OUT uint32_t *pu4SetInfoLen)
 {
@@ -3156,7 +3157,7 @@ wlanSetInformation(IN struct ADAPTER *prAdapter,
 	 */
 	status = pfnOidSetHandler(prAdapter, pvInfoBuf,
 				  u4InfoBufLen, pu4SetInfoLen);
-	DBGLOG(NIC, TRACE, "%ps returns %u", pfnOidSetHandler, status);
+	DBGLOG(NIC, TRACE, "%s returns %u", pOidSetHandlerStr, status);
 #else
 	if (wlanIsHandlerNeedHwAccess(pfnOidSetHandler, TRUE)) {
 		ACQUIRE_POWER_CONTROL_FROM_PM(prAdapter);
@@ -3245,6 +3246,7 @@ uint32_t wlanSendDummyCmd(IN struct ADAPTER *prAdapter,
 	prCmdInfo->eCmdType = COMMAND_TYPE_GENERAL_IOCTL;
 	prCmdInfo->u2InfoBufLen = (uint16_t) prChipInfo->u2CmdTxHdrSize;
 	prCmdInfo->pfCmdDoneHandler = NULL;
+	prCmdInfo->pCmdDoneHandlerStr = NULL;
 	prCmdInfo->pfCmdTimeoutHandler = NULL;
 	prCmdInfo->fgIsOid = TRUE;
 	prCmdInfo->ucCID = CMD_ID_DUMMY_RSV;
@@ -3327,6 +3329,7 @@ uint32_t wlanSendNicPowerCtrlCmd(IN struct ADAPTER
 	prCmdInfo->eCmdType = COMMAND_TYPE_GENERAL_IOCTL;
 	prCmdInfo->u2InfoBufLen = cmd_size;
 	prCmdInfo->pfCmdDoneHandler = NULL;
+	prCmdInfo->pCmdDoneHandlerStr = NULL;
 	prCmdInfo->pfCmdTimeoutHandler = NULL;
 	prCmdInfo->fgIsOid = TRUE;
 	prCmdInfo->ucCID = CMD_ID_NIC_POWER_CTRL;
@@ -3951,6 +3954,7 @@ uint32_t wlanUpdateBasicConfig(IN struct ADAPTER *prAdapter)
 	prCmdInfo->eCmdType = COMMAND_TYPE_GENERAL_IOCTL;
 	prCmdInfo->u2InfoBufLen = cmd_size;
 	prCmdInfo->pfCmdDoneHandler = NULL;
+	prCmdInfo->pCmdDoneHandlerStr = NULL;
 	prCmdInfo->pfCmdTimeoutHandler = NULL;
 	prCmdInfo->fgIsOid = FALSE;
 	prCmdInfo->ucCID = CMD_ID_BASIC_CONFIG;
@@ -4172,6 +4176,7 @@ u_int8_t wlanProcessSecurityFrame(IN struct ADAPTER
 		prCmdInfo->prPacket = prPacket;
 		prCmdInfo->prMsduInfo = prMsduInfo;
 		prCmdInfo->pfCmdDoneHandler = wlanSecurityFrameTxDone;
+		prCmdInfo->pCmdDoneHandlerStr = "wlanSecurityFrameTxDone";
 		prCmdInfo->pfCmdTimeoutHandler =
 				wlanSecurityAndCmdDataFrameTxTimeout;
 		prCmdInfo->fgIsOid = FALSE;
@@ -4276,6 +4281,7 @@ uint32_t wlanProcessCmdDataFrame(IN struct ADAPTER
 	prCmdInfo->prPacket = prMsduInfo->prPacket;
 	prCmdInfo->prMsduInfo = prMsduInfo;
 	prCmdInfo->pfCmdDoneHandler = wlanCmdDataFrameTxDone;
+	prCmdInfo->pCmdDoneHandlerStr = "wlanCmdDataFrameTxDone";
 	prCmdInfo->pfCmdTimeoutHandler = wlanSecurityAndCmdDataFrameTxTimeout;
 	prCmdInfo->fgIsOid = FALSE;
 	prCmdInfo->fgSetQuery = TRUE;
@@ -4674,6 +4680,7 @@ uint32_t wlanQueryNicCapability(IN struct ADAPTER
 	prCmdInfo->eCmdType = COMMAND_TYPE_GENERAL_IOCTL;
 	prCmdInfo->u2InfoBufLen = cmd_size;
 	prCmdInfo->pfCmdDoneHandler = NULL;
+	prCmdInfo->pCmdDoneHandlerStr = NULL;
 	prCmdInfo->fgIsOid = FALSE;
 	prCmdInfo->ucCID = CMD_ID_GET_NIC_CAPABILITY;
 	prCmdInfo->fgSetQuery = FALSE;
@@ -4854,6 +4861,7 @@ uint32_t wlanQueryPdMcr(IN struct ADAPTER *prAdapter,
 	prCmdInfo->eCmdType = COMMAND_TYPE_GENERAL_IOCTL;
 	prCmdInfo->u2InfoBufLen = cmd_size;
 	prCmdInfo->pfCmdDoneHandler = NULL;
+	prCmdInfo->pCmdDoneHandlerStr = NULL;
 	prCmdInfo->pfCmdTimeoutHandler = nicOidCmdTimeoutCommon;
 	prCmdInfo->fgIsOid = FALSE;
 	prCmdInfo->ucCID = CMD_ID_ACCESS_REG;
@@ -6648,6 +6656,7 @@ uint32_t wlanQueryNicCapabilityV2(IN struct ADAPTER *prAdapter)
 		prCmdInfo->eCmdType = COMMAND_TYPE_GENERAL_IOCTL;
 		prCmdInfo->u2InfoBufLen = prChipInfo->u2CmdTxHdrSize;
 		prCmdInfo->pfCmdDoneHandler = NULL;
+		prCmdInfo->pCmdDoneHandlerStr = NULL;
 		prCmdInfo->fgIsOid = FALSE;
 		prCmdInfo->ucCID = CMD_ID_GET_NIC_CAPABILITY_V2;
 		prCmdInfo->fgSetQuery = FALSE;
@@ -13965,9 +13974,10 @@ void wlanSetConnsysFwLog(IN struct ADAPTER *prAdapter)
 
 }
 
-uint32_t wlanSendFwLogControlCmd(IN struct ADAPTER *prAdapter,
+uint32_t __wlanSendFwLogControlCmd(IN struct ADAPTER *prAdapter,
 				uint8_t ucCID,
 				PFN_CMD_DONE_HANDLER pfCmdDoneHandler,
+				const char *pCmdDoneHandlerStr,
 				PFN_CMD_TIMEOUT_HANDLER pfCmdTimeoutHandler,
 				uint32_t u4SetQueryInfoLen,
 				int8_t *pucInfoBuffer)
@@ -13995,6 +14005,7 @@ uint32_t wlanSendFwLogControlCmd(IN struct ADAPTER *prAdapter,
 	prCmdInfo->eCmdType = COMMAND_TYPE_GENERAL_IOCTL;
 	prCmdInfo->u2InfoBufLen = cmd_size;
 	prCmdInfo->pfCmdDoneHandler = pfCmdDoneHandler;
+	prCmdInfo->pCmdDoneHandlerStr = pCmdDoneHandlerStr;
 	prCmdInfo->pfCmdTimeoutHandler = pfCmdTimeoutHandler;
 	prCmdInfo->ucCID = ucCID;
 	prCmdInfo->fgSetQuery = TRUE;

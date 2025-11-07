@@ -264,9 +264,6 @@ static const struct v4l2_file_operations mtk_imgsys_v4l2_fops = {
 	.release = mtk_imgsys_v4l2_fh_release,
 	.poll = vb2_fop_poll,
 	.mmap = vb2_fop_mmap,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl32 = v4l2_compat_ioctl32,
-#endif
 };
 
 static const struct vb2_mem_ops mtk_imgsys_dma_contig_memops = {

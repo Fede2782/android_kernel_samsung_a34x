@@ -1,6 +1,14 @@
-/* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (c) 2021 MediaTek Inc.
+ *  Copyright (c) 2016,2017 MediaTek Inc.
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License version 2 as
+ *  published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *  See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #ifndef __BTMTK_FW_LOG_H__
@@ -16,11 +24,23 @@
 #define BT_FWLOG_OFF    0x00
 #define BT_FWLOG_ON     0xFF
 
-#define DRV_RETURN_SPECIFIC_HCE_ONLY	1	/* Currently disallow 0xFC26 */
+/*
+ * BT Logger Tool will turn on/off Firmware Picus log, and set 3 log levels (Low, SQC and Debug)
+ * For extention capability, driver does not check the value range.
+ *
+ * Combine log state and log level to below settings:
+ * - 0x00: OFF
+ * - 0x01: Low Power
+ * - 0x02: SQC
+ * - 0x03: Debug
+ */
+#define BT_FWLOG_DEFAULT_LEVEL 0x02
+
+#define DRV_RETURN_SPECIFIC_HCE_ONLY	1	/* Currently only allow 0xFC26 */
 #define KPI_WITHOUT_TYPE		0	/* bluetooth kpi */
 
 #ifdef STATIC_REGISTER_FWLOG_NODE
-#define FIXED_STPBT_MAJOR_DEV_ID	111
+#define FIXED_STPBT_MAJOR_DEV_ID 111
 #endif
 
 /* Device node */
@@ -42,17 +62,18 @@
 #define PROC_BT_FW_VERSION "bt_fw_version"
 #define PROC_BT_UART_LAUNCHER_NOTIFY "bt_uart_launcher_notify"
 #define PROC_BT_CHIP_RESET_COUNT "bt_chip_reset_count"
-#if (USE_DEVICE_NODE == 1)
-#define PROC_BT_UART_LAUNCHER_NOTIFY "bt_uart_launcher_notify"
-#endif
+
+enum {
+	DBG_SEND_NONE = 0,
+	DBG_SEND_VENDOR_CMD,
+	DBG_SEND_HCI_CMD
+};
 
 struct btmtk_fops_fwlog {
 	dev_t g_devIDfwlog;
 	struct cdev BT_cdevfwlog;
 	wait_queue_head_t fw_log_inq;
 	struct sk_buff_head fwlog_queue;
-	struct sk_buff_head dumplog_queue_first;
-	struct sk_buff_head dumplog_queue_latest;
 	struct class *pBTClass;
 	struct device *pBTDevfwlog;
 	spinlock_t fwlog_lock;
@@ -74,6 +95,7 @@ long btmtk_fops_unlocked_ioctlfwlog(struct file *filp, unsigned int cmd, unsigne
 long btmtk_fops_compat_ioctlfwlog(struct file *filp, unsigned int cmd, unsigned long arg);
 int btmtk_dispatch_fwlog(struct btmtk_dev *bdev, struct sk_buff *skb);
 int btmtk_dispatch_fwlog_bluetooth_kpi(struct btmtk_dev *bdev, u8 *buf, int len, u8 type);
-int btmtk_update_bt_status(u8 onoff_flag);
+void btmtk_fwdump_wake_unlock(void);
+
 
 #endif /* __BTMTK_FW_LOG_H__ */

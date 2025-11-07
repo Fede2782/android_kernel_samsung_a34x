@@ -28,6 +28,10 @@
 #include "aw87339.h"
 #endif
 
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45)
+#include "../../codecs/cs35l45.h"
+#endif
+
 /* adsp relate */
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 #include "../audio_dsp/mtk-dsp-common.h"
@@ -85,6 +89,13 @@ static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 		.codec_name = "cs35l41-codec.5.auto",
 	},
 #endif /* CONFIG_DEVICE_MODULES_SND_SOC_CS35L41 */
+
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45)
+	[MTK_SPK_CIRRUS_CS35L45] = {
+		.codec_dai_name = "cs35l45-aif",
+		.codec_name = "cs35l45",
+	},
+#endif /* CONFIG_DEVICE_MODULES_SND_SOC_CS35L45 */
 };
 
 static int mtk_spk_i2c_probe(struct i2c_client *client)
@@ -179,6 +190,11 @@ int mtk_spk_update_info(struct snd_soc_card *card,
 	const int i2s_num = 2;
 	unsigned int i2s_set[2];
 	unsigned int is_ipm2p0;
+
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45)
+	mtk_spk_set_type(MTK_SPK_CIRRUS_CS35L45);
+#endif
+	dev_info(&pdev->dev, "%s(), mtk_spk_type = %d\n", __func__, mtk_spk_type);
 
 	if (mtk_spk_type == MTK_SPK_NOT_SMARTPA)
 		goto BYPASS_UPDATE;

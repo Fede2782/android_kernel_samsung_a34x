@@ -44,6 +44,7 @@
 
 #include "nan_base.h"
 #include "nanScheduler.h"
+#include "nanRescheduler.h"
 #include "nan_ext_ascc.h"
 #include "nan_ext_fr.h"
 
@@ -788,7 +789,7 @@ static void nanUpdateDw(struct IE_NAN_ASCC_DW *dw)
 		return;
 
 	gAsccRecord.custom_schedule_entry |= BIT(dw->schedule_category);
-	DBGLOG(NAN, DEBUG, "set %u, custom_schedule_entry=0x%08x\n",
+	DBGLOG(NAN, INFO, "set %u, custom_schedule_entry=0x%08x\n",
 	       dw->schedule_category,
 	       gAsccRecord.custom_schedule_entry);
 
@@ -803,7 +804,7 @@ static void nanUpdateDw(struct IE_NAN_ASCC_DW *dw)
 		DBGLOG(NAN, WARN, "DW interval %u supported?",
 		       pDw->dw_wakeup_interval);
 
-	DBGLOG(NAN, DEBUG,
+	DBGLOG(NAN, INFO,
 	       "Update DW[%u] ch=%u, offset=%u, interval=%u, beacon=%u\n",
 	       band, pDw->ucOpChannel, pDw->start_offset,
 	       pDw->dw_wakeup_interval, pDw->discovery_beacon_enabled);
@@ -822,7 +823,7 @@ static void nanUpdateFaw(struct ADAPTER *prAdapter,
 		return;
 
 	gAsccRecord.custom_schedule_entry |= BIT(faw->schedule_category);
-	DBGLOG(NAN, DEBUG, "set %u, custom_schedule_entry=0x%08x\n",
+	DBGLOG(NAN, INFO, "set %u, custom_schedule_entry=0x%08x\n",
 	       faw->schedule_category,
 	       gAsccRecord.custom_schedule_entry);
 
@@ -861,7 +862,7 @@ static void nanUpdateFaw(struct ADAPTER *prAdapter,
 
 	kalMemCopy(pFaw, faw, sizeof(*faw));
 
-	DBGLOG(NAN, DEBUG, "Update %s FAW [%u] ch=%u, bitmap=0x%08x\n",
+	DBGLOG(NAN, INFO, "Update %s FAW [%u] ch=%u, bitmap=0x%08x\n",
 	       type, band, pFaw->ucOpChannel, pFaw->u4Bitmap);
 }
 
@@ -879,7 +880,7 @@ static void nanExcludeAisSlots(struct ADAPTER *prAdapter,
 					&rChnlInfo, &u4SlotBitmap,
 					&ucPhyTypeSet) == WLAN_STATUS_SUCCESS) {
 			eAisBandBitmap |= BIT(eBand);
-			DBGLOG(NAN, DEBUG,
+			DBGLOG(NAN, INFO,
 			       "Check band:%u vs. AIS: chnl:%u b:%u butmap:0x%08x\n",
 			       eCustBand, rChnlInfo.u4PrimaryChnl,
 			       eBand, u4SlotBitmap);
@@ -890,7 +891,7 @@ static void nanExcludeAisSlots(struct ADAPTER *prAdapter,
 	    (eAisBandBitmap & BIT(eCustBand) ||
 	     ((eAisBandBitmap & BIT(BAND_5G)) && eCustBand == BAND_6G ||
 	      (eAisBandBitmap & BIT(BAND_6G)) && eCustBand == BAND_5G))) {
-		DBGLOG(NAN, DEBUG, "Update 0x%08x => 0x%08x\n", *u4Bitmap,
+		DBGLOG(NAN, INFO, "Update 0x%08x => 0x%08x\n", *u4Bitmap,
 		       *u4Bitmap & ~u4SlotBitmap);
 		*u4Bitmap &= ~u4SlotBitmap;
 	}
@@ -900,19 +901,34 @@ static void nanUpdateUsd(struct ADAPTER *prAdapter, struct IE_NAN_ASCC_USD *usd)
 {
 	struct IE_NAN_ASCC_USD *pUsd;
 	enum _ENUM_BAND_INDEX_T band;
+	union _NAN_BAND_CHNL_CTRL rP2p5gChnlInfo;
+	union _NAN_BAND_CHNL_CTRL rAis5gChnlInfo;
 
 	band = getScheduleEntryBand(usd->schedule_category);
 	if (band >= ARRAY_SIZE(gAsccRecord.arUsdEntry))
 		return;
 
 	if (usd->ucOpChannel != g_r5gDwChnl.u4PrimaryChnl) {
-		DBGLOG(NAN, INFO, "Skip USD ch=%u != r5gDwChnl=%u\n",
+		DBGLOG(NAN, VOC, "Skip USD ch=%u != r5gDwChnl=%u\n",
 		       usd->ucOpChannel, g_r5gDwChnl.u4PrimaryChnl);
 		return;
 	}
 
+	/* If P2P or AIS concurrent, do not set USD */
+	rP2p5gChnlInfo = nanGetActiveChnl(prAdapter, NETWORK_TYPE_P2P, BAND_5G);
+	rAis5gChnlInfo = nanGetActiveChnl(prAdapter, NETWORK_TYPE_AIS, BAND_5G);
+	if (usd->u4Bitmap && rP2p5gChnlInfo.u4PrimaryChnl) {
+		DBGLOG(NAN, INFO,
+		       "Skip enable USD ch=%u %02x-%02x-%02x-%02x P2P=%u AIS=%u\n",
+		       usd->ucOpChannel,
+		       usd->byte[0], usd->byte[1], usd->byte[2], usd->byte[3],
+		       rP2p5gChnlInfo.u4PrimaryChnl,
+		       rAis5gChnlInfo.u4PrimaryChnl);
+		return;
+	}
+
 	gAsccRecord.custom_schedule_entry |= BIT(usd->schedule_category);
-	DBGLOG(NAN, DEBUG, "set %u, custom_schedule_entry=0x%08x\n",
+	DBGLOG(NAN, INFO, "set %u, custom_schedule_entry=0x%08x\n",
 	       usd->schedule_category,
 	       gAsccRecord.custom_schedule_entry);
 
@@ -920,7 +936,7 @@ static void nanUpdateUsd(struct ADAPTER *prAdapter, struct IE_NAN_ASCC_USD *usd)
 	pUsd = &gAsccRecord.arUsdEntry[band];
 	kalMemCopy(pUsd, usd, sizeof(*usd));
 
-	DBGLOG(NAN, DEBUG,
+	DBGLOG(NAN, INFO,
 	       "Update USD[%u] ch=%u, timeout=%u, num=%u, interval=%u, bitmap=0x%08x\n",
 	       band, pUsd->ucOpChannel, pUsd->ucUsdTimeout,
 	       pUsd->number_unsoliciated_sdf,
@@ -931,19 +947,34 @@ static void nanUpdateSd(struct ADAPTER *prAdapter, struct IE_NAN_ASCC_SD *sd)
 {
 	struct IE_NAN_ASCC_SD *pSd;
 	enum _ENUM_BAND_INDEX_T band;
+	union _NAN_BAND_CHNL_CTRL rP2p5gChnlInfo;
+	union _NAN_BAND_CHNL_CTRL rAis5gChnlInfo;
 
 	band = getScheduleEntryBand(sd->schedule_category);
 	if (band >= ARRAY_SIZE(gAsccRecord.arSdEntry))
 		return;
 
 	if (sd->ucOpChannel != g_r5gDwChnl.u4PrimaryChnl) {
-		DBGLOG(NAN, INFO, "Skip SD ch=%u != r5gDwChnl=%u\n",
+		DBGLOG(NAN, VOC, "Skip SD ch=%u != r5gDwChnl=%u\n",
 		       sd->ucOpChannel, g_r5gDwChnl.u4PrimaryChnl);
 		return;
 	}
 
+	/* If P2P or AIS concurrent, do not set SD */
+	rP2p5gChnlInfo = nanGetActiveChnl(prAdapter, NETWORK_TYPE_P2P, BAND_5G);
+	rAis5gChnlInfo = nanGetActiveChnl(prAdapter, NETWORK_TYPE_AIS, BAND_5G);
+	if (sd->u4Bitmap && rP2p5gChnlInfo.u4PrimaryChnl) {
+		DBGLOG(NAN, INFO,
+		       "Skip enable SD ch=%u %02x-%02x-%02x-%02x P2P=%u AIS=%u\n",
+		       sd->ucOpChannel,
+		       sd->byte[0], sd->byte[1], sd->byte[2], sd->byte[3],
+		       rP2p5gChnlInfo.u4PrimaryChnl,
+		       rAis5gChnlInfo.u4PrimaryChnl);
+		return;
+	}
+
 	gAsccRecord.custom_schedule_entry |= BIT(sd->schedule_category);
-	DBGLOG(NAN, DEBUG, "set %u, custom_schedule_entry=0x%08x\n",
+	DBGLOG(NAN, INFO, "set %u, custom_schedule_entry=0x%08x\n",
 	       sd->schedule_category,
 	       gAsccRecord.custom_schedule_entry);
 
@@ -951,7 +982,7 @@ static void nanUpdateSd(struct ADAPTER *prAdapter, struct IE_NAN_ASCC_SD *sd)
 	pSd = &gAsccRecord.arSdEntry[band];
 	kalMemCopy(pSd, sd, sizeof(*sd));
 
-	DBGLOG(NAN, DEBUG,
+	DBGLOG(NAN, INFO,
 	       "Update SD[%u] ch=%u, timeout=%u, num=%u, interval=%u, bitmap=0x%08x\n",
 	       band, pSd->ucOpChannel, pSd->ucSdTimeout,
 	       pSd->number_unsoliciated_sdf,
@@ -968,14 +999,14 @@ static void nanUpdateUlw(struct IE_NAN_ASCC_ULW *ulw)
 		return;
 
 	gAsccRecord.custom_schedule_entry |= BIT(ulw->schedule_category);
-	DBGLOG(NAN, DEBUG, "set %u, custom_schedule_entry=0x%08x\n",
+	DBGLOG(NAN, INFO, "set %u, custom_schedule_entry=0x%08x\n",
 	       ulw->schedule_category,
 	       gAsccRecord.custom_schedule_entry);
 
 	pUlw = &gAsccRecord.arUlwEntry[band];
 	kalMemCopy(pUlw, ulw, sizeof(*ulw));
 
-	DBGLOG(NAN, DEBUG,
+	DBGLOG(NAN, INFO,
 	       "Update ULW[%u] start=%u, duration=%u, period=%u, countdown=%u, channel=%u, persent=%u\n",
 	       band, pUlw->u4StartingTime, pUlw->u4Duration, pUlw->u4Period,
 	       pUlw->u4Countdown, pUlw->ucOpChannel, pUlw->u2NanPresent);
@@ -991,14 +1022,14 @@ static void nanUpdateDiscovery(struct IE_NAN_ASCC_DISCOVERY *disc)
 		return;
 
 	gAsccRecord.custom_schedule_entry |= BIT(disc->schedule_category);
-	DBGLOG(NAN, DEBUG, "set %u, custom_schedule_entry=0x%08x\n",
+	DBGLOG(NAN, INFO, "set %u, custom_schedule_entry=0x%08x\n",
 	       disc->schedule_category,
 	       gAsccRecord.custom_schedule_entry);
 
 	pDisc = &gAsccRecord.arDiscoveryEntry[band];
 	kalMemCopy(pDisc, disc, sizeof(*disc));
 
-	DBGLOG(NAN, DEBUG,
+	DBGLOG(NAN, INFO,
 	       "Update Discovery[%u] mscp_interval=%u\n",
 	       band, pDisc->ucMscpInterval);
 }
@@ -1012,27 +1043,27 @@ static uint32_t nanDwEntryHandler(struct ADAPTER *prAdapter,
 	enum _ENUM_BAND_INDEX_T band;
 	uint32_t interval;
 
-	DBGLOG(NAN, DEBUG, "Parsing DW schedule entry, consuming %zu bytes\n",
+	DBGLOG(NAN, INFO, "Parsing DW schedule entry, consuming %zu bytes\n",
 	       sizeof(struct IE_NAN_ASCC_DW));
-	DBGLOG_HEX(NAN, DEBUG, buf, sizeof(struct IE_NAN_ASCC_DW));
+	DBGLOG_HEX(NAN, INFO, buf, sizeof(struct IE_NAN_ASCC_DW));
 
 	dw = (struct IE_NAN_ASCC_DW *)buf;
 
-	DBGLOG(NAN, DEBUG, "Schedule category: %u (%s)\n",
+	DBGLOG(NAN, INFO, "Schedule category: %u (%s)\n",
 	       dw->schedule_category,
 	       getScheduleEntryString(dw->schedule_category));
-	DBGLOG(NAN, DEBUG, "Operation: %u (%s)\n",
+	DBGLOG(NAN, INFO, "Operation: %u (%s)\n",
 	       dw->operation,
 	       operation_str(dw->operation));
-	DBGLOG(NAN, DEBUG, "Start offset: %u (%u TU)\n",
+	DBGLOG(NAN, INFO, "Start offset: %u (%u TU)\n",
 	       dw->start_offset,
 	       dw->start_offset * 16); /* TODO */
-	DBGLOG(NAN, DEBUG, "Channel: %u\n",
+	DBGLOG(NAN, INFO, "Channel: %u\n",
 	       dw->ucOpChannel);
-	DBGLOG(NAN, DEBUG, "DW wakeup interval: %u, (%u TUs)\n",
+	DBGLOG(NAN, INFO, "DW wakeup interval: %u, (%u TUs)\n",
 	       dw->dw_wakeup_interval,
 	       calculate_dw_wakeup_interval(dw->dw_wakeup_interval));
-	DBGLOG(NAN, DEBUG, "Discovery beacon enabled: %u\n",
+	DBGLOG(NAN, INFO, "Discovery beacon enabled: %u\n",
 	       dw->discovery_beacon_enabled);
 
 	interval = calculate_dw_wakeup_interval(dw->dw_wakeup_interval);
@@ -1060,88 +1091,91 @@ static uint32_t nanFawEntryHandler(struct ADAPTER *prAdapter,
 	uint32_t u4Bitmap;
 	uint32_t category;
 	uint8_t *peerNMI = NULL;
+	struct IE_NAN_EXT_COMMON_HEADER *h;
+	struct IE_NAN_ASCC_CMD *ascc_cmd;
 
-	DBGLOG(NAN, DEBUG, "Parsing FAW schedule entry, consuming %zu bytes\n",
+	DBGLOG(NAN, INFO, "Parsing FAW schedule entry, consuming %zu bytes\n",
 	       sizeof(struct IE_NAN_ASCC_FAW));
-	DBGLOG_HEX(NAN, DEBUG, buf, sizeof(struct IE_NAN_ASCC_FAW));
+	DBGLOG_HEX(NAN, INFO, buf, sizeof(struct IE_NAN_ASCC_FAW));
 
 
 	if (update) {
-		struct IE_NAN_EXT_COMMON_HEADER *h = cmd;
-
+		h = cmd;
 		if (h && h->ucOui == NAN_ASCC_CMD_OUI) {
-			struct IE_NAN_ASCC_CMD *ascc_cmd = cmd;
-
+			ascc_cmd = cmd;
 			peerNMI = ascc_cmd->aucDestNMIAddr;
 		}
 	}
 
 	faw = (struct IE_NAN_ASCC_FAW *)buf;
 
-	DBGLOG(NAN, DEBUG, "Schedule category: %u (%s)\n",
+	DBGLOG(NAN, INFO, "Schedule category: %u (%s)\n",
 	       faw->schedule_category,
 	       getScheduleEntryString(faw->schedule_category));
-	DBGLOG(NAN, DEBUG, "Operation: %u (%s)\n",
+	DBGLOG(NAN, INFO, "Operation: %u (%s)\n",
 	       faw->operation,
 	       operation_str(faw->operation));
-	DBGLOG(NAN, DEBUG, "Bitmap: %08x %02x-%02x-%02x-%02x\n",
+	DBGLOG(NAN, INFO, "Bitmap: %08x %02x-%02x-%02x-%02x\n",
 	       faw->u4Bitmap,
 	       faw->byte[0], faw->byte[1], faw->byte[2], faw->byte[3]);
-	DBGLOG(NAN, DEBUG, "Channel: %u\n",
+	DBGLOG(NAN, INFO, "Channel: %u\n",
 	       faw->ucOpChannel);
 
 	band = getScheduleEntryBand(faw->schedule_category);
 	u4Bitmap = faw->u4Bitmap;
 	category = faw->schedule_category;
 	if (isAisScheduleEntry(category)) {
-		if (update) {
-			struct _NAN_AIS_BITMAP *pAisSlots;
+		struct _NAN_AIS_BITMAP *pAisSlots;
 
-			pAisSlots = prAdapter->arNanAisSlots;
-			/* TODO: htonl()? */
+		if (!update)
+			goto done;
+
+		pAisSlots = prAdapter->arNanAisSlots;
+		/* TODO: htonl()? */
 #if CFG_SUPPORT_WIFI_6G  == 1
-			if (band >= NAN_EXT_NUM_3_BANDS) {
-				DBGLOG(NAN, WARN, "Invalid band:%u\n", band);
-				goto done;
-			}
-#else
-			if (band >= NAN_EXT_NUM_2_BANDS) {
-				DBGLOG(NAN, WARN, "Invalid band:%u\n", band);
-				goto done;
-			}
-#endif
-			if (!peerNMI) {
-				DBGLOG(NAN, WARN, "Invalid peerNMI=%p\n",
-				       peerNMI);
-				goto done;
-			}
-			pAisSlots[band].fgCustSet = TRUE;
-			pAisSlots[band].u4Bitmap = u4Bitmap;
-
-			nanUpdateFaw(prAdapter, peerNMI, faw);
+		if (band >= NAN_EXT_NUM_3_BANDS) {
+			DBGLOG(NAN, WARN, "Invalid band:%u\n", band);
+			goto done;
 		}
+#else
+		if (band >= NAN_EXT_NUM_2_BANDS) {
+			DBGLOG(NAN, WARN, "Invalid band:%u\n", band);
+			goto done;
+		}
+#endif
+		if (!peerNMI) {
+			DBGLOG(NAN, WARN, "Invalid peerNMI=%p\n",
+			       peerNMI);
+			goto done;
+		}
+		pAisSlots[band].fgCustSet = TRUE;
+		pAisSlots[band].u4Bitmap = u4Bitmap;
+
+		nanUpdateFaw(prAdapter, peerNMI, faw);
 	} else if (isNdpScheduleEntry(category)) {
 		/* Fake Attribute in nanAsccParseScheduleEntry */
-		if (update) {
-			if (!peerNMI) {
-				DBGLOG(NAN, WARN, "Invalid peerNMI=%p\n",
-				       peerNMI);
-				goto done;
-			}
-			nanUpdateFaw(prAdapter, peerNMI, faw);
+		if (!update)
+			goto done;
+
+		if (!peerNMI) {
+			DBGLOG(NAN, WARN, "Invalid peerNMI=%p\n",
+			       peerNMI);
+			goto done;
 		}
+		nanUpdateFaw(prAdapter, peerNMI, faw);
 	} else if (isNanSocialScheduleEntry(category)) {
 		/* FC */
-		if (update) {
-			if (!peerNMI) {
-				DBGLOG(NAN, WARN, "Invalid peerNMI=%p\n",
-				       peerNMI);
-				goto done;
-			}
-			nanUpdateFaw(prAdapter, peerNMI, faw);
+		if (!update)
+			goto done;
+
+		if (!peerNMI) {
+			DBGLOG(NAN, WARN, "Invalid peerNMI=%p\n",
+			       peerNMI);
+			goto done;
 		}
+		nanUpdateFaw(prAdapter, peerNMI, faw);
 	} else {
-		DBGLOG(NAN, DEBUG, "schedule entry %u not handled\n",
+		DBGLOG(NAN, INFO, "schedule entry %u not handled\n",
 		       category);
 	}
 
@@ -1176,26 +1210,26 @@ static uint32_t nanUsdEntryHandler(struct ADAPTER *prAdapter,
 	struct IE_NAN_ASCC_USD *usd;
 	enum _ENUM_BAND_INDEX_T band;
 
-	DBGLOG(NAN, DEBUG, "Parsing USD schedule entry, consuming %zu bytes\n",
+	DBGLOG(NAN, INFO, "Parsing USD schedule entry, consuming %zu bytes\n",
 	       sizeof(struct IE_NAN_ASCC_USD));
-	DBGLOG_HEX(NAN, DEBUG, buf, sizeof(struct IE_NAN_ASCC_USD));
+	DBGLOG_HEX(NAN, INFO, buf, sizeof(struct IE_NAN_ASCC_USD));
 
 	usd = (struct IE_NAN_ASCC_USD *)buf;
 
-	DBGLOG(NAN, DEBUG, "Schedule category: %u (%s)\n",
+	DBGLOG(NAN, INFO, "Schedule category: %u (%s)\n",
 	       usd->schedule_category,
 	       getScheduleEntryString(usd->schedule_category));
-	DBGLOG(NAN, DEBUG, "Operation: %u (%s)\n",
+	DBGLOG(NAN, INFO, "Operation: %u (%s)\n",
 	       usd->operation,
 	       operation_str(usd->operation));
-	DBGLOG(NAN, DEBUG, "Bitmap: %08x %02x-%02x-%02x-%02x\n",
+	DBGLOG(NAN, INFO, "Bitmap: %08x %02x-%02x-%02x-%02x\n",
 	       usd->u4Bitmap,
 	       usd->byte[0], usd->byte[1], usd->byte[2], usd->byte[3]);
-	DBGLOG(NAN, DEBUG, "Channel: %u\n", usd->ucOpChannel);
-	DBGLOG(NAN, DEBUG, "USD timeout: %u\n", usd->ucUsdTimeout);
-	DBGLOG(NAN, DEBUG, "Number of unsolicited SDF: %u\n",
+	DBGLOG(NAN, INFO, "Channel: %u\n", usd->ucOpChannel);
+	DBGLOG(NAN, INFO, "USD timeout: %u\n", usd->ucUsdTimeout);
+	DBGLOG(NAN, INFO, "Number of unsolicited SDF: %u\n",
 	       usd->number_unsoliciated_sdf);
-	DBGLOG(NAN, DEBUG, "USD interval: %u (%u TU)\n",
+	DBGLOG(NAN, INFO, "USD interval: %u (%u TU)\n",
 	       usd->usd_interval,
 	       calculate_usd_interval(usd->usd_interval));
 
@@ -1234,28 +1268,28 @@ static uint32_t nanSdEntryHandler(struct ADAPTER *prAdapter,
 	struct IE_NAN_ASCC_SD *sd;
 	enum _ENUM_BAND_INDEX_T band;
 
-	DBGLOG(NAN, DEBUG, "Parsing SD schedule entry, consuming %zu bytes\n",
+	DBGLOG(NAN, INFO, "Parsing SD schedule entry, consuming %zu bytes\n",
 	       sizeof(struct IE_NAN_ASCC_SD));
-	DBGLOG_HEX(NAN, DEBUG, buf, sizeof(struct IE_NAN_ASCC_SD));
+	DBGLOG_HEX(NAN, INFO, buf, sizeof(struct IE_NAN_ASCC_SD));
 
 	sd = (struct IE_NAN_ASCC_SD *)buf;
 
-	DBGLOG(NAN, DEBUG, "Schedule category: %u (%s)\n",
+	DBGLOG(NAN, INFO, "Schedule category: %u (%s)\n",
 	       sd->schedule_category,
 	       getScheduleEntryString(sd->schedule_category));
-	DBGLOG(NAN, DEBUG, "Operation: %u (%s)\n",
+	DBGLOG(NAN, INFO, "Operation: %u (%s)\n",
 	       sd->operation,
 	       operation_str(sd->operation));
-	DBGLOG(NAN, DEBUG, "Bitmap: %08x %02x-%02x-%02x-%02x\n",
+	DBGLOG(NAN, INFO, "Bitmap: %08x %02x-%02x-%02x-%02x\n",
 	       sd->u4Bitmap,
 	       sd->byte[0], sd->byte[1], sd->byte[2], sd->byte[3]);
-	DBGLOG(NAN, DEBUG, "Channel: %u\n", sd->ucOpChannel);
-	DBGLOG(NAN, DEBUG, "Number of unsolicited SDF: %u\n",
+	DBGLOG(NAN, INFO, "Channel: %u\n", sd->ucOpChannel);
+	DBGLOG(NAN, INFO, "Number of unsolicited SDF: %u\n",
 	       sd->number_unsoliciated_sdf);
-	DBGLOG(NAN, DEBUG, "SD interval: %u (%u TU)\n",
+	DBGLOG(NAN, INFO, "SD interval: %u (%u TU)\n",
 	       sd->sd_interval,
 	       calculate_sd_interval(sd->sd_interval));
-	DBGLOG(NAN, DEBUG, "SD timeout: %u\n", sd->ucSdTimeout);
+	DBGLOG(NAN, INFO, "SD timeout: %u\n", sd->ucSdTimeout);
 
 	band = getScheduleEntryBand(sd->schedule_category);
 
@@ -1272,27 +1306,27 @@ static uint32_t nanUlwEntryHandler(struct ADAPTER *prAdapter,
 {
 	struct IE_NAN_ASCC_ULW *ulw;
 
-	DBGLOG(NAN, DEBUG, "Parsing ULW schedule entry, consuming %zu bytes\n",
+	DBGLOG(NAN, INFO, "Parsing ULW schedule entry, consuming %zu bytes\n",
 	       sizeof(struct IE_NAN_ASCC_ULW));
-	DBGLOG_HEX(NAN, DEBUG, buf, sizeof(struct IE_NAN_ASCC_ULW));
+	DBGLOG_HEX(NAN, INFO, buf, sizeof(struct IE_NAN_ASCC_ULW));
 
 	ulw = (struct IE_NAN_ASCC_ULW *)buf;
 
-	DBGLOG(NAN, DEBUG, "Schedule category: %u (%s)\n",
+	DBGLOG(NAN, INFO, "Schedule category: %u (%s)\n",
 	       ulw->schedule_category,
 	       getScheduleEntryString(ulw->schedule_category));
-	DBGLOG(NAN, DEBUG, "Operation: %u (%s)\n",
+	DBGLOG(NAN, INFO, "Operation: %u (%s)\n",
 	       ulw->operation,
 	       operation_str(ulw->operation));
-	DBGLOG(NAN, DEBUG, "Starting time: %u\n",
+	DBGLOG(NAN, INFO, "Starting time: %u\n",
 	       ulw->u4StartingTime);
-	DBGLOG(NAN, DEBUG, "Duration: %u us\n",
+	DBGLOG(NAN, INFO, "Duration: %u us\n",
 	       ulw->u4Duration);
-	DBGLOG(NAN, DEBUG, "Period: %u us\n",
+	DBGLOG(NAN, INFO, "Period: %u us\n",
 	       ulw->u4Period);
-	DBGLOG(NAN, DEBUG, "Countdown: %u\n",
+	DBGLOG(NAN, INFO, "Countdown: %u\n",
 	       ulw->u4Countdown);
-	DBGLOG(NAN, DEBUG, "Channel: %u\n",
+	DBGLOG(NAN, INFO, "Channel: %u\n",
 	       ulw->ucOpChannel);
 
 	/* TODO: set timline to exclude slots? */
@@ -1308,20 +1342,20 @@ static uint32_t nanDiscoveryEntryHandler(struct ADAPTER *prAdapter,
 {
 	struct IE_NAN_ASCC_DISCOVERY *discovery;
 
-	DBGLOG(NAN, DEBUG,
+	DBGLOG(NAN, INFO,
 	       "Parsing Discovery schedule entry, consuming %zu bytes\n",
 	       sizeof(struct IE_NAN_ASCC_DISCOVERY));
-	DBGLOG_HEX(NAN, DEBUG, buf, sizeof(struct IE_NAN_ASCC_DISCOVERY));
+	DBGLOG_HEX(NAN, INFO, buf, sizeof(struct IE_NAN_ASCC_DISCOVERY));
 
 	discovery = (struct IE_NAN_ASCC_DISCOVERY *)buf;
 
-	DBGLOG(NAN, DEBUG, "Schedule category: %u (%s)\n",
+	DBGLOG(NAN, INFO, "Schedule category: %u (%s)\n",
 	       discovery->schedule_category,
 	       getScheduleEntryString(discovery->schedule_category));
-	DBGLOG(NAN, DEBUG, "Operation: %u (%s)\n",
+	DBGLOG(NAN, INFO, "Operation: %u (%s)\n",
 	       discovery->operation,
 	       operation_str(discovery->operation));
-	DBGLOG(NAN, DEBUG, "MSCP interval: %u\n",
+	DBGLOG(NAN, INFO, "MSCP interval: %u\n",
 	       discovery->ucMscpInterval);
 
 	/* TODO: do something? */
@@ -1419,13 +1453,13 @@ static uint32_t nanGetScheduleEntry(struct ADAPTER *prAdapter,
 					continue;
 				}
 				faw = getScheduleEntryPtr(i);
-				DBGLOG(NAN, DEBUG, "category=%u, %p", i, faw);
-				DBGLOG_HEX(NAN, DEBUG, faw,
+				DBGLOG(NAN, INFO, "category=%u, %p", i, faw);
+				DBGLOG_HEX(NAN, INFO, faw,
 					   sizeof(struct IE_NAN_ASCC_FAW
 						  [NAN_MAX_SUPPORT_NDL_NUM]));
 				faw = &faw[prNDL->ucIndex];
-				DBGLOG(NAN, DEBUG, "category=%u, %p", i, faw);
-				DBGLOG_HEX(NAN, DEBUG, faw,
+				DBGLOG(NAN, INFO, "category=%u, %p", i, faw);
+				DBGLOG_HEX(NAN, INFO, faw,
 					   sizeof(struct IE_NAN_ASCC_FAW));
 
 				kalMemCopy(prResponse->aucData + offset,
@@ -1443,10 +1477,10 @@ static uint32_t nanGetScheduleEntry(struct ADAPTER *prAdapter,
 			prResponse->u4Category |= BIT(i);
 
 		offset += getScheduleEntrySize(i);
-		DBGLOG(NAN, DEBUG, "Append schedule entry %u(%s), offset=%u",
+		DBGLOG(NAN, INFO, "Append schedule entry %u(%s), offset=%u",
 		       i, getScheduleEntryString(i), offset);
 	}
-	DBGLOG(NAN, DEBUG, "all schedule entry size=%u\n", offset);
+	DBGLOG(NAN, INFO, "all schedule entry size=%u\n", offset);
 
 	return offset;
 }
@@ -1460,14 +1494,14 @@ uint32_t nanParseScheduleEntry(struct ADAPTER *prAdapter,
 	uint32_t offset = 0;
 	uint32_t category;
 
-	DBGLOG(NAN, DEBUG, "Enter %s, size=%u\n", __func__, size);
-	DBGLOG_HEX(NAN, DEBUG, buf, size);
+	DBGLOG(NAN, INFO, "size=%u\n", size);
+	DBGLOG_HEX(NAN, INFO, buf, size);
 
 	while (offset < size) {
 		ascc_schedule = (struct IE_NAN_ASCC_SCHEDULE *)&buf[offset];
 
 		category = ascc_schedule->schedule_category;
-		DBGLOG(NAN, DEBUG,
+		DBGLOG(NAN, INFO,
 		       "Parsing schedule entry %u, remaining: %u\n",
 		       category, size - offset);
 
@@ -1488,7 +1522,7 @@ uint32_t nanParseScheduleEntry(struct ADAPTER *prAdapter,
 						buf + offset, update);
 	}
 
-	DBGLOG(NAN, DEBUG, "processed %u bytes", offset);
+	DBGLOG(NAN, INFO, "processed %u bytes", offset);
 	return offset;
 }
 
@@ -1496,7 +1530,6 @@ static void nanUpdateFastRecovery(struct ADAPTER *prAdapter,
 				  struct IE_NAN_ASCC_CMD *cmd)
 {
 	struct _NAN_NDL_INSTANCE_T *prNDL;
-	uint8_t ucRequestId = 0;
 
 	/* Get the pointer to prPeerSchRecord by NMI MAC through NDL */
 	prNDL = nanDataUtilSearchNdlByMac(prAdapter, cmd->aucDestNMIAddr);
@@ -1508,22 +1541,23 @@ static void nanUpdateFastRecovery(struct ADAPTER *prAdapter,
 	if (!prNDL)
 		return;
 
-	if (prNDL) { /* Set/clear FR flags accordingly */
-		if (cmd->usage == NAN_SCHEDULE_USAGE_ASCC_PS_FR ||
-		    cmd->usage == NAN_SCHEDULE_USAGE_APNAN_PS_FR) {
-			nanExtSetFr(prNDL, cmd->ucRequestId, kalGetBootTime());
-		} else if (cmd->usage != NAN_SCHEDULE_USAGE_CHECK_SCHEDULE) {
-			/* Set u4SetFastRecovery to 0 to clear FR */
-			if (nanExtGetFr(prNDL, &ucRequestId, NULL))
-				nanExtSetFr(prNDL, ucRequestId, 0);
-		}
+	/* Set/clear FR flags accordingly */
+	if (cmd->usage == NAN_SCHEDULE_USAGE_ASCC_PS_FR ||
+	    cmd->usage == NAN_SCHEDULE_USAGE_APNAN_PS_FR) { /* Power Saving */
+		nanExtSetFrPs(prAdapter, prNDL, cmd, TRUE);
+	} else if (cmd->usage == NAN_SCHEDULE_USAGE_FR) { /* Fast Recovery */
+		nanExtSetFrPs(prAdapter, prNDL, cmd, FALSE);
+	} else if (cmd->usage == NAN_SCHEDULE_USAGE_CHECK_SCHEDULE) {
+		/* Framework requested to check Fast Recovery status check */
+		DBGLOG(NAN, INFO, "Check schedule of req=%u, NMI=" MACSTR,
+		       cmd->ucRequestId, MAC2STR(cmd->aucDestNMIAddr));
 	}
 }
 
-
 static void
 nanUpdateCustomizedNdpSettings(struct _NAN_NDL_CUSTOMIZED_T *prNdlCustomized,
-			       uint32_t u4Category, uint32_t u4SchIdx)
+			       struct IE_NAN_ASCC_CMD *ascc_cmd,
+			       uint32_t u4SchIdx)
 {
 	enum _ENUM_BAND_INDEX_T band;
 	enum NAN_SCHEDULE_CATEGORY entry_idx;
@@ -1533,6 +1567,7 @@ nanUpdateCustomizedNdpSettings(struct _NAN_NDL_CUSTOMIZED_T *prNdlCustomized,
 	 * For each NDP category bitmap set,
 	 * get the pointer to peer schedule entry,
 	 * Set rCustomized[band].fgBitmapSet
+	 * Set rCustomized[band].ePowerSaving by FR PS or resume
 	 * Save rCustomized[band].ucOpChannel
 	 * Save rCustomized[band].u4Bitmap
 	 * Call nanSchedPeerUpdateCommonFAW
@@ -1542,7 +1577,7 @@ nanUpdateCustomizedNdpSettings(struct _NAN_NDL_CUSTOMIZED_T *prNdlCustomized,
 	     band++, entry_idx += CATEGORY_NDP_FAW_5G -
 				  CATEGORY_NDP_FAW_2G) {
 
-		if ((u4Category & BIT(entry_idx)) == 0)
+		if ((ascc_cmd->u4Category & BIT(entry_idx)) == 0)
 			continue;
 
 		prSchedEntryNdp = getScheduleEntryPtr(entry_idx);
@@ -1550,17 +1585,38 @@ nanUpdateCustomizedNdpSettings(struct _NAN_NDL_CUSTOMIZED_T *prNdlCustomized,
 		if (!prSchedEntryNdp)
 			continue;
 
+		/* if framework does not set customized FAW for FR  */
+		if (ascc_cmd->usage == NAN_SCHEDULE_USAGE_ASCC_PS_FR ||
+		    ascc_cmd->usage == NAN_SCHEDULE_USAGE_APNAN_PS_FR) {
+			prNdlCustomized[band].ePowerSaving = NDP_ENTER_PS;
+		} else if (ascc_cmd->usage == NAN_SCHEDULE_USAGE_FR) {
+			prNdlCustomized[band].ePowerSaving = NDP_RESUME_FROM_PS;
+		} else { /* Customized after FR, honor fgBitmapSet */
+			prNdlCustomized[band].ePowerSaving = NDP_PS_NONE;
+		}
+
 		prNdlCustomized[band].fgBitmapSet = TRUE;
+
 		prNdlCustomized[band].ucOpChannel =
 			prSchedEntryNdp[u4SchIdx].ucOpChannel;
 		prNdlCustomized[band].u4Bitmap =
 			prSchedEntryNdp[u4SchIdx].u4Bitmap;
 
-		DBGLOG(NAN, DEBUG,
-		       "band=%u, u4SchIdx=%u, ucOpChannel=%u, u4Bitmap=%08x",
-		       band, u4SchIdx,
-		       prSchedEntryNdp[u4SchIdx].ucOpChannel,
-		       prSchedEntryNdp[u4SchIdx].u4Bitmap);
+		DBGLOG(NAN, INFO,
+		       "Set sch=%u band=%u PS=%u %02x:%02x:%02x:%02x:%02x:%02x u4Bitmap=%02x-%02x-%02x-%02x ucOpChannel=%u",
+		       u4SchIdx, band,
+		       prNdlCustomized[band].ePowerSaving,
+		       ascc_cmd->aucDestNMIAddr[0],
+		       ascc_cmd->aucDestNMIAddr[1],
+		       ascc_cmd->aucDestNMIAddr[2],
+		       ascc_cmd->aucDestNMIAddr[3],
+		       ascc_cmd->aucDestNMIAddr[4],
+		       ascc_cmd->aucDestNMIAddr[5],
+		       prSchedEntryNdp[u4SchIdx].byte[0],
+		       prSchedEntryNdp[u4SchIdx].byte[1],
+		       prSchedEntryNdp[u4SchIdx].byte[2],
+		       prSchedEntryNdp[u4SchIdx].byte[3],
+		       prSchedEntryNdp[u4SchIdx].ucOpChannel);
 	}
 }
 
@@ -1584,12 +1640,12 @@ static void nanUpdateGlobalCustomizedNdp(struct ADAPTER *prAdapter,
 	if (!prScheduler)
 		return;
 
-	DBGLOG(NAN, DEBUG, "Update NDP by Cluster ID " MACSTR "\n",
+	DBGLOG(NAN, INFO, "Update NDP by Cluster ID " MACSTR "\n",
 	       MAC2STR(aucClusterId));
 
 	prNdlCustomized = prScheduler->arGlobalCustomized;
-	nanUpdateCustomizedNdpSettings(prNdlCustomized, cmd->u4Category,
-				       NAN_MAX_CONN_CFG);
+
+	nanUpdateCustomizedNdpSettings(prNdlCustomized, cmd, NAN_MAX_CONN_CFG);
 
 	for (u4SchIdx = 0; u4SchIdx < NAN_MAX_CONN_CFG; u4SchIdx++)
 		nanSchedPeerUpdateCommonFAW(prAdapter, u4SchIdx);
@@ -1625,13 +1681,13 @@ static void nanUpdatePeerCustomizedNdp(struct ADAPTER *prAdapter,
 		return;
 	}
 
-	DBGLOG(NAN, DEBUG, "Update NDP by Peer NMI " MACSTR ", SchIdx=%u\n",
+	DBGLOG(NAN, INFO, "Update NDP by Peer NMI " MACSTR ", SchIdx=%u\n",
 	       MAC2STR(cmd->aucDestNMIAddr), u4SchIdx);
 
 	prPeerSchRecord = nanSchedGetPeerSchRecord(prAdapter, u4SchIdx);
 	prNdlCustomized = prPeerSchRecord->arCustomized;
-	nanUpdateCustomizedNdpSettings(prNdlCustomized, cmd->u4Category,
-				       u4SchIdx);
+
+	nanUpdateCustomizedNdpSettings(prNdlCustomized, cmd, u4SchIdx);
 
 	nanSchedPeerUpdateCommonFAW(prAdapter, u4SchIdx);
 
@@ -1649,6 +1705,26 @@ static void updatePeerNdpCustomizedSchedule(struct ADAPTER *prAdapter,
 
 	nanUpdateGlobalCustomizedNdp(prAdapter, cmd); /* dest == cluster ID */
 	nanUpdatePeerCustomizedNdp(prAdapter, cmd); /* dest == peer NMI */
+
+	if (cmd->usage == NAN_SCHEDULE_USAGE_FR ||
+	    cmd->usage == NAN_SCHEDULE_USAGE_ASCC_PS_FR ||
+	    cmd->usage == NAN_SCHEDULE_USAGE_APNAN_PS_FR ||
+	    cmd->usage == NAN_SCHEDULE_USAGE_CHECK_SCHEDULE) {
+		/**
+		 * the new Fast Recovery device is successfully resigtered
+		 * if a peer matched cmd->aucDestNMIAddr && in FR PS
+		 * TODO: NAN_SCHEDULE_USAGE_CHECK_SCHEDULE matching peerNMI
+		 */
+		nanIndicateActiveFrResponse(prAdapter,
+					    cmd->ucRequestId,
+					    NAN_FR_PACKET_RESPONSE,
+					    NAN_FR_RESPONSE_SUCCESS);
+	}
+
+	/**
+	 * Run the remembered  reschedule events happened during PS
+	 * in nanProcessASCC()
+	 */
 }
 
 uint32_t nanAsccParseScheduleEntry(struct ADAPTER *prAdapter,
@@ -1658,7 +1734,7 @@ uint32_t nanAsccParseScheduleEntry(struct ADAPTER *prAdapter,
 {
 	uint32_t offset = 0;
 
-	DBGLOG(NAN, DEBUG, "Enter %s, size=%u\n", __func__, size);
+	DBGLOG(NAN, INFO, "size=%u\n", size);
 
 	offset += nanParseScheduleEntry(prAdapter, cmd,
 					buf, size, update);
@@ -1671,7 +1747,7 @@ uint32_t nanAsccParseScheduleEntry(struct ADAPTER *prAdapter,
 	if (update && isNdpScheduleEntrySet(cmd->u4Category))
 		updatePeerNdpCustomizedSchedule(prAdapter, cmd);
 
-	DBGLOG(NAN, DEBUG, "processed %u bytes", offset);
+	DBGLOG(NAN, INFO, "processed %u bytes", offset);
 	return offset;
 }
 
@@ -1831,8 +1907,7 @@ static const char *band_pref_str(uint8_t i)
 static void freePendingCmd(struct ADAPTER *prAdapter,
 			   struct IE_NAN_ASCC_PENDING_CMD *prPendingCmd)
 {
-	DBGLOG(NAN, DEBUG, "Enter %s, free pending request %u\n",
-	       __func__,
+	DBGLOG(NAN, INFO, "free pending request %u\n",
 	       ((struct IE_NAN_ASCC_CMD *)(prPendingCmd->cmd))->ucRequestId);
 
 	cnmMemFree(prAdapter, prPendingCmd);
@@ -1843,9 +1918,8 @@ static uint32_t savePendingCmd(struct ADAPTER *prAdapter,
 {
 	struct IE_NAN_ASCC_PENDING_CMD *prPendingCmd;
 
-	DBGLOG(NAN, DEBUG,
-	       "Enter %s, req=%u method=%u usage=%u category=0x%08x\n",
-	       __func__, cmd->ucRequestId, cmd->scheduling_method,
+	DBGLOG(NAN, INFO, "req=%u method=%u usage=%u category=0x%08x\n",
+	       cmd->ucRequestId, cmd->scheduling_method,
 	       cmd->usage, cmd->u4Category);
 
 	prPendingCmd = cnmMemAlloc(prAdapter, RAM_TYPE_BUF,
@@ -1881,29 +1955,29 @@ static void dumpAsccCommand(struct IE_NAN_ASCC_CMD *c)
 {
 	char category_buf[128] = {0};
 
-	DBGLOG_HEX(NAN, DEBUG, c, sizeof(struct IE_NAN_ASCC_CMD));
+	DBGLOG_HEX(NAN, INFO, c, sizeof(struct IE_NAN_ASCC_CMD));
 
-	DBGLOG(NAN, DEBUG, "OUI: %d(%02X) (%s)\n",
+	DBGLOG(NAN, INFO, "OUI: %d(%02X) (%s)\n",
 	       c->ucNanOui, c->ucNanOui, oui_str(c->ucNanOui));
-	DBGLOG(NAN, DEBUG, "Length: %d\n", c->u2Length);
-	DBGLOG(NAN, DEBUG, "v%d.%d\n", c->ucMajorVersion, c->ucMinorVersion);
-	DBGLOG(NAN, DEBUG, "ReqId: %d\n", c->ucRequestId);
-	DBGLOG(NAN, DEBUG, "Type: %d (%s)\n", c->type, ascc_type_str(c->type));
-	DBGLOG(NAN, DEBUG, "Scheduling method: %d (%s)\n",
+	DBGLOG(NAN, INFO, "Length: %d\n", c->u2Length);
+	DBGLOG(NAN, INFO, "v%d.%d\n", c->ucMajorVersion, c->ucMinorVersion);
+	DBGLOG(NAN, INFO, "ReqId: %d\n", c->ucRequestId);
+	DBGLOG(NAN, INFO, "Type: %d (%s)\n", c->type, ascc_type_str(c->type));
+	DBGLOG(NAN, INFO, "Scheduling method: %d (%s)\n",
 	       c->scheduling_method,
 	       scheduling_method_str(c->scheduling_method));
-	DBGLOG(NAN, DEBUG, "Usage: %d (%s)\n", c->usage, usage_str(c->usage));
-	DBGLOG(NAN, DEBUG, "SrcNMI: " MACSTR "\n", MAC2STR(c->aucSrcNMIAddr));
-	DBGLOG(NAN, DEBUG, "DestNMI: " MACSTR "\n", MAC2STR(c->aucDestNMIAddr));
-	DBGLOG(NAN, DEBUG, "Confirm: %d\n",
+	DBGLOG(NAN, INFO, "Usage: %d (%s)\n", c->usage, usage_str(c->usage));
+	DBGLOG(NAN, INFO, "SrcNMI: " MACSTR "\n", MAC2STR(c->aucSrcNMIAddr));
+	DBGLOG(NAN, INFO, "DestNMI: " MACSTR "\n", MAC2STR(c->aucDestNMIAddr));
+	DBGLOG(NAN, INFO, "Confirm: %d\n",
 	       c->schedule_confirm_handshake_required);
-	DBGLOG(NAN, DEBUG, "Start: %d (%s)\n",
+	DBGLOG(NAN, INFO, "Start: %d (%s)\n",
 	       c->data_transmission_start_timing,
 	       tx_start_time_str(c->data_transmission_start_timing));
-	DBGLOG(NAN, DEBUG, "Band: %u (%s)\n", c->band_preference,
+	DBGLOG(NAN, INFO, "Band: %u (%s)\n", c->band_preference,
 	       band_pref_str(c->band_preference));
-	DBGLOG(NAN, DEBUG, "Idle Timer paused: %u\n", c->ndp_idle_timer_paused);
-	DBGLOG(NAN, DEBUG, "Category: 0x%08x (%s)\n", c->u4Category,
+	DBGLOG(NAN, INFO, "Idle Timer paused: %u\n", c->ndp_idle_timer_paused);
+	DBGLOG(NAN, INFO, "Category: 0x%08x (%s)\n", c->u4Category,
 	       schedule_category_included_str(c->u4Category, category_buf,
 					      sizeof(category_buf)));
 }
@@ -1912,24 +1986,24 @@ static void dumpAsccResponse(struct IE_NAN_ASCC_EVENT *r)
 {
 	char category_buf[512] = {0};
 
-	DBGLOG(NAN, DEBUG, "OUI: %d(%02X) (%s)\n",
+	DBGLOG(NAN, INFO, "OUI: %d(%02X) (%s)\n",
 	       r->ucNanOui, r->ucNanOui, oui_str(r->ucNanOui));
-	DBGLOG(NAN, DEBUG, "Length: %d\n", r->u2Length);
-	DBGLOG(NAN, DEBUG, "v%d.%d\n", r->ucMajorVersion, r->ucMinorVersion);
-	DBGLOG(NAN, DEBUG, "ReqId: %d\n", r->ucRequestId);
-	DBGLOG(NAN, DEBUG, "Type: %d (%s)\n",
+	DBGLOG(NAN, INFO, "Length: %d\n", r->u2Length);
+	DBGLOG(NAN, INFO, "v%d.%d\n", r->ucMajorVersion, r->ucMinorVersion);
+	DBGLOG(NAN, INFO, "ReqId: %d\n", r->ucRequestId);
+	DBGLOG(NAN, INFO, "Type: %d (%s)\n",
 	       r->type, ascc_type_str(r->type));
-	DBGLOG(NAN, DEBUG, "Status: %d (%s)\n",
+	DBGLOG(NAN, INFO, "Status: %d (%s)\n",
 	       r->status, ascc_status_str(r->status));
-	DBGLOG(NAN, DEBUG, "Reason: %d (%s)\n",
+	DBGLOG(NAN, INFO, "Reason: %d (%s)\n",
 	       r->reason_code,
 	       ascc_reason_str(r->type, r->status, r->reason_code));
-	DBGLOG(NAN, DEBUG, "Scheduling method: %d (%s)\n",
+	DBGLOG(NAN, INFO, "Scheduling method: %d (%s)\n",
 	       r->scheduling_method,
 	       scheduling_method_str(r->scheduling_method));
-	DBGLOG(NAN, DEBUG, "Usage: %d (%s)\n", r->usage, usage_str(r->usage));
-	DBGLOG(NAN, DEBUG, "PeerNMI: " MACSTR "\n", MAC2STR(r->aucPeerNMIAddr));
-	DBGLOG(NAN, DEBUG, "Category: 0x%08x (%s)\n", r->u4Category,
+	DBGLOG(NAN, INFO, "Usage: %d (%s)\n", r->usage, usage_str(r->usage));
+	DBGLOG(NAN, INFO, "PeerNMI: " MACSTR "\n", MAC2STR(r->aucPeerNMIAddr));
+	DBGLOG(NAN, INFO, "Category: 0x%08x (%s)\n", r->u4Category,
 	       schedule_category_included_str(r->u4Category,
 					      category_buf,
 					      sizeof(category_buf)));
@@ -1998,8 +2072,8 @@ static uint32_t nanAddAsccAsyncEvent(struct ADAPTER *prAdapter,
 				     enum NAN_ASCC_REASON reason)
 {
 	prAsync->ucEvent = reason;
-	DBGLOG(NAN, DEBUG, "Set AsyncEvent: %u\n",
-	       prAsync->ucEvent, &prAsync->ucEvent);
+	DBGLOG(NAN, INFO, "Set AsyncEvent: %u\n",
+	       prAsync->ucEvent);
 
 	return sizeof(struct NAN_ASCC_ASYNC_EVENT);
 }
@@ -2007,8 +2081,8 @@ static uint32_t nanAddAsccAsyncEvent(struct ADAPTER *prAdapter,
 static uint32_t nanParseAsyncEvent(struct ADAPTER *prAdapter,
 				   struct NAN_ASCC_ASYNC_EVENT *prAsync)
 {
-	DBGLOG(NAN, DEBUG, "AsyncEvent: %u\n",
-	       prAsync->ucEvent, &prAsync->ucEvent);
+	DBGLOG(NAN, INFO, "AsyncEvent: %u\n",
+	       prAsync->ucEvent);
 
 	return 0;
 }
@@ -2028,8 +2102,8 @@ static uint32_t nanComposeASCCResponse(struct ADAPTER *prAdapter,
 	uint32_t u4AsyncEventSize = 0;
 	uint32_t rStatus = WLAN_STATUS_SUCCESS;
 
-	DBGLOG(NAN, DEBUG, "Enter %s, request=%u type=%u status=%u reason=%u\n",
-	       __func__, cmd->ucRequestId, type, status, reason);
+	DBGLOG(NAN, INFO, "request=%u type=%u status=%u reason=%u\n",
+	       cmd->ucRequestId, type, status, reason);
 
 
 	/* determine required schedule entry size */
@@ -2039,7 +2113,7 @@ static uint32_t nanComposeASCCResponse(struct ADAPTER *prAdapter,
 					gAsccRecord.custom_schedule_entry,
 					NULL);
 	} else if (nanAsccResponseNeedScheduleEntry(status, reason)) {
-		DBGLOG(NAN, DEBUG,
+		DBGLOG(NAN, INFO,
 		       "Need schedule entry (status=%u, reason=%u)\n",
 		       status, reason);
 		/* copy the schedule entries from command */
@@ -2048,7 +2122,7 @@ static uint32_t nanComposeASCCResponse(struct ADAPTER *prAdapter,
 
 	/* determine required async event size */
 	if (nanAsccResponseNeedAsyncEvent(status, reason)) {
-		DBGLOG(NAN, DEBUG, "Need async event\n");
+		DBGLOG(NAN, INFO, "Need async event\n");
 		u4AsyncEventSize = sizeof(struct NAN_ASCC_ASYNC_EVENT);
 	}
 
@@ -2119,7 +2193,7 @@ static uint32_t nanComposeASCCResponse(struct ADAPTER *prAdapter,
 				      &prResponse->aucData[entry_size]);
 
 	/* Reuse the buffer from passed in from HAL */
-	DBGLOG(NAN, DEBUG, "Copy %zu bytes\n", EXT_MSG_SIZE(prResponse));
+	DBGLOG(NAN, INFO, "Copy %zu bytes\n", EXT_MSG_SIZE(prResponse));
 	kalMemCopy(cmd, prResponse, EXT_MSG_SIZE(prResponse));
 
 done:
@@ -2234,8 +2308,8 @@ uint32_t nanProcessAsccCommand(struct ADAPTER *prAdapter, const uint8_t *buf,
 	uint32_t offset = 0;
 	struct IE_NAN_ASCC_CMD *c = (struct IE_NAN_ASCC_CMD *)buf;
 
-	DBGLOG(NAN, DEBUG, "Enter %s, consuming %zu bytes\n",
-	       __func__, sizeof(struct IE_NAN_ASCC_CMD));
+	DBGLOG(NAN, INFO, "Consuming %zu bytes\n",
+	       sizeof(struct IE_NAN_ASCC_CMD));
 
 	dumpAsccCommand(c);
 
@@ -2243,11 +2317,11 @@ uint32_t nanProcessAsccCommand(struct ADAPTER *prAdapter, const uint8_t *buf,
 	offset += nanAsccParseScheduleEntry(prAdapter, c, c->aucEntry,
 					    ASCC_CMD_BODY_SIZE(c), TRUE);
 
-	DBGLOG(NAN, DEBUG, "parsed, custom_schedule_entry=0x%08x\n",
+	DBGLOG(NAN, INFO, "parsed, custom_schedule_entry=0x%08x\n",
 	       gAsccRecord.custom_schedule_entry);
 
 	if (g_ucNanIsOn) {
-		DBGLOG(NAN, DEBUG, "Proceed to send command\n");
+		DBGLOG(NAN, INFO, "Proceed to send command\n");
 		if (c->usage != NAN_SCHEDULE_USAGE_CHECK_SCHEDULE) {
 			/* pass whole command to sync settings */
 			nanSchedUpdateCustomCommands(prAdapter, buf,
@@ -2259,7 +2333,7 @@ uint32_t nanProcessAsccCommand(struct ADAPTER *prAdapter, const uint8_t *buf,
 			nanExtReconfigureCustFaw(prAdapter);
 
 	} else { /* used later for sending response */
-		DBGLOG(NAN, DEBUG, "Save command to pending list\n");
+		DBGLOG(NAN, INFO, "Save command to pending list\n");
 		r = savePendingCmd(prAdapter, c);
 		if (r != WLAN_STATUS_SUCCESS)
 			return WLAN_STATUS_FAILURE;
@@ -2268,51 +2342,9 @@ uint32_t nanProcessAsccCommand(struct ADAPTER *prAdapter, const uint8_t *buf,
 	return r;
 }
 
-uint32_t nanProcessASCC(struct ADAPTER *prAdapter, const uint8_t *buf,
-			size_t u4Size)
-{
-	uint32_t r = WLAN_STATUS_SUCCESS;
-	enum NAN_ASCC_STATUS status = NAN_ASCC_STATUS_SUCCESS;
-	enum NAN_ASCC_REASON reason = NAN_ASCC_REASON_SUCCESS;
-
-	r = nanProcessAsccCommand(prAdapter, buf, u4Size);
-	if (r != WLAN_STATUS_SUCCESS)
-		return WLAN_STATUS_FAILURE;
-
-	r = nanAsccResponse(prAdapter, (struct IE_NAN_ASCC_CMD *)buf,
-			    status, reason);
-
-	return r;
-}
-
-static void nanAsccProcessAllPendingCommands(struct ADAPTER *prAdapter)
-{
-	struct LINK_ENTRY *prEntry;
-	struct LINK_ENTRY *prNextEntry;
-	struct IE_NAN_ASCC_PENDING_CMD *prPendingCmd;
-
-	LINK_FOR_EACH_SAFE(prEntry, prNextEntry, &g_rPendingReqList) {
-		if (prEntry == NULL)
-			break;
-
-		prPendingCmd = LINK_ENTRY(prEntry,
-					  struct IE_NAN_ASCC_PENDING_CMD,
-					  rLinkEntry);
-		LINK_REMOVE_KNOWN_ENTRY(&g_rPendingReqList, prEntry);
-
-		DBGLOG(NAN, DEBUG, "link num=%u\n",
-		       g_rPendingReqList.u4NumElem);
-
-		DBGLOG(NAN, TRACE, "Process cmd at %p, size=%zu\n",
-		       prPendingCmd->cmd, EXT_MSG_SIZE(prPendingCmd->cmd));
-		nanProcessAsccCommand(prAdapter, prPendingCmd->cmd,
-				      EXT_MSG_SIZE(prPendingCmd->cmd));
-		freePendingCmd(prAdapter, prPendingCmd);
-	}
-}
-
 static void nanAsccSetFastConnect(struct ADAPTER *prAdapter, u_int8_t fgEnable)
 {
+	struct _NAN_SCHEDULER_T *prScheduler = nanGetScheduler(prAdapter);
 	uint8_t *buf;
 	size_t szSize = sizeof(struct IE_NAN_ASCC_CMD) +
 		sizeof(struct IE_NAN_ASCC_FAW) * 2;
@@ -2320,8 +2352,8 @@ static void nanAsccSetFastConnect(struct ADAPTER *prAdapter, u_int8_t fgEnable)
 	struct IE_NAN_ASCC_FAW *prFc2G = NULL;
 	struct IE_NAN_ASCC_FAW *prFc5G;
 	uint32_t u4Bitmap;
-	uint8_t ucP2p5gChannel;
-	uint8_t ucP2p2gChannel;
+	union _NAN_BAND_CHNL_CTRL rP2p5gChnlInfo;
+	union _NAN_BAND_CHNL_CTRL rP2p2gChnlInfo;
 
 	if (!prAdapter->rWifiVar.fgNanAutoFC)
 		return;
@@ -2335,21 +2367,25 @@ static void nanAsccSetFastConnect(struct ADAPTER *prAdapter, u_int8_t fgEnable)
 		return;
 
 	/* If P2P concurrent, do not set FC */
-	ucP2p5gChannel = nanGetP2pActiveChannel(prAdapter, BAND_5G);
-	ucP2p2gChannel = nanGetP2pActiveChannel(prAdapter, BAND_2G4);
+	rP2p5gChnlInfo = nanGetActiveChnl(prAdapter, NETWORK_TYPE_P2P, BAND_5G);
+	rP2p2gChnlInfo = nanGetActiveChnl(prAdapter, NETWORK_TYPE_P2P,
+					  BAND_2G4);
 	if (fgEnable &&
-	    (prAdapter->rWifiVar.fgNanAutoFC >= 1 && ucP2p5gChannel ||
-	     prAdapter->rWifiVar.fgNanAutoFC == 2 && ucP2p2gChannel)) {
-		DBGLOG(NAN, DEBUG,
+	    (prAdapter->rWifiVar.fgNanAutoFC >= 1 &&
+	     rP2p5gChnlInfo.u4PrimaryChnl ||
+	     prAdapter->rWifiVar.fgNanAutoFC == 2 &&
+	     rP2p2gChnlInfo.u4PrimaryChnl)) {
+		DBGLOG(NAN, INFO,
 		       "Skip enable FC mode %u since P2P is connected at %u/%u\n",
 		       prAdapter->rWifiVar.fgNanAutoFC,
-		       ucP2p5gChannel, ucP2p2gChannel);
+		       rP2p5gChnlInfo.u4PrimaryChnl,
+		       rP2p2gChnlInfo.u4PrimaryChnl);
 		return;
 	}
 
-	DBGLOG(NAN, DEBUG, "FC mode=%u set %u, P2P is connected at %u/%u\n",
+	DBGLOG(NAN, INFO, "FC mode=%u set %u, P2P is connected at %u/%u\n",
 	       prAdapter->rWifiVar.fgNanAutoFC, fgEnable,
-	       ucP2p5gChannel, ucP2p2gChannel);
+	       rP2p5gChnlInfo.u4PrimaryChnl, rP2p2gChnlInfo.u4PrimaryChnl);
 
 	szSize = sizeof(struct IE_NAN_ASCC_CMD) +
 		sizeof(struct IE_NAN_ASCC_FAW);
@@ -2400,10 +2436,15 @@ static void nanAsccSetFastConnect(struct ADAPTER *prAdapter, u_int8_t fgEnable)
 			&cmd->aucEntry[sizeof(struct IE_NAN_ASCC_FAW)];
 	}
 
-	if (fgEnable)
-		u4Bitmap = 0x00000e00;  /* #69 */ /* #70: 0x03003e00 */
-	else
-		u4Bitmap = 0x00000000;
+	if (fgEnable) {
+		if (prScheduler &&
+		    (prScheduler->fgEn5gL || prScheduler->fgEn5gH))
+			u4Bitmap = 0x00000e00;  /* #69 */ /* #70: 0x03003e00 */
+		else {
+			DBGLOG(NAN, WARN, "5G not supported to enable FC");
+			u4Bitmap = 0x00000000;
+		}
+	}
 
 	*prFc5G = (struct IE_NAN_ASCC_FAW) {
 		.schedule_category = CATEGORY_FC_5G,
@@ -2415,6 +2456,68 @@ static void nanAsccSetFastConnect(struct ADAPTER *prAdapter, u_int8_t fgEnable)
 	nanProcessAsccCommand(prAdapter, buf, szSize);
 
 	cnmMemFree(prAdapter, buf);
+}
+
+uint32_t nanProcessASCC(struct ADAPTER *prAdapter, const uint8_t *buf,
+			size_t u4Size)
+{
+	uint32_t r = WLAN_STATUS_SUCCESS;
+	enum NAN_ASCC_STATUS status = NAN_ASCC_STATUS_SUCCESS;
+	enum NAN_ASCC_REASON reason = NAN_ASCC_REASON_SUCCESS;
+	struct IE_NAN_ASCC_CMD *c = (struct IE_NAN_ASCC_CMD *)buf;
+
+	struct _NAN_SCHEDULER_T *prNanScheduler;
+
+	r = nanProcessAsccCommand(prAdapter, buf, u4Size);
+	if (r != WLAN_STATUS_SUCCESS)
+		return WLAN_STATUS_FAILURE;
+
+	r = nanAsccResponse(prAdapter, (struct IE_NAN_ASCC_CMD *)buf,
+			    status, reason);
+
+	if (c->usage == NAN_SCHEDULE_USAGE_ASCC_PS_FR ||
+	    c->usage == NAN_SCHEDULE_USAGE_APNAN_PS_FR) {
+		if (nanGetActivePeerNum(prAdapter) == 0)
+			nanAsccSetFastConnect(prAdapter, FALSE);
+	} else if (c->usage == NAN_SCHEDULE_USAGE_FR) {
+		if (nanGetActivePeerNum(prAdapter) == 1)
+			nanAsccSetFastConnect(prAdapter, TRUE);
+
+		prNanScheduler = nanGetScheduler(prAdapter);
+		if (prNanScheduler &&
+		    prNanScheduler->eRescheduleEventInPS != RESCHEDULE_NULL)
+			nanRescheduleNdlIfNeeded(prAdapter,
+					prNanScheduler->eRescheduleEventInPS,
+					prNanScheduler->prRescheduleNdlInPS);
+	}
+
+	return r;
+}
+
+static void nanAsccProcessAllPendingCommands(struct ADAPTER *prAdapter)
+{
+	struct LINK_ENTRY *prEntry;
+	struct LINK_ENTRY *prNextEntry;
+	struct IE_NAN_ASCC_PENDING_CMD *prPendingCmd;
+
+	if (LINK_IS_INVALID(&g_rPendingReqList))
+		return;
+
+	LINK_FOR_EACH_SAFE(prEntry, prNextEntry, &g_rPendingReqList) {
+		prPendingCmd = LINK_ENTRY(prEntry,
+					  struct IE_NAN_ASCC_PENDING_CMD,
+					  rLinkEntry);
+		LINK_REMOVE_KNOWN_ENTRY(&g_rPendingReqList, prEntry);
+
+		DBGLOG(NAN, INFO, "link num=%u\n",
+		       g_rPendingReqList.u4NumElem);
+
+		DBGLOG(NAN, TRACE, "Process cmd at %p, size=%zu\n",
+		       prPendingCmd->cmd, EXT_MSG_SIZE(prPendingCmd->cmd));
+		nanProcessAsccCommand(prAdapter, prPendingCmd->cmd,
+				      EXT_MSG_SIZE(prPendingCmd->cmd));
+		freePendingCmd(prAdapter, prPendingCmd);
+	}
 }
 
 void nanSetFlashCommunication(struct ADAPTER *prAdapter, u_int8_t fgEnable)
@@ -2441,9 +2544,10 @@ static void nanAsccClearPendingCommands(struct ADAPTER *prAdapter)
 	struct LINK_ENTRY *prNextEntry;
 	struct IE_NAN_ASCC_PENDING_CMD *prPendingCmd;
 
+	if (LINK_IS_INVALID(&g_rPendingReqList))
+		return;
+
 	LINK_FOR_EACH_SAFE(prEntry, prNextEntry, &g_rPendingReqList) {
-		if (prEntry == NULL)
-			break;
 		prPendingCmd = LINK_ENTRY(prEntry,
 					  struct IE_NAN_ASCC_PENDING_CMD,
 					  rLinkEntry);
@@ -2520,8 +2624,8 @@ uint32_t nanGetTimelineFcSlots(struct ADAPTER *prAdapter, size_t szTimelineIdx,
 		u4Bitmap |= faw->u4Bitmap;
 	}
 
-	NAN_DW_DBGLOG(NAN, DEBUG, TRUE, szSlotIdx,
-		      "Timeline %u FC slots: %02x-%02x-%02x-%02x\n",
+	NAN_DW_DBGLOG(NAN, INFO, TRUE, szSlotIdx,
+		      "Timeline %zu FC slots: %02x-%02x-%02x-%02x\n",
 		      szTimelineIdx,
 		      ((uint8_t *)&u4Bitmap)[0], ((uint8_t *)&u4Bitmap)[1],
 		      ((uint8_t *)&u4Bitmap)[2], ((uint8_t *)&u4Bitmap)[3]);
@@ -2550,16 +2654,16 @@ u_int8_t nanIsChnlSwitchSlot(struct ADAPTER *prAdapter,
 
 	if (prAdapter->rWifiVar.ucNanEhtCHSwitchMode == 2 &&
 	    NAN_SLOT_IS_M2_CH_SWITCH(szSlotIdx)) {
-		NAN_DW_DBGLOG(NAN, DEBUG, fgPrintLog, szSlotIdx,
-			      "Tidx(%u) CH switch slot(%zu): Force empty for M2 CH switch\n",
+		NAN_DW_DBGLOG(NAN, INFO, fgPrintLog, szSlotIdx,
+			      "Tidx(%zu) CH switch slot(%zu): Force empty for M2 CH switch\n",
 			      szTimeLineIdx, szSlotIdx);
 		return TRUE;
 	}
 
 	if (prAdapter->rWifiVar.ucNanEhtCHSwitchMode == 4 &&
 	    NAN_SLOT_IS_M4_CH_SWITCH(szSlotIdx)) {
-		NAN_DW_DBGLOG(NAN, DEBUG, fgPrintLog, szSlotIdx,
-			      "Tidx(%u) CH switch slot(%zu): Force empty for M4 CH switch\n",
+		NAN_DW_DBGLOG(NAN, INFO, fgPrintLog, szSlotIdx,
+			      "Tidx(%zu) CH switch slot(%zu): Force empty for M4 CH switch\n",
 			      szTimeLineIdx, szSlotIdx);
 		return TRUE;
 	}
@@ -2570,7 +2674,7 @@ u_int8_t nanIsChnlSwitchSlot(struct ADAPTER *prAdapter,
 #undef NAN_SLOT_IS_M4_CH_SWITCH
 #endif
 	NAN_DW_DBGLOG(NAN, TEMP, fgPrintLog, szSlotIdx,
-		      "Tidx(%u) CH switch slot(%zu): not channel switch\n",
+		      "Tidx(%zu) CH switch slot(%zu): not channel switch\n",
 		      szTimeLineIdx, szSlotIdx);
 	return FALSE;
 }
@@ -2594,12 +2698,11 @@ struct IE_NAN_ASCC_PENDING_CMD *getPendingCommand(uint8_t ucRequestId)
 	}
 
 	if (!prPendingCmd || cmd->ucRequestId != ucRequestId) {
-		DBGLOG(NAN, DEBUG,
-		       "No pending request %u found\n", ucRequestId);
+		DBGLOG(NAN, INFO, "No pending request %u found\n", ucRequestId);
 		return NULL;
 	}
 
-	DBGLOG(NAN, DEBUG,
+	DBGLOG(NAN, INFO,
 	       "link num=%u, cmd->u4Category=0x%08x\n",
 	       g_rPendingReqList.u4NumElem, cmd->u4Category);
 

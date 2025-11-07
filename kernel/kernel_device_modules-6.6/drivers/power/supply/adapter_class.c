@@ -150,7 +150,7 @@ int adapter_dev_send_hardreset(struct adapter_device *adapter_dev)
 }
 EXPORT_SYMBOL(adapter_dev_send_hardreset);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 bool adapter_dev_is_src_usb_communication_capable(struct adapter_device *adapter_dev)
 {
 	if (adapter_dev != NULL && adapter_dev->ops != NULL &&

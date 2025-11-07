@@ -49,7 +49,7 @@
 
 #define BMLOG_DEFAULT_LEVEL BMLOG_DEBUG_LEVEL
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 #define FG_BATT_DUMP_SIZE 128
 #endif
 
@@ -125,7 +125,9 @@ enum manager_cmd {
 	MANAGER_NOTIFY_CHR_FULL,
 	MANAGER_SW_BAT_CYCLE_ACCU,
 	MANAGER_DYNAMIC_CV,
+#if defined(CONFIG_MTK_NO_BAT_BOOT_SUPPORT)
 	MANAGER_DISABLE_FG,
+#endif
 };
 
 enum battery_property {
@@ -1330,7 +1332,7 @@ struct mtk_battery {
 	unsigned int notify_code;
 
 	struct shutdown_data sd_data;
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	int tbat_adc;
 	int is_fake_soc;
 	int is_full;

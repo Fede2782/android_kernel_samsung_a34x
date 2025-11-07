@@ -11,6 +11,9 @@ filegroup(
     srcs = glob([
         "inc/*.h",
         "src-v4l2/frame-sync/frame_sync_camsys.h",
+        "common/sysfs/*.h",
+        "common/sysfs/sty_v11u/*.h",
+        "common/sysfs/sty_v11/*.h",
     ]),
 )
 
@@ -26,12 +29,8 @@ define_mgk_ko(
     ]) + [
         "//vendor/mediatek/kernel_modules/mtkcam:public_headers",
         "//vendor/mediatek/kernel_modules/mtkcam:kbuild_makefiles",
-        "//vendor/mediatek/kernel_modules/mtkcam/cam_cal:public_headers",
-        "//vendor/mediatek/kernel_modules/mtkcam/cam_cal/src_v4l2:public_headers",
     ],
-    deps = [
-        "//vendor/mediatek/kernel_modules/mtkcam/cam_cal/src_v4l2/custom:mtk_cam_cal",
-    ],
+
     outs = [
         "src-v4l2/imgsensor-glue/imgsensor-glue.ko",
         "src-v4l2/imgsensor.ko",

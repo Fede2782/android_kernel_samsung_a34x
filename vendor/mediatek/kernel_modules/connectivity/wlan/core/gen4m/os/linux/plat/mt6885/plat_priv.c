@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -183,8 +183,8 @@ void kalSetDrvEmiMpuProtection(phys_addr_t emiPhyBase, uint32_t offset,
 	unsigned long long end = emiPhyBase + offset + size - 1;
 	int ret;
 
-	DBGLOG(INIT, DEBUG, "emiPhyBase: %pa, offset: %d, size: %d\n",
-				&emiPhyBase, offset, size);
+	DBGLOG(INIT, INFO, "emiPhyBase: 0x%p, offset: %d, size: %d\n",
+				emiPhyBase, offset, size);
 
 	ret = mtk_emimpu_init_region(&region, 18);
 	if (ret) {

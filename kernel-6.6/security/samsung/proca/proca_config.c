@@ -15,11 +15,16 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/proca.h>
 #include <linux/ioport.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
 #include <linux/version.h>
+
+#if defined(CONFIG_PROCA_GKI_20)
+#include "proca.h"
+#else
+#include <linux/proca.h>
+#endif
 
 #include "proca_config.h"
 #include "proca_log.h"
@@ -77,7 +82,6 @@ static int prepare_sys_ram_ranges(struct proca_config *conf)
 	return ret;
 }
 
-#ifndef PROCA_KUNIT_ENABLED
 static void prepare_kernel_constants(struct proca_config *conf)
 {
 	conf->page_offset = PAGE_OFFSET;
@@ -90,9 +94,6 @@ static void prepare_kernel_constants(struct proca_config *conf)
 	conf->kimage_vaddr = get_kimage_vaddr();
 	conf->kimage_voffset = get_kimage_voffset();
 }
-#else
-static void prepare_kernel_constants(struct proca_config *conf) {}
-#endif
 
 static void dump_proca_config(const struct proca_config *conf)
 {

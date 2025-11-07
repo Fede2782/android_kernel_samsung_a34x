@@ -853,3 +853,14 @@ config DRM_PANEL_ANA38407_WQXGA_PLUS_DPHY_CMD
 	  DPHY vdo mode Full HD Plus 120HZ panel. The panel has a 2800x1752
 	  resolution and uses 24-bits RGB per pixel, vblank period of 156us.
 	  It provides aMIPI DSI interface to host.
+
+config DRM_PANEL_ANA38407_WQXGA_DPHY_CMD
+	tristate "ANAPASS WQXGA DPHY CMD mode "
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ANA38407
+	  DPHY vdo mode Full HD Plus 120HZ panel. The panel has a 2800x1752
+	  resolution and uses 24-bits RGB per pixel, vblank period of 156us.
+	  It provides aMIPI DSI interface to host.

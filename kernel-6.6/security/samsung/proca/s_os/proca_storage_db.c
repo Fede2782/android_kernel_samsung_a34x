@@ -51,6 +51,10 @@ int __init init_proca_storage(void)
 		return ret;
 	PROCA_INFO_LOG("Proca certificate db was initialized\n");
 
+#if IS_MODULE(CONFIG_PROCA)
+	load_all_db();
+#endif
+
 #ifdef CONFIG_PROCA_CERT_DEVICE
 	ret = init_proca_cert_device();
 #endif

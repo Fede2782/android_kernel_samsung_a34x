@@ -79,7 +79,9 @@ enum adapter_cap_type {
 	MTK_PD_APDO_END,
 	MTK_PD,
 	MTK_PD_APDO,
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	MTK_PD_VPDO,
+#endif
 	MTK_UFCS,
 	MTK_CAP_TYPE_UNKNOWN,
 };
@@ -135,7 +137,7 @@ struct adapter_ops {
 	int (*sync_volt)(struct adapter_device *dev, u32 mV);
 	int (*send_hardreset)(struct adapter_device *dev);
 	int (*exit_mode)(struct adapter_device *dev);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	bool (*is_src_usb_communication_capable)(struct adapter_device *dev);
 	bool (*is_src_usb_suspend_support)(struct adapter_device *dev);
 #endif
@@ -189,7 +191,7 @@ extern int adapter_dev_enable_wdt(struct adapter_device *adapter_dev, bool en);
 extern int adapter_dev_sync_volt(struct adapter_device *adapter_dev, u32 mV);
 extern int adapter_dev_send_hardreset(struct adapter_device *adapter_dev);
 extern int adapter_dev_exit_mode(struct adapter_device *adapter_dev);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 extern bool adapter_dev_is_src_usb_suspend_support(struct adapter_device *adapter_dev);
 extern bool adapter_dev_is_src_usb_communication_capable(struct adapter_device *adapter_dev);
 #endif

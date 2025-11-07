@@ -20,10 +20,6 @@
 #error "No HIF defined!"
 #endif
 
-
-#if defined(CFG_MTK_WIFI_PCIE_SUPPORT) && CFG_MTK_ANDROID_WMT
-#include "pcie-mediatek-gen3.h"
-#endif
 /*******************************************************************************
  *                         C O M P I L E R   F L A G S
  *******************************************************************************
@@ -78,23 +74,6 @@
 #define LINK_RETRAIN_TIMEOUT HZ
 #endif
 
-#if (CFG_MTK_WIFI_ON_READ_BY_CFG_SPACE == 1)
-/* Offset:0x490, value: 0x1D1E*/
-#define PCIE_CFGSPACE_MCU_IDLE_OFFSET		0x490
-
-/* Offset:0x48C,
- * BIT[14]: own status - 0:driver own, 1:fw own
- * BIT[30:28]: fw sync - 3:fw ready
- */
-#define PCIE_CFGSPACE_BASE_OFFSET		0x48C
-#define PCIE_CFGSPACE_OWN_STATUS_SHIFT		14
-#define PCIE_CFGSPACE_OWN_STATUS_MASK		0x1
-#define PCIE_CFGSPACE_FW_STATUS_SYNC_SHIFT	28
-#define PCIE_CFGSPACE_FW_STATUS_SYNC_MASK	0x3
-#endif /* CFG_MTK_WIFI_ON_READ_BY_CFG_SPACE */
-
-#define PCIE_EP_CONFIG_SPACE_SIZE	16
-
 #if (CFG_PCIE_GEN_SWITCH == 1)
 #define PCIE_STOP_TRANSITION_NOT_START  0
 #define PCIE_STOP_TRANSITION_ON_GOING   1
@@ -104,6 +83,7 @@
 #define PCIE_MD_BYPASS_GEN_SWITCH_START       5
 #define PCIE_MD_BYPASS_GEN_SWITCH_END         6
 #endif
+
 /*******************************************************************************
  *                             D A T A   T Y P E S
  *******************************************************************************
@@ -147,15 +127,11 @@ struct HIF_MEM_OPS {
 			   struct RTMP_DMACB *pRxCell,
 			   struct RTMP_DMABUF *prDmaBuf,
 			   struct SW_RFB *prSwRfb);
-	phys_addr_t (*mapTxDataBuf)(struct GL_HIF_INFO *prHifInfo,
-			  void *pucBuf, uint32_t u4Offset, uint32_t u4Len);
-	phys_addr_t (*mapTxCmdBuf)(struct GL_HIF_INFO *prHifInfo,
+	phys_addr_t (*mapTxBuf)(struct GL_HIF_INFO *prHifInfo,
 			  void *pucBuf, uint32_t u4Offset, uint32_t u4Len);
 	phys_addr_t (*mapRxBuf)(struct GL_HIF_INFO *prHifInfo,
 			  void *pucBuf, uint32_t u4Offset, uint32_t u4Len);
-	void (*unmapTxDataBuf)(struct GL_HIF_INFO *prHifInfo,
-			   phys_addr_t rDmaAddr, uint32_t u4Len);
-	void (*unmapTxCmdBuf)(struct GL_HIF_INFO *prHifInfo,
+	void (*unmapTxBuf)(struct GL_HIF_INFO *prHifInfo,
 			   phys_addr_t rDmaAddr, uint32_t u4Len);
 	void (*unmapRxBuf)(struct GL_HIF_INFO *prHifInfo,
 			   phys_addr_t rDmaAddr, uint32_t u4Len);
@@ -163,9 +139,7 @@ struct HIF_MEM_OPS {
 			 struct RTMP_DMABUF *prDescRing);
 	void (*freeExtBuf)(struct GL_HIF_INFO *prHifInfo,
 			   struct RTMP_DMABUF *prDescRing);
-	void (*freeDataBuf)(void *pucSrc, uint32_t u4Len,
-				phys_addr_t rDmaAddr, uint32_t u4Idx);
-	void (*freeCmdBuf)(void *pucSrc, uint32_t u4Len);
+	void (*freeBuf)(void *pucSrc, uint32_t u4Len);
 	void (*freePacket)(struct GL_HIF_INFO *prHifInfo,
 			   void *pvPacket, uint32_t u4Num);
 	struct HIF_MEM *(*getWifiMiscRsvEmi)(
@@ -204,27 +178,6 @@ enum pcie_aspm_state {
 };
 #endif
 
-#if CFG_PCIE_GEN_SWITCH
-struct RX_IDLE_STATE {
-	uint32_t u4WFIdle;
-	uint32_t u4FWIdle;
-};
-#endif /*CFG_SUPPORT_PCIE_GEN_SWITCH*/
-
-#if CFG_SUPPORT_HIF_RX_NAPI
-struct HIF_NAPI_DEVICE {
-	struct net_device dev;
-	struct napi_struct napi;
-	struct GLUE_INFO *prGlueInfo;
-	struct task_struct *napi_thread;
-	uint32_t u4ThreadPid;
-	u_int8_t fgIsRun;
-	unsigned long ulFlag;
-	uint32_t u4DrvOwnCnt;
-	uint32_t u4DataCnt;
-};
-#endif /* CFG_SUPPORT_HIF_RX_NAPI */
-
 /* host interface's private data structure, which is attached to os glue
  ** layer info structure.
  */
@@ -232,12 +185,14 @@ struct HIF_NAPI_DEVICE {
 struct GL_HIF_INFO {
 	struct pci_dev *pdev;
 	struct pci_dev *prDmaDev;
-	struct GLUE_INFO *prGlueInfo;
 	struct HIF_MEM_OPS rMemOps;
 
 	uint32_t u4IrqId;
 	uint32_t u4IrqId_1;
 	int32_t u4HifCnt;
+
+	/* PCI MMIO Base Address, all access will use */
+	void *CSRBaseAddress;
 
 	/* Shared memory of all 1st pre-allocated
 	 * TxBuf associated with each TXD
@@ -253,23 +208,10 @@ struct GL_HIF_INFO {
 #if CFG_MTK_WIFI_WFDMA_WB
 	struct RTMP_DMABUF rRingDmyRd;
 	struct RTMP_DMABUF rRingDmyWr;
-	struct RTMP_DMABUF rRingDmyDbg;
-	struct RTMP_DMABUF rRingIntSta;
-	struct RTMP_DMABUF rRingDidx;
-	struct RTMP_DMABUF rRingCidx;
-	struct RTMP_DMABUF rHwDoneFlag;
-	struct RTMP_DMABUF rSwDoneFlag;
-
-	struct RTMP_DMABUF rRingMdIntSta;
-	struct RTMP_DMABUF rRingMdDidx;
-
-	struct WFDMA_EMI_DONE_FLAG rIntFlag;
-	u_int8_t fgIsUrgentCidxFetch;
-	u_int8_t fgIsNeedCidxFetchFlag;
-	u_int8_t fgIsCidxFetchNewTx;
-	unsigned long ulCidxFetchTimeout;
-	uint32_t u4WbIntSta;
-	uint32_t u4WbMdIntSta;
+	struct RTMP_DMABUF rRingIdx0;
+	struct RTMP_DMABUF rRingIntSta0;
+	struct RTMP_DMABUF rRingIdx1;
+	struct RTMP_DMABUF rRingIntSta1;
 #endif /* CFG_MTK_WIFI_WFDMA_WB */
 	uint32_t u4RxDataRingSize;
 	uint32_t u4RxEvtRingSize;
@@ -334,11 +276,7 @@ struct GL_HIF_INFO {
 	uint32_t u4TxDataQLen[NUM_OF_TX_RING];
 	spinlock_t rTxDataQLock[NUM_OF_TX_RING];
 #if (CFG_SUPPORT_TX_DATA_DELAY == 1)
-#if CFG_SUPPORT_HRTIMER
 	struct hrtimer rTxDelayTimer;
-#else
-	struct timer_list rTxDelayTimer;
-#endif
 	unsigned long rTxDelayTimerData;
 	unsigned long ulTxDataTimeout;
 #endif /* CFG_SUPPORT_TX_DATA_DELAY == 1 */
@@ -357,33 +295,15 @@ struct GL_HIF_INFO {
 	uint32_t u4PcieASPM;
 	enum pcie_aspm_state eCurPcieState;
 	enum pcie_aspm_state eNextPcieState;
+	u_int8_t fgPcieKeepL0;
+	u_int8_t fgIsFwReadyPcieL1ss;
+	u_int8_t fgCmdRestrictPcieL1McsRate;
 #endif
 
 	unsigned long ulHifIntEnBits;
-	uint32_t u4IntBitSetCnt;
-
-#if CFG_NEW_HIF_DEV_REG_IF
-	struct HIF_DEV_REG_RECORD arMmioReadHistory[HIF_DEV_REG_HISTORY_SIZE];
-	uint32_t u4MmioReadHistoryIdx;
-	uint32_t u4MmioReadReasonCnt[HIF_DEV_REG_MAX];
-#endif /* CFG_NEW_HIF_DEV_REG_IF */
-#if CFG_SUPPORT_WED_PROXY
-	irq_handler_t irq_handler;
-	irq_handler_t irq_handler_thread;
-#endif
-#if CFG_SUPPORT_HIF_RX_NAPI
-	struct HIF_NAPI_DEVICE rRxNapiDev;
-#endif /* CFG_SUPPORT_HIF_RX_NAPI */
-#if CFG_SUPPORT_HIF_TX_NAPI
-	struct HIF_NAPI_DEVICE rTxNapiDev;
-#endif /* CFG_SUPPORT_HIF_TX_NAPI */
-
 #if (CFG_MTK_WIFI_PCIE_CONFIG_SPACE_ACCESS_DBG == 1)
-	u_int8_t fgEnablePcieCfgDump;
+	bool fgEnablePcieCfgDump;
 #endif /* CFG_MTK_WIFI_PCIE_CONFIG_SPACE_ACCESS_DBG */
-	u_int8_t fgIsDebugSopOnGoing;
-
-	u_int8_t fgIsTriggerRxTimeout;
 };
 
 struct BUS_INFO {
@@ -501,8 +421,6 @@ struct BUS_INFO {
 	const uint32_t u4PseGroupLen;
 	struct pcie_msi_info pcie_msi_info;
 	const u_int8_t is_en_drv_ctrl_pci_msi_irq;
-	uint32_t u4ConfigSpace[PCIE_EP_CONFIG_SPACE_SIZE];
-	uint8_t ucConfigSpaceBkDone;
 
 	void (*pcieMsiMaskIrq)(uint32_t u4Irq, uint32_t u4Bit);
 	void (*pcieMsiUnmaskIrq)(uint32_t u4Irq, uint32_t u4Bit);
@@ -521,7 +439,6 @@ struct BUS_INFO {
 	void (*processTxInterrupt)(struct ADAPTER *prAdapter);
 	void (*processRxInterrupt)(struct ADAPTER *prAdapter);
 	void (*processAbnormalInterrupt)(struct ADAPTER *prAdapter);
-	void (*lowPowerOwnInit)(struct ADAPTER *prAdapter);
 	void (*lowPowerOwnRead)(struct ADAPTER *prAdapter, u_int8_t *pfgResult);
 	void (*lowPowerOwnSet)(struct ADAPTER *prAdapter, u_int8_t *pfgResult);
 	void (*lowPowerOwnClear)(struct ADAPTER *prAdapter,
@@ -531,9 +448,6 @@ struct BUS_INFO {
 				 uint32_t u4Register);
 	void (*getMailboxStatus)(struct ADAPTER *prAdapter, uint32_t *pu4Val);
 	void (*setDummyReg)(struct GLUE_INFO *prGlueInfo);
-	void (*recordWFDMAIdx)(struct ADAPTER *prAdapter);
-	void (*checkIdxMismatch)(u_int32_t u4Idx,
-		struct RTMP_TX_RING *prTxRing);
 	void (*checkDummyReg)(struct GLUE_INFO *prGlueInfo);
 	void (*tx_ring_ext_ctrl)(struct GLUE_INFO *prGlueInfo,
 		struct RTMP_TX_RING *tx_ring, uint32_t index);
@@ -549,22 +463,21 @@ struct BUS_INFO {
 	void (*powerOffPcieMac)(struct ADAPTER *prAdapter);
 	void (*hwControlVote)(struct ADAPTER *prAdapter,
 		uint8_t enable, uint32_t u4WifiUser);
+	u_int8_t (*checkDriverOwnMsiStatus)(struct GLUE_INFO *prGlueInfo);
 	void (*checkFwOwnMsiStatus)(struct ADAPTER *prAdapter);
-	void (*dumpPcieMsiStatus)(struct ADAPTER *prAdapter);
-	void (*recoveryMsiStatus)(struct ADAPTER *prAdapter, u_int8_t fgForce);
-	void (*recoverSerStatus)(struct ADAPTER *prAdapter);
 #if CFG_SUPPORT_WIFI_SLEEP_COUNT
 	int (*wf_power_dump_start)(void *priv_data, unsigned int force_dump);
 	int (*wf_power_dump_end)(void *priv_data);
 #endif
 #if CFG_SUPPORT_PCIE_ASPM
-	uint32_t (*configPcieAspm)(struct GLUE_INFO *prGlueInfo, u_int8_t fgEn,
+	void (*configPcieAspm)(struct GLUE_INFO *prGlueInfo, u_int8_t fgEn,
 		u_int enable_role);
 	void (*updatePcieAspm)(struct GLUE_INFO *prGlueInfo, u_int8_t fgEn);
+	uint32_t (*restrictPcieL1McsRate)(
+		struct ADAPTER *prAdapter, u_int8_t fgIsPcieL0);
 	void (*keepPcieWakeup)(struct GLUE_INFO *prGlueInfo, u_int8_t fgWakeup);
 	u_int8_t fgWifiEnL1_2;
 	u_int8_t fgMDEnL1_2;
-	u_int8_t fgWifiRstEnL1_2;
 #endif
 	void (*devReadIntStatus)(struct ADAPTER *prAdapter,
 		uint32_t *pu4IntStatus);
@@ -596,11 +509,6 @@ struct BUS_INFO {
 	void (*enableFwDlMode)(struct ADAPTER *prAdapter);
 	void (*setupMcuEmiAddr)(struct ADAPTER *prAdapter);
 	void (*showDebugInfo)(struct GLUE_INFO *prGlueInfo);
-	void (*bypassWfWdt)(struct ADAPTER *prAdapter, bool fgBypass);
-#if CFG_PCIE_LTR_UPDATE
-	void (*pcieLTRValue)(struct ADAPTER *prAdapter,
-		uint8_t ucState);
-#endif
 	void (*disableDevice)(struct GLUE_INFO *prGlueInfo);
 	void (*clearEvtRingTillCmdRingEmpty)(struct ADAPTER *prAdapter);
 
@@ -623,13 +531,12 @@ struct BUS_INFO {
 	u_int8_t (*checkPortForRxEventFromPse)(struct ADAPTER *prAdapter,
 		uint8_t u2Port);
 #endif
-	uint64_t u8HifIntUs;
-	uint32_t u4EnHifIntUs;
+	struct timespec64 rHifIntTs;
+	uint32_t u4EnHifIntTs;
 	uint32_t u4HifIntTsCnt;
 
 	u_int8_t fgUpdateWfdmaTh;
 	uint32_t u4WfdmaTh;
-	unsigned long ulRecoveryMsiCheckTime;
 };
 
 /*******************************************************************************
@@ -647,17 +554,14 @@ struct BUS_INFO {
  *******************************************************************************
  */
 
-#define wifi_resource_start(d, v)  (0x18000000)
-#define wifi_resource_len(d, v)    (0x100000)
-#define wifi_name(d)               ("WLAN")
+#define axi_resource_start(d, v)  (0x18000000)
+#define axi_resource_len(d, v)    (0x100000)
+#define axi_name(d)               ("AXI-BUS")
 
 /*******************************************************************************
  *                   F U N C T I O N   D E C L A R A T I O N S
  *******************************************************************************
  */
-#if CFG_MTK_ANDROID_WMT && CFG_SUPPORT_CONNAC3X
-uint32_t glRegisterShutdownCB(remove_card pfShutdown);
-#endif
 
 uint32_t glRegisterBus(probe_card pfProbe, remove_card pfRemove);
 
@@ -696,9 +600,6 @@ void halPcieHwControlVote(
 	uint32_t u4WifiUser);
 int32_t glBusFuncOn(void);
 void glBusFuncOff(void);
-uint32_t glReadPcieCfgSpace(int offset, uint32_t *value);
-uint32_t glWritePcieCfgSpace(int offset, uint32_t value);
-void glNotifyPciePowerDown(void);
 
 void mtk_pci_disable_device(struct GLUE_INFO *prGlueInfo);
 void mtk_pci_msi_enable_irq(uint32_t u4Irq, uint32_t u4Bit);
@@ -710,10 +611,6 @@ uint32_t mtk_pci_read_msi_mask(struct GLUE_INFO *prGlueInfo);
 void mtk_pci_msi_unmask_all_irq(struct GLUE_INFO *prGlueInfo);
 void mtk_pci_enable_irq(struct GLUE_INFO *prGlueInfo);
 void mtk_pci_disable_irq(struct GLUE_INFO *prGlueInfo);
-uint8_t pcie_backup_config_space_settings(
-	struct ADAPTER *prAdapter);
-uint8_t pcie_restore_config_space_settings(
-	struct ADAPTER *prAdapter);
 irqreturn_t pcie_sw_int_top_handler(int irq, void *dev_instance);
 irqreturn_t pcie_sw_int_thread_handler(int irq, void *dev_instance);
 #if CFG_MTK_WIFI_FW_LOG_MMIO || CFG_MTK_WIFI_FW_LOG_EMI
@@ -739,29 +636,28 @@ bool glBusConfigASPM(struct pci_dev *dev, int val);
 bool glBusConfigASPML1SS(struct pci_dev *dev, int enable);
 #endif
 
-#if CFG_MTK_WIFI_PCIE_SUPPORT
+#if IS_ENABLED(CFG_MTK_WIFI_PCIE_SUPPORT)
+extern int mtk_pcie_probe_port(int port) __attribute__((weak));
+extern int mtk_pcie_remove_port(int port) __attribute__((weak));
+extern int mtk_pcie_mask_msi_to_ap(
+	int port, u32 msi_addr, u32 mask) __attribute__((weak));
+extern int mtk_msi_unmask_to_other_mcu(
+	struct irq_data *data, u32 group) __attribute__((weak));
+extern int mtk_pcie_hw_control_vote(
+	int port, bool hw_mode_en, u8 who) __attribute__((weak));
+extern u32 mtk_pcie_dump_link_info(int port) __attribute__((weak));
+extern u32 mtk_pcie_disable_data_trans(int port) __attribute__((weak));
 #if CFG_SUPPORT_PCIE_GEN_SWITCH
 int mtk_pcie_speed(struct pci_dev *dev, int speed);
 int mtk_pcie_retrain(struct pci_dev *dev);
 #endif
 #endif
-#if CFG_MTK_WIFI_PCIE_SR
-int mtk_pcie_enter_L2(struct pci_dev *dev);
-int mtk_pcie_exit_L2(struct pci_dev *dev);
-#endif
 #if (CFG_MTK_WIFI_PCIE_CONFIG_SPACE_ACCESS_DBG == 1)
 extern int mtk_pcie_enable_cfg_dump(int port);
 extern int mtk_pcie_disable_cfg_dump(int port);
-#endif /* CFG_MTK_WIFI_PCIE_CONFIG_SPACE_ACCESS_DBG */
 uint8_t halPcieIsPcieProbed(void);
-u_int8_t pcie_check_status_is_linked(void);
+#endif /* CFG_MTK_WIFI_PCIE_CONFIG_SPACE_ACCESS_DBG */
 u_int8_t mtk_get_aer_triggered(void);
-void mtk_trigger_aer_slot_reset(void);
-void glUpdateRxCopyMemOps(
-	struct HIF_MEM_OPS *prMemOps);
-int halSetMemOps(
-	struct platform_device *prPlatDev,
-	struct HIF_MEM_OPS *prMemOps);
 
 #if (CFG_PCIE_GEN_SWITCH == 1)
 irqreturn_t pcie_gen_switch_top_handler(int irq, void *dev_instance);
@@ -769,10 +665,12 @@ irqreturn_t pcie_gen_switch_thread_handler(int irq, void *dev_instance);
 
 irqreturn_t pcie_gen_switch_end_top_handler(int irq, void *dev_instance);
 irqreturn_t pcie_gen_switch_end_thread_handler(int irq, void *dev_instance);
-void pcie_check_gen_switch_timeout(struct ADAPTER *prAdapter, uint32_t u4Reg);
+void pcie_check_gen_switch_timeout(struct ADAPTER *prAdapter);
 void pcie_gen_switch_polling_rx_done(struct ADAPTER *prAdapter);
 void pcie_gen_switch_recover(struct ADAPTER *prAdapter);
+int pcie_gen_switch_get_pcie_mode(struct pci_dev *pci_dev);
 #endif
+
 
 /*******************************************************************************
  *                              F U N C T I O N S

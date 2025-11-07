@@ -536,6 +536,7 @@ typedef int(*PFN_PWR_LEVEL_HANDLER)(struct ADAPTER *, uint8_t);
 struct PWR_LEVEL_HANDLER_ELEMENT {
 	struct LINK_ENTRY rLinkEntry;
 	PFN_PWR_LEVEL_HANDLER prPwrLevelHandler;
+	const char *pPwrLevelHandlerStr;
 };
 
 struct PARAM_CONNECTIVITY_LOG {
@@ -1289,6 +1290,33 @@ do { \
 #define __type_is_void(expr) __builtin_types_compatible_p(typeof(expr), void)
 #define __expr_zero(expr) __builtin_choose_expr(__type_is_void(expr), 0, (expr))
 
+#define WLAN_STATIC_CMD_DONE_HANDLER_CHECK(h) \
+	_Static_assert(__builtin_types_compatible_p(typeof(h), \
+						    void *) || \
+		       __builtin_types_compatible_p(typeof(h), \
+					     void(struct ADAPTER *, \
+						  struct CMD_INFO *, \
+						  uint8_t *)), \
+		       "handler type mismatch")
+
+#define WLAN_STATIC_OID_HANDLER_CHECK(h) \
+	_Static_assert(__builtin_types_compatible_p(typeof(h), \
+						    void *) || \
+		       __builtin_types_compatible_p(typeof(h), \
+						uint32_t(struct ADAPTER *, \
+						void *, uint32_t, \
+						uint32_t *)), \
+		       "handler type mismatch")
+
+#define WLAN_STATIC_PWR_LEVEL_HANDLER_CHECK(h) \
+	_Static_assert(__builtin_types_compatible_p(typeof(h), \
+						    void *) || \
+		       __builtin_types_compatible_p(typeof(h), \
+					     void(struct ADAPTER *, \
+						  uint8_t)), \
+		       "handler type mismatch")
+
+
 #define TRACE(_expr, _fmt, ...) \
 	__builtin_choose_expr(__type_is_void(_expr), \
 	__TRACE_VOID(_expr, _fmt, ##__VA_ARGS__), \
@@ -1554,17 +1582,67 @@ kalOidComplete(IN struct GLUE_INFO *prGlueInfo,
 	       IN struct CMD_INFO *prCmdInfo, IN uint32_t u4SetQueryInfoLen,
 	       IN uint32_t rOidStatus);
 
+#define kalIoctl(_prGlueInfo, \
+		 _pfnOidHandler, \
+		 _pvInfoBuf, \
+		 _u4InfoBufLen, \
+		 _fgRead, \
+		 _fgWaitResp, \
+		 _fgCmd, \
+		 _pu4QryInfoLen) \
+({ \
+	uint32_t u4Status; \
+	WLAN_STATIC_OID_HANDLER_CHECK(_pfnOidHandler); \
+	u4Status = __kalIoctl(_prGlueInfo, \
+			 _pfnOidHandler, \
+			 #_pfnOidHandler, \
+			 _pvInfoBuf, \
+			 _u4InfoBufLen, \
+			 _fgRead, \
+			 _fgWaitResp, \
+			 _fgCmd, \
+			 _pu4QryInfoLen); \
+	u4Status; \
+})
+
 uint32_t
-kalIoctl(IN struct GLUE_INFO *prGlueInfo,
+__kalIoctl(IN struct GLUE_INFO *prGlueInfo,
 	 IN PFN_OID_HANDLER_FUNC pfnOidHandler,
+	 IN const char *pOidHandlerStr,
 	 IN void *pvInfoBuf,
 	 IN uint32_t u4InfoBufLen, IN u_int8_t fgRead,
 	 IN u_int8_t fgWaitResp,
 	 IN u_int8_t fgCmd, OUT uint32_t *pu4QryInfoLen);
 
+#define kalIoctlByBssIdx(_prGlueInfo, \
+		_pfnOidHandler, \
+		_pvInfoBuf, \
+		_u4InfoBufLen, \
+		_fgRead, \
+		_fgWaitResp, \
+		_fgCmd, \
+		_pu4QryInfoLen, \
+		_ucBssIndex) \
+({ \
+	uint32_t u4Status; \
+	WLAN_STATIC_OID_HANDLER_CHECK(_pfnOidHandler); \
+	u4Status = __kalIoctlByBssIdx(_prGlueInfo, \
+			_pfnOidHandler, \
+			#_pfnOidHandler, \
+			_pvInfoBuf, \
+			_u4InfoBufLen, \
+			_fgRead, \
+			_fgWaitResp, \
+			_fgCmd, \
+			_pu4QryInfoLen, \
+			_ucBssIndex); \
+	u4Status; \
+})
+
 uint32_t
-kalIoctlByBssIdx(IN struct GLUE_INFO *prGlueInfo,
+__kalIoctlByBssIdx(IN struct GLUE_INFO *prGlueInfo,
 	IN PFN_OID_HANDLER_FUNC pfnOidHandler,
+	IN const char *pOidHandlerStr,
 	IN void *pvInfoBuf,
 	IN uint32_t u4InfoBufLen, IN u_int8_t fgRead,
 	IN u_int8_t fgWaitResp, IN u_int8_t fgCmd,
@@ -2068,15 +2146,27 @@ uint32_t kalSyncTimeToFW(IN struct ADAPTER *prAdapter,
 void kalSyncTimeToFWByIoctl(void);
 
 void kalUpdateCompHdlrRec(IN struct ADAPTER *prAdapter,
-	IN PFN_OID_HANDLER_FUNC pfnOidHandler, IN struct CMD_INFO *prCmdInfo);
+			    IN PFN_OID_HANDLER_FUNC pfnOidHandler,
+			    IN const char *pOidHandlerStr,
+			    IN struct CMD_INFO *prCmdInfo);
 
 #if CFG_SUPPORT_SA_LOG
 void kalPrintSALog(const char *fmt, ...);
 #endif
 
 #if (CFG_SUPPORT_POWER_THROTTLING == 1)
-void kalPwrLevelHdlrRegister(IN struct ADAPTER *prAdapter,
-					PFN_PWR_LEVEL_HANDLER hdlr);
+#define kalPwrLevelHdlrRegister(_prAdapter, _hdlr) \
+do { \
+	WLAN_STATIC_PWR_LEVEL_HANDLER_CHECK(_hdlr); \
+	__kalPwrLevelHdlrRegister(_prAdapter, \
+			    _hdlr, \
+			    #_hdlr); \
+} while (0)
+
+void __kalPwrLevelHdlrRegister(IN struct ADAPTER *prAdapter,
+			       PFN_PWR_LEVEL_HANDLER hdlr,
+			       const char *hdlrStr);
+
 void kalPwrLevelHdlrUnregisterAll(IN struct ADAPTER *prAdapter);
 void connsysPowerLevelNotify(IN struct ADAPTER *prAdapter);
 void connsysPowerTempNotify(IN struct ADAPTER *prAdapter);
@@ -2100,5 +2190,16 @@ struct BUFFERED_LOG_ENTRY *kalGetBufferLog(struct ADAPTER *prAdapter,
 void kalRemoveBufferLog(struct ADAPTER *prAdapter,
 	struct BUFFERED_LOG_ENTRY *entry);
 void kalClearBufferLog(struct ADAPTER *prAdapter);
+/*----------------------------------------------------------------------------*/
+/*!
+ * @brief This function is send txpower limit by bit map
+ *
+ * @param[in] eType : SAR scenario type
+ *
+ * @return char * : SAR scenario name
+ */
+/*----------------------------------------------------------------------------*/
+int32_t kalSetSarLimitByBitMap(struct GLUE_INFO *prGlueInfo,
+				uint32_t u4ActBitMap);
 #endif /* _GL_KAL_H */
 

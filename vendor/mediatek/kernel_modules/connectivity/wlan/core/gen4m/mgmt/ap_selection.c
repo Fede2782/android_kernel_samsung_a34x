@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -170,6 +170,16 @@ struct WEIGHT_CONFIG gasMtkWeightConfig[ROAM_TYPE_NUM] = {
 #endif
 };
 
+static uint8_t *apucBandStr[BAND_NUM] = {
+	(uint8_t *) DISP_STRING("NULL"),
+	(uint8_t *) DISP_STRING("2.4G"),
+	(uint8_t *) DISP_STRING("5G")
+#if (CFG_SUPPORT_WIFI_6G == 1)
+	,
+	(uint8_t *) DISP_STRING("6G")
+#endif
+};
+
 struct NETWORK_SELECTION_POLICY_BY_BAND networkReplaceHandler[BAND_NUM] = {
 	[BAND_2G4] = {BAND_2G4, scanNetworkReplaceHandler2G4},
 	[BAND_5G]  = {BAND_5G,  scanNetworkReplaceHandler5G},
@@ -234,7 +244,7 @@ static enum ROAM_TYPE roamReasonToType(enum ENUM_ROAMING_REASON type)
 
 #define CALCULATE_SCORE_BY_DEAUTH(prBssDesc, eRoamType) \
 	(gasMtkWeightConfig[eRoamType].ucLastDeauthWeight * \
-	(prBssDesc->prBlock && prBssDesc->prBlock->fgDeauthLastTime ? 0 : \
+	(prBssDesc->prBlack && prBssDesc->prBlack->fgDeauthLastTime ? 0 : \
 	BSS_FULL_SCORE))
 
 /*******************************************************************************
@@ -348,8 +358,6 @@ static uint16_t scanCalculateScoreByBandwidth(struct ADAPTER *prAdapter,
 		case CW_320_1MHZ:
 		case CW_320_2MHZ:
 			u2Score = BSS_FULL_SCORE;
-			break;
-		default:
 			break;
 		}
 	} else if (prBssDesc->fgIsHTPresent) {
@@ -641,27 +649,24 @@ static u_int8_t scanSanityCheckBssDesc(struct ADAPTER *prAdapter,
 		}
 	}
 
-	if (aisQueryCusBlocklist(prAdapter, ucBssIndex, prBssDesc))
-		return FALSE;
-
 	if (prBssDesc->fgIsDisallowed) {
 		log_dbg(SCN, WARN, MACSTR" disallowed\n",
 			MAC2STR(prBssDesc->aucBSSID));
 		return FALSE;
 	}
 
-	if (prBssDesc->prBlock && prBssDesc->prBlock->fgDisallowed &&
-	    !(prBssDesc->prBlock->i4RssiThreshold > 0 &&
+	if (prBssDesc->prBlack && prBssDesc->prBlack->fgDisallowed &&
+	    !(prBssDesc->prBlack->i4RssiThreshold > 0 &&
 	      RCPI_TO_dBm(prBssDesc->ucRCPI) >
-			prBssDesc->prBlock->i4RssiThreshold)) {
+			prBssDesc->prBlack->i4RssiThreshold)) {
 		log_dbg(SCN, WARN, MACSTR" disallowed delay, rssi %d(%d)\n",
 			MAC2STR(prBssDesc->aucBSSID),
 			RCPI_TO_dBm(prBssDesc->ucRCPI),
-			prBssDesc->prBlock->i4RssiThreshold);
+			prBssDesc->prBlack->i4RssiThreshold);
 		return FALSE;
 	}
 
-	if (prBssDesc->prBlock && prBssDesc->prBlock->fgDisallowed) {
+	if (prBssDesc->prBlack && prBssDesc->prBlack->fgDisallowed) {
 		log_dbg(SCN, WARN, MACSTR" disallowed delay\n",
 			MAC2STR(prBssDesc->aucBSSID));
 		return FALSE;
@@ -682,40 +687,39 @@ static u_int8_t scanSanityCheckBssDesc(struct ADAPTER *prAdapter,
 
 	prAisBssInfo = aisGetAisBssInfo(prAdapter, ucBssIndex);
 	target = aisGetTargetBssDesc(prAdapter, ucBssIndex);
-	if (prBssDesc->prBlock) {
-		if (prBssDesc->prBlock->fgIsInFWKBlocklist) {
+	if (prBssDesc->prBlack) {
+		if (prBssDesc->prBlack->fgIsInFWKBlacklist) {
 			log_dbg(SCN, WARN, MACSTR" in FWK blocklist\n",
 				MAC2STR(prBssDesc->aucBSSID));
 #if (CFG_SUPPORT_CONN_LOG == 1)
 			connLogConnectFail(prAdapter, ucBssIndex,
-				CONN_FAIL_FWK_BLACLIST);
+				CONN_FAIL_FWK_BLACKLIST);
 #endif
 			return FALSE;
 		}
 
-		if (prBssDesc->prBlock->fgDeauthLastTime) {
+		if (prBssDesc->prBlack->fgDeauthLastTime) {
 			log_dbg(SCN, WARN, MACSTR " is sending deauth.\n",
 				MAC2STR(prBssDesc->aucBSSID));
 			return FALSE;
 		}
 
-		if (prBssDesc->prBlock->ucCount >= 10)  {
+		if (prBssDesc->prBlack->ucCount >= AIS_BSS_JOIN_FAIL_LIMIT)  {
 			log_dbg(SCN, WARN,
 				MACSTR
-				" Skip AP that add toblocklist count >= 10\n",
-				MAC2STR(prBssDesc->aucBSSID));
+				" Skip AP that add to blocklist count >= %d\n",
+				MAC2STR(prBssDesc->aucBSSID),
+				AIS_BSS_JOIN_FAIL_LIMIT);
 			return FALSE;
 		}
 	}
 
-#if CFG_EXT_SCAN
 	/* BTO case */
 	if (prBssDesc->fgIsInBTO) {
 		log_dbg(SCN, WARN, MACSTR " is in BTO.\n",
 			MAC2STR(prBssDesc->aucBSSID));
 		return FALSE;
 	}
-#endif
 
 	/* roaming case */
 	if (target &&
@@ -876,7 +880,7 @@ static int32_t scanCalculateScoreByCu(struct ADAPTER *prAdapter,
 	uint8_t i;
 
 	if (eRoamReason == ROAMING_REASON_BEACON_TIMEOUT || !prBssDesc ||
-	    (prBssDesc->prBlock && prBssDesc->prBlock->fgDeauthLastTime))
+	    (prBssDesc->prBlack && prBssDesc->prBlack->fgDeauthLastTime))
 		return -1;
 
 #if CFG_SUPPORT_NCHO
@@ -1094,18 +1098,18 @@ uint16_t scanCalculateScoreByBlockList(struct ADAPTER *prAdapter,
 {
 	uint16_t u2Score = 0;
 
-	if (eRoamType < 0 || eRoamType >= ROAM_TYPE_NUM) {
+	if (eRoamType >= ROAM_TYPE_NUM) {
 		log_dbg(SCN, WARN, "Invalid roam type %d!\n", eRoamType);
 		return 0;
 	}
-	if (!prBssDesc->prBlock)
+	if (!prBssDesc->prBlack)
 		u2Score = 100;
-	else if (rsnApOverload(prBssDesc->prBlock->u2AuthStatus,
-		prBssDesc->prBlock->u2DeauthReason) ||
-		 prBssDesc->prBlock->ucCount >= 10)
+	else if (rsnApOverload(prBssDesc->prBlack->u2AuthStatus,
+		prBssDesc->prBlack->u2DeauthReason) ||
+		 prBssDesc->prBlack->ucCount >= 10)
 		u2Score = 0;
 	else
-		u2Score = 100 - prBssDesc->prBlock->ucCount * 10;
+		u2Score = 100 - prBssDesc->prBlack->ucCount * 10;
 
 	return u2Score * gasMtkWeightConfig[eRoamType].ucBlockListWeight;
 }
@@ -1158,7 +1162,7 @@ uint16_t scanCalculateTotalScore(struct ADAPTER *prAdapter,
 	uint16_t u2ScoreSaa = 0;
 	uint16_t u2ScoreIdleTime = 0;
 	uint16_t u2ScoreTotal = 0;
-	uint16_t u2BlockListScore = 0;
+	uint16_t u2BlackListScore = 0;
 	uint16_t u2PreferenceScore = 0;
 	uint16_t u2TputScore = 0;
 #if (CFG_SUPPORT_AVOID_DESENSE == 1)
@@ -1197,7 +1201,7 @@ uint16_t scanCalculateTotalScore(struct ADAPTER *prAdapter,
 	u2ScoreIdleTime = scanCalculateScoreByIdleTime(prAdapter,
 		prBssDesc->ucChannelNum, eRoamType, prBssDesc, ucBssIndex,
 		prBssDesc->eBand);
-	u2BlockListScore =
+	u2BlackListScore =
 	       scanCalculateScoreByBlockList(prAdapter, prBssDesc, eRoamType);
 	u2PreferenceScore =
 	      scanCalculateScoreByPreference(prAdapter, prBssDesc, eRoamReason);
@@ -1207,7 +1211,7 @@ uint16_t scanCalculateTotalScore(struct ADAPTER *prAdapter,
 	u2ScoreTotal = u2ScoreBandwidth + u2ScoreChnlInfo +
 		u2ScoreDeauth + u2ScoreProbeRsp + u2ScoreScanMiss +
 		u2ScoreSnrRssi + u2ScoreStaCnt + u2ScoreSTBC +
-		u2ScoreBand + u2BlockListScore + u2ScoreSaa +
+		u2ScoreBand + u2BlackListScore + u2ScoreSaa +
 		u2ScoreIdleTime + u2TputScore;
 
 #if (CFG_SUPPORT_AVOID_DESENSE == 1)
@@ -1227,7 +1231,7 @@ uint16_t scanCalculateTotalScore(struct ADAPTER *prAdapter,
 		MAC2STR(prBssDesc->aucBSSID), cRssi,
 		apucBandStr[prBssDesc->eBand], u2ScoreTotal,
 		u2ScoreDeauth, u2ScoreProbeRsp, u2ScoreScanMiss,
-		u2ScoreSnrRssi, u2ScoreBand, u2BlockListScore,
+		u2ScoreSnrRssi, u2ScoreBand, u2BlackListScore,
 		u2ScoreSaa, u2ScoreBandwidth, u2ScoreStaCnt,
 		u2ScoreSTBC, u2ScoreChnlInfo, u2ScoreIdleTime,
 		prBssDesc->fgExistBssLoadIE,
@@ -1439,7 +1443,7 @@ struct BSS_DESC *apsSearchBssDescByScore(struct ADAPTER *prAdapter,
 	struct BSS_DESC *prCandBssDesc = NULL;
 	uint16_t u2ScoreTotal = 0;
 	uint16_t u2CandBssScore = 0;
-	u_int8_t fgSearchBlockList = FALSE;
+	u_int8_t fgSearchBlackList = FALSE;
 	u_int8_t fgIsFixedChnl = FALSE;
 	enum ENUM_BAND eBand = BAND_2G4;
 	uint8_t ucChannel = 0;
@@ -1468,10 +1472,7 @@ struct BSS_DESC *apsSearchBssDescByScore(struct ADAPTER *prAdapter,
 #endif
 	ucAisIdx = AIS_INDEX(prAdapter, ucBssIndex);
 
-	aisRemoveTimeoutBlocklist(prAdapter,
-		prAdapter->rWifiVar.u2AisBlocklistTimeout);
-	aisClearCusBlocklist(prAdapter, ucBssIndex, FALSE);
-
+	aisRemoveTimeoutBlocklist(prAdapter, AIS_BLOCKLIST_TIMEOUT);
 	apsUpdateEssApList(prAdapter, ucBssIndex);
 
 #if CFG_SUPPORT_802_11K
@@ -1520,9 +1521,9 @@ struct BSS_DESC *apsSearchBssDescByScore(struct ADAPTER *prAdapter,
 try_again:
 	LINK_FOR_EACH_ENTRY(prBssDesc, prEssLink, rLinkEntryEss[ucAisIdx],
 		struct BSS_DESC) {
-		if (!fgSearchBlockList) {
-			/* update blocklist info */
-			prBssDesc->prBlock =
+		if (!fgSearchBlackList) {
+			/* update blacklist info */
+			prBssDesc->prBlack =
 				aisQueryBlockList(prAdapter, prBssDesc);
 #if CFG_SUPPORT_802_11K
 			/* update neighbor report entry */
@@ -1533,11 +1534,11 @@ try_again:
 		/*
 		 * Skip if
 		 * 1. sanity check fail or
-		 * 2. bssid is in driver's blocklist in the first round
+		 * 2. bssid is in driver's blacklist in the first round
 		 */
 		if (!scanSanityCheckBssDesc(prAdapter, prBssDesc, eBand,
 			ucChannel, fgIsFixedChnl, eRoamReason, ucBssIndex) ||
-		    (!fgSearchBlockList && prBssDesc->prBlock))
+		    (!fgSearchBlackList && prBssDesc->prBlack))
 			continue;
 
 		/* pick by bssid first */
@@ -1618,8 +1619,8 @@ try_again:
 
 	if (prCandBssDesc) {
 		if ((prCandBssDesc->fgIsConnected & BIT(ucBssIndex)) &&
-		    !fgSearchBlockList && prEssLink->u4NumElem > 0) {
-			fgSearchBlockList = TRUE;
+		    !fgSearchBlackList && prEssLink->u4NumElem > 0) {
+			fgSearchBlackList = TRUE;
 			log_dbg(SCN, INFO, "Can't roam out, try blocklist\n");
 			goto try_again;
 		}
@@ -1652,9 +1653,9 @@ try_again:
 		goto done;
 	}
 
-	/* if No Candidate BSS is found, try BSSes which are in blocklist */
-	if (!fgSearchBlockList && prEssLink->u4NumElem > 0) {
-		fgSearchBlockList = TRUE;
+	/* if No Candidate BSS is found, try BSSes which are in blacklist */
+	if (!fgSearchBlackList && prEssLink->u4NumElem > 0) {
+		fgSearchBlackList = TRUE;
 		log_dbg(SCN, INFO, "No Bss is found, Try blocklist\n");
 		goto try_again;
 	}

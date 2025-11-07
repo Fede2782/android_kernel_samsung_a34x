@@ -89,21 +89,9 @@ uint8_t  __KAL_INLINE__ kalIsSupportRro(void)
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
 	return 0;
 }
-
-uint32_t  __KAL_INLINE__ kalGetMawdVer(void)
-{
-	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
-	return 0;
-}
-
-uint32_t  __KAL_INLINE__ kalGetConnInfraId(void)
-{
-	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
-	return 0;
-}
 #endif
 
-void __KAL_INLINE__ kalGetDev(void **dev)
+void __KAL_INLINE__ kalGetPlatDev(void **dev)
 {
 	KAL_NEED_IMPLEMENT(__FILE__, __func__, __LINE__);
 }

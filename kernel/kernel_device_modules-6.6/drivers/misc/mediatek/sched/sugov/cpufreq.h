@@ -103,6 +103,15 @@ struct cpu_dsu_freq_state {
 	unsigned int *dsu_freq_vote;
 };
 
+enum adaptive_type {
+	ADAPTIVE_LOW,
+	ADAPTIVE_HIGH,
+	MIN_FREQ,
+	MAX_FREQ,
+};
+extern unsigned int **adaptive_freq_array;
+extern unsigned int get_adaptive_freq(unsigned int gear,enum adaptive_type type);
+extern void set_adaptive_freq(unsigned int gear,unsigned int freq,enum adaptive_type type);
 extern struct dsu_state *dsu_get_opp_ps(int wl, int opp);
 extern unsigned int dsu_get_freq_opp(unsigned int freq);
 extern void update_wl_tbl(unsigned int cpu, bool *is_cpu_to_update_thermal);

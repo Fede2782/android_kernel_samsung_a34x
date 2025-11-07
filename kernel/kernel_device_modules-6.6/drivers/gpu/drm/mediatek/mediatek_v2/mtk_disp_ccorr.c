@@ -1178,7 +1178,7 @@ static void disp_ccorr_config(struct mtk_ddp_comp *comp,
 			width = cfg->w;
 	}
 
-	pr_notice("%s, compId: %d\n", __func__, comp->id);
+	DDPINFO("%s, compId: %d\n", __func__, comp->id);
 
 	if (cfg->source_bpc == 8)
 		primary_data->ccorr_8bit_switch = 1;
@@ -1210,7 +1210,7 @@ static void disp_ccorr_config(struct mtk_ddp_comp *comp,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_CCORR_SHADOW, 0x0 << 2, 0x1 << 2);
 
-	pr_notice("%s, compId: %d, ccorr_hw_valid: %d\n", __func__, comp->id, primary_data->ccorr_hw_valid);
+	DDPINFO("%s, compId: %d, ccorr_hw_valid: %d\n", __func__, comp->id, primary_data->ccorr_hw_valid);
 
 	mutex_lock(&primary_data->data_lock);
 	if (primary_data->ccorr_hw_valid == 1) {

@@ -18,8 +18,11 @@
 #include <linux/fs.h>
 #include <linux/xattr.h>
 #include <linux/uio.h>
+#include <linux/fsnotify.h>
+#include <linux/sched/xacct.h>
 #include "five_vfs.h"
 #include "five_log.h"
+#include "five_porting.h"
 
 /* This function is an alternative implementation of vfs_getxattr_alloc() */
 ssize_t five_getxattr_alloc(struct dentry *dentry, const char *name,
@@ -27,9 +30,10 @@ ssize_t five_getxattr_alloc(struct dentry *dentry, const char *name,
 {
 	struct inode *inode = dentry->d_inode;
 	char *value = *xattr_value;
-	int error;
+	ssize_t error;
 
-	error = __vfs_getxattr(dentry, inode, name, NULL, 0, XATTR_NOSECURITY);
+	error = __vfs_getxattr(dentry, inode, name, NULL,
+							 0, XATTR_NOSECURITY);
 	if (error < 0)
 		return error;
 
@@ -40,42 +44,10 @@ ssize_t five_getxattr_alloc(struct dentry *dentry, const char *name,
 		memset(value, 0, error + 1);
 	}
 
-	error = __vfs_getxattr(dentry, inode, name, value, error,
-			       XATTR_NOSECURITY);
+	error = __vfs_getxattr(dentry, inode, name, value,
+							error, XATTR_NOSECURITY);
 	*xattr_value = value;
 	return error;
-}
-
-/* This function is copied from new_sync_read() */
-static ssize_t new_sync_read(struct file *filp, char __user *buf,
-			     size_t len, loff_t *ppos)
-{
-	struct iovec iov = { .iov_base = buf, .iov_len = len };
-	struct kiocb kiocb;
-	struct iov_iter iter;
-	ssize_t ret;
-
-	init_sync_kiocb(&kiocb, filp);
-	kiocb.ki_pos = (ppos ? *ppos : 0);
-	iov_iter_init(&iter, READ, &iov, 1, len);
-
-	ret = call_read_iter(filp, &kiocb, &iter);
-	FIVE_BUG_ON(ret == -EIOCBQUEUED);
-	if (ppos)
-		*ppos = kiocb.ki_pos;
-	return ret;
-}
-
-/* This function is copied from __vfs_read() */
-ssize_t five_vfs_read(struct file *file, char __user *buf, size_t count,
-		   loff_t *pos)
-{
-	if (file->f_op->read)
-		return file->f_op->read(file, buf, count, pos);
-	else if (file->f_op->read_iter)
-		return new_sync_read(file, buf, count, pos);
-	else
-		return -EINVAL;
 }
 
 /* This function is copied from __vfs_setxattr_noperm() */
@@ -99,34 +71,54 @@ int five_setxattr_noperm(struct dentry *dentry, const char *name,
 	return error;
 }
 
+static int warn_unsupported(struct file *file, const char *op)
+{
+	pr_warn_ratelimited(
+		"kernel %s not supported for file %pD4 (pid: %d comm: %.20s)\n",
+		op, file, current->pid, current->comm);
+	return -EINVAL;
+}
+
 /*
- * five_kernel_read - read data from the file
- *
- * This is a function for reading file content instead of kernel_read().
- * It does not perform locking checks to ensure it cannot be blocked.
- * It does not perform security checks because it is irrelevant for IMA.
- *
- * This function is copied from integrity_kernel_read()
+ * This function is copied from __kernel_read()
  */
+static ssize_t __five_kernel_read(struct file *file, void *buf, size_t count, loff_t *pos)
+{
+	struct kvec iov = {
+		.iov_base    = buf,
+		.iov_len    = min_t(size_t, count, MAX_RW_COUNT),
+	};
+	struct kiocb kiocb;
+	struct iov_iter iter;
+	ssize_t ret;
+
+	if (WARN_ON_ONCE(!(file->f_mode & FMODE_READ)))
+		return -EINVAL;
+	if (!(file->f_mode & FMODE_CAN_READ))
+		return -EINVAL;
+	/*
+	 * Also fail if ->read_iter and ->read are both wired up as that
+	 * implies very convoluted semantics.
+	 */
+	if (unlikely(!file->f_op->read_iter || file->f_op->read))
+		return warn_unsupported(file, "read");
+
+	init_sync_kiocb(&kiocb, file);
+	kiocb.ki_pos = pos ? *pos : 0;
+	iov_iter_kvec(&iter, READ, &iov, 1, iov.iov_len);
+	ret = file->f_op->read_iter(&kiocb, &iter);
+	if (ret > 0) {
+		if (pos)
+			*pos = kiocb.ki_pos;
+		fsnotify_access(file);
+		add_rchar(current, ret);
+	}
+	inc_syscr(current);
+	return ret;
+}
+
 int five_kernel_read(struct file *file, loff_t offset,
 			  void *addr, unsigned long count)
 {
-	mm_segment_t old_fs;
-	char __user *buf = (char __user *)addr;
-	ssize_t ret;
-	struct inode *inode = file_inode(file);
-
-	if (!(file->f_mode & FMODE_READ))
-		return -EBADF;
-
-	old_fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	if (inode->i_sb->s_magic == OVERLAYFS_SUPER_MAGIC && file->private_data)
-		file = (struct file *)file->private_data;
-
-	ret = five_vfs_read(file, buf, count, &offset);
-	set_fs(old_fs);
-
-	return ret;
+	return __five_kernel_read(file, addr, count, &offset);
 }

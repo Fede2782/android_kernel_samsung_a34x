@@ -222,6 +222,12 @@ int tcpci_init(struct tcpc_device *tcpc, bool sw_reset)
 }
 EXPORT_SYMBOL(tcpci_init);
 
+void tcpci_set_vbus_dischg_gpio(struct tcpc_device *tcpc, int value)
+{
+	if (tcpc->ops->set_vbus_dischg_gpio)
+		tcpc->ops->set_vbus_dischg_gpio(tcpc, value);
+}
+
 int tcpci_init_alert_mask(struct tcpc_device *tcpc)
 {
 	if (tcpc->ops->init_alert_mask)
@@ -230,7 +236,7 @@ int tcpci_init_alert_mask(struct tcpc_device *tcpc)
 }
 EXPORT_SYMBOL(tcpci_init_alert_mask);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 int tcpci_ss_factory(struct tcpc_device *tcpc)
 {
 	PD_WARN_ON(tcpc->ops->ss_factory == NULL);

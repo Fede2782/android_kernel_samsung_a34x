@@ -283,14 +283,9 @@
 #endif /* _HIF_USB */
 
 #if defined(_HIF_SDIO)
-/* For support mcu debug mechanism. +*/
-#define SDIO_CTRL_EN                    (1 << 31)
-#define CONNAC2X_SDIO_WM_MONITER_SEL    (~(0x40000000))
-#define CONNAC2X_SDIO_PC_MONITER_SEL    (~(0x20000000))
-#define CONNAC2X_SDIO_LR_MONITER_SEL    (0x20000000)
-#define CONNAC2X_SDIO_MCU_PC_LOG_MASK	(0x3F)
-#define CONNAC2X_SDIO_MCU_PC_LOG_SHIFT	(16)
-/* For support mcu debug mechanism. -*/
+#define SDIO_HIF_TXD_LEN		sizeof(struct SDIO_HIF_TX_HEADER)
+#define SDIO_HIF_TXD_PKG_TYPE_SHIFT		(0)
+#define SDIO_HIF_TXD_PKG_TYPE_MASK		(0x3)
 #endif /* _HIF_SDIO */
 
 #define CONN_INFRA_CFG_AP2WF_BUS_ADDR                          0x7C500000
@@ -1142,8 +1137,16 @@ struct fwtbl_umac_struct {
 	struct wtbl_key_tb key_tb;
 };
 
+#if defined(_HIF_SDIO)
+struct SDIO_HIF_TX_HEADER {
+	uint16_t     InfoBufLen;
+	uint8_t      Type;
+	uint8_t      Reserved;
+};
+#endif /* defined(_HIF_SDIO) */
+
 #if (CFG_SUPPORT_CONNINFRA == 1)
-extern u_int8_t g_IsWfsysBusNoAck;
+extern u_int8_t g_IsWfsysBusHang;
 extern u_int8_t g_fgRstRecover;
 #if (CFG_WIFI_COREDUMP_SUPPORT == 1)
 extern u_int8_t g_IsNeedWaitCoredump;
@@ -1245,10 +1248,6 @@ void asicConnac2xLowPowerOwnSet(
 void asicConnac2xLowPowerOwnClear(
 	struct ADAPTER *prAdapter,
 	uint8_t *pfgResult);
-void asicConnac2xWfdmaRecord(
-	struct ADAPTER *prAdapter);
-void asicConnac2xWfdmaChkIdxMisMatch(
-	u_int32_t u4Idx, struct RTMP_TX_RING *prTxRing);
 void asicConnac2xProcessSoftwareInterrupt(
 	struct ADAPTER *prAdapter);
 void asicConnac2xSoftwareInterruptMcu(

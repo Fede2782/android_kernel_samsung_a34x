@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: BSD-2-Clause
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := $(WIFI_NAME).ko

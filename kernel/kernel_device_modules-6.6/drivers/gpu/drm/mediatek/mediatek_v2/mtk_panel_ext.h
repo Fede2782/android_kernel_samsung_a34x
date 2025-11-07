@@ -18,7 +18,7 @@
 
 #define RT_MAX_NUM 10
 #define ESD_CHECK_NUM 3
-#if IS_ENABLED(CONFIG_SMCDSD_PANEL)
+#if IS_ENABLED(CONFIG_SMCDSD_PANEL) || IS_ENABLED(CONFIG_DRM_PANEL_MCD_COMMON)
 #define MAX_TX_CMD_NUM 32
 #else
 #define MAX_TX_CMD_NUM 20
@@ -144,6 +144,8 @@ struct mtk_lcm_dsi_cmd_packet {
 	unsigned int prop;
 	struct list_head cmd_list;
 };
+
+extern int set_lcm(struct cmdq_pkt *handle, struct mtk_ddic_dsi_msg *cmd_msg);
 
 typedef  void (*mtk_dsi_ddic_handler_cb)(struct cmdq_cb_data data);
 typedef void (*dcs_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
@@ -510,7 +512,7 @@ enum DISPLAY_MODE {
 };
 
 struct mtk_panel_params {
-#if IS_ENABLED(CONFIG_SMCDSD_PANEL)
+#if IS_ENABLED(CONFIG_SMCDSD_PANEL) || IS_ENABLED(CONFIG_DRM_PANEL_MCD_COMMON)
 	struct drm_panel *drm_panel;
 #endif
 	unsigned int pll_clk;
@@ -638,6 +640,15 @@ struct mtk_panel_funcs {
 #endif
 #if IS_ENABLED(CONFIG_SMCDSD_PANEL)
 	int (*set_power)(struct drm_panel *panel, int power);
+#endif
+#if IS_ENABLED(CONFIG_DRM_PANEL_MCD_COMMON)
+	int (*set_power)(struct drm_panel *panel, int power);
+	int (*get_smooth_dim)(struct drm_panel *panel);
+	int (*set_skip_bl_cmd)(struct drm_panel *panel, int skip);
+#endif
+#if IS_ENABLED(CONFIG_USDM_PANEL_BIG_LOCK)
+	int (*set_panel_lock)(struct drm_panel *panel, int lock);
+	int (*set_panel_lock_pid)(struct drm_panel *panel, int pid);
 #endif
 	int (*set_bl_elvss_cmdq)(void *dsi_drv, dcs_grp_write_gce cb,
 		void *handle, struct mtk_bl_ext_config *bl_ext_config);

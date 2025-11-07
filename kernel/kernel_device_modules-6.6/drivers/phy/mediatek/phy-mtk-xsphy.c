@@ -81,6 +81,11 @@
 #define P2A5_RG_HSTX_SRCAL_EN	BIT(15)
 #define P2A5_RG_HSTX_SRCTRL		GENMASK(14, 12)
 
+#define P2A6_RG_USB20_SQD		GENMASK(23, 22)
+#define P2A5_RG_USB20_SQD_VAL(x)	((0x3 & (x)) << 22)
+#define P2A5_RG_USB20_SQD_MASK		(0x3)
+#define P2A5_RG_USB20_SQD_OFET		(22)
+
 #define XSP_USBPHYACR6		((SSUSB_SIFSLV_U2PHY_COM) + 0x018)
 #define P2A6_RG_U2_PHY_REV6		GENMASK(31, 30)
 #define P2A6_RG_U2_PHY_REV6_VAL(x)	((0x3 & (x)) << 30)
@@ -204,8 +209,17 @@
 #define SSPXTP_DAIG_LN_RX0_48   ((SSPXTP_SIFSLV_DIG_LN_RX0) + 0x048)
 #define RG_XTP0_U1_U2_EXIT_EQUAL		BIT(19)
 
+#define SSPXTP_DIAG_LN_RX0_6C	((SSPXTP_SIFSLV_DIG_LN_RX0) + 0x06C)
+#define RG_XTP0_CDR_PPATH_DVN_G1_LTD1	GENMASK(7, 0)
+#define RG_XTP0_CDR_PPATH_DVN_G1_LTD1_MASK	(0xFF)
+#define RG_XTP0_CDR_PPATH_DVN_G1_LTD1_OFST	(0)
+
 #define SSPXTP_DAIG_LN_RX0_70	((SSPXTP_SIFSLV_DIG_LN_RX0) + 0x070)
-#define RG_XTP0_CDR_PPATH_DVN_G2_LTD1	GENMASK(15, 8)
+#define RG_XTP0_CDR_PPATH_DVN_G2_LTD0		GENMASK(7, 0)
+#define RG_XTP0_CDR_PPATH_DVN_G2_LTD1		GENMASK(15, 8)
+
+#define SSPXTP_DAIG_LN_RX0_7C   ((SSPXTP_SIFSLV_DIG_LN_RX0) + 0x07C)
+#define RG_XTP0_CDR_STB_GAIN_G2_LTD0		GENMASK(15, 14)
 
 #define SSPXTP_DAIG_LN_DAIF_00	((SSPXTP_SIFSLV_DIG_LN_DAIF) + 0x00)
 #define RG_XTP0_DAIF_FRC_LN_TX_LCTXCM1		BIT(7)
@@ -292,6 +306,8 @@
 #define PHY_REV6_STR "phy_rev6"
 #define DISCTH_STR "discth"
 #define RX_SQTH_STR "rx_sqth"
+#define RX_SQD_STR "rx_sqd"
+
 #define INTR_OFS_STR "intr_ofs"
 #define TERM_OFS_STR "term_ofs"
 #define SIB_STR	"sib"
@@ -299,6 +315,7 @@
 #define TX_LCTXCM1_STR "tx_lctxcm1"
 #define TX_LCTXC0_STR "tx_lctxc0"
 #define TX_LCTXCP1_STR "tx_lctxcp1"
+#define RX_JTOL_STR "rx_jtol"
 
 #define XSP_MODE_UART_STR "usb2uart_mode=1"
 #define XSP_MODE_JTAG_STR "usb2jtag_mode=1"
@@ -407,6 +424,8 @@ struct xsphy_instance {
 	int discth;
 	int rx_sqth;
 	int host_rx_sqth;
+	int rx_sqd;
+	int host_rx_sqd;
 	int rev6;
 	int hsrx_vref_sel;
 	int fs_cr;
@@ -422,10 +441,12 @@ struct xsphy_instance {
 	int tx_lctxcm1;
 	int tx_lctxc0;
 	int tx_lctxcp1;
+	int rx_jtol;
 	bool u3_rx_fix;
 	bool u3_gen2_hqa;
 	/* u3 lpm */
 	bool u1u2_exit_equal;
+	bool u3gen2_lpm_fix;
 	/* refclk source */
 	bool refclk_sel;
 	/* HWPLL mode setting */
@@ -816,6 +837,57 @@ static const struct proc_ops proc_tx_lctxcp1_fops = {
 	.proc_release = single_release,
 };
 
+static int proc_rx_jtol_show(struct seq_file *s, void *unused)
+{
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	u32 tmp;
+
+	tmp = readl(pbase + SSPXTP_DIAG_LN_RX0_6C);
+	tmp >>= RG_XTP0_CDR_PPATH_DVN_G1_LTD1_OFST;
+	tmp &= RG_XTP0_CDR_PPATH_DVN_G1_LTD1_MASK;
+
+	seq_printf(s, "%d\n", tmp);
+	return 0;
+}
+
+static int proc_rx_jtol_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_rx_jtol_show, pde_data(inode));
+}
+
+static ssize_t proc_rx_jtol_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	char buf[20];
+	u32 val;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 10, &val))
+		return -EINVAL;
+
+	inst->rx_jtol = val;
+
+	mtk_phy_update_field(pbase + SSPXTP_DIAG_LN_RX0_6C, RG_XTP0_CDR_PPATH_DVN_G1_LTD1, val);
+
+	return count;
+}
+
+static const struct proc_ops proc_rx_jtol_fops = {
+	.proc_open = proc_rx_jtol_open,
+	.proc_write = proc_rx_jtol_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+
 static int u3_phy_procfs_init(struct mtk_xsphy *xsphy,
 			struct xsphy_instance *inst)
 {
@@ -874,6 +946,14 @@ static int u3_phy_procfs_init(struct mtk_xsphy *xsphy,
 			phy_root, &proc_tx_lctxcp1_fops, inst);
 	if (!file) {
 		dev_info(dev, "failed to creat proc file: %s\n", TX_LCTXCP1_STR);
+		ret = -ENOMEM;
+		goto err1;
+	}
+
+	file = proc_create_data(RX_JTOL_STR, 0640,
+			phy_root, &proc_rx_jtol_fops, inst);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", RX_JTOL_STR);
 		ret = -ENOMEM;
 		goto err1;
 	}
@@ -1179,6 +1259,63 @@ static const struct proc_ops proc_rx_sqth_fops = {
 	.proc_release = single_release,
 };
 
+static int proc_rx_sqd_show(struct seq_file *s, void *unused)
+{
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	u32 tmp;
+	char str[16];
+
+	tmp = readl(pbase + XSP_USBPHYACR5);
+	tmp >>= P2A5_RG_USB20_SQD_OFET;
+	tmp &= P2A5_RG_USB20_SQD_MASK;
+
+	cover_val_to_str(tmp, 4, str);
+
+	seq_printf(s, "\n%s = %s\n", RX_SQD_STR, str);
+	return 0;
+}
+
+static int proc_rx_sqd_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_rx_sqd_show, pde_data(inode));
+}
+
+static ssize_t proc_rx_sqd_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	char buf[20];
+	u32 val;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (count > sizeof(buf) - 1)
+		return -EINVAL;
+
+	if (copy_from_user(&buf, ubuf, count))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 2, &val))
+		return -EINVAL;
+
+	inst->rx_sqd = val;
+	inst->host_rx_sqd = val;
+
+	mtk_phy_update_field(pbase + XSP_USBPHYACR5, P2A6_RG_USB20_SQD, val);
+
+	return count;
+}
+
+static const struct proc_ops proc_rx_sqd_fops = {
+	.proc_open = proc_rx_sqd_open,
+	.proc_write = proc_rx_sqd_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
 static int proc_intr_ofs_show(struct seq_file *s, void *unused)
 {
 	struct xsphy_instance *inst = s->private;
@@ -1379,6 +1516,14 @@ static int u2_phy_procfs_init(struct mtk_xsphy *xsphy,
 			phy_root, &proc_rx_sqth_fops, inst);
 	if (!file) {
 		dev_info(dev, "failed to creat proc file: %s\n", RX_SQTH_STR);
+		ret = -ENOMEM;
+		goto err1;
+	}
+
+	file = proc_create_data(RX_SQD_STR, 0640,
+			phy_root, &proc_rx_sqd_fops, inst);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", RX_SQD_STR);
 		ret = -ENOMEM;
 		goto err1;
 	}
@@ -1654,6 +1799,16 @@ static void u3_phy_instance_power_on(struct mtk_xsphy *xsphy,
 		dev_info(xsphy->dev, "%s apply u3 lpm u1u2_exit_equal.\n", __func__);
 		/* set U1 exit equal to U2 exit */
 		mtk_phy_set_bits(pbase + SSPXTP_DAIG_LN_RX0_48, RG_XTP0_U1_U2_EXIT_EQUAL);
+	}
+
+	if (inst->u3gen2_lpm_fix) {
+		dev_info(xsphy->dev, "%s apply u3gen2 lpm fix.\n", __func__);
+		/* CDR DVN LTD0 [7:0] = 0x28 */
+		mtk_phy_update_field(pbase + SSPXTP_DAIG_LN_RX0_70, RG_XTP0_CDR_PPATH_DVN_G2_LTD0, 0x28);
+		/* CDR STB LTD0 [15:14] = 0x2 */
+		mtk_phy_update_field(pbase + SSPXTP_DAIG_LN_RX0_7C, RG_XTP0_CDR_STB_GAIN_G2_LTD0, 0x2);
+		/* CDR IIR GAIN [15:13] = 0x2*/
+		mtk_phy_update_field(pbase + SSPXTP_DAIG_LN_DAIF_44, RG_XTP0_DAIF_LN_G2_CDR_IIR_GAIN, 0x2);
 	}
 
 	dev_info(xsphy->dev, "%s(%d)\n", __func__, inst->index);
@@ -2211,6 +2366,14 @@ static void phy_parse_property(struct mtk_xsphy *xsphy,
 		if (device_property_read_u32(dev, "mediatek,host-rx-sqth",
 					 &inst->host_rx_sqth) || inst->host_rx_sqth < 0)
 			inst->host_rx_sqth = -EINVAL;
+
+		if (device_property_read_u32(dev, "mediatek,rx-sqd",
+					 &inst->rx_sqd) || inst->rx_sqd < 0)
+			inst->rx_sqd = -EINVAL;
+		if (device_property_read_u32(dev, "mediatek,host-rx-sqd",
+					 &inst->host_rx_sqd) || inst->host_rx_sqd < 0)
+			inst->host_rx_sqd = -EINVAL;
+
 		if (device_property_read_u32(dev, "mediatek,rev6",
 					 &inst->rev6) || inst->rev6 < 0)
 			inst->rev6 = -EINVAL;
@@ -2269,9 +2432,9 @@ static void phy_parse_property(struct mtk_xsphy *xsphy,
 		dev_dbg(dev, "src_host:%d, vrt_host:%d, term_host:%d\n",
 			inst->eye_src_host, inst->eye_vrt_host,
 			inst->eye_term_host);
-		dev_dbg(dev, "discth:%d, rx_sqth:%d, host_rx_sqth:%d, rev6:%d, rev6_host:%d\n",
+		dev_dbg(dev, "discth:%d, rx_sqth:%d, host_rx_sqth:%d, rev6:%d, rev6_host:%d, rx_sqd:%d, host_rx_sqd:%d\n",
 			inst->discth, inst->rx_sqth, inst->host_rx_sqth, inst->rev6,
-			inst->rev6_host);
+			inst->rev6_host, inst->rx_sqd, inst->host_rx_sqd);
 		dev_dbg(dev, "u2-sw-efuse:%d hwpll-mode:%d, refclk-sel:%d, chp-en-disable:%d",
 				inst->u2_sw_efuse, inst->hwpll_mode, inst->refclk_sel, inst->chp_en_disable);
 		break;
@@ -2294,16 +2457,21 @@ static void phy_parse_property(struct mtk_xsphy *xsphy,
 		if (device_property_read_u32(dev, "mediatek,tx-lctxcp1",
 					 &inst->tx_lctxcp1) || inst->tx_lctxcp1 < 0)
 			inst->tx_lctxcp1 = -EINVAL;
+		if (device_property_read_u32(dev, "mediatek,rx-jtol",
+					 &inst->rx_jtol) || inst->rx_jtol < 0)
+			inst->rx_jtol = -EINVAL;
 		inst->u3_rx_fix = device_property_read_bool(dev, "mediatek,u3-rx-fix");
 		inst->u3_gen2_hqa = device_property_read_bool(dev, "mediatek,u3-gen2-hqa");
 		inst->u3_sw_efuse = device_property_read_bool(dev, "mediatek,u3-sw-efuse");
 		inst->u1u2_exit_equal = device_property_read_bool(dev, "mediatek,u1u2-exit-equal");
+		inst->u3gen2_lpm_fix = device_property_read_bool(dev, "mediatek,u3gen2-lpm-fix");
 
 		dev_dbg(dev, "u3-sw-efuse: %d, intr:%d, tx-imp:%d, rx-imp:%d, u3_rx_fix:%d, u3_gen2_hqa:%d\n",
 			inst->u3_sw_efuse, inst->efuse_intr, inst->efuse_tx_imp,
 			inst->efuse_rx_imp, inst->u3_rx_fix, inst->u3_gen2_hqa);
 
-		dev_dbg(dev, "u1u2_exit_equal: %d", inst->u1u2_exit_equal);
+		dev_dbg(dev, "u1u2_exit_equal: %d, u3gen2_lpm_fix: %d", inst->u1u2_exit_equal,
+			inst->u3gen2_lpm_fix);
 
 		inst->orientation = 0;
 
@@ -2361,6 +2529,10 @@ static void u2_phy_props_set(struct mtk_xsphy *xsphy,
 		mtk_phy_update_field(pbase + XSP_USBPHYACR6, P2A6_RG_U2_SQTH,
 				    inst->rx_sqth);
 
+	if (inst->rx_sqd != -EINVAL)
+		mtk_phy_update_field(pbase + XSP_USBPHYACR5, P2A6_RG_USB20_SQD,
+				    inst->rx_sqd);
+
 	if (inst->rev6 != -EINVAL)
 		mtk_phy_update_field(pbase + XSP_USBPHYACR6, P2A6_RG_U2_PHY_REV6,
 				     inst->rev6);
@@ -2415,6 +2587,10 @@ static void u2_phy_host_props_set(struct mtk_xsphy *xsphy,
 	if (inst->host_rx_sqth != -EINVAL)
 		mtk_phy_update_field(pbase + XSP_USBPHYACR6, P2A6_RG_U2_SQTH,
 				    inst->host_rx_sqth);
+
+	if (inst->host_rx_sqd != -EINVAL)
+		mtk_phy_update_field(pbase + XSP_USBPHYACR5, P2A6_RG_USB20_SQD,
+				    inst->host_rx_sqd);
 
 	if (inst->eye_src_host != -EINVAL)
 		mtk_phy_update_field(pbase + XSP_USBPHYACR5, P2A5_RG_HSTX_SRCTRL,
@@ -2474,6 +2650,11 @@ static void u3_phy_props_set(struct mtk_xsphy *xsphy,
 		mtk_phy_update_field(pbase + SSPXTP_DAIG_LN_DAIF_08,
 				    RG_XTP0_DAIF_LN_TX_LCTXCP1, inst->tx_lctxcp1);
 	}
+
+	if (inst->rx_jtol != -EINVAL) {
+		mtk_phy_update_field(pbase + SSPXTP_DIAG_LN_RX0_6C,
+				    RG_XTP0_CDR_PPATH_DVN_G1_LTD1, inst->rx_jtol);
+	}
 }
 
 static int mtk_phy_init(struct phy *phy)
@@ -2514,6 +2695,7 @@ static int mtk_phy_init(struct phy *phy)
 		dev_info(xsphy->dev, "term_cal:%d term_ofs:%d host_term_ofs:%d\n",
 			inst->efuse_term_cal, inst->term_ofs, inst->host_term_ofs);
 		dev_info(xsphy->dev, "rx_sqth:%d host_rx_sqth:%d\n", inst->rx_sqth, inst->host_rx_sqth);
+		dev_info(xsphy->dev, "rx_sqd:%d host_rx_sqd:%d\n", inst->rx_sqd, inst->host_rx_sqd);
 		dev_info(xsphy->dev, "pll_fbksel:%d, pll_posdiv: %d\n",
 			inst->pll_fbksel, inst->pll_posdiv);
 		break;
@@ -2524,8 +2706,8 @@ static int mtk_phy_init(struct phy *phy)
 			inst->efuse_intr, inst->efuse_tx_imp,
 			inst->efuse_rx_imp);
 		dev_info(xsphy->dev,
-			"tx-lctxcm1:%d, tx-lctxc0:%d, tx-lctxcp1:%d\n",
-			inst->tx_lctxcm1, inst->tx_lctxc0, inst->tx_lctxcp1);
+			"tx-lctxcm1:%d, tx-lctxc0:%d, tx-lctxcp1:%d, rx-jtol:%d\n",
+			inst->tx_lctxcm1, inst->tx_lctxc0, inst->tx_lctxcp1, inst->rx_jtol);
 		break;
 	default:
 		dev_err(xsphy->dev, "incompatible phy type\n");

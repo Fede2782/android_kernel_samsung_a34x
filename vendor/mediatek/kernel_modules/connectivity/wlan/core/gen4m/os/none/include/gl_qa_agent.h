@@ -72,7 +72,7 @@
 #undef BUFFER_BIN_PAGE_SIZE
 #endif
 
-#if defined MT7915 || defined MT7961 || defined MT7902
+#if defined MT7915 || defined MT7961
 #define MAX_EEPROM_BUFFER_SIZE	0xe00
 #define BUFFER_BIN_PAGE_SIZE 0x400
 #else
@@ -159,7 +159,7 @@ struct PARAM_RX_STAT {
 					 */
 };
 #else
-#if (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0)
+#if (CFG_SUPPORT_CONNAC3X == 0)
 struct PARAM_RX_STAT {
 	uint32_t MAC_FCS_Err;	/* b0 */
 	uint32_t MAC_Mdrdy;	/* b0 */

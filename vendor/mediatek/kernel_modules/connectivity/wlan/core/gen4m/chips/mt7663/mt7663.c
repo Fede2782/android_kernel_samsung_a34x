@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -257,7 +257,6 @@ struct mt66xx_chip_info mt66xx_chip_info_mt7663 = {
 	.sw_ready_bit_offset = MT7663_SW_SYNC0_RDY_OFFSET,
 	.patch_addr = MT7663_PATCH_START_ADDR,
 	.is_support_cr4 = FALSE,
-	.sw_sync_emi_info = NULL,
 	.txd_append_size = MT7663_TX_DESC_APPEND_LENGTH,
 	.rxd_size = MT7663_RX_DESC_LENGTH,
 	.init_evt_rxd_size = MT7663_RX_DESC_LENGTH,

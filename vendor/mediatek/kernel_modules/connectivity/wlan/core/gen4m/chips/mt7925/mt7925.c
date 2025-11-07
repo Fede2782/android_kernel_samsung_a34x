@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -26,7 +26,6 @@
 #include "coda/mt7925/wf_wfdma_ext_wrap_csr.h"
 #include "coda/mt7925/wf_wfdma_host_dma0.h"
 #include "coda/mt7925/wf_wfdma_mcu_dma0.h"
-#include "coda/mt7925/wf_hif_dmashdl_top.h"
 #include "coda/mt7925/wf_pse_top.h"
 #include "coda/mt7925/wf_top_cfg_on.h"
 #include "coda/mt7925/wf_top_cfg_on.h"
@@ -54,7 +53,6 @@
 *                                 M A C R O S
 ********************************************************************************
 */
-#define CONCAT(NAME1, NAME2) (NAME1##NAME2)
 
 /*******************************************************************************
 *                   F U N C T I O N   D E C L A R A T I O N S
@@ -65,8 +63,7 @@
 *                   F U N C T I O N   D E C L A R A T I O N S
 ********************************************************************************
 */
-static uint32_t mt7925GetFlavorVer(struct GLUE_INFO *prGlueInfo,
-	uint8_t *flavor);
+static uint32_t mt7925GetFlavorVer(uint8_t *flavor);
 
 static void mt7925_ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 	uint8_t **apucNameTable, uint8_t **apucName,
@@ -121,24 +118,6 @@ static void mt7925ConfigPcieAspm(struct GLUE_INFO *prGlueInfo, u_int8_t fgEn);
 
 static void mt7925ShowPcieDebugInfo(struct GLUE_INFO *prGlueInfo);
 
-#if CFG_ASSERTDUMP_BYPASS_CHIP_RESET
-static void mt7925bypassWfWdt(struct ADAPTER *prAdapter, bool fgBypass);
-#endif
-
-#if CFG_PCIE_LTR_UPDATE
-static void mt7925PcieLTRValue(struct ADAPTER *prAdapter, uint8_t ucState);
-#endif
-#endif
-
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-static uint8_t mt7925_apsLinkPlanDecision(struct ADAPTER *prAdapter,
-	struct AP_COLLECTION *prAp, enum ENUM_MLO_LINK_PLAN eLinkPlan,
-	uint8_t ucBssIndex);
-static void mt7925_apsFillBssDescSet(struct ADAPTER *prAdapter,
-		struct BSS_DESC_SET *set, uint8_t ucBssIndex);
-static void mt7925_apsUpdateTotalScore(struct ADAPTER *prAdapter,
-	struct BSS_DESC *arLinks[], uint8_t ucLinkNum,
-	struct AP_SCORE_INFO *prScoreInfo, uint8_t ucBssidx);
 #endif
 
 /*******************************************************************************
@@ -216,20 +195,15 @@ struct PCIE_CHIP_CR_MAPPING mt7925_bus2chip_cr_mapping[] = {
 	{0x7c000000, 0xf0000, 0x10000}, /* CONN_INFRA */
 	{0x70020000, 0x1f0000, 0x10000}, /* Reserved for CBTOP, can't switch */
 	{0x7c500000, MT7925_PCIE2AP_REMAP_BASE_ADDR, 0x2000000}, /* remap */
-	{0x70000000, 0x1e0000, 0x9000},
-	{0x7c090000, 0x150000, 0x10000}, /* Remap change on owl */
 	{0x0, 0x0, 0x0} /* End */
 };
 #endif
 
 #if defined(_HIF_PCIE) || defined(_HIF_AXI)
 struct pcie2ap_remap mt7925_pcie2ap_remap = {
-	.reg_base = CONCAT(CONN_BUS_CR_VON_CONN_INFRA_PCIE2AP_REMAP,
-		_WF_0_76_CR_PCIE2AP_PUBLIC_REMAPPING_WF_06_ADDR),
-	.reg_mask = CONCAT(CONN_BUS_CR_VON_CONN_INFRA_PCIE2AP_REMAP,
-		_WF_0_76_CR_PCIE2AP_PUBLIC_REMAPPING_WF_06_MASK),
-	.reg_shift = CONCAT(CONN_BUS_CR_VON_CONN_INFRA_PCIE2AP_REMAP,
-		_WF_0_76_CR_PCIE2AP_PUBLIC_REMAPPING_WF_06_SHFT),
+	.reg_base = CONN_BUS_CR_VON_CONN_INFRA_PCIE2AP_REMAP_WF_0_76_cr_pcie2ap_public_remapping_wf_06_ADDR,
+	.reg_mask = CONN_BUS_CR_VON_CONN_INFRA_PCIE2AP_REMAP_WF_0_76_cr_pcie2ap_public_remapping_wf_06_MASK,
+	.reg_shift = CONN_BUS_CR_VON_CONN_INFRA_PCIE2AP_REMAP_WF_0_76_cr_pcie2ap_public_remapping_wf_06_SHFT,
 	.base_addr = MT7925_PCIE2AP_REMAP_BASE_ADDR
 };
 
@@ -385,8 +359,8 @@ struct BUS_INFO mt7925_bus_info = {
 	.tx_ring_cmd_idx = 15,
 	.tx_ring0_data_idx = 0,
 	.tx_ring1_data_idx = 1,
-	.tx_prio_data_idx = 2,
-	.tx_altx_data_idx = 3,
+	.tx_ring2_data_idx = 2,
+	.tx_ring3_data_idx = 3,
 	.rx_data_ring_num = 2,
 	.rx_evt_ring_num = 2,
 	.rx_data_ring_size = 3072,
@@ -404,11 +378,9 @@ struct BUS_INFO mt7925_bus_info = {
 	.wfmda_wm_rx_group = mt7925_wfmda_wm_rx_group,
 	.wfmda_wm_rx_group_len = ARRAY_SIZE(mt7925_wfmda_wm_rx_group),
 	.prDmashdlCfg = &rMt7925DmashdlCfg,
-#if (DBG_DISABLE_ALL_INFO == 0)
 	.prPleTopCr = &rMt7925PleTopCr,
 	.prPseTopCr = &rMt7925PseTopCr,
 	.prPpTopCr = &rMt7925PpTopCr,
-#endif
 	.prPseGroup = mt7925_pse_group,
 	.u4PseGroupLen = ARRAY_SIZE(mt7925_pse_group),
 	.pdmaSetup = mt7925WpdmaConfig,
@@ -426,12 +398,6 @@ struct BUS_INFO mt7925_bus_info = {
 		.u4MaxMsiNum = ARRAY_SIZE(mt7925_pcie_msi_layout),
 	},
 	.showDebugInfo = mt7925ShowPcieDebugInfo,
-#if CFG_ASSERTDUMP_BYPASS_CHIP_RESET
-	.bypassWfWdt = mt7925bypassWfWdt,
-#endif
-#if CFG_PCIE_LTR_UPDATE
-	.pcieLTRValue = mt7925PcieLTRValue,
-#endif
 #endif /* _HIF_PCIE */
 	.processTxInterrupt = mt7925ProcessTxInterrupt,
 	.processRxInterrupt = mt7925ProcessRxInterrupt,
@@ -452,7 +418,6 @@ struct BUS_INFO mt7925_bus_info = {
 #endif /*_HIF_PCIE || _HIF_AXI */
 #if defined(_HIF_PCIE) || defined(_HIF_AXI) || defined(_HIF_USB)
 	.DmaShdlInit = mt7925DmashdlInit,
-	.updateTxRingMaxQuota = mt7925UpdateDmashdlQuota,
 #endif
 #if defined(_HIF_USB)
 	.prDmashdlCfg = &rMt7925DmashdlCfg,
@@ -523,7 +488,6 @@ struct TX_DESC_OPS_T mt7925_TxDescOps = {
 
 struct RX_DESC_OPS_T mt7925_RxDescOps = {0};
 
-#if (DBG_DISABLE_ALL_INFO == 0)
 struct CHIP_DBG_OPS mt7925_DebugOps = {
 #if defined(_HIF_PCIE) || defined(_HIF_AXI)
 	.showPdmaInfo = connac3x_show_wfdma_info,
@@ -554,7 +518,7 @@ struct CHIP_DBG_OPS mt7925_DebugOps = {
 	.show_wfdma_dbg_probe_info = mt7925_show_wfdma_dbg_probe_info,
 	.show_wfdma_wrapper_info = mt7925_show_wfdma_wrapper_info,
 	.dumpwfsyscpupcr = mt7925_dumpWfsyscpupcr,
-	.dumpBusStatus = mt7925_DumpBusStatus,
+	.dumpBusHangCr = mt7925_DumpBusHangCr,
 #endif
 #if CFG_SUPPORT_LINK_QUALITY_MONITOR
 	.get_rx_rate_info = mt7925_get_rx_rate_info,
@@ -567,101 +531,8 @@ struct CHIP_DBG_OPS mt7925_DebugOps = {
 	.show_debug_sop_info = mt7925_show_debug_sop_info,
 #endif
 };
-#endif /* DBG_DISABLE_ALL_INFO */
 
 #if CFG_SUPPORT_QA_TOOL
-#if (CONFIG_WLAN_SERVICE == 1)
-struct test_capability mt7925_toolCapability = {
-	/* u_int32 version; */
-	8,
-	/* u_int32 tag_num; */
-	2,
-	/* struct test_capability_ph_cap ph_cap; */
-	{
-		/* GET_CAPABILITY_TAG_PHY */
-		1,	/* u_int32 tag; */
-
-		/* GET_CAPABILITY_TAG_PHY_LEN */
-		16,	/* u_int32 tag_len; */
-
-		/* BIT0: 11 a/b/g, BIT1: 11n, BIT2: 11ac, BIT3: 11ax */
-		0x1F,	/* u_int32 protocol; */
-
-		/* 1:1x1, 2:2x2, ... */
-		2,	/* u_int32 max_ant_num; */
-
-		/* BIT0: DBDC support */
-		1,	/* u_int32 dbdc; */
-
-		/* BIT0: TxLDPC, BTI1: RxLDPC, BIT2: TxSTBC, BIT3: RxSTBC */
-		0xF,	/* u_int32 coding; */
-
-		/* BIT0: 2.4G, BIT1: 5G, BIT2: 6G */
-		0x7,	/* u_int32 channel_band; */
-
-		/* BIT0: BW20, BIT1: BW40, BIT2: BW80 */
-		/* BIT3: BW160C, BIT4: BW80+80(BW160NC) */
-		/* BIT5: BW320*/
-		0xF,	/* u_int32 bandwidth; */
-
-		/* BIT[15:0]: Band0 2.4G, 5G, 6G, 0x7 */
-		/* BIT[31:16]: Band1 5G, 6G, 0x6 */
-		0x00060007,	/* u_int32 channel_band_dbdc; */
-
-		/* BIT[15:0]: Band2 N/A, 0 */
-		/* BIT[31:16]: Band3 N/A, 0*/
-		0x00000000,	/* u_int32 channel_band_dbdc_ext; */
-
-		/* BIT[7:0]: Support phy 0x1 (bitwise) */
-		/* BIT[15:8]: Support Adie 0x1 (bitwise) */
-		0x0101,	/* u_int32 phy_adie_index; CFG_SUPPORT_CONNAC3X */
-
-		/* BIT[7:0]: Band0 TX path 2 */
-		/* BIT[15:8]: Band0 RX path 2 */
-		/* BIT[23:16]: Band1 TX path 2 */
-		/* BIT[31:24]: Band1 RX path 2 */
-		0x02020202,	/* u_int32 band_0_1_wf_path_num; */
-
-		/* BIT[7:0]: Band2 TX path 0 */
-		/* BIT[15:8]: Band2 RX path 0*/
-		/* BIT[23:16]: Band3 TX path 0 */
-		/* BIT[31:24]: Band3 RX path 1 */
-		0x00000000,	/* u_int32 band_2_3_wf_path_num; */
-
-		/* BIT[7:0]: Band0 BW160, 0xF */
-		/* BIT[15:8]: Band1 BW160, 0xF */
-		/* BIT[23:16]: Band2 N/A, 0 */
-		/* BIT[31:24]: Band3 N/A, 0 */
-		0x00000F0F,	/* u_int32 band_bandwidth; */
-
-		{ 0, 0, 0, 0 }	/* u_int32 reserved[4]; */
-	},
-
-	/* struct test_capability_ext_cap ext_cap; */
-	{
-		/* GET_CAPABILITY_TAG_PHY_EXT */
-		2,	/* u_int32 tag; */
-		/* GET_CAPABILITY_TAG_PHY_EXT_LEN */
-		16,	/* u_int32 tag_len; */
-
-		/* BIT0: AntSwap 0 */
-		/* BIT1: HW TX support 0*/
-		/* BIT2: Little core support 0 */
-		/* BIT3: XTAL trim support 1 */
-		/* BIT4: DBDC/MIMO switch support 1 */
-		/* BIT5: eMLSR support 1 */
-		/* BIT6: MLR+, ALR support 1 */
-		/* BIT7: Bandwidth duplcate debug support 0 */
-		/* BIT8: dRU support */
-		0x78,	/*u_int32 feature1; */
-
-		/* u_int32 reserved[15]; */
-		{ 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0 }
-	}
-};
-#endif
-
 struct ATE_OPS_T mt7925_AteOps = {
 	/* ICapStart phase out , wlan_service instead */
 	.setICapStart = connacSetICapStart,
@@ -675,9 +546,6 @@ struct ATE_OPS_T mt7925_AteOps = {
 #endif
 	.icapRiseVcoreClockRate = mt7925_icapRiseVcoreClockRate,
 	.icapDownVcoreClockRate = mt7925_icapDownVcoreClockRate,
-#if (CONFIG_WLAN_SERVICE == 1)
-	.tool_capability = &mt7925_toolCapability,
-#endif
 };
 #endif /* CFG_SUPPORT_QA_TOOL */
 
@@ -701,12 +569,10 @@ struct mt66xx_chip_info mt66xx_chip_info_mt7925 = {
 #endif /* CFG_SUPPORT_QA_TOOL */
 	.prTxDescOps = &mt7925_TxDescOps,
 	.prRxDescOps = &mt7925_RxDescOps,
-#if (DBG_DISABLE_ALL_INFO == 0)
 	.prDebugOps = &mt7925_DebugOps,
-#endif
 	.chip_id = MT7925_CHIP_ID,
 	.should_verify_chip_id = FALSE,
-	.sw_sync0 = CONNAC3X_CONN_CFG_ON_CONN_ON_MISC_ADDR,
+	.sw_sync0 = Connac3x_CONN_CFG_ON_CONN_ON_MISC_ADDR,
 	.sw_ready_bits = WIFI_FUNC_NO_CR4_READY_BITS,
 	.sw_ready_bit_offset =
 		Connac3x_CONN_CFG_ON_CONN_ON_MISC_DRV_FM_STAT_SYNC_SHFT,
@@ -718,7 +584,6 @@ struct mt66xx_chip_info mt66xx_chip_info_mt7925 = {
 	.patch_addr = MT7925_PATCH_START_ADDR,
 	.is_support_cr4 = FALSE,
 	.is_support_wacpu = FALSE,
-	.sw_sync_emi_info = NULL,
 	.txd_append_size = MT7925_TX_DESC_APPEND_LENGTH,
 	.hif_txd_append_size = MT7925_HIF_TX_DESC_APPEND_LENGTH,
 	.rxd_size = MT7925_RX_DESC_LENGTH,
@@ -749,34 +614,7 @@ struct mt66xx_chip_info mt66xx_chip_info_mt7925 = {
 	.u4UmacWtblDUAddr = CONNAC3X_WIFI_UWTBL_BASE,
 	.isSupportMddpAOR = false,
 	.isSupportMddpSHM = false,
-	.u4HostWfdmaBaseAddr = WF_WFDMA_HOST_DMA0_BASE,
-	.u4HostWfdmaWrapBaseAddr = WF_WFDMA_EXT_WRAP_CSR_BASE,
-	.u4McuWfdmaBaseAddr = WF_WFDMA_MCU_DMA0_BASE,
-	.u4DmaShdlBaseAddr = WF_HIF_DMASHDL_TOP_BASE,
 	.cmd_max_pkt_size = CFG_TX_MAX_PKT_SIZE, /* size 1600 */
-
-	.prTxPwrLimitFile = "TxPwrLimit_MT7925.dat",
-#if (CFG_SUPPORT_POWER_SKU_ENHANCE == 1)
-	.prTxPwrLimit1ss1tFile = "TxPwrLimit_MT7925_1ss1t.dat",
-#endif
-#if (CFG_SUPPORT_SINGLE_SKU_6G == 1)
-	.prTxPwrLimit6GFile = "TxPwrLimit6G_MT7925.dat",
-#if (CFG_SUPPORT_SINGLE_SKU_6G_1SS1T == 1)
-	.prTxPwrLimit6G1ss1tFile = "TxPwrLimit6G_MT7925_1ss1t.dat",
-#endif
-#if (CFG_SUPPORT_CE_6G_PWR_REGULATIONS == 1)
-	.prTxPwrLimit6GVlpFile = "TxPwrLimit6G_MT7925_VLP.dat",
-	.prTxPwrLimit6GSpFile = "TxPwrLimit6G_MT7925_SP.dat",
-#endif  /*CFG_SUPPORT_CE_6G_PWR_REGULATIONS == 1*/
-#endif
-	.ucTxPwrLimitBatchSize = 3,
-
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-	.apsLinkPlanDecision = mt7925_apsLinkPlanDecision,
-	.apsFillBssDescSet = mt7925_apsFillBssDescSet,
-	.apsUpdateTotalScore = mt7925_apsUpdateTotalScore,
-#endif
-
 #if defined(_HIF_USB)
 	.asicUsbInit = asicConnac3xWfdmaInitForUSB,
 	.asicUsbInit_ic_specific = NULL,
@@ -796,7 +634,6 @@ struct mt66xx_chip_info mt66xx_chip_info_mt7925 = {
 	.fgIsSupportL0p5Reset = TRUE,
 #elif defined(_HIF_USB)
 	.fgIsSupportL0p5Reset = TRUE,
-	.dmashdlQuotaDecision = mt7925dmashdlQuotaDecision,
 #elif defined(_HIF_SDIO)
 	/* owner set true when feature is ready. */
 	.fgIsSupportL0p5Reset = FALSE,
@@ -925,7 +762,7 @@ static void mt7925_ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 	uint8_t aucFlavor[CFG_FW_FLAVOR_MAX_LEN];
 
 	kalMemZero(aucFlavor, sizeof(aucFlavor));
-	mt7925GetFlavorVer(prGlueInfo, &aucFlavor[0]);
+	mt7925GetFlavorVer(&aucFlavor[0]);
 
 #if CFG_SUPPORT_SINGLE_FW_BINARY
 	/* Type 0. mt7925_wifi.bin */
@@ -952,9 +789,7 @@ static void mt7925_ConstructFirmwarePrio(struct GLUE_INFO *prGlueInfo,
 			__LINE__, ret);
 #endif
 
-	/* Type 2 */
-	/* WIFI_RAM_CODE_MT7925_1_1.bin */
-	/* WIFI_RAM_CODE_MT7925_1t_1.bin */
+	/* Type 2. WIFI_RAM_CODE_MT7925_1_1.bin */
 	ret = kalSnprintf(*(apucName + (*pucNameIdx)),
 			CFG_FW_NAME_MAX_LEN,
 			"WIFI_RAM_CODE_MT%x_%s_%u.bin",
@@ -996,7 +831,7 @@ static void mt7925_ConstructPatchName(struct GLUE_INFO *prGlueInfo,
 	uint8_t aucFlavor[CFG_FW_FLAVOR_MAX_LEN];
 
 	kalMemZero(aucFlavor, sizeof(aucFlavor));
-	mt7925GetFlavorVer(prGlueInfo, &aucFlavor[0]);
+	mt7925GetFlavorVer(&aucFlavor[0]);
 
 #if CFG_SUPPORT_SINGLE_FW_BINARY
 	/* Type 0. mt7925_wifi.bin */
@@ -1023,9 +858,7 @@ static void mt7925_ConstructPatchName(struct GLUE_INFO *prGlueInfo,
 			__LINE__, ret);
 #endif
 
-	/* Type 2 */
-	/* WIFI_MT7925_PATCH_MCU_1_1_hdr.bin */
-	/* WIFI_MT7925_PATCH_MCU_1t_1_hdr.bin */
+	/* Type 2. WIFI_MT7925_PATCH_MCU_1_1_hdr.bin */
 	ret = kalSnprintf(apucName[(*pucNameIdx)],
 			  CFG_FW_NAME_MAX_LEN,
 			  "WIFI_MT%x_PATCH_MCU_%s_%u_hdr.bin",
@@ -1056,11 +889,9 @@ static void mt7925_ConstructIdxLogBinName(struct GLUE_INFO *prGlueInfo,
 	int ret = 0;
 	uint8_t aucFlavor[CFG_FW_FLAVOR_MAX_LEN];
 
-	mt7925GetFlavorVer(prGlueInfo, &aucFlavor[0]);
+	mt7925GetFlavorVer(&aucFlavor[0]);
 
-	/* Type 1 */
-	/* WIFI_RAM_CODE_MT7925_1_1_idxlog.bin */
-	/* WIFI_RAM_CODE_MT7925_1t_1_idxlog.bin */
+	/* ex: WIFI_RAM_CODE_MT7925_2_1_idxlog.bin */
 	ret = kalSnprintf(apucName[0],
 			  CFG_FW_NAME_MAX_LEN,
 			  "WIFI_RAM_CODE_MT%x_%s_%u_idxlog.bin",
@@ -1310,11 +1141,7 @@ static void mt7925ReadIntStatus(struct ADAPTER *prAdapter,
 	HAL_MCR_RD(prAdapter, PCIE_MAC_IREG_ISTATUS_HOST_ADDR,
 		&u4IntSta);
 	if (prAdapter->eWfsysResetState == WFSYS_RESET_STATE_IDLE &&
-			prAdapter->chip_info->fgIsSupportL0p5Reset == TRUE
-#if CFG_ASSERTDUMP_BYPASS_CHIP_RESET
-			&& prAdapter->fgN9AssertDumpOngoing == FALSE
-#endif
-		) {
+			prAdapter->chip_info->fgIsSupportL0p5Reset == TRUE) {
 		if (u4IntSta & PCIE_MAC_IREG_ISTATUS_HOST_WDT_INT_MASK)
 			*pu4IntStatus |= WHISR_WDT_INT;
 	}
@@ -1345,12 +1172,8 @@ static void mt7925ConfigIntMask(struct GLUE_INFO *prGlueInfo,
 		WF_WFDMA_HOST_DMA0_HOST_INT_ENA_HOST_TX_DONE_INT_ENA2_MASK |
 		WF_WFDMA_HOST_DMA0_HOST_INT_ENA_HOST_TX_DONE_INT_ENA3_MASK
 #endif /* CFG_SUPPORT_DISABLE_DATA_DDONE_INTR == 0 */
-		/* Owl use tx ring 15 0x7c024204[25] to tx CMD,
-		*  but the enable setting should use tx ring 17 0x7c024204[27]
-		*/
-		/*WF_WFDMA_HOST_DMA0_HOST_INT_ENA_HOST_TX_DONE_INT_ENA15_MASK*/
+		WF_WFDMA_HOST_DMA0_HOST_INT_ENA_HOST_TX_DONE_INT_ENA15_MASK |
 		WF_WFDMA_HOST_DMA0_HOST_INT_ENA_HOST_TX_DONE_INT_ENA16_MASK |
-		WF_WFDMA_HOST_DMA0_HOST_INT_ENA_HOST_TX_DONE_INT_ENA17_MASK |
 		WF_WFDMA_HOST_DMA0_HOST_INT_ENA_mcu2host_sw_int_ena_MASK;
 
 	u4WrVal |=
@@ -1463,9 +1286,9 @@ static void mt7925WpdmaConfig(struct GLUE_INFO *prGlueInfo,
 	}
 
 	/* packet based TX flow control */
-	HAL_MCR_RD(prAdapter,
-		   WF_WFDMA_HOST_DMA0_WPDMA_GLO_CFG_EXT1_ADDR,
-		   &u4Val);
+	kalDevRegRead(prGlueInfo,
+		      WF_WFDMA_HOST_DMA0_WPDMA_GLO_CFG_EXT1_ADDR,
+		      &u4Val);
 	u4Val |= WF_WFDMA_HOST_DMA0_WPDMA_GLO_CFG_EXT1_CSR_TX_FCTRL_MODE_MASK;
 	kalDevRegWrite(prGlueInfo,
 		       WF_WFDMA_HOST_DMA0_WPDMA_GLO_CFG_EXT1_ADDR,
@@ -1526,9 +1349,6 @@ static void mt7925InitPcieInt(struct GLUE_INFO *prGlueInfo)
 	HAL_MCR_WR(prGlueInfo->prAdapter,
 		PCIE_MAC_IREG_IMASK_HOST_ADDR,
 		value);
-	/* Enable PCIe MSI on init*/
-	HAL_MCR_WR(prGlueInfo->prAdapter,
-		CB_INFRA_SLP_CTRL_CB_INFRA_PCIE_SLP_CFG1_ADDR, 0xFFFFFFFF);
 }
 
 #if CFG_SUPPORT_PCIE_ASPM
@@ -1545,7 +1365,7 @@ static void mt7925ConfigPcieAspm(struct GLUE_INFO *prGlueInfo, u_int8_t fgEn)
 		HAL_MCR_WR(prGlueInfo->prAdapter,
 			   PCIE_MAC_IREG_PCIE_LOW_POWER_CTRL_ADDR,
 			   prHifInfo->u4PcieASPM);
-		DBGLOG(HAL, DEBUG, "Enable aspm L1.1/L1.2 0x%08x\n",
+		DBGLOG(HAL, INFO, "Enable aspm L1.1/L1.2 0x%08x\n",
 			prHifInfo->u4PcieASPM);
 	} else {
 		/*
@@ -1568,7 +1388,7 @@ static void mt7925ConfigPcieAspm(struct GLUE_INFO *prGlueInfo, u_int8_t fgEn)
 		HAL_MCR_WR(prGlueInfo->prAdapter,
 			   PCIE_MAC_IREG_PCIE_LOW_POWER_CTRL_ADDR,
 			   u4Val);
-		DBGLOG(HAL, DEBUG, "Disable aspm L1.1/L1.2 0x%08x\n", u4Val);
+		DBGLOG(HAL, INFO, "Disable aspm L1.1/L1.2 0x%08x\n", u4Val);
 	}
 }
 #endif
@@ -1580,352 +1400,22 @@ static void mt7925ShowPcieDebugInfo(struct GLUE_INFO *prGlueInfo)
 	if (!in_interrupt()) {
 		u4Addr = 0x112F0184;
 		wf_ioremap_read(u4Addr, &u4Val);
-		DBGLOG(HAL, DEBUG, "PCIE CR [0x%08x]=[0x%08x]", u4Addr, u4Val);
+		DBGLOG(HAL, INFO, "PCIE CR [0x%08x]=[0x%08x]", u4Addr, u4Val);
 		for (u4Addr = 0x112F0C04; u4Addr <= 0x112F0C1C; u4Addr += 4) {
 			wf_ioremap_read(u4Addr, &u4Val);
-			DBGLOG(HAL, DEBUG, "PCIE CR [0x%08x]=[0x%08x]",
+			DBGLOG(HAL, INFO, "PCIE CR [0x%08x]=[0x%08x]",
 			       u4Addr, u4Val);
 		}
 	}
 }
 
-#if CFG_ASSERTDUMP_BYPASS_CHIP_RESET
-static void mt7925bypassWfWdt(struct ADAPTER *prAdapter, bool fgBypass)
-{
-	uint32_t u4IntMask = 0;
-
-	HAL_MCR_RD(prAdapter, PCIE_MAC_IREG_IMASK_HOST_ADDR,
-		&u4IntMask);
-	if (fgBypass)
-		u4IntMask &= ~PCIE_MAC_IREG_ISTATUS_HOST_WDT_INT_MASK;
-	else
-		u4IntMask |= PCIE_MAC_IREG_ISTATUS_HOST_WDT_INT_MASK;
-
-	HAL_MCR_WR(prAdapter, PCIE_MAC_IREG_IMASK_HOST_ADDR,
-		u4IntMask);
-}
-#endif
-
-#if CFG_PCIE_LTR_UPDATE
-uint8_t g_ucLTRStat;
-
-static void mt7925PcieLTRValue(struct ADAPTER *prAdapter, uint8_t ucState)
-{
-	if (ucState == PCIE_LTR_STATE_TX_START) {
-		if (g_ucLTRStat == PCIE_LTR_STATE_TX_END) {
-			HAL_MCR_WR(prAdapter,
-				PCIE_MAC_IREG_PCIE_LTR_VALUES_ADDR,
-				PCIE_LOW_LATENCY_LTR_VALUE);
-			g_ucLTRStat = PCIE_LTR_STATE_TX_START;
-			DBGLOG(HAL, LOUD, "LTR val = 0x%x\n",
-				PCIE_LOW_LATENCY_LTR_VALUE);
-		}
-	} else if (ucState == PCIE_LTR_STATE_TX_END) {
-		if (g_ucLTRStat == PCIE_LTR_STATE_TX_START) {
-			HAL_MCR_WR(prAdapter,
-				PCIE_MAC_IREG_PCIE_LTR_VALUES_ADDR,
-				PCIE_HIGH_LATENCY_LTR_VALUE);
-			g_ucLTRStat = PCIE_LTR_STATE_TX_END;
-			DBGLOG(HAL, LOUD, "LTR val = 0x%x\n",
-				PCIE_HIGH_LATENCY_LTR_VALUE);
-		}
-	} else
-		DBGLOG(HAL, LOUD, "input LTR value wrong\n");
-}
-#endif
 #endif /* _HIF_PCIE */
 
-static uint32_t mt7925GetFlavorVer(struct GLUE_INFO *prGlueInfo,
-	uint8_t *flavor)
+static uint32_t mt7925GetFlavorVer(uint8_t *flavor)
 {
 	int ret;
-	u_int8_t fgTestFW = FALSE;
 
-#if CFG_WIFI_TESTMODE_FW_REDOWNLOAD
-	if (prGlueInfo)
-		fgTestFW = prGlueInfo->fgTestFwDl;
-#endif
-
-	ret = kalScnprintf(flavor, CFG_FW_FLAVOR_MAX_LEN,
-		fgTestFW ? "1t" : "1");
+	ret = kalScnprintf(flavor, CFG_FW_FLAVOR_MAX_LEN, "1");
 	return ret;
 }
-
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-uint8_t mt7925_apsLinkPlanDecision(struct ADAPTER *prAdapter,
-	struct AP_COLLECTION *prAp, enum ENUM_MLO_LINK_PLAN eLinkPlan,
-	uint8_t ucBssIndex)
-{
-	uint8_t ucCanSupportDBDCAA = 0;
-	uint8_t ucTmpBssIndex;
-	uint8_t ucHasActiveBss = FALSE;
-	struct BSS_INFO *prBssInfo;
-	uint32_t u4TmpLinkPlanBmap;
-	uint32_t u4LinkPlanBmap =
-		BIT(MLO_LINK_PLAN_2_5)
-#if (CFG_SUPPORT_WIFI_6G == 1)
-		| BIT(MLO_LINK_PLAN_2_6)
-#endif
-	;
-	uint32_t u4LinkPlanAABmap =
-		BIT(MLO_LINK_PLAN_2_5)
-#if (CFG_SUPPORT_EMLSR_SAME_A_BAND == 1)
-		| BIT(MLO_LINK_PLAN_5_5)
-#endif
-#if (CFG_SUPPORT_WIFI_6G == 1)
-		| BIT(MLO_LINK_PLAN_2_6)
-		| BIT(MLO_LINK_PLAN_5_6)
-#endif
-	;
-#if (CFG_SUPPORT_MLO_HYBRID == 1)
-	uint32_t u4LinkPlan3Bmap =
-		BIT(MLO_LINK_PLAN_2_5)
-#if (CFG_SUPPORT_WIFI_6G == 1)
-		| BIT(MLO_LINK_PLAN_2_5_6)
-#endif
-#if (CFG_SUPPORT_EMLSR_SAME_A_BAND == 1)
-		| BIT(MLO_LINK_PLAN_2_5_5)
-#endif
-	;
-#endif
-	uint32_t u4LinkPlanNoneMLDBmap =
-		BIT(MLO_LINK_PLAN_2)
-		| BIT(MLO_LINK_PLAN_5)
-#if (CFG_SUPPORT_WIFI_6G == 1)
-		| BIT(MLO_LINK_PLAN_6)
-#endif
-	;
-
-	DBGLOG_LIMITED(HAL, DEBUG, "WifiDBDCAwithA: %d, MaxSimuLinks: %d\n",
-		prAdapter->rWifiFemCfg.u2WifiDBDCAwithA,
-		prAdapter->rWifiVar.ucMaxSimuLinks);
-
-	for (ucTmpBssIndex = 0;
-		ucTmpBssIndex < prAdapter->ucSwBssIdNum; ucTmpBssIndex++) {
-		prBssInfo = prAdapter->aprBssInfo[ucTmpBssIndex];
-		if (IS_BSS_ALIVE(prAdapter, prBssInfo) &&
-			(IS_BSS_P2P(prBssInfo) ||
-			 IS_BSS_NAN(prBssInfo)))
-			ucHasActiveBss = TRUE;
-	}
-
-	if (prAdapter->rWifiFemCfg.u2WifiDBDCAwithA == TRUE)
-		ucCanSupportDBDCAA = 1;
-	else {
-#if (CFG_SUPPORT_802_11BE_MLO == 1)
-		/*if HW not support A+A
-		 *STR mode can not support DBDC A+A
-		 *EMLSR/Hybird mode can support DBDC A+A always
-		 */
-		if (prAdapter->rWifiVar.ucEnableMlo >= 1 &&
-			prAdapter->rWifiVar.ucMaxSimuLinks >= 1)
-			ucCanSupportDBDCAA = 0;
-		else
-			ucCanSupportDBDCAA = 1;
-#else
-		ucCanSupportDBDCAA = 0;
-#endif
-	}
-
-	if (ucHasActiveBss &&
-		prAdapter->rWifiVar.ucMaxSimuLinks == 0) {
-	/*has active Bss, block MLSR connection */
-		u4TmpLinkPlanBmap = u4LinkPlanNoneMLDBmap;
-		DBGLOG_LIMITED(HAL, DEBUG, "use aeLinkPlanNoneMLD\n");
-	}
-#if (CFG_SUPPORT_MLO_HYBRID == 1)
-	else if (ucCanSupportDBDCAA && IS_FEATURE_ENABLED(
-		prAdapter->rWifiVar.ucNonApHyMloSupport) &&
-		IS_FEATURE_ENABLED(
-		prAdapter->rWifiVar.ucNonApHyMloSupportCap)) {
-		u4TmpLinkPlanBmap = u4LinkPlan3Bmap;
-		DBGLOG_LIMITED(HAL, DEBUG, "use aeTriLinkPlan\n");
-	}
-#endif
-	else if (ucCanSupportDBDCAA) {
-		u4TmpLinkPlanBmap = u4LinkPlanAABmap;
-		DBGLOG_LIMITED(HAL, DEBUG, "use aeLinkPlanAwithA\n");
-	} else {
-		u4TmpLinkPlanBmap = u4LinkPlanBmap;
-		DBGLOG_LIMITED(HAL, DEBUG, "use aeLinkPlan\n");
-	}
-
-	return !!(u4TmpLinkPlanBmap & BIT(eLinkPlan));
-}
-
-static void mt7925_apsFillBssDescSet(struct ADAPTER *prAdapter,
-		struct BSS_DESC_SET *set, uint8_t ucBssIndex)
-{
-#if (CFG_SUPPORT_MLO_HYBRID == 1)
-	uint8_t i;
-	uint8_t ucL3BnlimitBmap = prAdapter->rWifiVar.ucLink3BandLimitBitmap;
-	struct CONNECTION_SETTINGS *conn =
-		aisGetConnSettings(prAdapter, ucBssIndex);
-	enum ENUM_PARAM_CONNECTION_POLICY policy = conn->eConnectionPolicy;
-
-
-	/* swap link 3 to link 2 depend on fw capbility
-	 *(2g or 5g can't be the 3rd link)
-	 */
-	if (IS_FEATURE_ENABLED(prAdapter->rWifiVar.ucNonApHyMloSupport) &&
-	    IS_FEATURE_ENABLED(prAdapter->rWifiVar.ucNonApHyMloSupportCap) &&
-		set && set->ucLinkNum == MLD_HYBRID_MLO_LINK_NUM) {
-		struct BSS_DESC *bss;
-
-		if ((ucL3BnlimitBmap & BAND_5G) &&
-		     set->aprBssDesc[MLD_HYBRID_MLO_LINK_NUM - 1]->eBand ==
-				BAND_5G) {
-			bss = set->aprBssDesc[MLD_HYBRID_MLO_LINK_NUM - 1];
-			set->aprBssDesc[MLD_HYBRID_MLO_LINK_NUM - 1] =
-				set->aprBssDesc[MLD_HYBRID_MLO_LINK_NUM - 2];
-			set->aprBssDesc[MLD_HYBRID_MLO_LINK_NUM - 2] = bss;
-		} else if ((ucL3BnlimitBmap & BAND_2G4) &&
-		     set->aprBssDesc[MLD_HYBRID_MLO_LINK_NUM - 1]->eBand ==
-				BAND_2G4) {
-			bss = set->aprBssDesc[MLD_HYBRID_MLO_LINK_NUM - 1];
-			set->aprBssDesc[MLD_HYBRID_MLO_LINK_NUM - 1] =
-				set->aprBssDesc[MLD_HYBRID_MLO_LINK_NUM - 2];
-			set->aprBssDesc[MLD_HYBRID_MLO_LINK_NUM - 2] = bss;
-		}
-	}
-
-	if (set->eMloMode == MLO_MODE_HYMLO ||
-	    set->eMloMode == MLO_MODE_HYEMLSR) {
-		for (i = 0; i < set->ucLinkNum; i++)
-			set->afgSyncOm[i] = FALSE;
-	}
-
-	if (policy == CONNECT_BY_BSSID)
-		return;
-
-#if (CFG_SUPPORT_FORCE_LINK_SORT == 1)
-	if (prAdapter->ucForceLinkSort) {
-		struct BSS_DESC *sorted[MLD_LINK_MAX] = {0};
-		enum ENUM_BAND order[3] = {0};
-		uint8_t j;
-
-		switch (prAdapter->ucForceLinkSortType) {
-		case 0x00:
-			order[0] = BAND_2G4;
-			order[1] = BAND_5G;
-			order[2] = BAND_6G;
-			break;
-		case 0x01:
-			order[0] = BAND_2G4;
-			order[1] = BAND_6G;
-			order[2] = BAND_5G;
-			break;
-		case 0x10:
-			order[0] = BAND_5G;
-			order[1] = BAND_2G4;
-			order[2] = BAND_6G;
-			break;
-		case 0x11:
-			order[0] = BAND_5G;
-			order[1] = BAND_6G;
-			order[2] = BAND_2G4;
-			break;
-		case 0x20:
-			order[0] = BAND_6G;
-			order[1] = BAND_2G4;
-			order[2] = BAND_5G;
-			break;
-		case 0x21:
-			order[0] = BAND_6G;
-			order[1] = BAND_5G;
-			order[2] = BAND_2G4;
-			break;
-		}
-
-		for (i = 0; i < MLD_LINK_MAX; i++) {
-			for (j = 0; j < MLD_LINK_MAX; j++) {
-				if (set->aprBssDesc[j] &&
-					set->aprBssDesc[j]->eBand == order[i]) {
-					sorted[i] = set->aprBssDesc[j];
-					break;
-				}
-			}
-		}
-
-		for (i = 0; i < MLD_LINK_MAX; i++)
-			set->aprBssDesc[i] = sorted[i];
-	}
-#endif
-#endif
-}
-
-static void mt7925_apsUpdateTotalScore(struct ADAPTER *prAdapter,
-	struct BSS_DESC *arLinks[], uint8_t ucLinkNum,
-	struct AP_SCORE_INFO *prScoreInfo, uint8_t ucBssidx)
-{
-	uint32_t u4TotalScore = 0;
-	uint32_t u4TotalTput = 0;
-	struct BSS_DESC *best_bss = arLinks[0]; /* links is sorted by score */
-	uint8_t i;
-	enum ENUM_MLO_MODE eMloMode = MLO_MODE_SLSR;
-	uint8_t ucMaxSimuLinks = 0;
-	uint8_t tmpIsEmlsrPermittedAP = FALSE;
-	uint8_t fgNeedCheckEmlsrAllowlist = FALSE;
-
-	for (i = 0; i < ucLinkNum; i++) {
-		u4TotalScore += arLinks[i]->u2Score;
-		u4TotalTput += arLinks[i]->u4Tput;
-		if (arLinks[i]->rMlInfo.fgIsEmlsrPermittedAP)
-			tmpIsEmlsrPermittedAP = TRUE;
-	}
-
-	if (IS_FEATURE_DISABLED(
-			prAdapter->rWifiVar.ucDisEmlsrAllowlist) &&
-			prAdapter->rWifiVar.u4SwTestMode ==
-			ENUM_SW_TEST_MODE_NONE)
-		fgNeedCheckEmlsrAllowlist = TRUE;
-
-	if (ucLinkNum > 1) {
-		//ucMaxSimuLinks = prAdapter->rWifiVar.ucMaxSimuLinksCap;
-		ucMaxSimuLinks = 0;
-		eMloMode = MLO_MODE_MLSR;
-	}
-
-#if (CFG_MLO_CONCURRENT_SINGLE_PHY == 1)
-	if (IS_FEATURE_ENABLED(
-			prAdapter->rWifiVar.ucNonApMldEMLSupport) &&
-			BE_IS_EML_CAP_SUPPORT_EMLSR(
-				best_bss->rMlInfo.u2EmlCap)) {
-		/* The AP is in allow list, the connection
-		 * select EMLSR, otherwise it need select MLSR.
-		 */
-		if (tmpIsEmlsrPermittedAP == FALSE &&
-			fgNeedCheckEmlsrAllowlist == TRUE)
-			eMloMode = MLO_MODE_MLSR;
-		else
-			eMloMode = MLO_MODE_EMLSR;
-
-		ucMaxSimuLinks = 0;
-	}
-#endif
-
-#if (CFG_SUPPORT_MLO_HYBRID == 1)
-	if (IS_FEATURE_ENABLED(
-		prAdapter->rWifiVar.ucNonApHyMloSupport) &&
-		IS_FEATURE_ENABLED(
-		prAdapter->rWifiVar.ucNonApHyMloSupportCap)) {
-		if (eMloMode == MLO_MODE_EMLSR)
-			eMloMode = MLO_MODE_HYEMLSR;
-		else
-			eMloMode = MLO_MODE_HYMLO;
-		ucMaxSimuLinks = 0;
-	}
-#endif
-	DBGLOG(ML, INFO, "eMloMode: %d\n", eMloMode);
-	kalMemCopy(prScoreInfo->aprTarget, arLinks,
-		sizeof(prScoreInfo->aprTarget));
-	prScoreInfo->ucLinkNum = ucLinkNum;
-	prScoreInfo->u4TotalScore = u4TotalScore;
-	prScoreInfo->u4TotalTput = u4TotalTput;
-	prScoreInfo->eMloMode = eMloMode;
-	prScoreInfo->ucMaxSimuLinks = ucMaxSimuLinks;
-}
-
-#endif /* CFG_SUPPORT_802_11BE_MLO */
-
 #endif  /* MT7925 */

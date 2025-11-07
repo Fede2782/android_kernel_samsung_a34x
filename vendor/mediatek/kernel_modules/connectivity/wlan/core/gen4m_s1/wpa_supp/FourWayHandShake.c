@@ -63,7 +63,7 @@ wpas_regCorrespondingTimer(eloop_timeout_handler handler,
 				g_arWpasTimer[i].pvUserData);
 
 			cnmTimerInitTimer(g_prAdapter, &g_arWpasTimer[i].rTimer,
-					  (PFN_MGMT_TIMEOUT_FUNC)wpas_timeoutCb,
+					  wpas_timeoutCb,
 					  (unsigned long)i);
 			return i;
 		}

@@ -242,6 +242,40 @@
 
 #define PMK_REFRESH_THRESHOLD_SEC	600
 
+#ifndef WPA_NONCE_LEN
+#define WPA_NONCE_LEN   32
+#endif
+#ifndef WPA_EAPOL_KEY_FIELD_SIZE
+#define WPA_EAPOL_KEY_FIELD_SIZE  95  /* struct wpa_eapol_key */
+#endif
+#ifndef WPA_KEY_INFO_KEY_TYPE
+#define WPA_KEY_INFO_KEY_TYPE  BIT(3) /* 1 = Pairwise, 0 = Group key */
+#endif
+#ifndef WPA_KEY_INFO_INSTALL
+#define WPA_KEY_INFO_INSTALL   BIT(6)
+#endif
+#ifndef WPA_KEY_INFO_ACK
+#define WPA_KEY_INFO_ACK       BIT(7)
+#endif
+#ifndef WPA_KEY_INFO_SECURE
+#define WPA_KEY_INFO_SECURE    BIT(9)
+#endif
+#ifndef ieee802_1x_hdr_size
+/* struct ieee802_1x_hdr in wpa_supplicant */
+#define ieee802_1x_hdr_size 4
+#endif
+#ifndef wpa_eapol_key_key_info_offset
+/* struct wpa_eapol_key in wpa_supplicant */
+#define wpa_eapol_key_key_info_offset 1
+#endif
+#ifndef wpa_eapol_key_nonce_info_offset
+/* struct wpa_eapol_key in wpa_supplicant */
+#define wpa_eapol_key_nonce_info_offset 13
+#endif /* wpa_eapol_key_nonce_info_offset */
+#ifndef wpa_eapol_key_fixed_field_size
+#define wpa_eapol_key_fixed_field_size 77
+#endif
+
 /*******************************************************************************
  *                             D A T A   T Y P E S
  *******************************************************************************
@@ -284,7 +318,7 @@ struct MSG_MIC_ERROR {
  *******************************************************************************
  */
 u_int8_t rsnParseRsnIE(struct ADAPTER *prAdapter,
-		       uint8_t *prInfoElem,
+		       struct RSN_INFO_ELEM *prInfoElem,
 		       struct RSN_INFO *prRsnInfo);
 
 u_int8_t rsnParseWpaIE(struct ADAPTER *prAdapter,
@@ -328,39 +362,18 @@ void rsnGenerateRSNIE(struct ADAPTER *prAdapter,
 void rsnGenerateRSNIEImpl(struct ADAPTER *prAdapter,
 		      struct MSDU_INFO *prMsduInfo);
 
-#if (CFG_SUPPORT_RSNO == 1)
-void rsnGenerateRsnSelectionIE(struct ADAPTER *prAdapter,
-	struct MSDU_INFO *prMsduInfo);
-u_int8_t rsnSupportRSNOverride(struct ADAPTER *prAdapter, uint8_t ucBssIndex);
-#endif /* CFG_SUPPORT_RSNO */
-
 #if CFG_SUPPORT_AAA
 void rsnGenerateRSNXIE(struct ADAPTER *prAdapter,
 		      struct MSDU_INFO *prMsduInfo);
 
 void rsnGenerateOWEIE(struct ADAPTER *prAdapter,
 		      struct MSDU_INFO *prMsduInfo);
-
-#if (CFG_SUPPORT_RSNO == 1)
-void rsnGenerateRSNOIE(struct ADAPTER *prAdapter,
-			struct MSDU_INFO *prMsduInfo);
-
-void rsnGenerateRSNO2IE(struct ADAPTER *prAdapter,
-			struct MSDU_INFO *prMsduInfo);
-
-void rsnGenerateRSNXOIE(struct ADAPTER *prAdapter,
-			struct MSDU_INFO *prMsduInfo);
-#endif /* CFG_SUPPORT_RSNO */
-#endif /* CFG_SUPPORT_AAA */
+#endif
 
 u_int8_t
 rsnParseCheckForWFAInfoElem(struct ADAPTER *prAdapter,
 			    uint8_t *pucBuf, uint8_t *pucOuiType,
 			    uint16_t *pu2SubTypeVersion);
-
-u_int8_t
-rsnParseCheckForWFASpecificElem(struct ADAPTER *prAdapter,
-			    uint8_t *pucBuf, uint8_t *pucOuiType);
 
 #if CFG_SUPPORT_AAA
 void rsnParserCheckForRSNCCMPPSK(struct ADAPTER *prAdapter,
@@ -412,13 +425,6 @@ uint32_t rsnCheckBipGmacKeyInstall(struct ADAPTER
 
 uint8_t rsnCheckBipGmac(struct ADAPTER *prAdapter,
 			struct SW_RFB *prSwRfb);
-
-void rsnUpdateCombackBssDesc(struct ADAPTER *prAdapter, uint8_t ucBssIndex);
-
-uint8_t rsnCheckCombackBssDesc(struct ADAPTER *prAdapter,
-	struct STA_RECORD *prStaRec, uint8_t ucBssIndex);
-
-void rsnResetCombackBssDesc(struct ADAPTER *prAdapter, uint8_t ucBssIndex);
 
 uint8_t rsnCheckSaQueryTimeout(
 	struct ADAPTER *prAdapter, uint8_t ucBssIdx);
@@ -480,7 +486,7 @@ u_int8_t rsnIsFtOverTheAir(struct ADAPTER *prAdapter,
 			uint8_t ucBssIdx, uint8_t ucStaRecIdx);
 
 u_int8_t rsnParseRsnxIE(struct ADAPTER *prAdapter,
-		       uint8_t *pucInfoElem,
+		       struct RSNX_INFO_ELEM *prInfoElem,
 		       struct RSNX_INFO *prRsnxeInfo);
 
 uint8_t rsnKeyMgmtSae(uint32_t akm);
@@ -491,7 +497,7 @@ void rsnAllowCrossAkm(struct ADAPTER *prAdapter, uint8_t ucBssIndex);
 uint32_t rsnCipherToBit(uint32_t cipher);
 uint32_t rsnKeyMgmtToBit(uint32_t akm);
 uint8_t rsnApOverload(uint16_t status, uint16_t reason);
-uint8_t rsnApInvalidPMK(uint16_t status, uint16_t reason,
+uint8_t rsnApInvalidPMK(uint16_t status,
 	enum ENUM_PARAM_AUTH_MODE AuthMode);
 uint8_t rsnIsFilsAuthAlg(uint8_t alg);
 uint8_t rsnKeyMgmtFils(uint32_t akm);
@@ -509,17 +515,15 @@ void rsnTriggerDumpWTBL(struct ADAPTER *prAdapter,
 void rsnDumpWTBL(struct ADAPTER *prAdapter);
 bool rsnFwDumpIsLimited(struct ADAPTER *prAdapter);
 
-#if (CFG_SUPPORT_SAP_BCN_PROT == 1)
-uint32_t rsnCalculateMMIELen(struct ADAPTER *prAdapter,
-			       uint8_t ucBssIndex, struct STA_RECORD *prStaRec);
-void rsnGenerateMMIE(struct ADAPTER *prAdapter,
-		     struct MSDU_INFO *prMsduInfo);
-#endif
-
-#if CFG_SUPPORT_802_11W
 void rsnApStartSaQueryTimer(struct ADAPTER *prAdapter,
 			    uintptr_t ulParamPtr);
-#endif /* CFG_SUPPORT_802_11W */
+
+u_int8_t rsnHasNonce(const uint8_t *pucNonceAddr);
+uint8_t rsnGetEapolMicLen(uint32_t akmp);
+uint16_t rsnGetEapolDataLen(uint8_t *pucEapol, uint8_t mic_len);
+u_int8_t rsnIsEapolM2(struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex, uint8_t *pucEapol);
+
 /*******************************************************************************
  *                              F U N C T I O N S
  *******************************************************************************

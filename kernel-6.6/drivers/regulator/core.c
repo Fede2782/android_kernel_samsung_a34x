@@ -3020,6 +3020,14 @@ static int _regulator_disable(struct regulator *regulator)
 				ret = _regulator_do_disable(rdev);
 				if (ret < 0) {
 					rdev_err(rdev, "failed to disable: %pe\n", ERR_PTR(ret));
+
+					/* Temporal debug code for analyzing mt6363_vemc IO error
+					 * It should be removed after resolving this issue
+					 */
+					if (strcmp(rdev_get_name(rdev), "mt6363_vemc") == 0) {
+						BUG_ON(1);
+					}
+
 					_notifier_call_chain(rdev,
 							REGULATOR_EVENT_ABORT_DISABLE,
 							NULL);
@@ -4876,7 +4884,7 @@ int _regulator_bulk_get(struct device *dev, int num_consumers,
 						       consumers[i].supply, get_type);
 		if (IS_ERR(consumers[i].consumer)) {
 			ret = dev_err_probe(dev, PTR_ERR(consumers[i].consumer),
-					    "Failed to get supply '%s'",
+					    "Failed to get supply '%s'\n",
 					    consumers[i].supply);
 			consumers[i].consumer = NULL;
 			goto err;
@@ -5778,6 +5786,7 @@ void regulator_unregister(struct regulator_dev *rdev)
 }
 EXPORT_SYMBOL_GPL(regulator_unregister);
 
+#if IS_ENABLED(CONFIG_SEC_PM)
 struct rdev_check_data {
 	struct regulator_dev *parent;
 	int level;
@@ -5864,6 +5873,7 @@ int regulator_show_enabled(void)
 	return class_for_each_device(&regulator_class, NULL, NULL,
 				     _regulator_show_enabled);
 }
+#endif /* CONFIG_SEC_PM */
 
 #ifdef CONFIG_SUSPEND
 /**

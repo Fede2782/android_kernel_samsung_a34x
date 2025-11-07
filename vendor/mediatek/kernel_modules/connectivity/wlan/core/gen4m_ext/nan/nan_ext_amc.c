@@ -109,12 +109,12 @@ static void _nanExtMergingCb(struct ADAPTER *prAdapter,
 {
 
 	if (prAdapter == NULL) {
-		DBGLOG(NAN, ERROR, "[%s] prAdapter is NULL\n", __func__);
+		DBGLOG(NAN, ERROR, "prAdapter is NULL\n");
 		return;
 	}
 
 	if (prCmdInfo == NULL) {
-		DBGLOG(NAN, ERROR, "[%s] prCmdInfo is NULL\n", __func__);
+		DBGLOG(NAN, ERROR, "prCmdInfo is NULL\n");
 		return;
 	}
 }
@@ -202,27 +202,27 @@ uint32_t nanProcessAMC(struct ADAPTER *prAdapter, const uint8_t *buf,
 
 	kalMemZero(&g_rNanExtCmdMerging, sizeof(struct _NAN_EXT_CMD_MERGING_T));
 
-	DBGLOG(NAN, DEBUG, "Enter %s, consuming %zu bytes\n",
-	       __func__, sizeof(struct IE_NAN_AMC_CMD));
+	DBGLOG(NAN, INFO, "consuming %zu bytes\n",
+	       sizeof(struct IE_NAN_AMC_CMD));
 
-	DBGLOG(NAN, DEBUG, "OUI: %d(%02X) (%s)\n",
+	DBGLOG(NAN, INFO, "OUI: %d(%02X) (%s)\n",
 	       c->ucNanOui, c->ucNanOui, oui_str(c->ucNanOui));
-	DBGLOG(NAN, DEBUG, "Length: %d\n", c->u2Length);
-	DBGLOG(NAN, DEBUG, "v%d.%d\n", c->ucMajorVersion, c->ucMinorVersion);
-	DBGLOG(NAN, DEBUG, "ReqId: %d\n", c->ucRequestId);
-	DBGLOG(NAN, DEBUG, "Cmd type: %d\n", c->cmd_type);
-	DBGLOG(NAN, DEBUG, "Merge start: %d\n", c->merge_start);
-	DBGLOG(NAN, DEBUG, "Merge Timing: %d\n", c->merge_timing);
-	DBGLOG(NAN, DEBUG, "MP control: %d\n", c->mp_ctrl_support);
-	DBGLOG(NAN, DEBUG, "Merging enabled: %d\n",
+	DBGLOG(NAN, INFO, "Length: %d\n", c->u2Length);
+	DBGLOG(NAN, INFO, "v%d.%d\n", c->ucMajorVersion, c->ucMinorVersion);
+	DBGLOG(NAN, INFO, "ReqId: %d\n", c->ucRequestId);
+	DBGLOG(NAN, INFO, "Cmd type: %d\n", c->cmd_type);
+	DBGLOG(NAN, INFO, "Merge start: %d\n", c->merge_start);
+	DBGLOG(NAN, INFO, "Merge Timing: %d\n", c->merge_timing);
+	DBGLOG(NAN, INFO, "MP control: %d\n", c->mp_ctrl_support);
+	DBGLOG(NAN, INFO, "Merging enabled: %d\n",
 	       c->merging_feature_enabled);
-	DBGLOG(NAN, DEBUG, "Merging indication broadcast: %d\n",
+	DBGLOG(NAN, INFO, "Merging indication broadcast: %d\n",
 	       c->merging_indication_brodcast);
-	DBGLOG(NAN, DEBUG, "MDC enabled: %d\n",
+	DBGLOG(NAN, INFO, "MDC enabled: %d\n",
 	       c->mdc_enabled);
-	DBGLOG(NAN, DEBUG, "Master preference: %u\n", c->ucMasterPref);
-	DBGLOG(NAN, DEBUG, "Additional_info.MDC: %u\n", c->additional_info.mdc);
-	DBGLOG(NAN, DEBUG, "Additional_info.CCM: %u\n", c->additional_info.ccm);
+	DBGLOG(NAN, INFO, "Master preference: %u\n", c->ucMasterPref);
+	DBGLOG(NAN, INFO, "Additional_info.MDC: %u\n", c->additional_info.mdc);
+	DBGLOG(NAN, INFO, "Additional_info.CCM: %u\n", c->additional_info.ccm);
 
 	g_rNanExtCmdMerging.ucMergeStart = c->merge_start;
 	g_rNanExtCmdMerging.ucMergeTiming = c->merge_timing;
@@ -241,26 +241,24 @@ uint32_t nanProcessAMC(struct ADAPTER *prAdapter, const uint8_t *buf,
 			att_c =
 				(struct IE_NAN_MDC_CMD *)(buf + sizeof(struct IE_NAN_AMC_CMD));
 
-			DBGLOG(NAN, DEBUG, "=== MDC Data ===\n");
-			DBGLOG(NAN, DEBUG, "OUI: %d(%02X) (%s)\n",
+			DBGLOG(NAN, INFO, "=== MDC Data ===\n");
+			DBGLOG(NAN, INFO, "OUI: %d(%02X) (%s)\n",
 			       att_c->ucNanOui, att_c->ucNanOui,
 				   oui_str(att_c->ucNanOui));
-			DBGLOG(NAN, DEBUG, "Length: %d\n", att_c->ucLength);
-			DBGLOG(NAN, DEBUG, "ReqId: %d\n", att_c->ucRequestId);
+			DBGLOG(NAN, INFO, "Length: %d\n", att_c->ucLength);
+			DBGLOG(NAN, INFO, "ReqId: %d\n", att_c->ucRequestId);
 
-			DBGLOG(NAN, DEBUG, "Type: %d\n", att_c->cmd_type);
-			DBGLOG(NAN, DEBUG, "Subtype: %d\n", att_c->subtype);
-			DBGLOG(NAN, DEBUG, "Updated: %d\n", att_c->updated);
-			DBGLOG(NAN, DEBUG, "Merging Criteria Value: %d\n",
+			DBGLOG(NAN, INFO, "Type: %d\n", att_c->cmd_type);
+			DBGLOG(NAN, INFO, "Subtype: %d\n", att_c->subtype);
+			DBGLOG(NAN, INFO, "Updated: %d\n", att_c->updated);
+			DBGLOG(NAN, INFO, "Merging Criteria Value: %d\n",
 					att_c->ucMergingCriteriaValue);
-			DBGLOG(NAN, DEBUG, "Merging Criteria Type: %d\n",
+			DBGLOG(NAN, INFO, "Merging Criteria Type: %d\n",
 					att_c->merging_criteria_type);
-			DBGLOG(NAN, DEBUG, "Merging Criteria Lifetime: %d\n",
+			DBGLOG(NAN, INFO, "Merging Criteria Lifetime: %d\n",
 					att_c->merging_criteria_lifetime);
-			DBGLOG(NAN, DEBUG,
-			       "Update Method: %d\n", att_c->update_method);
-			DBGLOG(NAN, DEBUG,
-			       "Update Device: %d\n", att_c->update_device);
+			DBGLOG(NAN, INFO, "Update Method: %d\n", att_c->update_method);
+			DBGLOG(NAN, INFO, "Update Device: %d\n", att_c->update_device);
 
 			g_rNanExtCmdMerging.ucType = att_c->cmd_type;
 			g_rNanExtCmdMerging.ucSubtype = att_c->subtype;

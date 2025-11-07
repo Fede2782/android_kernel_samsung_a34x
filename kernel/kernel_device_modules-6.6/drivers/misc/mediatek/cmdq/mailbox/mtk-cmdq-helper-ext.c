@@ -41,6 +41,12 @@ struct cmdq_sec_helper_fp *cmdq_sec_helper;
 
 #endif
 
+#if IS_ENABLED(CONFIG_SMCDSD_PANEL) || IS_ENABLED(CONFIG_DRM_PANEL_MCD_COMMON)
+#if IS_ENABLED(CONFIG_SEC_DEBUG)
+#include <linux/sec_debug.h>
+#endif
+#endif
+
 #ifndef cmdq_util_msg
 #define cmdq_util_msg(f, args...) cmdq_msg(f, ##args)
 #endif
@@ -2502,9 +2508,10 @@ s32 cmdq_pkt_poll_sleep(struct cmdq_pkt *pkt, u32 value,
 	s32 err;
 	const u16 reg_idx = CMDQ_THR_SPR_IDX1;
 	bool spr3_timer = pkt->support_spr3_timer;
+	struct cmdq_client *cl = pkt->cl;
 
-	if (!spr3_timer) {
-		cmdq_msg("pkt:0x%p skip poll_sleep", pkt);
+	if (!spr3_timer || !cl) {
+		cmdq_log("pkt:0x%p poll sleep not support or no client", pkt);
 		return -EINVAL;
 	}
 
@@ -2514,6 +2521,9 @@ s32 cmdq_pkt_poll_sleep(struct cmdq_pkt *pkt, u32 value,
 		if (err != 0)
 			return err;
 	}
+
+	/* set timer event for current thread */
+	cmdq_pkt_set_event(pkt, cmdq_mbox_chan_id(cl->chan) + CMDQ_EVENT_SPR_TIMER);
 
 	cmdq_pkt_assign_command(pkt, reg_idx, (dma_addr_t)addr | CMDQ_ADDR_LOW_BIT);
 
@@ -3364,6 +3374,42 @@ static void cmdq_pkt_call_item_cb(struct cmdq_flush_item *item)
 }
 #endif
 
+#define ERR_LIMLIT (0x1)
+static void try_panic(const char *mod, u32 err_num)
+{
+	if (!mod)
+		return;
+
+	if(!strcmp(mod, "MM_MML"))
+	{
+		cmdq_util_msg("try_panic MM_MML %u\n", err_num);
+		if(err_num < ERR_LIMLIT)
+			return;
+	}
+	else if(!strcmp(mod, "MM_DISP"))
+	{
+		cmdq_util_msg("try_panic MM_DISP %u\n", err_num);
+		if(err_num < ERR_LIMLIT)
+			return;
+	}
+	else if(!strcmp(mod, "MM_MDP"))
+	{
+		cmdq_util_msg("try_panic MM_MDP %u\n", err_num);
+		if(err_num < ERR_LIMLIT)
+			return;
+	}
+	else
+	{
+		cmdq_util_msg("try_panic Other module");
+		return;
+	}
+
+#if (IS_ENABLED(CONFIG_SMCDSD_PANEL) || IS_ENABLED(CONFIG_DRM_PANEL_MCD_COMMON)) && !IS_ENABLED(CONFIG_SEC_FACTORY)
+	if(!is_debug_level_low())
+		BUG();
+#endif
+}
+
 void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 {
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
@@ -3514,6 +3560,9 @@ done:
 		cmdq_util_helper->error_disable((u8)hwid);
 		cmdq_util_helper->set_first_err_mod(client->chan, mod);
 	}
+
+	try_panic(mod, err_num[hwid]);
+
 	err_num[hwid]++;
 	cmdq_util_helper->dump_unlock();
 

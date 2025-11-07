@@ -26,7 +26,6 @@
 #define	TEST_CMD_REQ			0x0005
 #define	TEST_CMD_RSP			0x8005
 
-#define DDIE_NUM            4
 /*****************************************************************************
  *	Enum value definition
  *****************************************************************************/
@@ -121,7 +120,7 @@ struct GNU_PACKED hqa_tx {
 	u_int32 nss;
 	u_int32 hw_tx_enable;
 
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	u_int32 puncture;
 #endif
 };
@@ -192,7 +191,7 @@ struct GNU_PACKED hqa_rx_stat_band_info {
 	u_int32 phy_rx_tag_err_ofdm;
 	u_int32 phy_rx_mdrdy_cnt_cck;
 	u_int32 phy_rx_mdrdy_cnt_ofdm;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1) /* band info v1*/
 	u_int32 aci_hit_low;
 	u_int32 aci_hit_high;
 	u_int32 phy_rx_pd_alr;	/* band info v2*/
@@ -207,7 +206,7 @@ struct GNU_PACKED hqa_rx_stat_path_info {
 	u_int32 fagc_wb_rssi;
 	u_int32 inst_ib_rssi;
 	u_int32 inst_wb_rssi;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1)
 	u_int32 adc_rssi;		/* path_info v1 */
 	u_int32 cca_idle_pwr;	/* path_info v2 */
 #endif
@@ -221,7 +220,7 @@ struct GNU_PACKED hqa_rx_stat_user_info {
 
 struct GNU_PACKED hqa_rx_stat_comm_info {
 	u_int32 rx_fifo_full;
-#if (CFG_SUPPORT_CONNAC3X == 0) && (CFG_SUPPORT_CONNAC5X == 0)
+#if (CFG_SUPPORT_CONNAC3X == 0) /* comm_info v1 */
 	u_int32 aci_hit_low;
 	u_int32 aci_hit_high;
 #endif
@@ -229,7 +228,7 @@ struct GNU_PACKED hqa_rx_stat_comm_info {
 	u_int32 sig_mcs;
 	u_int32 sinr;
 	u_int32 driver_rx_count;
-#if (CFG_SUPPORT_CONNAC3X == 1) || (CFG_SUPPORT_CONNAC5X == 1)
+#if (CFG_SUPPORT_CONNAC3X == 1) /* comm_info v1 */
 	u_int32 ne_var_db;
 #endif
 };

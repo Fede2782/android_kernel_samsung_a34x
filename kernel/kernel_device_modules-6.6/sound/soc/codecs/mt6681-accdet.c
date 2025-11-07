@@ -724,7 +724,9 @@ static u32 accdet_get_auxadc(void)
 		ret = iio_read_channel_processed(accdet->accdet_auxadc, &vol);
 		if (ret < 0) {
 			pr_notice("Error: %s read fail (%d)\n", __func__, ret);
-			return ret;
+			/* Set vol to max u32 value to indicate error */
+			/* key_check should return no_key */
+			return 0xFFFFFFFF;
 		}
 	}
 
@@ -2285,7 +2287,7 @@ static inline int ext_eint_setup(struct platform_device *pdev)
 	return 0;
 }
 
-static u32 accdet_get_chipid(void)
+static int accdet_get_chipid(void)
 {
 	struct device_node *node;
 	struct tag_chipid *chip_id;
@@ -2309,7 +2311,7 @@ static u32 accdet_get_chipid(void)
 	}
 	pr_notice("current sw version: %u\n", chip_id->sw_ver);
 
-	return chip_id->sw_ver;
+	return (int)(chip_id->sw_ver);
 }
 
 static void accdet_get_efuse_hw_revision(void)

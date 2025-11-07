@@ -27,6 +27,8 @@
  *******************************************************************************
  */
 
+#define WNM_BTM_QUERY_TIMEOUT               5 /* seconds */
+
 /*******************************************************************************
  *                         D A T A   T Y P E S
  *******************************************************************************
@@ -68,6 +70,8 @@ struct BSS_TRANSITION_MGT_PARAM {
 #if CFG_EXT_ROAMING_WTC
 	uint8_t ucVsieReasonCode;
 #endif
+	u_int8_t fgDisableBTM;
+	OS_SYSTIME rQueryTime;
 };
 
 /*******************************************************************************
@@ -141,6 +145,9 @@ void wnmSendBTMResponseFrame(struct ADAPTER *adapter,
 	struct STA_RECORD *staRec, PFN_TX_DONE_HANDLER pfTxDoneHandler,
 	uint8_t dialogToken, uint8_t status, uint8_t reason, uint8_t delay,
 	const uint8_t *bssid);
+
+uint32_t wnmBTMResponseTxDone(struct ADAPTER *prAdapter,
+	struct MSDU_INFO *prMsduInfo, enum ENUM_TX_RESULT_CODE rTxDoneStatus);
 #endif /* CFG_SUPPORT_802_11V_BTM_OFFLOAD */
 
 #if CFG_AP_80211V_SUPPORT

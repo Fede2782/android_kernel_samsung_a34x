@@ -79,22 +79,22 @@ enum ENUM_ROAMING_CATAGORY {
 };
 
 static uint8_t apucRoamingReasonToLog[ROAMING_REASON_NUM] = {
-	ROAMING_CATEGORY_LOW_RSSI,		 /* map to ROAMING_REASON_POOR_RCPI(0) */
-	ROAMING_CATEGORY_UNSPECIFIC,	 /* map to ROAMING_REASON_TX_ERR(1) */
-	ROAMING_CATEGORY_UNSPECIFIC,	 /* map to ROAMING_REASON_RETRY(2) */
-	ROAMING_CATEGORY_IDLE,			 /* map to ROAMING_REASON_IDLE(3) */
-	ROAMING_CATEGORY_HIGH_CU,		 /* map to ROAMING_REASON_HIGH_CU(4)*/
-	ROAMING_CATEGORY_BTCOEX,		 /* map to ROAMING_REASON_BT_COEX(5) */
-	ROAMING_CATEGORY_BEACON_LOST,	 /* map to ROAMING_REASON_BEACON_TIMEOUT(6) */
-	ROAMING_CATEGORY_UNSPECIFIC,	 /* map to ROAMING_REASON_INACTIVE(7) */
-	ROAMING_CATEGORY_EMERGENCY, 	 /* map to ROAMING_REASON_SAA_FAIL(8) */
-	ROAMING_CATEGORY_UNSPECIFIC,	 /* map to ROAMING_REASON_UPPER_LAYER_TRIGGER(9) */
-	ROAMING_CATEGORY_BTM_REQ,		 /* map to ROAMING_REASON_BTM(10) */
-	ROAMING_CATEGORY_INACTIVE_TIMER, /* map to ROAMING_REASON_INACTIVE_TIMER(11) */
-	ROAMING_CATEGORY_SCAN_TIMER,	 /* map to ROAMING_REASON_SCAN_TIMER(12) */
+	ROAMING_CATEGORY_LOW_RSSI,		/* map to ROAMING_REASON_POOR_RCPI(0) */
+	ROAMING_CATEGORY_UNSPECIFIC,		/* map to ROAMING_REASON_TX_ERR(1) */
+	ROAMING_CATEGORY_UNSPECIFIC,		/* map to ROAMING_REASON_RETRY(2) */
+	ROAMING_CATEGORY_IDLE,			/* map to ROAMING_REASON_IDLE(3) */
+	ROAMING_CATEGORY_HIGH_CU,		/* map to ROAMING_REASON_HIGH_CU(4)*/
+	ROAMING_CATEGORY_BTCOEX,		/* map to ROAMING_REASON_BT_COEX(5) */
+	ROAMING_CATEGORY_BEACON_LOST,		/* map to ROAMING_REASON_BEACON_TIMEOUT(6) */
+	ROAMING_CATEGORY_UNSPECIFIC,		/* map to ROAMING_REASON_INACTIVE(7) */
+	ROAMING_CATEGORY_EMERGENCY, 		/* map to ROAMING_REASON_SAA_FAIL(8) */
+	ROAMING_CATEGORY_UNSPECIFIC,		/* map to ROAMING_REASON_UPPER_LAYER_TRIGGER(9) */
+	ROAMING_CATEGORY_BTM_REQ,		/* map to ROAMING_REASON_BTM(10) */
+	ROAMING_CATEGORY_SCAN_TIMER,		/* map to ROAMING_REASON_SCAN_TIMER(11) */
+	ROAMING_CATEGORY_INACTIVE_TIMER,	/* map to ROAMING_REASON_INACTIVE_TIMER(12) */
 };
 
-static uint8_t *apucExtBandStr[BAND_NUM] = {
+static uint8_t *apucBandStr[BAND_NUM] = {
 	(uint8_t *) DISP_STRING("NULL"),
 	(uint8_t *) DISP_STRING("2G"),
 	(uint8_t *) DISP_STRING("5G")
@@ -107,9 +107,20 @@ static uint8_t *apucExtBandStr[BAND_NUM] = {
 static char *tx_status_text(uint8_t rTxDoneStatus)
 {
 	switch (rTxDoneStatus) {
-	case TX_RESULT_SUCCESS: return "ACK";
-	case TX_RESULT_MPDU_ERROR: return "NO_ACK";
-	default: return "TX_FAIL";
+	case TX_RESULT_SUCCESS:		return "ACK";
+	case TX_RESULT_MPDU_ERROR:	return "NO_ACK";
+	case TX_RESULT_LIFE_TIMEOUT:	return "TX_FAIL [LIFE_TO]";
+	case TX_RESULT_RTS_ERROR:	return "TX_FAIL [RTS_ER]";
+	case TX_RESULT_AGING_TIMEOUT:	return "TX_FAIL [AGE_TO]";
+	case TX_RESULT_FLUSHED:		return "TX_FAIL [FLUSHED]";
+	case TX_RESULT_BIP_ERROR:	return "TX_FAIL [BIP_ER]";
+	case TX_RESULT_UNSPECIFIED_ERROR:return "TX_FAIL [UNSPEC_ER]";
+	case TX_RESULT_DROPPED_IN_DRIVER:return "TX_FAIL [DP_IN_DRV]";
+	case TX_RESULT_DROPPED_IN_FW:	return "TX_FAIL [DP_IN_FW]";
+	case TX_RESULT_QUEUE_CLEARANCE:	return "TX_FAIL [QUE_CLR]";
+	case TX_RESULT_INACTIVE_BSS:	return "TX_FAIL [INACT_BSS]";
+	case TX_RESULT_FLUSH_PENDING:	return "TX_FAIL [FLUSH_PENDING]";
+	default: return "TX_FAIL [UNDEFINED]";
 	}
 }
 
@@ -118,7 +129,9 @@ static char *msdu_tx_status_text(uint32_t u4Stat)
 	switch (u4Stat) {
 	case 0: return "ACK";
 	case 1: return "NO_ACK";
-	default: return "TX_FAIL";
+	case 2: return "TX_FAIL [DP_IN_MCU]";
+	case 3: return "TX_FAIL [DP_IN_UMAC]";
+	default: return "TX_FAIL [UNDEFINED]";
 	}
 }
 
@@ -189,7 +202,7 @@ enum ENUM_EAP_CODE {
 	(((seq) & (~(BIT(3) | BIT(2) | BIT(1) | BIT(0)))) >> 4)
 #endif
 #ifndef WPA_KEY_INFO_KEY_TYPE
-#define WPA_KEY_INFO_KEY_TYPE BIT(3) /* 1 = PairwSd7ise, 0 = Group key */
+#define WPA_KEY_INFO_KEY_TYPE BIT(3) /* 1 = Pairwise, 0 = Group key */
 #endif
 /* bit4..5 is used in WPA, but is reserved in IEEE 802.11i/RSN */
 #ifndef WPA_KEY_INFO_KEY_INDEX_MASK
@@ -212,9 +225,6 @@ enum ENUM_EAP_CODE {
 /* struct wpa_eapol_key in wpa_supplicant */
 #define wpa_eapol_key_key_info_offset 1
 #endif
-#ifndef wpa_eapol_key_fixed_field_size
-#define wpa_eapol_key_fixed_field_size 77
-#endif
 
 /*******************************************************************************
  *                              F U N C T I O N S
@@ -229,6 +239,7 @@ struct PARAM_CONNECTIVITY_LOG {
 #define MAX_LOG_SIZE 258
 #define MAX_LOG_NUM 32
 #define MAX_BUF_NUM 32
+#define MAX_MNG_BUF_NUM 8
 #define MAX_AUTH_BUF_NUM 8
 
 struct CONNECTIVITY_LOG_INFO {
@@ -239,6 +250,7 @@ struct CONNECTIVITY_LOG_INFO {
 } gConnectivityLog[MAX_LOG_NUM];
 
 struct BUFFERED_LOG_ENTRY gBufferedLog[MAX_BUF_NUM][MAX_BSSID_NUM];
+struct BUFFERED_LOG_ENTRY gBufferedMngLog[MAX_MNG_BUF_NUM][MAX_BSSID_NUM];
 struct BUFFERED_LOG_ENTRY gAuthBufferedLog[MAX_AUTH_BUF_NUM][MAX_BSSID_NUM];
 
 void kalReportWifiLog(struct ADAPTER *prAdapter, uint8_t ucBssIndex,
@@ -295,7 +307,7 @@ void kalReportWifiLog(struct ADAPTER *prAdapter, uint8_t ucBssIndex,
 	gConnectivityLog[log_idx].u4LogSize = size;
 	gConnectivityLog[log_idx].ucBssIndex = ucBssIndex;
 
-	DBGLOG(AIS, INFO, "%s[size(%d)]\n", log_time, size);
+	DBGLOG(AIS, VOC, "%s[size(%d)]\n", log_time, size);
 #if (CFG_SUPPORT_CONN_LOG == 1)
 	kalReportWiFiLogSet(prAdapter);
 #endif
@@ -475,7 +487,7 @@ uint16_t wpa3LogJoinFailStatus(
 
 	if (prBssInfo->u4RsnSelectedAKMSuite
 			== WLAN_AKM_SUITE_SAE) {
-		DBGLOG(INIT, DEBUG, "WPA3: cannot find network\n");
+		DBGLOG(INIT, INFO, "WPA3: cannot find network\n");
 		u2JoinStatus = WPA3_NO_NETWORK_FOUND;
 	} else
 		u2JoinStatus = WLAN_STATUS_AUTH_TIMEOUT;
@@ -632,7 +644,7 @@ void wnmLogBTMRecvReq(
 	} else {
 		kalSprintf(log,
 			"[BTM] REQ band=%s token=%d mode=%d disassoc=%d validity=%d candidate_list_cnt=%d",
-			apucExtBandStr[prBssInfo->eBand],
+			apucBandStr[prBssInfo->eBand],
 			prRxFrame->ucDialogToken, prRxFrame->ucRequestMode,
 			prRxFrame->u2DisassocTimer,
 			prRxFrame->ucValidityInterval,
@@ -697,7 +709,7 @@ void wnmLogBTMRespReport(
 	} else {
 		kalSprintf(log,
 			"[BTM] RESP band=%s token=%d status=%d delay=%d target=" RPTMACSTR,
-			apucExtBandStr[prBssInfo->eBand],
+			apucBandStr[prBssInfo->eBand],
 			dialogToken, status, delay,
 			RPTMAC2STR(bssid ? bssid : aucZeroMacAddr));
 	}
@@ -735,7 +747,7 @@ void wnmLogBTMQueryReport(
 	} else {
 		kalSprintf(log,
 			"[BTM] QUERY band=%s token=%d reason=%d",
-			apucExtBandStr[prBssInfo->eBand],
+			apucBandStr[prBssInfo->eBand],
 			prTxFrame->ucDialogToken, prTxFrame->ucQueryReason);
 	}
 	kalReportWifiLog(prAdapter, prStaRec->ucBssIndex, log);
@@ -781,7 +793,8 @@ void rrmReqNeighborReportLog(
 	uint8_t ucBssIndex,
 	uint8_t ucToken,
 	uint8_t *pucSsid,
-	uint8_t ucSSIDLen)
+	uint8_t ucSSIDLen,
+	uint8_t ucSn)
 {
 	char aucLog[256] = {0};
 	uint8_t reqSsid[ELEM_MAX_LEN_SSID + 1] = {0};
@@ -810,16 +823,16 @@ void rrmReqNeighborReportLog(
 
 	if (!fgIsMldAp) {
 		kalSprintf(aucLog,
-			"[NBR_RPT] REQ token=%u ssid=\"%s\"",
+			"[NBR_RPT] REQ TX token=%u ssid=\"%s\"",
 			ucToken, reqSsid);
 	} else {
 		kalSprintf(aucLog,
-			"[NBR_RPT] REQ band=%s token=%u ssid=\"%s\"",
-			apucExtBandStr[prBssInfo->eBand],
+			"[NBR_RPT] REQ TX band=%s token=%u ssid=\"%s\"",
+			apucBandStr[prBssInfo->eBand],
 			ucToken, reqSsid);
 	}
 
-	kalReportWifiLog(prAdapter, ucBssIndex, aucLog);
+	kalBufferWifiMngLog(prAdapter, ucBssIndex, aucLog, ucSn);
 }
 
 void rrmRespNeighborReportLog(
@@ -907,15 +920,15 @@ void rrmRespNeighborReportLog(
 
 	if (!fgIsMldAp) {
 		kalSprintf(aucLog,
-			"[NBR_RPT] RESP token=%u freq[%d]=%s report_number=%d",
+			"[NBR_RPT] RESP RX token=%u freq[%d]=%s report_number=%d",
 			ucToken,
 			num_channels,
 			strlen(aucScanChannel) ? aucScanChannel : "0",
 			prNeighborAPLink->u4NumElem);
 	} else {
 		kalSprintf(aucLog,
-			"[NBR_RPT] RESP band=%s token=%u freq[%d]=%s report_number=%d",
-			apucExtBandStr[prBssInfo->eBand],
+			"[NBR_RPT] RESP RX band=%s token=%u freq[%d]=%s report_number=%d",
+			apucBandStr[prBssInfo->eBand],
 			ucToken,
 			num_channels,
 			strlen(aucScanChannel) ? aucScanChannel : "0",
@@ -969,7 +982,7 @@ void rrmReqBeaconReportLog(
 #endif
 	if (!fgIsMldAp) {
 		kalSprintf(aucLog,
-			"[BCN_RPT] REQ token=%u mode=%s operating_class=%u channel=%u duration=%u request_mode=0x%02x",
+			"[BCN_RPT] REQ RX token=%u mode=%s operating_class=%u channel=%u duration=%u request_mode=0x%02x",
 			ucToken,
 			rrmRequestModeToText(ucRequestMode),
 			ucOpClass,
@@ -978,8 +991,8 @@ void rrmReqBeaconReportLog(
 			u4Mode);
 	} else {
 		kalSprintf(aucLog,
-			"[BCN_RPT] REQ band=%s token=%u mode=%s operating_class=%u channel=%u duration=%u request_mode=0x%02x",
-			apucExtBandStr[prBssInfo->eBand],
+			"[BCN_RPT] REQ RX band=%s token=%u mode=%s operating_class=%u channel=%u duration=%u request_mode=0x%02x",
+			apucBandStr[prBssInfo->eBand],
 			ucToken,
 			rrmRequestModeToText(ucRequestMode),
 			ucOpClass,
@@ -991,11 +1004,29 @@ void rrmReqBeaconReportLog(
 	kalReportWifiLog(prAdapter, ucBssIndex, aucLog);
 }
 
+struct RESP_BCN_PARAM {
+	uint8_t ucToken;
+	uint32_t u4ReportNum;
+};
+
+static struct RESP_BCN_PARAM g_rRespBeacon = {0};
+
+void rrmRespBeaconReportSave(
+	uint8_t ucToken,
+	uint32_t u4ReportNum)
+{
+	g_rRespBeacon.ucToken = ucToken;
+	g_rRespBeacon.u4ReportNum = u4ReportNum;
+
+	DBGLOG(RRM, INFO, "token=%d, report_num=%d\n",
+		g_rRespBeacon.ucToken,
+		g_rRespBeacon.u4ReportNum);
+}
+
 void rrmRespBeaconReportLog(
 	struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex,
-	uint8_t ucToken,
-	uint32_t u4ReportNum)
+	uint8_t ucSn)
 {
 	char aucLog[256] = {0};
 	struct BSS_INFO *prBssInfo = NULL;
@@ -1020,18 +1051,21 @@ void rrmRespBeaconReportLog(
 #endif
 	if (!fgIsMldAp) {
 		kalSprintf(aucLog,
-			"[BCN_RPT] RESP token=%u report_number=%u",
-			ucToken,
-			u4ReportNum);
+			"[BCN_RPT] RESP TX token=%u report_number=%u",
+			g_rRespBeacon.ucToken,
+			g_rRespBeacon.u4ReportNum);
 	} else {
 		kalSprintf(aucLog,
-			"[BCN_RPT] RESP band=%s token=%u report_number=%u",
-			apucExtBandStr[prBssInfo->eBand],
-			ucToken,
-			u4ReportNum);
+			"[BCN_RPT] RESP TX band=%s token=%u report_number=%u",
+			apucBandStr[prBssInfo->eBand],
+			g_rRespBeacon.ucToken,
+			g_rRespBeacon.u4ReportNum);
 	}
 
-	kalReportWifiLog(prAdapter, ucBssIndex, aucLog);
+	g_rRespBeacon.ucToken = 0;
+	g_rRespBeacon.u4ReportNum = 0;
+
+	kalBufferWifiMngLog(prAdapter, ucBssIndex, aucLog, ucSn);
 }
 #endif
 
@@ -1092,7 +1126,7 @@ void scanUpdateBcn(
 	bcnInfo->timeStamp[1] = prBss->u8TimeStamp.u.HighPart;
 	bcnInfo->sysTime = prBss->rUpdateTime;
 
-	DBGLOG(INIT, DEBUG, "[SWIPS] Send[%d:%d] %s:%d (" MACSTR
+	DBGLOG(INIT, INFO, "[SWIPS] Send[%d:%d] %s:%d (" MACSTR
 	       ") with ch:%d interval:%d tsf:%u %u sys:%lu\n",
 	       bcnInfo->id, bcnInfo->len, bcnInfo->ssid, i,
 	       bcnInfo->bssid, bcnInfo->channel, bcnInfo->bcnInterval,
@@ -1146,7 +1180,7 @@ void scanAbortBeaconRecv(
 	bcnAbort->len = size - 2;
 	bcnAbort->abort = abortReason;
 
-	DBGLOG(INIT, DEBUG,
+	DBGLOG(INIT, INFO,
 		"[SWIPS] Abort beacon report with reason: %d\n",
 		bcnAbort->abort);
 
@@ -1182,12 +1216,12 @@ wlanoidSetBeaconRecv(
 
 	beaconRecv.ucReportBcnEn = *((uint8_t *) pvSetBuffer);
 	if (beaconRecv.ucReportBcnEn == prScanInfo->fgBcnReport) {
-		DBGLOG(INIT, DEBUG, "[SWIPS] No need to %s again\n",
+		DBGLOG(INIT, INFO, "[SWIPS] No need to %s again\n",
 		       (beaconRecv.ucReportBcnEn == TRUE) ? "START" : "STOP");
 		return WLAN_STATUS_SUCCESS;
 	}
 
-	DBGLOG(INIT, DEBUG, "[SWIPS] Set: %d\n", beaconRecv.ucReportBcnEn);
+	DBGLOG(INIT, INFO, "[SWIPS] Set: %d\n", beaconRecv.ucReportBcnEn);
 
 	prScanInfo->fgBcnReport = beaconRecv.ucReportBcnEn;
 
@@ -1205,6 +1239,28 @@ wlanoidSetBeaconRecv(
 #endif
 
 #if (CFG_SUPPORT_ROAMING_LOG == 1)
+
+enum ENUM_ROAM_CANCEL_REASON {
+	ROAM_CANCEL_REASON_DEFAULT,
+	ROAM_CANCEL_REASON_STA_DISCONNECT,
+	ROAM_CANCEL_REASON_REASSOC_LEGACY,
+	ROAM_CANCEL_REASON_NUM
+};
+
+static char *roam_cancel_reason(uint8_t type)
+{
+	switch (type) {
+	case ROAM_CANCEL_REASON_DEFAULT:
+		return "Default";
+	case ROAM_CANCEL_REASON_STA_DISCONNECT:
+		return "STA disconnected";
+	case ROAM_CANCEL_REASON_REASSOC_LEGACY:
+		return "REASSOC_FREQUENCY_LEGACY";
+	default:
+		return "Unknown";
+	}
+}
+
 void roamingFsmLogScanStart(struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex, uint8_t fgIsFullScn,
 	struct BSS_DESC *prBssDesc)
@@ -1269,7 +1325,7 @@ void roamingFsmLogScanStart(struct ADAPTER *prAdapter,
 				ucIsValidCu ? u4CannelUtilization : -1,
 				fgIsFullScn,
 				RCPI_TO_dBm(prRoamInfo->ucThreshold),
-				apucExtBandStr[prBssInfo->eBand],
+				apucBandStr[prBssInfo->eBand],
 				aucFwTime);
 
 		kalReportWifiLog(prAdapter, ucBssIndex, aucLog);
@@ -1396,7 +1452,6 @@ void roamingFsmLogCandi(
 
 	if (roamingFsmIsDiscovering(prAdapter, ucBssIndex) &&
 	    !(IS_AIS_CONN_BSSDESC(aisFsmInfo, prBssDesc)) &&
-
 	    apsIsGoodRCPI(prAdapter, prBssDesc, eRoamReason, ucBssIndex)) {
 		char log[32] = {0};
 
@@ -1461,12 +1516,13 @@ void roamingFsmLogResultImpl(
 		(prSelectedBssDesc && !prSelectedBssDesc->fgIsConnected);
 	struct BSS_DESC *prBssDesc = (fgIsRoam ? prSelectedBssDesc :
 		aisGetTargetBssDesc(prAdapter, ucBssIndex));
+	uint8_t ucReason = 0;
 
 	if (fgIsRoam) {
 		kalSprintf(aucLog, "[ROAM] RESULT %s bssid=" RPTMACSTR,
 			"ROAM", RPTMAC2STR(prBssDesc->aucBSSID));
 	} else
-		kalSprintf(aucLog, "[ROAM] RESULT %s", "NO_ROAM");
+		kalSprintf(aucLog, "[ROAM] RESULT %s [reason=%d no candidate]", "NO_ROAM", ucReason);
 
 	kalReportWifiLog(prAdapter, ucBssIndex, aucLog);
 }
@@ -1483,11 +1539,12 @@ void roamingFsmLogResult(
 void roamingFsmLogCancelImpl(
 	struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex,
-	uint8_t *pucReason)
+	uint8_t ucReason)
 {
 	char aucLog[256] = {0};
 
-	kalSprintf(aucLog, "[ROAM] CANCELED [%s]", pucReason);
+	kalSprintf(aucLog, "[ROAM] CANCELED [reason=%d %s]",
+		ucReason, roam_cancel_reason(ucReason));
 
 	kalReportWifiLog(prAdapter, ucBssIndex, aucLog);
 }
@@ -1498,7 +1555,7 @@ void roamingFsmLogCancel(
 {
 	if (roamingFsmIsDiscovering(prAdapter, ucBssIndex))
 		roamingFsmLogCancelImpl(prAdapter, ucBssIndex,
-			"STA disconnected");
+			ROAM_CANCEL_REASON_STA_DISCONNECT);
 }
 
 uint8_t roamingFsmIsDiscovering(
@@ -1523,9 +1580,6 @@ uint8_t roamingFsmIsDiscovering(
 #endif
 
 #if (CFG_SUPPORT_CONN_LOG == 1)
-
-static uint32_t g_u4LatestDHCPTid;
-
 void kalBufferWifiLog(
 	struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex,
@@ -1539,6 +1593,7 @@ void kalBufferWifiLog(
 	 * if (IS_FEATURE_DISABLED(prAdapter->rWifiVar.ucLogEnhancement))
 	 *	return;
 	 */
+	DBGLOG(AIS, INFO, "[kalReport]%s\n", log);
 
 	if (ucBssIndex >= MAX_BSSID_NUM)
 		return;
@@ -1563,10 +1618,50 @@ void kalBufferWifiLog(
 			prLogEntry = &gBufferedLog[i][ucBssIndex];
 			prLogEntry->fgBuffered = FALSE;
 		}
+		DBGLOG(AIS, VOC, "Full of Bufferd Logs(%d)\n", i);
+	}
+
+}
+
+void kalBufferWifiMngLog(
+	struct ADAPTER *prAdapter,
+	uint8_t ucBssIndex,
+	uint8_t *log,
+	uint8_t ucSn)
+{
+	struct BUFFERED_LOG_ENTRY *prLogEntry;
+	uint8_t i;
+
+	DBGLOG(AIS, INFO, "[kalReport]%s\n", log);
+
+	if (ucBssIndex >= MAX_BSSID_NUM)
+		return;
+
+	for (i = 0; i < MAX_MNG_BUF_NUM; i++) {
+		prLogEntry = &gBufferedMngLog[i][ucBssIndex];
+		if (prLogEntry->fgBuffered == FALSE) {
+			kalMemZero(prLogEntry,
+				sizeof(struct BUFFERED_LOG_ENTRY));
+
+			prLogEntry->ucSn = ucSn;
+			prLogEntry->fgBuffered = TRUE;
+
+			kalMemCopy(prLogEntry->aucLog,
+				log, sizeof(prLogEntry->aucLog));
+			break;
+		}
+	}
+
+	if (i == MAX_MNG_BUF_NUM) {
+		for (i = 0; i < MAX_MNG_BUF_NUM; i++) {
+			prLogEntry = &gBufferedMngLog[i][ucBssIndex];
+			prLogEntry->fgBuffered = FALSE;
+		}
 		DBGLOG(AIS, INFO, "Full of Bufferd Logs(%d)\n", i);
 	}
 
 }
+
 
 void kalRxDeauthBufferWifiLog(
 	struct ADAPTER *prAdapter,
@@ -1575,6 +1670,8 @@ void kalRxDeauthBufferWifiLog(
 {
 	struct BUFFERED_LOG_ENTRY *prLogEntry;
 	uint8_t i;
+
+	DBGLOG(AIS, INFO, "[kalReport]%s\n", log);
 
 	if (ucBssIndex >= MAX_BSSID_NUM)
 		return;
@@ -1597,7 +1694,7 @@ void kalRxDeauthBufferWifiLog(
 			prLogEntry = &gAuthBufferedLog[i][ucBssIndex];
 			prLogEntry->fgBuffered = FALSE;
 		}
-		DBGLOG(AIS, INFO, "Full of AuthBufferd Logs(%d)\n", i);
+		DBGLOG(AIS, VOC, "Full of AuthBufferd Logs(%d)\n", i);
 	}
 
 }
@@ -1627,25 +1724,33 @@ static char *connect_fail_reason(uint8_t type)
 	switch (type) {
 	case CONN_FAIL_UNKNOWN: return "Unknown";
 	case CONN_FAIL_DISALLOWED_LIST: return "disallowed list";
-	case CONN_FAIL_FWK_BLACLIST: return "FWK blacklist";
+	case CONN_FAIL_FWK_BLACKLIST: return "FWK blacklist";
 	case CONN_FAIL_RSN_MISMATCH: return "RSN mismatch";
 	case CONN_FAIL_BLACLIST_LIMIT: return "blacklist limit";
 	default: return "Unknown";
 	}
 }
 
-static int wpa_mic_len(uint32_t akmp)
+/* 0:  Disconencted by beacon loss
+   1:  Disconnected by framework request
+   2:  Disconnected by Driver/FW itself
+   3:  Disconnected by AP request
+   99: Disconnected by other request */
+static char *disconnect_reason(uint8_t type)
 {
-	switch (akmp) {
-	case WLAN_AKM_SUITE_8021X_SUITE_B_192:
-		return 24;
-	case WLAN_AKM_SUITE_FILS_SHA256:
-	case WLAN_AKM_SUITE_FILS_SHA384:
-	case WLAN_AKM_SUITE_FT_FILS_SHA256:
-	case WLAN_AKM_SUITE_FT_FILS_SHA384:
-		return 0;
-	default:
-		return 16;
+	switch (type) {
+	case DISCONNECT_REASON_CODE_RESERVED: return "99 [Reserved]";
+	case DISCONNECT_REASON_CODE_RADIO_LOST: return "0";
+	case DISCONNECT_REASON_CODE_DEAUTHENTICATED: return "3";
+	case DISCONNECT_REASON_CODE_DISASSOCIATED: return "3";
+	case DISCONNECT_REASON_CODE_NEW_CONNECTION: return "1 [New connection]";
+	case DISCONNECT_REASON_CODE_REASSOCIATION: return "2 [Reassoc]";
+	case DISCONNECT_REASON_CODE_ROAMING: return "2 [Roaming]";
+	case DISCONNECT_REASON_CODE_CHIPRESET: return "2 [Chipreset]";
+	case DISCONNECT_REASON_CODE_LOCALLY: return "1";
+	case DISCONNECT_REASON_CODE_DEL_IFACE: return "2 [Delete iface]";
+	case DISCONNECT_REASON_CODE_TEST_MODE: return "1";
+	default: return "99 [Unknown]";
 	}
 }
 
@@ -1661,40 +1766,19 @@ void connLogEapKey(
 		EVENT_TX,
 	};
 	char log[256] = {0};
-	uint16_t u2KeyDataLen = 0;
-	uint8_t mic_len = 16;
-	uint8_t key_data_len_offset; /* fixed field len + mic len*/
 	uint8_t isPairwise = FALSE;
 	uint16_t u2KeyInfo = 0;
 	uint8_t m = 0;
-	uint32_t u4RsnSelectedAKMSuite = 0;
 	uint8_t fgIsMldAp = FALSE;
 #if (CFG_SUPPORT_802_11BE == 1)
 	struct BSS_DESC *prBssDesc = NULL;
 #endif
-#if (CFG_EXT_VERSION == 1)
-	struct CONNECTION_SETTINGS *prConnSettings;
-
-	prConnSettings =
-		aisGetConnSettings(prAdapter, ucBssIndex);
-	if (prConnSettings) {
-		mic_len = wpa_mic_len(
-		prConnSettings->rRsnInfo.au4AuthKeyMgtSuite[0]);
-		u4RsnSelectedAKMSuite =
-			prConnSettings->rRsnInfo.au4AuthKeyMgtSuite[0];
-	}
-#else
 	struct BSS_INFO *prBssInfo = NULL;
 
-	prBssInfo =
-		GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
-	if (prBssInfo) {
-		mic_len = wpa_mic_len(
-		prBssInfo->u4RsnSelectedAKMSuite);
-		u4RsnSelectedAKMSuite =
-			prBssInfo->u4RsnSelectedAKMSuite;
-	}
-#endif
+	if (!IS_BSS_INDEX_AIS(prAdapter, ucBssIndex))
+		return;
+
+	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
 
 #if (CFG_SUPPORT_802_11BE == 1)
 	prBssDesc = scanSearchBssDescByBssid(prAdapter, prBssInfo->aucBSSID);
@@ -1705,65 +1789,23 @@ void connLogEapKey(
 		ieee802_1x_hdr_size
 		+ wpa_eapol_key_key_info_offset],
 		&u2KeyInfo);
-	key_data_len_offset =
-		ieee802_1x_hdr_size
-		+ wpa_eapol_key_fixed_field_size
-		+ mic_len;
-	WLAN_GET_FIELD_BE16(&pucEapol[key_data_len_offset],
-		&u2KeyDataLen);
 
-#ifdef DBG_CONN_LOG_EAP
-	DBGLOG(AIS, INFO,
-		"akm=%x mic_len=%d key_data_len_offset=%d",
-		u4RsnSelectedAKMSuite,
-		mic_len, key_data_len_offset);
-#endif
+	if (u2KeyInfo & WPA_KEY_INFO_KEY_TYPE)
+		isPairwise = TRUE;
+	else
+		isPairwise = FALSE;
 
 	switch (eventType) {
 	case EVENT_RX:
-		if (u2KeyInfo & WPA_KEY_INFO_KEY_TYPE) {
-			if (u2KeyInfo
-				& WPA_KEY_INFO_KEY_INDEX_MASK)
-				DBGLOG(RX, WARN,
-					"WPA: ignore EAPOL-key (pairwise) with non-zero key index\n");
+		if (u2KeyInfo & WPA_KEY_INFO_KEY_INDEX_MASK)
+			DBGLOG(RX, WARN,
+				"WPA: ignore EAPOL-key (pairwise) with non-zero key index\n");
 
-			if (u2KeyInfo &
-				(WPA_KEY_INFO_MIC
-				| WPA_KEY_INFO_ENCR_KEY_DATA)) {
-				m = 3;
-				isPairwise = TRUE;
-			} else {
-				m = 1;
-				isPairwise = TRUE;
-			}
-#ifdef DBG_CONN_LOG_EAP
-			DBGLOG(RX, DEBUG,
-				"<RX> EAPOL: key, M%d, KeyInfo 0x%04x KeyDataLen %d\n",
-				m, u2KeyInfo, u2KeyDataLen);
-#endif
-		} else {
-			if ((mic_len &&
-					(u2KeyInfo
-				& WPA_KEY_INFO_MIC)) ||
-				(!mic_len &&
-					(u2KeyInfo
-				& WPA_KEY_INFO_ENCR_KEY_DATA)
-				)) {
-				m = 1;
-				isPairwise = FALSE;
-			} else {
-				isPairwise = FALSE;
-#ifdef DBG_CONN_LOG_EAP
-				DBGLOG(RX, WARN,
-					"WPA: EAPOL-Key (Group) without Mic/Encr bit\n");
-#endif
-			}
-#ifdef DBG_CONN_LOG_EAP
-			DBGLOG(RX, DEBUG,
-				"<RX> EAPOL: group key, M%d, KeyInfo 0x%04x KeyDataLen %d\n",
-				m, u2KeyInfo, u2KeyDataLen);
-#endif
-		}
+		if ((u2KeyInfo & WPA_KEY_INFO_INSTALL) &&
+		    (u2KeyInfo & WPA_KEY_INFO_ACK))
+			m = 3;
+		else
+			m = 1;
 
 		if (isPairwise) {
 			if (!fgIsMldAp)
@@ -1771,58 +1813,38 @@ void connLogEapKey(
 			else
 				kalSprintf(log,
 					"[EAPOL] 4WAY M%d band=%s rx", m,
-					apucExtBandStr[prBssInfo->eBand]);
+					apucBandStr[prBssInfo->eBand]);
 		} else {
 			if (!fgIsMldAp)
-				kalSprintf(log, "[EAPOL] GTK M%d rx", m);
+				kalSprintf(log, "[EAPOL] GTK M1 rx");
 			else
-				kalSprintf(log,
-					"[EAPOL] GTK M%d band=%s rx", m,
-					apucExtBandStr[prBssInfo->eBand]);
+				kalSprintf(log, "[EAPOL] GTK M1 band=%s rx",
+					apucBandStr[prBssInfo->eBand]);
 		}
+
 		kalReportWifiLog(prAdapter, ucBssIndex, log);
 		break;
 	case EVENT_TX:
-		if ((u2KeyInfo & WPA_KEY_INFO_KEY_TYPE))
-			isPairwise = TRUE;
-		else
-			isPairwise = FALSE;
-
-		if ((u2KeyInfo & 0x1100) == 0x0000 ||
-			(u2KeyInfo & 0x0008) == 0x0000)
-			m = 1;
-		else if ((u2KeyInfo & 0xfff0) == 0x0100)
+		if (rsnIsEapolM2(prAdapter, ucBssIndex, pucEapol))
 			m = 2;
-		else if ((u2KeyInfo & 0xfff0) == 0x13c0)
-			m = 3;
-		else if ((u2KeyInfo & 0xfff0) == 0x0300)
+		else
 			m = 4;
-
-#ifdef DBG_CONN_LOG_EAP
-		DBGLOG(RX, DEBUG,
-			"<TX> EAPOL: key, M%d, KeyInfo 0x%04x KeyDataLen %d isPairwise=%d\n",
-			m, u2KeyInfo, u2KeyDataLen, isPairwise);
-#endif
 
 		if (isPairwise) {
 			if (!fgIsMldAp)
-				kalSprintf(log,
-					"[EAPOL] 4WAY M%d", m);
+				kalSprintf(log, "[EAPOL] 4WAY M%d", m);
 			else
-				kalSprintf(log,
-					"[EAPOL] 4WAY M%d band=%s", m,
-					apucExtBandStr[prBssInfo->eBand]);
+				kalSprintf(log, "[EAPOL] 4WAY M%d band=%s", m,
+					apucBandStr[prBssInfo->eBand]);
 		} else {
 			if (!fgIsMldAp)
-				kalSprintf(log,
-					"[EAPOL] GTK M2");
+				kalSprintf(log, "[EAPOL] GTK M2");
 			else
-				kalSprintf(log,
-					"[EAPOL] GTK M2 band=%s",
-					apucExtBandStr[prBssInfo->eBand]);
+				kalSprintf(log, "[EAPOL] GTK M2 band=%s",
+					apucBandStr[prBssInfo->eBand]);
 		}
-		kalBufferWifiLog(prAdapter, ucBssIndex, log,
-			ucSn);
+
+		kalBufferWifiLog(prAdapter, ucBssIndex, log, ucSn);
 		break;
 	}
 }
@@ -1830,8 +1852,8 @@ void connLogEapKey(
 void connLogDhcpRx(
 	struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex,
-	uint32_t u4Xid,
-	uint32_t u4Opt)
+	uint32_t u4Opt,
+	struct DHCP_PROTOCOL *prDhcp)
 {
 	char log[256] = {0};
 	struct BSS_INFO *prBssInfo = NULL;
@@ -1839,6 +1861,20 @@ void connLogDhcpRx(
 #if (CFG_SUPPORT_802_11BE == 1)
 	struct BSS_DESC *prBssDesc = NULL;
 #endif
+	struct net_device *prDevHandler = NULL;
+
+	if (!prDhcp)
+		return;
+
+	prDevHandler = kalGetGlueNetDevHdl(prAdapter->prGlueInfo);
+	if (!prDevHandler)
+		return;
+
+	if (UNEQUAL_MAC_ADDR(prDhcp->aucCHAddr,
+		prDevHandler->dev_addr)) {
+		DBGLOG(WNM, TRACE, "Different client MAC\n");
+		return;
+	}
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
 	if (!prBssInfo) {
@@ -1860,15 +1896,13 @@ void connLogDhcpRx(
 #endif
 		break;
 	case 0x35010200:
-		if (g_u4LatestDHCPTid == u4Xid) {
-			if (!fgIsMldAp)
-				kalSprintf(log, "[DHCP] OFFER rx");
-			else
-				kalSprintf(log, "[DHCP] OFFER band=%s rx",
-					apucExtBandStr[prBssInfo->eBand]);
-			kalReportWifiLog(prAdapter,
-				ucBssIndex, log);
-		}
+		if (!fgIsMldAp)
+			kalSprintf(log, "[DHCP] OFFER rx");
+		else
+			kalSprintf(log, "[DHCP] OFFER band=%s rx",
+				apucBandStr[prBssInfo->eBand]);
+		kalReportWifiLog(prAdapter,
+			ucBssIndex, log);
 		break;
 	case 0x35010300:
 #if 0 /* Customer request */
@@ -1878,26 +1912,22 @@ void connLogDhcpRx(
 #endif
 		break;
 	case 0x35010500:
-		if (g_u4LatestDHCPTid == u4Xid) {
-			if (!fgIsMldAp)
-				kalSprintf(log, "[DHCP] ACK rx");
-			else
-				kalSprintf(log, "[DHCP] ACK band=%s rx",
-					apucExtBandStr[prBssInfo->eBand]);
-			kalReportWifiLog(prAdapter,
-				ucBssIndex, log);
-		}
+		if (!fgIsMldAp)
+			kalSprintf(log, "[DHCP] ACK rx");
+		else
+			kalSprintf(log, "[DHCP] ACK band=%s rx",
+				apucBandStr[prBssInfo->eBand]);
+		kalReportWifiLog(prAdapter,
+			ucBssIndex, log);
 		break;
 	case 0x35010600:
-		if (g_u4LatestDHCPTid == u4Xid) {
-			if (!fgIsMldAp)
-				kalSprintf(log, "[DHCP] NAK rx");
-			else
-				kalSprintf(log, "[DHCP] NAK band=%s rx",
-					apucExtBandStr[prBssInfo->eBand]);
-			kalReportWifiLog(prAdapter,
-				ucBssIndex, log);
-		}
+		if (!fgIsMldAp)
+			kalSprintf(log, "[DHCP] NAK rx");
+		else
+			kalSprintf(log, "[DHCP] NAK band=%s rx",
+				apucBandStr[prBssInfo->eBand]);
+		kalReportWifiLog(prAdapter,
+			ucBssIndex, log);
 		break;
 	}
 }
@@ -1905,7 +1935,6 @@ void connLogDhcpRx(
 void connLogDhcpTx(
 	struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex,
-	uint32_t u4Xid,
 	uint32_t u4Opt,
 	uint8_t ucSn)
 {
@@ -1934,17 +1963,16 @@ void connLogDhcpTx(
 			kalSprintf(log, "[DHCP] DISCOVER");
 		else
 			kalSprintf(log, "[DHCP] DISCOVER band=%s",
-				apucExtBandStr[prBssInfo->eBand]);
+				apucBandStr[prBssInfo->eBand]);
 		kalBufferWifiLog(prAdapter,
 			ucBssIndex, log, ucSn);
-		g_u4LatestDHCPTid = u4Xid;
 		break;
 	case 0x35010200:
 		if (!fgIsMldAp)
 			kalSprintf(log, "[DHCP] OFFER");
 		else
 			kalSprintf(log, "[DHCP] OFFER band=%s",
-				apucExtBandStr[prBssInfo->eBand]);
+				apucBandStr[prBssInfo->eBand]);
 		kalBufferWifiLog(prAdapter,
 			ucBssIndex, log, ucSn);
 		break;
@@ -1953,17 +1981,16 @@ void connLogDhcpTx(
 			kalSprintf(log, "[DHCP] REQUEST");
 		else
 			kalSprintf(log, "[DHCP] REQUEST band=%s",
-				apucExtBandStr[prBssInfo->eBand]);
+				apucBandStr[prBssInfo->eBand]);
 		kalBufferWifiLog(prAdapter,
 			ucBssIndex, log, ucSn);
-		g_u4LatestDHCPTid = u4Xid;
 		break;
 	case 0x35010500:
 		if (!fgIsMldAp)
 			kalSprintf(log, "[DHCP] ACK");
 		else
 			kalSprintf(log, "[DHCP] ACK band=%s",
-				apucExtBandStr[prBssInfo->eBand]);
+				apucBandStr[prBssInfo->eBand]);
 		kalBufferWifiLog(prAdapter,
 			ucBssIndex, log, ucSn);
 		break;
@@ -1972,7 +1999,7 @@ void connLogDhcpTx(
 			kalSprintf(log, "[DHCP] NAK");
 		else
 			kalSprintf(log, "[DHCP] NAK band=%s",
-				apucExtBandStr[prBssInfo->eBand]);
+				apucBandStr[prBssInfo->eBand]);
 		kalBufferWifiLog(prAdapter,
 			ucBssIndex, log, ucSn);
 		break;
@@ -2028,7 +2055,7 @@ void connLogEapTx(
 				kalSprintf(log,
 					"[EAP] %s band=%s type=%s len=%d",
 				apucEapCode[ucEapCode],
-				apucExtBandStr[prBssInfo->eBand],
+				apucBandStr[prBssInfo->eBand],
 				eap_type_text(ucEapType),
 				u2EapLen);
 			kalBufferWifiLog(prAdapter,
@@ -2096,7 +2123,7 @@ void connLogEapRx(
 				kalSprintf(log,
 					"[EAP] %s band=%s type=%s len=%d rx",
 				apucEapCode[ucEapCode],
-				apucExtBandStr[prBssInfo->eBand],
+				apucBandStr[prBssInfo->eBand],
 				eap_type_text(ucEapType),
 				u2EapLen);
 			kalReportWifiLog(prAdapter,
@@ -2120,31 +2147,61 @@ void connLogPkt(
 {
 	uint8_t i;
 
-	/* report EAPOL & DHCP packet only */
-	if (prTokenEntry->ucPktType == ENUM_PKT_1X ||
-		prTokenEntry->ucPktType == ENUM_PKT_DHCP) {
-		char log[256] = {0};
-		char buf[64] = {0};
-		struct BUFFERED_LOG_ENTRY *prLogEntry;
+	char log[256] = {0};
+	char buf[256] = {0};
+	struct BUFFERED_LOG_ENTRY *prLogEntry;
 
-		for (i = 0; i < MAX_BUF_NUM; i++) {
-			/* Check if any buffered log */
-			prLogEntry = &gBufferedLog[i][prTokenEntry->ucBssIndex];
+	DBGLOG(AIS, INFO, "[kalReport]connLogPkt type=%d\n",
+		prTokenEntry->ucPktType);
 
-			if (prLogEntry->fgBuffered && prLogEntry->ucSn ==
-				prTokenEntry->ucTxSeqNum) {
-				kalSprintf(buf, "%s", prLogEntry->aucLog);
-				kalSprintf(log,
-				"%s tx_status=%s [sn=%d]", buf,
-					msdu_tx_status_text(u4Stat),
-					prTokenEntry->ucTxSeqNum);
+	for (i = 0; i < MAX_BUF_NUM; i++) {
+		/* Check if any buffered log */
+		prLogEntry = &gBufferedLog[i][prTokenEntry->ucBssIndex];
+		if (prLogEntry->fgBuffered && prLogEntry->ucSn ==
+			prTokenEntry->ucTxSeqNum) {
+			kalSprintf(buf, "%s", prLogEntry->aucLog);
+			kalSprintf(log,
+			"%s tx_status=%s", buf,
+				msdu_tx_status_text(u4Stat));
 
-				kalReportWifiLog(prAdapter,
-					prTokenEntry->ucBssIndex, log);
-				prLogEntry->fgBuffered = FALSE;
-			}
+			kalReportWifiLog(prAdapter,
+				prTokenEntry->ucBssIndex, log);
+			prLogEntry->fgBuffered = FALSE;
 		}
 	}
+}
+
+uint32_t connLogMgmtPkt(struct ADAPTER *prAdapter,
+	struct MSDU_INFO *prMsduInfo, enum ENUM_TX_RESULT_CODE rTxDoneStatus)
+{
+	uint8_t i;
+	char log[256] = {0};
+	char buf[256] = {0};
+	struct BUFFERED_LOG_ENTRY *prLogEntry;
+
+	DBGLOG(WNM, INFO, "[Status:%d, PktType:%d, Sn:%d]\n",
+		rTxDoneStatus,
+		prMsduInfo->ucPktType,
+		prMsduInfo->ucTxSeqNum);
+
+	for (i = 0; i < MAX_MNG_BUF_NUM; i++) {
+		/* Check if any buffered log */
+		prLogEntry = &gBufferedMngLog[i][prMsduInfo->ucBssIndex];
+
+		if (prLogEntry->fgBuffered && prLogEntry->ucSn ==
+			prMsduInfo->ucTxSeqNum) {
+			kalSprintf(buf, "%s", prLogEntry->aucLog);
+			kalSprintf(log,
+			"%s tx_status=%s", buf,
+				tx_status_text(rTxDoneStatus));
+
+			kalReportWifiLog(prAdapter,
+				prMsduInfo->ucBssIndex, log);
+			prLogEntry->fgBuffered = FALSE;
+		}
+	}
+
+	return WLAN_STATUS_SUCCESS;
 }
 
 static uint8_t g_IsStaInfoPrinted = FALSE;
@@ -2230,9 +2287,10 @@ void connLogConnect(
 	uint8_t aucSSID[ELEM_MAX_LEN_SSID+1];
 	struct RSN_INFO rRsnInfo;
 #if CFG_SUPPORT_802_11W
-	uint8_t ucMfpCap;
+	uint8_t ucMfpCap = 0;
 #endif
 
+	kalMemZero(&rRsnInfo, sizeof(struct RSN_INFO));
 	kalMemZero(aucSSID, ELEM_MAX_LEN_SSID+1);
 	COPY_SSID(aucSSID, sme->ssid_len,
 		sme->ssid, sme->ssid_len);
@@ -2263,7 +2321,8 @@ void connLogConnect(
 		uint8_t *pucIEStart = (uint8_t *)sme->ie;
 		if (wextSrchDesiredWPAIE(pucIEStart, sme->ie_len, ELEM_ID_RSN,
 					 (uint8_t **) &prDesiredIE)) {
-			if (rsnParseRsnIE(prAdapter, prDesiredIE, &rRsnInfo)) {
+			if (rsnParseRsnIE(prAdapter,
+			    (struct RSN_INFO_ELEM *)prDesiredIE, &rRsnInfo)) {
 #if CFG_SUPPORT_802_11W
 				if (rRsnInfo.u2RsnCap & ELEM_WPA_CAP_MFPC) {
 					ucMfpCap = RSN_AUTH_MFP_OPTIONAL;
@@ -2326,11 +2385,14 @@ void connLogConnectFail(
 
 void connLogDisconnect(
 	struct ADAPTER *prAdapter,
-	uint8_t ucBssIndex)
+	uint8_t ucBssIndex,
+	uint8_t ucDisconnectReason)
 {
 	struct BSS_DESC *prTargetBssDesc = NULL;
 	struct BSS_INFO *prAisBssInfo = NULL;
 	struct AIS_FSM_INFO *prAisFsmInfo = NULL;
+
+	DBGLOG(INIT, INFO, "DisconnectReason=%d\n", ucDisconnectReason);
 
 	prAisBssInfo = aisGetAisBssInfo(prAdapter, ucBssIndex);
 	prAisFsmInfo = aisGetAisFsmInfo(prAdapter, ucBssIndex);
@@ -2338,16 +2400,15 @@ void connLogDisconnect(
 	prTargetBssDesc = aisGetTargetBssDesc(prAdapter,
 		prAisBssInfo->ucBssIndex);
 	if (prTargetBssDesc && prAisBssInfo->eConnectionState
-		== MEDIA_STATE_DISCONNECTED &&
-		prAisFsmInfo->ucReasonOfDisconnect ==
-		DISCONNECT_REASON_CODE_RADIO_LOST) {
+		== MEDIA_STATE_DISCONNECTED) {
 		char log[256] = {0};
 
 		kalSprintf(log,
 			"[CONN] DISCONN bssid=" RPTMACSTR
-			" rssi=%d reason=%d",
+			" rssi=%d reason=%s",
 			RPTMAC2STR(prTargetBssDesc->aucBSSID),
-			RCPI_TO_dBm(prTargetBssDesc->ucRCPI), 0);
+			RCPI_TO_dBm(prTargetBssDesc->ucRCPI),
+			disconnect_reason(ucDisconnectReason));
 		kalReportWifiLog(prAdapter,
 			prAisBssInfo->ucBssIndex, log);
 	}
@@ -2423,7 +2484,7 @@ void connLogAssocResp(
 	if (prBssDesc)
 		fgIsMldAp = prBssDesc->fgIsEHTPresent;
 #endif
-	if (IS_STA_IN_AIS(prAdapter, prStaRec) &&
+	if (IS_STA_IN_AIS(prStaRec) &&
 		prStaRec->eAuthAssocState == SAA_STATE_WAIT_ASSOC2) {
 		char log[256] = {0};
 		uint16_t u2RxAssocId;
@@ -2482,7 +2543,7 @@ void connLogAuthReq(
 	prBssDesc = scanSearchBssDescByBssid(prAdapter,
 		prStaRec->aucMacAddr);
 
-	if (IS_STA_IN_AIS(prAdapter, prStaRec) && prBssDesc) {
+	if (IS_STA_IN_AIS(prStaRec) && prBssDesc) {
 		struct WLAN_AUTH_FRAME *prAuthFrame;
 		uint16_t u2AuthStatusCode;
 
@@ -2529,7 +2590,7 @@ void connLogAssocReq(
 	if (prBssDesc)
 		fgIsMldAp = prBssDesc->fgIsEHTPresent;
 #endif
-	if (IS_STA_IN_AIS(prAdapter, prStaRec) && prBssDesc) {
+	if (IS_STA_IN_AIS(prStaRec) && prBssDesc) {
 		if (prStaRec->fgIsReAssoc)
 			kalSprintf(log, "[CONN] REASSOC");
 		else
@@ -2550,7 +2611,7 @@ void connLogAssocReq(
 					if (set->aprBssDesc[i-1]) {
 						eBand = set->aprBssDesc[i-1]->eBand;
 						kalSprintf(buf + strlen(buf), "%s+",
-							apucExtBandStr[eBand]);
+							apucBandStr[eBand]);
 					}
 				}
 				if (strlen(buf) > 1) buf[strlen(buf) - 1] = '\0';
@@ -2576,7 +2637,7 @@ void connLogAuthResp(
 	struct WLAN_AUTH_FRAME *prAuthFrame,
 	uint16_t u2RxStatusCode)
 {
-	if (IS_STA_IN_AIS(prAdapter, prStaRec)) {
+	if (IS_STA_IN_AIS(prStaRec)) {
 		char log[256] = {0};
 
 		if (prStaRec->eAuthAssocState == SAA_STATE_WAIT_AUTH2
@@ -2615,7 +2676,7 @@ void connLogDeauth(
 	struct BSS_DESC *prBssDesc = NULL;
 	char log[256] = {0};
 
-	if (prStaRec && IS_STA_IN_AIS(prAdapter, prStaRec)) {
+	if (prStaRec && IS_STA_IN_AIS(prStaRec)) {
 		prBssDesc = scanSearchBssDescByBssid(prAdapter,
 			prStaRec->aucMacAddr);
 
@@ -2774,12 +2835,12 @@ void mldLogSetup(
 
 	kalSprintf(log, "[MLD] SETUP band=%s freq=%d status=%d bssid="
 		RPTMACSTR " link_id=%d",
-		apucExtBandStr[prBssInfo->eBand],
+		apucBandStr[prBssInfo->eBand],
 		KHZ_TO_MHZ(nicChannelNum2Freq(prBssDesc->ucChannelNum,
 			prBssDesc->eBand)),
 		ucStatus,
 		RPTMAC2STR(prBssDesc->aucBSSID),
-		prBssInfo->ucLinkId);
+		prBssInfo->ucLinkIndex);
 
 	kalReportWifiLog(prAdapter, prBssInfo->ucBssIndex, log);
 }
@@ -2801,8 +2862,7 @@ void mldLogT2LMStatus(
 		return;
 	}
 
-	kalSprintf(log, "[MLD] T2LM STATUS band=%s",
-		apucExtBandStr[prBssInfo->eBand]);
+	kalSprintf(log, "[MLD] T2LM STATUS band=%s", apucBandStr[prBssInfo->eBand]);
 
 	if (prStaRec->ucDLTidBitmap == 0)
 		kalSprintf(log + strlen(log), " tid_dl=NONE");
@@ -2844,8 +2904,7 @@ void mldLogT2LMReq(
 	char log[256] = {0};
 
 	kalSprintf(log, "[MLD] T2LM REQ band=%s token=%d cnt=%d tx_status=%s",
-		apucExtBandStr[prBssInfo->eBand], ucToken, ucCnt,
-		mld_tx_status_text(rTxDoneStatus));
+		apucBandStr[prBssInfo->eBand], ucToken, ucCnt, mld_tx_status_text(rTxDoneStatus));
 	kalReportWifiLog(prAdapter, prBssInfo->ucBssIndex, log);
 }
 
@@ -2859,7 +2918,7 @@ void mldLogT2LMResp(
 	char log[256] = {0};
 
 	kalSprintf(log, "[MLD] T2LM RESP band=%s token=%d tx_status=%d",
-		apucExtBandStr[prBssInfo->eBand], ucToken, ucStatus);
+		apucBandStr[prBssInfo->eBand], ucToken, ucStatus);
 	kalReportWifiLog(prAdapter, prStaRec->ucBssIndex, log);
 }
 
@@ -2872,8 +2931,7 @@ void mldLogT2LMTeardown(
 	char log[256] = {0};
 
 	kalSprintf(log, "[MLD] T2LM TEARDOWN band=%s tx_status=%s",
-		apucExtBandStr[prBssInfo->eBand],
-		mld_tx_status_text(rTxDoneStatus));
+		apucBandStr[prBssInfo->eBand], mld_tx_status_text(rTxDoneStatus));
 	kalReportWifiLog(prAdapter, prStaRec->ucBssIndex, log);
 }
 
@@ -2892,7 +2950,7 @@ void mldLogLink(
 	struct STA_RECORD *prCurrStarec;
 	struct LINK *prStarecList;
 	uint32_t fgIsActive;
-	unsigned long long u8ActiveStaBitmap;
+	uint32_t u4ActiveBitmap;
 
 	prBssInfo = aisGetAisBssInfo(prAdapter, prStaRec->ucBssIndex);
 	if (!prBssInfo) {
@@ -2900,20 +2958,19 @@ void mldLogLink(
 		return;
 	}
 
-	u8ActiveStaBitmap = prMldStaRec->u8ActiveStaBitmap;
+	u4ActiveBitmap = prMldStaRec->u4ActiveStaBitmap;
 	prStarecList = &prMldStaRec->rStarecList;
 	LINK_FOR_EACH_ENTRY(prCurrStarec, prStarecList, rLinkEntryMld,
 	    struct STA_RECORD) {
-		fgIsActive = (u8ActiveStaBitmap & BIT(prCurrStarec->ucIndex));
-		prCurrBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
-			prCurrStarec->ucBssIndex);
+		fgIsActive = (u4ActiveBitmap & BIT(prCurrStarec->ucIndex));
+		prCurrBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prCurrStarec->ucBssIndex);
 		if (prCurrBssInfo) {
 			if (fgIsActive)
 				kalSprintf(abuf + strlen(abuf), "%s,",
-					apucExtBandStr[prCurrBssInfo->eBand]);
+					apucBandStr[prCurrBssInfo->eBand]);
 			else
 				kalSprintf(ibuf + strlen(ibuf), "%s,",
-					apucExtBandStr[prCurrBssInfo->eBand]);
+					apucBandStr[prCurrBssInfo->eBand]);
 		}
 	}
 	if (strlen(abuf) > 1) abuf[strlen(abuf) - 1] = '\0';

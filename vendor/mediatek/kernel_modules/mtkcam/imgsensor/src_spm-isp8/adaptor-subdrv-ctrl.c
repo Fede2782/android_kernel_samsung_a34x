@@ -179,8 +179,9 @@ u16 i2c_multi_read_eeprom(struct subdrv_ctx *ctx, u16 addr, u16 size, u8 *pbuf)
 	u16 idx;
 	u8 write_id;
 
-	if (read_cam_cal(ctx->s_ctx.sensor_id, pbuf, addr, size) >= 0)
-		return 0;
+/* This function is not used in SS Flow for reading caliberation data*/
+	// if (read_cam_cal(ctx->s_ctx.sensor_id, pbuf, addr, size) >= 0)
+	// 	return 0;
 
 	idx = ctx->eeprom_index;
 	write_id = ctx->s_ctx.eeprom_info[idx].i2c_write_id;
@@ -2564,12 +2565,12 @@ void get_frame_ctrl_info_by_scenario(struct subdrv_ctx *ctx,
 	*margin = ctx->s_ctx.exposure_margin;
 }
 
-void get_feature_get_4cell_data(struct subdrv_ctx *ctx, u16 type, char *data)
+void get_feature_get_4cell_data(struct subdrv_ctx *ctx, u16 type, char *data, u16 size)
 {
 	u16 idx = 0;
 	u8 support = FALSE;
 	u8 *pbuf = NULL;
-	u16 size = 0;
+	u16 info_sz = 0;
 	struct eeprom_info_struct *info = ctx->s_ctx.eeprom_info;
 
 	if (!probe_eeprom(ctx))
@@ -2580,13 +2581,17 @@ void get_feature_get_4cell_data(struct subdrv_ctx *ctx, u16 type, char *data)
 	if (type == FOUR_CELL_CAL_TYPE_XTALK_CAL) {
 		support = info[idx].xtalk_support;
 		pbuf = info[idx].preload_xtalk_table;
-		size = info[idx].xtalk_size;
+		info_sz = info[idx].xtalk_size;
+		if (size < 2 + info_sz) {
+			DRV_LOGE(ctx, "XTALK data size not enough %u, expected %u", size, info_sz);
+			return;
+		}
 		if (support) {
-			data[0] = size & 0xFF;
-			data[1] = (size >> 8) & 0xFF;
-			if (pbuf != NULL && size > 0) {
-				memcpy(data + 2, pbuf, size);
-				DRV_LOG(ctx, "memcpy XTALK data done %u bytes", size);
+			data[0] = info_sz & 0xFF;
+			data[1] = (info_sz >> 8) & 0xFF;
+			if (pbuf != NULL && info_sz > 0) {
+				memcpy(data + 2, pbuf, info_sz);
+				DRV_LOG(ctx, "memcpy XTALK data done %u bytes", info_sz);
 			}
 		}
 	}
@@ -3642,7 +3647,7 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_GET_4CELL_DATA:
 		get_feature_get_4cell_data(ctx, (u16)(*feature_data),
-			(char *)(uintptr_t)(*(feature_data + 1)));
+			(char *)(uintptr_t)(*(feature_data + 1)), (u16)(*(feature_data + 2)));
 		break;
 	case SENSOR_FEATURE_GET_MAX_EXP_LINE:
 	case SENSOR_FEATURE_GET_STAGGER_MAX_EXP_TIME:

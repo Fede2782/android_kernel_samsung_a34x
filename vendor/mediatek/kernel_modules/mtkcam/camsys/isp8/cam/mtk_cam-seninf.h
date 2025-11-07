@@ -205,6 +205,7 @@ struct seninf_core {
 	bool is_porting_muxvr_range;
 
 	int cdr_delay;
+	int cdr_delay_new;
 
 	spinlock_t spinlock_irq;
 	spinlock_t spinlock_aov;
@@ -290,6 +291,9 @@ struct seninf_ctx {
 	unsigned int is_test_model:4;
 	unsigned int is_aov_test_model;
 	unsigned int is_aov_real_sensor;
+
+	/* record aov_runtime_supend enable or not*/
+	bool is_aov_enable;
 #ifdef SENINF_DEBUG
 	unsigned int is_test_streamon:1;
 #endif

@@ -172,7 +172,7 @@ RT_REG_DECL(MT6360_REG_VCONN_CTRL2, 1, RT_VOLATILE, {});
 RT_REG_DECL(MT6360_REG_VCONN_CTRL3, 1, RT_VOLATILE, {});
 RT_REG_DECL(MT6360_REG_DEBOUNCE_CTRL4, 1, RT_NORMAL, {});
 RT_REG_DECL(MT6360_REG_CTD_CTRL2, 1, RT_VOLATILE, {});
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 RT_REG_DECL(MT6360_REG_CC_CTRL5, 1, RT_VOLATILE, {});
 #endif
 
@@ -258,7 +258,7 @@ static const rt_register_map_t mt6360_chip_regmap[] = {
 	RT_REG(MT6360_REG_VCONN_CTRL3),
 	RT_REG(MT6360_REG_DEBOUNCE_CTRL4),
 	RT_REG(MT6360_REG_CTD_CTRL2),
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	RT_REG(MT6360_REG_CC_CTRL5),
 #endif
 };
@@ -1033,10 +1033,10 @@ static int mt6360_get_cc(struct tcpc_device *tcpc, int *cc1, int *cc2)
 
 	if (status & TCPC_V10_REG_CC_STATUS_DRP_TOGGLING) {
 		if (role_ctrl & TCPC_V10_REG_ROLE_CTRL_DRP) {
-		*cc1 = TYPEC_CC_DRP_TOGGLING;
-		*cc2 = TYPEC_CC_DRP_TOGGLING;
-		return 0;
-	}
+			*cc1 = TYPEC_CC_DRP_TOGGLING;
+			*cc2 = TYPEC_CC_DRP_TOGGLING;
+			return 0;
+		}
 		/* Toggle reg0x1A[6] DRP = 1 and = 0 */
 		mt6360_i2c_write8(tcpc, TCPC_V10_REG_ROLE_CTRL,
 				  role_ctrl | TCPC_V10_REG_ROLE_CTRL_DRP);
@@ -1082,7 +1082,7 @@ static int mt6360_set_cc(struct tcpc_device *tcpc, int pull)
 	MT6360_INFO("%d\n", pull);
 	pull = TYPEC_CC_PULL_GET_RES(pull);
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	if (tcpc->ss_factory) {
 		if (pull != TYPEC_CC_RD)
 			return 0;
@@ -1210,7 +1210,7 @@ static int mt6360_set_low_power_mode(struct tcpc_device *tcpc, bool en,
 			MT6360_PD_IREF_EN | MT6360_BMCIO_OSC_EN;
 	}
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	if (!tcpc->ss_factory) {
 		ret = mt6360_i2c_write8(tcpc, MT6360_REG_MODE_CTRL3, data);
 		/* Let CC pins re-toggle */
@@ -1235,7 +1235,7 @@ static int mt6360_tcpc_deinit(struct tcpc_device *tcpc)
 	mt6360_get_cc(tcpc, &cc1, &cc2);
 	if (cc1 != TYPEC_CC_DRP_TOGGLING &&
 	    (cc1 != TYPEC_CC_VOLT_OPEN || cc2 != TYPEC_CC_VOLT_OPEN)) {
-	mt6360_set_cc(tcpc, TYPEC_CC_OPEN);
+		mt6360_set_cc(tcpc, TYPEC_CC_OPEN);
 		usleep_range(20000, 30000);
 	}
 
@@ -1712,7 +1712,7 @@ static int mt6360_is_water_detected(struct tcpc_device *tcpc)
 
 	if (mt6360_is_audio_device(tcpc, usbid)) {
 		ret = 0;
-		MT6360_INFO("%s audio dev but not water\n", __func__);
+		MT6360_INFO("audio dev but not water\n");
 		goto out;
 	}
 	ret = 1;
@@ -1945,7 +1945,7 @@ static int mt6360_set_bist_test_mode(struct tcpc_device *tcpc, bool en)
 }
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 static int mt6360_ss_factory(struct tcpc_device *tcpc)
 {
 	int ret;
@@ -2017,7 +2017,7 @@ static struct tcpc_ops mt6360_tcpc_ops = {
 #if CONFIG_TYPEC_CAP_FORCE_DISCHARGE
 	.set_force_discharge = mt6360_set_force_discharge,
 #endif	/* CONFIG_TYPEC_CAP_FORCE_DISCHARGE */
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	.ss_factory = mt6360_ss_factory,
 #endif
 };
@@ -2584,7 +2584,7 @@ static void mt6360_tcpc_remove(struct i2c_client *client)
 #endif
 	tcpc_device_unregister(chip->dev, chip->tcpc);
 #if IS_ENABLED(CONFIG_RT_REGMAP)
-		mt6360_regmap_deinit(chip);
+	mt6360_regmap_deinit(chip);
 #endif /* CONFIG_RT_REGMAP */
 }
 
@@ -2637,6 +2637,13 @@ static int __maybe_unused mt6360_tcpc_resume(struct device *dev)
 	tcpm_resume(chip->tcpc);
 
 	return 0;
+}
+
+static int __maybe_unused mt6360_tcpc_suspend_late(struct device *dev)
+{
+	struct mt6360_chip *chip = dev_get_drvdata(dev);
+
+	return tcpm_check_suspend_pending(chip->tcpc);
 }
 
 static const struct dev_pm_ops mt6360_tcpc_pm_ops = {

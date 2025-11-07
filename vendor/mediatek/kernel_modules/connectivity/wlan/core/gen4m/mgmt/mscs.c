@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -172,7 +172,7 @@ void mscsFlushFiveTuple(struct ADAPTER *prAdapter,
 	struct LINK *prMonitorList = &prStaRec->rMscsMonitorList;
 	struct MSCS_FIVE_TUPLE_T *prEntry;
 
-	DBGLOG(TX, DEBUG, "Flush all five tuples(%d)\n",
+	DBGLOG(TX, INFO, "Flush all five tuples(%d)\n",
 		prMonitorList->u4NumElem);
 
 	while (!LINK_IS_EMPTY(prMonitorList)) {
@@ -296,7 +296,7 @@ mscsTxDoneCb(struct ADAPTER *prAdapter,
 	      struct MSDU_INFO *prMsduInfo,
 	      enum ENUM_TX_RESULT_CODE rTxDoneStatus)
 {
-	DBGLOG(TX, DEBUG,
+	DBGLOG(TX, INFO,
 		"MSCS TX DONE, WIDX:PID[%u:%u] Status[%u], SeqNo: %d\n",
 		prMsduInfo->ucWlanIndex, prMsduInfo->ucPID, rTxDoneStatus,
 		prMsduInfo->ucTxSeqNum);
@@ -328,12 +328,9 @@ uint8_t fpIsPortAuthorized(struct ADAPTER *prAdapter)
 	return TRUE;
 }
 
-u_int8_t mscsIsFpSupport(struct ADAPTER *prAdapter)
+uint8_t mscsIsFpSupport(struct ADAPTER *prAdapter)
 {
 	struct MSCS_CAP_FAST_PATH *prFastPathCap = &prAdapter->rFastPathCap;
-
-	if (prAdapter->rWifiVar.ucEnableFastPath != FEATURE_ENABLED)
-		return FALSE;
 
 	DBGLOG(TX, TRACE,
 		"Fast path version(%d) support(%d) vendor key(0x%x) group key(0x%x)\n",
@@ -710,12 +707,12 @@ void mscsProcessRobustAVStreaming(struct ADAPTER *prAdapter,
 	if (!prStaRec)
 		return;
 
-	DBGLOG(RX, DEBUG,
+	DBGLOG(RX, INFO,
 		"Received RAVS action:%d\n", prRxFrame->ucAction);
 
 	switch (prRxFrame->ucAction) {
 	case ACTION_MSCS_RSP:
-		DBGLOG(RX, DEBUG,
+		DBGLOG(RX, INFO,
 			"Received MSCS response with status:%d\n",
 			prRxFrame->u2StatusCode);
 		/* Remove 5-tuple matched with any in monitor list */
@@ -799,7 +796,7 @@ fpTxDoneCb(struct ADAPTER *prAdapter,
 	      struct MSDU_INFO *prMsduInfo,
 	      enum ENUM_TX_RESULT_CODE rTxDoneStatus)
 {
-	DBGLOG(TX, DEBUG,
+	DBGLOG(TX, INFO,
 		"Fast path request TX DONE, WIDX:PID[%u:%u] Status[%u], SeqNo: %d\n",
 		prMsduInfo->ucWlanIndex, prMsduInfo->ucPID, rTxDoneStatus,
 		prMsduInfo->ucTxSeqNum);
@@ -824,7 +821,7 @@ uint32_t fpRequestPortAuth(struct ADAPTER *prAdapter,
 		DBGLOG(OID, ERROR, "prAisBssInfo or prStaRec equal to NULL\n");
 		return WLAN_STATUS_FAILURE;
 	}
-	DBGLOG(OID, DEBUG, "Sending fast path response\n");
+	DBGLOG(OID, INFO, "Sending fast path response\n");
 
 	/* Calculate MSDU buffer length */
 	u2FrameLen = MAC_TX_RESERVED_FIELD +
@@ -955,7 +952,7 @@ void fpEventHandler(struct ADAPTER *prAdapter,
 	struct EVENT_FAST_PATH *prFastPathInfo;
 	struct BSS_INFO *prAisBssInfo = NULL;
 
-	DBGLOG(INIT, DEBUG, "Process fast path event\n");
+	DBGLOG(INIT, INFO, "Process fast path event\n");
 	prFastPathInfo = (struct EVENT_FAST_PATH *) (prEvent->aucBuffer);
 	prAisBssInfo = aisGetAisBssInfo(prAdapter, AIS_DEFAULT_INDEX);
 	if (!prAisBssInfo) {
@@ -963,7 +960,7 @@ void fpEventHandler(struct ADAPTER *prAdapter,
 		return;
 	}
 
-	DBGLOG(INIT, DEBUG, "Port auth:%d, Key bitmap match:%d, KeyNum:%d\n",
+	DBGLOG(INIT, INFO, "Port auth:%d, Key bitmap match:%d, KeyNum:%d\n",
 		prAisBssInfo->rFastPathInfo.eAuthStatus,
 		prFastPathInfo->ucKeyBitmapMatchStatus,
 		prFastPathInfo->ucKeynum);
@@ -977,7 +974,7 @@ void fpEventHandler(struct ADAPTER *prAdapter,
 		PORT_AUTHORIZING_VERIFY_AP) {
 		prAisBssInfo->rFastPathInfo.ucKeyNumHitted =
 			prFastPathInfo->ucKeynum;
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 			"Fast path info from FW: KeyNum->%d Mic->%d\n",
 			prFastPathInfo->ucKeynum,
 			prFastPathInfo->u2Mic);
@@ -996,7 +993,7 @@ void fpEventHandler(struct ADAPTER *prAdapter,
 			prFastPathInfo->u2Mic);
 	} else if (prAisBssInfo->rFastPathInfo.eAuthStatus ==
 		PORT_AUTHORIZING_RETRIEVE_STA) {
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 			"Fast path info from FW: KeyNum->%d Mic->%d\n",
 			prFastPathInfo->ucKeynum,
 			prFastPathInfo->u2Mic);
@@ -1019,14 +1016,14 @@ void fpProcessVendorSpecProtectedFrame(struct ADAPTER *prAdapter,
 		(struct ACTION_VENDOR_SPEC_PROTECTED_FRAME *)prSwRfb->pvHeader;
 
 	if (!mscsIsMtkOui(prRxFrame->aucOui)) {
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 			"Ignore non-MTK vendor specific protected IE");
 		return;
 	}
 
 	if (prSwRfb->u2PacketLen <
 		sizeof(struct ACTION_VENDOR_SPEC_PROTECTED_FRAME)) {
-		DBGLOG(INIT, DEBUG, "Received frame len is unexpected:%d\n",
+		DBGLOG(INIT, INFO, "Received frame len is unexpected:%d\n",
 			prSwRfb->u2PacketLen);
 		return;
 	}
@@ -1043,7 +1040,7 @@ void fpProcessVendorSpecProtectedFrame(struct ADAPTER *prAdapter,
 	{
 		if (prAdapter->rFastPathCap.ucVersion !=
 			prRxFrame->ucFastPathVersion) {
-			DBGLOG(INIT, DEBUG,
+			DBGLOG(INIT, INFO,
 				"Version mismatch between AP & STA\n");
 			fpReset(prAdapter);
 			return;
@@ -1051,13 +1048,13 @@ void fpProcessVendorSpecProtectedFrame(struct ADAPTER *prAdapter,
 		if (!fpExamKeyBitmap(prAdapter->rFastPathCap.u4KeyBitmap,
 			prRxFrame->u4KeyBitmap,
 			prAisBssInfo->rFastPathInfo.au4KeyBitmapHitted)) {
-			DBGLOG(INIT, DEBUG, "Key mismatch between AP & STA\n");
+			DBGLOG(INIT, INFO, "Key mismatch between AP & STA\n");
 			fpReset(prAdapter);
 			return;
 		}
 		prAisBssInfo->rFastPathInfo.ucTransactionId =
 			prRxFrame->ucTransactionId;
-		DBGLOG(INIT, DEBUG,
+		DBGLOG(INIT, INFO,
 			"Fast path ANNOUNCE\n");
 		fpQueryInfo(prAdapter, prRxFrame->aucSrcAddr,
 			prRxFrame->u2RandomNum,
@@ -1070,7 +1067,7 @@ void fpProcessVendorSpecProtectedFrame(struct ADAPTER *prAdapter,
 	{
 		enum ENUM_FAST_PATH_STATUS eStatus = STATUS_FAIL;
 
-		DBGLOG(INIT, DEBUG, "Fast path negotiate result:%s\n",
+		DBGLOG(INIT, INFO, "Fast path negotiate result:%s\n",
 			(prRxFrame->ucFastPathStatus == STATUS_OK) ?
 			"OK" : "Failed");
 		prAisBssInfo->rFastPathInfo.ucTransactionId =
@@ -1079,7 +1076,7 @@ void fpProcessVendorSpecProtectedFrame(struct ADAPTER *prAdapter,
 			/* Verify MIC which is calculated by AP */
 			if (prAisBssInfo->rFastPathInfo.u2MicReqSta !=
 				prRxFrame->u2Mic) {
-				DBGLOG(INIT, DEBUG, "Fast path Mic mismatch\n");
+				DBGLOG(INIT, INFO, "Fast path Mic mismatch\n");
 				fpReset(prAdapter);
 				eStatus = STATUS_FAIL;
 			} else {
@@ -1095,7 +1092,7 @@ void fpProcessVendorSpecProtectedFrame(struct ADAPTER *prAdapter,
 		break;
 	}
 	default:
-		DBGLOG(INIT, DEBUG, "Unsupported fast path type:%d\n",
+		DBGLOG(INIT, INFO, "Unsupported fast path type:%d\n",
 			prRxFrame->ucFastPathType);
 		break;
 	}

@@ -67,11 +67,6 @@ enum ENUM_TIMER_WAKELOCK_TYPE_T {
 	TIMER_WAKELOCK_NUM
 };
 
-enum ENUM_TIMER_TYPE {
-	TIMER_TIMER_LIST,
-	TIMER_HRTIMER
-};
-
 /*******************************************************************************
  *                             D A T A   T Y P E S
  *******************************************************************************
@@ -79,33 +74,13 @@ enum ENUM_TIMER_TYPE {
 typedef void(*PFN_MGMT_TIMEOUT_FUNC) (struct ADAPTER *, uintptr_t);
 
 struct TIMER {
-	union {
-		/* Legacy Timer List */
-		struct {
-			OS_SYSTIME rExpiredSysTime;
-			uint16_t u2Minutes;
-			uint16_t u2Reserved;
-			uintptr_t ulDataPtr;
-			PFN_MGMT_TIMEOUT_FUNC pfMgmtTimeOutFunc;
-			enum ENUM_TIMER_WAKELOCK_TYPE_T eType;
-		};
-
-#if CFG_SUPPORT_HRTIMER
-		/* Hrtimer(High resolution), should only be used in latency
-		 * sensitive scenario or need to wake up from kernel suspend.
-		 */
-		struct {
-			/* QueEntry MUST at the beginning of struct */
-			struct QUE_ENTRY rHrtimeoutQueEntry;
-			struct hrtimer rHrtimer;
-			struct ADAPTER *prHrAdapter;
-			PFN_MGMT_TIMEOUT_FUNC pfHrtimeoutFunc;
-			uintptr_t prHrFuncPara;
-		};
-#endif
-	};
 	struct LINK_ENTRY rLinkEntry;
-	enum ENUM_TIMER_TYPE eTimerType;
+	OS_SYSTIME rExpiredSysTime;
+	uint16_t u2Minutes;
+	uint16_t u2Reserved;
+	uintptr_t ulDataPtr;
+	PFN_MGMT_TIMEOUT_FUNC pfMgmtTimeOutFunc;
+	enum ENUM_TIMER_WAKELOCK_TYPE_T eType;
 };
 
 /*******************************************************************************
@@ -126,6 +101,7 @@ struct TIMER {
 /* In 32-bit variable, 0x00000001~0x7fffffff -> positive number,
  *                     0x80000000~0xffffffff -> negative number
  */
+#define TIME_BEFORE_64bit(a, b)		(a < b)
 
 #define TIME_BEFORE(a, b) \
 	((uint32_t)((uint32_t)(a) - (uint32_t)(b)) > 0x7fffffff)
@@ -135,14 +111,6 @@ struct TIMER {
  */
 
 #define TIME_AFTER(a, b)		TIME_BEFORE(b, a)
-
-#define TIME_BEFORE64(a, b) \
-	((uint64_t)((uint64_t)(a) - (uint64_t)(b)) > 0x7fffffffffffffff)
-
-#define TIME_AFTER64(a, b)		TIME_BEFORE64(b, a)
-
-#define TIME_ABS_DIFF64(a, b) \
-	(((a) > (b)) ? ((a) - (b)) : ((b) - (a)))
 
 #define SYSTIME_TO_SEC(_systime)	((_systime) / KAL_HZ)
 #define SEC_TO_SYSTIME(_sec)		((_sec) * KAL_HZ)
@@ -155,8 +123,8 @@ struct TIMER {
 #define SEC_TO_TIME_SECOND(_sec)	((uint32_t)(_sec) % SEC_PER_MINUTE)
 
 /* The macros to convert second & millisecond */
-#define MSEC_TO_SEC(_msec)		(kal_div_u64((_msec), MSEC_PER_SEC))
-#define NSEC_TO_USEC(_nsec)		(kal_div_u64((_nsec), NSEC_PER_USEC))
+#define MSEC_TO_SEC(_msec)		((_msec) / MSEC_PER_SEC)
+#define NSEC_TO_USEC(_nsec)		((_nsec) / NSEC_PER_USEC)
 #define SEC_TO_MSEC(_sec)		((uint32_t)(_sec) * MSEC_PER_SEC)
 #define SEC_TO_USEC(_sec)		((uint32_t)(_sec) * USEC_PER_SEC)
 #define SEC_TO_NSEC(_sec)		((uint64_t)(_sec) * NSEC_PER_SEC)
@@ -164,9 +132,7 @@ struct TIMER {
 	((uint32_t)(_sec) * USEC_PER_SEC / USEC_PER_TU)
 
 /* The macros to convert millisecond & microsecond */
-#define USEC_TO_MSEC(_usec)		(kal_div_u64((_usec), USEC_PER_MSEC))
-#define USEC_TO_SEC(_usec)		(kal_div_u64((_usec), USEC_PER_SEC))
-#define USEC_REM_TO_SEC(_usec)	((_usec) % USEC_PER_SEC)
+#define USEC_TO_MSEC(_usec)		((_usec) / USEC_PER_MSEC)
 #define MSEC_TO_USEC(_msec)		((uint32_t)(_msec) * USEC_PER_MSEC)
 
 /* The macros to convert TU & microsecond, TU & millisecond */
@@ -208,17 +174,6 @@ struct TIMER {
 	CHECK_FOR_EXPIRATION((_currentTime), \
 	((_timeoutStartingTime) + (_timeout)))
 
-
-/* The macro to check for expiration using 64-bit unsigned integers */
-#define CHECK_FOR_EXPIRATION64(_currentTime, _expirationTime) \
-	(((uint64_t)(_currentTime) - (uint64_t)(_expirationTime)) \
-		<= 0x7FFFFFFFFFFFFFFFULL)
-
-/* The macro to check for the timeout using 64-bit unsigned integers */
-#define CHECK_FOR_TIMEOUT64(_currentTime, _timeoutStartingTime, _timeout) \
-	CHECK_FOR_EXPIRATION64((_currentTime), \
-		((_timeoutStartingTime) + (_timeout)))
-
 /* The macro to set the expiration time with a specified timeout */
 /* Watch out for round up. */
 #define SET_EXPIRATION_TIME(_expirationTime, _timeout) \
@@ -247,13 +202,6 @@ void cnmTimerInitTimerOption(struct ADAPTER *prAdapter,
 			     uintptr_t ulDataPtr,
 			     enum ENUM_TIMER_WAKELOCK_TYPE_T eType);
 
-#if CFG_SUPPORT_HRTIMER
-void cnmTimerInitHrtimerImpl(struct ADAPTER *prAdapter,
-			     struct TIMER *prTimer,
-			     PFN_MGMT_TIMEOUT_FUNC pfFunc,
-			     uintptr_t ulDataPtr);
-#endif
-
 void cnmTimerStopTimer(struct ADAPTER *prAdapter, struct TIMER *prTimer);
 
 void cnmTimerStartTimer(struct ADAPTER *prAdapter, struct TIMER *prTimer,
@@ -269,16 +217,7 @@ static __KAL_INLINE__ int32_t timerPendingTimer(struct TIMER *prTimer)
 {
 	ASSERT(prTimer);
 
-	switch (prTimer->eTimerType) {
-#if CFG_SUPPORT_HRTIMER
-	/* Hrtimer */
-	case TIMER_HRTIMER:
-		return kalHrtimerIsRunning(&prTimer->rHrtimer);
-#endif
-	/* Legacy Timer List */
-	default:
-		return prTimer->rLinkEntry.prNext != NULL;
-	}
+	return prTimer->rLinkEntry.prNext != NULL;
 }
 
 static __KAL_INLINE__ void cnmTimerInitTimer(struct ADAPTER *prAdapter,
@@ -286,24 +225,8 @@ static __KAL_INLINE__ void cnmTimerInitTimer(struct ADAPTER *prAdapter,
 					     PFN_MGMT_TIMEOUT_FUNC pfFunc,
 					     uintptr_t ulDataPtr)
 {
-	prTimer->eTimerType = TIMER_TIMER_LIST;
 	cnmTimerInitTimerOption(prAdapter, prTimer, pfFunc, ulDataPtr,
 		TIMER_WAKELOCK_AUTO);
-}
-
-static __KAL_INLINE__ void cnmTimerInitHrtimer(struct ADAPTER *prAdapter,
-					       struct TIMER *prTimer,
-					       PFN_MGMT_TIMEOUT_FUNC pfFunc,
-					       uintptr_t ulDataPtr)
-{
-#if CFG_SUPPORT_HRTIMER
-	/* Hrtimer */
-	prTimer->eTimerType = TIMER_HRTIMER;
-	cnmTimerInitHrtimerImpl(prAdapter, prTimer, pfFunc, ulDataPtr);
-#else
-	/* Legacy Timer List */
-	cnmTimerInitTimer(prAdapter, prTimer, pfFunc, ulDataPtr);
-#endif
 }
 
 #if CFG_WOW_SUPPORT

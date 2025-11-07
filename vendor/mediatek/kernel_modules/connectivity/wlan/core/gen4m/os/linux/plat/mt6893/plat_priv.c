@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -32,8 +32,12 @@
 
 #include "precomp.h"
 
-#if IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
+#ifdef CONFIG_WLAN_MTK_EMI
+#if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
 #include <soc/mediatek/emi.h>
+#else
+#include <memory/mediatek/emi.h>
+#endif
 #define	REGION_WIFI	26
 #define WIFI_EMI_MEM_SIZE      0x140000
 #define WIFI_EMI_MEM_OFFSET    0x2B0000
@@ -119,14 +123,9 @@ void kalSetTaskUtilMinPct(int pid, unsigned int min)
 		get_task_struct(p);
 	rcu_read_unlock();
 
-	/* sched_setattr_nocheck */
+	/* sched_setattr */
 	if (likely(p)) {
-		ret = sched_setattr_nocheck(p, &attr);
-		if (ret < 0) {
-			DBGLOG(INIT, ERROR,
-				"sched_setattr_nocheck pid[%u] min[%u] fail\n",
-				pid, min);
-		}
+		ret = sched_setattr(p, &attr);
 		put_task_struct(p);
 	}
 #elif KERNEL_VERSION(4, 19, 0) <= CFG80211_VERSION_CODE
@@ -169,7 +168,7 @@ void kalSetCpuFreq(int32_t freq)
 			ret = freq_qos_add_request(&policy->constraints,
 				&wReq->qos_req, FREQ_QOS_MIN, DEFAULT_CPU_FREQ);
 			if (ret < 0) {
-				DBGLOG(INIT, DEBUG,
+				DBGLOG(INIT, INFO,
 					"freq_qos_add_request fail cpu%d ret=%d\n",
 					wReq->cpu, ret);
 				kfree(wReq);
@@ -184,7 +183,7 @@ void kalSetCpuFreq(int32_t freq)
 	list_for_each_entry(wReq, &wlan_policy_list, list) {
 		ret = freq_qos_update_request(&wReq->qos_req, freq);
 		if (ret < 0) {
-			DBGLOG(INIT, DEBUG,
+			DBGLOG(INIT, INFO,
 				"freq_qos_update_request fail cpu%d freq=%d ret=%d\n",
 				wReq->cpu, freq, ret);
 		}
@@ -211,7 +210,7 @@ void kalSetCpuFreq(int32_t freq)
 #endif
 }
 
-void kalSetDramBoost(struct ADAPTER *prAdapter, int32_t iLv)
+void kalSetDramBoost(struct ADAPTER *prAdapter, u_int8_t onoff)
 {
 #if KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
 	/* TODO */
@@ -219,7 +218,7 @@ void kalSetDramBoost(struct ADAPTER *prAdapter, int32_t iLv)
 	static struct pm_qos_request wifi_qos_request;
 
 	KAL_ACQUIRE_MUTEX(prAdapter, MUTEX_BOOST_CPU);
-	if (iLv != -1) {
+	if (onoff == TRUE) {
 		pr_info("Max Dram Freq start\n");
 		pm_qos_add_request(&wifi_qos_request,
 				   PM_QOS_DDR_OPP,
@@ -293,7 +292,7 @@ void kalSetEmiMetOffset(uint32_t newEmiMetOffset)
 	u4EmiMetOffset = newEmiMetOffset;
 }
 
-#if IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
+#ifdef CONFIG_WLAN_MTK_EMI
 void kalSetEmiMpuProtection(phys_addr_t emiPhyBase, bool enable)
 {
 }
@@ -301,13 +300,14 @@ void kalSetEmiMpuProtection(phys_addr_t emiPhyBase, bool enable)
 void kalSetDrvEmiMpuProtection(phys_addr_t emiPhyBase, uint32_t offset,
 			       uint32_t size)
 {
+#if KERNEL_VERSION(6, 0, 0) >= LINUX_VERSION_CODE
 	struct emimpu_region_t region;
 	unsigned long long start = emiPhyBase + offset;
 	unsigned long long end = emiPhyBase + offset + size - 1;
 	int ret;
 
-	DBGLOG(INIT, DEBUG, "emiPhyBase: %pa, offset: %d, size: %d\n",
-				&emiPhyBase, offset, size);
+	DBGLOG(INIT, INFO, "emiPhyBase: 0x%p, offset: %d, size: %d\n",
+				emiPhyBase, offset, size);
 
 	ret = mtk_emimpu_init_region(&region, 18);
 	if (ret) {
@@ -325,7 +325,9 @@ void kalSetDrvEmiMpuProtection(phys_addr_t emiPhyBase, uint32_t offset,
 			"mtk_emimpu_set_protection failed, ret: %d\n",
 			ret);
 	mtk_emimpu_free_region(&region);
+#endif
 }
+
 #endif
 
 int32_t kalGetFwFlavorByPlat(uint8_t *flavor)

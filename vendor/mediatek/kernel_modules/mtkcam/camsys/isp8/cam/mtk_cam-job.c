@@ -1202,9 +1202,12 @@ _stream_on(struct mtk_cam_job *job, bool on)
 		pad_bitmask = 0;
 		raw_tg_idx = -1;
 	}
-	/* TODO: separate seninf api to cammux setting and enable */
-	if (job->stream_on_seninf || job->raw_switch)
-		ctx_stream_on_seninf_sensor(job, pad_bitmask, raw_tg_idx);
+
+	if (job->enable_hsf_raw) {
+		/* TODO: separate seninf api to cammux setting and enable */
+		if (job->stream_on_seninf || job->raw_switch)
+			ctx_stream_on_seninf_sensor(job, pad_bitmask, raw_tg_idx);
+	}
 
 	if (job->raw_change && !job->seamless_switch) {
 		disable_seninf_cammux(job);
@@ -1250,6 +1253,12 @@ _stream_on(struct mtk_cam_job *job, bool on)
 				mtk_cam_mraw_dev_stream_on(mraw_dev, on);
 			}
 		}
+	}
+
+	if (!job->enable_hsf_raw) {
+		/* TODO: separate seninf api to cammux setting and enable */
+		if (job->stream_on_seninf || job->raw_switch)
+			ctx_stream_on_seninf_sensor(job, pad_bitmask, raw_tg_idx);
 	}
 
 	return 0;
@@ -5151,10 +5160,7 @@ static int job_sen_req_pack(struct mtk_cam_job *job)
 
 	memset(&job->hdr_ts_cache, 0, sizeof(job->hdr_ts_cache));
 	job->init_params = NULL;
-	if (!job->sensor_hdl_obj) {
-		ctx->cam_ctrl.sensor_sync_id= job->req_info_id;
-		ctx->cam_ctrl.sensor_seq = job->req_seq;
-	}
+
 	switch (job->job_type) {
 	case JOB_TYPE_BASIC:
 		mtk_cam_job_state_init_basic(&job->job_state, &sf_state_cb,
@@ -6685,12 +6691,13 @@ int mtk_cam_job_manually_apply_sensor(struct mtk_cam_job *job)
 	sensor_state = mtk_cam_job_state_get(&job->job_state, SENSOR_STATE);
 	if (sensor_state == S_SENSOR_NONE) {
 		pr_info("%s: without sensor setting to apply\n", __func__);
-		if (job->req_info_id > ctx->cam_ctrl.sensor_sync_id) {
+		if (job->req_seq > ctx->cam_ctrl.sensor_seq) {
 			ctx->cam_ctrl.sensor_sync_id = job->req_info_id;
 			ctx->cam_ctrl.sensor_seq = job->req_seq;
 		} else {
-			pr_info("%s: pass assign job#%d sync id avoid revert %d/%d\n", __func__,
-				job->frame_seq_no, job->req_info_id, ctx->cam_ctrl.sensor_sync_id);
+			pr_info("%s: pass assign job#%d sync id avoid revert %d>%d %d>%d\n", __func__,
+				job->frame_seq_no, job->req_info_id, ctx->cam_ctrl.sensor_sync_id,
+				job->req_seq, ctx->cam_ctrl.sensor_seq);
 		}
 		return 0;
 	}

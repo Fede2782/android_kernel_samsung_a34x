@@ -488,7 +488,7 @@ struct mtk_charger {
 	int ta_capability;
 	int wait_times;
 
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 	void (*wake_up_charger)(struct mtk_charger *info);
 #endif
 };

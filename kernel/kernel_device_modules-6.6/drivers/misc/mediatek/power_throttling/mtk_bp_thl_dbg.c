@@ -35,7 +35,7 @@ static ssize_t bp_thl_dbg_write
 		if (ut_input == 1 || ut_input == 2) {
 			register_bp_thl_notify(&bp_thl_ut_cb, BATTERY_PERCENT_PRIO_UT);
 			set_bp_thl_ut_status(ut_input);
-#if IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
+#if defined(CONFIG_BATTERY_SAMSUNG_MTK)
 			psy = power_supply_get_by_name("mtk-fg-battery");
 #else
 			psy = power_supply_get_by_name("battery");

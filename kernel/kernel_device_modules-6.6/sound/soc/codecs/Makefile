@@ -11,9 +11,11 @@ endif
 subdir-ccflags-y += -I$(DEVICE_MODULES_PATH)/include/linux/firmware/cirrus
 subdir-ccflags-y += -I$(DEVICE_MODULES_PATH)/include/sound/cirrus/
 
-snd-soc-cirrus-amp-objs := cirrus-amp.o cirrus-bd.o cirrus-cal.o cirrus-pwr.o cirrus-cal-cspl.o
-snd-soc-cs35l41-i2c-objs := cs35l41-i2c.o cs35l41.o cs35l41-tables.o bigdata_cs35l41_sysfs_cb.o
-snd-soc-cs35l41-spi-objs := cs35l41-spi.o cs35l41.o cs35l41-tables.o bigdata_cs35l41_sysfs_cb.o
+snd-soc-cirrus-amp-objs := cirrus-amp.o cirrus-bd.o cirrus-cal.o cirrus-pwr.o cirrus-cal-cspl.o bigdata_cirrus_sysfs_cb.o
+snd-soc-cs35l41-i2c-objs := cs35l41-i2c.o cs35l41.o cs35l41-tables.o
+snd-soc-cs35l41-spi-objs := cs35l41-spi.o cs35l41.o cs35l41-tables.o
+snd-soc-cs35l45-spi-objs := cs35l45-spi.o cs35l45.o cs35l45-tables.o
+snd-soc-cs35l45-i2c-objs := cs35l45-i2c.o cs35l45.o cs35l45-tables.o
 snd-soc-wm-adsp-objs := wm_adsp.o
 snd-soc-mt6338-objs := mt6338.o
 snd-soc-mt6338-accdet-objs := mt6338-accdet.o
@@ -30,9 +32,11 @@ snd-soc-hdmi-codec-objs := hdmi-codec.o
 snd-soc-rt5509-objs += rt5509.o rt5509-calib.o
 snd-soc-mt6366-objs := mt6358.o
 
-obj-$(CONFIG_DEVICE_MODULES_SND_SOC_CIRRUS_AMP) += snd-soc-cirrus-amp.o
+obj-$(CONFIG_DEVICE_MODULES_SND_SOC_CIRRUS_AMP)	+= snd-soc-cirrus-amp.o
 obj-$(CONFIG_DEVICE_MODULES_SND_SOC_CS35L41_SPI)	+= snd-soc-cs35l41-spi.o
 obj-$(CONFIG_DEVICE_MODULES_SND_SOC_CS35L41_I2C)	+= snd-soc-cs35l41-i2c.o
+obj-$(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45_SPI)	+= snd-soc-cs35l45-spi.o
+obj-$(CONFIG_DEVICE_MODULES_SND_SOC_CS35L45_I2C)	+= snd-soc-cs35l45-i2c.o
 obj-$(CONFIG_DEVICE_MODULES_SND_SOC_WM_ADSP)	+= snd-soc-wm-adsp.o
 obj-$(CONFIG_SND_SOC_MT6338)	+= snd-soc-mt6338.o
 obj-$(CONFIG_SND_SOC_MT6338_ACCDET) += mt6338-accdet.o

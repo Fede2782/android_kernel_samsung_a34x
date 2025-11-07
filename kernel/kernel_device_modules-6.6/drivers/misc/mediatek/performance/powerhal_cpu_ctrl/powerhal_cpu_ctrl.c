@@ -617,6 +617,12 @@ int adpf_report_actual_work_duaration(unsigned int sid,
 		return -1;
 	}
 
+	if (work_duration_size > ADPF_MAX_THREAD) {
+		pr_info("[%s] work_duration_size %d exceeds max", __func__, work_duration_size);
+		mutex_unlock(&adpf_mutex);
+		return -1;
+	}
+
 	pr_debug("[%s], sid: %d", __func__, sid);
 
 	tgid = sessionList[sid]->tgid;
@@ -808,6 +814,12 @@ int adpf_set_threads(unsigned int sid, int *threadIds, int threadIds_size)
 
 	if (sid >= ADPF_MAX_SESSION) {
 		pr_debug("[%s] sid error: %d", __func__, sid);
+		mutex_unlock(&adpf_mutex);
+		return -1;
+	}
+
+	if (threadIds_size > ADPF_MAX_THREAD) {
+		pr_info("[%s] threadIds_size %d exceeds max", __func__, threadIds_size);
 		mutex_unlock(&adpf_mutex);
 		return -1;
 	}

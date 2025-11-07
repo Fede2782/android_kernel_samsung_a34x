@@ -14,6 +14,7 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+#include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
 #include <linux/suspend.h>
 #include <linux/sched/clock.h>
@@ -52,22 +53,28 @@ int irq_aee;
 module_param(irq_aee, int, 0644);
 int mminfra_floor;
 module_param(mminfra_floor, int, 0644);
-
 int post_vlp_delay = 60;
 module_param(post_vlp_delay, int, 0644);
-
 u32 dump_begin;
 module_param(dump_begin, uint, 0644);
 u32 dump_lines = 40;
 module_param(dump_lines, uint, 0644);
-
-int debug_force_wait;
-module_param(debug_force_wait, int, 0644);
 u32 debug_presz;
 module_param(debug_presz, uint, 0644);
 
+/* 0: normal, 1: force wait, 2: force skip */
+int wfe_prete = 2;
+module_param(wfe_prete, int, 0644);
+
 static void __iomem *dpc_base;
 static struct mtk_dpc *g_priv;
+
+/* debug emi violation */
+static void __iomem *mmpc_emi_req;
+static void __iomem *mmpc_ddrsrc_req;
+static void __iomem *spm_ddr_emi_req;
+static void __iomem *vdisp_dvfsrc_sw_req4;
+static void __iomem *clk_disp_sel;
 
 static const char trace_buf_mml_on[] = "C|-65536|MML1_power|1\n";
 static const char trace_buf_mml_off[] = "C|-65536|MML1_power|0\n";
@@ -324,8 +331,12 @@ static inline int dpc_pm_ctrl(bool en)
 		}
 
 		/* read dummy register to make sure it's ready to use */
-		if (g_priv->mminfra_dummy && (readl(g_priv->mminfra_dummy) == 0))
-			DPCAEE("read mminfra dummy failed");
+		if (g_priv->mminfra_dummy && (readl(g_priv->mminfra_dummy) == 0)) {
+			dump_stack();
+			DPCAEE("%s read mminfra dummy failed", __func__);
+			pm_runtime_put_sync(g_priv->pd_dev);
+			return -2;
+		}
 
 		/* disable devapc power check false alarm, */
 		/* DPC address is bound by power of disp1 on 6989 */
@@ -371,15 +382,34 @@ static int mtk_disp_wait_pwr_ack(const enum mtk_dpc_subsys subsys)
 		return -1;
 	}
 
+	if (g_priv->mminfra_dummy && (readl(g_priv->mminfra_dummy) == 0)) {
+		DPCAEE("%s read mminfra dummy failed", __func__);
+		ret = -2;
+		goto no_pwr_err;
+	}
+
+	if (!dpc_is_power_on()) {
+		DPCERR("disp vcore is not power on");
+		ret = -3;
+		goto no_pwr_err;
+	}
+
 	/* by subsys pm */
 	// ret = readl_poll_timeout_atomic(g_priv->mtcmos_cfg[subsys].chk_va, value, 0xB, 1, 200);
 
 	/* by dpc */
 	ret = readl_poll_timeout_atomic(dpc_base + g_priv->mtcmos_cfg[subsys].cfg + 0x8,
 					value, value & BIT(20), 1, 200);
-	if (ret < 0)
+	if (ret < 0) {
 		DPCERR("wait subsys(%d) power on timeout", subsys);
+		goto no_pwr_err;
+	}
 
+	return ret;
+
+no_pwr_err:
+	dump_stack();
+	udelay(post_vlp_delay);
 	return ret;
 }
 
@@ -724,10 +754,41 @@ static void dpc_srt_bw_set(const enum mtk_dpc_subsys subsys, const u32 bw_in_mb,
 	       dpc_base + DISP_REG_DPC_DISP_SW_SRT_BW);
 }
 
+u8 dpc_check_pll(void)
+{
+	u8 ret = 0, max_level;
+	static const u8 pll_mux[] = {2, 3, 5, 7, 8};	/* from lowest to highest */
+
+	if (!clk_disp_sel)
+		return 0;
+
+	mutex_lock(&g_priv->dvfs_bw.lock);
+	max_level = dpc_max_dvfs_level();
+	mutex_unlock(&g_priv->dvfs_bw.lock);
+
+	if (pll_mux[max_level] > ((readl(clk_disp_sel) & 0x0f000000) >> 24)) {
+		DPCDUMP("mismatch, level(%u) disp_sel(%#x) RC_STA(%#x) SW_REQ4(%#x)\n", max_level,
+			readl(clk_disp_sel),
+			readl(g_priv->vdisp_dvfsrc),
+			vdisp_dvfsrc_sw_req4 ? readl(vdisp_dvfsrc_sw_req4) : 0);
+		ret = max_level;
+	}
+
+	return ret;
+}
+
 static int vdisp_level_set_vcp(const enum mtk_dpc_subsys subsys, const u8 level)
 {
 	int ret = 0;
-	u32 value = 0;
+	u32 value = 0, swreq = 0;
+
+	if (vdisp_dvfsrc_sw_req4) {
+		swreq = readl(vdisp_dvfsrc_sw_req4);
+		if (swreq & 0x70) {
+			DPCFUNC("clear SW_REQ4(%#x) before vote level(%u)", swreq, level);
+			writel(swreq & ~0x70, vdisp_dvfsrc_sw_req4);
+		}
+	}
 
 	/* polling vdisp dvfsrc idle */
 	if (g_priv->vdisp_dvfsrc) {
@@ -737,6 +798,12 @@ static int vdisp_level_set_vcp(const enum mtk_dpc_subsys subsys, const u8 level)
 			DPCERR("subsys(%d) wait vdisp dvfsrc idle timeout", subsys);
 	}
 	writel(level, dpc_base + DISP_REG_DPC_DISP_VDISP_DVFS_VAL);
+
+	if (debug_dvfs)
+		DPCFUNC("level(%u) disp_sel(%#x) RC_STA(%#010x) SW_REQ4(%#x)\n", level,
+			clk_disp_sel ? readl(clk_disp_sel) : 0,
+			readl(g_priv->vdisp_dvfsrc),
+			vdisp_dvfsrc_sw_req4 ? ((readl(vdisp_dvfsrc_sw_req4) & 0x70) >> 4) : 0);
 
 	return ret;
 }
@@ -1243,8 +1310,14 @@ irqreturn_t mt6991_irq_handler(int irq, void *dev_id)
 	}
 
 	/* Panel TE */
-	if (disp_sta & BIT(18))
-		dpc_mmp(prete, MMPROFILE_FLAG_PULSE, 0, 0);
+	if (disp_sta & BIT(18)) {
+		if (mmpc_emi_req && mmpc_ddrsrc_req && spm_ddr_emi_req)
+			dpc_mmp(prete, MMPROFILE_FLAG_PULSE,
+				(readl(mmpc_emi_req) & 0xffff) << 16 | (readl(mmpc_ddrsrc_req) & 0xffff),
+				readl(spm_ddr_emi_req));
+		else
+			dpc_mmp(prete, MMPROFILE_FLAG_PULSE, 0, 0);
+	}
 	if (disp_sta & BIT(9)) {
 		u32 presz = DPC2_DT_PRESZ;
 
@@ -1415,6 +1488,12 @@ static int dpc_res_init(struct mtk_dpc *priv)
 		/* power check by dpc, instead of subsys_pm */
 		for (subsys = 0; subsys < DPC_SUBSYS_CNT; subsys++)
 			priv->mtcmos_cfg[subsys].chk_pa = priv->dpc_pa + priv->mtcmos_cfg[subsys].cfg + 0x8;
+
+		mmpc_emi_req = ioremap(0x31b5103c, 0x4);
+		mmpc_ddrsrc_req = ioremap(0x31b5101c, 0x4);
+		spm_ddr_emi_req = ioremap(0x1c00488c, 0x4);
+		vdisp_dvfsrc_sw_req4 = ioremap(0x31a9101c, 0x4);
+		clk_disp_sel = ioremap(0x1000c050, 0x4);
 	}
 
 	return IS_ERR_OR_NULL(dpc_base);
@@ -1531,22 +1610,29 @@ static int dpc_vidle_power_keep(const enum mtk_vidle_voter_user _user)
 
 	switch (user) {
 	case DISP_VIDLE_USER_MML1:
-		mtk_disp_wait_pwr_ack(DPC_SUBSYS_MML1);
+		ret = mtk_disp_wait_pwr_ack(DPC_SUBSYS_MML1);
 		break;
 	case DISP_VIDLE_USER_MML0:
-		mtk_disp_wait_pwr_ack(DPC_SUBSYS_MML0);
+		ret = mtk_disp_wait_pwr_ack(DPC_SUBSYS_MML0);
 		break;
 	case DISP_VIDLE_USER_PQ:
-		if (g_priv->root_dev) {
-			/* can only be used by USER_PQ, as it will not be used within ISR */
-			pm_runtime_get_sync(g_priv->root_dev);
-			mtk_disp_wait_pwr_ack(DPC_SUBSYS_DIS1);
-			mtk_disp_wait_pwr_ack(DPC_SUBSYS_DIS0);
+		if (g_priv->root_dev)
+			pm_runtime_get_sync(g_priv->root_dev); /* make sure power is on, must not in ISR */
+		mtk_disp_wait_pwr_ack(DPC_SUBSYS_DIS1);
+		ret = mtk_disp_wait_pwr_ack(DPC_SUBSYS_DIS0);
+		if (g_priv->root_dev)
 			pm_runtime_put_sync(g_priv->root_dev);
-		} else
-			udelay(post_vlp_delay);
 		break;
 	case DISP_VIDLE_USER_CRTC:
+		if (g_priv->root_dev)
+			pm_runtime_get_sync(g_priv->root_dev);
+		mtk_disp_wait_pwr_ack(DPC_SUBSYS_DIS1);
+		mtk_disp_wait_pwr_ack(DPC_SUBSYS_DIS0);
+		mtk_disp_wait_pwr_ack(DPC_SUBSYS_OVL0);
+		ret = mtk_disp_wait_pwr_ack(DPC_SUBSYS_OVL1);
+		if (g_priv->root_dev)
+			pm_runtime_put_sync(g_priv->root_dev);
+		break;
 	case DISP_VIDLE_USER_DISP_DPC_CFG:
 	case DISP_VIDLE_USER_DPC_DUMP:
 	case DISP_VIDLE_USER_SMI_DUMP:
@@ -1554,7 +1640,7 @@ static int dpc_vidle_power_keep(const enum mtk_vidle_voter_user _user)
 		mtk_disp_wait_pwr_ack(DPC_SUBSYS_DIS1);
 		mtk_disp_wait_pwr_ack(DPC_SUBSYS_DIS0);
 		mtk_disp_wait_pwr_ack(DPC_SUBSYS_OVL0);
-		mtk_disp_wait_pwr_ack(DPC_SUBSYS_OVL1);
+		ret = mtk_disp_wait_pwr_ack(DPC_SUBSYS_OVL1);
 		break;
 	default:
 		udelay(post_vlp_delay);
@@ -1580,8 +1666,15 @@ static void dpc_vidle_power_release(const enum mtk_vidle_voter_user user)
 
 static void dpc_clear_wfe_event(struct cmdq_pkt *pkt, enum mtk_vidle_voter_user user, int event)
 {
-	if (!has_cap(DPC_CAP_MTCMOS) && !debug_force_wait)
+	switch (wfe_prete) {
+	case 1:
+		break;
+	case 2:
 		return;
+	default:
+		if (!has_cap(DPC_CAP_MTCMOS))
+			return;
+	}
 
 	cmdq_pkt_clear_event(pkt, event);
 	cmdq_pkt_wfe(pkt, event);
@@ -1666,11 +1759,13 @@ static void dpc_analysis(void)
 		readl(dpc_base + g_priv->mtcmos_cfg[DPC_SUBSYS_MML0].cfg));
 
 	written += scnprintf(msg + written, 512 - written,
-		"vdisp[cfg val](%#04x %#04x)(%#04x %#04x) ",
+		"vdisp[cfg val](%#04x %#04x)(%#04x %#04x) swreq4(%#x) disp_sel(%#x) ",
 		readl(dpc_base + DISP_REG_DPC_DISP_VDISP_DVFS_CFG),
 		readl(dpc_base + DISP_REG_DPC_DISP_VDISP_DVFS_VAL),
 		readl(dpc_base + DISP_REG_DPC_MML_VDISP_DVFS_CFG),
-		readl(dpc_base + DISP_REG_DPC_MML_VDISP_DVFS_VAL));
+		readl(dpc_base + DISP_REG_DPC_MML_VDISP_DVFS_VAL),
+		vdisp_dvfsrc_sw_req4 ? (readl(vdisp_dvfsrc_sw_req4) & 0x70) >> 4 : 0,
+		clk_disp_sel ? (readl(clk_disp_sel) & 0x0f000000) >> 24 : 0);
 
 	written += scnprintf(msg + written, 512 - written,
 		"hrt[cfg val](%#010x %#06x)(%#010x %#06x) ",
@@ -1711,7 +1806,6 @@ static void dpc_analysis(void)
 	dpc_pm_ctrl(false);
 }
 
-#if IS_ENABLED(CONFIG_DEBUG_FS)
 static void dpc_dump(void)
 {
 	u32 i = 0;
@@ -1733,7 +1827,6 @@ static void dpc_dump(void)
 	}
 	dpc_pm_ctrl(false);
 }
-#endif
 
 static int dpc_pm_notifier(struct notifier_block *notifier, unsigned long pm_event, void *unused)
 {
@@ -1778,17 +1871,29 @@ static int dpc_vcp_notifier(struct notifier_block *nb, unsigned long vcp_event, 
 }
 #endif
 
+static int dpc_smi_force_on_callback(struct notifier_block *nb, unsigned long action, void *data)
+{
+	if (g_priv->root_dev) {
+		DPCFUNC("action(%lu)", action);
+		if (action == true) {
+			dpc_vidle_power_keep(DISP_VIDLE_USER_SMI_DUMP);
+			pm_runtime_get_sync(g_priv->root_dev);
+		} else {
+			pm_runtime_put_sync(g_priv->root_dev);
+			dpc_vidle_power_release(DISP_VIDLE_USER_SMI_DUMP);
+		}
+	}
+
+	return NOTIFY_DONE;
+}
 static int dpc_smi_pwr_get(void *data)
 {
-	dpc_vidle_power_keep(DISP_VIDLE_USER_SMI_DUMP);
-	g_priv->vidle_mask_bk = g_priv->vidle_mask;
-	g_priv->vidle_mask = 0;
+	DPCFUNC("+");
 	return 0;
 }
 static int dpc_smi_pwr_put(void *data)
 {
-	g_priv->vidle_mask = g_priv->vidle_mask_bk;
-	dpc_vidle_power_release(DISP_VIDLE_USER_SMI_DUMP);
+	DPCFUNC("-");
 	return 0;
 }
 static struct smi_user_pwr_ctrl dpc_smi_pwr_funcs = {
@@ -1799,7 +1904,6 @@ static struct smi_user_pwr_ctrl dpc_smi_pwr_funcs = {
 	 .smi_user_put = dpc_smi_pwr_put,
 };
 
-#if IS_ENABLED(CONFIG_DEBUG_FS)
 static void process_dbg_opt(const char *opt)
 {
 	int ret = 0;
@@ -1827,6 +1931,12 @@ static void process_dbg_opt(const char *opt)
 			writel(0xffffffff, g_priv->voter_clr_va);
 		else
 			writel(0xffffffff, g_priv->voter_set_va);
+	} else if (strncmp(opt, "swreq:", 6) == 0) {
+		ret = sscanf(opt, "swreq:%u\n", &v1);
+		if (ret != 1)
+			goto err;
+		if (vdisp_dvfsrc_sw_req4)
+			writel(v1 << 4, vdisp_dvfsrc_sw_req4);
 	}
 
 	if (!dpc_is_power_on()) {
@@ -1954,6 +2064,8 @@ static void process_dbg_opt(const char *opt)
 err:
 	DPCERR();
 }
+
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 static ssize_t fs_write(struct file *file, const char __user *ubuf, size_t count, loff_t *ppos)
 {
 	const u32 debug_bufmax = 512 - 1;
@@ -1999,13 +2111,12 @@ static const struct dpc_funcs funcs = {
 	.dpc_vidle_power_release_by_gce = dpc_vidle_power_release_by_gce,
 	.dpc_hrt_bw_set = dpc_hrt_bw_set,
 	.dpc_srt_bw_set = dpc_srt_bw_set,
+	.dpc_check_pll = dpc_check_pll,
 	.dpc_dvfs_set = dpc_dvfs_set,
 	.dpc_dvfs_trigger = dpc_dvfs_trigger,
 	.dpc_channel_bw_set_by_idx = dpc_channel_bw_set_by_idx,
 	.dpc_analysis = dpc_analysis,
-#if IS_ENABLED(CONFIG_DEBUG_FS)
 	.dpc_debug_cmd = process_dbg_opt,
-#endif
 };
 
 static struct mtk_dpc mt6989_dpc_driver_data = {
@@ -2108,8 +2219,11 @@ static int mtk_dpc_probe(struct platform_device *pdev)
 
 		if (node)
 			pdev = of_find_device_by_node(node);
-		if (pdev)
+		if (pdev) {
 			priv->root_dev = &pdev->dev;
+			if (!pm_runtime_enabled(priv->root_dev))
+				pm_runtime_enable(priv->root_dev);
+		}
 	}
 
 #if defined(DISP_VIDLE_ENABLE)
@@ -2137,6 +2251,9 @@ static int mtk_dpc_probe(struct platform_device *pdev)
 		DPCERR("register_pm_notifier failed %d", ret);
 		return ret;
 	}
+
+	priv->smi_nb.notifier_call = dpc_smi_force_on_callback;
+	mtk_smi_dbg_register_force_on_notifier(&priv->smi_nb);
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	priv->vcp_nb.notifier_call = dpc_vcp_notifier;
@@ -2172,8 +2289,8 @@ static int mtk_dpc_probe(struct platform_device *pdev)
 		/* set vdisp level */
 		// dpc_dvfs_set(DPC_SUBSYS_DISP, 0x4, true);
 
-		/* set channel bw for larb0 HRT READ */
-		dpc_ch_bw_set(DPC_SUBSYS_DISP, 2, 363 * 16);
+		/* set channel bw for the first HRT_READ layer, which is exdma3 currently */
+		dpc_ch_bw_set(DPC_SUBSYS_DISP, 6, 363 * 16);
 
 		/* set total HRT bw */
 		dpc_hrt_bw_set(DPC_SUBSYS_DISP, 363 * priv->total_hrt_unit, true);

@@ -173,7 +173,7 @@ unsigned int cpufreq_get_cci_mode(void)
 	mode = csram_read(OFFS_CCI_TBL_MODE);
 
 	if (mode > 1)
-		return -1;
+		return UINT_MAX;
 
 	return mode;
 }

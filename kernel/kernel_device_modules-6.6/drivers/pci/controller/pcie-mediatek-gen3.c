@@ -465,6 +465,9 @@ static int mtk_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 	if (ret_val)
 		return ret_val;
 
+	/* Only port0 use config read detect AER */
+	if (port->port_num != 0)
+		return 0;
 	/*
 	 * PCIe cannot read the config space of EP when an AER event occurs,
 	 * If rxerr, block PCIe data transmission and avoid system hang.
@@ -473,10 +476,10 @@ static int mtk_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
 	if (reg & PCIE_AER_EVT) {
 		writel_relaxed(PCIE_RC_CFG, port->base + PCIE_CFGNUM_REG);
 		reg = readl_relaxed(port->base + PCIE_AER_CO_STATUS);
-		if (reg & AER_CO_RE) {
+		if (reg & (AER_CO_RE | PCI_ERR_COR_REP_ROLL)) {
 			mtk_pcie_dump_link_info(port->port_num);
 			mtk_pcie_disable_data_trans(port->port_num);
-			dev_info(port->dev, "PCIe Rxerr detected!\n");
+			dev_info(port->dev, "PCIe Correctable Error:%#x detected!\n", reg);
 		}
 
 		reg = readl_relaxed(port->base + PCIE_AER_UNC_STATUS);
@@ -1320,17 +1323,26 @@ static void mtk_pcie_irq_handler(struct irq_desc *desc)
 				readl_relaxed(port->base + PCIE_AXI0_ERR_INFO),
 				cor_sta, uncor_sta);
 
-			if ((uncor_sta & PCI_ERR_UNC_COMP_TIME) || (status & PCIE_AXI_POST_ERR_EVT)) {
+			if ((uncor_sta & PCI_ERR_UNC_COMP_TIME) || (status & PCIE_AXI_POST_ERR_EVT))
 				mtk_pcie_disable_data_trans(port->port_num);
-				int_enable = readl_relaxed(port->base + PCIE_INT_ENABLE_REG);
-				int_enable &= ~PCIE_AER_EVT_EN;
-				writel_relaxed(int_enable, port->base + PCIE_INT_ENABLE_REG);
-			}
+
+			int_enable = readl_relaxed(port->base + PCIE_INT_ENABLE_REG);
+			int_enable &= ~PCIE_AER_EVT_EN;
+			writel_relaxed(int_enable, port->base + PCIE_INT_ENABLE_REG);
 		}
 
-		dev_info(port->dev, "PCIe error %#lx detected\n", status);
+		port->full_debug_dump = true;
 		mtk_pcie_dump_link_info(port->port_num);
+		port->full_debug_dump = false;
+		if (port->port_num == 0)
+			mtk_pcie_disable_data_trans(port->port_num);
+
+		int_enable = readl_relaxed(port->base + PCIE_INT_ENABLE_REG);
+		int_enable &= ~PCIE_AXI_POST_ERR_ENABLE;
+		writel_relaxed(int_enable, port->base + PCIE_INT_ENABLE_REG);
+
 		writel_relaxed(PCIE_AXI_POST_ERR_EVT, port->base + PCIE_INT_STATUS_REG);
+		dev_info(port->dev, "PCIe error %#lx detected\n", status);
 	}
 
 	for_each_set_bit_from(irq_bit, &status, PCI_NUM_INTX +
@@ -1624,8 +1636,6 @@ static void mtk_pcie_power_down(struct mtk_pcie_port *port)
 	struct device *dev = port->dev;
 	int err = 0;
 
-	clk_bulk_disable_unprepare(port->num_clks, port->clks);
-
 	if (!device_find_child(dev, NULL, match_any)) {
 		err = pm_runtime_put_sync(dev);
 		if (err)
@@ -1634,17 +1644,21 @@ static void mtk_pcie_power_down(struct mtk_pcie_port *port)
 		pm_runtime_disable(dev);
 	}
 
-	reset_control_assert(port->mac_reset);
-
 	phy_power_off(port->phy);
 	phy_exit(port->phy);
+
+	port->data->clkbuf_control(port, false);
+
+	/* Disable clocks and assert reset after MTCOMS off
+	 * to ensure the MTCOMS off sequence
+	 */
+	clk_bulk_disable_unprepare(port->num_clks, port->clks);
+	reset_control_assert(port->mac_reset);
 	reset_control_assert(port->phy_reset);
 
 	/* Set PCIe sw reset bit */
 	if (port->peri_reset_en)
 		mtk_pcie_peri_reset(port, true);
-
-	port->data->clkbuf_control(port, false);
 }
 
 static int mtk_pcie_setup(struct mtk_pcie_port *port)
@@ -1799,10 +1813,18 @@ static int mtk_pcie_remove(struct platform_device *pdev)
 {
 	struct mtk_pcie_port *port = platform_get_drvdata(pdev);
 	struct pci_host_bridge *host = pci_host_bridge_from_priv(port);
-	int err = 0;
+	struct resource *res;
+	char *name = "PCI Bus 0000:01";
+	int err = 0, i = 0;
 
 	if (port->rpm)
 		mtk_pcie_disable_host_bridge_rpm(port);
+
+	/* This for GKI timing issue, walkaround in driver */
+	for (i = 0; i < PCI_BRIDGE_RESOURCE_NUM; i++) {
+		res = port->pcidev->resource + PCI_BRIDGE_RESOURCES + i;
+		res->name = name;
+	}
 
 	pci_lock_rescan_remove();
 	pci_stop_root_bus(host->bus);
@@ -1969,6 +1991,14 @@ static void mtk_pcie_monitor_mac(struct mtk_pcie_port *port)
 		mtk_pcie_mac_dbg_read_bus(port, PCIE_DEBUG_SEL_BUS(0x4a, 0x4b, 0x4c, 0x4d));
 		mtk_pcie_mac_dbg_read_bus(port, PCIE_DEBUG_SEL_BUS(0x46, 0x51, 0x52, 0x0));
 		mtk_pcie_mac_dbg_read_bus(port, PCIE_DEBUG_SEL_BUS(0x5c, 0x5d, 0x5e, 0x0));
+		mtk_pcie_mac_dbg_set_partition(port, PCIE_DEBUG_SEL_PARTITION(0x7, 0x7, 0x7, 0x9));
+		mtk_pcie_mac_dbg_read_bus(port, PCIE_DEBUG_SEL_BUS(0xb, 0x13, 0x14, 0xb6));
+		mtk_pcie_mac_dbg_set_partition(port, PCIE_DEBUG_SEL_PARTITION(0x7, 0x8, 0x9, 0x9));
+		mtk_pcie_mac_dbg_read_bus(port, PCIE_DEBUG_SEL_BUS(0xf, 0x3, 0x98, 0xb6));
+		mtk_pcie_mac_dbg_set_partition(port, PCIE_DEBUG_SEL_PARTITION(0x9, 0x9, 0x9, 0x9));
+		mtk_pcie_mac_dbg_read_bus(port, PCIE_DEBUG_SEL_BUS(0xb4, 0xb5, 0x52, 0x53));
+		mtk_pcie_mac_dbg_set_partition(port, PCIE_DEBUG_SEL_PARTITION(0x9, 0xc, 0x7, 0x8));
+		mtk_pcie_mac_dbg_read_bus(port, PCIE_DEBUG_SEL_BUS(0xb0, 0x4e, 0x0d, 0x40));
 	}
 
 	pr_info("Port%d, ltssm reg:%#x, link sta:%#x, power sta:%#x, LP ctrl:%#x, IP basic sta:%#x, int sta:%#x, msi set0 sta: %#x, msi set1 sta: %#x, axi err add:%#x, axi err info:%#x, spm res ack=%#x, adt pending sta:=%#x, err addr_l=%#x, err addr_h=%#x, err info=%#x, IF_CTRL=%#x, phy err=%#x\n",
@@ -2489,6 +2519,10 @@ static int mtk_pcie_control_vote_v2(struct mtk_pcie_port *port, bool hw_mode_en,
 	int err = 0;
 	u32 val;
 
+	/* 6991 RC no need vote */
+	if (!who)
+		return 0;
+
 	spin_lock_irqsave(&port->vote_lock, flags);
 
 	if (who)
@@ -2951,10 +2985,6 @@ int mtk_pcie_soft_on(struct pci_bus *bus)
 	mtk_pcie_irq_restore(port);
 	mtk_pcie_save_restore_cfg(port, false);
 
-	/* The detection range is AER enable to soft on done */
-	if (port->port_num == 0)
-		port->aer_detect = false;
-
 	dev_info(port->dev, "mtk pcie soft on done\n");
 
 	return ret;
@@ -3180,8 +3210,6 @@ static int mtk_pcie_pre_init_6991(struct mtk_pcie_port *port)
 		val = readl_relaxed(port->base + PCIE_AXI_IF_CTRL);
 		val |= SW_CPLTO_DATA_SEL;
 		writel_relaxed(val, port->base + PCIE_AXI_IF_CTRL);
-		/* Detect Completion timeout before wifi on */
-		port->aer_detect = true;
 	}
 
 	/* bypass PMRC signal */

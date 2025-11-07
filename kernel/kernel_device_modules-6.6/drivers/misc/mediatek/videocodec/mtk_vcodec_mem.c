@@ -18,7 +18,6 @@ struct mtk_vcodec_queue *mtk_vcodec_mem_init(struct device *dev)
 	vcodec_queue = vzalloc(sizeof(struct mtk_vcodec_queue));
 	if (vcodec_queue == NULL) {
 		pr_info("Allocate new vcu queue fail!\n");
-		vfree(vcodec_queue);
 		return NULL;
 	}
 	vcodec_queue->dev = dev;
@@ -36,8 +35,7 @@ void mtk_vcodec_mem_release(struct mtk_vcodec_queue *vcodec_queue)
 	unsigned int buffer;
 
 	mutex_lock(&vcodec_queue->mmap_lock);
-	pr_debug("[%s] Release code queue ,  Num_buffers :%d\n",
-		__func__, vcodec_queue->num_buffers);
+	pr_debug("[%s] Release code queue ,  Num_buffers :%d\n", __func__, vcodec_queue->num_buffers);
 	if (vcodec_queue->num_buffers != 0) {
 		for (buffer = 0; buffer < vcodec_queue->num_buffers; buffer++) {
 			vcodec_buffer = &vcodec_queue->bufs[buffer];
@@ -49,10 +47,10 @@ void mtk_vcodec_mem_release(struct mtk_vcodec_queue *vcodec_queue)
 
 				atomic_set(&vcodec_buffer->ref_cnt, 0);
 				pr_debug("Free %d dbuf = %p size = %d mem_priv = %lx ref_cnt = %d\n",
-				 buffer, vcodec_buffer->dbuf,
-				 (unsigned int)vcodec_buffer->size,
-				 (unsigned long)vcodec_buffer->mem_priv,
-				 atomic_read(&vcodec_buffer->ref_cnt));
+				buffer, vcodec_buffer->dbuf,
+				(unsigned int)vcodec_buffer->size,
+				(unsigned long)vcodec_buffer->mem_priv,
+				atomic_read(&vcodec_buffer->ref_cnt));
 			}
 		}
 	}
@@ -139,11 +137,11 @@ void *mtk_vcodec_get_buffer(struct device *dev, struct mtk_vcodec_queue *vcodec_
 	mutex_unlock(&vcodec_queue->mmap_lock);
 
 	pr_debug("[%s] nob:%d iova: %llx size: %d mem_priv: %lx useAlloc:%d, state: %d refcnt %d\n",
-		__func__, vcodec_queue->num_buffers, mem_buff_data->iova,
-		(unsigned int)vcodec_buf->size,
-		(unsigned long)vcodec_buf->mem_priv, vcodec_buf->useAlloc,
-		vcodec_buf->dbuf->sysfs_entry->kobj.state_initialized,
-		atomic_read(&vcodec_buf->ref_cnt));
+	__func__, vcodec_queue->num_buffers, mem_buff_data->iova,
+	(unsigned int)vcodec_buf->size,
+	(unsigned long)vcodec_buf->mem_priv, vcodec_buf->useAlloc,
+	vcodec_buf->dbuf->sysfs_entry->kobj.state_initialized,
+	atomic_read(&vcodec_buf->ref_cnt));
 
 	return vcodec_buf->mem_priv;
 }
@@ -172,7 +170,7 @@ int mtk_vcodec_free_buffer(struct mtk_vcodec_queue *vcodec_queue,
 	num_buf = vcodec_queue->num_buffers;
 
 	pr_debug("Free buffer iova = %llx, len %d queue_num = %d\n",
-		mem_buff_data->iova, mem_buff_data->len, num_buf);
+	mem_buff_data->iova, mem_buff_data->len, num_buf);
 	if (num_buf != 0U) {
 		for (i = 0; i < num_buf; i++) {
 			vcodec_buf = &vcodec_queue->bufs[i];
@@ -189,7 +187,7 @@ int mtk_vcodec_free_buffer(struct mtk_vcodec_queue *vcodec_queue,
 				mem_buff_data->len == vcodec_buf->size &&
 				atomic_read(&vcodec_buf->ref_cnt) == 1) {
 				pr_debug("Free buffer index = %d iova = %x, queue_num = %d\n",
-					i, (unsigned int)mem_buff_data->iova, num_buf);
+				i, (unsigned int)mem_buff_data->iova, num_buf);
 				pr_debug("[%s] iova = %x size = %d mem_priv = %lx, useAlloc:%d\n",
 				__func__, (unsigned int)vcodec_buf->iova, (unsigned int)vcodec_buf->size,
 				(unsigned long)vcodec_buf->mem_priv, vcodec_buf->useAlloc);

@@ -831,7 +831,7 @@ void check_for_migration(struct task_struct *p)
 #if IS_ENABLED(CONFIG_MTK_PRIO_TASK_CONTROL)
 			(cpu_cap_ceiling(new_cpu) > cpu_cap_ceiling(cpu)) && !is_low_prio_task)) {
 #else
-			(cpu_cap_ceiling(new_cpu) <= cpu_cap_ceiling(cpu)))
+			(cpu_cap_ceiling(new_cpu) <= cpu_cap_ceiling(cpu)))) {
 #endif
 			raw_spin_unlock(&migration_lock);
 

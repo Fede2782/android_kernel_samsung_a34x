@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: BSD-2-Clause */
 /*
  * Copyright (c) 2021 MediaTek Inc.
  */
@@ -42,17 +42,17 @@ static uint8_t aucCSIBuf[CSI_MAX_BUFFER_SIZE];
  *                              F U N C T I O N S
  *******************************************************************************
  */
-struct CSI_INFO_T *glCsiGetCSIInfo(struct GLUE_INFO *prGlueInfo)
+struct CSI_INFO_T *glCsiGetCSIInfo(void)
 {
 	return &rCSIInfo;
 }
 
-uint8_t *glCsiGetCSIBuf(struct GLUE_INFO *prGlueInfo)
+uint8_t *glCsiGetCSIBuf(void)
 {
 	return aucCSIBuf;
 }
 
-struct CSI_DATA_T *glCsiGetCSIData(struct GLUE_INFO *prGlueInfo)
+struct CSI_DATA_T *glCsiGetCSIData(void)
 {
 	return rCSIInfo.prCSIData;
 }

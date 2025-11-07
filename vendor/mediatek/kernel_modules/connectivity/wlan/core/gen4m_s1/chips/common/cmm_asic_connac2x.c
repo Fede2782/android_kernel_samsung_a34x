@@ -322,18 +322,83 @@ void asicConnac2xFillInitCmdTxd(
 	}
 }
 
+void asicConnac2xWfdmaRecord(
+	struct ADAPTER *prAdapter)
+{
+#if defined(_HIF_AXI)
+	struct GL_HIF_INFO *prHifInfo = &prAdapter->prGlueInfo->rHifInfo;
+	struct RTMP_TX_RING *prTxRing;
+	u_int32_t u4Idx = 0;
+
+	for (u4Idx = 0; u4Idx < NUM_OF_TX_RING; u4Idx++) {
+		prTxRing = &prHifInfo->TxRing[u4Idx];
+		if (!prTxRing->hw_cnt_addr)
+			continue;
+		HAL_MCR_RD(prAdapter, prTxRing->hw_cidx_addr,
+			   &prTxRing->TxCpuIdxRec);
+		HAL_MCR_RD(prAdapter, prTxRing->hw_didx_addr,
+			   &prTxRing->TxDmaIdxRec);
+	}
+#endif
+}
+
+void asicConnac2xWfdmaChkIdxMisMatch(
+	u_int32_t u4Idx, struct RTMP_TX_RING *prTxRing)
+{
+	if ((prTxRing->TxCpuIdx != prTxRing->TxCpuIdxRec) ||
+		(prTxRing->TxDmaIdx != prTxRing->TxDmaIdxRec)) {
+		DBGLOG(HAL, ERROR,
+			"P[%u] Idx not match cidx[%u], cidxRec[%u], didx[%u], didxRec[%u]",
+			u4Idx,
+			prTxRing->TxCpuIdx, prTxRing->TxCpuIdxRec,
+			prTxRing->TxDmaIdx, prTxRing->TxDmaIdxRec);
+	}
+}
+
 void asicConnac2xWfdmaDummyCrRead(
 	struct ADAPTER *prAdapter,
 	u_int8_t *pfgResult)
 {
+#if defined(_HIF_AXI)
+	struct GL_HIF_INFO *prHifInfo = &prAdapter->prGlueInfo->rHifInfo;
+	struct RTMP_TX_RING *prTxRing;
+	struct BUS_INFO *prBusInfo = prAdapter->chip_info->bus_info;
+	u_int32_t u4Idx = 0;
+#endif
 	u_int32_t u4RegValue = 0;
 
 	HAL_MCR_RD(prAdapter,
 		CONNAC2X_WFDMA_DUMMY_CR,
 		&u4RegValue);
-	*pfgResult = (u4RegValue &
-		CONNAC2X_WFDMA_NEED_REINIT_BIT)
-		== 0 ? TRUE : FALSE;
+
+#if defined(_HIF_AXI)
+	*pfgResult = TRUE;
+	for (u4Idx = 0; u4Idx < NUM_OF_TX_RING; u4Idx++) {
+		prTxRing = &prHifInfo->TxRing[u4Idx];
+		if (!prTxRing->hw_cnt_addr)
+			continue;
+		HAL_MCR_RD(prAdapter, prTxRing->hw_cidx_addr,
+			   &prTxRing->TxCpuIdx);
+		HAL_MCR_RD(prAdapter, prTxRing->hw_didx_addr,
+			   &prTxRing->TxDmaIdx);
+		if (prTxRing->TxCpuIdx != 0 ||
+			prTxRing->TxDmaIdx != 0) {
+			*pfgResult = FALSE;
+
+			if (prBusInfo->checkIdxMismatch)
+				prBusInfo->checkIdxMismatch(u4Idx, prTxRing);
+		}
+	}
+
+	if (*pfgResult) {
+		DBGLOG(HAL, INFO,
+			"CpuIdx == 0, DmdIdx == 0, DmyCr[0x%08x]",
+			u4RegValue);
+	}
+#else /* !_HIF_AXI */
+	*pfgResult = (u4RegValue & CONNAC2X_WFDMA_NEED_REINIT_BIT) == 0 ?
+		TRUE : FALSE;
+#endif /* !_HIF_AXI */
 }
 
 

@@ -218,37 +218,45 @@ int get_cpu_level(void)
 {
 	unsigned int lv = CPU_LEVEL_0;
 	struct device_node *node;
-	struct nvmem_cell *efuse_cell;
+	struct nvmem_cell *efuse_cell = NULL;
 	size_t efuse_len;
-	unsigned int *efuse_buf;
+	unsigned int *efuse_buf = NULL;
 	unsigned int val = 0;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6833-dvfsp");
 	if (!node) {
 		pr_info("%s: fail to get device node\n", __func__);
-		return 0;
+		goto exit;
 	}
 	efuse_cell = of_nvmem_cell_get(node, "efuse_segment_cell");
 	if (IS_ERR(efuse_cell)) {
 		pr_info("@%s: cannot get efuse_cell, errno %ld\n",
 			__func__, PTR_ERR(efuse_cell));
-		return 0;
+		goto exit;
 	}
 	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	if (!efuse_buf) {
+		upower_info("efuse_buff NULL line: %d", __LINE__);
+		goto exit;
+	}
 	val = *efuse_buf;
-	nvmem_cell_put(efuse_cell);
-	kfree(efuse_buf);
+
 	if (val < 3 && val > 0)
 		lv = CPU_LEVEL_0;
 	else if (val == 6)
 		lv = CPU_LEVEL_2;
 	else
 		lv = CPU_LEVEL_1;
-#ifdef MTK_5GCM_PROJECT
-	lv = CPU_LEVEL_1;
-#endif
 
+	if (of_property_read_bool(node, "mtk_5gcm_project"))
+		lv = CPU_LEVEL_1;
+exit:
 	upower_info("CPU_LEVEL_%d, efuse_val = 0x%x\n", lv, val);
+
+	kfree(efuse_buf);
+	if(efuse_cell)
+		nvmem_cell_put(efuse_cell);
+	of_node_put(node);
 
 	return lv;
 }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BSD-2-Clause
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2020 MediaTek Inc.
  */
@@ -26,6 +26,7 @@
  *******************************************************************************
  */
 #define MET_LOG_TAG		"MCU_MET_DATA"
+#define WIFI_MODULE_ID		"03"
 
 /*******************************************************************************
  *                            P U B L I C   D A T A
@@ -42,21 +43,21 @@
  *******************************************************************************
  */
 void met_log_print_data(uint8_t *buffer, uint32_t size,
-	uint32_t module_id, uint32_t project_id, uint32_t chip_id)
+	uint32_t project_id, uint32_t chip_id)
 {
 	uint32_t *pu4StartAddr = (uint32_t *) buffer;
 	uint8_t *pucAddr;
 	uint32_t u4Length = size;
 
-	DBGLOG(MET, DEBUG,
+	DBGLOG(MET, INFO,
 		"DUMP ADDRESS: 0x%p, Length: %d\n",
 		pu4StartAddr, u4Length);
 
 	while (u4Length > 0) {
 		if (u4Length >= 8) {
-			DBGLOG(MET, DEBUG,
-				"%s:0%d%d%04X0000,%08x%08x\n",
-				MET_LOG_TAG, module_id,
+			DBGLOG(MET, INFO,
+				"%s:%s%d%04X0000,%08x%08x\n",
+				MET_LOG_TAG, WIFI_MODULE_ID,
 				project_id, chip_id,
 				pu4StartAddr[1], pu4StartAddr[0]);
 			pu4StartAddr += 2;
@@ -65,216 +66,60 @@ void met_log_print_data(uint8_t *buffer, uint32_t size,
 			switch (u4Length) {
 			case 1:
 				pucAddr = (uint8_t *) &pu4StartAddr[0];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x\n",
-					MET_LOG_TAG, module_id,
+				DBGLOG(MET, INFO,
+					"%s:%s%d%04X0000,%02x\n",
+					MET_LOG_TAG, WIFI_MODULE_ID,
 					project_id, chip_id,
 					pucAddr[0]);
 				break;
 			case 2:
 				pucAddr = (uint8_t *) &pu4StartAddr[0];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%02x\n",
-					MET_LOG_TAG, module_id,
+				DBGLOG(MET, INFO,
+					"%s:%s%d%04X0000,%02x%02x\n",
+					MET_LOG_TAG, WIFI_MODULE_ID,
 					project_id, chip_id,
 					pucAddr[1], pucAddr[0]);
 				break;
 			case 3:
 				pucAddr = (uint8_t *) &pu4StartAddr[0];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%02x%02x\n",
-					MET_LOG_TAG, module_id,
+				DBGLOG(MET, INFO,
+					"%s:%s%d%04X0000,%02x%02x%02x\n",
+					MET_LOG_TAG, WIFI_MODULE_ID,
 					project_id, chip_id,
 					pucAddr[2], pucAddr[1], pucAddr[0]);
 				break;
 			case 4:
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%08x\n",
-					MET_LOG_TAG, module_id,
+				DBGLOG(MET, INFO,
+					"%s:%s%d%04X0000,%08x\n",
+					MET_LOG_TAG, WIFI_MODULE_ID,
 					project_id, chip_id,
 					pu4StartAddr[0]);
 				break;
 			case 5:
 				pucAddr = (uint8_t *) &pu4StartAddr[1];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%08x\n",
-					MET_LOG_TAG, module_id,
+				DBGLOG(MET, INFO,
+					"%s:%s%d%04X0000,%02x%08x\n",
+					MET_LOG_TAG, WIFI_MODULE_ID,
 					project_id, chip_id,
 					pucAddr[0], pu4StartAddr[0]);
 				break;
 			case 6:
 				pucAddr = (uint8_t *) &pu4StartAddr[1];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%02x%08x\n",
-					MET_LOG_TAG, module_id,
+				DBGLOG(MET, INFO,
+					"%s:%s%d%04X0000,%02x%02x%08x\n",
+					MET_LOG_TAG, WIFI_MODULE_ID,
 					project_id, chip_id,
 					pucAddr[1], pucAddr[0],
 					pu4StartAddr[0]);
 				break;
 			case 7:
 				pucAddr = (uint8_t *) &pu4StartAddr[1];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%02x%02x%08x\n",
-					MET_LOG_TAG, module_id,
+				DBGLOG(MET, INFO,
+					"%s:%s%d%04X0000,%02x%02x%02x%08x\n",
+					MET_LOG_TAG, WIFI_MODULE_ID,
 					project_id, chip_id,
 					pucAddr[2], pucAddr[1], pucAddr[0],
 					pu4StartAddr[0]);
-				break;
-			}
-			u4Length = 0;
-		}
-	}
-}
-
-void met_log_print_long_data(uint8_t *buffer, uint32_t size,
-	uint32_t module_id, uint32_t project_id, uint32_t chip_id)
-{
-	uint32_t *pu4StartAddr = (uint32_t *) buffer;
-	uint8_t *pucAddr;
-	uint32_t u4Length = size;
-
-	DBGLOG(MET, DEBUG,
-		"DUMP ADDRESS: 0x%p, Length: %d\n",
-		pu4StartAddr, u4Length);
-
-	while (u4Length > 0) {
-		if (u4Length >= 16) {
-			DBGLOG(MET, DEBUG,
-				"%s:0%d%d%04X0000,%08x%08x%08x%08x\n",
-				MET_LOG_TAG, module_id,
-				project_id, chip_id,
-				pu4StartAddr[3], pu4StartAddr[2],
-				pu4StartAddr[1], pu4StartAddr[0]);
-			pu4StartAddr += 4;
-			u4Length -= 16;
-		} else {
-			switch (u4Length) {
-			case 1:
-				pucAddr = (uint8_t *) &pu4StartAddr[0];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x\n",
-					MET_LOG_TAG, module_id,
-					project_id, chip_id,
-					pucAddr[0]);
-				break;
-			case 2:
-				pucAddr = (uint8_t *) &pu4StartAddr[0];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%02x\n",
-					MET_LOG_TAG, module_id,
-					project_id, chip_id,
-					pucAddr[1], pucAddr[0]);
-				break;
-			case 3:
-				pucAddr = (uint8_t *) &pu4StartAddr[0];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%02x%02x\n",
-					MET_LOG_TAG, module_id,
-					project_id, chip_id,
-					pucAddr[2], pucAddr[1], pucAddr[0]);
-				break;
-			case 4:
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%08x\n",
-					MET_LOG_TAG, module_id,
-					project_id, chip_id,
-					pu4StartAddr[0]);
-				break;
-			case 5:
-				pucAddr = (uint8_t *) &pu4StartAddr[1];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%08x\n",
-					MET_LOG_TAG, module_id,
-					project_id, chip_id,
-					pucAddr[0], pu4StartAddr[0]);
-				break;
-			case 6:
-				pucAddr = (uint8_t *) &pu4StartAddr[1];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%02x%08x\n",
-					MET_LOG_TAG, module_id,
-					project_id, chip_id,
-					pucAddr[1], pucAddr[0],
-					pu4StartAddr[0]);
-				break;
-			case 7:
-				pucAddr = (uint8_t *) &pu4StartAddr[1];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%02x%02x%08x\n",
-					MET_LOG_TAG, module_id,
-					project_id, chip_id,
-					pucAddr[2], pucAddr[1], pucAddr[0],
-					pu4StartAddr[0]);
-				break;
-			case 8:
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%08x%08x\n",
-					MET_LOG_TAG, module_id,
-					project_id, chip_id,
-					pu4StartAddr[1], pu4StartAddr[0]);
-				break;
-			case 9:
-				pucAddr = (uint8_t *) &pu4StartAddr[2];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%08x%08x\n",
-					MET_LOG_TAG, module_id,
-					project_id, chip_id,
-					pucAddr[0],
-					pu4StartAddr[1], pu4StartAddr[0]);
-				break;
-			case 10:
-				pucAddr = (uint8_t *) &pu4StartAddr[2];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%02x%08x%08x\n",
-					MET_LOG_TAG, module_id,
-					project_id, chip_id,
-					pucAddr[1], pucAddr[0],
-					pu4StartAddr[1], pu4StartAddr[0]);
-				break;
-			case 11:
-				pucAddr = (uint8_t *) &pu4StartAddr[2];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%02x%02x%08x%08x\n",
-					MET_LOG_TAG, module_id,
-					project_id, chip_id,
-					pucAddr[2], pucAddr[1], pucAddr[0],
-					pu4StartAddr[1], pu4StartAddr[0]);
-				break;
-			case 12:
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%08x%08x%08x\n",
-					MET_LOG_TAG, module_id,
-					project_id, chip_id,
-					pu4StartAddr[2],
-					pu4StartAddr[1], pu4StartAddr[0]);
-				break;
-			case 13:
-				pucAddr = (uint8_t *) &pu4StartAddr[3];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%08x%08x%08x\n",
-					MET_LOG_TAG, module_id,
-					project_id, chip_id,
-					pucAddr[0], pu4StartAddr[2],
-					pu4StartAddr[1], pu4StartAddr[0]);
-				break;
-			case 14:
-				pucAddr = (uint8_t *) &pu4StartAddr[3];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%02x%08x%08x%08x\n",
-					MET_LOG_TAG, module_id,
-					project_id, chip_id,
-					pucAddr[1], pucAddr[0], pu4StartAddr[2],
-					pu4StartAddr[1], pu4StartAddr[0]);
-				break;
-			case 15:
-				pucAddr = (uint8_t *) &pu4StartAddr[3];
-				DBGLOG(MET, DEBUG,
-					"%s:0%d%d%04X0000,%02x%02x%02x%08x%08x%08x\n",
-					MET_LOG_TAG, module_id,
-					project_id, chip_id,
-					pucAddr[2], pucAddr[1],
-					pucAddr[0], pu4StartAddr[2],
-					pu4StartAddr[1], pu4StartAddr[0]);
 				break;
 			}
 			u4Length = 0;
@@ -284,26 +129,34 @@ void met_log_print_long_data(uint8_t *buffer, uint32_t size,
 
 int met_log_start(struct GLUE_INFO *prGlueInfo)
 {
-#if defined(CFG_MTK_CONNSYS_DEDICATED_LOG_PATH) && (CFG_SUPPORT_CONNINFRA == 1)
+#ifdef CFG_MTK_CONNSYS_DEDICATED_LOG_PATH
+#if (CFG_SUPPORT_CONNINFRA == 1)
 	struct conn_metlog_info rMetInfo;
 	phys_addr_t u4ConEmiPhyBase = 0;
 	uint32_t u4EmiMetOffset = 0;
 #endif
+#endif
 
-	DBGLOG(MET, DEBUG, "Start MET log.\n");
+	DBGLOG(MET, INFO, "Start MET log.\n");
 
+#if (CFG_SUPPORT_CONNAC3X == 1)
 #if CFG_MTK_WIFI_MET_LOG_EMI
 	return met_log_emi_init(prGlueInfo->prAdapter);
+#endif
 #else
-#if defined(CFG_MTK_CONNSYS_DEDICATED_LOG_PATH) && (CFG_SUPPORT_CONNINFRA == 1)
+#ifdef CFG_MTK_CONNSYS_DEDICATED_LOG_PATH
+#if (CFG_SUPPORT_CONNINFRA == 1)
 	u4ConEmiPhyBase = emi_mem_get_phy_base(
 				prGlueInfo->prAdapter->chip_info);
 	u4EmiMetOffset = emi_mem_offset_convert(
 				kalGetEmiMetOffset());
 
-	DBGLOG(MET, DEBUG, "u4ConEmiPhyBase:%pa", &u4ConEmiPhyBase);
+	DBGLOG(MET, INFO,
+		"u4ConEmiPhyBase:%llx",
+		u4ConEmiPhyBase);
 	if (!u4ConEmiPhyBase) {
-		DBGLOG(MET, ERROR, "conninfra_get_phy_addr error.\n");
+		DBGLOG(MET, ERROR,
+			"conninfra_get_phy_addr error.\n");
 		return -1;
 	}
 
@@ -316,24 +169,29 @@ int met_log_start(struct GLUE_INFO *prGlueInfo)
 	rMetInfo.output_len = 64;
 
 	return conn_metlog_start(&rMetInfo);
-#else
+#endif
+#endif
+#endif
+
 	return 0;
-#endif
-#endif
 }
 
 int met_log_stop(struct GLUE_INFO *prGlueInfo)
 {
-	DBGLOG(MET, DEBUG, "Stop MET log.\n");
+	DBGLOG(MET, INFO, "Stop MET log.\n");
 
+#if (CFG_SUPPORT_CONNAC3X == 1)
 #if CFG_MTK_WIFI_MET_LOG_EMI
 	return met_log_emi_deinit(prGlueInfo->prAdapter);
+#endif
 #else
-#if defined(CFG_MTK_CONNSYS_DEDICATED_LOG_PATH) && (CFG_SUPPORT_CONNINFRA == 1)
+#ifdef CFG_MTK_CONNSYS_DEDICATED_LOG_PATH
+#if (CFG_SUPPORT_CONNINFRA == 1)
 	return conn_metlog_stop(CONNDRV_TYPE_WIFI);
-#else
+#endif
+#endif
+#endif
+
 	return 0;
-#endif
-#endif
 }
 #endif /* CFG_SUPPORT_MET_LOG */
