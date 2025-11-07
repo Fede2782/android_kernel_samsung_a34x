@@ -46,7 +46,7 @@ export DEFCONFIG_OVERLAYS="sec_ogki_fragment.config mt6877_overlay.config mt6877
 export PROJECT="mgk_64_k66"
 export MODE="user"
 export SOURCE_DATE_EPOCH="$(date +%s)"
-export BUILD_NUMBER="ogkiA346BXXUBEYI7"
+export SEC_BUILDNUMBER="ogkiA346BXXUBEYI7"
 
 chmod +x ./kernel_device_modules-6.6/build.sh
 ./kernel_device_modules-6.6/build.sh
