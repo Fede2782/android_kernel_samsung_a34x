@@ -17,6 +17,17 @@ chmod a+x bin/repo
 mkdir aosp-kernel && cd aosp-kernel
 repo init -u https://android.googlesource.com/kernel/manifest -b common-android15-6.6 --depth=1
 repo sync -j$(nproc --all)
+cd prebuilts/clang/host/linux-x86
+wget -O clang-r536225.tar.gz https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel-2025/clang-r536225.tar.gz
+mkdir clang-r536225; cd clang-r536225
+tar xvzf ../clang-r536225.tar.gz
+rm ../clang-r536225.tar.gz
+cd ..
+cd kleaf
+sed -i '/# keep sorted/a\    "r536225",' versions.bzl
+cat versions.bzl
+cd ..
+cd ../../../../
 ln -s "$(pwd)/prebuilts" "$(pwd)/../kernel/prebuilts"
 cd ..
 
@@ -35,6 +46,7 @@ done
 sed -i "s/-maybe-dirty//g" "build/kernel/kleaf/impl/stamp.bzl"
 sed -i "s/stable_scmversion_cmd = _get_status_at_path.*/stable_scmversion_cmd = \"echo \'\'\"/g" "build/kernel/kleaf/impl/stamp.bzl"
 sed -i 's|SOURCE_DATE_EPOCH=0|SOURCE_DATE_EPOCH=\\"$(date +%s)\\"|' "kernel_device_modules-6.6/scripts/gen_build_config.py"
+sed -i "s/r510928/r536225/" "kernel-6.6/build.config.constants"
 
 python kernel_device_modules-6.6/scripts/gen_build_config.py --kernel-defconfig mediatek-bazel_defconfig --kernel-defconfig-overlays "sec_ogki_fragment.config mt6877_overlay.config mt6877_teegris_5_overlay.config" --kernel-build-config-overlays "" -m user -o ../out/target/product/a34x/obj/KERNEL_OBJ/build.config
 
