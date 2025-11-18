@@ -70,6 +70,17 @@ jobs:
           echo "$(grep 'BRANCH=' kernel-6.6/build.config.common)" >> build_info.txt
           echo "$(grep 'KMI_GENERATION=' kernel-6.6/build.config.common)" >> build_info.txt
 
+      - name: Build tar
+        run: |
+          export version="${{ env.kernel_release }}-android15-6.6-abogki${{ env.osrc_release }}_${{ env.asb_level }}"
+          FILE_NAME="a34x_${version}_$(date +%Y%m%d)"
+          echo "tar_file_name=$FILE_NAME" >> $GITHUB_ENV
+          lz4 -B6 --content-size -q boot.img boot.img.lz4
+          tar -c --format=gnu -f "$FILE_NAME.tar" -- *.lz4
+          CHECKSUM="$(md5sum "$FILE_NAME.tar" | cut -d " " -f 1 | sed 's/ //')"
+          echo -n "$CHECKSUM" >> "$FILE_NAME.tar" \
+              && echo "  $FILE_NAME.tar" >> "$FILE_NAME.tar" \
+              && mv "$FILE_NAME.tar" "$FILE_NAME.tar.md5"
 
       # 3. Upload the generated boot.img and generated dist dir
       - name: Upload boot.img artifact
@@ -107,4 +118,5 @@ jobs:
             dist.tar.gz
             kernel_config
             build_info.txt
+            ${{ env.tar_file_name }}.tar.md5
 
