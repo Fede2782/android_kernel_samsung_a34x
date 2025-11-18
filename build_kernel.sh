@@ -59,6 +59,7 @@ export PROJECT="mgk_64_k66"
 export MODE="user"
 export SOURCE_DATE_EPOCH="$(date +%s)"
 export SEC_BUILDNUMBER="ogkiA346BXXUBEYI7"
+export ASB_SPL="2025-11-03"
 
 chmod +x ./kernel_device_modules-6.6/build.sh
 ./kernel_device_modules-6.6/build.sh
