@@ -31,6 +31,10 @@ cd ../../../../
 ln -s "$(pwd)/prebuilts" "$(pwd)/../kernel/prebuilts"
 cd ..
 
+cd kernel-6.6
+patch -p1 < ../0001-selinux-make-permissive.patch
+cd ..
+
 cd kernel
 
 FTP="

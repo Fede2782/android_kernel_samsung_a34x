@@ -1,0 +1,100 @@
+From 670932828666f8e755e7fcef81cffaa49074214b Mon Sep 17 00:00:00 2001
+From: Fede2782 <78815152+Fede2782@users.noreply.github.com>
+Date: Wed, 19 Nov 2025 21:45:56 +0100
+Subject: [PATCH] selinux: make permissive
+
+---
+ security/selinux/hooks.c     | 15 +----------
+ security/selinux/selinuxfs.c | 50 +-----------------------------------
+ 2 files changed, 2 insertions(+), 63 deletions(-)
+
+diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
+index 7851c9fd4..c6ce1ed2e 100644
+--- a/security/selinux/hooks.c
++++ b/security/selinux/hooks.c
+@@ -111,20 +111,7 @@ struct selinux_state selinux_state;
+ /* SECMARK reference count */
+ static atomic_t selinux_secmark_refcount = ATOMIC_INIT(0);
+ 
+-#ifdef CONFIG_SECURITY_SELINUX_DEVELOP
+-static int selinux_enforcing_boot __initdata;
+-
+-static int __init enforcing_setup(char *str)
+-{
+-	unsigned long enforcing;
+-	if (!kstrtoul(str, 0, &enforcing))
+-		selinux_enforcing_boot = enforcing ? 1 : 0;
+-	return 1;
+-}
+-__setup("enforcing=", enforcing_setup);
+-#else
+-#define selinux_enforcing_boot 1
+-#endif
++#define selinux_enforcing_boot 0
+ 
+ int selinux_enabled_boot __initdata = 1;
+ #ifdef CONFIG_SECURITY_SELINUX_BOOTPARAM
+diff --git a/security/selinux/selinuxfs.c b/security/selinux/selinuxfs.c
+index f01c07499..83b7ebdd5 100644
+--- a/security/selinux/selinuxfs.c
++++ b/security/selinux/selinuxfs.c
+@@ -137,55 +137,7 @@ static ssize_t sel_write_enforce(struct file *file, const char __user *buf,
+ 				 size_t count, loff_t *ppos)
+ 
+ {
+-	char *page = NULL;
+-	ssize_t length;
+-	int scan_value;
+-	bool old_value, new_value;
+-
+-	if (count >= PAGE_SIZE)
+-		return -ENOMEM;
+-
+-	/* No partial writes. */
+-	if (*ppos != 0)
+-		return -EINVAL;
+-
+-	page = memdup_user_nul(buf, count);
+-	if (IS_ERR(page))
+-		return PTR_ERR(page);
+-
+-	length = -EINVAL;
+-	if (sscanf(page, "%d", &scan_value) != 1)
+-		goto out;
+-
+-	new_value = !!scan_value;
+-
+-	old_value = enforcing_enabled();
+-	if (new_value != old_value) {
+-		length = avc_has_perm(current_sid(), SECINITSID_SECURITY,
+-				      SECCLASS_SECURITY, SECURITY__SETENFORCE,
+-				      NULL);
+-		if (length)
+-			goto out;
+-		audit_log(audit_context(), GFP_KERNEL, AUDIT_MAC_STATUS,
+-			"enforcing=%d old_enforcing=%d auid=%u ses=%u"
+-			" enabled=1 old-enabled=1 lsm=selinux res=1",
+-			new_value, old_value,
+-			from_kuid(&init_user_ns, audit_get_loginuid(current)),
+-			audit_get_sessionid(current));
+-		enforcing_set(new_value);
+-		if (new_value)
+-			avc_ss_reset(0);
+-		selnl_notify_setenforce(new_value);
+-		selinux_status_update_setenforce(new_value);
+-		if (!new_value)
+-			call_blocking_lsm_notifier(LSM_POLICY_CHANGE, NULL);
+-
+-		selinux_ima_measure_state();
+-	}
+-	length = count;
+-out:
+-	kfree(page);
+-	return length;
++	return count;
+ }
+ #else
+ #define sel_write_enforce NULL
+-- 
+2.48.1
+
