@@ -684,7 +684,6 @@ static bool kbase_mmu_handle_isolated_pgd_page(struct kbase_device *kbdev,
 		if (IS_PAGE_ISOLATED(page_md->status)) {
 			page_md->status =
 				PAGE_STATUS_SET(page_md->status, FREE_PT_ISOLATED_IN_PROGRESS);
-			page_md->data.free_pt_isolated.kbdev = kbdev;
 			page_is_isolated = true;
 		} else {
 			page_md->status = PAGE_STATUS_SET(page_md->status, FREE_IN_PROGRESS);
@@ -2773,7 +2772,6 @@ static void kbase_mmu_progress_migration_on_teardown(struct kbase_device *kbdev,
 				if (IS_PAGE_ISOLATED(page_md->status)) {
 					page_md->status = PAGE_STATUS_SET(
 						page_md->status, (u8)FREE_ISOLATED_IN_PROGRESS);
-					page_md->data.free_isolated.kbdev = kbdev;
 					/* At this point, we still have a reference
 					 * to the page via its page migration metadata,
 					 * and any page with the FREE_ISOLATED_IN_PROGRESS
@@ -4019,7 +4017,7 @@ static void mmu_undo_migrate_pgd_sub_page(struct kbase_mmu_table *mmut, phys_add
 					  phys_addr_t new_pgd_phys, dma_addr_t new_pgd_dma_addr,
 					  u64 pgd_vpfn_level)
 {
-	struct kbase_device *kbdev = mmut->kctx->kbdev;
+	struct kbase_device *kbdev;
 	u64 vpfn = PGD_VPFN_LEVEL_GET_VPFN(pgd_vpfn_level);
 	int level = PGD_VPFN_LEVEL_GET_LEVEL(pgd_vpfn_level);
 	unsigned int index = (vpfn >> ((3 - level) * 9)) & 0x1FFU;
@@ -4028,7 +4026,8 @@ static void mmu_undo_migrate_pgd_sub_page(struct kbase_mmu_table *mmut, phys_add
 	phys_addr_t parent_pgd;
 	u64 managed_pte;
 
-	lockdep_assert_held(&mmut->kctx->reg_lock);
+	kbdev = mmut->kctx->kbdev;
+
 	lockdep_assert_held(&mmut->mmu_lock);
 
 	if (mmu_get_pgd_at_level(kbdev, mmut, vpfn, level, &parent_pgd)) {
@@ -4088,7 +4087,6 @@ static int mmu_migrate_pgd_sub_page(struct kbase_mmu_table *mmut, phys_addr_t ol
 
 	kbdev = mmut->kctx->kbdev;
 
-	lockdep_assert_held(&mmut->kctx->reg_lock);
 	lockdep_assert_held(&mmut->mmu_lock);
 
 	/* Create all mappings before copying content.
@@ -4336,8 +4334,6 @@ int kbase_mmu_migrate_pgd_page(struct tagged_addr old_pgd_phys, struct tagged_ad
 	if (WARN_ON_ONCE(new_pgd_phys_addr & ~PAGE_MASK))
 		return -EINVAL;
 
-	lockdep_assert_held(&mmut->kctx->reg_lock);
-
 	/* The state was evaluated before entering this function, but it could
 	 * have changed before the mmu_lock was taken. However, the state
 	 * transitions which are possible at this point are only two, and in both
@@ -4492,8 +4488,6 @@ int kbase_mmu_migrate_data_page(struct tagged_addr old_phys, struct tagged_addr 
 	 */
 	if (!mmut->kctx)
 		return -EINVAL;
-
-	lockdep_assert_held(&mmut->kctx->reg_lock);
 
 	kbdev = mmut->kctx->kbdev;
 	index = vpfn & 0x1FFU;

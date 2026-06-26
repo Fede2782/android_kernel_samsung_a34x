@@ -334,6 +334,7 @@
 	{feature_immutable_root,"/apex/com.android.virt/bin/virtmgr:/data/misc/virtualizationservice/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/apexd:/data/apex/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/apexd:/data/app-staging/"},	/* DEFAULT */
+	{feature_immutable_root,"/system/bin/apexd:/data/misc/apexdata/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/apexd:/data/misc/apexrollback/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/apexd:/data/misc_ce/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/apexd:/data/misc_de/"},	/* DEFAULT */
@@ -401,9 +402,7 @@
 	{feature_immutable_root,"/system/bin/storaged:/data/misc_ce/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/toybox:/data/anr"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/toybox:/data/app/"},	/* DEFAULT */
-	{feature_immutable_root,"/system/bin/toybox:/data/data/com.android.cts.install.lib.testapp.A/"},	/* DEFAULT */
-	{feature_immutable_root,"/system/bin/toybox:/data/data/com.android.cts.install.lib.testapp.B/"},	/* DEFAULT */
-	{feature_immutable_root,"/system/bin/toybox:/data/data/com.google.android.gts.rollback"},	/* DEFAULT */
+	{feature_immutable_root,"/system/bin/toybox:/data/data/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/toybox:/data/local/tmp/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/toybox:/data/local/traces/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/toybox:/data/log/"},	/* DEFAULT */
@@ -420,6 +419,7 @@
 	{feature_immutable_root,"/system/bin/toybox:/data/sec_maintenance/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/toybox:/data/sec_pass/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/toybox:/data/system/packages.list"},	/* DEFAULT */
+	{feature_immutable_root,"/system/bin/toybox:/data/user/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/toybox:/data/user_de/0/com.android.cts.install.lib.testapp.A/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/toybox:/data/user_de/0/com.android.cts.install.lib.testapp.B/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/toybox:/data/user_de/0/com.google.android.gts.rollback"},	/* DEFAULT */
@@ -450,6 +450,7 @@
 	{feature_immutable_root,"/system/bin/vold:/data/sec_backup_de/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/vold:/data/sec_backup_sys_de/vold/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/vold:/data/sec_backup_unencrypted/"},	/* DEFAULT */
+	{feature_immutable_root,"/system/bin/vold:/data/sec_backup_v2/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/vold:/data/sec_maintenance/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/vold:/data/sec_pass/"},	/* DEFAULT */
 	{feature_immutable_root,"/system/bin/vold:/data/system/users/"},	/* DEFAULT */
