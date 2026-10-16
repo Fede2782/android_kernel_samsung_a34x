@@ -23,7 +23,7 @@
 #define mdw_cmd_show(c, f) \
 	f("cmd(0x%llx/0x%llx/0x%llx/0x%llx/%d/%u)param(%u/%u/%u/%u/"\
 	"%u/%u/%u/%u/%u/%llu)subcmds(%u/%pK/%u/%u)pid(%d/%d)(%d)\n", \
-	(uint64_t) c->mpriv, c->uid, c->kid, c->rvid, c->id, kref_read(&c->ref), \
+	c->mpriv->id, c->uid, c->kid, c->rvid, c->id, kref_read(&c->ref), \
 	c->priority, c->hardlimit, c->softlimit, \
 	c->power_save, c->power_plcy, c->power_dtime, \
 	c->app_type, c->inference_ms, c->tolerance_ms, c->is_dtime_set, \

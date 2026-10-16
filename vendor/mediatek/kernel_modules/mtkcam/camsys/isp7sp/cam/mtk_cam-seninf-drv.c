@@ -251,6 +251,7 @@ static void dbg_deinit_chmux(struct seninf_ctx *ctx)
 	if (!ctx)
 		return;
 
+	mutex_lock(&ctx->dbg_chmux_mutex);
 	if (ctx->dbg_chmux_param) {
 		kfree(ctx->dbg_chmux_param->settings);
 		ctx->dbg_chmux_param->settings = NULL;
@@ -259,6 +260,7 @@ static void dbg_deinit_chmux(struct seninf_ctx *ctx)
 		kfree(ctx->dbg_chmux_param);
 		ctx->dbg_chmux_param = NULL;
 	}
+	mutex_unlock(&ctx->dbg_chmux_mutex);
 }
 
 static void dbg_init_chmux(struct seninf_ctx *ctx)
@@ -268,8 +270,10 @@ static void dbg_init_chmux(struct seninf_ctx *ctx)
 
 	dbg_deinit_chmux(ctx);
 
+	mutex_lock(&ctx->dbg_chmux_mutex);
 	ctx->dbg_chmux_param = kzalloc(sizeof(struct mtk_cam_seninf_mux_param),
 				       GFP_KERNEL);
+	mutex_unlock(&ctx->dbg_chmux_mutex);
 }
 
 static void dbg_commit_chmux(struct seninf_ctx *ctx)
@@ -277,8 +281,10 @@ static void dbg_commit_chmux(struct seninf_ctx *ctx)
 	if (!ctx)
 		return;
 
-	if (ctx->dbg_chmux_param)
+	mutex_lock(&ctx->dbg_chmux_mutex);
+	if (ctx->dbg_chmux_param && ctx->streaming)
 		mtk_cam_seninf_streaming_mux_change(ctx->dbg_chmux_param);
+	mutex_unlock(&ctx->dbg_chmux_mutex);
 }
 
 static void dbg_set_camtg(struct seninf_ctx *ctx, int pad_id, int camtg, int tag_id)
@@ -289,6 +295,7 @@ static void dbg_set_camtg(struct seninf_ctx *ctx, int pad_id, int camtg, int tag
 	if (!ctx)
 		return;
 
+	mutex_lock(&ctx->dbg_chmux_mutex);
 	if (ctx->dbg_chmux_param) {
 		num = ctx->dbg_chmux_param->num + 1;
 		if (num < 1) {
@@ -320,6 +327,7 @@ static void dbg_set_camtg(struct seninf_ctx *ctx, int pad_id, int camtg, int tag
 		mtk_cam_seninf_set_camtg_camsv(&ctx->subdev,
 					       pad_id, camtg, tag_id);
 	}
+	mutex_unlock(&ctx->dbg_chmux_mutex);
 }
 
 static ssize_t debug_ops_store(struct device *dev,
@@ -3209,6 +3217,7 @@ static int seninf_probe(struct platform_device *pdev)
 
 	ctx->open_refcnt = 0;
 	mutex_init(&ctx->mutex);
+	mutex_init(&ctx->dbg_chmux_mutex);
 
 	ret = get_csi_port(dev, &port);
 	if (ret) {
@@ -3964,6 +3973,7 @@ static int seninf_remove(struct platform_device *pdev)
 	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
 
 	mutex_destroy(&ctx->mutex);
+	mutex_destroy(&ctx->dbg_chmux_mutex);
 
 	return 0;
 }

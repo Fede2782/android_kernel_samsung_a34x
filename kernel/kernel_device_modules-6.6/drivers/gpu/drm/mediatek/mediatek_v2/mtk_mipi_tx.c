@@ -8378,6 +8378,33 @@ static const struct mtk_mipitx_data mt6833_mipitx_data = {
 	.refill_mipitx_impedance = refill_mipitx_impedance,
 };
 
+static const struct mtk_mipitx_data mt6833_mipitx_cphy_data = {
+	.mppll_preserve = (0 << 8),
+	.dsi_pll_sdm_pcw_chg = RG_DSI_PLL_SDM_PCW_CHG,
+	.dsi_pll_en = RG_DSI_PLL_EN,
+	.ck_sw_ctl_en = MIPITX_CK_SW_CTL_EN,
+	.d0_sw_ctl_en = MIPITX_D0_SW_CTL_EN,
+	.d1_sw_ctl_en = MIPITX_D1_SW_CTL_EN,
+	.d2_sw_ctl_en = MIPITX_D2_SW_CTL_EN,
+	.d3_sw_ctl_en = MIPITX_D3_SW_CTL_EN,
+	.d0_sw_lptx_pre_oe = MIPITX_D0_SW_LPTX_PRE_OE,
+	.d0c_sw_lptx_pre_oe = MIPITX_D0C_SW_LPTX_PRE_OE,
+	.d1_sw_lptx_pre_oe = MIPITX_D1_SW_LPTX_PRE_OE,
+	.d1c_sw_lptx_pre_oe = MIPITX_D1C_SW_LPTX_PRE_OE,
+	.d2_sw_lptx_pre_oe = MIPITX_D2_SW_LPTX_PRE_OE,
+	.d2c_sw_lptx_pre_oe = MIPITX_D2C_SW_LPTX_PRE_OE,
+	.d3_sw_lptx_pre_oe = MIPITX_D3_SW_LPTX_PRE_OE,
+	.d3c_sw_lptx_pre_oe = MIPITX_D3C_SW_LPTX_PRE_OE,
+	.ck_sw_lptx_pre_oe = MIPITX_CK_SW_LPTX_PRE_OE,
+	.ckc_sw_lptx_pre_oe = MIPITX_CKC_SW_LPTX_PRE_OE,
+	.pll_prepare = mtk_mipi_tx_pll_cphy_prepare_mt6873,
+	.pll_unprepare = mtk_mipi_tx_pll_cphy_unprepare_mt6873,
+	.dsi_get_pcw = _dsi_get_pcw,
+	.dsi_get_data_rate = _dsi_get_data_rate,
+	.backup_mipitx_impedance = backup_mipitx_impedance,
+	.refill_mipitx_impedance = refill_mipitx_impedance,
+};
+
 static const struct mtk_mipitx_data mt6877_mipitx_data = {
 	.mppll_preserve = (0 << 8),
 	.dsi_pll_sdm_pcw_chg = RG_DSI_PLL_SDM_PCW_CHG,
@@ -8595,6 +8622,8 @@ static const struct of_device_id mtk_mipi_tx_match[] = {
 	{.compatible = "mediatek,mt6835-mipi-tx", .data = &mt6835_mipitx_data},
 	{.compatible = "mediatek,mt6873-mipi-tx-cphy",
 		.data = &mt6873_mipitx_cphy_data},
+	{.compatible = "mediatek,mt6833-mipi-tx-cphy",
+		.data = &mt6833_mipitx_cphy_data},
 	{.compatible = "mediatek,mt6879-mipi-tx-cphy",
 		.data = &mt6879_mipitx_cphy_data},
 	{.compatible = "mediatek,mt6885-mipi-tx-cphy",

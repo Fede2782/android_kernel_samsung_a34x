@@ -1410,10 +1410,6 @@
 #define ELEM_EXT_ID_MAX_NUM \
 	256 /* EXT_ID: 0-255 */
 
-
-#define MBO_IE_VENDOR_TYPE 0x506f9a16
-#define MBO_OUI_TYPE 22
-
 /* MBO v0.0_r19, 4.2: MBO Attributes */
 /* Table 4-5: MBO Attributes */
 /* OCE v0.0.10, Table 4-3: OCE Attributes */
@@ -2259,10 +2255,20 @@ enum ENUM_MTK_OUI_CHIP_CAP {
 #define VENDOR_OUI_TYPE_WPS                         4
 #define VENDOR_OUI_TYPE_P2P                         9
 #define VENDOR_OUI_TYPE_WFD                         10
+#define VENDOR_OUI_TYPE_HS20                        16
 #define VENDOR_OUI_TYPE_MBO                         22
 #define VENDOR_OUI_TYPE_OWE                         28
+#define VENDOR_OUI_TYPE_RSNO                        41
+#define VENDOR_OUI_TYPE_RSNO2                       42
+#define VENDOR_OUI_TYPE_RSNXO                       43
+#define VENDOR_OUI_TYPE_RSN_SEL			    44
 
+#define VENDOR_IE_WFA_SPECIFIC_OUI		    0x506f9a
 #define VENDOR_IE_TYPE_MBO                          0x506f9a16
+#define VENDOR_IE_TYPE_RSNO			    0x506f9a29
+#define VENDOR_IE_TYPE_RSNO2			    0x506f9a2a
+#define VENDOR_IE_TYPE_RSNXO			    0x506f9a2b
+#define VENDOR_IE_TYPE_RSN_SEL			    0x506f9a2c
 
 /* Epigram IE */
 #define VENDOR_IE_EPIGRAM_OUI                      0x00904c
@@ -2278,10 +2284,6 @@ enum ENUM_MTK_OUI_CHIP_CAP {
 /* Customer Vendor Specific IE*/
 #define VENDOR_IE_SAMSUNG_OUI                      0x0000F0
 
-#if CFG_SUPPORT_PASSPOINT
-#define VENDOR_OUI_TYPE_HS20                        16
-#endif /* CFG_SUPPORT_PASSPOINT */
-
 /* Length of OUI and Type */
 #define VENDOR_OUI_TYPE_LEN                         4
 
@@ -2289,6 +2291,7 @@ enum ENUM_MTK_OUI_CHIP_CAP {
  * fields for WMM in WFA IE
  */
 /* Little Endian Format */
+#define VERSION_RSN                             0x0001
 #define VERSION_WPA                             0x0001
 #define VENDOR_OUI_SUBTYPE_VERSION_WMM_INFO     0x0100
 #define VENDOR_OUI_SUBTYPE_VERSION_WMM_PARAM    0x0101
@@ -2576,7 +2579,8 @@ enum ENUM_MTK_OUI_CHIP_CAP {
 
 /* Include Entension Transmit PSD Information field */
 #define TX_PWR_ENV_MAX_PWR_CNT \
-	((TX_PWR_ENV_INFO_TXPWR_COUNT_MAX) + (TX_PWR_ENV_INFO_TXPWR_PSD_EXT_COUNT_MAX) + 1)
+	((TX_PWR_ENV_INFO_TXPWR_COUNT_MAX) + \
+		(TX_PWR_ENV_INFO_TXPWR_PSD_EXT_COUNT_MAX) + 1)
 
 #define TX_PWR_ENV_INFO_GET_TXPWR_COUNT(_ucTxPwrInfo) \
 	((_ucTxPwrInfo & TX_PWR_ENV_INFO_TXPWR_COUNT_MASK) \
@@ -4579,7 +4583,7 @@ struct _ACTION_ML_TWT_SETUP_FRAME_PER_LINK_DISTINCT {
 } __KAL_ATTRIB_PACKED__;
 #endif
 
-/* 3 Information Elements from WFA. */
+/* Information Elements from WFA. */
 __KAL_ATTRIB_PACKED_FRONT__
 struct IE_WFA {
 	uint8_t ucId;
@@ -4589,6 +4593,33 @@ struct IE_WFA {
 	uint8_t aucOuiSubTypeVersion[2];
 	/*!< Please be noted. WPA defines a 16 bit field version */
 	/* instead of one subtype field and one version field */
+} __KAL_ATTRIB_PACKED__;
+
+/* Information Elements from WFA. */
+__KAL_ATTRIB_PACKED_FRONT__
+struct IE_WFA_SPECIFIC {
+	uint8_t ucId;
+	uint8_t ucLength;
+	uint8_t aucOui[3];
+	uint8_t ucOuiType;
+	uint8_t aucInfoElem[];
+} __KAL_ATTRIB_PACKED__;
+
+/* WPA3 specification - RSN Selection element */
+enum ENUM_RSN_SELECTION_VARIANT {
+	RSN_SELECTION_RSNE = 0,
+	RSN_SELECTION_RSNE_OVERRIDE = 1,
+	RSN_SELECTION_RSNE_OVERRIDE_2 = 2,
+};
+
+/* Information Elements from WFA for RSN Selection. */
+__KAL_ATTRIB_PACKED_FRONT__
+struct IE_WFA_RSN_SELECTION {
+	uint8_t ucId;
+	uint8_t ucLength;
+	uint8_t aucOui[3];
+	uint8_t ucOuiType;
+	uint8_t ucVariant;
 } __KAL_ATTRIB_PACKED__;
 
 #if CFG_SUPPORT_PASSPOINT

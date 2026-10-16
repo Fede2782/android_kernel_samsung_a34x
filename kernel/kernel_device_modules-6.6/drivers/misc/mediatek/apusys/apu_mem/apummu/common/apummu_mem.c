@@ -117,7 +117,7 @@ static int ammu_dmabuf_attach(struct dma_buf *dbuf,
 	int ret = 0;
 	struct sg_table *table;
 
-	AMMU_LOG_VERBO("dbuf(0x%llx)\n", (uint64_t)dbuf);
+	AMMU_LOG_VERBO("dbuf(0x%pK)\n", dbuf);
 
 	a = kzalloc(sizeof(*a), GFP_KERNEL);
 	if (!a)
@@ -150,7 +150,7 @@ static void ammu_dmabuf_detach(struct dma_buf *dbuf,
 	struct apummu_mem *m = dbuf->priv;
 	struct ammu_mem_dma *mdbuf = m->priv;
 
-	AMMU_LOG_VERBO("dbuf(0x%llx)\n", (uint64_t)dbuf);
+	AMMU_LOG_VERBO("dbuf(0x%pK)\n", dbuf);
 
 	mutex_lock(&mdbuf->mtx);
 	list_del(&a->node);
@@ -166,7 +166,7 @@ static void ammu_dmabuf_release(struct dma_buf *dbuf)
 	struct apummu_mem *m = dbuf->priv;
 	struct ammu_mem_dma *mdbuf = m->priv;
 
-	AMMU_LOG_VERBO("dbuf(0x%llx) release\n", (uint64_t)dbuf);
+	AMMU_LOG_VERBO("dbuf(0x%pK) release\n", dbuf);
 
 	sg_free_table(&mdbuf->sgt);
 	vunmap(mdbuf->vaddr);
@@ -210,8 +210,7 @@ static int ammu_mem_dma_allocate_sgt(const char *buf,
 	}
 
 	p = buf - offset_in_page(buf);
-	AMMU_LOG_VERBO("start p: 0x%llx buf: 0x%llx\n",
-			(uint64_t) p, (uint64_t) buf);
+	AMMU_LOG_VERBO("start p: 0x%pK buf: 0x%pK\n", p, buf);
 
 	for (index = 0; index < nr_pages; index++) {
 		if (is_vmalloc_addr(p))
@@ -366,8 +365,8 @@ static int ammu_mem_map_create(struct device *dev, struct apummu_mem *m)
 
 	/* check iova and size */
 	if (!m->iova || !m->dva_size) {
-		AMMU_LOG_ERR("can't get mem(0x%llx) iova(0x%llx/%u)\n",
-			(uint64_t)m, m->iova, m->dva_size);
+		AMMU_LOG_ERR("can't get mem(0x%pK) iova(0x%llx/%u)\n",
+			m, m->iova, m->dva_size);
 		ret = -ENOMEM;
 		goto unmap_dbuf;
 	}

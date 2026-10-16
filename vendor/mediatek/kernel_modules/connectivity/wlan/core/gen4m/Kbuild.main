@@ -1458,6 +1458,15 @@ else
     ccflags-y += -DCFG_SUPPORT_BTM_OFFLOAD=0
 endif
 
+ifeq ($(CONFIG_SUPPORT_RSNO), n)
+    ccflags-y += -DCFG_SUPPORT_RSNO=0
+else
+    ccflags-y += -DCFG_SUPPORT_RSNO=1
+    ifneq ($(CONFIG_DEFAULT_ENABLE_RSNO),)
+        ccflags-y += -DCFG_DEFAULT_ENABLE_RSNO=$(CONFIG_DEFAULT_ENABLE_RSNO)
+    endif
+endif
+
 ifeq ($(CONFIG_MTK_WIFI_POWER_THROTTLING), y)
 ccflags-y += -DCFG_SUPPORT_POWER_THROTTLING=1
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/connectivity/power_throttling

@@ -2124,6 +2124,10 @@ static void mtk_aie_device_run(void *priv)
 	}
 
 	if (fd->aie_cfg->sel_mode == FLDMODE) {
+		if (g_user_param.user_param.fld_face_num > FLD_MAX_INPUT){
+			aie_dev_info(fd->dev, "g_user_param.user_param.fld_face_num is too large\n");
+			return;
+		}
 		fd->aie_cfg->fld_face_num = g_user_param.user_param.fld_face_num;
 		memcpy(fd->aie_cfg->fld_input, g_user_param.user_param.fld_input,
 		sizeof(struct FLD_CROP_RIP_ROP)*g_user_param.user_param.fld_face_num);

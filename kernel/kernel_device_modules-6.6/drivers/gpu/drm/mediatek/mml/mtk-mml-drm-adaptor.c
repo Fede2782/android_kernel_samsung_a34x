@@ -577,9 +577,9 @@ static void drm_task_move_to_idle(struct mml_task *task)
 
 	mml_msg("[drm]%s task cnt (%u %u %hhu) couple %d",
 		__func__,
-		task->config->await_task_cnt,
-		task->config->run_task_cnt,
-		task->config->done_task_cnt,
+		cfg->await_task_cnt,
+		cfg->run_task_cnt,
+		cfg->done_task_cnt,
 		mml_dev_get_couple_cnt(dctx->ctx.mml));
 }
 

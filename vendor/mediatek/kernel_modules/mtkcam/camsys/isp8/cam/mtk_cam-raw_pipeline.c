@@ -4046,8 +4046,14 @@ struct mtk_raw_pipeline *mtk_raw_pipeline_create(struct device *dev, int n)
 {
 	if (n <= 0)
 		return NULL;
-	return devm_kcalloc(dev, n, sizeof(struct mtk_raw_pipeline),
-			    GFP_KERNEL);
+
+	return vzalloc(n * sizeof(struct mtk_raw_pipeline));
+}
+
+void mtk_raw_pipeline_delete(struct mtk_raw_pipeline *pipe)
+{
+	if (pipe != NULL)
+		vfree(pipe);
 }
 
 int mtk_raw_setup_dependencies(struct mtk_cam_device *cam_dev)

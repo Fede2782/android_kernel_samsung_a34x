@@ -99,11 +99,11 @@
 /* Define our driver version */
 #define NIC_DRIVER_MAJOR_VERSION        4
 #define NIC_DRIVER_MINOR_VERSION        4
-#define NIC_DRIVER_SERIAL_VERSION       0
+#define NIC_DRIVER_SERIAL_VERSION       4
 #define NIC_DRIVER_VERSION              (NIC_DRIVER_MAJOR_VERSION, \
 					 NIC_DRIVER_MINOR_VERSION, \
 					 NIC_DRIVER_SERIAL_VERSION)
-#define NIC_DRIVER_VERSION_STRING       "4.4.0"
+#define NIC_DRIVER_VERSION_STRING       "4.4.4"
 
 /*******************************************************************************
  *                             D A T A   T Y P E S

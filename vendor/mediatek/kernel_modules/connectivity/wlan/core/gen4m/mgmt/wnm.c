@@ -513,7 +513,7 @@ void wnmSendBTMResponseFrame(struct ADAPTER *adapter,
 		 */
 		*pucOptInfo++ = ELEM_ID_VENDOR;
 		*pucOptInfo++ = 7;
-		WLAN_SET_FIELD_BE32(pucOptInfo, MBO_IE_VENDOR_TYPE);
+		WLAN_SET_FIELD_BE32(pucOptInfo, VENDOR_IE_TYPE_MBO);
 		pucOptInfo += 4;
 		*pucOptInfo++ = MBO_ATTR_ID_TRANSITION_REJECT_REASON;
 		*pucOptInfo++ = 1;

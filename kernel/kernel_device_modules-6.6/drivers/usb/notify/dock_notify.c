@@ -610,6 +610,37 @@ static void check_unsupport_device(struct usb_device *dev)
 	}
 }
 
+static void check_usbvideo(struct usb_device *dev)
+{
+	struct usb_interface *intf;
+	struct usb_host_interface *alts;
+	unsigned int i;
+
+	if (!dev) {
+		unl_err("%s no dev\n", __func__);
+		goto done;
+	}
+
+	if (!dev->actconfig) {
+		unl_err("%s no set config\n", __func__);
+		goto done;
+	}
+
+	for (i = 0; i < dev->actconfig->desc.bNumInterfaces; i++) {
+		intf = dev->actconfig->interface[i];
+		alts = intf->cur_altsetting;
+
+		if (alts->desc.bInterfaceClass == USB_CLASS_VIDEO) {
+			unl_info("%s disable autosuspend\n", __func__);
+			usb_disable_autosuspend(dev);
+			break;
+		}
+	}
+
+done:
+	return;
+}
+
 static int dev_notify(struct notifier_block *self,
 			       unsigned long action, void *dev)
 {
@@ -624,6 +655,7 @@ static int dev_notify(struct notifier_block *self,
 		check_unsupport_device(dev);
 		check_usbaudio(dev);
 		check_usbgroup(dev);
+		check_usbvideo(dev);
 		break;
 	case USB_DEVICE_REMOVE:
 		call_device_notify(dev, 0);

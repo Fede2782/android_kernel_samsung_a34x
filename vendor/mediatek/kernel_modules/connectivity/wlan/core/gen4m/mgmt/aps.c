@@ -1692,11 +1692,19 @@ uint8_t apsSanityCheckBssDesc(struct ADAPTER *prAdapter,
 	struct BSS_TRANSITION_MGT_PARAM *prBtmParam;
 	uint32_t i;
 #endif
+#if (CFG_EXT_ROAMING == 1)
+	struct ROAMING_INFO *roam;
+	struct ROAMING_REPORT_INFO *report;
+#endif
 
 	ais = aisGetAisFsmInfo(prAdapter, ucBssIndex);
 	prAisBssInfo = aisGetAisBssInfo(prAdapter, ucBssIndex);
 	conn = aisGetConnSettings(prAdapter, ucBssIndex);
 	policy = conn->eConnectionPolicy;
+#if (CFG_EXT_ROAMING == 1)
+	roam = aisGetRoamingInfo(prAdapter, ucBssIndex);
+	report = aisGetRoamingReport(prAdapter, ucBssIndex);
+#endif
 
 	if (!prBssDesc->fgIsInUse) {
 		DBGLOG(APS, WARN, MACSTR" is not in use\n",
@@ -1956,6 +1964,18 @@ uint8_t apsSanityCheckBssDesc(struct ADAPTER *prAdapter,
 		return FALSE;
 	}
 
+#if (CFG_EXT_ROAMING == 1)
+	if ((roam->rRoamingDiscoveryUpdateTime > report->rRoamingStartTime) &&
+	    (prBssDesc->rUpdateTime < report->rRoamingStartTime)) {
+		DBGLOG(APS, WARN, "BSS[" MACSTR
+			"] scan missed, updateTime=%u, startTime=%u\n",
+			MAC2STR(prBssDesc->aucBSSID),
+			prBssDesc->rUpdateTime,
+			report->rRoamingStartTime);
+		return FALSE;
+	}
+#endif
+
 	/* BTO case */
 	if (prBssDesc->fgIsInBTO) {
 		DBGLOG(APS, WARN, MACSTR " is in BTO.\n",
@@ -2144,7 +2164,7 @@ try_again:
 
 	if (cand) {
 		if (IS_AIS_CONN_BSSDESC(ais, cand) &&
-		    !search_blk && link->u4NumElem > 1) {
+		    !search_blk && link->u4NumElem > 0) {
 			search_blk = TRUE;
 			goto try_again;
 		}
@@ -2154,7 +2174,7 @@ try_again:
 	}
 
 	/* if No Candidate BSS is found, try BSSes which are in blocklist */
-	if (!search_blk && link->u4NumElem > 1) {
+	if (!search_blk && link->u4NumElem > 0) {
 		search_blk = TRUE;
 		goto try_again;
 	}
@@ -2993,6 +3013,7 @@ struct BSS_DESC *apsFillBssDescSet(struct ADAPTER *ad,
 			set->aprBssDesc[i] = set->aprBssDesc[0];
 			set->aprBssDesc[0] = bss;
 			found = "connected_link";
+#if (CFG_EXT_ROAMING == 0)
 		} else if (set->aprBssDesc[0]->ucJoinFailureCount > 1 &&
 		    !IS_AIS_CONN_BSSDESC(ais, bss) &&
 		    bss->ucJoinFailureCount <
@@ -3000,6 +3021,7 @@ struct BSS_DESC *apsFillBssDescSet(struct ADAPTER *ad,
 			set->aprBssDesc[i] = set->aprBssDesc[0];
 			set->aprBssDesc[0] = bss;
 			found = "bad_main_link";
+#endif
 		} else if (IS_FEATURE_ENABLED(ad->rWifiVar.ucStaPreferMldAddr)
 			   && EQUAL_MAC_ADDR(bss->aucBSSID, ap->aucAddr)) {
 			set->aprBssDesc[i] = set->aprBssDesc[0];

@@ -2124,6 +2124,21 @@ static const struct wiphy_vendor_command
 		.policy = VENDOR_CMD_RAW_DATA,
 #endif
 	},
+	{
+		{
+			.vendor_id = OUI_QCA,
+			.subcmd = QCA_NL80211_VENDOR_SUBCMD_CONNECT_EXT
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV
+				| WIPHY_VENDOR_CMD_NEED_NETDEV
+				| WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.doit = mtk_cfg80211_vendor_connect_ext
+#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+		,
+		.policy = nla_connect_ext_policy,
+		.maxattr = QCA_WLAN_VENDOR_ATTR_CONNECT_EXT_MAX
+#endif
+	},
 };
 
 static const struct nl80211_vendor_cmd_info
@@ -7737,7 +7752,7 @@ int32_t wlanOnAtReset(void)
 	struct ADAPTER *prAdapter = NULL;
 	uint32_t rStatus = WLAN_STATUS_SUCCESS;
 	uint32_t u4BufLen = 0;
-	uint32_t u4DisconnectReason = DISCONNECT_REASON_CODE_CHIPRESET;
+	struct PARAM_DISCONNECT_REASON rDisconnectReason = {0};
 	uint32_t u4Idx = 0;
 
 	enum ENUM_PROBE_FAIL_REASON {
@@ -7789,6 +7804,9 @@ int32_t wlanOnAtReset(void)
 
 	prGlueInfo->ulFlag = 0;
 	fgSimplifyResetFlow = FALSE;
+	rDisconnectReason.ucReasonOfDisconnect =
+			DISCONNECT_REASON_CODE_CHIPRESET;
+	rDisconnectReason.u2DeauthReason = REASON_CODE_DEAUTH_LEAVING_BSS;
 
 #if CFG_SUPPORT_PCIE_GEN_SWITCH
 	prChipInfo = prAdapter->chip_info;
@@ -7908,8 +7926,9 @@ int32_t wlanOnAtReset(void)
 
 			rStatus = kalIoctlByBssIdx(prGlueInfo,
 				wlanoidSetDisassociate,
-				&u4DisconnectReason,
-				0, &u4BufLen,
+				&rDisconnectReason,
+				sizeof(struct PARAM_DISCONNECT_REASON),
+				&u4BufLen,
 				AIS_MAIN_BSS_INDEX(prAdapter, u4Idx));
 
 			if (rStatus != WLAN_STATUS_SUCCESS) {

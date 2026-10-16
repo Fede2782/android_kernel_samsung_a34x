@@ -1401,7 +1401,7 @@ void ccic_store_usblog_notify(int type, uint64_t *param1)
 	ccic_buffer = &usblog_root.usblog_buffer->ccic_buffer[*target_index];
 	ccic_rtc = &usblog_root.usblog_rtc_buffer->ccic_buf_rt[*target_index];
 	if (ccic_buffer == NULL) {
-		unl_err("%s target_buffer error\n", __func__);
+		pr_err("%s target_buffer error\n", __func__);
 		goto err;
 	}
 	usblog_get_rt(ccic_rtc);
@@ -1430,7 +1430,7 @@ void mode_store_usblog_notify(int type, char *param1)
 	md_buffer = &usblog_root.usblog_buffer->mode_buffer[*target_index];
 	mode_rtc = &usblog_root.usblog_rtc_buffer->mode_buf_rt[*target_index];
 	if (md_buffer == NULL) {
-		unl_err("%s target_buffer error\n", __func__);
+		pr_err("%s target_buffer error\n", __func__);
 		goto err;
 	}
 	usblog_get_rt(mode_rtc);
@@ -1489,7 +1489,7 @@ void state_store_usblog_notify(int type, char *param1)
 	st_buffer = &usblog_root.usblog_buffer->state_buffer[*target_index];
 	state_rtc = &usblog_root.usblog_rtc_buffer->state_buf_rt[*target_index];
 	if (st_buffer == NULL) {
-		unl_err("%s target_buffer error\n", __func__);
+		pr_err("%s target_buffer error\n", __func__);
 		goto err;
 	}
 	usblog_get_rt(state_rtc);
@@ -1649,7 +1649,7 @@ void state_store_usblog_notify(int type, char *param1)
 		}
 		break;
 	default:
-		unl_err("%s state param error. state=%s\n", __func__, param1);
+		pr_err("%s state param error. state=%s\n", __func__, param1);
 		goto err;
 	}
 
@@ -1673,7 +1673,7 @@ void event_store_usblog_notify(int type, unsigned long *param1, int *param2)
 	ev_buffer = &usblog_root.usblog_buffer->event_buffer[*target_index];
 	event_rtc = &usblog_root.usblog_rtc_buffer->event_buf_rt[*target_index];
 	if (ev_buffer == NULL) {
-		unl_err("%s target_buffer error\n", __func__);
+		pr_err("%s target_buffer error\n", __func__);
 		goto err;
 	}
 	usblog_get_rt(event_rtc);
@@ -1699,7 +1699,7 @@ void port_store_usblog_notify(int type, void *param1, void *param2)
 	pt_buffer = &usblog_root.usblog_buffer->port_buffer[*target_index];
 	port_rtc = &usblog_root.usblog_rtc_buffer->port_buf_rt[*target_index];
 	if (pt_buffer == NULL) {
-		unl_err("%s target_buffer error\n", __func__);
+		pr_err("%s target_buffer error\n", __func__);
 		goto err;
 	}
 	usblog_get_rt(port_rtc);
@@ -1736,7 +1736,7 @@ void pcm_store_usblog_notify(int type, int *param1)
 	target_index = &usblog_root.usblog_vm_buffer->pcm_index;
 	pcm_buffer = &usblog_root.usblog_vm_buffer->pcm_buffer[*target_index];
 	if (pcm_buffer == NULL) {
-		unl_err("%s target_buffer error\n", __func__);
+		pr_err("%s target_buffer error\n", __func__);
 		goto err;
 	}
 	usblog_get_rt(&pcm_buffer->rt);
@@ -1762,7 +1762,7 @@ void extra_store_usblog_notify(int type, int *param1)
 	ex_buffer = &usblog_root.usblog_buffer->extra_buffer[*target_index];
 	extra_rtc = &usblog_root.usblog_rtc_buffer->extra_buf_rt[*target_index];
 	if (ex_buffer == NULL) {
-		unl_err("%s target_buffer error\n", __func__);
+		pr_err("%s target_buffer error\n", __func__);
 		goto err;
 	}
 	usblog_get_rt(extra_rtc);
@@ -1786,13 +1786,13 @@ void store_usblog_notify(int type, void *param1, void *param2)
 	spin_lock_irqsave(&usblog_root.usblog_lock, flags);
 
 	if (!usblog_root.usblog_buffer) {
-		unl_err("%s usblog_buffer is null\n", __func__);
+		pr_err("%s usblog_buffer is null\n", __func__);
 		spin_unlock_irqrestore(&usblog_root.usblog_lock, flags);
 		return;
 	}
 
 	if (!usblog_root.usblog_vm_buffer) {
-		unl_err("%s usblog_vm_buffer is null\n", __func__);
+		pr_err("%s usblog_vm_buffer is null\n", __func__);
 		spin_unlock_irqrestore(&usblog_root.usblog_lock, flags);
 		return;
 	}
@@ -1824,7 +1824,7 @@ void store_usblog_notify(int type, void *param1, void *param2)
 	else if (type == NOTIFY_EXTRA)
 		extra_store_usblog_notify(type, (int *)param1);
 	else
-		unl_err("%s type error %d\n", __func__, type);
+		pr_err("%s type error %d\n", __func__, type);
 
 	spin_unlock_irqrestore(&usblog_root.usblog_lock, flags);
 }

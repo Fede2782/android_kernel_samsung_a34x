@@ -318,7 +318,7 @@ struct MSG_MIC_ERROR {
  *******************************************************************************
  */
 u_int8_t rsnParseRsnIE(struct ADAPTER *prAdapter,
-		       struct RSN_INFO_ELEM *prInfoElem,
+		       uint8_t *prInfoElem,
 		       struct RSN_INFO *prRsnInfo);
 
 u_int8_t rsnParseWpaIE(struct ADAPTER *prAdapter,
@@ -362,18 +362,39 @@ void rsnGenerateRSNIE(struct ADAPTER *prAdapter,
 void rsnGenerateRSNIEImpl(struct ADAPTER *prAdapter,
 		      struct MSDU_INFO *prMsduInfo);
 
+#if (CFG_SUPPORT_RSNO == 1)
+void rsnGenerateRsnSelectionIE(struct ADAPTER *prAdapter,
+	struct MSDU_INFO *prMsduInfo);
+u_int8_t rsnSupportRSNOverride(struct ADAPTER *prAdapter, uint8_t ucBssIndex);
+#endif /* CFG_SUPPORT_RSNO */
+
 #if CFG_SUPPORT_AAA
 void rsnGenerateRSNXIE(struct ADAPTER *prAdapter,
 		      struct MSDU_INFO *prMsduInfo);
 
 void rsnGenerateOWEIE(struct ADAPTER *prAdapter,
 		      struct MSDU_INFO *prMsduInfo);
-#endif
+
+#if (CFG_SUPPORT_RSNO == 1)
+void rsnGenerateRSNOIE(struct ADAPTER *prAdapter,
+			struct MSDU_INFO *prMsduInfo);
+
+void rsnGenerateRSNO2IE(struct ADAPTER *prAdapter,
+			struct MSDU_INFO *prMsduInfo);
+
+void rsnGenerateRSNXOIE(struct ADAPTER *prAdapter,
+			struct MSDU_INFO *prMsduInfo);
+#endif /* CFG_SUPPORT_RSNO */
+#endif /* CFG_SUPPORT_AAA */
 
 u_int8_t
 rsnParseCheckForWFAInfoElem(struct ADAPTER *prAdapter,
 			    uint8_t *pucBuf, uint8_t *pucOuiType,
 			    uint16_t *pu2SubTypeVersion);
+
+u_int8_t
+rsnParseCheckForWFASpecificElem(struct ADAPTER *prAdapter,
+			    uint8_t *pucBuf, uint8_t *pucOuiType);
 
 #if CFG_SUPPORT_AAA
 void rsnParserCheckForRSNCCMPPSK(struct ADAPTER *prAdapter,
@@ -486,7 +507,7 @@ u_int8_t rsnIsFtOverTheAir(struct ADAPTER *prAdapter,
 			uint8_t ucBssIdx, uint8_t ucStaRecIdx);
 
 u_int8_t rsnParseRsnxIE(struct ADAPTER *prAdapter,
-		       struct RSNX_INFO_ELEM *prInfoElem,
+		       uint8_t *pucInfoElem,
 		       struct RSNX_INFO *prRsnxeInfo);
 
 uint8_t rsnKeyMgmtSae(uint32_t akm);

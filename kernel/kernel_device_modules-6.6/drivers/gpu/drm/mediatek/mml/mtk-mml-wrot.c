@@ -2474,13 +2474,6 @@ static s32 wrot_post(struct mml_comp *comp, struct mml_task *task,
 
 	wrot_backup_crc(comp, task, ccfg);
 
-	if (task->config->info.mode == MML_MODE_RACING) {
-		u16 event = task->config->info.disp_done_event;
-
-		if (event)
-			cmdq_pkt_wfe(task->pkts[ccfg->pipe], event);
-	}
-
 	mml_msg("%s pipe %hhu eol %u", __func__, ccfg->pipe, wrot_frm->wdone_cnt);
 	return 0;
 }

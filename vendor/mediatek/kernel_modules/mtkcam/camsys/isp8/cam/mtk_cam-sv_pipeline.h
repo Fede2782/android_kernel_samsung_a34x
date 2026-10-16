@@ -66,6 +66,7 @@ struct mtk_camsv_request_data {
 
 struct mtk_camsv_pipeline *
 mtk_camsv_pipeline_create(struct device *dev, int n);
+void mtk_camsv_pipeline_delete(struct mtk_camsv_pipeline *pipeline);
 int mtk_camsv_register_entities(struct mtk_camsv_pipeline *arr_pipe,
 	int num, struct v4l2_device *v4l2_dev);
 void mtk_camsv_unregister_entities(struct mtk_camsv_pipeline *arr_pipe, int num);

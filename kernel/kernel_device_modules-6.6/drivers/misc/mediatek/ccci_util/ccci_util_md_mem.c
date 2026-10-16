@@ -695,6 +695,7 @@ static int map_phy_to_kernel(struct rt_smem_region_lk_fmt *tbl, u32 num)
 
 static void smem_layout_dump(const char name[], struct rt_smem_region_lk_fmt *rt_tbl, u32 num)
 {
+#if IS_ENABLED(CONFIG_MTK_UTIL_CCCI_DUMP)
 	unsigned int i;
 
 	CCCI_UTIL_INF_MSG("------------- Dump %s details -------------\n", name);
@@ -704,6 +705,7 @@ static void smem_layout_dump(const char name[], struct rt_smem_region_lk_fmt *rt
 			rt_tbl[i].inf.md_offset + 0x40000000, rt_tbl[i].inf.size,
 			rt_tbl[i].inf.ap_offset, rt_tbl[i].inf.flags,
 			rt_tbl[i].inf.flags & SMEM_ATTR_PADDING);
+#endif
 }
 
 
@@ -890,10 +892,13 @@ struct md_mem_blk {
 void mtk_ccci_dump_md_mem_layout(void)
 {
 	int ret;
-	unsigned int i, num;
 	unsigned long long base;
-	unsigned char *tmp_buf = NULL;
+#if IS_ENABLED(CONFIG_MTK_UTIL_CCCI_DUMP)
+	unsigned int i, num;
 	struct md_mem_blk *desc = NULL;
+#endif
+	unsigned char *tmp_buf = NULL;
+
 
 	ret = mtk_ccci_find_args_val("md_bank0_base",  (unsigned char *)&base, sizeof(u64));
 	if (ret <= 0) {
@@ -911,6 +916,7 @@ void mtk_ccci_dump_md_mem_layout(void)
 		goto _show_na;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_UTIL_CCCI_DUMP)
 	num = (unsigned long)ret/sizeof(struct md_mem_blk);
 	desc = (struct md_mem_blk *)tmp_buf;
 	CCCI_UTIL_INF_MSG("------ Dump md layout(%u) ---------\n", num);
@@ -918,7 +924,7 @@ void mtk_ccci_dump_md_mem_layout(void)
 		CCCI_UTIL_INF_MSG("| 0x%016llx | 0x%08x | 0x%08x | 0x%08x | 0x%08x |\n",
 				desc[i].ap_phy, desc[i].offset, desc[i].size,
 				desc[i].inf_flag, desc[i].attr_flag);
-
+#endif
 	kfree(tmp_buf);
 	return;
 

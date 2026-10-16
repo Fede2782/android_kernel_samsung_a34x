@@ -715,6 +715,9 @@ static ssize_t perfmgr_boost_duration_proc_write(struct file *filp,
 	if (ret < 0)
 		return ret;
 
+	if (value < 0)
+		return -EINVAL;
+
 	boost_duration = value;
 
 	return cnt;

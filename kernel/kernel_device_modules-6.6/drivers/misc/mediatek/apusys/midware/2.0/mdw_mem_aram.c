@@ -62,13 +62,13 @@ static int mdw_mem_aram_attach(struct dma_buf *dbuf,
 	/* map vlm */
 	if (m->type == MDW_MEM_TYPE_SYSTEM_ISP) {
 		mdw_mem_debug("s(0x%llx) bypass vlm map\n",
-			(uint64_t)m->mpriv);
+			m->mpriv->id);
 		am->dma_addr = am->addr;
 	} else {
-		ret = mdw_apu_mem_map((uint64_t)m->mpriv, am->sid, &am->dma_addr);
+		ret = mdw_apu_mem_map(m->mpriv->id, am->sid, &am->dma_addr);
 		if (ret) {
 			mdw_drv_err("apumem(0x%llx/%u) map fail\n",
-				(uint64_t)m->mpriv, am->sid);
+				m->mpriv->id, am->sid);
 			goto free_table;
 		}
 	}
@@ -79,7 +79,7 @@ static int mdw_mem_aram_attach(struct dma_buf *dbuf,
 	am_attach->m = m;
 	attach->priv = am_attach;
 	mdw_mem_debug("s(0x%llx) sg(%p) m(%u/0x%llx/0x%x)\n",
-		(uint64_t)m->mpriv,
+		m->mpriv->id,
 		&am_attach->sgt,
 		am->sid,
 		sg_dma_address(am_attach->sgt.sgl),
@@ -113,12 +113,12 @@ static void mdw_mem_aram_detach(struct dma_buf *dbuf,
 
 	if (m->type == MDW_MEM_TYPE_SYSTEM_ISP) {
 		mdw_mem_debug("s(0x%llx) bypass vlm unmap\n",
-			(uint64_t)m->mpriv);
+			m->mpriv->id);
 	} else {
-		ret = mdw_apu_mem_unmap((uint64_t)m->mpriv, am->sid);
+		ret = mdw_apu_mem_unmap(m->mpriv->id, am->sid);
 		if (ret) {
 			mdw_drv_warn("s(0x%llx) unmap sid(%u) fail\n",
-				(uint64_t)m->mpriv, am->sid);
+				m->mpriv->id, am->sid);
 		}
 	}
 
@@ -216,44 +216,44 @@ static int mdw_mem_aram_prepare(struct mdw_fpriv *mpriv,
 	return ret;
 }
 
-static int mdw_mem_aram_bind(void *session, struct mdw_mem *m)
+static int mdw_mem_aram_bind(uint64_t session_id, struct mdw_mem *m)
 {
 	struct mdw_mem_aram *am = (struct mdw_mem_aram *)m->priv;
 
 	mdw_mem_debug("s(0x%llx) m(0x%llx/%u/%u)\n",
-		(uint64_t)session, (uint64_t)m, m->type, am->sid);
-	if (m->mpriv == session) {
-		mdw_mem_debug("s(0x%llx) don't need bind\n", (uint64_t)session);
+		m->mpriv->id, m->id, m->type, am->sid);
+	if (m->mpriv->id == session_id) {
+		mdw_mem_debug("s(0x%llx) don't need bind\n", m->mpriv->id);
 		return 0;
 	}
 
 	if (m->type == MDW_MEM_TYPE_SYSTEM_ISP) {
 		mdw_mem_debug("s(0x%llx) bypass vlm bind\n",
-			(uint64_t)m->mpriv);
+			m->mpriv->id);
 		return 0;
 	}
 
-	return mdw_apu_mem_import((uint64_t)session, am->sid);
+	return mdw_apu_mem_import(session_id, am->sid);
 }
 
-static void mdw_mem_aram_unbind(void *session, struct mdw_mem *m)
+static void mdw_mem_aram_unbind(uint64_t session_id, struct mdw_mem *m)
 {
 	struct mdw_mem_aram *am = (struct mdw_mem_aram *)m->priv;
 
 	mdw_mem_debug("s(0x%llx) m(0x%llx/%u/%u)\n",
-		(uint64_t)session, (uint64_t)m, m->type, am->sid);
-	if (m->mpriv == session) {
-		mdw_mem_debug("s(0x%llx) don't need unbind\n", (uint64_t)session);
+		m->mpriv->id, m->id, m->type, am->sid);
+	if (m->mpriv->id == session_id) {
+		mdw_mem_debug("s(0x%llx) don't need unbind\n", m->mpriv->id);
 		return;
 	}
 
 	if (m->type == MDW_MEM_TYPE_SYSTEM_ISP) {
 		mdw_mem_debug("s(0x%llx) bypass vlm unbind\n",
-			(uint64_t)m->mpriv);
+			m->mpriv->id);
 		return;
 	}
 
-	mdw_apu_mem_unimport((uint64_t)session, am->sid);
+	mdw_apu_mem_unimport(session_id, am->sid);
 }
 
 int mdw_mem_aram_alloc(struct mdw_mem *m)

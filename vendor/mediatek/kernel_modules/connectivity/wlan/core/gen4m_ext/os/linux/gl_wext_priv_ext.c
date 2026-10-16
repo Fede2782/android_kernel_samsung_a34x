@@ -4192,9 +4192,9 @@ uint32_t wlanoidSetScanParam(struct ADAPTER *prAdapter,
 	ais = aisGetAisFsmInfo(prAdapter, ucBssIndex);
 	param = (struct PARAM_SCAN *) pvSetBuffer;
 
-	if (ais->ucLatencyCrtDataMode == 3) {
+	if (ais->ucLatencyMode == WIFI_LATENCY_MODE_SCAN) {
 		DBGLOG(OID, INFO,
-			"LATENCY_CRT_DATA = 3, not apply SET_DWELL_TIME\n");
+		"LATENCY_CRT_DATA = 3, not apply SET_DWELL_TIME\n");
 		return WLAN_STATUS_SUCCESS;
 	}
 
@@ -4252,19 +4252,19 @@ uint32_t wlanoidSetLatencyCrtData(struct ADAPTER *prAdapter,
 	ais = aisGetAisFsmInfo(prAdapter, ucBssIndex);
 	pu4Mode = (uint32_t *) pvSetBuffer;
 
-	ais->ucLatencyCrtDataMode = 0;
+	ais->ucLatencyMode = 0;
 	/* Mode 2: Restrict full roam scan triggered by Firmware
 	*          due to low RSSI.
 	*  Mode 3: Restrict off channel time due to full scan to < 40ms
 	*/
-	ais->ucLatencyCrtDataMode = *pu4Mode;
+	ais->ucLatencyMode = *pu4Mode;
 
-	if (ais->ucLatencyCrtDataMode == 3) {
-		ais->ucDfsChDwellTimeMs = 20;
-		ais->ucNonDfsChDwellTimeMs = 35;
-		ais->u2OpChStayTimeMs = 0;
+	if (ais->ucLatencyMode == WIFI_LATENCY_MODE_SCAN) {
+		ais->ucDfsChDwellTimeMs = 60;
+		ais->ucNonDfsChDwellTimeMs = 40;
+		ais->u2OpChStayTimeMs = 100;
 		ais->ucPerScanChannelCnt = 1;
-	} else if (ais->ucLatencyCrtDataMode == 0) {
+	} else if (ais->ucLatencyMode == 0) {
 		ais->ucDfsChDwellTimeMs = 0;
 		ais->ucNonDfsChDwellTimeMs = 0;
 		ais->u2OpChStayTimeMs = 0;

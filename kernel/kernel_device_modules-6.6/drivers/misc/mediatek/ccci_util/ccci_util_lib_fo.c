@@ -460,11 +460,13 @@ static void share_memory_info_parsing(void)
 	md_resv_smem_addr = (phys_addr_t)(smem_layout.base_addr +
 		(unsigned long long)smem_layout.ap_md1_smem_offset);
 
+#if IS_ENABLED(CONFIG_MTK_UTIL_CCCI_DUMP)
 	CCCI_UTIL_INF_MSG("AP  <--> MD1 SMEM(0x%08X):%016llx~%016llx\n",
 			md_resv_smem_size,
 			(unsigned long long)md_resv_smem_addr,
 			(unsigned long long)(md_resv_smem_addr
 			+ md_resv_smem_size-1));
+#endif
 #ifdef CONFIG_MTK_DCS
 	if (md_resv_smem_size)
 		dcs_set_lbw_region(md_resv_smem_addr,
@@ -480,6 +482,7 @@ static void share_memory_info_parsing(void)
 
 	cshare_memory_info_parsing();
 {
+#if IS_ENABLED(CONFIG_MTK_UTIL_CCCI_DUMP)
 	int i;
 
 	for (i = 0; i < csmem_info.item_cnt; i++) {
@@ -489,6 +492,7 @@ static void share_memory_info_parsing(void)
 			csmem_layout[i].md_offset,
 			csmem_layout[i].csmem_buffer_size);
 	}
+#endif
 }
 }
 

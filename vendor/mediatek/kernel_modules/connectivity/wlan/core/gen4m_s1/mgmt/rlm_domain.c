@@ -706,10 +706,14 @@ void rlmDomainGetChnlListFromOpClass(struct ADAPTER *prAdapter,
 					       "Not support ch%d!\n", ucCh);
 					continue;
 				}
-				paucChannelList[ucNum].eBand =
+				if (paucChannelList) {
+					paucChannelList[ucNum].eBand =
 							prSubband->ucBand;
-				paucChannelList[ucNum].ucChannelNum = ucCh;
-				paucChannelList[ucNum].eDFS = prSubband->fgDfs;
+					paucChannelList[ucNum].ucChannelNum =
+							ucCh;
+					paucChannelList[ucNum].eDFS =
+							prSubband->fgDfs;
+				}
 				ucNum++;
 			}
 		}

@@ -1297,13 +1297,10 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 	ccu->mrdump_buf = kmalloc(MTK_CCU_MRDUMP_BUF_SIZE, GFP_ATOMIC);
-	if (!ccu->mrdump_buf) {
-		mtk_ccu_deallocate_mem(ccu->dev, &ccu->ext_buf, ccu->smmu_enabled);
-		return -EINVAL;
-	}
+	if (ccu->mrdump_buf)
+		mrdump_set_extra_dump(AEE_EXTRA_FILE_CCU, get_ccu_mrdump_buffer);
 
 	dev_ccu = ccu;
-	mrdump_set_extra_dump(AEE_EXTRA_FILE_CCU, get_ccu_mrdump_buffer);
 #endif
 
 	ret = rproc_add(rproc);
@@ -1320,8 +1317,11 @@ static int mtk_ccu_remove(struct platform_device *pdev)
 	 * at KE/SystemAPI.
 	 */
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
-	mrdump_set_extra_dump(AEE_EXTRA_FILE_CCU, NULL);
-	kfree(ccu->mrdump_buf);
+	if (ccu->mrdump_buf) {
+		mrdump_set_extra_dump(AEE_EXTRA_FILE_CCU, NULL);
+		kfree(ccu->mrdump_buf);
+		ccu->mrdump_buf = NULL;
+	}
 #endif
 	mtk_ccu_deallocate_mem(ccu->dev, &ccu->ext_buf, ccu->smmu_enabled);
 #if defined(REQUEST_IRQ_IN_INIT)

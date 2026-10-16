@@ -147,6 +147,9 @@ static uint8_t aucBandTranslate[BAND_NUM] = {
 #endif
 };
 
+#define SCREEN_ON  1
+#define SCREEN_OFF 0
+
 /*******************************************************************************
  *                             D A T A   T Y P E S
  *******************************************************************************
@@ -11801,6 +11804,33 @@ int32_t kalPerMonSetForceEnableFlag(uint8_t uFlag)
 	return 0;
 }
 
+static void kalNotifyScreenState(struct GLUE_INFO *prGlueInfo,
+	uint8_t ucState)
+{
+	uint32_t rStatus;
+	uint32_t u4SetInfoLen;
+	struct CMD_SCREEN_STATE rScreenCmd;
+
+	if (prGlueInfo == NULL || prGlueInfo->prAdapter == NULL) {
+		DBGLOG(INIT, ERROR, "GlueInfo or Adapter NULL\n");
+		return;
+	}
+
+	rScreenCmd.ucScreenState = ucState;
+
+	rStatus = kalIoctl(prGlueInfo,
+			   wlanoidNotifyScreenState,
+			   (void *)&rScreenCmd,
+			   sizeof(rScreenCmd),
+			   &u4SetInfoLen);
+
+	if (rStatus != WLAN_STATUS_SUCCESS)
+		DBGLOG(INIT, INFO, "kalNotifyScreenState fail!\n");
+	else
+		DBGLOG(INIT, INFO,
+			"kalNotifyScreenState success [%d]\n", ucState);
+}
+
 #if CFG_MTK_ANDROID_WMT && \
 	KERNEL_VERSION(5, 4, 0) <= CFG80211_VERSION_CODE
 enum ENUM_WLAN_FB_EVENT kalGetMtkDispEvent(const uint8_t *fn,
@@ -11888,16 +11918,22 @@ static int wlan_fb_notifier_callback(struct notifier_block
 
 	switch (eEvent) {
 	case WLAN_FB_EVENT_UNBLANK:
-		kalSetPerMonEnable(prGlueInfo);
+		kalNotifyScreenState(prGlueInfo, SCREEN_ON);
 		wlan_fb_power_down = FALSE;
 		break;
 	case WLAN_FB_EVENT_POWERDOWN:
 		wlan_fb_power_down = TRUE;
-		if (!wlan_perf_monitor_force_enable)
-			kalSetPerMonDisable(prGlueInfo);
+		kalNotifyScreenState(prGlueInfo, SCREEN_OFF);
 		break;
 	default:
 		break;
+	}
+
+	if (wlan_fb_power_down) {
+		if (!wlan_perf_monitor_force_enable)
+			kalSetPerMonDisable(prGlueInfo);
+	} else {
+		kalSetPerMonEnable(prGlueInfo);
 	}
 
 	kalHaltUnlock();

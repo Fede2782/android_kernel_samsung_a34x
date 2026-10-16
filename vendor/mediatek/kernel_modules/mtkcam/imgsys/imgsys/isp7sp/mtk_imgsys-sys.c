@@ -1937,6 +1937,19 @@ static void imgsys_runner_func(void *data)
 	#else
 	mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev);
 	#endif
+
+#if SMVR_DECOUPLE
+	if (frm_info->is_capture) {
+		mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_capture);
+	} else {
+		if (frm_info->batchnum)
+			mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_smvr);
+		else
+			mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_streaming);
+	}
+#else
+	mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev);
+#endif
 }
 
 static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
@@ -2002,10 +2015,20 @@ unsigned int mode = imgsys_streaming;
     //dev_dbg(imgsys_dev->dev,
     //    "%s: scp_addr/ mode (%d/%d)\n",
     //    __func__, swbuf_data->scp_addr, mode);
+
+	/* To prevent UAF */
+	mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev, mode);
+
     gce_virt = mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev, mode);
 	#else
 	gce_virt = mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev);
 	#endif
+
+	if(unlikely(!gce_virt)){
+		dev_err(imgsys_dev->dev, "%s: gce_virt is NULL\n", __func__);
+		return;
+	}
+
 	swfrm_info = (struct swfrm_info_t *)(gce_virt + (swbuf_data->offset));
 #if SMVR_DECOUPLE
  //dev_info(imgsys_dev->dev,

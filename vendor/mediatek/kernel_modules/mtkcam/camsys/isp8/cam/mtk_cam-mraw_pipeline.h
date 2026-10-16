@@ -69,6 +69,7 @@ struct mtk_mraw_request_data {
 
 struct mtk_mraw_pipeline *
 mtk_mraw_pipeline_create(struct device *dev, int n);
+void mtk_mraw_pipeline_delete(struct mtk_mraw_pipeline *arr_pipe);
 int mtk_mraw_register_entities(struct mtk_mraw_pipeline *arr_pipe,
 	int num, struct v4l2_device *v4l2_dev);
 void mtk_mraw_unregister_entities(struct mtk_mraw_pipeline *arr_pipe, int num);

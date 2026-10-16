@@ -28,6 +28,9 @@ mgk_module_ext_outs = [
     "drivers/usb/phy/phy-generic.ko",
     "net/wireless/cfg80211.ko",
     "net/mac80211/mac80211.ko",
+    "drivers/net/phy/smsc.ko",
+    "drivers/net/usb/smsc75xx.ko",
+    "drivers/net/usb/smsc95xx.ko",
 ]
 
 mgk_module_eng_outs = mgk_module_ext_outs + [

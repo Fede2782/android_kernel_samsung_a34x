@@ -493,6 +493,7 @@ static int cmdq_util_status_print(struct seq_file *seq, void *data)
 
 static int cmdq_util_record_print(struct seq_file *seq, void *data)
 {
+#if IS_ENABLED(CONFIG_MTK_CMDQ_DEBUG)
 	struct cmdq_record *rec;
 	u32 acq_time, irq_time, begin_wait, exec_time, total_time, hw_time;
 	u64 submit_sec;
@@ -543,7 +544,7 @@ static int cmdq_util_record_print(struct seq_file *seq, void *data)
 	}
 
 	mutex_unlock(&cmdq_record_mutex);
-
+#endif
 	return 0;
 }
 

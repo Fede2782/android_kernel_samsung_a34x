@@ -31,6 +31,14 @@ struct APPEND_VAR_IE_ENTRY txProbeRspIETable[] = {
 			rlmGeneratePwrConstraintIE}	/* 32 */
 	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN), NULL,
 			rsnGenerateRSNIE}	/* 48 */
+#if (CFG_SUPPORT_RSNO == 1)
+	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4), NULL,
+			rsnGenerateRSNOIE}	/* 221 */
+	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4), NULL,
+			rsnGenerateRSNO2IE}	/* 221 */
+	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4), NULL,
+			rsnGenerateRSNXOIE}	/* 221 */
+#endif /* CFG_SUPPORT_RSNO */
 	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_OBSS_SCAN), NULL,
 			rlmRspGenerateObssScanIE}	/* 74 */
 	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_EXT_CAP), NULL,
@@ -123,7 +131,7 @@ uint8_t *apucW56RadarType[12] = {
 static void
 p2pFuncParseBeaconVenderId(struct ADAPTER *prAdapter, uint8_t *pucIE,
 		struct P2P_SPECIFIC_BSS_INFO *prP2pSpecificBssInfo,
-		uint8_t ucRoleIndex);
+		struct BSS_INFO *prBssInfo);
 #if 0
 static void
 p2pFuncGetAttriListAction(struct ADAPTER *prAdapter,
@@ -4359,42 +4367,6 @@ u_int8_t p2pFuncParseCheckForTKIPInfoElem(uint8_t *pucBuf)
 
 /*---------------------------------------------------------------------------*/
 /*!
- * @brief This function is used to check the P2P IE
- *
- *
- * @return none
- */
-/*---------------------------------------------------------------------------*/
-u_int8_t p2pFuncParseCheckForP2PInfoElem(struct ADAPTER *prAdapter,
-		uint8_t *pucBuf, uint8_t *pucOuiType)
-{
-	uint8_t aucWfaOui[] = VENDOR_OUI_WFA_SPECIFIC;
-	struct IE_WFA *prWfaIE = (struct IE_WFA *) NULL;
-
-	do {
-		ASSERT_BREAK((prAdapter != NULL)
-			&& (pucBuf != NULL) && (pucOuiType != NULL));
-
-		prWfaIE = (struct IE_WFA *) pucBuf;
-
-		if (IE_LEN(pucBuf) <= ELEM_MIN_LEN_WFA_OUI_TYPE_SUBTYPE) {
-			break;
-		} else if (prWfaIE->aucOui[0] != aucWfaOui[0] ||
-			   prWfaIE->aucOui[1] != aucWfaOui[1] ||
-			   prWfaIE->aucOui[2] != aucWfaOui[2]) {
-			break;
-		}
-
-		*pucOuiType = prWfaIE->ucOuiType;
-
-		return TRUE;
-	} while (FALSE);
-
-	return FALSE;
-}				/* p2pFuncParseCheckForP2PInfoElem */
-
-/*---------------------------------------------------------------------------*/
-/*!
  * @brief This function will validate the Rx Probe Request Frame and then return
  *        result to BSS to indicate if need to send
  *        the corresponding Probe Response Frame
@@ -4710,6 +4682,109 @@ u_int8_t p2pFuncIsAPMode(struct P2P_CONNECTION_SETTINGS *prP2pConnSettings)
 
 /* p2pFuncIsAPMode */
 
+u_int8_t p2pParseRsnIE(struct ADAPTER *prAdapter,
+	struct BSS_INFO *prP2pBssInfo, uint8_t *pucInfoElem)
+{
+	struct RSN_INFO rRsnIe;
+	struct P2P_SPECIFIC_BSS_INFO *prP2pSpecificBssInfo =
+		(struct P2P_SPECIFIC_BSS_INFO *) NULL;
+#if CFG_SUPPORT_802_11W
+	uint16_t i;
+#endif
+	u_int8_t status;
+
+
+	prP2pSpecificBssInfo =
+		prAdapter->rWifiVar.prP2pSpecificBssInfo
+			[prP2pBssInfo->u4PrivateData];
+
+	kalMemZero(&rRsnIe, sizeof(struct RSN_INFO));
+
+	status = rsnParseRsnIE(prAdapter, pucInfoElem, &rRsnIe);
+
+	if (status) {
+		prP2pBssInfo->u4RsnSelectedGroupCipher =
+			RSN_CIPHER_SUITE_CCMP;
+		prP2pBssInfo
+			->u4RsnSelectedPairwiseCipher =
+				RSN_CIPHER_SUITE_CCMP;
+		prP2pBssInfo->u4RsnSelectedAKMSuite =
+			RSN_AKM_SUITE_PSK;
+		prP2pBssInfo->u2RsnSelectedCapInfo =
+			rRsnIe.u2RsnCap;
+		DBGLOG(RSN, TRACE,
+			"RsnIe CAP:0x%x\n",
+			rRsnIe.u2RsnCap);
+	}
+
+#if CFG_SUPPORT_802_11W
+	/* AP PMF */
+	prP2pBssInfo->rApPmfCfg.fgMfpc =
+		(rRsnIe.u2RsnCap
+			& ELEM_WPA_CAP_MFPC) ? 1 : 0;
+	prP2pBssInfo->rApPmfCfg.fgMfpr =
+		(rRsnIe.u2RsnCap
+			& ELEM_WPA_CAP_MFPR) ? 1 : 0;
+	prP2pSpecificBssInfo->u4KeyMgtSuiteCount
+		= (rRsnIe.u4AuthKeyMgtSuiteCount
+		< P2P_MAX_AKM_SUITES)
+		? rRsnIe.u4AuthKeyMgtSuiteCount
+		: P2P_MAX_AKM_SUITES;
+	for (i = 0;
+		i < rRsnIe.u4AuthKeyMgtSuiteCount;
+		i++) {
+		if ((rRsnIe.au4AuthKeyMgtSuite[i]
+		== RSN_AKM_SUITE_PSK_SHA256) ||
+		(rRsnIe.au4AuthKeyMgtSuite[i]
+		== RSN_AKM_SUITE_802_1X_SHA256)) {
+			DBGLOG(RSN, INFO,
+				"SHA256 support\n");
+			/* over-write
+			 * u4RsnSelectedAKMSuite
+			 * by SHA256 AKM
+			 */
+			prP2pBssInfo
+			->u4RsnSelectedAKMSuite
+			= rRsnIe.au4AuthKeyMgtSuite[i];
+			prP2pBssInfo
+			->rApPmfCfg.fgSha256
+			= TRUE;
+			break;
+		} else if (rsnKeyMgmtSae(
+			rRsnIe.au4AuthKeyMgtSuite[i]))
+			prP2pBssInfo
+			->u4RsnSelectedAKMSuite
+			= rRsnIe.au4AuthKeyMgtSuite[i];
+		else if (rRsnIe.au4AuthKeyMgtSuite[i]
+		== RSN_AKM_SUITE_OWE)
+			prP2pBssInfo
+			->u4RsnSelectedAKMSuite
+			= rRsnIe.au4AuthKeyMgtSuite[i];
+
+		if (i < P2P_MAX_AKM_SUITES) {
+			prP2pSpecificBssInfo
+			->au4KeyMgtSuite[i]
+			= rRsnIe.au4AuthKeyMgtSuite[i];
+		}
+	}
+
+	prP2pBssInfo->u4RsnSelectedGroupMgmtCipher =
+		rRsnIe.u4GroupMgmtCipherSuite;
+
+	DBGLOG(RSN, INFO,
+		"ieid=%d ouitype=%d bcn mfpc:%d, mfpr:%d, sha256:%d, akm=0x%04x group=0x%04x\n",
+		rRsnIe.ucElemId,
+		rRsnIe.ucOuiType,
+		prP2pBssInfo->rApPmfCfg.fgMfpc,
+		prP2pBssInfo->rApPmfCfg.fgMfpr,
+		prP2pBssInfo->rApPmfCfg.fgSha256,
+		prP2pBssInfo->u4RsnSelectedAKMSuite,
+		prP2pBssInfo->u4RsnSelectedGroupMgmtCipher);
+#endif
+
+	return status;
+}
+
 void
 p2pFuncParseBeaconContent(struct ADAPTER *prAdapter,
 		struct BSS_INFO *prP2pBssInfo,
@@ -4719,8 +4794,6 @@ p2pFuncParseBeaconContent(struct ADAPTER *prAdapter,
 	uint32_t u4Offset = 0;
 	struct P2P_SPECIFIC_BSS_INFO *prP2pSpecificBssInfo =
 		(struct P2P_SPECIFIC_BSS_INFO *) NULL;
-	uint8_t i = 0;
-	struct RSN_INFO rRsnIe;
 #if (CFG_SUPPORT_802_11AX == 1)
 	uint8_t ucHe = 0;
 #endif
@@ -4730,8 +4803,6 @@ p2pFuncParseBeaconContent(struct ADAPTER *prAdapter,
 	u_int8_t fgIsApMode = FALSE;
 	struct IE_RNR *rnr =  NULL;
 	struct NEIGHBOR_AP_INFO_FIELD *info;
-
-	kalMemZero(&rRsnIe, sizeof(struct RSN_INFO));
 
 	ASSERT((prAdapter != NULL) && (prP2pBssInfo != NULL));
 
@@ -4747,6 +4818,11 @@ p2pFuncParseBeaconContent(struct ADAPTER *prAdapter,
 	prP2pSpecificBssInfo->u2WpaIeLen = 0;
 	prP2pSpecificBssInfo->u2RsnIeLen = 0;
 	prP2pSpecificBssInfo->u2RsnxIeLen = 0;
+#if (CFG_SUPPORT_RSNO == 1)
+	prP2pSpecificBssInfo->u2RsnoIeLen = 0;
+	prP2pSpecificBssInfo->u2Rsno2IeLen = 0;
+	prP2pSpecificBssInfo->u2RsnxoIeLen = 0;
+#endif /* CFG_SUPPORT_RSNO */
 	prP2pSpecificBssInfo->u2OweIeLen = 0;
 	prP2pSpecificBssInfo->u2TpeIeLen = 0;
 	fgIsApMode = p2pFuncIsAPMode(
@@ -5015,80 +5091,8 @@ p2pFuncParseBeaconContent(struct ADAPTER *prAdapter,
 				pucIE, IE_SIZE(pucIE));
 			prP2pSpecificBssInfo->u2RsnIeLen
 				= IE_SIZE(pucIE);
-			if (rsnParseRsnIE(prAdapter,
-				RSN_IE(pucIE), &rRsnIe)) {
-				prP2pBssInfo->u4RsnSelectedGroupCipher =
-					RSN_CIPHER_SUITE_CCMP;
-				prP2pBssInfo
-					->u4RsnSelectedPairwiseCipher =
-						RSN_CIPHER_SUITE_CCMP;
-				prP2pBssInfo->u4RsnSelectedAKMSuite =
-					RSN_AKM_SUITE_PSK;
-				prP2pBssInfo->u2RsnSelectedCapInfo =
-					rRsnIe.u2RsnCap;
-				DBGLOG(RSN, TRACE,
-					"RsnIe CAP:0x%x\n",
-					rRsnIe.u2RsnCap);
-			}
 
-#if CFG_SUPPORT_802_11W
-			/* AP PMF */
-			prP2pBssInfo->rApPmfCfg.fgMfpc =
-				(rRsnIe.u2RsnCap
-					& ELEM_WPA_CAP_MFPC) ? 1 : 0;
-			prP2pBssInfo->rApPmfCfg.fgMfpr =
-				(rRsnIe.u2RsnCap
-					& ELEM_WPA_CAP_MFPR) ? 1 : 0;
-			prP2pSpecificBssInfo->u4KeyMgtSuiteCount
-				= (rRsnIe.u4AuthKeyMgtSuiteCount
-				< P2P_MAX_AKM_SUITES)
-				? rRsnIe.u4AuthKeyMgtSuiteCount
-				: P2P_MAX_AKM_SUITES;
-			for (i = 0;
-				i < rRsnIe.u4AuthKeyMgtSuiteCount;
-				i++) {
-				if ((rRsnIe.au4AuthKeyMgtSuite[i]
-				== RSN_AKM_SUITE_PSK_SHA256) ||
-				(rRsnIe.au4AuthKeyMgtSuite[i]
-				== RSN_AKM_SUITE_802_1X_SHA256)) {
-					DBGLOG(RSN, INFO,
-						"SHA256 support\n");
-					/* over-write
-					 * u4RsnSelectedAKMSuite
-					 * by SHA256 AKM
-					 */
-					prP2pBssInfo
-					->u4RsnSelectedAKMSuite
-					= rRsnIe.au4AuthKeyMgtSuite[i];
-					prP2pBssInfo
-					->rApPmfCfg.fgSha256
-					= TRUE;
-					break;
-				} else if (rsnKeyMgmtSae(
-					rRsnIe.au4AuthKeyMgtSuite[i]))
-					prP2pBssInfo
-					->u4RsnSelectedAKMSuite
-					= rRsnIe.au4AuthKeyMgtSuite[i];
-				else if (rRsnIe.au4AuthKeyMgtSuite[i]
-				== RSN_AKM_SUITE_OWE)
-					prP2pBssInfo
-					->u4RsnSelectedAKMSuite
-					= rRsnIe.au4AuthKeyMgtSuite[i];
-
-				if (i < P2P_MAX_AKM_SUITES) {
-					prP2pSpecificBssInfo
-					->au4KeyMgtSuite[i]
-					= rRsnIe.au4AuthKeyMgtSuite[i];
-				}
-			}
-			DBGLOG(RSN, INFO,
-				"bcn mfpc:%d, mfpr:%d, sha256:%d, 0x%04x\n",
-				prP2pBssInfo->rApPmfCfg.fgMfpc,
-				prP2pBssInfo->rApPmfCfg.fgMfpr,
-				prP2pBssInfo->rApPmfCfg.fgSha256,
-				prP2pBssInfo->u4RsnSelectedAKMSuite);
-#endif
-
+			p2pParseRsnIE(prAdapter, prP2pBssInfo, pucIE);
 			break;
 		case ELEM_ID_EXTENDED_SUP_RATES:	/* 50 *//* V */
 		{
@@ -5222,8 +5226,7 @@ p2pFuncParseBeaconContent(struct ADAPTER *prAdapter,
 			{
 				p2pFuncParseBeaconVenderId(prAdapter,
 					pucIE, prP2pSpecificBssInfo,
-					(uint8_t)
-					prP2pBssInfo->u4PrivateData);
+					prP2pBssInfo);
 				/* TODO: Store other Vender IE
 				 * except for WMM Param.
 				 */
@@ -5336,10 +5339,11 @@ static void
 p2pFuncParseBeaconVenderId(struct ADAPTER *prAdapter,
 		uint8_t *pucIE,
 		struct P2P_SPECIFIC_BSS_INFO *prP2pSpecificBssInfo,
-		uint8_t ucRoleIndex)
+		struct BSS_INFO *prBssInfo)
 {
 	uint8_t ucOuiType;
 	uint16_t u2SubTypeVersion;
+	uint8_t ucRoleIndex = prBssInfo->u4PrivateData;
 
 	if (rsnParseCheckForWFAInfoElem(
 		prAdapter, pucIE, &ucOuiType, &u2SubTypeVersion)) {
@@ -5369,7 +5373,7 @@ p2pFuncParseBeaconVenderId(struct ADAPTER *prAdapter,
 		} else if (ucOuiType == VENDOR_OUI_TYPE_WMM) {
 			DBGLOG(P2P, TRACE, "WMM IE in supplicant\n");
 		}
-	} else if (p2pFuncParseCheckForP2PInfoElem(
+	} else if (rsnParseCheckForWFASpecificElem(
 		prAdapter, pucIE, &ucOuiType)) {
 		if (ucOuiType == VENDOR_OUI_TYPE_P2P ||
 			ucOuiType == VENDOR_OUI_TYPE_WFD) {
@@ -5408,6 +5412,37 @@ p2pFuncParseBeaconVenderId(struct ADAPTER *prAdapter,
 				= IE_SIZE(pucIE);
 			DBGLOG(P2P, INFO,
 				"[OWE] Trans IE in supplicant\n");
+#if (CFG_SUPPORT_RSNO == 1)
+		} else if (ucOuiType == VENDOR_OUI_TYPE_RSNO2 &&
+		    p2pParseRsnIE(prAdapter, prBssInfo, pucIE)) {
+			if (IE_LEN(pucIE) > ELEM_MAX_LEN_RSN + 4) {
+				DBGLOG(P2P, ERROR,
+					"RSN IE length is unexpected !!\n");
+				return;
+			}
+			kalMemCopy(prP2pSpecificBssInfo->aucRsno2IeBuffer,
+				pucIE, IE_SIZE(pucIE));
+			prP2pSpecificBssInfo->u2Rsno2IeLen = IE_SIZE(pucIE);
+		} else if (ucOuiType == VENDOR_OUI_TYPE_RSNO &&
+		    p2pParseRsnIE(prAdapter, prBssInfo, pucIE)) {
+			if (IE_LEN(pucIE) > ELEM_MAX_LEN_RSN + 4) {
+				DBGLOG(P2P, ERROR,
+					"RSN IE length is unexpected !!\n");
+				return;
+			}
+			kalMemCopy(prP2pSpecificBssInfo->aucRsnoIeBuffer,
+				pucIE, IE_SIZE(pucIE));
+			prP2pSpecificBssInfo->u2RsnoIeLen = IE_SIZE(pucIE);
+		} else if (ucOuiType == VENDOR_OUI_TYPE_RSNXO) {
+			if (IE_LEN(pucIE) > ELEM_MAX_LEN_RSN + 4) {
+				DBGLOG(P2P, ERROR,
+					"RSXN IE length is unexpected !!\n");
+				return;
+			}
+			kalMemCopy(prP2pSpecificBssInfo->aucRsnxoIeBuffer,
+				pucIE, IE_SIZE(pucIE));
+			prP2pSpecificBssInfo->u2RsnxoIeLen = IE_SIZE(pucIE);
+#endif /* CFG_SUPPORT_RSNO */
 		} else {
 			DBGLOG(P2P, TRACE,
 				"Unknown 50-6F-9A-%d IE.\n",
@@ -6303,7 +6338,7 @@ p2pFuncProcessP2pProbeRspVendor(struct ADAPTER *prAdapter,
 				((struct BSS_INFO *)prP2pBssInfo)
 				->u4PrivateData);
 		}
-	} else if (p2pFuncParseCheckForP2PInfoElem(prAdapter,
+	} else if (rsnParseCheckForWFASpecificElem(prAdapter,
 		pucIEBuf, &ucOuiType)) {
 		if (ucOuiType == VENDOR_OUI_TYPE_P2P) {
 			for (u4Idx = 0; u4Idx < MAX_P2P_IE_SIZE; u4Idx++) {

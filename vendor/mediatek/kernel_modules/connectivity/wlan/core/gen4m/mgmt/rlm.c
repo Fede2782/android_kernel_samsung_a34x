@@ -11125,7 +11125,8 @@ static uint32_t rlmTxPwrEnvGetPsdPriChIdx(
 	 *      |      3        |             4           |
 	 *      |      4        |             8           |
 	 */
-	ucTxPwrEnvCnt = TX_PWR_ENV_INFO_GET_TXPWR_COUNT(prTxPwrEnvIE->ucTxPwrInfo);
+	ucTxPwrEnvCnt = TX_PWR_ENV_INFO_GET_TXPWR_COUNT(
+					prTxPwrEnvIE->ucTxPwrInfo);
 	ucPsdCntOrg = (1 << (ucTxPwrEnvCnt - 1));
 
 	/* For BW >= 320, it may need to get PSD from Extension Maximum
@@ -11133,15 +11134,16 @@ static uint32_t rlmTxPwrEnvGetPsdPriChIdx(
 	 * value to 4(which indicate there are only 8 PSD field in Maximum
 	 *  Transmit Power field).
 	 * However, for BW >= 320, the primary channel num will more than 8
-	 * (ex: BW320, primary channel num = 16), so it will need Extension Maximum
-	 * Transmit to express additinal field (ex: for BW320, to represent No. 9~16
-	 * primary PSD limit)
-	 * If Length of TPE IE is longer than TX_PWR_ENV_INFO_TXPWR_COUNT_MAX + 1
-	 * (+1 for consider Transmit Power Information field), we will consider
-	 * Extension Maximum Transmit Power field.
+	 * (ex: BW320, primary channel num = 16), so it will need Extension
+	 * Maximum Transmit to express additinal field (ex: for BW320,
+	 *  to represent No. 9~16 primary PSD limit)
+	 * If Length of TPE IE is longer than
+	 * TX_PWR_ENV_INFO_TXPWR_COUNT_MAX + 1(+1 is for consider Transmit
+	 * Power Information field), we will consider Extension Maximum
+	 * Transmit Power field.
 	 */
 	if (IE_LEN(prTxPwrEnvIE) > TX_PWR_ENV_INFO_TXPWR_COUNT_MAX + 1) {
-		/* Get PSD Cnt Ext for sanity check */
+		/* Get PSD Cnt Ext for check */
 		ucExtTxPsdInfoIdx = TX_PWR_ENV_INFO_TXPWR_COUNT_MAX + 1;
 		ucPsdCntExt = TX_PWR_ENV_INFO_GET_TXPWR_PSD_EXT_COUNT(
 				prTxPwrEnvIE->aicMaxTxPwr[ucExtTxPsdInfoIdx]);
@@ -11150,7 +11152,7 @@ static uint32_t rlmTxPwrEnvGetPsdPriChIdx(
 		*pucPriChIdx = *pucPriChIdx + 1;
 	}
 
-	/* Sanity check for PSD count */
+	/* Check for PSD count */
 	if ((ucPsdCntOrg > TX_PWR_ENV_INFO_TXPWR_COUNT_MAX) ||
 		(ucPsdCntExt > TX_PWR_ENV_INFO_TXPWR_PSD_EXT_COUNT_MAX) ||
 		((ucPsdCntOrg + ucPsdCntExt + 1) > TX_PWR_ENV_MAX_PWR_CNT)) {
@@ -11164,7 +11166,7 @@ static uint32_t rlmTxPwrEnvGetPsdPriChIdx(
 		return WLAN_STATUS_FAILURE;
 	}
 
-	/* Sanity check for Primary channel index */
+	/* Check for Primary channel index */
 	if (*pucPriChIdx >= TX_PWR_ENV_MAX_PWR_CNT) {
 		DBGLOG(RLM, ERROR,
 			"Out of bound,idx[%d]len[%d]Org[%d]Ext[%d]MaxCnt[%d]\n",
@@ -11245,7 +11247,8 @@ static uint32_t rlmTxPwrEnvGetMaxTxPwrPsd(
 		ucBwShift,
 		ucPriCh,
 		ucCenterCh,
-		((IE_LEN(prTxPwrEnvIE) > TX_PWR_ENV_INFO_TXPWR_COUNT_MAX + 1) ? (ucPriChIdx - 1) : ucPriChIdx),
+		((IE_LEN(prTxPwrEnvIE) > TX_PWR_ENV_INFO_TXPWR_COUNT_MAX + 1)
+					? (ucPriChIdx - 1) : ucPriChIdx),
 		ucTxPwrEnvCnt,
 		*picMaxTxPwrPsd);
 
@@ -11621,17 +11624,16 @@ uint32_t rlmTxPwrEnvMaxPwrUpdate(
 		|| ucTxPwrEnvIntrpt == TX_PWR_ENV_REG_CLIENT_EIRP) {
 
 		/*      |ucTxPwrEnvCount|    Field present        |
-	 	 *      |      0        |    BW20                 |
-	 	 *      |      1        |    BW20/40              |
-	 	 *      |      2        |    BW20/40/80           |
-	 	 *      |      3        |    BW20/40/80/160       |
-	 	 *      |     4~7       |    Reserved             |
-	 	 */
+		 *      |      0        |    BW20                 |
+		 *      |      1        |    BW20/40              |
+		 *      |      2        |    BW20/40/80           |
+		 *      |      3        |    BW20/40/80/160       |
+		 *      |     4~7       |    Reserved             |
+		 */
 		if (TX_PWR_ENV_INFO_GET_TXPWR_COUNT(
-					prTxPwrEnvIE->ucTxPwrInfo) >= 4)
-		{
+					prTxPwrEnvIE->ucTxPwrInfo) >= 4) {
 			DBGLOG(RLM, ERROR,
-				"Invalid txpwr cnt skip update, itpt[%d]cnt[%d]\n",
+				"Invalid txpwr cnt skip update, itpt[%d]cnt[%lu]\n",
 					ucTxPwrEnvIntrpt,
 					TX_PWR_ENV_INFO_GET_TXPWR_COUNT(
 					prTxPwrEnvIE->ucTxPwrInfo));
@@ -11655,18 +11657,17 @@ uint32_t rlmTxPwrEnvMaxPwrUpdate(
 		|| ucTxPwrEnvIntrpt == TX_PWR_ENV_REG_CLIENT_EIRP_PSD) {
 
 		/*      |ucTxPwrEnvCount|Number of Max TxPwr field|
-	 	 *      |      0        |             0           |
-	 	 *      |      1        |             1           |
-	 	 *      |      2        |             2           |
-	 	 *      |      3        |             4           |
-	 	 *      |      4        |             8           |
-	 	 *      |     5~7       |          Reserved       |
-	 	 */
-	 	if (TX_PWR_ENV_INFO_GET_TXPWR_COUNT(
-					prTxPwrEnvIE->ucTxPwrInfo) >= 5)
-		{
+		 *      |      0        |             0           |
+		 *      |      1        |             1           |
+		 *      |      2        |             2           |
+		 *      |      3        |             4           |
+		 *      |      4        |             8           |
+		 *      |     5~7       |          Reserved       |
+		 */
+		if (TX_PWR_ENV_INFO_GET_TXPWR_COUNT(
+					prTxPwrEnvIE->ucTxPwrInfo) >= 5) {
 			DBGLOG(RLM, ERROR,
-				"Invalid txpwr cnt skip update, itpt[%d]cnt[%d]\n",
+				"Invalid txpwr cnt skip update, itpt[%d]cnt[%lu]\n",
 					ucTxPwrEnvIntrpt,
 					TX_PWR_ENV_INFO_GET_TXPWR_COUNT(
 					prTxPwrEnvIE->ucTxPwrInfo));
@@ -11719,6 +11720,15 @@ uint32_t rlmTxPwrEnvMaxPwrUpdate(
 		if (ucPwrLmtNum > prBssDesc->ucTxPwrEnvPwrLmtNum)
 			prBssDesc->ucTxPwrEnvPwrLmtNum = ucPwrLmtNum;
 
+#if (CFG_SUPPORT_WIFI_6G_PWR_MODE == 1)
+		if (eHwBand == BAND_6G) {
+			rlmTxPwrEnv6GPwrModeHdler(
+				prAdapter,
+				prBssDesc->e6GPwrMode,
+				ucPwrLmtNum,
+				aicTxPwrEnvMaxTxPwr);
+		}
+#endif
 		/* Set minimum TxPower limit */
 		rlmTxPwrEnvMaxPwrUpdateArbi(
 			prAdapter,

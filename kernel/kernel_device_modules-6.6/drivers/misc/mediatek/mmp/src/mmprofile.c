@@ -35,6 +35,7 @@
 #include <linux/trace_events.h>
 #include <linux/bug.h>
 #include <linux/sched/clock.h>
+#include <linux/atomic.h>
 
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include "mt-plat/aee.h"
@@ -136,6 +137,7 @@ static struct mmprofile_event_t *p_mmprofile_ring_buffer;
 #if IS_ENABLED(CONFIG_MTK_MMPROFILE_DEBUG)
 static unsigned char *p_mmprofile_meta_buffer;
 #endif
+static atomic_t map_refcnt = ATOMIC_INIT(0);
 
 static struct mmprofile_global_t mmprofile_globals
 __aligned(PAGE_SIZE) = {
@@ -154,6 +156,9 @@ __aligned(PAGE_SIZE) = {
 			sizeof(struct mmp_static_event_t),
 	.max_event_count = MMPROFILE_MAX_EVENT_COUNT,
 };
+
+static void *mmprofile_globals_user_mirror;
+static size_t mmprofile_globals_user_size;
 
 static struct mmprofile_regtable_t mmprofile_regtable = {
 	.list = LIST_HEAD_INIT(mmprofile_regtable.list),
@@ -318,12 +323,16 @@ void mmprofile_get_dump_buffer(unsigned int start, unsigned long *p_addr,
 		(mmprofile_globals.reg_event_index + 1);
 	if (total_pos < (region_base + mmprofile_globals.buffer_size_bytes)) {
 		/* Primary buffer */
+		atomic_inc(&map_refcnt);
 		region_pos = total_pos - region_base;
-		copy_size =
-		    mmprofile_fill_dump_block(p_mmprofile_ring_buffer,
-			    mmprofile_dump_block, &region_pos, &block_pos,
-			    mmprofile_globals.buffer_size_bytes,
-				MMPROFILE_DUMP_BLOCK_SIZE);
+		if (p_mmprofile_ring_buffer) {
+			copy_size =
+			    mmprofile_fill_dump_block(p_mmprofile_ring_buffer,
+				    mmprofile_dump_block, &region_pos, &block_pos,
+				    mmprofile_globals.buffer_size_bytes,
+					MMPROFILE_DUMP_BLOCK_SIZE);
+		}
+		atomic_dec(&map_refcnt);
 		if (block_pos == MMPROFILE_DUMP_BLOCK_SIZE)
 			return;
 	} else {
@@ -369,7 +378,7 @@ static void mmprofile_init_buffer(void)
 				(PAGE_SIZE - 1)) & (~(PAGE_SIZE - 1)));
 		b_reset_ring_buffer = 1;
 	} else if (mmprofile_globals.buffer_size_record !=
-		   mmprofile_globals.new_buffer_size_record) {
+		   mmprofile_globals.new_buffer_size_record && atomic_read(&map_refcnt) < 1) {
 		vfree(p_mmprofile_ring_buffer);
 		p_mmprofile_ring_buffer = NULL;
 		mmprofile_globals.buffer_size_record =
@@ -380,7 +389,7 @@ static void mmprofile_init_buffer(void)
 				(PAGE_SIZE - 1)) & (~(PAGE_SIZE - 1)));
 		b_reset_ring_buffer = 1;
 	}
-	if (b_reset_ring_buffer) {
+	if (b_reset_ring_buffer && atomic_read(&map_refcnt) < 1) {
 		p_mmprofile_ring_buffer =
 #ifdef CONFIG_MTK_USE_RESERVED_EXT_MEM
 		    (struct mmprofile_event_t *)
@@ -390,9 +399,11 @@ static void mmprofile_init_buffer(void)
 		    vmalloc(mmprofile_globals.buffer_size_bytes);
 #endif
 	}
-	MMP_LOG(ANDROID_LOG_DEBUG, "p_mmprofile_ring_buffer=0x%08lx",
-		(unsigned long)p_mmprofile_ring_buffer);
 
+	if (p_mmprofile_ring_buffer) {
+		MMP_MSG("p_mmprofile_ring_buffer=0x%08lx",
+			(unsigned long)p_mmprofile_ring_buffer);
+	}
 #if IS_ENABLED(CONFIG_MTK_MMPROFILE_DEBUG)
 	if (!p_mmprofile_meta_buffer) {
 		mmprofile_globals.meta_buffer_size =
@@ -421,7 +432,7 @@ static void mmprofile_init_buffer(void)
 		(unsigned long)p_mmprofile_meta_buffer);
 
 	if ((!p_mmprofile_ring_buffer) || (!p_mmprofile_meta_buffer)) {
-		if (p_mmprofile_ring_buffer) {
+		if (p_mmprofile_ring_buffer && atomic_read(&map_refcnt) < 1) {
 			vfree(p_mmprofile_ring_buffer);
 			p_mmprofile_ring_buffer = NULL;
 		}
@@ -443,7 +454,7 @@ static void mmprofile_init_buffer(void)
 	}
 #endif
 
-	if (b_reset_ring_buffer)
+	if (b_reset_ring_buffer && atomic_read(&map_refcnt) < 1 && p_mmprofile_ring_buffer)
 		memset((void *)(p_mmprofile_ring_buffer), 0,
 		       mmprofile_globals.buffer_size_bytes);
 #if IS_ENABLED(CONFIG_MTK_MMPROFILE_DEBUG)
@@ -477,8 +488,12 @@ static void mmprofile_reset_buffer(void)
 	if (bmmprofile_init_buffer) {
 		struct mmprofile_meta_datablock_t *p_block;
 
-		memset((void *)(p_mmprofile_ring_buffer), 0,
-			mmprofile_globals.buffer_size_bytes);
+		atomic_inc(&map_refcnt);
+		if (p_mmprofile_ring_buffer) {
+			memset((void *)(p_mmprofile_ring_buffer), 0,
+				mmprofile_globals.buffer_size_bytes);
+		}
+		atomic_dec(&map_refcnt);
 		mmprofile_globals.write_pointer = 0;
 
 		mutex_lock(&mmprofile_meta_buffer_mutex);
@@ -788,8 +803,10 @@ static void system_time(unsigned int *low, unsigned int *high)
 	unsigned long long temp;
 
 	temp = sched_clock();
-	*low = (unsigned int)(temp & 0xffffffff);
-	*high = (unsigned int)((temp >> 32) & 0xffffffff);
+	if(low)
+		*low = (unsigned int)(temp & 0xffffffff);
+	if(high)
+		*high = (unsigned int)((temp >> 32) & 0xffffffff);
 }
 
 static bool is_mmp_valid(mmp_event event)
@@ -815,7 +832,7 @@ static void mmprofile_log_int(mmp_event event, enum mmp_log_type type,
 	size_t size;
 	struct mmprofile_event_t *p_event = NULL;
 	unsigned int index;
-	unsigned int lock;
+	unsigned int lock = 0;
 
 	if (!mmprofile_globals.enable)
 		return;
@@ -834,18 +851,22 @@ static void mmprofile_log_int(mmp_event event, enum mmp_log_type type,
 	index = (atomic_inc_return((atomic_t *)
 			&(mmprofile_globals.write_pointer)) - 1)
 	    % (mmprofile_globals.buffer_size_record);
+	atomic_inc(&map_refcnt);
 	/*check vmalloc address is valid or not*/
-	if (!pfn_valid(vmalloc_to_pfn((struct mmprofile_event_t *)
+	if (p_mmprofile_ring_buffer && !pfn_valid(vmalloc_to_pfn((struct mmprofile_event_t *)
 		&(p_mmprofile_ring_buffer[index])))) {
 		mmp_aee("write_pointer:0x%x,index:0x%x,line:%d\n",
 			mmprofile_globals.write_pointer, index, __LINE__);
 		pr_info("buffer_size_record:0x%x,new_buffer_size_record:0x%x\n",
 			mmprofile_globals.buffer_size_record,
 			mmprofile_globals.new_buffer_size_record);
+		atomic_dec(&map_refcnt);
 		return;
 	}
-	lock = atomic_inc_return((atomic_t *)
-		&(p_mmprofile_ring_buffer[index].lock));
+	if (p_mmprofile_ring_buffer) {
+		lock = atomic_inc_return((atomic_t *)
+			&(p_mmprofile_ring_buffer[index].lock));
+	}
 	/*atomic_t is INT, write_pointer is UINT, avoid convert error*/
 	if (mmprofile_globals.write_pointer ==
 		mmprofile_globals.buffer_size_record)
@@ -859,7 +880,7 @@ static void mmprofile_log_int(mmp_event event, enum mmp_log_type type,
 				(atomic_inc_return((atomic_t *)
 				&(mmprofile_globals.write_pointer)) - 1) %
 				(mmprofile_globals.buffer_size_record);
-			if (!pfn_valid(vmalloc_to_pfn
+			if (p_mmprofile_ring_buffer && !pfn_valid(vmalloc_to_pfn
 				((struct mmprofile_event_t *)
 					&(p_mmprofile_ring_buffer[index])))) {
 				mmp_aee("write_pt:0x%x,index:0x%x,line:%d\n",
@@ -868,11 +889,14 @@ static void mmprofile_log_int(mmp_event event, enum mmp_log_type type,
 				pr_info("buf_size:0x%x,new_buf_size:0x%x\n",
 					mmprofile_globals.buffer_size_record,
 				mmprofile_globals.new_buffer_size_record);
+				atomic_dec(&map_refcnt);
 				return;
 			}
-			lock =
-			    atomic_inc_return((atomic_t *) &
-					(p_mmprofile_ring_buffer[index].lock));
+			if (p_mmprofile_ring_buffer) {
+				lock =
+				    atomic_inc_return((atomic_t *) &
+						(p_mmprofile_ring_buffer[index].lock));
+			}
 			/*avoid convert error*/
 			if (mmprofile_globals.write_pointer ==
 				mmprofile_globals.buffer_size_record)
@@ -884,8 +908,10 @@ static void mmprofile_log_int(mmp_event event, enum mmp_log_type type,
 				break;
 		}
 	}
-	p_event = (struct mmprofile_event_t *)
-		&(p_mmprofile_ring_buffer[index]);
+	if (p_mmprofile_ring_buffer) {
+		p_event = (struct mmprofile_event_t *)
+			&(p_mmprofile_ring_buffer[index]);
+	}
 	system_time(&(p_event->time_low), &(p_event->time_high));
 	p_event->id = event;
 	p_event->flag = type;
@@ -900,6 +926,7 @@ static void mmprofile_log_int(mmp_event event, enum mmp_log_type type,
 		p_event->id = 0;
 		p_event->lock = 0;
 	}
+	atomic_dec(&map_refcnt);
 
 	if ((mmprofile_globals.event_state[event] & MMP_EVENT_STATE_FTRACE)
 	    || (type & MMPROFILE_FLAG_SYSTRACE)) {
@@ -1580,7 +1607,7 @@ static ssize_t mmprofile_dbgfs_global_read(struct file *file, char __user *buf,
 	size_t size, loff_t *ppos)
 {
 	return simple_read_from_buffer(buf, size, ppos, &mmprofile_globals,
-		MMPROFILE_GLOBALS_SIZE);
+		PAGE_ALIGN(sizeof(mmprofile_globals)));
 }
 
 #ifdef MMP_USE
@@ -1588,7 +1615,7 @@ static ssize_t mmprofile_dbgfs_global_write(struct file *file,
 	const char __user *buf, size_t size, loff_t *ppos)
 {
 	return simple_write_to_buffer(&mmprofile_globals,
-		MMPROFILE_GLOBALS_SIZE, ppos, buf, size);
+		PAGE_ALIGN(sizeof(mmprofile_globals)), ppos, buf, size);
 }
 #endif
 
@@ -2331,16 +2358,45 @@ static long mmprofile_ioctl_compat(struct file *file, unsigned int cmd,
 }
 #endif
 
+static int mmprofile_prepare_globals_mirror(void)
+{
+	size_t size_expected = PAGE_ALIGN(sizeof(mmprofile_globals));
+
+	if (mmprofile_globals_user_mirror == NULL) {
+		mmprofile_globals_user_mirror = vzalloc(size_expected);
+		if (!mmprofile_globals_user_mirror)
+			return -ENOMEM;
+		mmprofile_globals_user_size = size_expected;
+	}
+
+	memcpy(mmprofile_globals_user_mirror,
+		&mmprofile_globals,
+		sizeof(mmprofile_globals));
+	return 0;
+}
+
+static void mmprofile_globals_userbuf_exit(void)
+{
+	vfree(mmprofile_globals_user_mirror);
+	mmprofile_globals_user_mirror = NULL;
+	mmprofile_globals_user_size = 0;
+}
+
 static int mmprofile_mmap(struct file *file, struct vm_area_struct *vma)
 {
+	//int ret = 0;
 	unsigned long pos = 0;
 	unsigned long i = 0;
 
 	if (mmprofile_globals.selected_buffer == MMPROFILE_GLOBALS_BUFFER) {
+		size_t size_expected = PAGE_ALIGN(sizeof(mmprofile_globals));
 
 		/* check user space buffer length */
-		if ((vma->vm_end - vma->vm_start) != MMPROFILE_GLOBALS_SIZE)
+		if ((vma->vm_end - vma->vm_start) != size_expected)
 			return -EINVAL;
+
+		if (mmprofile_prepare_globals_mirror())
+			return -EAGAIN;
 
 		pos = vma->vm_start;
 		for (i = 0; i < MMPROFILE_GLOBALS_SIZE;
@@ -2348,7 +2404,7 @@ static int mmprofile_mmap(struct file *file, struct vm_area_struct *vma)
 			if (remap_pfn_range
 			    (vma, pos,
 					vmalloc_to_pfn((void *)((unsigned long)
-					(&mmprofile_globals) + i)),
+					(mmprofile_globals_user_mirror) + i)),
 			     PAGE_SIZE, PAGE_READONLY))
 				return -EAGAIN;
 			/* pr_debug("pfn: 0x%08x\n", pfn); */
@@ -2357,26 +2413,33 @@ static int mmprofile_mmap(struct file *file, struct vm_area_struct *vma)
 		MMPROFILE_PRIMARY_BUFFER) {
 
 		mmprofile_init_buffer();
-
+		atomic_inc(&map_refcnt);
 		/* check user space buffer length */
 		if ((vma->vm_end - vma->vm_start) !=
-			mmprofile_globals.buffer_size_bytes)
+			mmprofile_globals.buffer_size_bytes) {
+			atomic_dec(&map_refcnt);
 			return -EINVAL;
+		}
 
-		if (!bmmprofile_init_buffer)
+		if (!bmmprofile_init_buffer) {
+			atomic_dec(&map_refcnt);
 			return -EAGAIN;
+		}
 
 		pos = vma->vm_start;
 
 		for (i = 0; i < mmprofile_globals.buffer_size_bytes;
 		     i += PAGE_SIZE, pos += PAGE_SIZE) {
-			if (remap_pfn_range
+			if (p_mmprofile_ring_buffer && remap_pfn_range
 			    (vma, pos,
 					vmalloc_to_pfn((void *)((unsigned long)
 					p_mmprofile_ring_buffer + i)),
-			     PAGE_SIZE, PAGE_READONLY))
+			     PAGE_SIZE, PAGE_READONLY)) {
+				atomic_dec(&map_refcnt);
 				return -EAGAIN;
+			}
 		}
+		atomic_dec(&map_refcnt);
 	} else
 		return -EINVAL;
 	return 0;
@@ -2504,6 +2567,7 @@ static int __init mmprofile_init(void)
 
 static void __exit mmprofile_exit(void)
 {
+	mmprofile_globals_userbuf_exit();
 	mmprofile_remove();
 }
 

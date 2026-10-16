@@ -23,9 +23,17 @@
 #include <linux/sort.h>
 #include <linux/mutex.h>
 
+#if IS_ENABLED(CONFIG_MEDIATEK_CPU_DVFS)
+#include "mtk_cpufreq_api.h"
+#endif
+
 #ifndef CREATE_TRACE_POINTS
 #define CREATE_TRACE_POINTS
 #endif
+
+#define NR_MT_CPU_CLUSTER_OPP 16
+#define NR_MT_CPU_CLUSTER 2
+
 #include "powerhal_trace_event.h"
 #include "powerhal_cpu_ctrl.h"
 #include "cpufreq-dbg-lite.h"
@@ -238,6 +246,33 @@ void cpu_policy_init(void)
 	}
 }
 
+void cpu_policy_init_for_leagcy(void)
+{
+	int cluster, idx, frequency;
+
+	policy_num = NR_MT_CPU_CLUSTER;
+	opp_count = kcalloc(NR_MT_CPU_CLUSTER, sizeof(int), GFP_KERNEL);
+	opp_table = kcalloc(NR_MT_CPU_CLUSTER, sizeof(unsigned int *), GFP_KERNEL);
+
+    for (cluster = 0; cluster < NR_MT_CPU_CLUSTER; cluster++) {
+		opp_count[cluster] = NR_MT_CPU_CLUSTER_OPP;
+		opp_table[cluster] = kcalloc(NR_MT_CPU_CLUSTER_OPP, sizeof(unsigned int), GFP_KERNEL);
+
+        for (idx = 0; idx < NR_MT_CPU_CLUSTER_OPP; idx++) {
+
+#if IS_ENABLED(CONFIG_MEDIATEK_CPU_DVFS)
+            frequency = mt_cpufreq_get_freq_by_idx(cluster, idx);
+#else
+            frequency = 0;
+#endif /* CONFIG_MEDIATEK_CPU_DVFS */
+            pr_info("%s, cluster:%d, opp: %d frequency %d\n", 
+				__func__, cluster, idx, frequency);
+
+			opp_table[cluster][idx] = frequency;
+        }
+    }
+}
+
 int get_cpu_opp_info(int **opp_cnt, unsigned int ***opp_tbl)
 {
 	int i, j;
@@ -262,10 +297,43 @@ int get_cpu_opp_info(int **opp_cnt, unsigned int ***opp_tbl)
 	return 0;
 }
 
+int get_cpu_opp_info_for_leagcy(int **opp_cnt, unsigned int ***opp_tbl)
+{
+	int i, j;
+
+	if (policy_num <= 0)
+		return -EFAULT;
+
+	*opp_cnt = kcalloc(policy_num, sizeof(int), GFP_KERNEL);
+	*opp_tbl = kcalloc(policy_num, sizeof(unsigned int *), GFP_KERNEL);
+
+	if (*opp_cnt == NULL || *opp_tbl == NULL)
+		return -1;
+
+	for (i = 0; i < policy_num; i++) {
+
+		(*opp_cnt)[i] = opp_count[i];
+        pr_info("%s, cluster:%d, opp: %d\n", 
+				__func__, i, opp_count[i]);
+		(*opp_tbl)[i] = kcalloc(NR_MT_CPU_CLUSTER_OPP, sizeof(unsigned int), GFP_KERNEL);
+
+		for (j = 0; j < opp_count[i]; j++)
+			(*opp_tbl)[i][j] = opp_table[i][j];
+	}
+	return 0;
+}
+
 int get_cpu_topology(void)
 {
+#if IS_ENABLED(CONFIG_MEDIATEK_CPU_DVFS)
+	pr_info("get_cpu_opp_info_for_leagcy");
+	if (get_cpu_opp_info_for_leagcy(&_opp_cnt, &cpu_opp_tbl) < 0)
+		return -EFAULT;
+#else
+	pr_info("get_cpu_opp_info");
 	if (get_cpu_opp_info(&_opp_cnt, &cpu_opp_tbl) < 0)
 		return -EFAULT;
+#endif
 
 	return 0;
 }
@@ -315,7 +383,7 @@ static ssize_t perfmgr_perfserv_freq_proc_write(
 
 	tmp = buf;
 	while ((tok = strsep(&tmp, " ")) != NULL) {
-		if (cpu >= CORE_MAX) {
+		if (cpu < 0 || cpu >= CORE_MAX) {
 			pr_debug("@%s: cpu number error: %d\n", __func__, i);
 			goto out;
 		}
@@ -918,7 +986,13 @@ static int __init powerhal_cpu_ctrl_init(void)
 		return 0;
 	}
 
+#if IS_ENABLED(CONFIG_MEDIATEK_CPU_DVFS)
+	pr_info("cpu_policy_init_for_leagcy");
+	cpu_policy_init_for_leagcy();
+#else
+	pr_info("cpu_policy_init");
 	cpu_policy_init();
+#endif
 
 	if (get_cpu_topology() < 0) {
 		kvfree(opp_count);

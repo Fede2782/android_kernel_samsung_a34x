@@ -320,11 +320,6 @@ bool mdrv_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp, u8 ubCmd,
 
 		bReplyStatus = mhal_DPTx_AuxWrite_Bytes(mtk_dp, ubCmd,
 			usDPCDADDR, ubLength, pData);
-
-		if ((ubCmd == DP_AUX_I2C_WRITE || ubCmd == DP_AUX_I2C_MOT) &&
-		usDPCDADDR == DDC_ADDR)
-			return bReplyStatus ? false : true;
-
 		ubRetryLimit--;
 		if (bReplyStatus) {
 			udelay(50);
@@ -1642,8 +1637,8 @@ int mdrv_DPTx_HPD_HandleInThread(struct mtk_dp *mtk_dp)
 			mdrv_DPTx_AudioMute(mtk_dp, true);
 
 			if (mtk_dp->bUeventToHwc) {
-				mtk_dp_hotplug_uevent(0);
 				mtk_dp->bUeventToHwc = false;
+				mtk_dp_hotplug_uevent(0);
 				mtk_dp->disp_status = DPTX_DISP_NONE;
 			} else
 				DPTXMSG("Skip uevent(0)\n");
@@ -2561,8 +2556,8 @@ next_tr_state:
 		}
 
 		if (mtk_dp->bUeventToHwc) {
-			mtk_dp_hotplug_uevent(1);
 			mtk_dp->bUeventToHwc = false;
+			mtk_dp_hotplug_uevent(1);
 		} else
 			DPTXMSG("Skip Uevent(1)\n");
 
@@ -4293,14 +4288,17 @@ static int mtk_dp_connector_atomic_check(struct drm_connector *connector,
 	struct hdr_output_metadata default_hdr_output;
 	struct drm_device *dev = connector->dev;
 	struct drm_property_blob *prop = NULL;
+	struct drm_connector_state *tmp_state = NULL;
 
 	mtk_dp = container_of(connector, struct mtk_dp, conn);
-	mtk_dp->conn.state = drm_atomic_get_connector_state(state, connector);
+	tmp_state = drm_atomic_get_connector_state(state, connector);
+	mtk_dp->conn.state->hdr_output_metadata = tmp_state->hdr_output_metadata;
 
 	if (!mtk_dp->training_info.bCablePlugIn) {
-		if (mtk_dp->conn.state->hdr_output_metadata)
-			memset(mtk_dp->conn.state->hdr_output_metadata, 0,
-				sizeof(*mtk_dp->conn.state->hdr_output_metadata));
+		if (mtk_dp->conn.state->hdr_output_metadata) {
+			drm_property_blob_put(mtk_dp->conn.state->hdr_output_metadata);
+			mtk_dp->conn.state->hdr_output_metadata = NULL;
+		}
 	} else {
 		if ((mtk_dp->conn.state->hdr_output_metadata) &&
 			(mtk_dp->conn.hdr_sink_metadata.hdmi_type1.metadata_type & BIT(HDMI_STATIC_METADATA_TYPE1))) {
@@ -4821,7 +4819,7 @@ void mtk_dp_SWInterruptSet(int bstatus)
 
 #if IS_ENABLED(CONFIG_SEC_DISPLAYPORT)
 	mutex_lock(&g_mtk_dp->uevent_mutex);
-	if (!g_mtk_dp->bUeventToHwc && g_mtk_dp->uevent_state != bstatus &&
+	if (!g_mtk_dp->bUeventToHwc && g_mtk_dp->uevent_state != (bstatus == HPD_CONNECT) &&
 			(bstatus == HPD_DISCONNECT || bstatus == HPD_CONNECT)) {
 		g_mtk_dp->bUeventToHwc = true;
 		DPTXMSG("enable uevent, uevent state: %x\n", g_mtk_dp->uevent_state);

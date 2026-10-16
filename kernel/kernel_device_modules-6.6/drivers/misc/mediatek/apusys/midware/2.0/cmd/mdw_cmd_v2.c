@@ -32,7 +32,7 @@ static int mdw_cmd_run(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 		dma_fence_set_error(&c->fence->base_fence, ret);
 	} else {
 		mdw_flw_debug("s(0x%llx) cmd(0x%llx) run\n",
-			(uint64_t)c->mpriv, c->kid);
+			c->mpriv->id, c->kid);
 	}
 
 	mutex_unlock(&c->mtx);
@@ -72,7 +72,7 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 	c->end_ts = sched_clock();
 	c->einfos->c.total_us = (c->end_ts - c->start_ts) / 1000;
 	mdw_flw_debug("s(0x%llx) c(%s/0x%llx/0x%llx/0x%llx) ret(%d) sc_rets(0x%llx) complete, pid(%d/%d)(%d)\n",
-		(uint64_t)c->mpriv, c->comm, c->uid, c->kid, c->rvid,
+		c->mpriv->id, c->comm, c->uid, c->kid, c->rvid,
 		ret, c->einfos->c.sc_rets,
 		c->pid, c->tgid, task_pid_nr(current));
 
@@ -90,13 +90,13 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 
 	if (ret) {
 		mdw_drv_err("s(0x%llx) c(%s/0x%llx/0x%llx/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)\n",
-			(uint64_t)c->mpriv, c->comm, c->uid, c->kid, c->rvid,
+			c->mpriv->id, c->comm, c->uid, c->kid, c->rvid,
 			ret, c->einfos->c.sc_rets,
 			c->einfos->c.total_us, c->pid, c->tgid);
 		dma_fence_set_error(&c->fence->base_fence, ret);
 	} else {
 		mdw_flw_debug("s(0x%llx) c(%s/0x%llx/0x%llx/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)\n",
-			(uint64_t)c->mpriv, c->comm, c->uid, c->kid, c->rvid,
+			c->mpriv->id, c->comm, c->uid, c->kid, c->rvid,
 			ret, c->einfos->c.sc_rets,
 			c->einfos->c.total_us, c->pid, c->tgid);
 	}
@@ -118,7 +118,7 @@ static void mdw_cmd_trigger_func(struct work_struct *wk)
 	}
 
 	mdw_flw_debug("s(0x%llx) c(0x%llx) wait fence done, start run\n",
-		(uint64_t)c->mpriv, c->kid);
+		c->mpriv->id, c->kid);
 	mdw_cmd_run(c->mpriv, c);
 }
 
@@ -128,7 +128,7 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_cmd_in *in = (struct mdw_cmd_in *)args;
 	struct mdw_cmd *c = NULL;
 
-	mdw_trace_begin("apumdw:cmd_create|s:0x%llx", (uint64_t)mpriv);
+	mdw_trace_begin("apumdw:cmd_create|s:0x%llx", mpriv->id);
 
 	mutex_lock(&mpriv->mtx);
 	/* check num subcmds maximum */
@@ -149,7 +149,7 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	/* setup cmd info */
 	c->pid = task_pid_nr(current);
 	c->tgid = current->tgid;
-	c->kid = (uint64_t)c;
+	c->kid = hash_ptr(c, 64);
 	c->uid = in->exec.uid;
 	//c->usr_id = in->exec.usr_id;
 	get_task_comm(c->comm, current);
@@ -282,11 +282,11 @@ static int mdw_cmd_ioctl_run_v2(struct mdw_fpriv *mpriv, union mdw_cmd_args *arg
 
 	/* check wait fence from other module */
 	mdw_flw_debug("s(0x%llx)c(0x%llx) wait fence(%d)\n",
-			(uint64_t)c->mpriv, c->kid, wait_fd);
+			c->mpriv->id, c->kid, wait_fd);
 	c->wait_fence = sync_file_get_fence(wait_fd);
 	if (!c->wait_fence) {
 		mdw_flw_debug("s(0x%llx)c(0x%llx) no wait fence, trigger directly\n",
-			(uint64_t)c->mpriv, c->kid);
+			c->mpriv->id, c->kid);
 		ret = mdw_cmd_run(mpriv, c);
 	} else {
 		/* wait fence from wq */
@@ -314,7 +314,7 @@ int mdw_cmd_ioctl_v2(struct mdw_fpriv *mpriv, void *data)
 	union mdw_cmd_args *args = (union mdw_cmd_args *)data;
 	int ret = 0;
 
-	mdw_flw_debug("s(0x%llx) op::%d\n", (uint64_t)mpriv, args->in.op);
+	mdw_flw_debug("s(0x%llx) op::%d\n", mpriv->id, args->in.op);
 
 	switch (args->in.op) {
 	case MDW_CMD_IOCTL_RUN:
@@ -334,7 +334,7 @@ void mdw_cmd_mpriv_release_without_stale(struct mdw_fpriv *mpriv)
 {
 	if (!atomic_read(&mpriv->active) &&
 		list_empty_careful(&mpriv->cmds_list)) {
-		mdw_flw_debug("s(0x%llx) release mem\n", (uint64_t)mpriv);
+		mdw_flw_debug("s(0x%llx) release mem\n", mpriv->id);
 		mdw_mem_mpriv_release(mpriv);
 	}
 }

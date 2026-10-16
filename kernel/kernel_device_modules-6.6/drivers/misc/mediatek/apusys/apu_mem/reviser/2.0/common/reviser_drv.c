@@ -219,8 +219,8 @@ static int reviser_open(struct inode *inode, struct file *filp)
 			struct reviser_dev_info, reviser_cdev);
 
 	filp->private_data = rdv;
-	LOG_DBG_RVR_FLW("rdv  %p\n", rdv);
-	LOG_DBG_RVR_FLW("filp->private_data  %p\n", filp->private_data);
+	LOG_DBG_RVR_FLW("rdv  0x%pK\n", rdv);
+	LOG_DBG_RVR_FLW("filp->private_data  0x%pK\n", filp->private_data);
 	return 0;
 }
 
@@ -635,7 +635,6 @@ static int reviser_rpmsg_cb(struct rpmsg_device *rpdev, void *data,
 {
 	int ret = 0;
 
-	//LOG_INFO("reviser len=%d, priv=%p, src=%d\n", len, priv, src);
 	ret = reviser_remote_rx_cb(data, len);
 
 	return ret;

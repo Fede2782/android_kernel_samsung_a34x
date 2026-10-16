@@ -334,6 +334,13 @@ static int cam_ois_probe(struct platform_device *pdev)
 	LOG_INF("I2C Client1 0x%p", (void *)g_pstI2Cclients[OIS_I2C_DEV_IDX_1]);
 
 	ret = cam_ois_prove_init();
+
+	// cam_ois_chrdev_register();
+	if (cam_ois_sysfs_init()) {
+		LOG_ERR("Deferred Probe! fail to init cam ois sysfs");
+		return -EPROBE_DEFER;
+	}
+
 	if (ret)
 		LOG_INF("fail to set ois mcu info");
 
@@ -399,11 +406,6 @@ int __init cam_ois_drv_init(void)
 		return -ENODEV;
 	}
 
-	// cam_ois_chrdev_register();
-	if (cam_ois_sysfs_init()) {
-		LOG_ERR("fail to init cam ois sysfs");
-		return -ENODEV;
-	}
 	LOG_DBG(" - X");
 	return 0;
 }

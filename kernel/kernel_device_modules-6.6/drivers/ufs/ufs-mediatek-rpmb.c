@@ -389,9 +389,24 @@ out:
 }
 
 
-struct rpmb_dev *ufs_mtk_rpmb_get_raw_dev(void)
+static struct rpmb_dev *__ufs_mtk_rpmb_get_raw_dev(void)
 {
 	return rawdev_ufs_rpmb;
+}
+
+struct rpmb_dev *ufs_mtk_rpmb_get_raw_dev(void)
+{
+	struct rpmb_dev *rdev = __ufs_mtk_rpmb_get_raw_dev();
+	int cnt = 0;
+
+	while (!rdev) {
+		/* max wait time 5s */
+		if (cnt++ > 50)
+			return NULL;
+		msleep(100);
+		rdev = __ufs_mtk_rpmb_get_raw_dev();
+	}
+	return rdev;
 }
 EXPORT_SYMBOL_GPL(ufs_mtk_rpmb_get_raw_dev);
 

@@ -2099,6 +2099,7 @@ static void probe_android_vh_cgroup_set_task(void *ignore, int ret, struct task_
 {
 	struct task_turbo_t *turbo_data;
 	struct task_struct *t;
+	int i;
 
 	if (ret)
 		return;
@@ -2111,12 +2112,17 @@ static void probe_android_vh_cgroup_set_task(void *ignore, int ret, struct task_
 		}
 	} else {
 		turbo_data = get_task_turbo_t(p);
-		if (turbo_data->turbo)
+		if (turbo_data->turbo) {
+			for (i = 0; i < TURBO_PID_COUNT; i++) {
+				if (turbo_pid[i] == p->pid && turbo_pid_param == p->pid)
+					return;
+			}
 			for_each_thread(p, t) {
 				turbo_data = get_task_turbo_t(t);
 				if (turbo_data->turbo)
 					remove_turbo_list(t);
 			}
+		}
 	}
 }
 

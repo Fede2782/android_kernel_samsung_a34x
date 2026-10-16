@@ -614,7 +614,8 @@ void c2ps_check_last_anc(struct c2ps_anchor *anc)
 		anc->is_last_anchor = false;
 	}
 
-	if (unlikely(anc->anchor_id < 0))
+	if (unlikely((anc->anchor_id < 0) ||
+		(anc->anchor_id >= ARRAY_SIZE(Prime_Table))))
 		return;
 
 	if (likely(glb_info->um_vote.last_anchor_decided))
@@ -1243,20 +1244,12 @@ void reset_task_uclamp(int pid)
 	int ret = -1;
 	struct task_struct *p;
 	struct sched_attr attr = {};
-	struct global_info *glb_info = get_glb_info();
-
-	if (unlikely(glb_info == NULL))
-		return;
 
 	attr.sched_policy = SCHED_NORMAL;
 	attr.sched_flags = SCHED_FLAG_KEEP_ALL | SCHED_FLAG_UTIL_CLAMP;
 
 	attr.sched_util_min = 1;
-	if (likely(glb_info != NULL)) {
-		attr.sched_util_max = max(glb_info->max_uclamp[0],
-			max(glb_info->max_uclamp[1], glb_info->max_uclamp[2]));
-		attr.sched_util_max = clamp(attr.sched_util_max, 1U, 1024U);
-	}
+	attr.sched_util_max = 1024;
 
 	rcu_read_lock();
 	p = find_task_by_vpid(pid);

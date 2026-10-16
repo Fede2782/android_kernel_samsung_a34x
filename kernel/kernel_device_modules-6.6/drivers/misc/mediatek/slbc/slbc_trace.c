@@ -242,9 +242,6 @@ void slbc_trace_dump(void *ptr)
 
 	if (!slbc_trace) {
 		SLBC_DUMP(m, "SLBC TRACE INIT FAIL!\n");
-		SLBC_DUMP(m, "trace_dram_base_va: 0x%llx\n", slbc_trace_dram_base_va);
-		SLBC_DUMP(m, "trace_dram_base_pa: 0x%x\n", slbc_trace_dram_base_pa);
-		SLBC_DUMP(m, "trace_dram_size: 0x%x\n", slbc_trace_dram_size);
 		return;
 	}
 
@@ -267,10 +264,6 @@ void slbc_trace_dump(void *ptr)
 	SLBC_DUMP(m, "focus_id: 0x%llx\n", slbc_trace->focus_id);
 	SLBC_DUMP(m, "-------------- Dump Setting ------------\n");
 	SLBC_DUMP(m, "dump_num: %u\n", slbc_trace->dump_num);
-	SLBC_DUMP(m, "-------------- Data Info ---------------\n");
-	SLBC_DUMP(m, "trace_dram_base_va: 0x%llx\n", slbc_trace_dram_base_va);
-	SLBC_DUMP(m, "trace_dram_base_pa: 0x%x\n", slbc_trace_dram_base_pa);
-	SLBC_DUMP(m, "trace_dram_size: 0x%x\n", slbc_trace_dram_size);
 
 	memset(lvl_count, 0, sizeof(lvl_count));
 

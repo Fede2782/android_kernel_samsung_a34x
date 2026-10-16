@@ -8,8 +8,6 @@ subdir-ccflags-y += -Wall -Werror \
 		-I$(srctree)/$(src)/include \
 		-I$(srctree)/$(src)/include/uapi \
 
-obj-y += drivers/mm/
-
 obj-y += drivers/block/zram/
 
 obj-y += drivers/memory/
@@ -129,6 +127,5 @@ obj-y += drivers/samsung/
 obj-y += block/
 
 obj-y += mm/sec_mm/
-
 
 endif

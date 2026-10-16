@@ -76,6 +76,7 @@ static bool have_gpu_cached;
 static int last_fbt_weight;
 
 static DEFINE_MUTEX(layering_info_lock);
+static DEFINE_MUTEX(layering_rule_lock);
 
 #define DISP_MML_LAYER_LIMIT 1
 #define DISP_LAYER_RULE_MAX_NUM 1024
@@ -3855,6 +3856,9 @@ static int check_disp_info(struct drm_mtk_layering_info *disp_info)
 		return -1;
 	}
 
+	if (disp_info->disp_idx >= MAX_CRTC)
+		return -1;
+
 	for (disp_idx = 0; disp_idx < HRT_DISP_TYPE_NUM; disp_idx++) {
 		int mode = disp_info->disp_mode[disp_idx];
 		int ghead = disp_info->gles_head[disp_idx];
@@ -4910,6 +4914,7 @@ static void check_is_mml_layer(const int disp_idx,
 			mml_dc_layers = true;
 	}
 
+	DDP_MUTEX_LOCK_CONDITION(&mtk_crtc->mml_cfg_dc_lock, __func__, __LINE__, false);
 	if (mtk_crtc->mml_cfg_dc && mml_dc_layers == false &&
 		!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_VIDLE_FULL_SCENARIO)) {
 		for (i = 0; i < MML_MAX_OUTPUTS; i++)
@@ -4921,6 +4926,7 @@ static void check_is_mml_layer(const int disp_idx,
 			__func__, mtk_crtc->is_mml_dc, c->layer_caps,
 			MTK_MML_DISP_DECOUPLE_LAYER);
 	}
+	DDP_MUTEX_UNLOCK_CONDITION(&mtk_crtc->mml_cfg_dc_lock, __func__, __LINE__, false);
 
 	if (disp_info->gles_head[disp_idx] != -1) {
 		int adjusted_gles_head = -1;
@@ -5269,7 +5275,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 		}
 		scn_decision_flag |= SCN_IDLE;
 		layering_info.hrt_num = HRT_LEVEL_LEVEL0;
-		if (priv && priv->data->need_emi_eff) {
+		if (priv && priv->data && priv->data->need_emi_eff) {
 			weight = (400 * 10000) / default_emi_eff;
 			layering_info.hrt_weight = weight;
 			if (l_rule_info->dal_enable)
@@ -5758,9 +5764,11 @@ int mtk_layering_rule_ioctl(struct drm_device *dev, void *data,
 	struct drm_mtk_layering_info *disp_info_user = data;
 	int ret;
 
+	mutex_lock(&layering_rule_lock);
 	ret = layering_rule_start(disp_info_user, 0, dev);
 	if (ret < 0)
 		DDPPR_ERR("layering_rule_start error:%d\n", ret);
+	mutex_unlock(&layering_rule_lock);
 
 	return 0;
 }

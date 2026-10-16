@@ -1932,7 +1932,15 @@ static void mtk8250_shutdown(struct uart_port *port)
 			}
 		}
 	}
+	#if defined(KERNEL_mtk_uart_set_apdma_clk)
+	if (data->support_hub)
+		KERNEL_mtk_uart_set_apdma_clk(true);
+	#endif
 	serial8250_do_shutdown(port);
+	#if defined(KERNEL_mtk_uart_set_apdma_clk)
+	if (data->support_hub)
+		KERNEL_mtk_uart_set_apdma_clk(false);
+	#endif
 	if (errflag_config) {
 		#if defined(KERNEL_mtk_uart_set_apdma_clk)
 		KERNEL_mtk_uart_set_apdma_clk(false);

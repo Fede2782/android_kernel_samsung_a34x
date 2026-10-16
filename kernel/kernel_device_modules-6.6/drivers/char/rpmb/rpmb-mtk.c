@@ -2734,6 +2734,11 @@ static long rpmb_ioctl_ufs(struct file *pfile, unsigned int cmd, unsigned long a
 	struct ufs_mtk_host *host;
 
 	rawdev_ufs_rpmb = ufs_mtk_rpmb_get_raw_dev();
+	if (rawdev_ufs_rpmb == NULL) {
+		MSG(ERR, "%s, Getting rawdev_ufs_rpmb failed\n", __func__);
+		return -EFAULT;
+	}
+
 	hba = dev_get_drvdata(rawdev_ufs_rpmb->dev.parent);
 	host = ufshcd_get_variant(hba);
 

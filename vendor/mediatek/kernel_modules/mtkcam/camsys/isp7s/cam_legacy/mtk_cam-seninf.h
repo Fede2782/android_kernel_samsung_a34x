@@ -264,6 +264,7 @@ struct seninf_ctx {
 
 	/* cammux switch debug element */
 	struct mtk_cam_seninf_mux_param *dbg_chmux_param;
+	struct mutex dbg_chmux_mutex;
 
 	/* record pid */
 	struct pid *pid;

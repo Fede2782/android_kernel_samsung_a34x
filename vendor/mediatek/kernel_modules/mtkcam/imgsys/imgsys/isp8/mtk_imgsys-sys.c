@@ -2127,6 +2127,12 @@ unsigned int mode = imgsys_streaming;
 	job_id = swfrm_info->handle;
 #else
 	req_fd = (u32) swfrm_info->request_fd;
+	if (req_fd >= MTK_REQ_FD_CACHE_ARRAY_MAX) {
+		dev_info(imgsys_dev->dev, "%s: invalid request_fd %d >= %d\n",
+			 __func__, req_fd, MTK_REQ_FD_CACHE_ARRAY_MAX);
+		return;
+	}
+
 	job_id = fd_list->info_array[req_fd].handle;
 #endif
 	pipe_id = mtk_imgsys_pipe_get_pipe_from_job_id(job_id);

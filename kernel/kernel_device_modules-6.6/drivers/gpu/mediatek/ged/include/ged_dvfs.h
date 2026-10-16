@@ -308,9 +308,6 @@ void set_api_sync_flag(int flag);
 int get_api_sync_flag(void);
 void ged_reset_api_sync_ts(void);
 unsigned long long ged_get_api_sync_ts(void);
-unsigned long long ged_get_api_boost_end_ts(void);
-unsigned long long ged_get_api_boost_interval(void);
-void ged_reset_api_boost_interval(void);
 #define LOADING_ACTIVE 0
 #define LOADING_MAX_3DTA_COM 1
 #define LOADING_MAX_3DTA 2

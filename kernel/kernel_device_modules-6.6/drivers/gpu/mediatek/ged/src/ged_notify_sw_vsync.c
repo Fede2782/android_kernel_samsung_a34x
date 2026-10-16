@@ -1091,14 +1091,11 @@ void ged_check_power_duration(void)
 	unsigned long ulIRQFlags;
 	bool bforce = false;
 	bool bLast_I_to_A = false;
-	unsigned long long ns_api_boost_interval = 0;
-	unsigned long long cur_ts_ns = ged_get_time();
-	unsigned long long gpu_api_boost_end_ts = ged_get_api_boost_end_ts();
 
 	spin_lock_irqsave(&g_sApoLock, ulIRQFlags);
 
 	/* Condition-1 */
-	bforce = ged_gpu_is_heavy() || (get_api_sync_flag() == 1);
+	bforce = ged_gpu_is_heavy();
 	if (true == bforce)
 		goto direct_check;
 
@@ -1107,25 +1104,11 @@ void ged_check_power_duration(void)
 		return;
 	}
 
-	/* Reset API boost interval if long time no API boost call */
-	if (cur_ts_ns > gpu_api_boost_end_ts &&
-		(cur_ts_ns - gpu_api_boost_end_ts) > g_apo_thr_ns) {
-		ged_reset_api_boost_interval();
-		spin_unlock_irqrestore(&g_sApoLock, ulIRQFlags);
-		return;
-	}
-
-	ns_api_boost_interval = ged_get_api_boost_interval();
-	if (ns_api_boost_interval > 0)
-		trace_tracing_mark_write(5566, "api_boost_interval",
-				div64_u64(ns_api_boost_interval, 1000));
-
 	/* Condition */
 	bLast_I_to_A = g_ns_gpu_I_to_A_duration < g_apo_thr_ns;
 
 direct_check:
-	if (bforce || bLast_I_to_A ||
-		(ns_api_boost_interval > 0 && ns_api_boost_interval < g_apo_thr_ns))
+	if (bforce || bLast_I_to_A)
 		g_bGPUAPO = true;
 	else {
 		if (g_apo_thr_ns == 0) {
@@ -1312,14 +1295,11 @@ void ged_check_predict_power_duration(void)
 	bool bPredict_force = false;
 	bool bPredict_current_I_to_A = true; /* Default set "true" to discard */
 	bool bPredict_last_I_to_A = false;
-	unsigned long long cur_ts_ns = ged_get_time();
-	unsigned long long ns_api_boost_interval = 0;
-	unsigned long long gpu_api_boost_end_ts = ged_get_api_boost_end_ts();
 
 	spin_lock_irqsave(&g_sApoLock, ulIRQFlags);
 
 	/* Condition-1 */
-	bPredict_force = ged_gpu_is_heavy() || (get_api_sync_flag() == 1);
+	bPredict_force = ged_gpu_is_heavy();
 	if (true == bPredict_force) {
 		ged_set_apo_wakeup_ns_nolock(GED_APO_LONG_WAKEUP_THR_NS);
 		goto direct_check;
@@ -1332,19 +1312,6 @@ void ged_check_predict_power_duration(void)
 		return;
 	}
 
-	/* Reset API boost interval if long time no API boost call */
-	if (cur_ts_ns > gpu_api_boost_end_ts &&
-		(cur_ts_ns - gpu_api_boost_end_ts) > g_apo_thr_ns) {
-		ged_reset_api_boost_interval();
-		spin_unlock_irqrestore(&g_sApoLock, ulIRQFlags);
-		return;
-	}
-
-	ns_api_boost_interval = ged_get_api_boost_interval();
-	if (ns_api_boost_interval > 0)
-		trace_tracing_mark_write(5566, "api_boost_interval",
-				div64_u64(ns_api_boost_interval, 1000));
-
 	/* Condition-2 */
 	bPredict_current_I_to_A = ged_check_predict_power_autosuspend_nolock();
 
@@ -1356,8 +1323,7 @@ void ged_check_predict_power_duration(void)
 
 direct_check:
 	if (bPredict_force ||
-		(bPredict_current_I_to_A && bPredict_last_I_to_A) ||
-		(ns_api_boost_interval > 0 && ns_api_boost_interval < g_apo_thr_ns))
+		(bPredict_current_I_to_A && bPredict_last_I_to_A))
 		g_bGPUPredictAPO = true;
 	else {
 		if (g_ged_apo_support == APO_NORMAL_AND_LP_SUPPORT &&

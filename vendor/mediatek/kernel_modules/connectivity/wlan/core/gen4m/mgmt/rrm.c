@@ -1123,8 +1123,6 @@ void rrmDoBeaconMeasurement(struct ADAPTER *prAdapter, uintptr_t ulParam)
 		(struct RM_BCN_REQ *)&prRmReq->prCurrMeasElem
 			->aucRequestFields[0];
 	uint8_t ucChannelListNum = 0;
-	struct RF_CHANNEL_INFO
-		arChnlInfoList[MAXIMUM_OPERATION_CHANNEL_LIST];
 	uint8_t maxDurationSec = 5;
 	uint16_t dur;
 
@@ -1160,7 +1158,7 @@ void rrmDoBeaconMeasurement(struct ADAPTER *prAdapter, uintptr_t ulParam)
 	WLAN_GET_FIELD_16(&prBcnReq->u2Duration, &dur);
 	rlmDomainGetChnlListFromOpClass(prAdapter,
 		prBcnReq->ucRegulatoryClass,
-		arChnlInfoList, &ucChannelListNum);
+		NULL, &ucChannelListNum);
 
 	if (!!(prRmReq->prCurrMeasElem->ucRequestMode &
 			RM_REQ_MODE_DURATION_MANDATORY_BIT) &&

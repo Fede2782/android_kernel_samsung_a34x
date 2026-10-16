@@ -1188,16 +1188,10 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 	struct mtk_imgsys_video_device *node = mtk_imgsys_file_to_node(file);
 	struct vb2_buffer *vb;
 	struct mtk_imgsys_dev_buffer *dev_buf;
-	struct buf_info dyn_buf_info;
-	int ret = 0, i = 0;
-	unsigned long user_ptr = 0;
+	int ret = 0;
 #ifdef REQ_TIMESTAMP
 	struct mtk_imgsys_request *imgsys_req;
 	struct media_request *req;
-#endif
-#ifndef USE_V4L2_FMT
-	struct v4l2_plane_pix_format *vfmt;
-	struct plane_pix_format *bfmt;
 #endif
 	if (!pipe->streaming) {
 		dev_info(pipe->imgsys_dev->dev, "[%s] illegal process access \n", __func__);
@@ -1223,98 +1217,14 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 	imgsys_req->tstate.time_qbuf = ktime_get_boottime_ns()/1000;
 	media_request_put(req);
 #endif
-	if (!is_desc_fmt(node->dev_q.dev_fmt)) {
-		user_ptr =
-			(((unsigned long)(buf->m.planes[0].reserved[0]) << 32) |
-			((unsigned long)buf->m.planes[0].reserved[1]));
 
-		if (user_ptr) {
-			ret = copy_from_user(&dyn_buf_info,
-						   (void *)(size_t)user_ptr,
-						   sizeof(struct buf_info));
-			if (ret != 0) {
-				dev_dbg(pipe->imgsys_dev->dev,
-					"[%s]%s:%s:copy_from_user fail !!!\n",
-					__func__,
-					pipe->desc->name, node->desc->name);
-				return -EINVAL;
-			}
-
-#ifdef USE_V4L2_FMT
-			dev_buf->fmt.fmt.pix_mp = dyn_buf_info.fmt.fmt.pix_mp;
-#else
-			dev_buf->fmt.fmt.pix_mp.width =
-					dyn_buf_info.fmt.fmt.pix_mp.width;
-			dev_buf->fmt.fmt.pix_mp.height =
-					dyn_buf_info.fmt.fmt.pix_mp.height;
-			dev_buf->fmt.fmt.pix_mp.pixelformat =
-					dyn_buf_info.fmt.fmt.pix_mp.pixelformat;
-			for (i = 0; i < dyn_buf_info.buf.num_planes; i++) {
-				vfmt = &dev_buf->fmt.fmt.pix_mp.plane_fmt[i];
-				bfmt =
-				&dyn_buf_info.fmt.fmt.pix_mp.plane_fmt[i];
-				vfmt->sizeimage = bfmt->sizeimage;
-				vfmt->bytesperline = bfmt->sizeimage;
-			}
-#endif
-
-			dev_buf->crop = dyn_buf_info.crop;
-			/* dev_buf->compose = dyn_buf_info.compose; */
-			dev_buf->rotation = dyn_buf_info.rotation;
-			dev_buf->hflip = dyn_buf_info.hflip;
-			dev_buf->vflip = dyn_buf_info.vflip;
-
-            if (imgsys_dbg_enable()) {
-				dev_dbg(pipe->imgsys_dev->dev,
-						"[%s] portid(%d), rotat(%d), hflip(%d), vflip(%d)\n",
-						__func__,
-						dev_buf->dma_port,
-						dev_buf->rotation,
-						dev_buf->hflip,
-						dev_buf->vflip);
-			}
-
-			for (i = 0;
-				i < dev_buf->fmt.fmt.pix_mp.num_planes; i++) {
-                if (imgsys_dbg_enable()) {
-				dev_dbg(pipe->imgsys_dev->dev,
-					"[%s] width(%d), width(%d), sizeimage(%d), bytesperline(%d)\n",
-					__func__,
-					dev_buf->fmt.fmt.pix_mp.width,
-					dev_buf->fmt.fmt.pix_mp.width,
-					dev_buf->fmt.fmt.pix_mp.plane_fmt[i].sizeimage,
-					dev_buf->fmt.fmt.pix_mp.plane_fmt[i].bytesperline);
-				}
-
-			}
-		} else {
-		    if (imgsys_dbg_enable()) {
-				dev_dbg(pipe->imgsys_dev->dev,
-					"[%s]%s: stdmode videonode(%s) qbuf bufinfo(reserved) is null!\n",
-					__func__, pipe->desc->name, node->desc->name);
-			}
-			/*
-			 * update fiexd pipeline node info for update devbuf
-			 * lately
-			 */
-			{
-				dev_buf->fmt = node->vdev_fmt;
-				dev_buf->dma_port = node->desc->dma_port;
-				dev_buf->rotation = node->rotation;
-				dev_buf->crop.c = node->crop;
-				dev_buf->compose = node->compose;
-			}
-
-		}
-	} else {
-        if (imgsys_dbg_enable()) {
-        dev_dbg(pipe->imgsys_dev->dev,
+	if (imgsys_dbg_enable()) {
+		dev_dbg(pipe->imgsys_dev->dev,
 			"[%s]%s:%s: no need to cache bufinfo,videonode fmt is DESC or SingleDevice(%d)!\n",
 			__func__,
 			pipe->desc->name,
 			node->desc->name,
 			node->dev_q.dev_fmt->format);
-		}
 	}
 
 	if ((node->desc->id == MTK_IMGSYS_VIDEO_NODE_ID_CTRLMETA_OUT) ||
@@ -3531,7 +3441,7 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 	int ret;
 	const char *coherent_status = NULL;
 
-	imgsys_dev = devm_kzalloc(&pdev->dev, sizeof(*imgsys_dev), GFP_KERNEL);
+	imgsys_dev = vzalloc(sizeof(*imgsys_dev));
 	if (!imgsys_dev)
 		return -ENOMEM;
 
@@ -3667,7 +3577,7 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 		goto bypass_larbs;
 	}
 
-	larb_devs = devm_kzalloc(&pdev->dev, sizeof(larb_devs) * larbs_num, GFP_KERNEL);
+	larb_devs = vzalloc(sizeof(larb_devs) * larbs_num);
 	if (!larb_devs)
 		return -ENOMEM;
 
@@ -3785,6 +3695,10 @@ int mtk_imgsys_remove(struct platform_device *pdev)
 	mtk_imgsys_mmdvfs_uninit(imgsys_dev);
 	#endif
 	imgsys_cmdq_release(imgsys_dev);
+
+	if (imgsys_dev->larbs)
+		vfree(imgsys_dev->larbs);
+	vfree(imgsys_dev);
 
 	return 0;
 }

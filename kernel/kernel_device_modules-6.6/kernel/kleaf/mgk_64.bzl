@@ -134,7 +134,6 @@ mgk_64_common_user_modules = mgk_module_outs + mgk_module_user_outs + mgk_64_mod
 
 mtk_device_modules = [
     # keep sorted
-    "drivers/mm/zsmalloc.ko",
     "drivers/block/zram/zram.ko",
     "drivers/char/hw_random/sec-rng.ko",
     "drivers/char/rpmb/rpmb.ko",

@@ -330,6 +330,8 @@ static bool dpc_is_power_on(void);
 static bool mminfra_is_power_on(void);
 static u8 bw_to_level(const u32 total_bw);
 static void dpc_analysis(void);
+static int dpc_vidle_power_keep(const enum mtk_vidle_voter_user _user);
+static void dpc_vidle_power_release(const enum mtk_vidle_voter_user user);
 
 struct mtk_dpc {
 	struct platform_device *pdev;

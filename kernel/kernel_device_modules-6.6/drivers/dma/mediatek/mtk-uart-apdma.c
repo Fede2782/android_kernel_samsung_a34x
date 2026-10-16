@@ -97,6 +97,7 @@
 #define VFF_POLL_TIMEOUT	4000
 #define IBUF_POLL_INTERVAL	10
 #define IBUF_POLL_TIMEOUT	100
+#define DMA_TX_POLLING_CNT	200
 
 /* dma debug info*/
 #define DMA_DEFAULT_VALUE	0
@@ -108,6 +109,12 @@
 #define DMA_U_STATE		-6
 #define DMA_D_STATE		-7
 #define DMA_RX_ENABLE_FAIL	-8
+
+/*apdma tx status*/
+enum apdma_tx_status {
+	DMA_TX_DONE,
+	DMA_TX_RUNIMG,
+};
 
 struct uart_info {
 	unsigned int wpt_reg;
@@ -182,6 +189,9 @@ struct mtk_chan {
 	unsigned int start_valid_size;
 	unsigned int cur_rec_idx;
 	struct uart_info rec_info[UART_RECORD_COUNT];
+	atomic_t txdma_state;
+	atomic_t term_err;
+	unsigned int term_dbg;
 };
 
 static unsigned long long num;
@@ -193,6 +203,7 @@ atomic_t rx_res_status;
 static unsigned int peri_0_axi_dbg;
 static struct clk *g_dma_clk;
 struct mutex g_dma_clk_mutex;
+DEFINE_SPINLOCK(g_dma_clk_lock);
 atomic_t dma_clk_count;
 static unsigned int clk_count;
 struct mtk_chan *hub_dma_tx_chan;
@@ -457,23 +468,52 @@ void mtk_uart_set_apdma_rx_irq(bool enable)
 }
 EXPORT_SYMBOL(mtk_uart_set_apdma_rx_irq);
 
-void mtk_uart_set_apdma_clk(bool enable)
+/*
+ * This function uses spin_lock to ensure the atomicity
+ * of dma_clk_count operations.Other locations can guarantee the validity of
+ * count by holding the spin_lock.
+ * op:
+ * 1: increment dma_clk_count
+ * -1: decrement dma_clk_count
+ */
+static int mtk_uart_op_dma_clk_cnt(int op)
 {
-	int ret = 0;
+	unsigned long flags;
 
-	mutex_lock(&g_dma_clk_mutex);
-	if (enable) {
+	spin_lock_irqsave(&g_dma_clk_lock, flags);
+	if (op == 1) {
 		if (atomic_read(&dma_clk_count) < 0)
 			pr_info("[%s] dma_clk_count < 0\n", __func__);
 		atomic_inc(&dma_clk_count);
-		if (atomic_read(&dma_clk_count) == 1) {
-			ret = clk_prepare_enable(g_dma_clk);
-			if (ret)
-				pr_info("[%s] clk_prepare_enable fail\n", __func__);
-		}
-	} else {
+	} else if (op == -1)
 		atomic_dec(&dma_clk_count);
-		if (atomic_read(&dma_clk_count) == 0) {
+
+	spin_unlock_irqrestore(&g_dma_clk_lock, flags);
+
+	return atomic_read(&dma_clk_count);
+}
+
+void mtk_uart_set_apdma_clk(bool enable)
+{
+	int ret = 0;
+	int count = 0;
+
+	mutex_lock(&g_dma_clk_mutex);
+	if (enable) {
+		if (atomic_read(&dma_clk_count) == 0)
+			ret = clk_prepare_enable(g_dma_clk);
+		if (ret)
+			pr_info("[%s] clk_prepare_enable fail\n", __func__);
+		/*
+		 * else condition include:
+		 * 1. Clock prepare and enable succeeded.
+		 * 2. If clock count is not zero, only increment the atomic counter.
+		 */
+		else
+			mtk_uart_op_dma_clk_cnt(1);
+	} else {
+		count = mtk_uart_op_dma_clk_cnt(-1);
+		if (count == 0) {
 			mtk_uart_apdma_write(hub_dma_rx_chan, VFF_INT_EN, VFF_INT_EN_CLR_B);
 			mtk_uart_apdma_write(hub_dma_rx_chan, VFF_INT_FLAG, VFF_RX_INT_CLR_B);
 			clk_disable_unprepare(g_dma_clk);
@@ -567,11 +607,14 @@ EXPORT_SYMBOL(mtk_uart_apdma_polling_rx_finish);
 
 int mtk_uart_apdma_polling_tx_finish(void)
 {
-	int ret = 0, result = 0;
+	int ret = 0, result = 0, dma_state = 0;
 	unsigned int tx_data_cnt = 0, vff_valid_size = 0;
 	unsigned int poll_cnt = MAX_POLL_CNT_TX;
+	unsigned int poll_thread_cnt = DMA_TX_POLLING_CNT;
 	bool is_irq_pending = true;
 	bool is_irq_active = true;
+	unsigned long long polling_start_time = 0;
+	unsigned long long polling_end_time = 0;
 
 	// Check apdma VFF valid size
 	vff_valid_size = mtk_uart_apdma_read(hub_dma_tx_chan, VFF_VALID_SIZE);
@@ -610,6 +653,23 @@ int mtk_uart_apdma_polling_tx_finish(void)
 
 	if (is_irq_pending || is_irq_active) {
 		pr_info("%s: irq_pending: %d, irq_active: %d\n", __func__, is_irq_pending, is_irq_active);
+		result = -1;
+	}
+
+	polling_start_time = sched_clock();
+	while (poll_thread_cnt) {
+		dma_state = atomic_read(&hub_dma_tx_chan->txdma_state);
+		if (dma_state == DMA_TX_RUNIMG) {
+			usleep_range(1000, 1500);
+			poll_thread_cnt--;
+		} else
+			break;
+	}
+	polling_end_time = sched_clock();
+	if (poll_thread_cnt == 0) {
+		pr_info("%s: Error: dma_state[%d], polling_time[%lld]!!\n",
+			 __func__, dma_state,
+			 polling_end_time - polling_start_time);
 		result = -1;
 	}
 
@@ -884,6 +944,10 @@ static irqreturn_t vchan_complete_thread_irq(int irq, void *dev_id)
 		dmaengine_desc_callback_invoke(&cb, &vd->tx_result);
 		vchan_vdesc_fini(vd);
 	}
+#if IS_ENABLED(CONFIG_MTK_UARTHUB)
+	if (c->dir == DMA_MEM_TO_DEV && c->is_hub_port)
+		atomic_set(&hub_dma_tx_chan->txdma_state, DMA_TX_DONE);
+#endif
 	c->rec_info[idx].complete_time = sched_clock();
 
 	if ((c->dir == DMA_DEV_TO_MEM) && (c->rec_info[idx].trans_len >= UART_RX_DUMP_MAXLEN)) {
@@ -935,6 +999,10 @@ static int mtk_uart_apdma_tx_handler(struct mtk_chan *c)
 	list_del(&d->vd.node);
 	vchan_cookie_complete_thread_irq(&d->vd);
 	c->rec_info[idx].trans_duration_time = sched_clock() - c->rec_info[idx].trans_time;
+#if IS_ENABLED(CONFIG_MTK_UARTHUB)
+	if (c->dir == DMA_MEM_TO_DEV && c->is_hub_port)
+		atomic_set(&hub_dma_tx_chan->txdma_state, DMA_TX_RUNIMG);
+#endif
 	return 0;
 }
 
@@ -1279,28 +1347,76 @@ static int mtk_uart_apdma_slave_config(struct dma_chan *chan,
 	return 0;
 }
 
+static void mtk_uart_apdma_synchronize(struct dma_chan *chan)
+{
+	unsigned long flags;
+	struct mtk_chan *c = NULL;
+	LIST_HEAD(head);
+
+	if (!chan)
+		return;
+	c = to_mtk_uart_apdma_chan(chan);
+	if (!c)
+		return;
+
+	synchronize_irq(c->irq);
+
+	spin_lock_irqsave(&c->vc.lock, flags);
+	vchan_get_all_descriptors(&c->vc, &head);
+	spin_unlock_irqrestore(&c->vc.lock, flags);
+
+	vchan_dma_desc_free_list(&c->vc, &head);
+
+	if (atomic_read(&c->term_err)) {
+		pr_info("[%s]: Terminate error detected! err[%d] irq[%d] dbg[0x%x]\n",
+				__func__, atomic_read(&c->term_err), c->irq, c->term_dbg);
+		atomic_set(&c->term_err, 0);
+		c->term_dbg = 0;
+	}
+}
+
 static int mtk_uart_apdma_terminate_all(struct dma_chan *chan)
 {
 #if IS_ENABLED(CONFIG_MTK_UARTHUB)
-	struct mtk_uart_apdmadev *mtkd = to_mtk_uart_apdma_dev(chan->device);
+	struct mtk_uart_apdmadev *mtkd = NULL;
 #endif
-	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
-	unsigned long flags;
+	struct mtk_chan *c = NULL;
 	unsigned int status;
-	LIST_HEAD(head);
+	unsigned long flags;
 	int ret;
 	bool state;
 
+	if (!chan)
+		return -EINVAL;
+
 #if IS_ENABLED(CONFIG_MTK_UARTHUB)
-	if (mtkd->support_hub && (mtkd->support_wakeup) && c->is_hub_port)
-		mtk_uart_set_apdma_clk(true);
+	mtkd = to_mtk_uart_apdma_dev(chan->device);
+	if (!mtkd)
+		return -EINVAL;
 #endif
+	c = to_mtk_uart_apdma_chan(chan);
+	if (!c)
+		return -EINVAL;
+
+	atomic_set(&c->term_err, 0);
+	c->term_dbg = 0;
+#if IS_ENABLED(CONFIG_MTK_UARTHUB)
+	if (mtkd->support_hub && (mtkd->support_wakeup) && c->is_hub_port) {
+		spin_lock_irqsave(&g_dma_clk_lock, flags);
+		if (atomic_read(&dma_clk_count) <= 0) {
+			atomic_or(1 << 0, &c->term_err);
+			spin_unlock_irqrestore(&g_dma_clk_lock, flags);
+			return 0;
+		}
+	}
+#endif
+
 	if (mtk_uart_apdma_read(c, VFF_INT_BUF_SIZE)) {
 		mtk_uart_apdma_write(c, VFF_FLUSH, VFF_FLUSH_B);
-		ret = readx_poll_timeout(readl, c->base + VFF_FLUSH,
+		ret = readx_poll_timeout_atomic(readl, c->base + VFF_FLUSH,
 				  status, status != VFF_FLUSH_B, 10, 100);
-		dev_info(c->vc.chan.device->dev, "flush begin %s[%d]: %d\n",
-			c->dir == DMA_DEV_TO_MEM ? "RX":"TX", c->irq, ret);
+		if (ret)
+			atomic_or(1 << 1, &c->term_err);
 		/*
 		 * DMA hardware will generate a interrupt immediately
 		 * once flush done, so we need to wait the interrupt to be
@@ -1314,8 +1430,6 @@ static int mtk_uart_apdma_terminate_all(struct dma_chan *chan)
 		while (state)
 			irq_get_irqchip_state(c->irq,
 				IRQCHIP_STATE_ACTIVE, &state);
-		dev_info(c->vc.chan.device->dev, "flush end %s\n",
-			c->dir == DMA_DEV_TO_MEM ? "RX":"TX");
 	}
 
 	/*
@@ -1325,11 +1439,12 @@ static int mtk_uart_apdma_terminate_all(struct dma_chan *chan)
 	 * 3. set stop as 0
 	 */
 	mtk_uart_apdma_write(c, VFF_STOP, VFF_STOP_B);
-	ret = readx_poll_timeout(readl, c->base + VFF_EN,
+	ret = readx_poll_timeout_atomic(readl, c->base + VFF_EN,
 			  status, !status, 10, 100);
-	if (ret)
-		dev_err(c->vc.chan.device->dev, "stop: fail, status=0x%x\n",
-			mtk_uart_apdma_read(c, VFF_DEBUG_STATUS));
+	if (ret) {
+		atomic_or(1 << 2, &c->term_err);
+		c->term_dbg = mtk_uart_apdma_read(c, VFF_DEBUG_STATUS);
+	}
 
 	mtk_uart_apdma_write(c, VFF_STOP, VFF_STOP_CLR_B);
 	mtk_uart_apdma_write(c, VFF_INT_EN, VFF_INT_EN_CLR_B);
@@ -1339,16 +1454,9 @@ static int mtk_uart_apdma_terminate_all(struct dma_chan *chan)
 	else if (c->dir == DMA_MEM_TO_DEV)
 		mtk_uart_apdma_write(c, VFF_INT_FLAG, VFF_TX_INT_CLR_B);
 
-	synchronize_irq(c->irq);
-
-	spin_lock_irqsave(&c->vc.lock, flags);
-	vchan_get_all_descriptors(&c->vc, &head);
-	spin_unlock_irqrestore(&c->vc.lock, flags);
-
-	vchan_dma_desc_free_list(&c->vc, &head);
 #if IS_ENABLED(CONFIG_MTK_UARTHUB)
 	if (mtkd->support_hub && (mtkd->support_wakeup) && c->is_hub_port)
-		mtk_uart_set_apdma_clk(false);
+		spin_unlock_irqrestore(&g_dma_clk_lock, flags);
 #endif
 	return 0;
 }
@@ -1362,8 +1470,6 @@ static int mtk_uart_apdma_device_pause(struct dma_chan *chan)
 
 	mtk_uart_apdma_write(c, VFF_EN, VFF_EN_CLR_B);
 	mtk_uart_apdma_write(c, VFF_INT_EN, VFF_INT_EN_CLR_B);
-
-	synchronize_irq(c->irq);
 
 	spin_unlock_irqrestore(&c->vc.lock, flags);
 
@@ -1498,6 +1604,7 @@ static int mtk_uart_apdma_probe(struct platform_device *pdev)
 	mtkd->ddev.device_config = mtk_uart_apdma_slave_config;
 	mtkd->ddev.device_pause = mtk_uart_apdma_device_pause;
 	mtkd->ddev.device_terminate_all = mtk_uart_apdma_terminate_all;
+	mtkd->ddev.device_synchronize = mtk_uart_apdma_synchronize;
 	mtkd->ddev.src_addr_widths = BIT(DMA_SLAVE_BUSWIDTH_1_BYTE);
 	mtkd->ddev.dst_addr_widths = BIT(DMA_SLAVE_BUSWIDTH_1_BYTE);
 	mtkd->ddev.directions = BIT(DMA_DEV_TO_MEM) | BIT(DMA_MEM_TO_DEV);
@@ -1578,7 +1685,10 @@ static int mtk_uart_apdma_probe(struct platform_device *pdev)
 		c->irq = rc;
 		c->rec_idx = 0;
 		c->cur_rec_idx = 0;
+		c->term_dbg = 0;
 		atomic_set(&c->rxdma_state, 0);
+		atomic_set(&c->txdma_state, 0);
+		atomic_set(&c->term_err, 0);
 	#if IS_ENABLED(CONFIG_MTK_UARTHUB)
 		c->is_hub_port = mtkd->support_hub & (1 << i);
 		if (c->is_hub_port) {

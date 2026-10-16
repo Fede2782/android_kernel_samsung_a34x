@@ -875,6 +875,27 @@ wlanoidNANFollowupRsp(struct ADAPTER *prAdapter, void *pvSetBuffer,
 	return WLAN_STATUS_SUCCESS;
 }
 
+#if KERNEL_VERSION(5, 12, 0) <= CFG80211_VERSION_CODE
+
+void nan_wiphy_unlock(struct wiphy *wiphy)
+{
+	if (!wiphy) {
+		log_dbg(NAN, ERROR, "wiphy is null\n");
+		return;
+	}
+	wiphy_unlock(wiphy);
+}
+
+void nan_wiphy_lock(struct wiphy *wiphy)
+{
+	if (!wiphy) {
+		log_dbg(NAN, ERROR, "wiphy is null\n");
+		return;
+	}
+	wiphy_lock(wiphy);
+}
+#endif
+
 struct NanDataPathInitiatorNDPE g_ndpReqNDPE;
 int mtk_cfg80211_vendor_nan(struct wiphy *wiphy,
 	struct wireless_dev *wdev, const void *data, int data_len)
@@ -931,7 +952,9 @@ int mtk_cfg80211_vendor_nan(struct wiphy *wiphy,
 		prAdapter->fgIsNANfromHAL);
 
 	dumpMemory8((uint8_t *)data, data_len);
-	DBGLOG(INIT, INFO, "DATA len from user %d\n", data_len);
+	DBGLOG(INIT, INFO, "DATA len from user %d, lock(%d)\n",
+		data_len,
+		rtnl_is_locked());
 
 	memcpy(&nanMsgHdr, (struct _NanMsgHeader *)data,
 		sizeof(struct _NanMsgHeader));
@@ -957,7 +980,7 @@ int mtk_cfg80211_vendor_nan(struct wiphy *wiphy,
 			msleep(1000);
 		}
 #if KERNEL_VERSION(5, 12, 0) <= CFG80211_VERSION_CODE
-		wiphy_unlock(wiphy);
+		nan_wiphy_unlock(wiphy);
 #else
 		/* to avoid re-enter rtnl lock during
 		 * register_netdev/unregister_netdev NAN/P2P
@@ -971,9 +994,9 @@ int mtk_cfg80211_vendor_nan(struct wiphy *wiphy,
 		DBGLOG(REQ, TRACE,
 			"[DBG] NAN enable enter set_nan_handler, lock(%d)\n",
 			rtnl_is_locked());
-		set_nan_handler(wdev->netdev, 1, rtnl_is_locked());
+		set_nan_handler(wdev->netdev, 1, FALSE);
 #if KERNEL_VERSION(5, 12, 0) <= CFG80211_VERSION_CODE
-		wiphy_lock(wiphy);
+		nan_wiphy_lock(wiphy);
 #else
 		if (fgRollbackRtnlLock)
 			rtnl_lock();
@@ -1105,6 +1128,30 @@ int mtk_cfg80211_vendor_nan(struct wiphy *wiphy,
 #if KERNEL_VERSION(5, 12, 0) > CFG80211_VERSION_CODE
 		uint8_t fgRollbackRtnlLock = FALSE;
 #endif
+		uint8_t ucState = 0;
+
+		kalMemZero(&nanDisableRsp, sizeof(struct NanDisableRspMsg));
+
+		memcpy(&nanDisableRsp.fwHeader, &nanMsgHdr,
+		       sizeof(struct _NanMsgHeader));
+		skb = cfg80211_vendor_cmd_alloc_reply_skb(
+			wiphy, sizeof(struct NanDisableRspMsg));
+
+		if (!skb) {
+			DBGLOG(NAN, ERROR, "Allocate skb failed\n");
+			return -ENOMEM;
+		}
+		if (unlikely(nla_put_nohdr(skb, sizeof(struct NanDisableRspMsg),
+					   &nanDisableRsp) < 0)) {
+			kfree_skb(skb);
+			return -EFAULT;
+		}
+		ret = cfg80211_vendor_cmd_reply(skb);
+
+		if (!prAdapter->fgIsNANRegistered) {
+			DBGLOG(NAN, WARN, "NAN is already disabled\n");
+			goto skip;
+		}
 
 		for (u4DelayIdx = 0; u4DelayIdx < 5; u4DelayIdx++) {
 			/* Do not block to disable if not enable */
@@ -1115,17 +1162,19 @@ int mtk_cfg80211_vendor_nan(struct wiphy *wiphy,
 			msleep(1000);
 		}
 
-		if (!wlanIsDriverReady(prGlueInfo)) {
+		DBGLOG(REQ, INFO, "NAN Off\n");
+
+		if (!wlanIsDriverReady(prGlueInfo) ||
+		    !halIsHifStateReady(prAdapter, &ucState)) {
 			DBGLOG(NAN, WARN, "driver is not ready\n");
 			return -EFAULT;
 		}
 
-		kalMemZero(&nanDisableRsp, sizeof(struct NanDisableRspMsg));
 		nanDisableRsp.status =
 			nanDevDisableRequest(prGlueInfo->prAdapter);
 
 #if KERNEL_VERSION(5, 12, 0) <= CFG80211_VERSION_CODE
-		wiphy_unlock(wiphy);
+		nan_wiphy_unlock(wiphy);
 #else
 		/* to avoid re-enter rtnl lock during
 		 * register_netdev/unregister_netdev NAN/P2P
@@ -1136,31 +1185,19 @@ int mtk_cfg80211_vendor_nan(struct wiphy *wiphy,
 			rtnl_unlock();
 		}
 #endif
-		DBGLOG(REQ, TRACE,
+		DBGLOG(NAN, TRACE,
 			"[DBG] NAN disable, enter set_nan_handler, lock(%d)\n",
 			rtnl_is_locked());
-		set_nan_handler(wdev->netdev, 0, rtnl_is_locked());
+		set_nan_handler(wdev->netdev, 0, FALSE);
 #if KERNEL_VERSION(5, 12, 0) <= CFG80211_VERSION_CODE
-		wiphy_lock(wiphy);
+		nan_wiphy_lock(wiphy);
 #else
 		if (fgRollbackRtnlLock)
 			rtnl_lock();
 #endif
 
-		memcpy(&nanDisableRsp.fwHeader, &nanMsgHdr,
-		       sizeof(struct _NanMsgHeader));
-		skb = cfg80211_vendor_cmd_alloc_reply_skb(
-			wiphy, sizeof(struct NanDisableRspMsg));
+skip:
 
-		if (!skb) {
-			DBGLOG(REQ, ERROR, "Allocate skb failed\n");
-			return -ENOMEM;
-		}
-		if (unlikely(nla_put_nohdr(skb, sizeof(struct NanDisableRspMsg),
-					   &nanDisableRsp) < 0)) {
-			kfree_skb(skb);
-			return -EFAULT;
-		}
 		i4Status = kalIoctl(prGlueInfo, wlanoidNANDisableRsp,
 				    (void *)&nanDisableRsp,
 				    sizeof(struct NanDisableRspMsg),
@@ -1169,11 +1206,10 @@ int mtk_cfg80211_vendor_nan(struct wiphy *wiphy,
 				    TRUE,
 				    &u4BufLen);
 		if (i4Status != WLAN_STATUS_SUCCESS) {
-			DBGLOG(REQ, ERROR, "kalIoctl failed\n");
+			DBGLOG(NAN, ERROR, "kalIoctl failed\n");
 			return -EFAULT;
 		}
 
-		ret = cfg80211_vendor_cmd_reply(skb);
 		break;
 	}
 	case NAN_MSG_ID_CONFIGURATION_REQ: {

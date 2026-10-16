@@ -3082,101 +3082,20 @@ void mml_pq_core_uninit(void)
 }
 
 static s32 ut_case;
-static bool ut_inited;
-static struct list_head ut_mml_tasks;
-static u32 ut_task_cnt;
-
-static void ut_init(void)
-{
-	if (ut_inited)
-		return;
-
-	INIT_LIST_HEAD(&ut_mml_tasks);
-	ut_inited = true;
-}
-
-static void destroy_ut_task(struct mml_task *task)
-{
-	mml_pq_log("destroy mml_task for PQ UT [%lld.%lu]",
-		task->end_time.tv_sec, task->end_time.tv_nsec);
-	list_del(&task->entry);
-	ut_task_cnt--;
-	mml_pq_log("[mml] %s: after-- ut_task_cnt[%d]\n", __func__, ut_task_cnt);
-	kfree(task->config);
-	kfree(task);
-}
-
-static int run_ut_task_threaded(void *data)
-{
-	struct mml_task *task = data;
-	struct mml_task *task_check = mml_core_create_task(0);
-	s32 ret;
-
-	mml_pq_log("start run mml_task for PQ UT [%lld.%lu]\n",
-		task->end_time.tv_sec, task->end_time.tv_nsec);
-
-	if (memcmp(task, task_check, sizeof(struct mml_task)))
-		mml_pq_err("task check error");
-
-	task->config = kzalloc(sizeof(struct mml_frame_config), GFP_KERNEL);
-
-	if (!task->config)
-		goto exit;
-
-	ret = mml_pq_set_tile_init(task);
-	mml_pq_log("tile_init result: %d\n", ret);
-
-	ret = mml_pq_get_tile_init_result(task, 100);
-	mml_pq_log("get result: %d\n", ret);
-
-	mml_pq_put_tile_init_result(task);
-
-exit:
-	destroy_ut_task(task);
-	return 0;
-}
-
-static void create_ut_task(const char *case_name)
-{
-	struct mml_task *task = NULL;
-	struct task_struct *thr = NULL;
-
-	if (ut_task_cnt != 0) {
-		mml_pq_err("[mml] unexpected ut_task_cnt[%d]\n", ut_task_cnt);
-		return;
-	}
-
-	task = mml_core_create_task(0);
-	mml_pq_log("start create task for %s\n", case_name);
-	INIT_LIST_HEAD(&task->entry);
-	ktime_get_ts64(&task->end_time);
-	list_add_tail(&task->entry, &ut_mml_tasks);
-	ut_task_cnt++;
-	mml_pq_log("[mml] %s: after++ ut_task_cnt[%d]\n", __func__, ut_task_cnt);
-	mml_pq_log("[mml] created mml_task for PQ UT [%lld.%lu]\n",
-		task->end_time.tv_sec, task->end_time.tv_nsec);
-	thr = kthread_run(run_ut_task_threaded, task, "ut-%s", case_name);
-	if (IS_ERR(thr)) {
-		mml_pq_err("create thread failed, thread:%s\n", case_name);
-		destroy_ut_task(task);
-	}
-}
 
 static s32 ut_set(const char *val, const struct kernel_param *kp)
 {
 	s32 result;
 
-	ut_init();
 	result = sscanf(val, "%d", &ut_case);
 	if (result != 1) {
 		mml_pq_err("invalid input: %s, result(%d)\n", val, result);
 		return -EINVAL;
 	}
-	mml_pq_log("[mml] %s: case_id=%d\n", __func__, ut_case);
 
 	switch (ut_case) {
 	case 0:
-		create_ut_task("basic_pq");
+		mml_pq_log("[mml] %s: set case_id=%d\n", __func__, ut_case);
 		break;
 	default:
 		mml_pq_err("invalid case_id: %d\n", ut_case);
@@ -3189,28 +3108,17 @@ static s32 ut_set(const char *val, const struct kernel_param *kp)
 
 static s32 ut_get(char *buf, const struct kernel_param *kp)
 {
-	s32 length = 0;
-	u32 i = 0;
-	struct mml_task *task;
 
-	ut_init();
 	switch (ut_case) {
 	case 0:
-		length += snprintf(buf + length, PAGE_SIZE - length,
-			"current UT task count: %d\n", ut_task_cnt);
-		list_for_each_entry(task, &ut_mml_tasks, entry) {
-			length += snprintf(buf + length, PAGE_SIZE - length,
-				"  - [%d] task submit time: %lld.%lu\n", i,
-				task->end_time.tv_sec, task->end_time.tv_nsec);
-		}
+		mml_pq_log("[mml] %s: get case_id=%d\n", __func__, ut_case);
 		break;
 	default:
 		pr_notice("not support read for case_id: %d\n", ut_case);
 		break;
 	}
-	buf[length] = '\0';
 
-	return length;
+	return 0;
 }
 
 static struct kernel_param_ops ut_param_ops = {

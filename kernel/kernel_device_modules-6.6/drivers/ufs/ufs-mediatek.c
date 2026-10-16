@@ -422,7 +422,7 @@ static int ufs_mtk_setup_ref_clk(struct ufs_hba *hba, bool on)
 	mb();
 
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG_BUILD)
-	// ufshcd_vops_check_bus_status(hba);
+	//ufshcd_vops_check_bus_status(hba);
 #endif
 
 	/* Wait for ack */
@@ -1794,9 +1794,12 @@ void ufs_mtk_adjust_sync_length(struct ufs_hba *hba)
 		if (value < min)
 			ufshcd_dme_set(hba, UIC_ARG_MIB(att), min);
 
-		ufshcd_dme_peer_get(hba, UIC_ARG_MIB(att), &value);
-		if (value < min)
-			ufshcd_dme_peer_set(hba, UIC_ARG_MIB(att), min);
+		/* 0x200 means UFS2.0, 0x310 means UFS3.1 */
+		if (hba->dev_info.wspecversion >= i*0x0100) {
+			ufshcd_dme_peer_get(hba, UIC_ARG_MIB(att), &value);
+			if (value < min)
+				ufshcd_dme_peer_set(hba, UIC_ARG_MIB(att), min);
+		}
 	}
 }
 
@@ -3291,7 +3294,7 @@ static const struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	.config_esi          = ufs_mtk_config_esi,
 	.config_scsi_dev     = ufs_mtk_config_scsi_dev,
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG_BUILD)
-	// .check_bus_status    = ufs_mtk_check_bus_status,
+	//.check_bus_status    = ufs_mtk_check_bus_status,
 	//.dbg_dump            = _ufs_mtk_dbg_dump,
 #endif
 };

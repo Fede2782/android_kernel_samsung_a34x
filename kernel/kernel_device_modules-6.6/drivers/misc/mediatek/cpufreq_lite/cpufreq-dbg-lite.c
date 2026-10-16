@@ -9,6 +9,7 @@
 /* system includes */
 #include <linux/cpu.h>
 #include <linux/cpufreq.h>
+#include <linux/cpumask.h>
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/io.h>
@@ -46,7 +47,7 @@ static int cpufreq_debug_proc_show(struct seq_file *m, void *v)
 {
 	struct cpufreq_policy *policy;
 
-	if (cpufreq_debug_cpu >= 8) {
+	if (cpufreq_debug_cpu >= num_possible_cpus()) {
 		seq_printf(m, "cpu%u is invalid!\n", cpufreq_debug_cpu);
 		return 0;
 	}
@@ -72,7 +73,8 @@ static int cpufreq_debug_proc_show(struct seq_file *m, void *v)
 static ssize_t cpufreq_debug_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
-	int cpu = 0, min = 0, max = 0;
+	int min = 0, max = 0;
+	unsigned int cpu = 0;
 	unsigned long MHz;
 	unsigned long mHz;
 	char *buf = (char *) __get_free_page(GFP_USER);
@@ -92,7 +94,7 @@ static ssize_t cpufreq_debug_proc_write(struct file *file,
 		return -EINVAL;
 	}
 
-	if (sscanf(buf, "%d %d %d", &cpu, &min, &max) != 3) {
+	if (sscanf(buf, "%u %d %d", &cpu, &min, &max) != 3) {
 		cpufreq_debug_cpu = cpu;
 		free_page((unsigned long)buf);
 		return -EINVAL;
@@ -110,6 +112,11 @@ static ssize_t cpufreq_debug_proc_write(struct file *file,
 
 	max = (unsigned int)(MHz / 1000);
 	min = (unsigned int)(mHz / 1000);
+
+	if (cpu >= num_possible_cpus()) {
+		pr_info("%s: cpu%u is invalid\n", __func__, cpu);
+		return -EINVAL;
+	}
 
 	policy = cpufreq_cpu_get(cpu);
 	if (policy == NULL)

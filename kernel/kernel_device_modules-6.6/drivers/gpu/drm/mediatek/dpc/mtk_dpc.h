@@ -14,6 +14,7 @@
 
 /* NOTE: user 0 to 7 is reserved for genpd notifier enum disp_pd_id { ... } */
 enum mtk_vidle_voter_user {
+	DISP_VIDLE_USER_DISP_VCORE = 0,
 	DISP_VIDLE_USER_TOP_CLK_ISR = 15,
 	DISP_VIDLE_USER_CRTC = 16,
 	DISP_VIDLE_USER_PQ,

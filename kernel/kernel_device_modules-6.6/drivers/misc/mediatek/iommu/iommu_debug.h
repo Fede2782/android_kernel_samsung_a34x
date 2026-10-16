@@ -31,7 +31,7 @@ static int __fops ## _open(struct inode *inode, struct file *file)	  \
 	__simple_attr_check_format(__fmt, 0ull);			  \
 	return simple_attr_open(&local_inode, file, __get, __set, __fmt); \
 }									  \
-static const struct proc_ops __fops = {					  \
+static const struct proc_ops __maybe_unused __fops = {			  \
 	.proc_open	 = __fops ## _open,				  \
 	.proc_release = simple_attr_release,				  \
 	.proc_read	 = simple_attr_read,				  \

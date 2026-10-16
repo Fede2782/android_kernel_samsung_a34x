@@ -2359,7 +2359,7 @@ uint8_t aisNeedTargetScan(struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 #endif
 
 #if CFG_SUPPORT_LLW_SCAN
-	if (ais->ucLatencyCrtDataMode == 2
+	if (ais->ucLatencyMode == WIFI_LATENCY_MODE_ROAM
 #if CFG_SUPPORT_ROAMING
 	    && roam->eReason != ROAMING_REASON_BEACON_TIMEOUT
 #endif
@@ -2713,7 +2713,7 @@ uint8_t aisNeedMloScan(struct ADAPTER *prAdapter,
 	    prBssDesc->rMlInfo.prBlock ||
 	    scanSearchBssDescCountByMldAddrSsid(prAdapter,
 		prBssDesc->rMlInfo.aucMldAddr, !prBssDesc->fgIsHiddenSSID,
-		&rSsid) == prBssDesc->rMlInfo.ucMaxSimuLinks + 1)
+		&rSsid, ucBssIndex) == prBssDesc->rMlInfo.ucMaxSimuLinks + 1)
 		return FALSE;
 
 	return TRUE;
@@ -3068,7 +3068,12 @@ static uint8_t aisFsmUpdateRsnSetting(struct ADAPTER *prAdapter,
 {
 	enum ENUM_PARAM_AUTH_MODE eAuthMode;
 	struct AIS_SPECIFIC_BSS_INFO *prAisSpecificBssInfo;
+	struct AIS_FSM_INFO *prAisFsmInfo;
+#if (CFG_SUPPORT_RSNO == 1)
+	uint8_t i;
+#endif /* CFG_SUPPORT_RSNO */
 
+	prAisFsmInfo = aisGetAisFsmInfo(prAdapter, ucBssIndex);
 	eAuthMode = aisGetAuthMode(prAdapter, ucBssIndex);
 	prAisSpecificBssInfo = aisGetAisSpecBssInfo(prAdapter, ucBssIndex);
 
@@ -3081,7 +3086,6 @@ static uint8_t aisFsmUpdateRsnSetting(struct ADAPTER *prAdapter,
 	}
 #endif
 
-
 #if CFG_SUPPORT_802_11W
 	prAisSpecificBssInfo->fgMgmtProtection = !!prBss->u4RsnSelectedPmf;
 
@@ -3090,6 +3094,24 @@ static uint8_t aisFsmUpdateRsnSetting(struct ADAPTER *prAdapter,
 	       kalGetRsnIeMfpCap(prAdapter->prGlueInfo, ucBssIndex),
 	       prAisSpecificBssInfo->fgMgmtProtection);
 #endif
+
+#if (CFG_SUPPORT_RSNO == 1)
+	prAisSpecificBssInfo->eRsnSelectedRSNOverride = RSN_OVERRIDE_NOT_USED;
+
+	for (i = 0; i < MLD_LINK_MAX; i++) {
+		struct BSS_DESC *prBssDesc = aisGetLinkBssDesc(prAisFsmInfo, i);
+
+		if (prBssDesc && prBssDesc->eRsnSelectedRSNOverride !=
+			RSN_OVERRIDE_NOT_USED) {
+			prAisSpecificBssInfo->eRsnSelectedRSNOverride =
+				prBssDesc->eRsnSelectedRSNOverride;
+			break;
+		}
+	}
+
+	DBGLOG(AIS, INFO, "RSN Overriding = %d\n",
+		prAisSpecificBssInfo->eRsnSelectedRSNOverride);
+#endif /* CFG_SUPPORT_RSNO */
 
 	return TRUE;
 }
@@ -4223,7 +4245,9 @@ void aisFsmRunEventAbort(struct ADAPTER *prAdapter,
 
 	if (ucReasonOfDisconnect == DISCONNECT_REASON_CODE_NEW_CONNECTION ||
 	    ucReasonOfDisconnect == DISCONNECT_REASON_CODE_LOCALLY)
-		prBssInfo->u2DeauthReason = REASON_CODE_DEAUTH_LEAVING_BSS;
+		prBssInfo->u2DeauthReason =
+			u2DeauthReason == REASON_CODE_RESERVED ?
+			REASON_CODE_DEAUTH_LEAVING_BSS : u2DeauthReason;
 
 	if (prAisFsmInfo->eCurrentState != AIS_STATE_DISCONNECTING) {
 		/* 4 <3> invoke abort handler */
@@ -5600,6 +5624,7 @@ static void aisFsmDisconnectedAction(struct ADAPTER *prAdapter,
 	struct CONNECTION_SETTINGS *prConnSettings;
 #if CFG_SUPPORT_ROAMING
 	struct ROAMING_INFO *prRoamingFsmInfo;
+	struct ROAMING_REPORT_INFO *prReportInfo;
 #endif
 	struct AIS_SPECIFIC_BSS_INFO *prAisSpecificBssInfo;
 #if CFG_SUPPORT_802_11K
@@ -5616,6 +5641,7 @@ static void aisFsmDisconnectedAction(struct ADAPTER *prAdapter,
 	prAisSpecificBssInfo = aisGetAisSpecBssInfo(prAdapter, ucBssIndex);
 #if CFG_SUPPORT_ROAMING
 	prRoamingFsmInfo = aisGetRoamingInfo(prAdapter, ucBssIndex);
+	prReportInfo = &prRoamingFsmInfo->rReportInfo;
 #endif
 	prCurrBssid = aisGetCurrBssId(prAdapter, ucBssIndex);
 
@@ -5642,6 +5668,8 @@ static void aisFsmDisconnectedAction(struct ADAPTER *prAdapter,
 	prAisFsmInfo->ucIsStaRoaming = FALSE;
 	if (prRoamingFsmInfo != NULL)
 		prRoamingFsmInfo->eReason = ROAMING_REASON_POOR_RCPI;
+	prReportInfo->eFailReason = ROAMING_FAIL_REASON_NOCANDIDATE;
+	prReportInfo->rRoamingStartTime = 0;
 #endif
 	aisFsmClearPostponedBTO(prAdapter, ucBssIndex);
 	aisRemoveDeauthBlocklist(prAdapter);
@@ -8643,10 +8671,7 @@ aisFunHandleOffchnlTxReq(struct ADAPTER *prAdapter,
 
 	if (aisFunAddTxReq2Queue(prAdapter, prMgmtTxReqInfo,
 			prMgmtTxMsg, &prOffChnlTxReq) == FALSE)
-		goto error;
-
-	if (prOffChnlTxReq == NULL)
-		goto error;
+		return WLAN_STATUS_RESOURCES;
 
 	if (!aisFunChnlReqByOffChnl(prAdapter, prOffChnlTxReq,
 		ucBssIndex))
@@ -8657,7 +8682,6 @@ error:
 	LINK_REMOVE_KNOWN_ENTRY(
 			&(prMgmtTxReqInfo->rTxReqLink),
 			&prOffChnlTxReq->rLinkEntry);
-	cnmPktFree(prAdapter, prOffChnlTxReq->prMgmtTxMsdu);
 	cnmMemFree(prAdapter, prOffChnlTxReq);
 #if CFG_SUPPORT_MGMT_TX_RANDOM_TA
 	aisRestoreOmac(prAdapter, ucBssIndex);
@@ -8705,7 +8729,6 @@ void aisFsmRunEventMgmtFrameTx(struct ADAPTER *prAdapter,
 	struct AIS_FSM_INFO *prAisFsmInfo;
 	struct MSG_MGMT_TX_REQUEST *prMgmtTxMsg =
 			(struct MSG_MGMT_TX_REQUEST *) NULL;
-	struct BSS_INFO *prAisBssInfo;
 	uint32_t u4Status;
 	uint8_t ucBssIndex = 0;
 
@@ -8715,10 +8738,11 @@ void aisFsmRunEventMgmtFrameTx(struct ADAPTER *prAdapter,
 	prMgmtTxMsg = (struct MSG_MGMT_TX_REQUEST *) prMsgHdr;
 	ucBssIndex = prMgmtTxMsg->ucBssIdx;
 	prAisFsmInfo = aisGetAisFsmInfo(prAdapter, ucBssIndex);
-	prAisBssInfo = aisGetAisBssInfo(prAdapter, ucBssIndex);
 
-	if (prAisFsmInfo == NULL || prAisBssInfo == NULL)
+	if (prAisFsmInfo == NULL) {
+		cnmMgtPktFree(prAdapter, prMgmtTxMsg->prMgmtMsduInfo);
 		goto exit;
+	}
 
 	if (!aisFunNeedOffchnlTx(prAdapter, prMgmtTxMsg)) {
 		aisFuncTxMgmtFrame(prAdapter,
@@ -8737,10 +8761,11 @@ void aisFsmRunEventMgmtFrameTx(struct ADAPTER *prAdapter,
 			  (uint32_t)
 			  prMgmtTxMsg->prMgmtMsduInfo->u2FrameLength,
 			  ucBssIndex);
+		cnmMgtPktFree(prAdapter, prMgmtTxMsg->prMgmtMsduInfo);
 #endif
 	} else if (prAisFsmInfo->eCurrentState == AIS_STATE_IDLE ||
-		   prAisFsmInfo->eCurrentState == AIS_STATE_NORMAL_TR ||
-		   !aisFsmIsSwitchChannel(prAdapter, prAisFsmInfo)) {
+		   (prAisFsmInfo->eCurrentState == AIS_STATE_NORMAL_TR &&
+		    !aisFsmIsSwitchChannel(prAdapter, prAisFsmInfo))) {
 		u4Status = aisFunHandleOffchnlTxReq(prAdapter,
 				prAisFsmInfo,
 				prMgmtTxMsg,
@@ -8755,6 +8780,7 @@ void aisFsmRunEventMgmtFrameTx(struct ADAPTER *prAdapter,
 				  (uint32_t)
 				  prMgmtTxMsg->prMgmtMsduInfo->u2FrameLength,
 				  ucBssIndex);
+			cnmMgtPktFree(prAdapter, prMgmtTxMsg->prMgmtMsduInfo);
 		}
 	} else {
 		DBGLOG(AIS, WARN, "Disable TX mgmt when state=%s.\n",
@@ -8766,6 +8792,7 @@ void aisFsmRunEventMgmtFrameTx(struct ADAPTER *prAdapter,
 			  (uint32_t)
 			  prMgmtTxMsg->prMgmtMsduInfo->u2FrameLength,
 			  ucBssIndex);
+		cnmMgtPktFree(prAdapter, prMgmtTxMsg->prMgmtMsduInfo);
 	}
 
 exit:

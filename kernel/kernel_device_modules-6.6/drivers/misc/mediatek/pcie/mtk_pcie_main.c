@@ -24,8 +24,6 @@
 #include "../drivers/pci/pci.h"
 #include "../../../phy/mediatek/phy-mtk-io.h"
 
-#define IOCTL_DEV_IOCTLID	'P'
-#define PCIE_SMT_TEST_SLOT	_IOW(IOCTL_DEV_IOCTLID, 0, int)
 #define IOCTL_DEV_FTM		'a'
 #define PCIE_SMT_FTM_CMD	_IOW(IOCTL_DEV_FTM, IOCTL_DEV_FTM, char*)
 
@@ -975,26 +973,6 @@ static int mtk_pcie_loopback_test(struct mtk_pcie_info *pcie_smt, unsigned int p
 	return -1;
 }
 
-static int mtk_pcie_ioctl_loopback(struct mtk_pcie_info *pcie_smt, int port)
-{
-	if (!pcie_smt) {
-		pr_info("pcie_smt not found\n");
-		return -ENODEV;
-	}
-
-	if (!pcie_smt->regs[port]) {
-		pr_info("phy_base is not initialed!\n");
-		return -EINVAL;
-	}
-
-	if (port >= pcie_smt->max_port) {
-		pr_info("Unsupported slot number: [%d]\n", port);
-		return -EINVAL;
-	}
-
-	return mtk_pcie_loopback_test(pcie_smt, port);
-}
-
 static int mtk_pcie_test_open(struct inode *inode, struct file *file)
 {
 	struct mtk_pcie_info *pcie_smt;
@@ -1054,10 +1032,6 @@ static long mtk_pcie_test_ioctl(struct file *file, unsigned int cmd,
 			return -EFAULT;
 		}
 		break;
-	case PCIE_SMT_TEST_SLOT:
-		pr_info("pcie_smt port: %d\r\n", (unsigned int)arg);
-
-		return mtk_pcie_ioctl_loopback(pcie_smt, (unsigned int)arg);
 	default:
 		return -ENOTTY;
 	}
@@ -1248,6 +1222,7 @@ static int mtk_pcie_test_ctrl(char *buf)
 	return -EINVAL;
 }
 
+#ifdef PCIE_SYSFS_SUPPORT
 static ssize_t cli_show(struct kobject *kobj, struct kobj_attribute *attr,
 			char *buf)
 {
@@ -1316,6 +1291,7 @@ static struct attribute *pcie_test_func[] = {
 static struct attribute_group pcie_test_kobj_group = {
 	.attrs = pcie_test_func,
 };
+#endif
 
 static struct device_node *mtk_pcie_find_node_by_port(int port)
 {
@@ -1520,6 +1496,7 @@ static int __init mtk_pcie_test_init(void)
 	pcie_smt->f_class = class_create(pcie_smt->name);
 	device_create(pcie_smt->f_class, NULL, dev_ctx->dev, NULL, "%s", pcie_smt->name);
 
+#ifdef PCIE_SYSFS_SUPPORT
 	/* sysfs support */
 	pcie_smt->pcie_test_kobj = kobject_create_and_add(PCIE_SYSFS_NAME, NULL);
 	if (IS_ERR(pcie_smt->pcie_test_kobj)) {
@@ -1533,14 +1510,17 @@ static int __init mtk_pcie_test_init(void)
 		pr_info("PCIe test sysfs creat fail\n");
 		goto err_sysfs_create;
 	}
+#endif
 
 	return 0;
 
+#ifdef PCIE_SYSFS_SUPPORT
 err_sysfs_create:
 	kobject_del(pcie_smt->pcie_test_kobj);
 err_kobj_create:
 	device_destroy(pcie_smt->f_class, dev_ctx->dev);
 	class_destroy(pcie_smt->f_class);
+#endif
 err_alloc_cdev:
 	unregister_chrdev_region(dev, MINORMASK);
 err_alloc_cdev_region:
@@ -1569,9 +1549,11 @@ static void __exit mtk_pcie_test_exit(void)
 	class_destroy(pcie_smt->f_class);
 	unregister_chrdev_region(dev_ctx->dev, MINORMASK);
 
+#ifdef PCIE_SYSFS_SUPPORT
 	/* remove sysfs */
 	sysfs_remove_group(pcie_smt->pcie_test_kobj, &pcie_test_kobj_group);
 	kobject_del(pcie_smt->pcie_test_kobj);
+#endif
 
 	if (pcie_smt->regs) {
 		for (port = 0; port < pcie_smt->max_port; port++) {

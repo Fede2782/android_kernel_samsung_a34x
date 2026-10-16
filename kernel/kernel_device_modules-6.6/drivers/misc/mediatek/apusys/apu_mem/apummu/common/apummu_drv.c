@@ -81,7 +81,7 @@ static int apu_ipi_apummu_rx_rpmsg_probe(struct rpmsg_device *rpdev)
 	apu_ipi_apummmu_rx_rpm_dev.ept = rpdev->ept;
 	apu_ipi_apummmu_rx_rpm_dev.rpdev = rpdev;
 
-	AMMU_LOG_INFO("%s: rpdev->ept = %p\n", __func__, rpdev->ept);
+	AMMU_LOG_INFO("%s: rpdev->ept = 0x%pK\n", __func__, rpdev->ept);
 
 	return 0;
 }
@@ -236,8 +236,8 @@ static int apummu_open(struct inode *inode, struct file *filp)
 			struct apummu_dev_info, apummu_cdev);
 
 	filp->private_data = adv;
-	AMMU_LOG_INFO("adv  %p\n", adv);
-	AMMU_LOG_INFO("filp->private_data  %p\n", filp->private_data);
+	AMMU_LOG_INFO("adv  0x%pK\n", adv);
+	AMMU_LOG_INFO("filp->private_data  0x%pK\n", filp->private_data);
 	return 0;
 }
 

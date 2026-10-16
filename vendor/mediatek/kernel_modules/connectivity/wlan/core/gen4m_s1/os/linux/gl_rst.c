@@ -111,6 +111,7 @@ uint32_t g_u4Memdump = 3;
 uint32_t g_u4Memdump = 2;
 #endif
 uint8_t *g_pucTraces;
+static u_int8_t gucSkipKE;
 
 #else
 uint32_t g_u4Memdump;
@@ -859,7 +860,7 @@ static void glResetCallback(enum _ENUM_WMTDRV_TYPE_T eSrcType,
 					glNotifyChipReset(u4Reason, acData,
 						sizeof(acData));
 				}
-				if (g_u4Memdump == 3) {
+				if (g_u4Memdump == 3 && gucSkipKE == FALSE) {
 					/* wait for user space write file */
 					kalMsleep(1500);
 					DBGLOG(INIT, WARN,
@@ -868,6 +869,7 @@ static void glResetCallback(enum _ENUM_WMTDRV_TYPE_T eSrcType,
 					BUG_ON(1);
 				}
 				glSetRstReason(0);
+				gucSkipKE = FALSE;
 #endif
 				break;
 
@@ -935,7 +937,7 @@ static u_int8_t glResetMsgHandler(enum ENUM_WMTMSG_TYPE eMsgType,
 					glNotifyChipReset(u4Reason, acData,
 						sizeof(acData));
 				}
-				if (g_u4Memdump == 3) {
+				if (g_u4Memdump == 3 && gucSkipKE == FALSE) {
 					/* wait for user space write file */
 					kalMsleep(1500);
 					DBGLOG(INIT, WARN,
@@ -944,6 +946,7 @@ static u_int8_t glResetMsgHandler(enum ENUM_WMTMSG_TYPE eMsgType,
 					BUG_ON(1);
 				}
 				glSetRstReason(0);
+				gucSkipKE = FALSE;
 #endif
 				glResetOnEndUpdateFlag(FALSE);
 				break;
@@ -1030,6 +1033,11 @@ int glRstwlanPreWholeChipReset(enum consys_drv_type type, char *reason)
 
 	g_Coredump_source = coredump_conn_type_to_src(type);
 	g_WholeChipRstReason = reason;
+
+#if CFG_TC10_FEATURE
+	if (kalStrnCmp(reason, "Query thermal wakeup fail", 25) == 0)
+		gucSkipKE = TRUE;
+#endif
 
 	if (glRstCheckRstCriteria()) {
 		while (kalIsResetOnEnd()) {

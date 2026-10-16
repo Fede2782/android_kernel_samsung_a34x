@@ -2757,6 +2757,7 @@ static int aie_config_attr_network(struct mtk_aie_dev *fd,
 	int msb_bit_0 = 0, msb_bit_1 = 0, msb_bit_2 = 0, msb_bit_3 = 0;
 	u32 flush_offset;
 	u32 flush_len;
+	unsigned long long buf_end = fd->config_kva + (unsigned long long)fd->config_dmabuf->size;
 
 	flush_offset = g_fd_fd_config_offset + AIE_ALIGN32(fdvt_fd_confi_frame01_size) +
 		AIE_ALIGN32(attr_fd_confi_frame01_size) * fd->attr_para->w_idx;
@@ -2769,6 +2770,10 @@ static int aie_config_attr_network(struct mtk_aie_dev *fd,
 	pyramid0_out_h = pyramid0_out_w * src_crop_h / src_crop_w;
 
 	fd_cfg = fd->base_para->attr_fd_cfg_va[fd->attr_para->w_idx];
+	if ((unsigned long long)fd_cfg + FD_CONFIG_SIZE * attr_loop_num > buf_end) {
+		aie_dev_info(fd->dev, "%s, OOB access detected\n", __func__);
+		return -EINVAL;
+	}
 
 	for (i = 0; i < attr_loop_num; i++) {
 		fd_cur_cfg = (u32 *)fd_cfg + FD_CONFIG_SIZE * i;

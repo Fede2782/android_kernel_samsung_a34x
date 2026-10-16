@@ -937,18 +937,23 @@ static void statsParsePktInfo(uint8_t *pucPkt, struct sk_buff *skb,
 				if (ucEapCode == 1 || ucEapCode == 2) {
 					if (kalStrnCmp(
 						eap_type_text(ucEapType),
-						"Unknown", 7) != 0)
+						"Unknown", 7) != 0) {
 						kalSprintf(log,
 							"[EAP] %s type=%s len=%d",
 						apucEapCode[ucEapCode],
 						eap_type_text(ucEapType),
 						u2EapLen);
-				} else
-					kalSprintf(log,
-						"[EAP] %s",
+						kalReportWifiLog(prAdapter,
+							ucBssIndex, log);
+					}
+				} else if (ucEapCode == 3 || ucEapCode == 4) {
+					kalSprintf(log, "[EAP] %s",
 						apucEapCode[ucEapCode]);
-
-				kalReportWifiLog(prAdapter, ucBssIndex, log);
+					kalReportWifiLog(prAdapter,
+						ucBssIndex, log);
+				} else {
+					//EapCode = 5 or 6, no need to log
+				}
 				break;
 			case EVENT_TX:
 				DBGLOG(TX, INFO,
@@ -959,18 +964,24 @@ static void statsParsePktInfo(uint8_t *pucPkt, struct sk_buff *skb,
 				if (ucEapCode == 1 || ucEapCode == 2) {
 					if (kalStrnCmp(
 						eap_type_text(ucEapType),
-						"Unknown", 7) != 0)
+						"Unknown", 7) != 0) {
 						kalSprintf(log,
 							"[EAP] %s type=%s len=%d",
 						apucEapCode[ucEapCode],
 						eap_type_text(ucEapType),
 						u2EapLen);
-				} else
-						kalSprintf(log,
-							"[EAP] %s",
-							apucEapCode[ucEapCode]);
-				kalBufferWifiLog(prAdapter, ucBssIndex, log,
-					GLUE_GET_PKT_SEQ_NO(skb));
+						kalBufferWifiLog(prAdapter,
+						    ucBssIndex, log,
+						    GLUE_GET_PKT_SEQ_NO(skb));
+					}
+				} else if (ucEapCode == 3 || ucEapCode == 4) {
+					kalSprintf(log, "[EAP] %s",
+						apucEapCode[ucEapCode]);
+					kalBufferWifiLog(prAdapter, ucBssIndex,
+						log, GLUE_GET_PKT_SEQ_NO(skb));
+				} else {
+					//EapCode = 5 or 6, no need to log
+				}
 				break;
 			}
 			break;

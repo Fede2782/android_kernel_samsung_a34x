@@ -1008,10 +1008,7 @@ static void dump_wrapper_register(struct seq_file *s,
 	void __iomem *wp_base = smmu->wp_base;
 	unsigned int smmuwp_reg_nr, i;
 
-	iommu_dump(s, "wp reg for smmu:%d, base:0x%llx, wp_base:0x%llx\n",
-		   data->plat_data->smmu_type,
-		   (unsigned long long) smmu->base,
-		   (unsigned long long) smmu->wp_base);
+	iommu_dump(s, "wp reg for smmu:%d\n", data->plat_data->smmu_type);
 
 	smmuwp_reg_nr = ARRAY_SIZE(smmuwp_regs);
 
@@ -1891,7 +1888,7 @@ DEFINE_PROC_ATTRIBUTE(m4u_debug_fops, m4u_debug_get, m4u_debug_set, "%llu\n");
 		return single_open(file, name ## _proc_show,	\
 			pde_data(inode));			\
 	}							\
-	static const struct proc_ops name = {			\
+	static const struct proc_ops __maybe_unused name = {	\
 		.proc_open		= name ## _proc_open,	\
 		.proc_read		= seq_read,		\
 		.proc_lseek		= seq_lseek,		\
@@ -2186,6 +2183,7 @@ static int m4u_debug_init(struct mtk_m4u_data *data)
 	if (IS_ERR_OR_NULL(debug_file))
 		pr_err("failed to create debug file\n");
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_DEBUG)
 	debug_file = proc_create_data("help",
 		S_IFREG | 0640, data->debug_root, &mtk_iommu_help_fops, NULL);
 	if (IS_ERR_OR_NULL(debug_file))
@@ -2217,6 +2215,7 @@ static int m4u_debug_init(struct mtk_m4u_data *data)
 		if (IS_ERR_OR_NULL(debug_file))
 			pr_err("failed to proc_create smmu_pgtable file\n");
 	}
+#endif
 
 	mtk_iommu_trace_init(data);
 

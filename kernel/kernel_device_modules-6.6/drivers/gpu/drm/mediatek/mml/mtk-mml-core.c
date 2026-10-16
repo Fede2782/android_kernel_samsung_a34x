@@ -831,7 +831,7 @@ static void core_comp_dump(struct mml_task *task, u32 pipe, int cnt)
 
 	mml_clock_lock(cfg->mml);
 	call_hw_op(path->mmlsys, mminfra_pw_enable);
-	mml_dpc_exc_keep_task(task, path);
+	mml_dpc_exc_keep_path(cfg->mml, path);
 	call_hw_op(path->mmlsys, pw_enable, cfg->info.mode);
 	if (path->mmlsys2)
 		call_hw_op(path->mmlsys2, pw_enable, cfg->info.mode);
@@ -849,7 +849,7 @@ static void core_comp_dump(struct mml_task *task, u32 pipe, int cnt)
 	if (path->mmlsys2)
 		call_hw_op(path->mmlsys2, pw_disable, cfg->info.mode);
 	call_hw_op(path->mmlsys, pw_disable, cfg->info.mode);
-	mml_dpc_exc_release_task(task, path);
+	mml_dpc_exc_release_path(cfg->mml, path);
 	call_hw_op(path->mmlsys, mminfra_pw_disable);
 	mml_clock_unlock(cfg->mml);
 }
@@ -1715,6 +1715,7 @@ static bool mml_check_dumpsrv(enum dump_srv_option buf_opt, struct mml_file_buf 
 static void core_taskdone_kt_work(struct kthread_work *work)
 {
 	struct mml_task *task = container_of(work, struct mml_task, kt_work_done);
+	struct mml_frame_config *cfg = task->config;
 	u32 i;
 
 	mml_trace_begin("%s", __func__);
@@ -1736,19 +1737,19 @@ static void core_taskdone_kt_work(struct kthread_work *work)
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 	if (mml_check_dumpsrv(DUMPOPT_DEST, &task->buf.dest[0])) {
 		char fmt[24];
-		struct mml_frame_data *data = &task->config->info.dest[0].data;
+		struct mml_frame_data *data = &cfg->info.dest[0].data;
 
 		get_fmt_str(fmt, sizeof(fmt), data->format);
 		mml_dump_buf(task, data,
-			data->width + task->config->info.dest[0].compose.left,
-			data->height + task->config->info.dest[0].compose.top,
+			data->width + cfg->info.dest[0].compose.left,
+			data->height + cfg->info.dest[0].compose.top,
 			"dest", fmt,
 			&task->buf.dest[0], MMLDUMPT_DEST,
 			mml_dump_srv_opt & DUMPOPT_DEST_ASYNC);
 	}
 #endif
 
-	queue_work(task->config->wq_done, &task->work_done);
+	queue_work(cfg->wq_done, &task->work_done);
 	mml_trace_end();
 }
 
@@ -1791,7 +1792,7 @@ static void core_taskdone(struct work_struct *work)
 	/* dl mode fast on/off during hw run, so enable mminfra and except flow back */
 	if (!mml_isdc(cfg->info.mode)) {
 		mml_core_mminfra_enable(cfg->mml, 0, path->mmlsys);
-		mml_dpc_exc_keep_task(task, path);
+		mml_dpc_exc_keep_path(cfg->mml, path);
 	}
 
 	/* remove task in qos list and setup next */
@@ -1838,7 +1839,7 @@ static void core_taskdone(struct work_struct *work)
 	if (cfg->dpc && cfg->info.mode != MML_MODE_DDP_ADDON)
 		mml_dpc_task_cnt_dec(task);
 
-	mml_dpc_exc_release_task(task, path);
+	mml_dpc_exc_release_path(cfg->mml, path);
 	mml_core_mminfra_disable(cfg->mml, 0, cfg->path[0]->mmlsys);
 
 	if (unlikely(cfg->task_ops->frame_err && !task->pkts[0] &&
@@ -1862,10 +1863,9 @@ static void core_taskdone_check(struct mml_task *task)
 	if (cfg->dual && cnt <= 1)
 		return;
 
-	if (task->config->task_ops->signal_irq)
-		task->config->task_ops->signal_irq(task);
-
 	task->done = true;
+	if (cfg->task_ops->signal_irq)
+		cfg->task_ops->signal_irq(task);
 	if (task->fence) {
 		dma_fence_signal(task->fence);
 		mml_mmp(fence_sig, MMPROFILE_FLAG_PULSE, task->job.jobid,
@@ -1904,11 +1904,12 @@ static void core_taskdone_cb(struct cmdq_cb_data data)
 
 static s32 core_config(struct mml_task *task, u32 pipe)
 {
+	struct mml_frame_config *cfg = task->config;
 	int ret;
 
 	if (task->state == MML_TASK_INITIAL) {
 		struct mml_tile_cache *tile_cache =
-			task->config->task_ops->get_tile_cache(task, pipe);
+			cfg->task_ops->get_tile_cache(task, pipe);
 
 		/* prepare data in each component for later tile use */
 		ret = core_prepare(task, pipe);
@@ -1928,12 +1929,12 @@ static s32 core_config(struct mml_task *task, u32 pipe)
 
 		/* dump frame tile for debug */
 		if (mtk_mml_msg)
-			dump_frame_tile(task->config->frame_tile[pipe]);
+			dump_frame_tile(cfg->frame_tile[pipe]);
 	} else {
 		if (task->state == MML_TASK_DUPLICATE) {
 			/* task need duplcicate before reuse */
 			mml_trace_ex_begin("%s_%s_%u", __func__, "dup", pipe);
-			ret = task->config->task_ops->dup_task(task, pipe);
+			ret = cfg->task_ops->dup_task(task, pipe);
 			mml_trace_ex_end();
 			if (ret < 0) {
 				mml_err("dup task fail %d", ret);
@@ -2056,7 +2057,7 @@ static void core_taskdump(struct mml_task *task, u32 pipe, int err)
 
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 	if (mml_timeout_dump) {
-		mml_dump_input(task->config->mml, path->mmlsys->sysid, task, true);
+		mml_dump_input(cfg->mml, path->mmlsys->sysid, task, true);
 		mml_timeout_dump = false;
 	}
 #endif
@@ -2189,7 +2190,7 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 	mutex_unlock(&cfg->pipe_mutex);
 
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
-	mml_dump_input(task->config->mml, cfg->path[pipe]->mmlsys->sysid, task, false);
+	mml_dump_input(cfg->mml, cfg->path[pipe]->mmlsys->sysid, task, false);
 
 	if (pipe == 0 && mml_check_dumpsrv(DUMPOPT_SRC, &task->buf.src)) {
 		char fmt[24];
@@ -2298,9 +2299,6 @@ static void core_config_pipe(struct mml_task *task, u32 pipe)
 	mml_msg("%s task %p job %u pipe %u pkt %p done",
 		__func__, task, task->job.jobid, pipe, task->pkts[pipe]);
 exit:
-	if (cfg->dpc && cfg->info.mode != MML_MODE_DDP_ADDON && err < 0)
-		mml_dpc_task_cnt_dec(task);
-
 	mml_trace_ex_end();
 }
 
@@ -2374,7 +2372,7 @@ static void core_config_task(struct mml_task *task)
 
 	/* enable mminfra and except flow during config */
 	mml_core_mminfra_enable(cfg->mml, 0, cfg->path[0]->mmlsys);
-	mml_dpc_exc_keep_task(task, cfg->path[0]);
+	mml_dpc_exc_keep_path(cfg->mml, cfg->path[0]);
 	if (cfg->dpc && cfg->info.mode != MML_MODE_DDP_ADDON)
 		mml_dpc_task_cnt_inc(task);
 
@@ -2410,7 +2408,7 @@ static void core_config_task(struct mml_task *task)
 	 * And addon mode has no taskdone flow, thus release mminfra here to avoid power leak.
 	 */
 	if (!mml_isdc(mode)) {
-		mml_dpc_exc_release_task(task, cfg->path[0]);
+		mml_dpc_exc_release_path(cfg->mml, cfg->path[0]);
 		mml_core_mminfra_disable(cfg->mml, 0, cfg->path[0]->mmlsys);
 	}
 
@@ -2544,6 +2542,7 @@ void mml_core_deinit_config(struct mml_frame_config *cfg)
 			kfree(cfg->cache[pipe].cfg[i].data);
 		destroy_frame_tile(cfg->frame_tile[pipe]);
 	}
+	mml_msg("%s destroy_workqueue %p on ctx %p", __func__, cfg->wq_done, cfg->ctx);
 	core_destroy_wq(&cfg->wq_done);
 }
 

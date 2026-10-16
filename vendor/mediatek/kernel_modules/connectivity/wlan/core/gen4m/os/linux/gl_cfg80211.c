@@ -1762,7 +1762,7 @@ int mtk_cfg80211_connect(struct wiphy *wiphy,
 			struct RSN_INFO rRsnInfo;
 
 			if (rsnParseRsnIE(prGlueInfo->prAdapter,
-			    (struct RSN_INFO_ELEM *)prDesiredIE, &rRsnInfo)) {
+			    prDesiredIE, &rRsnInfo)) {
 				prWpaInfo->u4CipherGroupMgmt =
 					rRsnInfo.u4GroupMgmtCipherSuite;
 				DBGLOG(RSN, INFO,
@@ -1788,8 +1788,7 @@ int mtk_cfg80211_connect(struct wiphy *wiphy,
 			struct RSNX_INFO rRsnxeInfo;
 
 			if (rsnParseRsnxIE(prGlueInfo->prAdapter,
-				(struct RSNX_INFO_ELEM *)prDesiredIE,
-					&rRsnxeInfo)) {
+				prDesiredIE, &rRsnxeInfo)) {
 				prWpaInfo->u2RSNXCap = rRsnxeInfo.u2Cap;
 				if (prWpaInfo->u2RSNXCap &
 					BIT(WLAN_RSNX_CAPAB_SAE_H2E)) {
@@ -2010,6 +2009,7 @@ int mtk_cfg80211_disconnect(struct wiphy *wiphy,
 	uint32_t rStatus;
 	uint32_t u4BufLen;
 	uint8_t ucBssIndex = 0;
+	struct PARAM_DISCONNECT_REASON rDisconnectReason = {0};
 
 	WIPHY_PRIV(wiphy, prGlueInfo);
 	ASSERT(prGlueInfo);
@@ -2018,9 +2018,15 @@ int mtk_cfg80211_disconnect(struct wiphy *wiphy,
 	if (!IS_BSS_INDEX_VALID(ucBssIndex))
 		return -EINVAL;
 
-	DBGLOG(REQ, INFO, "ucBssIndex = %d\n", ucBssIndex);
-	rStatus = kalIoctlByBssIdx(prGlueInfo, wlanoidSetDisassociate, NULL,
-			   0, &u4BufLen, ucBssIndex);
+	rDisconnectReason.ucReasonOfDisconnect = DISCONNECT_REASON_CODE_LOCALLY;
+	rDisconnectReason.u2DeauthReason = reason_code;
+	DBGLOG(REQ, INFO, "ucBssIndex = %d, reason = %d\n",
+			ucBssIndex, rDisconnectReason.u2DeauthReason);
+
+	rStatus = kalIoctlByBssIdx(prGlueInfo, wlanoidSetDisassociate,
+			&rDisconnectReason,
+			sizeof(struct PARAM_DISCONNECT_REASON),
+			&u4BufLen, ucBssIndex);
 
 	if (rStatus != WLAN_STATUS_SUCCESS) {
 		DBGLOG(REQ, WARN, "disassociate error:%x\n", rStatus);
@@ -7376,7 +7382,7 @@ int mtk_cfg80211_del_iface(struct wiphy *wiphy, struct wireless_dev *wdev)
 	struct ADAPTER *prAdapter;
 	struct net_device *prDevHandler = NULL;
 	struct wireless_dev *prWdev = NULL;
-	uint32_t u4DisconnectReason = DISCONNECT_REASON_CODE_DEL_IFACE;
+	struct PARAM_DISCONNECT_REASON rDisconnectReason = {0};
 	uint32_t rStatus;
 	uint8_t ucBssIndex = 0;
 	uint8_t ucAisIndex = 0;
@@ -7401,12 +7407,16 @@ int mtk_cfg80211_del_iface(struct wiphy *wiphy, struct wireless_dev *wdev)
 
 	prWdev = gprWdev[ucAisIndex];
 	prDevHandler = prWdev->netdev;
+	rDisconnectReason.ucReasonOfDisconnect =
+			DISCONNECT_REASON_CODE_DEL_IFACE;
+	rDisconnectReason.u2DeauthReason = REASON_CODE_DEAUTH_LEAVING_BSS;
 
 	/* make sure netdev is disconnected */
 	DBGLOG(REQ, INFO, "ucBssIndex = %d\n", ucBssIndex);
 	if (!kalIsResetting()) {
 		rStatus = kalIoctlByBssIdx(prGlueInfo, wlanoidSetDisassociate,
-				&u4DisconnectReason, sizeof(u4DisconnectReason),
+				&rDisconnectReason,
+				sizeof(struct PARAM_DISCONNECT_REASON),
 				&u4SetInfoLen, ucBssIndex);
 
 		if (rStatus != WLAN_STATUS_SUCCESS)

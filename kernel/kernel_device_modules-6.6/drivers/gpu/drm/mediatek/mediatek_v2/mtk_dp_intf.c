@@ -1003,8 +1003,10 @@ static int mtk_dpintf_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		mtk_crtc = comp->mtk_crtc;
 		en = (unsigned int *)params;
+		if (!mtk_crtc || !en)
+			break;
 		priv = (mtk_crtc->base).dev->dev_private;
-		if (!mtk_crtc || !en || !priv)
+		if (!priv)
 			break;
 
 		if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MMDVFS_SUPPORT)) {

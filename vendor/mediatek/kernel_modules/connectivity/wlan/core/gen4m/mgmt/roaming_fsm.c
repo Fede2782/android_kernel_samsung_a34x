@@ -751,8 +751,6 @@ void roamingFsmSteps(struct ADAPTER *prAdapter,
 		case ROAMING_STATE_IDLE:
 			prRoam->prRoamTarget = NULL;
 			prFtParam->eFtDsState = FT_DS_STATE_IDLE;
-			prReportInfo->eFailReason =
-					ROAMING_FAIL_REASON_NOCANDIDATE;
 #if (CFG_EXT_ROAMING == 1)
 			roamingFsmInitScanTimer(prAdapter, ucBssIndex);
 #endif
@@ -770,13 +768,16 @@ void roamingFsmSteps(struct ADAPTER *prAdapter,
 			prFtParam->eFtDsState = FT_DS_STATE_IDLE;
 			prReportInfo->eFailReason =
 					ROAMING_FAIL_REASON_NOCANDIDATE;
+			prReportInfo->rRoamingStartTime = 0;
 			break;
 
 		case ROAMING_STATE_DISCOVERY: {
 			u_int8_t fgIsNeedScan = TRUE;
 
 			if (prRoam->eReason ==
-				ROAMING_REASON_UPPER_LAYER_TRIGGER)
+				ROAMING_REASON_UPPER_LAYER_TRIGGER &&
+			    prAisFsmInfo->ucReasonOfDisconnect ==
+				DISCONNECT_REASON_CODE_ROAMING)
 				fgIsNeedScan = FALSE;
 
 			aisFsmRunEventRoamingDiscovery(

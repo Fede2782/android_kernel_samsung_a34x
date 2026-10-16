@@ -212,13 +212,20 @@ ifneq ($(findstring tb8791tp1_64_titan_javan_tiger, $(CONFIG_ARCH_MTK_PROJECT)),
 ccflags-y += -DCONFIG_MTK_WIFI_HE80
 $(info enable HE80 for $(CONFIG_ARCH_MTK_PROJECT))
 endif
-ifneq ($(filter m53%, $(PROJECT_NAME)),)
-ccflags-y += -DCONFIG_MTK_N22_DOMAIN_CH
+
+$(info $ROOT_DIR is [${ROOT_DIR}])
+PROJECT_NAME_WLBT := $(shell echo $(ROOT_DIR) | sed -e 's/.*target\/product\/\([^/]*\)\/obj\/\([^/]*\).*/\1/')
+
+ifeq ($(PROJECT_NAME),)
+    PROJECT_NAME := $(PROJECT_NAME_WLBT)
 endif
+
 ifneq ($(findstring k6877ttv1_64_titan_black_tiger, $(CONFIG_ARCH_MTK_PROJECT)),)
 ccflags-y += -DCONFIG_MTK_LATEST_DOMAIN_CH
 else ifneq ($(findstring tb8791tp1_64_titan_javan_tiger, $(CONFIG_ARCH_MTK_PROJECT)),)
 ccflags-y += -DCONFIG_MTK_LATEST_DOMAIN_CH
+else ifneq ($(filter m53%, $(PROJECT_NAME)),)
+ccflags-y += -DCONFIG_MTK_N22_DOMAIN_CH
 else
 ccflags-y += -DCONFIG_MTK_NEW_DOMAIN_CH
 endif
@@ -332,13 +339,6 @@ endif
 
 ifneq ($(filter 6779, $(WLAN_CHIP_ID)),)
     ccflags-y += -DCFG_FORCE_AP1NSS
-endif
-
-$(info $ROOT_DIR is [${ROOT_DIR}])
-PROJECT_NAME_WLBT := $(shell echo $(ROOT_DIR) | sed -e 's/.*target\/product\/\([^/]*\)\/obj\/\([^/]*\).*/\1/')
-
-ifeq ($(PROJECT_NAME),)
-    PROJECT_NAME := $(PROJECT_NAME_WLBT)
 endif
 
 ifneq ($(filter 6853, $(WLAN_CHIP_ID)),)

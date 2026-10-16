@@ -13,7 +13,8 @@
 
 ccflags-y += \
 	-I$(srctree)/include/ \
-	-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/cpufreq_lite/
+	-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/cpufreq_lite/ \
+	-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/cpufreq_v2/inc/ \
 
 CFLAGS_powerhal_cpu_ctrl.o := -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/performance/powerhal_cpu_ctrl
 

@@ -84,6 +84,14 @@ struct APPEND_VAR_IE_ENTRY txBcnIETable[] = {
 	   rsnGenerateWPAIE}	/* 221 */
 	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN), NULL,
 	   rsnGenerateRSNIE}	/* 48 */
+#if (CFG_SUPPORT_RSNO == 1)
+	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4), NULL,
+	   rsnGenerateRSNOIE}	/* 221 */
+	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4), NULL,
+	   rsnGenerateRSNO2IE}	/* 221 */
+	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4), NULL,
+	   rsnGenerateRSNXOIE}	/* 221 */
+#endif /* CFG_SUPPORT_RSNO */
 #if CFG_ENABLE_WIFI_DIRECT
 	, {0, p2pFuncCalculateP2p_IELenForBeacon,
 	   p2pFuncGenerateP2p_IEForBeacon}	/* 221 */
@@ -157,6 +165,14 @@ struct APPEND_VAR_IE_ENTRY txProbRspIETable[] = {
 	   rsnGenerateWPAIE}	/* 221 */
 	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN), NULL,
 	   rsnGenerateRSNIE}	/* 48 */
+#if (CFG_SUPPORT_RSNO == 1)
+	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4), NULL,
+	   rsnGenerateRSNOIE}	/* 221 */
+	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4), NULL,
+	   rsnGenerateRSNO2IE}	/* 221 */
+	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4), NULL,
+	   rsnGenerateRSNXOIE}	/* 221 */
+#endif /* CFG_SUPPORT_RSNO */
 #if CFG_ENABLE_WIFI_DIRECT
 	, {(ELEM_HDR_LEN + ELEM_MAX_LEN_OBSS_SCAN), NULL,
 	   rlmRspGenerateObssScanIE}	/* 74 */

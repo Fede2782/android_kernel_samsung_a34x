@@ -438,6 +438,7 @@ struct mtk_hcp {
 	struct task_struct *current_task;
 	struct workqueue_struct *daemon_notify_wq[MODULE_MAX_ID];
 	struct hcp_aee_info aee_info;
+	struct msg *msgs;
 #if SMVR_DECOUPLE
     bool is_mem_alloc_streaming;
     bool is_mem_alloc_capture;

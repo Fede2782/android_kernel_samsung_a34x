@@ -1391,8 +1391,12 @@ int btmtk_intcmd_system_status(unsigned char system_state) {
 	u8 cmd[] = { 0x01, 0x5D, 0xFC, 0x03, 0x02, 0x05, 0x00};
 	// u8 evt[] = {0x04, 0x0E, 0x07, 0x01, 0x5D, 0xFC};
 	int ret = 0;
+	int pkt_type = BTMTK_TX_PKT_SEND_DIRECT;
 
-	BTMTK_INFO("%s: system_state[%d]", __func__, system_state);
+	if (system_state == WMT_PARA_RESUME)
+		pkt_type = BTMTK_TX_CMD_FROM_DRV;
+
+	BTMTK_INFO("%s: system_state[%d], pkt_type[%d]", __func__, system_state, pkt_type);
 
 	if (btmtk_fops_get_state(g_sbdev) != BTMTK_FOPS_STATE_OPENED) {
 		BTMTK_INFO("%s: bt already closed, not send blank status", __func__);
@@ -1407,7 +1411,7 @@ int btmtk_intcmd_system_status(unsigned char system_state) {
 	cmd[6] = system_state;
 	ret = btmtk_main_send_cmd(g_sbdev,
 			cmd, sizeof(cmd), NULL, 0,
-			DELAY_TIMES, RETRY_TIMES, BTMTK_TX_PKT_SEND_DIRECT);
+			DELAY_TIMES, RETRY_TIMES, pkt_type);
 
 	if (ret < 0)
 		BTMTK_WARN("%s faill to set system_state to fw", __func__);

@@ -908,8 +908,9 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 
 	sv_dev->enable_stash_eco_fun = 0;
 
-	dev_dbg(sv_dev->dev, "stash eco status:%d img:0x%x_0x%x_0x%x_0x%x img2:0x%x_0x%x_0x%x_0x%x len:0x%x_0x%x_0x%x_0x%x len2:0x%x_0x%x_0x%x_0x%x\n",
+	dev_dbg(sv_dev->dev, "stash eco status:%d leading_line_cnt:%d img:0x%x_0x%x_0x%x_0x%x img2:0x%x_0x%x_0x%x_0x%x len:0x%x_0x%x_0x%x_0x%x len2:0x%x_0x%x_0x%x_0x%x\n",
 		enable_stash_eco_fun,
+		leading_line_cnt,
 		CAMSV_READ_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG),
 		CAMSV_READ_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG),
 		CAMSV_READ_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG),

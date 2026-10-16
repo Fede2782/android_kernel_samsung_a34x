@@ -673,24 +673,22 @@ void mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param)
 }
 
 #define DEBUG_OPS_SHOW_LOG_SIZE 1024
-static char debug_ops_show_log[DEBUG_OPS_SHOW_LOG_SIZE];
+char debug_ops_show_log[DEBUG_OPS_SHOW_LOG_SIZE];
 
 void mtk_cam_seninf_frame_done_notify(struct mtk_seninf_frame_done_notify_param *param)
 {
 	struct v4l2_subdev *sd = param->sd;
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
 
-	// g_seninf_ops->_seninf_dump_mipi_err(ctx->core, &vsync_info);
-
+	mutex_lock(&ctx->core->mutex);
 	if (ctx->core->cdr_delay_new != ctx->core->cdr_delay){
 		dev_info(ctx->dev, "%s: port %d cdr_delay 0x%x -> 0x%x\n",
 					__func__, ctx->port, ctx->core->cdr_delay, ctx->core->cdr_delay_new);
-		mutex_lock(&ctx->core->mutex);
+
 		g_seninf_ops->_eye_scan(ctx, EYE_SCAN_KEYS_CDR_DELAY, ctx->core->cdr_delay_new,
 					debug_ops_show_log, (int)DEBUG_OPS_SHOW_LOG_SIZE );
-		mutex_unlock(&ctx->core->mutex);
-
 	}
+	mutex_unlock(&ctx->core->mutex);
 }
 
 void notify_sensor_set_fl_prolong(struct v4l2_subdev *sd,

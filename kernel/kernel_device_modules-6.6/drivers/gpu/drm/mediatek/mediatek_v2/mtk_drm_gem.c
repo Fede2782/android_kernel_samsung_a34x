@@ -925,6 +925,7 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	}
 
 	memcpy(submit_kernel, submit_user, sizeof(struct mml_submit));
+	memset(&submit_kernel->pq_param, 0, sizeof(submit_kernel->pq_param));
 	submit_kernel->job = kzalloc(sizeof(struct mml_job), GFP_KERNEL);
 	if (!submit_kernel->job) {
 		ret = -EFAULT;
@@ -941,7 +942,11 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	} else
 		DDPMSG("[%s] submit_user->job is null\n", __func__);
 
+	submit_kernel->buffer.src.use_dma = false;
+	submit_kernel->buffer.seg_map.use_dma = false;
+
 	for (i = 0; i < MML_MAX_OUTPUTS; i++) {
+		submit_kernel->buffer.dest[i].use_dma = false;
 		if (submit_user->pq_param[i]) {
 			submit_kernel->pq_param[i] =
 				kzalloc(sizeof(struct mml_pq_param), GFP_KERNEL);
@@ -1018,6 +1023,7 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 				mtk_vidle_enable(false, priv);
 				DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 			}
+			DDP_MUTEX_LOCK_CONDITION(&mtk_crtc->mml_cfg_dc_lock, __func__, __LINE__, false);
 			if (mtk_crtc->mml_cfg_dc != NULL) {
 				for (i = 0; i < MML_MAX_OUTPUTS; i++)
 					kfree(mtk_crtc->mml_cfg_dc->pq_param[i]);
@@ -1037,8 +1043,10 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 			DDPMSG("[%s][%d][%d] copy_to_user fail\n", __func__, __LINE__, ret);
 	}
 
-	if (skip_free)
+	if (skip_free) {
+		DDP_MUTEX_UNLOCK_CONDITION(&mtk_crtc->mml_cfg_dc_lock, __func__, __LINE__, false);
 		return ret;
+	}
 
 err_handle_create:
 	for (i = 0; i < MML_MAX_OUTPUTS; i++) {

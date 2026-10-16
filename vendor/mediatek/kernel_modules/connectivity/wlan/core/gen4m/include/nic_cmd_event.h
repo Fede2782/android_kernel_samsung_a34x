@@ -3281,6 +3281,11 @@ struct CMD_SUSPEND_MODE_SETTING {
 	uint8_t ucReserved2[64];
 };
 
+struct CMD_SCREEN_STATE {
+	uint8_t ucScreenState;
+	uint8_t ucReserved2[3];
+};
+
 struct EVENT_UPDATE_COEX_PHYRATE {
 	uint8_t ucVersion;
 	uint8_t aucReserved1[3];    /* 4 byte alignment */

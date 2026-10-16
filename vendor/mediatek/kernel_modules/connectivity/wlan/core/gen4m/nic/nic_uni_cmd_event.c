@@ -242,6 +242,7 @@ static PROCESS_LEGACY_TO_UNI_FUNCTION arUniCmdTable[CMD_ID_END] = {
 #if (CFG_SS_PCIE_GEN_SWITCH == 1)
 	[CMD_ID_UPDATE_PCIE] = nicUniCmdUpdatePcieParam,
 #endif /*CFG_SS_PCIE_GEN_SWITCH*/
+	[CMD_ID_SET_SCREEN_STATE] = nicUniCmdSetScreenState,
 };
 
 static PROCESS_LEGACY_TO_UNI_FUNCTION arUniExtCmdTable[EXT_CMD_ID_END] = {
@@ -13596,4 +13597,37 @@ void nicUniEventTxPower(struct ADAPTER *ad, struct WIFI_UNI_EVENT *evt)
 		}
 	}
 
+}
+
+uint32_t nicUniCmdSetScreenState(struct ADAPTER *ad,
+	struct WIFI_UNI_SETQUERY_INFO *info)
+{
+	struct CMD_SCREEN_STATE *cmd;
+	struct UNI_CMD_SCREEN_STATE *uni_cmd;
+	struct UNI_CMD_SCREEN_STATE_SETTING *tag;
+	struct WIFI_UNI_CMD_ENTRY *entry;
+	uint32_t max_cmd_len = sizeof(struct UNI_CMD_SCREEN_STATE) +
+			       sizeof(struct UNI_CMD_SCREEN_STATE_SETTING);
+
+	if (info->ucCID != CMD_ID_SET_SCREEN_STATE ||
+	    info->u4SetQueryInfoLen != sizeof(*cmd))
+		return WLAN_STATUS_NOT_ACCEPTED;
+
+	cmd = (struct CMD_SCREEN_STATE *) info->pucInfoBuffer;
+	entry = nicUniCmdAllocEntry(ad, UNI_CMD_ID_SET_SCREEN_STATE,
+		max_cmd_len, nicUniCmdEventSetCommon, nicUniCmdTimeoutCommon);
+
+	if (!entry)
+		return WLAN_STATUS_RESOURCES;
+
+	uni_cmd = (struct UNI_CMD_SCREEN_STATE *) entry->pucInfoBuffer;
+	tag = (struct UNI_CMD_SCREEN_STATE_SETTING *) uni_cmd->aucTlvBuffer;
+	tag->u2Tag = UNI_CMD_SCRREN_STATE_TAG_SETTING;
+	tag->u2Length = sizeof(*tag);
+	tag->ucScreenState = cmd->ucScreenState;
+	DBGLOG(NIC, INFO, "ScreenState = %u\n", cmd->ucScreenState);
+
+	LINK_INSERT_TAIL(&info->rUniCmdList, &entry->rLinkEntry);
+
+	return WLAN_STATUS_SUCCESS;
 }

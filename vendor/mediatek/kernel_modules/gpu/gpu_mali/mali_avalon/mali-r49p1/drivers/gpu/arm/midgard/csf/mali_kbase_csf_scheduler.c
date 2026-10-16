@@ -703,9 +703,6 @@ static enum hrtimer_restart apo_idle_timer_callback(struct hrtimer *timer)
 	struct kbase_device *kbdev =
 		container_of(timer, struct kbase_device, csf.scheduler.apo_idle_timer);
 
-	if (get_api_sync_flag() == 1)
-		return HRTIMER_NORESTART;
-
 	ged_gpu_apo_reset();
 	ged_gpu_predict_apo_reset();
 

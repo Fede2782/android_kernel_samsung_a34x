@@ -1361,9 +1361,9 @@ void mtk_free_mml_submit(struct mml_submit *temp)
 		return;
 
 	for (i = 0; i < MML_MAX_PLANES && i < temp->buffer.src.cnt; ++i) {
-		if (temp->buffer.src.use_dma &&	temp->buffer.src.dmabuf[i]) {
+		if (temp->buffer.src.use_dma && temp->buffer.src.dmabuf[i]) {
 			DDPINFO("%s dmabuf:0x%lx\n", __func__,
-					(unsigned long)temp->buffer.src.dmabuf[i]);
+				(unsigned long)temp->buffer.src.dmabuf[i]);
 			dma_buf_put(temp->buffer.src.dmabuf[i]);
 		}
 	}
@@ -1460,7 +1460,7 @@ static enum mml_mode _mtk_atomic_mml_plane(struct drm_device *dev,
 	struct drm_crtc *crtc = NULL;
 	struct mtk_drm_crtc *mtk_crtc = NULL;
 	struct mtk_crtc_state *crtc_state = NULL;
-	int i = 0, src_fd_0 = 0;
+	int i = 0, j = 0, src_fd_0 = 0;
 	int ret = 0;
 	unsigned int fps = 0;
 	unsigned int vtotal = 0;
@@ -1506,15 +1506,20 @@ static enum mml_mode _mtk_atomic_mml_plane(struct drm_device *dev,
 	if (submit_kernel->info.mode == MML_MODE_RACING && (!kref_read(&mtk_crtc->mml_ir_sram.ref)))
 		mtk_crtc_alloc_sram(mtk_crtc, crtc_state->prop_val[CRTC_PROP_LYE_IDX]);
 
-	for (i = 0; i < MML_MAX_PLANES; ++i) {
-		submit_kernel->buffer.dest[0].fd[i] = -1;
-		submit_kernel->buffer.dest[0].size[i] = 0;
-	}
+	memset(&submit_kernel->buffer.dest, 0, sizeof(submit_kernel->buffer.dest));
+	for (i = 0; i < MML_MAX_OUTPUTS; ++i)
+		for (j = 0; j < MML_MAX_PLANES; ++j)
+			submit_kernel->buffer.dest[i].fd[j] = -1;
+
+	submit_kernel->buffer.seg_map.use_dma = false;
+	memset(&submit_kernel->buffer.src.dmabuf, 0, sizeof(submit_kernel->buffer.src.dmabuf));
 
 	src_fd_0 = submit_kernel->buffer.src.fd[0];
 	if (src_fd_0 > 0) {
 		submit_kernel->buffer.src.use_dma = true;
 		submit_kernel->buffer.src.dmabuf[0] = fd_to_dma_buf(src_fd_0);
+		submit_kernel->buffer.src.cnt = max(min(submit_kernel->buffer.src.cnt,
+							MML_MAX_PLANES), 1);
 		if (submit_kernel->buffer.src.dmabuf[0] == NULL) {
 			DDPPR_ERR("%s:error,err_fd_to_dma\n", __func__);
 			goto err_fd_to_dma;
@@ -7510,17 +7515,8 @@ int mtk_drm_pm_ctrl(struct mtk_drm_private *priv, enum disp_pm_action action)
 
 		pm_runtime_put_sync(priv->mmsys_dev);
 
-		if (priv->dpc_dev) {
-			if (vdisp_func.poll_power_cnt) {
-				if (vdisp_func.poll_power_cnt(0) == 0)
-					pm_runtime_put_sync(priv->dpc_dev);
-				else {
-					DDPMSG("%s poll mtcmos off timeout, skip mminfra put\n", __func__);
-					priv->kernel_pm.skip_mminfra_ctrl = true;
-				}
-			} else
-				pm_runtime_put_sync(priv->dpc_dev);
-		}
+		if (priv->dpc_dev)
+			pm_runtime_put_sync(priv->dpc_dev);
 
 		if (priv->dsi_phy0_dev)
 			pm_runtime_put_sync(priv->dsi_phy0_dev);

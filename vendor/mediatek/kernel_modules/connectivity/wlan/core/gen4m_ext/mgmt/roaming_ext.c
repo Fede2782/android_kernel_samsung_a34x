@@ -1938,12 +1938,13 @@ wlanoidQueryNchoBand(struct ADAPTER *prAdapter,
 	if (u4QueryBufferLen < sizeof(uint32_t))
 		return WLAN_STATUS_BUFFER_TOO_SHORT;
 
-	if (prAdapter->rNchoInfo.fgNCHOEnabled == FALSE)
-		return WLAN_STATUS_INVALID_DATA;
-
 	pParam = (uint32_t *) pvQueryBuffer;
-	*pParam = prAdapter->rNchoInfo.eCongfigBand;
-	DBGLOG(INIT, TRACE, "NCHO band is %d\n", *pParam);
+#if (CFG_SUPPORT_WIFI_6G == 1)
+	*pParam = NCHO_BAND_AUTO_2G4_5G_6G;
+#else
+	*pParam = NCHO_BAND_AUTO_2G4_5G;
+#endif /* CFG_SUPPORT_WIFI_6G */
+	DBGLOG(INIT, TRACE, "band capability is %d\n", *pParam);
 
 	return WLAN_STATUS_SUCCESS;
 }
@@ -2997,8 +2998,9 @@ void aisExtInfoDisconnectedAction(struct ADAPTER *prAdapter,
 	aisFsmNotifyManageChannelList(prAdapter, ucBssIndex);
 #endif
 
+	prAisFsmInfo->ucLatencyMode = 0;
+
 #if CFG_SUPPORT_LLW_SCAN
-	prAisFsmInfo->ucLatencyCrtDataMode = 0;
 	prAisFsmInfo->ucDfsChDwellTimeMs = 0;
 	prAisFsmInfo->ucNonDfsChDwellTimeMs = 0;
 	prAisFsmInfo->u2OpChStayTimeMs = 0;

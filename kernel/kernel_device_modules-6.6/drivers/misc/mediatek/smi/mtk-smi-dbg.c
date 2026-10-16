@@ -2352,7 +2352,10 @@ s32 smi_monitor_start(struct device *dev, u32 common_id, u32 commonlarb_id[MAX_M
 		pr_notice("%s already shutdown, no start monitor\n", __func__);
 		return -EAGAIN;
 	}
-
+	if (common_id >= MTK_SMI_NR_MAX) {
+		pr_notice("%s invalid common_id %d\n", __func__, common_id);
+		return -EINVAL;
+	}
 	comm_base = smi->comm[common_id].va;
 	if (!comm_base) {
 		pr_notice("[smi]%s: failed to monitor comm%d\n", __func__, common_id);
@@ -2414,7 +2417,10 @@ s32 smi_monitor_stop(struct device *dev, u32 common_id, u32 *bw, enum smi_mon_id
 		pr_notice("%s already shutdown, no stop monitor\n", __func__);
 		return -EAGAIN;
 	}
-
+	if (common_id >= MTK_SMI_NR_MAX) {
+		pr_notice("%s invalid common_id %d\n", __func__, common_id);
+		return -EINVAL;
+	}
 	comm_base = smi->comm[common_id].va;
 	if (!comm_base) {
 		pr_notice("[smi]%s: failed to monitor comm%d\n", __func__, common_id);

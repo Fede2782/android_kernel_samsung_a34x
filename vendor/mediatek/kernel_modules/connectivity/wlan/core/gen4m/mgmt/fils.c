@@ -602,7 +602,7 @@ uint32_t filsRxAuthRSNE(struct ADAPTER *ad,
 		return WLAN_STATUS_FAILURE;
 	}
 
-	if (!rsnParseRsnIE(ad, (struct RSN_INFO_ELEM *)ie, &rRsnInfo)) {
+	if (!rsnParseRsnIE(ad, (uint8_t *)ie, &rRsnInfo)) {
 		DBGLOG(FILS, ERROR, "Parse RSNE failed\n");
 		return WLAN_STATUS_FAILURE;
 	}

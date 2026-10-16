@@ -65,6 +65,10 @@ struct APPEND_VAR_IE_ENTRY txAssocReqIETable[] = {
 	,			/* 48 */
 	{(ELEM_HDR_LEN + ELEM_MAX_LEN_WPA), NULL, rsnGenerateWPAIE}
 	,			/* 221 */
+#if (CFG_SUPPORT_RSNO == 1)
+	{(ELEM_HDR_LEN + 5), NULL, rsnGenerateRsnSelectionIE}
+	,
+#endif /* CFG_SUPPORT_RSNO */
 #if CFG_SUPPORT_802_11AC
 	{(ELEM_HDR_LEN + ELEM_MAX_LEN_VHT_CAP), NULL, rlmReqGenerateVhtCapIE}
 	,			/*191 */
@@ -209,6 +213,8 @@ static uint8_t assocSkipRSNXIe(struct ADAPTER *prAdapter,
 		struct STA_RECORD *prStaRec, struct IE_HDR *prIe);
 static uint8_t assocSkipWpaIe(struct ADAPTER *prAdapter,
 		struct STA_RECORD *prStaRec, struct IE_HDR *prIe);
+static uint8_t assocSkipVendorIe(struct ADAPTER *prAdapter,
+		struct STA_RECORD *prStaRec, struct IE_HDR *prIe);
 
 /*******************************************************************************
  *                              F U N C T I O N S
@@ -226,6 +232,7 @@ static struct SKIP_IE_ENTRY g_assocSkipIEs[] = {
 	{ELEM_ID_RSNX, assocSkipRSNXIe},
 	{ELEM_ID_WPA, assocSkipWpaIe},
 	{ELEM_ID_SUP_OPERATING_CLASS, NULL},
+	{ELEM_ID_VENDOR, assocSkipVendorIe},
 };
 
 /*----------------------------------------------------------------------------*/
@@ -805,8 +812,12 @@ static uint8_t assocSkipRSNXIe(struct ADAPTER *prAdapter,
 
 		/* skip rsnxe if target ap doesn't support rsnxe */
 		if (prTargetBss && !prTargetBss->fgIERSNX &&
+#if (CFG_SUPPORT_RSNO == 1)
+		    !prTargetBss->fgIERSNXO &&
+#endif /* CFG_SUPPORT_RSNO */
 		   (prStaRec->ucAuthAlgNum == AUTH_ALGORITHM_NUM_FT ||
-		    prTargetBss->eRsnSelectedAuthMode == AUTH_MODE_WPA2_PSK))
+		    (prStaRec->ucAuthAlgNum == AUTH_ALGORITHM_NUM_OPEN_SYSTEM &&
+		     prTargetBss->eRsnSelectedAuthMode != AUTH_MODE_WPA3_OWE)))
 			return TRUE;
 	}
 
@@ -830,6 +841,20 @@ static uint8_t assocSkipWpaIe(struct ADAPTER *prAdapter,
 	/* skip wpa ie, fill by driver */
 	if (prWpaIE->ucOuiType == VENDOR_OUI_TYPE_WPA &&
 	    prWpaIE->u2Version == 1)
+		return TRUE;
+
+	return FALSE;
+}
+
+static uint8_t assocSkipVendorIe(struct ADAPTER *prAdapter,
+		struct STA_RECORD *prStaRec, struct IE_HDR *prIe)
+{
+	uint8_t *pucIe = (uint8_t *)prIe;
+
+	if (IE_LEN(pucIe) < 5)
+		return FALSE;
+
+	if (WLAN_GET_BE32(pucIe + 2) == VENDOR_IE_TYPE_RSN_SEL)
 		return TRUE;
 
 	return FALSE;
@@ -885,10 +910,11 @@ void assocGenerateConnIE(struct ADAPTER *prAdapter,
 	struct CONNECTION_SETTINGS *prConnSettings;
 	struct STA_RECORD *prStaRec;
 	uint8_t *pucBuffer, *cp;
-	const uint8_t *ie;
+	uint8_t *pucIE;
+	uint16_t u2IELength;
+	uint16_t u2Offset = 0;
 	uint8_t ucBssIndex;
-	uint8_t i;
-	uint32_t len, ieLen;
+	uint8_t i, skip;
 
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prMsduInfo->ucStaRecIndex);
 	if (!prStaRec)
@@ -899,43 +925,40 @@ void assocGenerateConnIE(struct ADAPTER *prAdapter,
 				 prMsduInfo->u2FrameLength);
 	cp = pucBuffer;
 	ucBssIndex = prStaRec->ucBssIndex;
-	prConnSettings = aisGetConnSettings(prAdapter, ucBssIndex);
 
-	if (IS_STA_IN_AIS(prStaRec) && prConnSettings->assocIeLen > 0) {
-		kalMemCopy(cp, prConnSettings->pucAssocIEs,
-				   prConnSettings->assocIeLen);
-		cp += prConnSettings->assocIeLen;
+	if (IS_STA_IN_AIS(prStaRec)) {
+		prConnSettings = aisGetConnSettings(prAdapter, ucBssIndex);
 
-		for (i = 0; i < ARRAY_SIZE(g_assocSkipIEs); i++) {
-			ie = kalFindIeMatchMask(g_assocSkipIEs[i].ucElemID,
-				       pucBuffer,
-				       cp - pucBuffer,
-				       NULL, 0, 0, NULL);
-			if (ie) {
-				if (g_assocSkipIEs[i].pfnSkipIE &&
-					!g_assocSkipIEs[i].pfnSkipIE(
+		if (!prConnSettings || prConnSettings->assocIeLen == 0)
+			return;
+
+		pucIE = prConnSettings->pucAssocIEs;
+		u2IELength = prConnSettings->assocIeLen;
+		u2Offset = 0;
+
+		IE_FOR_EACH(pucIE, u2IELength, u2Offset) {
+			skip = FALSE;
+
+			/* check whether needed to skip*/
+			for (i = 0; i < ARRAY_SIZE(g_assocSkipIEs); i++) {
+				if (g_assocSkipIEs[i].ucElemID ==
+				    IE_ID(pucIE) &&
+				   (!g_assocSkipIEs[i].pfnSkipIE ||
+				    g_assocSkipIEs[i].pfnSkipIE(
 					prAdapter, prStaRec,
-					(struct IE_HDR *)ie))
-					continue;
-
-				ieLen = IE_SIZE(ie);
-				if ((uint32_t)(cp - ie) < ieLen) {
-					DBGLOG(SAA, WARN,
-					"IE[%d] size[%d] > rem buf size[%d]!\n",
-						IE_ID(ie),
-						ieLen,
-						(uint32_t)(cp - ie));
-					continue;
+					(struct IE_HDR *)pucIE))) {
+					skip = TRUE;
+					break;
 				}
+			}
 
-				len = cp - ie - ieLen;
-				/* copy to the start of IE*/
-				cp = (char *) ie;
-				/* jump to the end of IE to copy Remaing IEs*/
-				kalMemMove(cp, ie + ieLen, len);
-				cp += len;
+			/* copy to msdu buffer if not skip */
+			if (!skip) {
+				kalMemCopy(cp, pucIE, IE_SIZE(pucIE));
+				cp += IE_SIZE(pucIE);
 			}
 		}
+
 	}
 	prMsduInfo->u2FrameLength += cp - pucBuffer;
 	DBGLOG_MEM8(SAA, INFO, pucBuffer, cp - pucBuffer);
@@ -1691,10 +1714,9 @@ uint32_t assocProcessRxAssocReqFrameImpl(
 				if ((prAdapter->fgIsP2PRegistered)) {
 					uint8_t ucOuiType = 0;
 
-					p2pFuncParseCheckForP2PInfoElem
-					    (prAdapter, pucIE, &ucOuiType);
-
-					if (ucOuiType == VENDOR_OUI_TYPE_P2P) {
+					if (rsnParseCheckForWFASpecificElem
+					    (prAdapter, pucIE, &ucOuiType) &&
+					    ucOuiType == VENDOR_OUI_TYPE_P2P) {
 						DBGLOG(P2P, TRACE,
 						       "Target Client is a P2P group client\n");
 						prStaRec->eStaType =

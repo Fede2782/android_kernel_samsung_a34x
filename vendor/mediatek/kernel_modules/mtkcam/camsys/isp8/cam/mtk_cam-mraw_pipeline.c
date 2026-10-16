@@ -522,7 +522,12 @@ mtk_mraw_pipeline_create(struct device *dev, int n)
 {
 	if (n <= 0)
 		return NULL;
-	return devm_kcalloc(dev, n, sizeof(struct mtk_mraw_pipeline),
-			    GFP_KERNEL);
+
+	return vzalloc(n * sizeof(struct mtk_mraw_pipeline));
 }
 
+void mtk_mraw_pipeline_delete(struct mtk_mraw_pipeline *arr_pipe)
+{
+	if (arr_pipe != NULL)
+		vfree(arr_pipe);
+}

@@ -193,6 +193,15 @@ struct cmdq_flush_item {
 	bool done;
 };
 
+#define DIS_GCE_HW_ID 0
+#define DIS_COFING_AC_THREAD_ID 0
+#define MML_GCE_HW_ID 0
+#define MML_COFING_THREAD_ID 16
+#define QUERY_CHIP_NAME 0x69916991
+cmdq_async_flush_cb disp_err_cb = NULL;
+void *disp_data = NULL;
+bool is_mml = false;
+
 #if IS_ENABLED(CONFIG_VIRTIO_CMDQ)
 bool is_virtio_client(struct cmdq_client *cl)
 {
@@ -3368,9 +3377,19 @@ static void cmdq_pkt_call_item_cb(struct cmdq_flush_item *item)
 		.err = item->err,
 	};
 
+	struct cmdq_cb_data disp_cb_data = {
+		.data = disp_data,
+		.err = item->err,
+	};
+
 	if (!item->err_cb)
 		return;
 	item->err_cb(cb_data);
+
+	if(is_mml) {
+		if((disp_data != NULL) && (disp_err_cb != NULL) && (item->err_cb != disp_err_cb))
+			disp_err_cb(disp_cb_data);
+	}
 }
 #endif
 
@@ -3423,6 +3442,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	dma_addr_t pc = 0;
 	phys_addr_t gce_pa = cmdq_mbox_get_base_pa(client->chan);
 	const char *mod = NULL;
+	const char *chip_name = NULL;
 	s32 thread_id = cmdq_mbox_chan_id(client->chan);
 	enum cmdq_aee_type aee;
 	u32 hwid = cmdq_util_get_hw_id(gce_pa);
@@ -3432,6 +3452,13 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 
 	/* assign error during dump cb */
 	item->err = data.err;
+
+	if( (hwid == MML_GCE_HW_ID) && (thread_id == MML_COFING_THREAD_ID)) {
+		chip_name = cmdq_util_helper->thread_module_dispatch(QUERY_CHIP_NAME, thread_id);
+		if(!strcmp(chip_name, "MT6991_GCE"))
+			is_mml = true;
+	} else
+		is_mml = false;
 
 	/* The self loop case, callback to caller with -EBUSY without all other
 	 * error message dump.
@@ -3661,6 +3688,16 @@ s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
 
 	pkt->rec_irq = 0;
 	pkt->rec_submit = sched_clock();
+
+	phys_addr_t check_gce_pa = cmdq_mbox_get_base_pa(client->chan);
+	u32 hwid = cmdq_util_get_hw_id(check_gce_pa);
+	s32 thread_id = cmdq_mbox_chan_id(client->chan);
+
+	if(hwid == DIS_GCE_HW_ID && (thread_id == DIS_COFING_AC_THREAD_ID))
+	{
+		disp_err_cb = item->err_cb;
+		disp_data = item->err_data;
+	}
 #else
 	pkt->cb.cb = cb;
 	pkt->cb.data = data;

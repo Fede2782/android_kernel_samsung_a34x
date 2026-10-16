@@ -32,6 +32,7 @@
 #include "mtk_disp_color.h"
 #include "mtk_disp_dither.h"
 #include "mtk_disp_gamma.h"
+#include "mtk_disp_oddmr/mtk_disp_oddmr.h"
 #include "mtk_disp_vidle.h"
 
 #define REQUEST_MAX_COUNT 20
@@ -48,6 +49,13 @@
 #define COLOR_MODE			(0)	/*color feature off */
 #endif
 #define DISP_REG_PQ_PATH_SEL 0x34
+
+#ifndef max
+#define max( a, b )            (((a) > (b)) ? (a) : (b))
+#endif
+#ifndef min
+#define min( a, b )            (((a) < (b)) ? (a) : (b))
+#endif
 
 struct pq_module_match {
 	enum mtk_pq_module_type pq_type;
@@ -68,6 +76,85 @@ static struct pq_module_match pq_module_matches[MTK_DISP_PQ_TYPE_MAX] = {
 	{MTK_DISP_PQ_DBI, MTK_DISP_ODDMR},
 };
 
+const struct pq_cmd_prop g_pq_cmd_map[] = {
+	{PQ_AAL_EVENTCTL,                    sizeof(unsigned int),                         PQ_CMD_WRITE,},
+	{PQ_AAL_INIT_REG,                    sizeof(struct DISP_AAL_INITREG),              PQ_CMD_WRITE,},
+	{PQ_AAL_SET_ESS20_SPECT_PARAM,       sizeof(struct DISP_AAL_ESS20_SPECT_PARAM),    PQ_CMD_WRITE,},
+	{PQ_AAL_SET_PARAM,                   sizeof(struct DISP_AAL_PARAM),                PQ_CMD_WRITE,},
+	{PQ_AAL_INIT_DRE30,                  0,                                            PQ_CMD_WRITE,},
+	{PQ_AAL_CLARITY_SET_REG,             sizeof(struct DISP_CLARITY_REG),              PQ_CMD_WRITE,},
+	{PQ_GAMMA_SET_GAMMALUT,              sizeof(struct DISP_GAMMA_LUT_T),              PQ_CMD_WRITE,},
+	{PQ_GAMMA_SET_12BIT_GAMMALUT,        sizeof(struct DISP_GAMMA_12BIT_LUT_T),        PQ_CMD_WRITE,},
+//	{PQ_GAMMA_BYPASS_GAMMA,              0,                                            0,},
+	{PQ_GAMMA_DISABLE_MUL_EN,            0,                                            PQ_CMD_WRITE,},
+	{PQ_CHIST_CONFIG,                    sizeof(struct drm_mtk_chist_config),          PQ_CMD_WRITE,},
+	{PQ_COLOR_MUTEX_CONTROL,             sizeof(unsigned int),                         PQ_CMD_WRITE,},
+//	{PQ_COLOR_BYPASS,                    0,                                            0,},
+	{PQ_COLOR_SET_PQINDEX,               sizeof(struct DISPLAY_PQ_T),                  PQ_CMD_WRITE,},
+//	{PQ_COLOR_SET_PQPARAM,               0,                                            0,},
+	{PQ_COLOR_WRITE_REG,                 sizeof(struct DISP_WRITE_REG),                PQ_CMD_WRITE,},
+	{PQ_COLOR_WRITE_SW_REG,              sizeof(struct DISP_WRITE_REG),                PQ_CMD_WRITE,},
+	{PQ_COLOR_SET_COLOR_REG,             sizeof(struct DISPLAY_COLOR_REG),             PQ_CMD_WRITE,},
+	{PQ_COLOR_SET_WINDOW,                sizeof(struct DISP_PQ_WIN_PARAM),             PQ_CMD_WRITE,},
+	{PQ_COLOR_DRECOLOR_SET_PARAM,        sizeof(struct DISP_AAL_DRECOLOR_PARAM),       PQ_CMD_WRITE,},
+	{PQ_CCORR_EVENTCTL,                  sizeof(int),                                  PQ_CMD_WRITE,},
+//	{PQ_CCORR_SUPPORT_COLOR_MATRIX,      0,                                            0,},
+	{PQ_CCORR_SET_CCORR,                 sizeof(struct DRM_DISP_CCORR_COEF_T),         PQ_CMD_WRITE,},
+	{PQ_CCORR_AIBLD_CV_MODE,             sizeof(bool),                                 PQ_CMD_WRITE,},
+//	{PQ_CCORR_SET_PQ_CAPS,               0,                                            0,},
+//	{PQ_C3D_EVENTCTL,                    0,                                            0,},
+//	{PQ_C3D_BYPASS,                      0,                                            0,},
+	{PQ_C3D_SET_LUT,                     sizeof(struct DISP_C3D_LUT),                  PQ_CMD_WRITE,},
+	{PQ_TDSHP_SET_REG,                   sizeof(struct DISP_TDSHP_REG),                PQ_CMD_WRITE,},
+	{PQ_DITHER_SET_DITHER_PARAM,         sizeof(struct DISP_DITHER_PARAM),             PQ_CMD_WRITE,},
+	{PQ_DBI_LOAD_PARAM,                  sizeof(struct mtk_drm_dbi_cfg_info),          PQ_CMD_WRITE,},
+	{PQ_DBI_LOAD_TB,                     sizeof(struct bitstream_buffer),              PQ_CMD_WRITE,},
+	{PQ_DBI_ENABLE,                      0,                                            PQ_CMD_WRITE,},
+	{PQ_DBI_DISABLE,                     0,                                            PQ_CMD_WRITE,},
+	{PQ_DBI_REMAP_TARGET,                sizeof(unsigned int),                         PQ_CMD_WRITE,},
+	{PQ_DBI_REMAP_CHG,                   sizeof(unsigned int),                         PQ_CMD_WRITE,},
+	{PQ_DBI_REMAP_ENABLE,                0,                                            PQ_CMD_WRITE,},
+	{PQ_DBI_REMAP_DISABLE,               0,                                            PQ_CMD_WRITE,},
+	{PQ_DBI_SET_GAIN_RATIO,              sizeof(unsigned int),                         PQ_CMD_WRITE,},
+	{PQ_DBI_LOAD_SCP_PARAM,              8588,                                         PQ_CMD_WRITE,},
+	{PQ_DBI_GET_SCP_LIFECYCLE,           sizeof(void *),                               PQ_CMD_WRITE,},
+	{PQ_VIRTUAL_SET_PROPERTY,            sizeof(unsigned int) * 32,                    PQ_CMD_WRITE,},
+	{PQ_VIRTUAL_CHECK_TRIGGER,           sizeof(bool),                                 PQ_CMD_WRITE,},
+	{PQ_VIRTUAL_RELAY_ENGINES,           sizeof(struct mtk_pq_relay_enable),           PQ_CMD_WRITE,},
+//	{PQ_GET_CMD_START,                   0,                                            0,},
+	{PQ_AAL_GET_HIST,                    sizeof(struct DISP_AAL_HIST),                 PQ_CMD_RW,},
+	{PQ_AAL_GET_SIZE,                    sizeof(struct DISP_AAL_DISPLAY_SIZE),         PQ_CMD_RW,},
+	{PQ_AAL_SET_TRIGGER_STATE,           sizeof(struct DISP_AAL_TRIG_STATE),           PQ_CMD_RW,},
+	{PQ_AAL_GET_BASE_VOLTAGE,            sizeof(struct DISP_PANEL_BASE_VOLTAGE),       PQ_CMD_RW,},
+//	{PQ_CHIST_GET,                       0,                                            0,},
+	{PQ_COLOR_READ_REG,                  sizeof(struct DISP_READ_REG),                 PQ_CMD_RW,},
+	{PQ_COLOR_READ_SW_REG,               sizeof(struct DISP_READ_REG),                 PQ_CMD_RW,},
+//	{PQ_CCORR_GET_IRQ,                   0,                                            0,},
+	{PQ_CCORR_GET_PQ_CAPS,               sizeof(struct mtk_drm_pq_caps_info),          PQ_CMD_RW,},
+//	{PQ_C3D_GET_IRQ,                     0,                                            0,},
+//	{PQ_C3D_GET_IRQ_STATUS,              0,                                            0,},
+	{PQ_C3D_GET_BIN_NUM,                 sizeof(int),                                  PQ_CMD_RW,},
+	{PQ_TDSHP_GET_SIZE,                  sizeof(struct DISP_TDSHP_DISPLAY_SIZE),       PQ_CMD_RW,},
+	{PQ_DMR_INIT,                        sizeof(struct mtk_drm_dmr_cfg_info),          PQ_CMD_RW,},
+	{PQ_DMR_ENABLE,                      0,                                            PQ_CMD_RW,},
+	{PQ_DMR_DISABLE,                     0,                                            PQ_CMD_RW,},
+	{PQ_DBI_GET_HW_ID,                   sizeof(unsigned int),                         PQ_CMD_RW,},
+	{PQ_DBI_GET_WIDTH,                   sizeof(unsigned int),                         PQ_CMD_RW,},
+	{PQ_DBI_GET_HEIGHT,                  sizeof(unsigned int),                         PQ_CMD_RW,},
+	{PQ_DBI_GET_DBV,                     sizeof(unsigned int),                         PQ_CMD_RW,},
+	{PQ_DBI_GET_FPS,                     sizeof(unsigned int),                         PQ_CMD_RW,},
+	{PQ_DBI_GET_SCP,                     sizeof(unsigned int),                         PQ_CMD_RW,},
+	{PQ_DMR_BINSET_INIT,                 sizeof(struct mtk_drm_oddmr_binset_cfg_info), PQ_CMD_RW,},
+	{PQ_DMR_BINSET_CHG,                  sizeof(unsigned int),                         PQ_CMD_RW,},
+	{PQ_ODDMR_REG_TUNING_INIT,           sizeof(struct mtk_drm_oddmr_reg_tuning),      PQ_CMD_RW,},
+	{PQ_ODDMR_REG_TUNING_ENABLE,         sizeof(unsigned int),                         PQ_CMD_RW,},
+	{PQ_VIRTUAL_GET_MASTER_INFO,         sizeof(int),                                  PQ_CMD_RW,},
+	{PQ_VIRTUAL_GET_IRQ,                 sizeof(int),                                  PQ_CMD_RW,},
+	{PQ_VIRTUAL_WAIT_CRTC_READY,         sizeof(int),                                  PQ_CMD_RW,},
+	{PQ_VIRTUAL_GET_PIXEL_TYPE_BY_FENCE, sizeof(struct mtk_pixel_type_fence),          PQ_CMD_RW,},
+	{PQ_CMD_INVALID,                     0,                                            0,},
+};
+
 static const char *const mtk_tuning_mdp_comps_name[TUNING_COMPS_MAX_COUNT] = {
 	"mediatek,mdp_rsz0",              // 0
 	"mediatek,mdp_rsz1",
@@ -86,6 +173,18 @@ static const char *const mtk_tuning_mdp_comps_name[TUNING_COMPS_MAX_COUNT] = {
 
 static int disp_pq_proxy_virtual_get_persist_property(struct drm_crtc *crtc, void *data);
 static int disp_pq_proxy_virtual_check_trigger(struct drm_crtc *crtc, void *data);
+
+static const struct pq_cmd_prop *disp_pq_get_pq_cmd_prop(uint32_t cmd)
+{
+	const struct pq_cmd_prop *prop = NULL;
+	int i;
+
+	for(i = 0; g_pq_cmd_map[i].cmd != PQ_CMD_INVALID; i++) {
+		if (cmd == g_pq_cmd_map[i].cmd)
+			prop = &g_pq_cmd_map[i];
+	}
+	return prop;
+}
 
 static bool mtk_drm_get_resource_from_dts(struct resource *res, const char *node_name)
 {
@@ -538,6 +637,8 @@ int mtk_drm_ioctl_pq_proxy(struct drm_device *dev, void *data, struct drm_file *
 	unsigned long long time;
 	int ret = -1;
 	int pm_ret = 0;
+	uint32_t ksize = 0, usize, in_size, out_size;
+	const struct pq_cmd_prop *cmd_prop;
 
 	if (!params || !params->size || !params->data) {
 		DDPPR_ERR("%s, null pointer!\n", __func__);
@@ -559,12 +660,28 @@ int mtk_drm_ioctl_pq_proxy(struct drm_device *dev, void *data, struct drm_file *
 				__func__, params->crtc_id, cmd);
 		return -1;
 	}
+	cmd_prop = disp_pq_get_pq_cmd_prop(cmd);
+	if (cmd_prop)
+		ksize = cmd_prop->size;
+	if (ksize == PQ_CMD_SIZE_ANY)
+		ksize = usize = in_size = out_size = params->size;
+	else {
+		usize = params->size;
+		in_size = max(ksize, usize);
+		out_size = min(ksize, usize);
+	}
+	if (in_size > PQ_MAX_DATA_SIZE_EXT || out_size > PQ_MAX_DATA_SIZE_EXT) {
+		DDPMSG("%s cmd %d max(%d, %d) is over %d\n", __func__, cmd, ksize, usize, PQ_MAX_DATA_SIZE_EXT);
+		return -1;
+	}
+	if (usize != ksize && ksize != 0)
+		DDPMSG("%s cmd %d usize %d, ksize %d not match!\n", __func__, cmd, usize, ksize);
 
 	time = sched_clock();
-	if (params->size <= sizeof(stack_kdata))
+	if (in_size <= sizeof(stack_kdata))
 		kdata = stack_kdata;
 	else
-		kdata = kmalloc(params->size, GFP_KERNEL);
+		kdata = kmalloc(in_size, GFP_KERNEL);
 
 	if (!kdata) {
 		DDPPR_ERR("%s:%d, kdata alloc failed pq_type:%d, cmd:%d\n", __func__,
@@ -572,7 +689,7 @@ int mtk_drm_ioctl_pq_proxy(struct drm_device *dev, void *data, struct drm_file *
 		return -1;
 	}
 
-	if (copy_from_user(kdata, (void __user *)params->data, params->size) != 0)
+	if (copy_from_user(kdata, (void __user *)params->data, usize) != 0)
 		goto err;
 	if (disp_pq_is_cmd_need_pm(cmd))
 		pm_ret = mtk_vidle_pq_power_get(__func__);
@@ -583,7 +700,7 @@ int mtk_drm_ioctl_pq_proxy(struct drm_device *dev, void *data, struct drm_file *
 		for_each_comp_in_cur_crtc_path(comp, to_mtk_crtc(crtc), i, j) {
 			if (pq_module_matches[pq_type].type == mtk_ddp_comp_get_type(comp->id)) {
 				ret = mtk_ddp_comp_pq_ioctl_transact(comp, cmd, kdata,
-									params->size);
+									usize);
 				if (ret < 0)
 					DDPPR_ERR("%s:%d, ioctl transact failed, comp:%d,%d\n",
 						__func__, __LINE__, comp->id, cmd);
@@ -595,7 +712,7 @@ int mtk_drm_ioctl_pq_proxy(struct drm_device *dev, void *data, struct drm_file *
 			mtk_vidle_pq_power_put(__func__);
 	}
 	if (cmd > PQ_GET_CMD_START) {
-		if (copy_to_user((void __user *)params->data, kdata,  params->size) != 0)
+		if (copy_to_user((void __user *)params->data, kdata, out_size) != 0)
 			goto err;
 	}
 	if (cmd != PQ_AAL_GET_HIST && cmd != PQ_AAL_EVENTCTL && cmd !=  PQ_CCORR_GET_IRQ &&
@@ -732,10 +849,28 @@ int disp_pq_helper_frame_config(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_han
 	for (k = 0; k < cmds_len; k++) {
 		unsigned int pq_type = requests[k].cmd >> 16;
 		unsigned int cmd = requests[k].cmd & 0xffff;
+		uint32_t ksize = 0, usize, in_size, out_size;
+		const struct pq_cmd_prop *cmd_prop;
 
 		if (pq_type >= MTK_DISP_PQ_TYPE_MAX || !requests[k].size)
 			continue;
 
+		cmd_prop = disp_pq_get_pq_cmd_prop(cmd);
+		if (cmd_prop)
+			ksize = cmd_prop->size;
+		if (ksize == PQ_CMD_SIZE_ANY)
+			ksize = usize = in_size = out_size = requests[k].size;
+		else {
+			usize = requests[k].size;
+			in_size = max(ksize, usize);
+			out_size = min(ksize, usize);
+		}
+		if (in_size > PQ_MAX_DATA_SIZE_EXT || out_size > PQ_MAX_DATA_SIZE_EXT) {
+			DDPMSG("%s cmd %d max(%d, %d) is over %d\n", __func__, cmd, ksize, usize, PQ_MAX_DATA_SIZE_EXT);
+			continue;
+		}
+		if (usize != ksize && ksize != 0)
+			DDPMSG("%s cmd %d usize %d, ksize %d not match!\n", __func__, cmd, usize, ksize);
 		if (cmd != PQ_AAL_SET_PARAM && cmd != PQ_COLOR_DRECOLOR_SET_PARAM &&
 				cmd != PQ_CCORR_SET_CCORR && cmd != PQ_COLOR_SET_COLOR_REG)
 			DDPINFO("%s, pq_type:%d, cmd:%d\n", __func__, pq_type, cmd);
@@ -746,10 +881,10 @@ int disp_pq_helper_frame_config(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_han
 				char stack_kdata[128];
 				char *kdata = NULL;
 
-				if (requests[k].size <= sizeof(stack_kdata))
+				if (in_size <= sizeof(stack_kdata))
 					kdata = stack_kdata;
 				else
-					kdata = kmalloc(requests[k].size, GFP_KERNEL);
+					kdata = kmalloc(in_size, GFP_KERNEL);
 
 				if (!kdata) {
 					DDPPR_ERR("%s:%d, kdata alloc failed comp:%d,%d\n",
@@ -757,11 +892,11 @@ int disp_pq_helper_frame_config(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_han
 					continue;
 				}
 				if (copy_from_user(kdata, (void __user *)requests[k].data,
-						requests[k].size) == 0) {
+						usize) == 0) {
 					mtk_drm_trace_begin("frame_config(compId: %d)", comp->id);
 
 					if (mtk_ddp_comp_pq_frame_config(comp, pq_cmdq_handle,
-							cmd, kdata, requests[k].size) < 0)
+							cmd, kdata, usize) < 0)
 						DDPPR_ERR("%s:%d, config failed, comp:%d,%d\n",
 							__func__, __LINE__, comp->id, cmd);
 

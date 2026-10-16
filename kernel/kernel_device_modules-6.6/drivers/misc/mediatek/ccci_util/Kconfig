@@ -36,3 +36,11 @@ config MTK_MD1_SUPPORT
 	  20=>ulftg,
 	  21=>ulfctg
 
+config MTK_UTIL_CCCI_DUMP
+	bool "kernel addr ccci_dump enable"
+	depends on MTK_CCCI_DUMP
+	help
+	  This is used for differentiate between user load and other load.
+	  Say Y here if will dump some md mem info in ccci_dump,
+	  only be opened on userdebug and eng load, if unsure, say N.
+	  The option default disabled.

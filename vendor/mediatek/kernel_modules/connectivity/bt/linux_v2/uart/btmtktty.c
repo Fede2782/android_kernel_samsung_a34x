@@ -1602,6 +1602,7 @@ static int btmtk_uart_tx_thread(void *data)
 	struct sk_buff *skb;
 	u32 thread_flag = 0;
 	int ret;
+	struct btmtk_main_info *bmain_info = btmtk_get_main_info();
 
 	BTMTK_INFO("%s start", __func__);
 
@@ -1648,20 +1649,23 @@ static int btmtk_uart_tx_thread(void *data)
 			if (ret < 0)
 				thread_flag |= BTMTK_THREAD_ASSERT;
 		} else if (thread_flag & BTMTK_THREAD_FW_OWN) {
-			ret = btmtk_uart_fw_own(bdev);
-			if (ret < 0)
-				thread_flag |= BTMTK_THREAD_ASSERT;
+			if (!bmain_info->suspend_entry) {
+				ret = btmtk_uart_fw_own(bdev);
+				if (ret < 0)
+					thread_flag |= BTMTK_THREAD_ASSERT;
+			} else
+				BTMTK_INFO("%s: leave fw own to suspend flow", __func__);
 		}
 #endif
 		if (thread_flag & BTMTK_THREAD_ASSERT)
 			btmtk_uart_trigger_assert(bdev);
 
 		if (thread_flag & BTMTK_THREAD_TX) {
-			if (cif_dev->own_state != BTMTK_DRV_OWN) {
-				BTMTK_WARN_LIMITTED("%s not in dirver_own state[%d] can not send cmd", __func__, cif_dev->own_state);
-				skb_queue_purge(&cif_dev->tx_queue);
-			}
 			while (skb_queue_len(&cif_dev->tx_queue)) {
+				if (cif_dev->own_state != BTMTK_DRV_OWN) {
+					BTMTK_WARN_LIMITTED("%s not in dirver_own state[%d] can not send cmd", __func__, cif_dev->own_state);
+					break;
+				}
 				/* skb_dequeue already have lock protection */
 				skb = skb_dequeue(&cif_dev->tx_queue);
 				if (skb) {
@@ -2212,7 +2216,6 @@ static int match_dirty_data(const u8 *data_ptr, size_t count)
 
 	return 1;
 }
-
 static void btmtk_uart_tty_receive(struct tty_struct *tty, const u8 *data, const u8 *flags, size_t count)
 #endif
 {
@@ -2394,6 +2397,11 @@ static int btmtk_uart_fw_own(struct btmtk_dev *bdev)
 	/* no need to compare BTMTK_FW_OWNING because the state must be fw_own/fail before leaving mutex */
 	if (cif_dev->own_state == BTMTK_FW_OWN || cif_dev->own_state == BTMTK_OWN_FAIL) {
 		BTMTK_WARN("Already at fw own state or error state[%d], skip", cif_dev->own_state);
+		goto unlock;
+	}
+
+	if (bmain_info->reset_stack_flag) {
+		BTMTK_WARN("during reset state[%d], skip fw own", bmain_info->reset_stack_flag);
 		goto unlock;
 	}
 
@@ -3208,6 +3216,7 @@ int btmtk_met_log_handler(u8 *buf, u32 size)
 void btmtk_fw_sleep_handler(struct btmtk_dev *bdev)
 {
 	struct btmtk_uart_dev *cif_dev = NULL;
+	struct btmtk_main_info *bmain_info = btmtk_get_main_info();
 	if (bdev == NULL) {
 		BTMTK_ERR("bdev is NULL");
 		return;
@@ -3221,6 +3230,11 @@ void btmtk_fw_sleep_handler(struct btmtk_dev *bdev)
 
 	if (atomic_read(&bdev->dynamic_fwdl_start)) {
 		BTMTK_INFO("%s: fw doing re-download, skip", __func__);
+		return;
+	}
+
+	if (bmain_info->suspend_entry) {
+		BTMTK_INFO("%s: suspend_entry, skip", __func__);
 		return;
 	}
 

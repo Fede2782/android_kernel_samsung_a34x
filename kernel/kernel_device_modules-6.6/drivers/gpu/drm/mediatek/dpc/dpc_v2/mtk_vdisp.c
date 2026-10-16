@@ -502,12 +502,14 @@ static int genpd_event_notifier(struct notifier_block *nb,
 		}
 		mminfra_hwv_pwr_ctrl(priv, true);
 
-		if (atomic_read(&g_mtcmos_cnt) == 0)
+		if (atomic_read(&g_mtcmos_cnt) == 0) {
 			vdisp_hwccf_ctrl(priv, true);
 
-		/* vote and power on mminfra */
-		if (disp_dpc_driver.dpc_vidle_power_keep)
-			priv->pm_ret = disp_dpc_driver.dpc_vidle_power_keep((enum mtk_vidle_voter_user)priv->pd_id);
+			/* vote and power on mminfra */
+			if (disp_dpc_driver.dpc_vidle_power_keep)
+				priv->pm_ret =
+					disp_dpc_driver.dpc_vidle_power_keep((enum mtk_vidle_voter_user)priv->pd_id);
+		}
 
 		if (disp_dpc_driver.dpc_mtcmos_auto) {
 			if (priv->pd_id == DISP_PD_DISP1)
@@ -554,17 +556,10 @@ static int genpd_event_notifier(struct notifier_block *nb,
 				disp_dpc_driver.dpc_mtcmos_auto(DPC_SUBSYS_MML0, DPC_MTCMOS_AUTO);
 		}
 
-		/* unvote and power off mminfra, release should be called only if keep successfully */
-		if (disp_dpc_driver.dpc_vidle_power_release && priv->pm_ret == VOTER_PM_DONE)
-			disp_dpc_driver.dpc_vidle_power_release((enum mtk_vidle_voter_user)priv->pd_id);
-
 		mminfra_hwv_pwr_ctrl(priv, false);
 		break;
 	case GENPD_NOTIFY_PRE_OFF:
 		mminfra_hwv_pwr_ctrl(priv, true);
-
-		if (disp_dpc_driver.dpc_vidle_power_keep)
-			priv->pm_ret = disp_dpc_driver.dpc_vidle_power_keep((enum mtk_vidle_voter_user)priv->pd_id);
 
 		if (priv->pd_id == DISP_PD_DISP_VCORE)
 			check_subcomm_status();
@@ -595,11 +590,12 @@ static int genpd_event_notifier(struct notifier_block *nb,
 		if (atomic_read(&g_mtcmos_cnt) == BIT(DISP_PD_DISP_VCORE))
 			vdisp_hwccf_ctrl(priv, false);
 
-		if (disp_dpc_driver.dpc_vidle_power_release && priv->pm_ret == VOTER_PM_DONE)
-			disp_dpc_driver.dpc_vidle_power_release((enum mtk_vidle_voter_user)priv->pd_id);
-
 		mminfra_hwv_pwr_ctrl(priv, false);
 		if (priv->pd_id == DISP_PD_DISP_VCORE) {
+			/* unvote and power off mminfra, release should be called only if keep successfully */
+			if (disp_dpc_driver.dpc_vidle_power_release && priv->pm_ret == VOTER_PM_DONE)
+				disp_dpc_driver.dpc_vidle_power_release((enum mtk_vidle_voter_user)priv->pd_id);
+
 			vdisp_set_aod_scp_semaphore(0); //protect AOD SCP flow
 #if !IS_ENABLED(CONFIG_DRM_MEDIATEK_AUTO_YCT)
 			__pm_relax(g_vdisp_wake_lock);
@@ -853,6 +849,7 @@ static int mtk_vdisp_probe(struct platform_device *pdev)
 	vdisp_hwccf_ctrl(priv, true);
 
 	priv->pd_id = pd_id;
+	priv->pm_ret = -1;
 	priv->pd_nb.notifier_call = genpd_event_notifier;
 
 	/* count power-domains pairs and attach to g_dev */

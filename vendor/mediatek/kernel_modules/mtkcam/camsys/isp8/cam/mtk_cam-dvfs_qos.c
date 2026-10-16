@@ -777,10 +777,8 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 						linet, img_h + sensor_vb);
 			}
 			/* camsv stash fixed at 5ostdl = 5mb */
-			if (is_smmu_enabled) {
-				if (avg_bw || peak_bw)
-					stash_peak_bw = stash_avg_bw = to_qos_icc(2097152);
-			}
+			if (avg_bw || peak_bw)
+				stash_peak_bw = stash_avg_bw = to_qos_icc(4194304);
 
 		} else {
 			avg_bw =
@@ -789,7 +787,7 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 				calc_bw(x_size * img_h, linet, sensor_h);
 			/* camsv stash fixed at 5ostdl = 5mb */
 			if (avg_bw || peak_bw)
-				stash_peak_bw = stash_avg_bw = to_qos_icc(2097152);
+				stash_peak_bw = stash_avg_bw = to_qos_icc(4194304);
 		}
 
 		if (is_two_smi_out) {
@@ -1314,9 +1312,11 @@ static void apply_sv_qos(struct mtk_cam_job *job)
 			fifo_len_p1 = fifo_img_p1 / 80;
 			fifo_len_p2 = fifo_img_p2 / 80;
 			avg_linet = ctx->act_line_info.avg_linetime_in_ns ? : get_line_time(job);
-			leading_line_cnt = (avg_linet && avg_linet < 12500) ? 12500 / avg_linet : 1;
-			if (leading_line_cnt > 8)
+			leading_line_cnt = (avg_linet && avg_linet < 20000) ? 20000 / avg_linet : 1;
+			if (leading_line_cnt > 8) {
 				pr_info("%s: unexpected leading_line_cnt:%d", __func__, leading_line_cnt);
+				leading_line_cnt = 8;
+			}
 			mtk_cam_sv_dmao_common_config(sv_dev, fifo_img_p1, fifo_img_p2, fifo_len_p1, fifo_len_p2,
 				(leading_line_cnt - 1) & 0x7, sv_dev->enable_stash_eco_fun);
 

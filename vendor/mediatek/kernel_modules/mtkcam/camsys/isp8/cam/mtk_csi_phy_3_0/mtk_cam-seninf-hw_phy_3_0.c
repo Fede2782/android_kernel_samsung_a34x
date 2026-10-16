@@ -5347,9 +5347,7 @@ static void mtk_cam_seninf_irq_event_st_init(struct seninf_core *core)
 		SENINF_IRQ_FIFO_LEN * sizeof(struct mtk_cam_seninf_vsync_info));
 
 	if (likely(vsync_detect_seninf_irq_event.msg_buffer == NULL)) {
-		vsync_detect_seninf_irq_event.msg_buffer = devm_kzalloc(core->dev,
-					vsync_detect_seninf_irq_event.fifo_size, GFP_ATOMIC);
-
+		vsync_detect_seninf_irq_event.msg_buffer = vzalloc(vsync_detect_seninf_irq_event.fifo_size);
 		if (unlikely(vsync_detect_seninf_irq_event.msg_buffer == NULL))
 			dev_info(core->dev,
 				"ERROR: irq msg_buffer:%p allocate memory failed, fifo_size:%u\n",
@@ -5385,7 +5383,7 @@ static void mtk_cam_seninf_irq_event_st_uninit(struct seninf_core *core)
 	kfifo_free(&vsync_detect_seninf_irq_event.msg_fifo);
 
 	if (likely(vsync_detect_seninf_irq_event.msg_buffer != NULL)) {
-		devm_kfree(core->dev, vsync_detect_seninf_irq_event.msg_buffer);
+		vfree(vsync_detect_seninf_irq_event.msg_buffer);
 		vsync_detect_seninf_irq_event.msg_buffer = NULL;
 		dev_info(core->dev,
 			"irq msg_buffer:%p is freed\n",
@@ -5664,7 +5662,6 @@ static int mtk_cam_seninf_eye_scan(struct seninf_ctx *ctx, u32 key, int val_sign
 	u32 get_rg_val = 0;
 	dev_info(ctx->dev, "[EYE_SCAN] key=%u val_signed=%d\n",key,val_signed);
 
-	//log_len += snprintf(plog + log_len, logbuf_size - log_len, "[EYE_SCAN SUCCESS] set register:\n");
 	if (!ctx->streaming) {
 		log_len = 0;
 		log_len += snprintf(plog + log_len, logbuf_size - log_len, "[EYE_SCAN FAIL] is not streaming\n");

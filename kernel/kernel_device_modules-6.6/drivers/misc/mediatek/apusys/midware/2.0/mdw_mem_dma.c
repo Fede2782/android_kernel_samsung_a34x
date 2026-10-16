@@ -42,8 +42,8 @@ struct mdw_mem_dma {
 };
 
 #define mdw_mem_dma_show(d) \
-	mdw_mem_debug("mem(0x%llx/%d/0x%llx/0x%llx/0x%llx/0x%llx/%d/%ld)(%d)\n", \
-	(uint64_t) d->mmem, d->mmem->handle, (uint64_t)d->mmem->vaddr, d->mmem->size, \
+	mdw_mem_debug("mem(%pK/%d/%pK/0x%llx/0x%llx/0x%llx/%d/%ld)(%d)\n", \
+	(void *) d->mmem, d->mmem->handle, (void *)d->mmem->vaddr, d->mmem->size, \
 	d->dma_addr, d->dma_size, d->mmem->need_handle, \
 	file_count(d->mmem->dbuf->file), task_pid_nr(current))
 
@@ -87,19 +87,19 @@ static int mdw_mem_dma_allocate_sgt(const char *buf,
 		- ((unsigned long)buf / PAGE_SIZE);
 	pages = kvmalloc(nr_pages * sizeof(struct page *), GFP_KERNEL);
 
-	mdw_mem_debug("mdw buf: 0x%lx, len: 0x%lx, nr_pages: %d\n",
-		(unsigned long)buf, len, nr_pages);
+	mdw_mem_debug("mdw buf: %pK, len: 0x%lx, nr_pages: %d\n",
+		(void *)buf, len, nr_pages);
 
 	if (!pages) {
-		mdw_drv_err("No Page 0x%lx, len: 0x%lx, nr_pages: %d\n",
-				(unsigned long)buf, len, nr_pages);
+		mdw_drv_err("No Page %pK, len: 0x%lx, nr_pages: %d\n",
+				(void *)buf, len, nr_pages);
 		return -ENOMEM;
 	}
 
 
 	p = buf - offset_in_page(buf);
-	mdw_mem_debug("start p: 0x%llx buf: 0x%llx\n",
-			(uint64_t) p, (uint64_t) buf);
+	mdw_mem_debug("start p: %pK buf: %pK\n",
+			(void *) p, (void *) buf);
 
 	for (index = 0; index < nr_pages; index++) {
 		if (is_vmalloc_addr(p))
@@ -129,8 +129,8 @@ static int mdw_mem_dma_allocate_sgt(const char *buf,
 
 	*vaddr = va;
 
-	mdw_mem_debug("buf: 0x%lx, len: 0x%lx, sgt: 0x%lx nr_pages: %d va 0x%lx\n",
-		(unsigned long)buf, len, (unsigned long)sgt, nr_pages, (unsigned long)va);
+	mdw_mem_debug("buf: %pK, len: 0x%lx, sgt: %pK nr_pages: %d va %pK\n",
+		(void *)buf, len, (void *)sgt, nr_pages, (void *)va);
 
 	return 0;
 }
@@ -339,12 +339,12 @@ static int mdw_dmabuf_mmap(struct dma_buf *dbuf,
 	return ret;
 }
 
-static int mdw_mem_dma_bind(void *session, struct mdw_mem *m)
+static int mdw_mem_dma_bind(uint64_t session_id, struct mdw_mem *m)
 {
 	return 0;
 }
 
-static void mdw_mem_dma_unbind(void *session, struct mdw_mem *m)
+static void mdw_mem_dma_unbind(uint64_t session_id, struct mdw_mem *m)
 {
 }
 
@@ -380,7 +380,7 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem)
 	/* alloc buffer by dma */
 	mdbuf->dma_size = PAGE_ALIGN(mem->size);
 	mdw_mem_debug("alloc mem(0x%llx)(%llu/%llu)\n",
-		(uint64_t) mem, mem->size, mdbuf->dma_size);
+		mem->id, mem->size, mdbuf->dma_size);
 
 	if (mem->flags & F_MDW_MEM_HIGHADDR) {
 		dev = mdw_mem_rsc_get_dev(APUSYS_MEMORY_DATA);

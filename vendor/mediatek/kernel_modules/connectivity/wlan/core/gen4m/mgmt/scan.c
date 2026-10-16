@@ -959,16 +959,25 @@ uint8_t
 scanSearchBssDescCountByMldAddrSsid(struct ADAPTER *prAdapter,
 				  uint8_t aucMldAddr[],
 				  u_int8_t fgCheckSsid,
-				  struct PARAM_SSID *prSsid)
+				  struct PARAM_SSID *prSsid,
+				  uint8_t ucBssIndex)
 {
 	struct SCAN_INFO *prScanInfo;
 	struct LINK *prBSSDescList;
 	struct BSS_DESC *prBssDesc;
 	uint8_t count = 0;
+#if (CFG_EXT_ROAMING == 1)
+	struct ROAMING_INFO *roam;
+	struct ROAMING_REPORT_INFO *report;
+#endif
 
 	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
 
 	prBSSDescList = &prScanInfo->rBSSDescList;
+#if (CFG_EXT_ROAMING == 1)
+	roam = aisGetRoamingInfo(prAdapter, ucBssIndex);
+	report = aisGetRoamingReport(prAdapter, ucBssIndex);
+#endif
 
 	/* Search BSS Desc from current SCAN result list. */
 	LINK_FOR_EACH_ENTRY(prBssDesc, prBSSDescList,
@@ -981,6 +990,13 @@ scanSearchBssDescCountByMldAddrSsid(struct ADAPTER *prAdapter,
 			wlanWfdEnabled(prAdapter) ?
 			SCN_BSS_DESC_STALE_SEC_WFD : SCN_BSS_DESC_STALE_SEC)))
 			continue;
+
+#if (CFG_EXT_ROAMING == 1)
+		if ((roam->rRoamingDiscoveryUpdateTime >
+		     report->rRoamingStartTime) &&
+		    (prBssDesc->rUpdateTime < report->rRoamingStartTime))
+			continue;
+#endif
 
 		if (EQUAL_MAC_ADDR(prBssDesc->rMlInfo.aucMldAddr, aucMldAddr)) {
 			if (fgCheckSsid == FALSE || prSsid == NULL ||
@@ -3227,6 +3243,12 @@ struct BSS_DESC *scanAddToBssDesc(struct ADAPTER *prAdapter,
 	prBssDesc->fgIEWPA = FALSE;
 	prBssDesc->fgIERSNX = FALSE;
 
+#if (CFG_SUPPORT_RSNO == 1)
+	prBssDesc->fgIERSNO = FALSE;
+	prBssDesc->fgIERSNO2 = FALSE;
+	prBssDesc->fgIERSNXO = FALSE;
+#endif /* CFG_SUPPORT_RSNO */
+
 	/*Reset VHT OP IE relative settings */
 	prBssDesc->eChannelWidth = CW_20_40MHZ;
 
@@ -3398,7 +3420,7 @@ struct BSS_DESC *scanAddToBssDesc(struct ADAPTER *prAdapter,
 			break;
 
 		case ELEM_ID_RSN:
-			if (rsnParseRsnIE(prAdapter, RSN_IE(pucIE),
+			if (rsnParseRsnIE(prAdapter, pucIE,
 				&prBssDesc->rRSNInfo)) {
 				uint8_t i;
 
@@ -3413,9 +3435,8 @@ struct BSS_DESC *scanAddToBssDesc(struct ADAPTER *prAdapter,
 			break;
 
 		case ELEM_ID_RSNX:
-			if (rsnParseRsnxIE(prAdapter, RSNX_IE(pucIE),
+			if (rsnParseRsnxIE(prAdapter, pucIE,
 				&prBssDesc->rRSNXInfo)) {
-
 				prBssDesc->fgIERSNX = TRUE;
 				prBssDesc->u2RsnxCap
 					= prBssDesc->rRSNXInfo.u2Cap;
@@ -3585,17 +3606,43 @@ struct BSS_DESC *scanAddToBssDesc(struct ADAPTER *prAdapter,
 
 			if (rsnParseCheckForWFAInfoElem(prAdapter,
 				pucIE, &ucOuiType, &u2SubTypeVersion)) {
-				if ((ucOuiType == VENDOR_OUI_TYPE_WPA)
-					&& (u2SubTypeVersion
-					== VERSION_WPA)
-					&& (rsnParseWpaIE(prAdapter,
-						WPA_IE(pucIE),
-						&prBssDesc
-							->rWPAInfo))) {
+				if (ucOuiType == VENDOR_OUI_TYPE_WPA &&
+				    rsnParseWpaIE(prAdapter, WPA_IE(pucIE),
+						  &prBssDesc->rWPAInfo))
 					prBssDesc->fgIEWPA = TRUE;
+			}
+#if (CFG_SUPPORT_RSNO == 1)
+			if (rsnParseCheckForWFASpecificElem(prAdapter,
+				pucIE, &ucOuiType)) {
+				if (ucOuiType == VENDOR_OUI_TYPE_RSNO &&
+				    rsnParseRsnIE(prAdapter, pucIE,
+						&prBssDesc->rRSNOInfo)) {
+					prBssDesc->fgIERSNO = TRUE;
+					prBssDesc->u2RsnoCap =
+						prBssDesc->rRSNOInfo.u2RsnCap;
 				}
 			}
-
+			if (rsnParseCheckForWFASpecificElem(prAdapter,
+				pucIE, &ucOuiType)) {
+				if (ucOuiType == VENDOR_OUI_TYPE_RSNO2 &&
+				    rsnParseRsnIE(prAdapter, pucIE,
+						&prBssDesc->rRSNO2Info)) {
+					prBssDesc->fgIERSNO2 = TRUE;
+					prBssDesc->u2Rsno2Cap =
+						prBssDesc->rRSNO2Info.u2RsnCap;
+				}
+			}
+			if (rsnParseCheckForWFASpecificElem(prAdapter,
+				pucIE, &ucOuiType)) {
+				if (ucOuiType == VENDOR_OUI_TYPE_RSNXO &&
+				    rsnParseRsnxIE(prAdapter, pucIE,
+						&prBssDesc->rRSNXOInfo)) {
+					prBssDesc->fgIERSNXO = TRUE;
+					prBssDesc->u2RsnxoCap =
+						prBssDesc->rRSNXOInfo.u2Cap;
+				}
+			}
+#endif /* CFG_SUPPORT_RSNO */
 			if (prBssDesc->fgIsVHTPresent == FALSE)
 				scanCheckEpigramVhtIE(pucIE, prBssDesc);
 #if CFG_SUPPORT_PASSPOINT
@@ -3612,13 +3659,10 @@ struct BSS_DESC *scanAddToBssDesc(struct ADAPTER *prAdapter,
 #endif
 #if CFG_ENABLE_WIFI_DIRECT
 			if (prAdapter->fgIsP2PRegistered) {
-				if ((p2pFuncParseCheckForP2PInfoElem(
-					prAdapter, pucIE, &ucOuiType))
-					&& (ucOuiType
-					== VENDOR_OUI_TYPE_P2P)) {
-					prBssDesc->fgIsP2PPresent
-						= TRUE;
-				}
+				if (rsnParseCheckForWFASpecificElem(
+					prAdapter, pucIE, &ucOuiType) &&
+				    ucOuiType == VENDOR_OUI_TYPE_P2P)
+					prBssDesc->fgIsP2PPresent = TRUE;
 			}
 #endif /* CFG_ENABLE_WIFI_DIRECT */
 #if CFG_SUPPORT_MBO

@@ -26,7 +26,7 @@ static void mdw_drv_priv_delete(struct kref *ref)
 	struct mdw_fpriv *mpriv =
 			container_of(ref, struct mdw_fpriv, ref);
 
-	mdw_drv_debug("mpriv(0x%llx) free\n", (uint64_t) mpriv);
+	mdw_drv_debug("mpriv(0x%llx) free\n", mpriv->id);
 	mdw_dev_session_delete(mpriv);
 	kfree(mpriv);
 }
@@ -34,14 +34,14 @@ static void mdw_drv_priv_delete(struct kref *ref)
 static void mdw_drv_priv_get(struct mdw_fpriv *mpriv)
 {
 	mdw_flw_debug("mpriv(0x%llx) ref(%u)\n",
-		(uint64_t) mpriv, kref_read(&mpriv->ref));
+		mpriv->id, kref_read(&mpriv->ref));
 	kref_get(&mpriv->ref);
 }
 
 static void mdw_drv_priv_put(struct mdw_fpriv *mpriv)
 {
 	mdw_flw_debug("mpriv(0x%llx) ref(%u)\n",
-		(uint64_t) mpriv, kref_read(&mpriv->ref));
+		mpriv->id, kref_read(&mpriv->ref));
 	kref_put(&mpriv->ref, mdw_drv_priv_delete);
 }
 
@@ -65,6 +65,7 @@ static int mdw_drv_open(struct inode *inode, struct file *filp)
 	if (!mpriv)
 		return -ENOMEM;
 
+	mpriv->id = atomic64_inc_return(&mdw_dev->session_id_cnt);
 	mpriv->mdev = mdw_dev;
 	filp->private_data = mpriv;
 	atomic_set(&mpriv->active, 1);
@@ -119,7 +120,7 @@ static int mdw_drv_close(struct inode *inode, struct file *filp)
 	struct mdw_fpriv *mpriv = NULL;
 
 	mpriv = filp->private_data;
-	mdw_flw_debug("mpriv(0x%llx)\n", (uint64_t)mpriv);
+	mdw_flw_debug("mpriv(0x%llx)\n", mpriv->id);
 	mutex_lock(&mpriv->mtx);
 	atomic_set(&mpriv->active, 0);
 	mpriv->mdev->plat_funcs->release_cmd(mpriv);
@@ -171,6 +172,7 @@ static int mdw_platform_probe(struct platform_device *pdev)
 	mdw_dev = mdev;
 	platform_set_drvdata(pdev, mdev);
 	atomic_set(&mdev->cmd_running, 0);
+	atomic64_set(&mdev->session_id_cnt, 0);
 
 	ret = mdw_mem_init(mdev);
 	if (ret)
@@ -266,6 +268,8 @@ static int mdw_rpmsg_probe(struct rpmsg_device *rpdev)
 	mdev->misc_dev = &mdw_misc_dev;
 	mdw_dev = mdev;
 	dev_set_drvdata(dev, mdev);
+	atomic_set(&mdev->cmd_running, 0);
+	atomic64_set(&mdev->session_id_cnt, 0);
 
 	ret = mdw_mem_init(mdev);
 	if (ret)

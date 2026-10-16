@@ -214,6 +214,7 @@ s32 frame_buf_to_task_buf(struct mml_file_buf *fbuf,
 	u8 i;
 	s32 ret = 0;
 
+	user_buf->cnt = min(user_buf->cnt, MML_MAX_PLANES);
 	if (user_buf->use_dma)
 		mml_buf_get(fbuf, user_buf->dmabuf, user_buf->cnt, name);
 	else

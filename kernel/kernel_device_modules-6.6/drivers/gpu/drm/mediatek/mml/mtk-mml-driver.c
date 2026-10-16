@@ -1256,22 +1256,18 @@ done:
 	mutex_unlock(&mml->dpc.dpc_mutex[sysid]);
 }
 
-void mml_dpc_exc_keep_task(struct mml_task *task, const struct mml_topology_path *path)
+void mml_dpc_exc_keep_path(struct mml_dev *mml, const struct mml_topology_path *path)
 {
-	struct mml_frame_config *cfg = task->config;
-
-	mml_dpc_exc_keep(cfg->mml, path->mmlsys->sysid);
+	mml_dpc_exc_keep(mml, path->mmlsys->sysid);
 	if (path->mmlsys2)
-		mml_dpc_exc_keep(cfg->mml, path->mmlsys2->sysid);
+		mml_dpc_exc_keep(mml, path->mmlsys2->sysid);
 }
 
-void mml_dpc_exc_release_task(struct mml_task *task, const struct mml_topology_path *path)
+void mml_dpc_exc_release_path(struct mml_dev *mml, const struct mml_topology_path *path)
 {
-	struct mml_frame_config *cfg = task->config;
-
 	if (path->mmlsys2)
-		mml_dpc_exc_release(cfg->mml, path->mmlsys2->sysid);
-	mml_dpc_exc_release(cfg->mml, path->mmlsys->sysid);
+		mml_dpc_exc_release(mml, path->mmlsys2->sysid);
+	mml_dpc_exc_release(mml, path->mmlsys->sysid);
 }
 
 void mml_dpc_dc_enable(struct mml_dev *mml, u32 sysid, bool dcen)

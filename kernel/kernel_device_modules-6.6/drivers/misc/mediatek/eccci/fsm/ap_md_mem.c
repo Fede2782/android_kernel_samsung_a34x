@@ -587,7 +587,7 @@ void ap_md_mem_init_for_legacy(struct ccci_mem_layout *mem_layout)
 		- round_down(
 	mem_layout->md_bank4_cacheable_total.base_ap_view_phy
 		, 0x00100000);
-
+#if IS_ENABLED(CONFIG_MTK_CCCI_DUMP)
 	CCCI_BOOTUP_LOG(0, TAG,
 		"smem info: (0x%lx 0x%lx 0x%lx 0x%x) (0x%lx 0x%lx 0x%lx 0x%x)\n",
 		(unsigned long)
@@ -604,7 +604,7 @@ void ap_md_mem_init_for_legacy(struct ccci_mem_layout *mem_layout)
 		(unsigned long)
 		mem_layout->md_bank4_cacheable_total.base_ap_view_vir,
 		mem_layout->md_bank4_cacheable_total.size);
-
+#endif
 	ccci_md_config_layout_for_legacy(mem_layout);
 
 	ret = init_smem_regions_for_legacy(mem_layout->md_bank4_noncacheable,
@@ -627,7 +627,9 @@ void ap_md_mem_init(struct ccci_mem_layout *mem_layout)
 {
 	phys_addr_t md_resv_mem_addr = 0;
 	unsigned int md_resv_mem_size = 0, md_phy = 0;
+#if IS_ENABLED(CONFIG_MTK_CCCI_DUMP)
 	unsigned int i;
+#endif
 
 	/* Get memory info */
 	get_md_resv_mem_info(&md_resv_mem_addr, &md_resv_mem_size, NULL, NULL);
@@ -656,6 +658,7 @@ void ap_md_mem_init(struct ccci_mem_layout *mem_layout)
 	mem_layout->md_bank4_cacheable = md1_cacheable_tbl;
 	init_smem_regions(mem_layout->md_bank4_cacheable, (phys_addr_t)md_phy);
 	post_cfg_for_ccb();
+#if IS_ENABLED(CONFIG_MTK_CCCI_DUMP)
 	CCCI_BOOTUP_LOG(0, TAG,
 		"smem info: (0x%lx 0x%lx 0x%lx 0x%x) (0x%lx 0x%lx 0x%lx 0x%x)\n",
 		(unsigned long)
@@ -689,6 +692,7 @@ void ap_md_mem_init(struct ccci_mem_layout *mem_layout)
 			(unsigned long)md1_cacheable_tbl[i].base_ap_view_vir,
 			(unsigned long)md1_cacheable_tbl[i].base_md_view_phy,
 			md1_cacheable_tbl[i].size);
+#endif
 }
 
 struct ccci_mem_layout *ccci_md_get_mem(void)

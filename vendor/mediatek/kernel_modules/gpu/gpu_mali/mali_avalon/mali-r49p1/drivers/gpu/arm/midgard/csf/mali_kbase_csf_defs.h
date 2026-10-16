@@ -1078,24 +1078,24 @@ struct kbase_csf_mcu_shared_regions {
  *                      When it's false, no deferring release actions is needed.
  */
 struct kbase_csf_protm_mem_pages_defer_ctrl {
-	spinlock_t mem_pools_op_lock;
-	struct list_head mem_pools_list;
-	struct list_head op_pending_list;
-	struct list_head op_inflight_list;
-	struct kbase_mem_pool *drop_op_pool;
-	wait_queue_head_t drop_op_pool_wait;
-	struct workqueue_struct *mem_pools_op_workq;
-	struct work_struct mem_pools_op_work;
-	wait_queue_head_t pools_term_wq;
-	struct {
-		/** List that holds the buffer alloc items for deferred free */
-		struct list_head allocs_to_free;
-		/** The deferral sequence number for checking the ending condition */
-		int defer_seq;
-	} imported_bufs;
-	atomic_t protm_event_id;
-	/* Set at initialisation, true for GPUs up to Arch-15 */
-	bool do_defer;
+        spinlock_t mem_pools_op_lock;
+        struct list_head mem_pools_list;
+        struct list_head op_pending_list;
+        struct list_head op_inflight_list;
+        struct kbase_mem_pool *drop_op_pool;
+        wait_queue_head_t drop_op_pool_wait;
+        struct workqueue_struct *mem_pools_op_workq;
+        struct work_struct mem_pools_op_work;
+        wait_queue_head_t pools_term_wq;
+        struct {
+                /** List that holds the buffer alloc items for deferred free */
+                struct list_head allocs_to_free;
+                /** The deferral sequence number for checking the ending condition */
+                int defer_seq;
+        } imported_bufs;
+atomic_t protm_event_id;
+        /* Set at initialisation, true for GPUs up to Arch-15 */
+        bool do_defer;
 };
 
 /**

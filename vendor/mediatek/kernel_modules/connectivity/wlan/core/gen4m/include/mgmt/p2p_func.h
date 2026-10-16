@@ -274,9 +274,6 @@ p2pFuncInitConnectionSettings(struct ADAPTER *prAdapter,
 		struct P2P_CONNECTION_SETTINGS *prP2PConnSettings,
 		u_int8_t fgIsApMode);
 
-u_int8_t p2pFuncParseCheckForP2PInfoElem(struct ADAPTER *prAdapter,
-		uint8_t *pucBuf, uint8_t *pucOuiType);
-
 u_int8_t p2pFuncParseCheckForTKIPInfoElem(uint8_t *pucBuf);
 
 u_int8_t

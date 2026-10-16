@@ -959,6 +959,11 @@ struct WIFI_VAR {
 	u_int8_t fgEnEpcs;
 #endif
 #endif
+
+#if (CFG_SUPPORT_RSNO == 1)
+	u_int8_t fgEnStaRSNO;
+#endif /* CFG_SUPPORT_RSNO */
+
 	uint8_t ucApHt;
 	uint8_t ucApVht;
 	uint8_t ucP2pGoHt;
@@ -1242,7 +1247,7 @@ struct WIFI_VAR {
 	uint32_t fgDisRoaming;		/* 0:enable roaming 1:disable */
 	uint8_t  fgDisGTKCipherCheck;
 	uint8_t  fgDisSecurityCheck;
-	uint8_t fgEhtAkmCheck;
+	uint8_t  fgEhtAkmCheck;
 	uint32_t u4RejectBtmReqReason;
 	uint32_t fgRoamByBTO;
 	uint32_t u4AisRoamingNumber;
@@ -1250,6 +1255,7 @@ struct WIFI_VAR {
 	uint32_t u4AisOffChDur;
 	uint32_t u4AisJoinChReqInt;
 	uint32_t fgEnArpFilter;
+	uint32_t fgForceCrossAkm;	/* 0:disable force cross AKM 1:enable */
 
 	uint8_t	uDeQuePercentEnable;
 	uint32_t u4DeQuePercentVHT80Nss1;

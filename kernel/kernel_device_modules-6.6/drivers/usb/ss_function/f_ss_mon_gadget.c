@@ -851,7 +851,7 @@ ss_monitor_bind(struct usb_configuration *c, struct usb_function *f)
 #endif
 
 #if IS_ENABLED(CONFIG_USB_TYPEC_MANAGER_NOTIFIER)
-	//set_usb_enable_state();
+	set_usb_enable_state();
 #endif
 	f->setup = ss_monitor_setup;
 	ss_monitor->is_bind = 1;

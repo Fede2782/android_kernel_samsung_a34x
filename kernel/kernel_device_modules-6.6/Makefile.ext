@@ -8,8 +8,6 @@ subdir-ccflags-y += -Werror \
 		-I$(srctree)/$(src)/include \
 		-I$(srctree)/$(src)/include/uapi \
 
-obj-y += ../$(DEVICE_MODULES_REL_DIR)/drivers/mm/
-
 obj-y += ../$(DEVICE_MODULES_REL_DIR)/drivers/block/zram/
 
 obj-y += ../$(DEVICE_MODULES_REL_DIR)/drivers/memory/

@@ -279,6 +279,7 @@ enum ENUM_UNI_CMD_ID {
 	UNI_CMD_ID_MLC			= 0x81, /* Multi-link Control */
 	UNI_CMD_ID_UPDATE_LP	= 0x84, /*Update LP Parameter*/
 	UNI_CMD_ID_UPDATE_PCIE	= 0x89, /*Update PCIE Parameter*/
+	UNI_CMD_ID_SET_SCREEN_STATE	= 0x99 /* Set Screen State */
 };
 
 __KAL_ATTRIB_PACKED_FRONT__
@@ -1331,6 +1332,38 @@ struct UNI_CMD_SUSPEND_WOW_WAKEUP_PORT {
 
 	uint8_t aucReserved[4];
 } __KAL_ATTRIB_PACKED__;
+
+__KAL_ATTRIB_PACKED_FRONT__
+struct UNI_CMD_SCREEN_STATE {
+	/*fixed field*/
+	uint8_t aucPadding[4];
+
+	/* tlv */
+	uint8_t aucTlvBuffer[]; /**< the TLVs included in this field:
+	*
+	* TAG                              |ID  |structure
+	* -------------                    |----|-------------
+	* UNI_CMD_SCRREN_STATE_TAG_SETTING |0x0 |UNI_CMD_SCREEN_STATE_SETTING_T
+	*
+	*/
+} __KAL_ATTRIB_PACKED__;
+
+__KAL_ATTRIB_PACKED_FRONT__
+struct UNI_CMD_SCREEN_STATE_SETTING {
+	uint16_t u2Tag;                   /* Tag = 0x00 */
+	uint16_t u2Length;
+
+	uint8_t ucScreenState;
+	uint8_t aucPadding[3];
+
+	uint8_t aucReserved[4];
+} __KAL_ATTRIB_PACKED__;
+
+/* Suspend command Tag */
+enum ENUM_UNI_CMD_SCREEN_STATE_TAG {
+	UNI_CMD_SCRREN_STATE_TAG_SETTING = 0,
+	UNI_CMD_SCREEN_STATE_TAG_NUM
+};
 
 struct UNI_CMD_OFFLOAD {
 	/*fixed field*/
@@ -8551,6 +8584,8 @@ uint32_t nicUniCmdPowerLimitEmiInfo(struct ADAPTER *ad,
 		struct WIFI_UNI_SETQUERY_INFO *info);
 #endif
 
+uint32_t nicUniCmdSetScreenState(struct ADAPTER *ad,
+		struct WIFI_UNI_SETQUERY_INFO *info);
 /*******************************************************************************
  *                   Event
  *******************************************************************************

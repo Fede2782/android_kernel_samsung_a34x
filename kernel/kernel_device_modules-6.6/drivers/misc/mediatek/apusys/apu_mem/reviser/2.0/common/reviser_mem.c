@@ -65,8 +65,8 @@ static int __reviser_get_sgt(const char *buf,
 		return -ENOMEM;
 
 	p = buf - offset_in_page(buf);
-	LOG_DBG_RVR_MEM("start p: %llx buf: %llx\n",
-			(uint64_t)p, (uint64_t)buf);
+	LOG_DBG_RVR_MEM("start p: 0x%pK buf: 0x%pK\n",
+			p, buf);
 
 	for (index = 0; index < nr_pages; index++) {
 		if (is_vmalloc_addr(p))
@@ -92,7 +92,7 @@ static int __reviser_get_sgt(const char *buf,
 
 
 
-	LOG_DBG_RVR_MEM("buf: %p, len: %lx, sgt: %p nr_pages: %d\n",
+	LOG_DBG_RVR_MEM("buf: 0x%pK, len: %lx, sgt: 0x%pK nr_pages: %d\n",
 		buf, len, sgt, nr_pages);
 
 	return 0;

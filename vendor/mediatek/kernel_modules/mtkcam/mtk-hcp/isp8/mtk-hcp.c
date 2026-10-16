@@ -2481,7 +2481,7 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	int i = 0;
 
 	dev_info(&pdev->dev, "- E. hcp driver probe.\n");
-	hcp_dev = devm_kzalloc(&pdev->dev, sizeof(*hcp_dev), GFP_KERNEL);
+	hcp_dev = vzalloc(sizeof(*hcp_dev));
 	if (hcp_dev == NULL)
 		return -ENOMEM;
 
@@ -2564,9 +2564,10 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	spin_lock_init(&hcp_dev->msglock);
 	init_waitqueue_head(&hcp_dev->msg_wq);
 	INIT_LIST_HEAD(&hcp_dev->msg_list);
-	msgs = devm_kzalloc(hcp_dev->dev, sizeof(*msgs) * MSG_NR, GFP_KERNEL);
+	msgs = vzalloc(sizeof(*msgs) * MSG_NR);
 	for (i = 0; i < MSG_NR; i++)
 		list_add_tail(&msgs[i].entry, &hcp_dev->msg_list);
+	hcp_dev->msgs = msgs;
 
 	/* init character device */
 
@@ -2640,7 +2641,8 @@ err_alloc:
 		}
 	}
 
-	devm_kfree(&pdev->dev, hcp_dev);
+	vfree(hcp_dev->msgs);
+	vfree(hcp_dev);
 
 	dev_info(&pdev->dev, "- X. hcp driver probe fail.\n");
 
@@ -2674,16 +2676,17 @@ static int mtk_hcp_remove(struct platform_device *pdev)
 
 	if (hcp_dev->is_open == true) {
 		hcp_dev->is_open = false;
-        if (hcp_dbg_enable())
-		dev_dbg(&pdev->dev, "%s: opened device found\n", __func__);
+		if (hcp_dbg_enable())
+			dev_dbg(&pdev->dev, "%s: opened device found\n", __func__);
 	}
-	devm_kfree(&pdev->dev, hcp_dev);
-
 	cdev_del(&hcp_dev->hcp_cdev);
 	unregister_chrdev_region(hcp_dev->hcp_devno, 1);
 
-    if (hcp_dbg_enable())
-	dev_dbg(&pdev->dev, "- X. hcp driver remove.\n");
+	if (hcp_dbg_enable())
+		dev_dbg(&pdev->dev, "- X. hcp driver remove.\n");
+
+	vfree(hcp_dev->msgs);
+	vfree(hcp_dev);
 	return 0;
 }
 

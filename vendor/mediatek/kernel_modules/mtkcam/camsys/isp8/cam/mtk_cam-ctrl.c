@@ -710,8 +710,9 @@ static void handle_frame_done(struct mtk_cam_ctrl *ctrl,
 			}
 		}
 	}
-	{
+	if (!is_m2m(job)) {
 		struct mtk_seninf_frame_done_notify_param param;
+
 		param.sd = ctrl->ctx->seninf;
 		mtk_cam_seninf_frame_done_notify(&param);
 	}

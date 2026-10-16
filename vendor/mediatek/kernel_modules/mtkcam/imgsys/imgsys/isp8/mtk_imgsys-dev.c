@@ -68,7 +68,8 @@ int mtk_imgsys_pipe_init(struct mtk_imgsys_dev *imgsys_dev,
 
 	nodes_num = pipe->desc->total_queues;
 	nodes_size = sizeof(*pipe->nodes) * nodes_num;
-	pipe->nodes = devm_kzalloc(imgsys_dev->dev, nodes_size, GFP_KERNEL);
+
+	pipe->nodes = vzalloc(nodes_size);
 
 	dev_info(pipe->imgsys_dev->dev, "pipe num(%d)\n", nodes_num);
 	if (!pipe->nodes)
@@ -117,6 +118,7 @@ int mtk_imgsys_pipe_release(struct mtk_imgsys_pipe *pipe)
 	mtk_imgsys_pipe_v4l2_unregister(pipe);
 	mutex_destroy(&pipe->lock);
 
+	vfree(pipe->nodes);
 	return 0;
 }
 

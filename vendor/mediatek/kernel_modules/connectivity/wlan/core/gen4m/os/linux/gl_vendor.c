@@ -319,6 +319,14 @@ const struct nla_policy mtk_usable_channel_policy[
 	[WIFI_ATTRIBUTE_USABLE_CHANNEL_MAX_SIZE] = {.type = NLA_U32},
 };
 
+const struct nla_policy nla_connect_ext_policy[
+		QCA_WLAN_VENDOR_ATTR_CONNECT_EXT_MAX + 1] = {
+	[QCA_WLAN_VENDOR_ATTR_CONNECT_EXT_INVALID] = {
+		.type = NLA_U32 },
+	[QCA_WLAN_VENDOR_ATTR_CONNECT_EXT_FEATURES] = {
+	    .type = NLA_BINARY, .len = (NUM_QCA_CONNECT_EXT_FEATURES + 7) / 8 },
+};
+
 /*******************************************************************************
  *                           P R I V A T E   D A T A
  *******************************************************************************
@@ -3899,12 +3907,22 @@ nla_put_failure:
 int mtk_cfg80211_vendor_get_features(struct wiphy *wiphy,
 		struct wireless_dev *wdev, const void *data, int data_len)
 {
+	struct GLUE_INFO *prGlueInfo;
 	struct sk_buff *reply_skb;
 	uint8_t feature_flags[(NUM_VENDOR_FEATURES + 7) / 8] = {0};
 	uint8_t i;
 
-	ASSERT(wiphy);
-	ASSERT(wdev);
+	if (!wiphy || !wdev) {
+		DBGLOG(REQ, ERROR, "input data null.\n");
+		return -EINVAL;
+	}
+
+	WIPHY_PRIV(wiphy, prGlueInfo);
+
+	if (!prGlueInfo) {
+		DBGLOG(REQ, ERROR, "get glue structure fail.\n");
+		return -EINVAL;
+	}
 
 #if CFG_AUTO_CHANNEL_SEL_SUPPORT
 	feature_flags[(VENDOR_FEATURE_SUPPORT_HW_MODE_ANY / 8)] |=
@@ -3914,6 +3932,11 @@ int mtk_cfg80211_vendor_get_features(struct wiphy *wiphy,
 	feature_flags[(VENDOR_FEATURE_P2P_LISTEN_OFFLOAD / 8)] |=
 			(1 << (VENDOR_FEATURE_P2P_LISTEN_OFFLOAD % 8));
 #endif
+
+#if (CFG_SUPPORT_RSNO == 1)
+	feature_flags[(VENDOR_FEATURE_RSN_OVERRIDE_STA / 8)] |=
+			(1 << (VENDOR_FEATURE_RSN_OVERRIDE_STA % 8));
+#endif /* CFG_SUPPORT_RSNO */
 
 	for (i = 0; i < ((NUM_VENDOR_FEATURES + 7) / 8); i++) {
 		DBGLOG(REQ, TRACE, "Dump feature flags[%d]=0x%x.\n", i,
@@ -4016,27 +4039,30 @@ uint32_t wlanoidSetLatency(
 	ais->ucLatencyMode = *pu4Mode;
 
 
-	if (ais->ucLatencyMode == WIFI_LATENCY_MODE_SCAN_ON) {
+#if (CFG_EXT_FEATURE == 0)
+	if (ais->ucLatencyMode == WIFI_LATENCY_MODE_SCAN_ON)
+#else
+	if (ais->ucLatencyMode == WIFI_LATENCY_MODE_SCAN)
+#endif
+	{
 		ais->ucDfsChDwellTimeMs = 60;
 		ais->ucNonDfsChDwellTimeMs = 40;
 		ais->u2OpChStayTimeMs = 100;
 		ais->ucPerScanChannelCnt = 1;
-		ais->ucLatencyCrtDataMode = 2;
 	} else if (ais->ucLatencyMode == WIFI_LATENCY_MODE_SCAN_OFF) {
 		ais->ucDfsChDwellTimeMs = 0;
 		ais->ucNonDfsChDwellTimeMs = 0;
 		ais->u2OpChStayTimeMs = 0;
 		ais->ucPerScanChannelCnt = 0;
-		ais->ucLatencyCrtDataMode = 0;
 	}
 	DBGLOG(REQ, INFO,
-		"Latency Mode[%d],(dfs,non-dfs,Op,PerCh,CrtM)=(%d,%d,%d,%d,%d)\n",
+		"Latency Mode[%d],(dfs,non-dfs,Op,PerCh)=(%d,%d,%d,%d)\n",
 		ais->ucLatencyMode,
 		ais->ucDfsChDwellTimeMs,
 		ais->ucNonDfsChDwellTimeMs,
 		ais->u2OpChStayTimeMs,
-		ais->ucPerScanChannelCnt,
-		ais->ucLatencyCrtDataMode);
+		ais->ucPerScanChannelCnt);
+
 	return WLAN_STATUS_SUCCESS;
 
 }
@@ -4102,7 +4128,7 @@ int mtk_cfg80211_vendor_set_latency_mode(
 			DBGLOG(INIT, TRACE,
 				"SET_CRT_DATA successed\n");
 	} else {
-		if (ais->ucLatencyCrtDataMode)
+		if (ais->ucLatencyMode)
 			goto exit;
 
 		/* for mode 1 */
@@ -6153,3 +6179,65 @@ const struct nla_policy nla_pasn_setkey_policy[
 };
 
 #endif /* CFG_SUPPORT_NAN_R4_PAIRING */
+
+int mtk_cfg80211_vendor_connect_ext(
+	struct wiphy *wiphy,
+	struct wireless_dev *wdev,
+	const void *data,
+	int data_len)
+{
+	uint32_t rStatus = WLAN_STATUS_SUCCESS;
+	struct GLUE_INFO *prGlueInfo;
+	struct nlattr *tb[QCA_WLAN_VENDOR_ATTR_CONNECT_EXT_MAX + 1] = {};
+	uint8_t *buf;
+	uint16_t len;
+
+	if (!wiphy || !wdev || !data || !data_len) {
+		DBGLOG(REQ, ERROR, "input data null.\n");
+		rStatus = -EINVAL;
+		goto exit;
+	}
+
+	WIPHY_PRIV(wiphy, prGlueInfo);
+	if (!prGlueInfo) {
+		DBGLOG(REQ, ERROR, "get glue structure fail.\n");
+		rStatus = -EFAULT;
+		goto exit;
+	}
+
+	if (prGlueInfo->u4ReadyFlag == 0) {
+		DBGLOG(REQ, WARN, "driver is not ready\n");
+		rStatus = -EFAULT;
+		goto exit;
+	}
+
+	if (NLA_PARSE(tb, QCA_WLAN_VENDOR_ATTR_CONNECT_EXT_MAX,
+		data,
+		data_len,
+		nla_connect_ext_policy)) {
+		DBGLOG(REQ, ERROR, "Invalid ATTR.\n");
+		rStatus = -EINVAL;
+		goto exit;
+	}
+
+	if (!tb[QCA_WLAN_VENDOR_ATTR_CONNECT_EXT_FEATURES]) {
+		DBGLOG(REQ, ERROR, "Invalid ATTR.\n");
+		rStatus = -EINVAL;
+		goto exit;
+	}
+
+	buf = nla_data(tb[QCA_WLAN_VENDOR_ATTR_CONNECT_EXT_FEATURES]);
+	len = nla_len(tb[QCA_WLAN_VENDOR_ATTR_CONNECT_EXT_FEATURES]);
+
+	DBGDUMP_MEM8(INIT, INFO, "connect_ext features", buf, len);
+
+#if (CFG_SUPPORT_RSNO == 1)
+	if (len > 0)
+		prGlueInfo->prAdapter->rWifiVar.fgEnStaRSNO =
+			!!(buf[0] & BIT(QCA_CONNECT_EXT_FEATURE_RSNO));
+#endif /* CFG_SUPPORT_RSNO */
+
+exit:
+	return rStatus;
+}
+

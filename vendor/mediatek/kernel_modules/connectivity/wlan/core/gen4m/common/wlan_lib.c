@@ -7437,6 +7437,10 @@ void wlanInitFeatureOptionImpl(struct ADAPTER *prAdapter, uint8_t *pucKey)
 	INIT_UINT(prWifiVar->u4T2LMMarginMs, "T2LMMarginMs", 250);
 #endif /* CFG_SUPPORT_802_11BE_MLO */
 #endif /* CFG_SUPPORT_802_11BE */
+#if (CFG_SUPPORT_RSNO == 1)
+	INIT_UINT(prWifiVar->fgEnStaRSNO,
+		"EnStaRSNO", CFG_DEFAULT_ENABLE_RSNO);
+#endif /* CFG_SUPPORT_RSNO */
 	INIT_UINT(prWifiVar->ucApHt, "ApHT", FEATURE_ENABLED);
 #if CFG_TC1_FEATURE
 	INIT_UINT(prWifiVar->ucApVht, "ApVHT", FEATURE_FORCE_ENABLED);
@@ -8017,6 +8021,8 @@ void wlanInitFeatureOptionImpl(struct ADAPTER *prAdapter, uint8_t *pucKey)
 	INIT_UINT(prWifiVar->u4AisJoinChReqInt, "AisJoinChReqInt", 0);
 	INIT_UINT(prWifiVar->u4AisOffChDur, "AisOffChDur", 0);
 	INIT_UINT(prWifiVar->fgEnArpFilter, "EnArpFilter", FEATURE_ENABLED);
+	INIT_UINT(prWifiVar->fgForceCrossAkm,
+		"ForceCrossAkm", FEATURE_DISABLED);
 
 	/* Driver Flow Control Dequeue Quota. Now is only used by DBDC */
 	INIT_UINT(prWifiVar->uDeQuePercentEnable, "DeQuePercentEnable", 1);

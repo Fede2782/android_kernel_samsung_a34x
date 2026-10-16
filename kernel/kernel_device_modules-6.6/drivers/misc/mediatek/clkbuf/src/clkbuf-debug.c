@@ -447,8 +447,8 @@ static ssize_t dump_clkbuf_dts_show(struct kobject *kobj,
 
 	len += snprintf(
 		buf + len, PAGE_SIZE - len,
-		"%16s, %16s, %13s, %11s, %2s, ",
-		"array", "hdlr", "xo_name", "rc_sub_name", "HW");
+		"%13s, %11s, %2s, ",
+		"xo_name", "rc_sub_name", "HW");
 
 	len += snprintf(
 		buf + len, PAGE_SIZE - len,
@@ -458,8 +458,7 @@ static ssize_t dump_clkbuf_dts_show(struct kobject *kobj,
 	for (i = 0; i < nums; i++, array++) {
 		len += snprintf(
 			buf + len, PAGE_SIZE - len,
-			"%16lx, %16lx, %13s, %11s, %2d, ",
-			(unsigned long)array, (unsigned long)array->hdlr,
+			"%13s, %11s, %2d, ",
 			array->xo_name, array->subsys_name, array->hw.hw_type);
 		len += snprintf(
 			buf + len, PAGE_SIZE - len,

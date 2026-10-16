@@ -66,3 +66,8 @@ s scan_swap_map_try_ssd_cluster
 s swap_do_scheduled_discard
 s swapcache_free_entries
 s module_augment_kernel_taints
+s __alloc_pages_slowpath
+s do_try_to_free_pages
+s gfp_zone
+s try_to_free_pages
+s wakeup_kswapd

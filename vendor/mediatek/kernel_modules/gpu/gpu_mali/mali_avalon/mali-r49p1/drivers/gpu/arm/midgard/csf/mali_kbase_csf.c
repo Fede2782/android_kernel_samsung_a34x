@@ -3444,6 +3444,7 @@ static inline void process_protm_exit(struct kbase_device *kbdev, u32 glb_ack)
 {
 	const struct kbase_csf_global_iface *const global_iface = &kbdev->csf.global_iface;
 	struct kbase_csf_scheduler *scheduler = &kbdev->csf.scheduler;
+	struct kbase_queue_group *completed_grp = NULL;
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 	kbase_csf_scheduler_spin_lock_assert_held(kbdev);
@@ -3456,6 +3457,8 @@ static inline void process_protm_exit(struct kbase_device *kbdev, u32 glb_ack)
 
 	kbase_csf_firmware_global_input_mask(global_iface, GLB_REQ, glb_ack,
 					     GLB_REQ_PROTM_EXIT_MASK);
+
+	completed_grp = scheduler->active_protm_grp;
 
 	if (likely(scheduler->active_protm_grp)) {
 		KBASE_KTRACE_ADD_CSF_GRP(kbdev, SCHEDULER_PROTM_EXIT, scheduler->active_protm_grp,
@@ -3473,6 +3476,17 @@ static inline void process_protm_exit(struct kbase_device *kbdev, u32 glb_ack)
 #endif /* CONFIG_MALI_MTK_GPU_DVFS_HINT_26M_LOADING */
 		kbase_ipa_control_protm_exited(kbdev);
 		kbase_hwcnt_backend_csf_protm_exited(&kbdev->hwcnt_gpu_iface);
+	}
+
+	/* WA: If pmode exiting group still has pending PROTM requests,
+	 * re-queue them immediately instead of waiting for the next
+	 * tick/tock to queue the pending bitmap.
+	 */
+	if (completed_grp &&
+	    !bitmap_empty(completed_grp->protm_pending_bitmap,
+			  kbdev->csf.global_iface.groups[0].stream_num)) {
+		dev_dbg(kbdev->dev, "Pmode exit re-queues group %d", completed_grp->handle);
+		kbase_csf_scheduler_enqueue_protm_event_work(completed_grp);
 	}
 
 #if IS_ENABLED(CONFIG_MALI_MTK_MBRAIN_SUPPORT)

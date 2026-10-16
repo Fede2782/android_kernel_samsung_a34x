@@ -15,6 +15,7 @@
 
 #define GCE_D_PA	0x300c0000
 #define GCE_M_PA	0x30140000
+#define GCE_GET_CHIP_NAME_PA	0x69916991
 #define GCE_D_NORMAL_SID	199
 #define GCE_M_NORMAL_SID	183
 
@@ -55,6 +56,8 @@ const char *cmdq_thread_module_dispatch(phys_addr_t gce_pa, s32 thread)
 		default:
 			return "MM_GCEM";
 		}
+	} else if (gce_pa == GCE_GET_CHIP_NAME_PA) {
+		return "MT6991_GCE";
 	}
 
 	return "MM_GCE";

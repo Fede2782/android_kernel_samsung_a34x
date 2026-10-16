@@ -57,6 +57,26 @@ static void sec_mm_migration_target_bypass(void *data,
 		*bypass = true;
 }
 
+static void sec_mm_throttle_direct_reclaim_bypass(void *data, bool *bypass)
+{
+	struct pglist_data *pgdat = &contig_page_data;
+	struct zone *zone;
+	unsigned long pfmemalloc_reserve = 0;
+	unsigned long free_pages = 0;
+	int i;
+
+	for (i = 0; i <= ZONE_NORMAL; i++) {
+		zone = &pgdat->node_zones[i];
+		if (!managed_zone(zone))
+			continue;
+
+		pfmemalloc_reserve += min_wmark_pages(zone);
+		free_pages += zone_page_state_snapshot(zone, NR_FREE_PAGES);
+	}
+	if (pfmemalloc_reserve && free_pages > pfmemalloc_reserve / 8)
+		*bypass = true;
+}
+
 #if CONFIG_MMAP_READAROUND_LIMIT == 0
 unsigned int mmap_readaround_limit = VM_READAHEAD_PAGES;
 #else
@@ -146,6 +166,8 @@ void init_sec_mm_tune(void)
 			sec_mm_shrink_slab_bypass, NULL);
 	register_trace_android_vh_migration_target_bypass(
 			sec_mm_migration_target_bypass, NULL);
+	register_trace_android_vh_throttle_direct_reclaim_bypass(
+			sec_mm_throttle_direct_reclaim_bypass, NULL);
 	register_trace_android_vh_tune_mmap_readaround(
 			sec_mm_tune_mmap_readaround, NULL);
 	register_trace_android_vh_tune_scan_control(
@@ -175,6 +197,8 @@ void exit_sec_mm_tune(void)
 			sec_mm_shrink_slab_bypass, NULL);
 	unregister_trace_android_vh_migration_target_bypass(
 			sec_mm_migration_target_bypass, NULL);
+	unregister_trace_android_vh_throttle_direct_reclaim_bypass(
+			sec_mm_throttle_direct_reclaim_bypass, NULL);
 	unregister_trace_android_vh_tune_mmap_readaround(
 			sec_mm_tune_mmap_readaround, NULL);
 	unregister_trace_android_vh_tune_scan_control(

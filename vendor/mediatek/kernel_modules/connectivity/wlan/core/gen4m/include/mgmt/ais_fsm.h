@@ -290,6 +290,10 @@ struct AIS_SPECIFIC_BSS_INFO {
 #endif
 	uint8_t ucKeyAlgorithmId;
 
+#if (CFG_SUPPORT_RSNO == 1)
+	enum ENUM_RSN_OVERRIDE eRsnSelectedRSNOverride;
+#endif /* CFG_SUPPORT_RSNO */
+
 	/* Support AP Selection */
 	struct ESS_CHNL_INFO arCurEssChnlInfo[CFG_MAX_NUM_OF_CHNL_INFO];
 	uint8_t ucCurEssChnlInfoNum;
@@ -590,9 +594,8 @@ struct AIS_FSM_INFO {
 	uint8_t ucNonDfsChDwellTimeMs;
 	uint8_t ucDfsChDwellTimeMs;
 	uint8_t ucPerScanChannelCnt;
-	uint8_t ucLatencyCrtDataMode;
-	uint8_t ucLatencyMode;
 #endif
+	uint8_t ucLatencyMode;
 	struct LINK rAxBlacklist;
 	struct LINK rHeHtcBlacklist;
 	/* rssi monitor */

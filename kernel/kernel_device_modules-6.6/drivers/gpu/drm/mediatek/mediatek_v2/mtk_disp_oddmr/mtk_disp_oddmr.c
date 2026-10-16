@@ -766,6 +766,7 @@ static DEFINE_SPINLOCK(g_oddmr_clock_lock);
 static DEFINE_SPINLOCK(g_oddmr_timing_lock);
 static DEFINE_MUTEX(g_dbi_data_lock);
 static DEFINE_MUTEX(g_dmr_data_lock);
+static DEFINE_MUTEX(g_od_load_param_lock);
 
 typedef phys_addr_t (*scp_get_reserve_mem_phys_by_id)(enum scp_reserve_mem_id_t id);
 typedef phys_addr_t (*scp_get_reserve_mem_virt_by_id)(enum scp_reserve_mem_id_t id);
@@ -7964,15 +7965,23 @@ static int mtk_oddmr_dbi_init(struct mtk_drm_dbi_cfg_info *cfg_info)
 		return -1;
 	}
 
+	mutex_lock(&g_dbi_data_lock);
+
 	dbi_cfg_data =	&g_oddmr_priv->dbi_cfg_info;
 	dbi_cfg_data_tb1 = &g_oddmr_priv->dbi_cfg_info_tb1;
 	memcpy(dbi_cfg_data, cfg_info, sizeof(struct mtk_drm_dbi_cfg_info));
 
+	if (dbi_cfg_data->basic_info.panel_id_len > 16) {
+		mutex_unlock(&g_dbi_data_lock);
+		ODDMRFLOW_LOG("panelid len %d invalid!\n", dbi_cfg_data->basic_info.panel_id_len);
+		return -1;
+	}
 	/*match panel id */
 	expect_panel_id.len = dbi_cfg_data->basic_info.panel_id_len;
 	if(expect_panel_id.len)
 		memcpy(expect_panel_id.data, dbi_cfg_data->basic_info.panel_id, expect_panel_id.len);
 	if (!mtk_oddmr_match_panelid(&g_panelid, &expect_panel_id)) {
+		mutex_unlock(&g_dbi_data_lock);
 		ODDMRFLOW_LOG("panelid does not match\n");
 		return -1;
 	}
@@ -8352,6 +8361,7 @@ static int mtk_oddmr_dbi_init(struct mtk_drm_dbi_cfg_info *cfg_info)
 	g_oddmr_priv->dbi_data.min_block_v = dbi_cfg_data->basic_info.partial_update_scale_factor_v;
 	g_oddmr_priv->dbi_data.min_block_h = dbi_cfg_data->basic_info.partial_update_scale_factor_h;
 	g_oddmr_priv->dbi_state = ODDMR_INIT_DONE;
+	mutex_unlock(&g_dbi_data_lock);
 
 	return 0;
 
@@ -8361,6 +8371,7 @@ fail:
 			vfree(data[i]);
 
 	}
+	mutex_unlock(&g_dbi_data_lock);
 	return -EFAULT;
 
 
@@ -9701,7 +9712,9 @@ int mtk_drm_ioctl_oddmr_load_param(struct drm_device *dev, void *data,
 	 * If any section is loaded, set all to loading,
 	 * set loading done in init to support partial loading.
 	 */
+	mutex_lock(&g_od_load_param_lock);
 	ret = mtk_oddmr_load_param(g_oddmr_priv, data);
+	mutex_unlock(&g_od_load_param_lock);
 	return ret;
 }
 
@@ -9998,6 +10011,9 @@ static int mtk_oddmr_pq_ioctl_transact(struct mtk_ddp_comp *comp,
 	unsigned int temp;
 	unsigned int cur_dbv;
 
+	if (cmd == PQ_DMR_INIT || cmd == PQ_DMR_ENABLE || cmd == PQ_DMR_DISABLE || cmd == PQ_DMR_BINSET_INIT ||
+		cmd == PQ_DMR_BINSET_CHG || cmd == PQ_ODDMR_REG_TUNING_ENABLE || cmd == PQ_ODDMR_REG_TUNING_INIT)
+		return 0;
 	switch (cmd) {
 	case PQ_DMR_INIT:
 		ret = mtk_oddmr_dmr_init(params);

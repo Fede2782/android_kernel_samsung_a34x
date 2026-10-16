@@ -1658,7 +1658,8 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 	struct device_node *sysfs_node = NULL;
 #endif
 
-	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
+	ctx = vzalloc(sizeof(*ctx));
+
 	if (!ctx)
 		return -ENOMEM;
 
@@ -1693,6 +1694,7 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 	if (!platform_node) {
 		adaptor_loge(ctx,
 			"compatiable node:(mediatek,seninf-core) not found\n");
+		vfree(ctx);
 		return -EINVAL;
 	}
 
@@ -1703,6 +1705,7 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 	endpoint = of_graph_get_next_endpoint(dev->of_node, NULL);
 	if (!endpoint) {
 		adaptor_loge(ctx, "endpoint node not found\n");
+		vfree(ctx);
 		return -EINVAL;
 	}
 
@@ -1809,12 +1812,14 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 	ret = media_entity_pads_init(&ctx->sd.entity, 1, &ctx->pad);
 	if (ret < 0) {
 		adaptor_loge(ctx, "failed to init entity pads: %d", ret);
+		vfree(ctx);
 		goto free_ctrl;
 	}
 
 	ret = v4l2_async_register_subdev(&ctx->sd);
 	if (ret < 0) {
 		adaptor_loge(ctx, "could not register v4l2 device\n");
+		vfree(ctx);
 		goto free_entity;
 	}
 
@@ -1924,7 +1929,8 @@ static void imgsensor_remove(struct i3c_i2c_device *client)
 	device_remove_file(ctx->dev, &dev_attr_debug_sensor_mode_ops);
 
 	mutex_destroy(&ctx->mutex);
-
+	if (ctx)
+		vfree(ctx);
 }
 
 

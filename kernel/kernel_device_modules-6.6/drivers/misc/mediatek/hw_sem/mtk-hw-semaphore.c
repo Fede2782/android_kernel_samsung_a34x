@@ -114,6 +114,10 @@ int mtk_hw_semaphore_ctrl(u32 master_id, bool is_get)
 	u32 sema_type, offset, set_val, i;
 	s32 ret;
 
+	if (master_id >= MASTER_MAX_NR) {
+		dev_notice(dev, "%s: Invalid master_id: %d\n", __func__, master_id);
+		return -EINVAL;
+	}
 	sema_type = hw_sema->mast[master_id].sema_type;
 	offset = hw_sema->mast[master_id].offset;
 	set_val = BIT(hw_sema->mast[master_id].set_bit);

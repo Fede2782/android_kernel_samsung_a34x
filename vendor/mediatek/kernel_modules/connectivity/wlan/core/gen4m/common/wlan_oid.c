@@ -9182,7 +9182,6 @@ wlanoidSetDisassociate(struct ADAPTER *prAdapter,
 		       void *pvSetBuffer, uint32_t u4SetBufferLen,
 		       uint32_t *pu4SetInfoLen) {
 	struct MSG_AIS_ABORT *prAisAbortMsg;
-	uint32_t u4DisconnectReason = DISCONNECT_REASON_CODE_LOCALLY;
 	struct CONNECTION_SETTINGS *prConnSettings;
 	uint8_t ucBssIndex = 0;
 	struct AIS_FSM_INFO *prAisFsmInfo = NULL;
@@ -9190,6 +9189,8 @@ wlanoidSetDisassociate(struct ADAPTER *prAdapter,
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct AIS_EXT_INFO *prAisExtInfo = NULL;
 #endif
+	struct PARAM_DISCONNECT_REASON *prDisconnectReason =
+			(struct PARAM_DISCONNECT_REASON *)pvSetBuffer;
 
 	ASSERT(prAdapter);
 	ASSERT(pu4SetInfoLen);
@@ -9229,12 +9230,16 @@ wlanoidSetDisassociate(struct ADAPTER *prAdapter,
 	if (pvSetBuffer == NULL) {
 		prAisAbortMsg->ucReasonOfDisconnect =
 			DISCONNECT_REASON_CODE_LOCALLY;
+		prAisAbortMsg->u2DeauthReason =
+			REASON_CODE_DEAUTH_LEAVING_BSS;
 	} else {
-		u4DisconnectReason = *((uint32_t *)pvSetBuffer);
 		prAisAbortMsg->ucReasonOfDisconnect =
-			u4DisconnectReason == DISCONNECT_REASON_CODE_DEL_IFACE ?
+			prDisconnectReason->ucReasonOfDisconnect ==
+			DISCONNECT_REASON_CODE_DEL_IFACE ?
 			DISCONNECT_REASON_CODE_LOCALLY :
-			u4DisconnectReason;
+			prDisconnectReason->ucReasonOfDisconnect;
+		prAisAbortMsg->u2DeauthReason =
+			prDisconnectReason->u2DeauthReason;
 	}
 
 	prAisFsmInfo = aisGetAisFsmInfo(prAdapter, ucBssIndex);
@@ -9268,7 +9273,8 @@ wlanoidSetDisassociate(struct ADAPTER *prAdapter,
 
 	return WLAN_STATUS_PENDING;
 #else
-	if (u4DisconnectReason == DISCONNECT_REASON_CODE_DEL_IFACE) {
+	if (prDisconnectReason->ucReasonOfDisconnect ==
+				DISCONNECT_REASON_CODE_DEL_IFACE) {
 		prAdapter->fgSuppSmeLinkDownPend = TRUE;
 
 		return WLAN_STATUS_PENDING;
@@ -14171,6 +14177,33 @@ wlanoidNotifyFwSuspend(
 				   nicOidCmdTimeoutCommon,
 				   sizeof(struct CMD_SUSPEND_MODE_SETTING),
 				   (uint8_t *)prSuspendCmd,
+				   NULL,
+				   0);
+}
+
+uint32_t
+wlanoidNotifyScreenState(
+	struct ADAPTER *prAdapter,
+	void *pvSetBuffer,
+	uint32_t u4SetBufferLen,
+	uint32_t *pu4SetInfoLen) {
+	struct CMD_SCREEN_STATE *prScreenCmd;
+
+	if (!prAdapter || !pvSetBuffer)
+		return WLAN_STATUS_INVALID_DATA;
+
+	prScreenCmd = (struct CMD_SCREEN_STATE *)
+		       pvSetBuffer;
+
+	return wlanSendSetQueryCmd(prAdapter,
+				   CMD_ID_SET_SCREEN_STATE,
+				   TRUE,
+				   FALSE,
+				   TRUE,
+				   nicCmdEventSetCommon,
+				   nicOidCmdTimeoutCommon,
+				   sizeof(struct CMD_SCREEN_STATE),
+				   (uint8_t *)prScreenCmd,
 				   NULL,
 				   0);
 }

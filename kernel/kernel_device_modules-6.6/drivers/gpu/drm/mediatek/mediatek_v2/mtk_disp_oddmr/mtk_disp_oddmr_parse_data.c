@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <errno.h>
 #define DDPINFO printf
+#define DDPPR_ERR printf
 #define kfree free
 typedef unsigned int uint32_t;
 typedef unsigned short uint16_t;
@@ -259,6 +260,13 @@ static int _mtk_oddmr_load_param(struct mtk_drm_oddmr_param *param)
 				table_idx, param->head_id, counting_size, param->size);
 		while (counting_size < param->size && sub_head_id != ODDMR_SECTION_END) {
 			uint32_t tmp_size = 0;
+
+			if (counting_size + 8 > param->size) {// OOB check for sub head+size
+				DDPPR_ERR("%s:%d, 0x%x size error, counting %d + 8 > param %d\n",
+					__func__, __LINE__, sub_head_id, counting_size, param->size);
+				ret = -EFAULT;
+				goto fail;
+			}
 			/* p is now pointing to sub head */
 			tmp_head_id = *(uint32_t *)p;
 			sub_head_id = tmp_head_id & 0xFFFF;
@@ -270,6 +278,12 @@ static int _mtk_oddmr_load_param(struct mtk_drm_oddmr_param *param)
 			counting_size += 4;
 			DDPINFO("%s:%d, parsing 0x%x size %d\n", __func__, __LINE__,
 					tmp_head_id, tmp_size);
+			if (counting_size + tmp_size > param->size) {// OOB check for sub data_body
+				DDPPR_ERR("%s:%d, 0x%x size error, counting %d + tmp %d > param %d\n",
+					__func__, __LINE__, sub_head_id, counting_size, tmp_size, param->size);
+				ret = -EFAULT;
+				goto fail;
+			}
 			/* p is now pointing to sub data_body */
 			if (tmp_size == 0) {
 				DDPINFO("%s:%d, tmp_head_id 0x%x skip due to size = 0\n",

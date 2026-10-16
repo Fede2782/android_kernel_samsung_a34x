@@ -921,8 +921,14 @@ mtk_camsv_pipeline_create(struct device *dev, int n)
 {
 	if (n <= 0)
 		return NULL;
-	return devm_kcalloc(dev, n, sizeof(struct mtk_camsv_pipeline),
-			    GFP_KERNEL);
+
+	return vzalloc(n * sizeof(struct mtk_camsv_pipeline));
+}
+
+void mtk_camsv_pipeline_delete(struct mtk_camsv_pipeline *pipeline)
+{
+	if (pipeline != NULL)
+		vfree(pipeline);
 }
 
 int mtk_cam_sv_update_feature(struct mtk_cam_video_device *node)

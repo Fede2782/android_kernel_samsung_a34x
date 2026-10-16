@@ -1188,6 +1188,9 @@ static int xhci_stop_hid_ep(struct hid_ep_info *hid)
 		break;
 	}
 	xhci_free_command_(uodev->xhci, command);
+
+	/* delay for dsp driver handling */
+	mdelay(10);
 error:
 	hid_dbg("ret:%d\n", ret);
 	return ret;

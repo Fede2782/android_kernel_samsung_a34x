@@ -22,10 +22,10 @@
 #include "apu_mem_def.h"
 
 #define mdw_mem_show(m) \
-	mdw_mem_debug("mem(0x%llx/0x%llx/%d/0x%llx/%d/0x%llx/0x%llx/0x%llx" \
-	"/0x%llx/0x%llx/%llu/0x%llx/%d/%p)(%d)(%u)\n", \
-	(uint64_t)m->mpriv, (uint64_t)m, m->handle, (uint64_t)m->dbuf, \
-	m->type, (uint64_t)m->vaddr, m->size, \
+	mdw_mem_debug("mem(0x%llx/0x%llx/%d/%pK/%d/%pK/0x%llx/0x%llx" \
+	"/0x%llx/0x%llx/%llu/0x%llx/%d/%pK)(%d)(%u)\n", \
+	m->mpriv->id, m->id, m->handle, (void *)m->dbuf, \
+	m->type, (void *)m->vaddr, m->size, \
 	m->device_va, m->device_iova, m->dva_size, m->align, m->flags, \
 	m->need_handle, m->priv, task_pid_nr(current), m->buf_type)
 
@@ -139,6 +139,7 @@ static struct mdw_mem *mdw_mem_create(struct mdw_fpriv *mpriv)
 		m->handle = -1;
 		m->belong_list = false;
 		m->pool = NULL;
+		m->id = hash_ptr(m, 64);
 		INIT_LIST_HEAD(&m->p_chunk);
 		mutex_init(&m->mtx);
 		INIT_LIST_HEAD(&m->maps);
@@ -350,7 +351,7 @@ static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	/* check size */
 	if (m->size > m->dbuf->size) {
 		mdw_drv_err("m(0x%llx/0x%llx/%d/0x%llx) size not match(%llu/%lu)\n",
-			(uint64_t)m->mpriv, (uint64_t)m, m->handle, (uint64_t)m->dbuf,
+			m->mpriv->id, m->id, m->handle, (uint64_t)m->dbuf,
 			m->size, m->dbuf->size);
 		ret = -EINVAL;
 		goto out;
@@ -378,6 +379,7 @@ static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 
 	map->get = mdw_mem_map_get;
 	map->put = mdw_mem_map_put;
+	map->id = hash_ptr(map, 64);
 
 	/* attach device */
 	mdw_trace_begin("apumdw:attach|size:%llu align:%llu",
@@ -415,7 +417,7 @@ static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	/* check iova and size */
 	if (!m->device_iova || !m->dva_size) {
 		mdw_drv_err("can't get mem(0x%llx) iova(0x%llx/%llu)\n",
-			(uint64_t)m, m->device_va, m->dva_size);
+			m->id, m->device_va, m->dva_size);
 		ret = -ENOMEM;
 		goto unmap_dbuf;
 	}
@@ -427,11 +429,11 @@ static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	/* handle iova to eva */
 	mdw_trace_begin("apummu:iova2eva|iova:0x%llx,size:%llu btype(%d)",
 		m->device_iova, m->dva_size, m->buf_type);
-	ret = apu_mem_map_iova(m->buf_type, (uint64_t)m->mpriv, m->device_iova, m->dva_size, &eva);
+	ret = apu_mem_map_iova(m->buf_type, m->mpriv->id, m->device_iova, m->dva_size, &eva);
 	mdw_trace_end();
 
 	if (ret) {
-		mdw_drv_err("apu_mem_map_iova fail s(0x%llx) ret(%d)\n", (uint64_t)m->mpriv, ret);
+		mdw_drv_err("apu_mem_map_iova fail s(0x%llx) ret(%d)\n", m->mpriv->id, ret);
 		is_apummu = true;
 		ret = -EINVAL;
 		goto unmap_dbuf;
@@ -442,11 +444,11 @@ static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	/* check eva */
 	if (!m->device_va) {
 		mdw_drv_err("can't get mem(0x%llx) dva(0x%llx)\n",
-			(uint64_t)m, m->device_va);
+			m->id, m->device_va);
 		ret = -ENOMEM;
 		goto unmap_dbuf;
 	}
-	mdw_mem_debug("iova2eva pass s(0x%llx)\n", (uint64_t)m->mpriv);
+	mdw_mem_debug("iova2eva pass s(0x%llx)\n", m->mpriv->id);
 
 skip_iova2eva:
 	map->m = m;
@@ -489,7 +491,7 @@ static void mdw_mem_invoke_release(struct kref *ref)
 
 	mdw_mem_show(m_invoke->m);
 	if (m->unbind)
-		m->unbind(m_invoke->invoker, m_invoke->m);
+		m->unbind(m_invoke->invoker->id, m_invoke->m);
 	list_del(&m_invoke->u_node);
 	kfree(m_invoke);
 	map->put(map);
@@ -504,7 +506,7 @@ static struct mdw_mem_invoke *mdw_mem_invoke_find(struct mdw_fpriv *mpriv,
 	list_for_each_entry(m_invoke, &mpriv->invokes, u_node) {
 		if (m_invoke->m == m) {
 			mdw_flw_debug("s(0x%llx) find invoke(0x%llx) to mem(0x%llx)\n",
-				(uint64_t)mpriv, (uint64_t)m_invoke,
+				mpriv->id, (uint64_t)m_invoke,
 				(uint64_t)m);
 			return m_invoke;
 		}
@@ -549,10 +551,10 @@ static int mdw_mem_invoke_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	kref_init(&m_invoke->ref);
 	list_add_tail(&m_invoke->u_node, &mpriv->invokes);
 	if (m->bind) {
-		ret = m->bind(mpriv, m);
+		ret = m->bind(mpriv->id, m);
 		if (ret) {
 			mdw_drv_err("m(0x%llx) bind usr(0x%llx) fail\n",
-				(uint64_t)m, (uint64_t)mpriv);
+				m->id, mpriv->id);
 			goto delete_invoke;
 		}
 	}
@@ -589,14 +591,14 @@ int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 		ret = mdw_mem_map_create(mpriv, m);
 		if (ret) {
 			mdw_drv_err("m(0x%llx) map fail(%d)\n",
-				(uint64_t)m, ret);
+				m->id, ret);
 			goto out;
 		} else {
 			/* map create ok, create invoke for map */
 			ret = mdw_mem_invoke_create(mpriv, m);
 			if (ret)
 				mdw_drv_err("m(0x%llx) create invoke fail(%d)\n",
-					(uint64_t)m, ret);
+					m->id, ret);
 		}
 
 		m->map->put(m->map);
@@ -607,11 +609,11 @@ int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 		/* handle iova2eva */
 		mdw_trace_begin("apummu:iova2eva|iova:0x%llx,size:%llu btype(%d)",
 			m->device_iova, m->dva_size, m->buf_type);
-		ret = apu_mem_map_iova(m->buf_type, (uint64_t)mpriv, m->device_iova,
+		ret = apu_mem_map_iova(m->buf_type, mpriv->id, m->device_iova,
 				m->dva_size, &eva);
 		mdw_trace_end();
 		if (ret) {
-			mdw_drv_err("apu_mem_map_iova fail s(0x%llx) ret(%d),\n", (uint64_t)mpriv, ret);
+			mdw_drv_err("apu_mem_map_iova fail s(0x%llx) ret(%d),\n", mpriv->id, ret);
 			ret = -EINVAL;
 			goto out;
 		}
@@ -619,11 +621,11 @@ int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 		/* check eva */
 		if (!m->device_va) {
 			mdw_drv_err("can't get mem(0x%llx) dva(0x%llx)\n",
-				(uint64_t)m, m->device_va);
+				m->id, m->device_va);
 			ret = -ENOMEM;
 			goto out;
 		}
-		mdw_mem_debug("iova2eva pass s(0x%llx)\n", (uint64_t)mpriv);
+		mdw_mem_debug("iova2eva pass s(0x%llx)\n", mpriv->id);
 
 	}
 skip_iova2eva:
@@ -636,7 +638,7 @@ skip_iova2eva:
 		ret = mdw_mem_invoke_create(mpriv, m);
 		if (ret)
 			mdw_drv_err("m(0x%llx) invoke fail(%d)\n",
-				(uint64_t)m, ret);
+				m->id, ret);
 	}
 
 	goto out;
@@ -657,7 +659,7 @@ int mdw_mem_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	m_invoke = mdw_mem_invoke_find(mpriv, m);
 	if (m_invoke == NULL) {
 		mdw_drv_warn("s(0x%llx) no invoke m(0x%llx)\n",
-			(uint64_t)mpriv, (uint64_t)m);
+			mpriv->id, (uint64_t)m);
 		ret = -EINVAL;
 		goto out;
 	}
@@ -769,13 +771,13 @@ static int mdw_mem_ioctl_alloc_fb(struct mdw_fpriv *mpriv,
 		in->alloc_fb.total_vlm_size, in->alloc_fb.num_subcmds);
 	mdw_trace_begin("apummu:alloc dram fb|size:%u",
 		in->alloc_fb.total_vlm_size);
-	ret = apummu_DRAM_FB_alloc((uint64_t)mpriv, in->alloc_fb.total_vlm_size,
+	ret = apummu_DRAM_FB_alloc(mpriv->id, in->alloc_fb.total_vlm_size,
 		in->alloc_fb.num_subcmds);
 	mdw_trace_end();
 
 	if (ret)
-		mdw_drv_err("apummu: alloc fb size(%u) fail(%d) num_subcmds(%u)\n",
-			in->alloc_fb.total_vlm_size, ret,
+		mdw_drv_err("apummu: s(0x%llx) alloc fb size(%u) fail(%d) num_subcmds(%u)\n",
+			mpriv->id, in->alloc_fb.total_vlm_size, ret,
 			in->alloc_fb.num_subcmds);
 
 	return ret;
@@ -797,7 +799,7 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 
 	dbuf = dma_buf_get(handle);
 	if (IS_ERR_OR_NULL(dbuf)) {
-		mdw_drv_err("handle(%d) not dmabuf\n", handle);
+		mdw_drv_err("s(0x%llx) handle(%d) not dmabuf\n", mpriv->id, handle);
 		return -EINVAL;
 	}
 
@@ -809,7 +811,7 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 	if (!m) {
 		m = mdw_mem_create(mpriv);
 		if (!m) {
-			mdw_drv_err("create mdw mem fail\n");
+			mdw_drv_err("s(0x%llx) create mdw mem fail\n", mpriv->id);
 			goto out;
 		} else {
 			m->size = size;
@@ -890,7 +892,7 @@ out:
 	mutex_unlock(&mpriv->mdev->mctl_mtx);
 	mutex_unlock(&mpriv->mtx);
 	if (ret)
-		mdw_drv_err("handle(%d) ret(%d)\n", handle, ret);
+		mdw_drv_err("s(0x%llx) handle(%d) ret(%d)\n", mpriv->id, handle, ret);
 
 	return ret;
 }
@@ -900,7 +902,7 @@ int mdw_mem_ioctl(struct mdw_fpriv *mpriv, void *data)
 	union mdw_mem_args *args = (union mdw_mem_args *)data;
 	int ret = 0;
 
-	mdw_flw_debug("s(0x%llx) op::%d\n", (uint64_t)mpriv, args->in.op);
+	mdw_flw_debug("s(0x%llx) op::%d\n", mpriv->id, args->in.op);
 	switch (args->in.op) {
 	case MDW_MEM_IOCTL_ALLOC:
 		ret = mdw_mem_ioctl_alloc(mpriv, args);
@@ -983,13 +985,13 @@ int apusys_mem_validate_by_cmd(void *session, void *cmd, uint64_t eva, uint32_t 
 	}
 
 	mdw_vld_debug("target: s(0x%llx) c(0x%llx) iova(0x%llx/%u)\n",
-		(uint64_t)mpriv, (uint64_t)c, iova, size);
+		mpriv->id, c->kid, iova, size);
 
 	if (c) {
 		/* check c/s match */
 		if (c->mpriv != session) {
 			mdw_drv_err("session(0x%llx) cmd(0x%llx) not match\n",
-				(uint64_t)mpriv, (uint64_t)c);
+				mpriv->id, c->kid);
 			return -EINVAL;
 		}
 	}
@@ -1007,7 +1009,7 @@ int apusys_mem_validate_by_cmd(void *session, void *cmd, uint64_t eva, uint32_t 
 			ret = mdw_cmd_invoke_map(c, m->map);
 			if (ret) {
 				mdw_drv_err("s(0x%llx)c(0x%llx)m(0x%llx/%u)get map fail(%d)\n",
-					(uint64_t)session, (uint64_t)cmd,
+					c->mpriv->id, c->kid,
 					iova, size, ret);
 			}
 		}

@@ -87,7 +87,6 @@ u8 g_qof_ver = 0;
 u32 g_dbg_log_on = 0;
 u32 g_disable_qof = 0;
 u32 g_force_dump_vcp = 0;
-static struct cmdq_pkt *g_gce_set_rg_pkt;
 static struct qof_events qof_events_7sp[IMGSYS_CMDQ_SYNC_POOL_NUM];
 u32 **g_dip_work_buf_va = NULL;
 u32 **g_traw_work_buf_va = NULL;
@@ -1104,49 +1103,6 @@ static struct kernel_param_ops query_qof_status_ops = {
 module_param_cb(query_qof_status, &query_qof_status_ops, NULL, 0644);
 MODULE_PARM_DESC(query_qof_status,
 	"query_qof_status");
-
-int mtk_qof_gce_set_reg(const char *val, const struct kernel_param *kp)
-{
-	int ret;
-	struct cmdq_client *client;
-	struct cmdq_pkt *gce_pkt;
-	unsigned int addr = 0;
-	unsigned int value = 0;
-	unsigned mode = 0;
-
-	ret = sscanf(val, "%u %u %u", &mode, &addr, &value);
-	if (ret <= 0) {
-		pr_err("[%s] param fail, plz check ! \n", __func__);
-		return 0;
-	}
-	pr_info("[%s] mode =%u addr=0x%x,value=%u\n", __func__, mode, addr, value);
-	client = imgsys_pwr_clt[0];
-	cmdq_mbox_enable(client->chan);
-	pr_info("[%s] cmdq_mbox_enable \n", __func__);
-	gce_pkt = g_gce_set_rg_pkt = cmdq_pkt_create(client);
-	if (!gce_pkt) {
-		pr_info("%s:create cmdq package fail\n", __func__);
-		return 0;
-	}
-
-	cmdq_pkt_write(gce_pkt, NULL, addr, value, 0xffffffff);
-	pr_info("[%s] cmdq_pkt_write \n", __func__);
-	gce_pkt->priority = IMGSYS_PRI_HIGH;
-	cmdq_pkt_flush_async(gce_pkt, NULL, (void *)g_gce_set_rg_pkt);
-	pr_info("[%s] cmdq_pkt_flush_async \n", __func__);
-	cmdq_pkt_wait_complete(gce_pkt);
-	cmdq_pkt_destroy(gce_pkt);
-
-	return 0;
-}
-
-static struct kernel_param_ops qof_gce_set_reg_ops = {
-	.set = mtk_qof_gce_set_reg,
-};
-
-module_param_cb(qof_gce_set_reg, &qof_gce_set_reg_ops, NULL, 0644);
-MODULE_PARM_DESC(qof_gce_set_reg,
-	"test for gce_set_reg_ops");
 
 int mtk_qof_dbg_ctrl(const char *val, const struct kernel_param *kp)
 {

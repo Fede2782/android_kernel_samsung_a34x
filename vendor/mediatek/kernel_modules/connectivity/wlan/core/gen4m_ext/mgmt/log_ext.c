@@ -2321,8 +2321,7 @@ void connLogConnect(
 		uint8_t *pucIEStart = (uint8_t *)sme->ie;
 		if (wextSrchDesiredWPAIE(pucIEStart, sme->ie_len, ELEM_ID_RSN,
 					 (uint8_t **) &prDesiredIE)) {
-			if (rsnParseRsnIE(prAdapter,
-			    (struct RSN_INFO_ELEM *)prDesiredIE, &rRsnInfo)) {
+			if (rsnParseRsnIE(prAdapter, prDesiredIE, &rRsnInfo)) {
 #if CFG_SUPPORT_802_11W
 				if (rRsnInfo.u2RsnCap & ELEM_WPA_CAP_MFPC) {
 					ucMfpCap = RSN_AUTH_MFP_OPTIONAL;

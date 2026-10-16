@@ -62,6 +62,14 @@ config MTK_ECCCI_DEBUG_LOG
 	  only be opened on userdebug load, if unsure, say N.
 	  The option default disabled.
 
+config MTK_CCCI_DUMP
+	bool "kernel addr ccci_dump enable"
+	help
+	  This is used for differentiate between user load and other load.
+	  Say Y here if will dump some md mem info in ccci_dump,
+	  only be opened on userdebug and eng load, if unsure, say N.
+	  The option default disabled.
+
 config MTK_SRIL_SUPPORT
 	bool "MTK support S-RIL"
 	default n

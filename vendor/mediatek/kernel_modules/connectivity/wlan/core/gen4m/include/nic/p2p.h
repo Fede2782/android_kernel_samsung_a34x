@@ -374,6 +374,17 @@ struct P2P_SPECIFIC_BSS_INFO {
 	uint16_t u2RsnxIeLen;
 	uint8_t aucRsnxIeBuffer[ELEM_HDR_LEN + ELEM_MAX_LEN_RSN];
 
+#if (CFG_SUPPORT_RSNO == 1)
+	uint16_t u2RsnoIeLen;
+	uint8_t aucRsnoIeBuffer[ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4];
+
+	uint16_t u2Rsno2IeLen;
+	uint8_t aucRsno2IeBuffer[ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4];
+
+	uint16_t u2RsnxoIeLen;
+	uint8_t aucRsnxoIeBuffer[ELEM_HDR_LEN + ELEM_MAX_LEN_RSN + 4];
+#endif /* CFG_SUPPORT_RSNO */
+
 	uint16_t u2OweIeLen;
 	uint8_t aucOweIeBuffer[ELEM_HDR_LEN + ELEM_MAX_LEN_WPA];
 

@@ -865,7 +865,9 @@ static int ccci_md_prepare_runtime_data(unsigned char *data, int length)
 {
 	struct ccci_modem *md = ccci_get_modem();
 	u8 i = 0;
+#if IS_ENABLED(CONFIG_MTK_CCCI_DUMP)
 	u32 total_len;
+#endif
 	int j;
 	/*runtime data buffer */
 	struct ccci_smem_region *region;
@@ -1406,11 +1408,14 @@ static int ccci_md_prepare_runtime_data(unsigned char *data, int length)
 
 	}
 
-	total_len = rt_data - (char *)rt_data_region->base_ap_view_vir;
+
+
 	CCCI_BOOTUP_DUMP_LOG(0, FSM, "AP runtime data\n");
+#if IS_ENABLED(CONFIG_MTK_CCCI_DUMP)
+	total_len = rt_data - (char *)rt_data_region->base_ap_view_vir;
 	ccci_util_mem_dump(CCCI_DUMP_BOOTUP,
 		rt_data_region->base_ap_view_vir, total_len);
-
+#endif
 	return 0;
 }
 

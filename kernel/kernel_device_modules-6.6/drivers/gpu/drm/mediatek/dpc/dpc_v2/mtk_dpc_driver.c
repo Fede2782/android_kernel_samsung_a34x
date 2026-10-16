@@ -43,6 +43,8 @@
 #include "mdp_dpc.h"
 #include "mtk_vdisp.h"
 
+#define DPC_MEM_SIZE 0x2000
+
 int debug_mmp = 1;
 module_param(debug_mmp, int, 0644);
 int debug_dvfs;
@@ -75,6 +77,8 @@ static void __iomem *mmpc_ddrsrc_req;
 static void __iomem *spm_ddr_emi_req;
 static void __iomem *vdisp_dvfsrc_sw_req4;
 static void __iomem *clk_disp_sel;
+
+static atomic_t g_user_0 = ATOMIC_INIT(0);
 
 static const char trace_buf_mml_on[] = "C|-65536|MML1_power|1\n";
 static const char trace_buf_mml_off[] = "C|-65536|MML1_power|0\n";
@@ -512,6 +516,8 @@ static void dpc_dt_en_all(const enum mtk_dpc_subsys subsys, u32 dt_en)
 
 static void dpc_dt_set_update(u16 dt, u32 us)
 {
+	if (dt >= DPC2_VIDLE_CNT)
+		return;
 	if (g_priv->dpc2_dt_usage) {
 		g_priv->dpc2_dt_usage[dt].val = us;
 	} else {
@@ -1190,6 +1196,8 @@ static int dpc_config(const enum mtk_dpc_subsys subsys, bool en)
 
 	if (!en && is_mminfra_ctrl_by_dpc) {
 		mtk_dprec_logger_pr(DPREC_LOGGER_FENCE, "dpc get mminfra\n");
+		if (atomic_read(&g_user_0))	/* restore mminfra ref cnt by disp_vcore in genpd notifier */
+			dpc_vidle_power_keep(DISP_VIDLE_USER_DISP_VCORE);
 		if (dpc_pm_ctrl(true))
 			return -EFAULT;
 		is_mminfra_ctrl_by_dpc = false;
@@ -1206,6 +1214,8 @@ static int dpc_config(const enum mtk_dpc_subsys subsys, bool en)
 
 	if (en && has_cap(DPC_CAP_MMINFRA_PLL) && !is_mminfra_ctrl_by_dpc) {
 		dpc_pm_ctrl(false);
+		if (atomic_read(&g_user_0))	/* put mminfra ref cnt by disp_vcore in genpd notifier */
+			dpc_vidle_power_release(DISP_VIDLE_USER_DISP_VCORE);
 		is_mminfra_ctrl_by_dpc = true;
 		mtk_dprec_logger_pr(DPREC_LOGGER_FENCE, "dpc put mminfra\n");
 	}
@@ -1605,8 +1615,11 @@ static int dpc_vidle_power_keep(const enum mtk_vidle_voter_user _user)
 
 	mtk_disp_vlp_vote(VOTE_SET, user);
 
-	if (!g_priv->enabled || user < DISP_VIDLE_USER_CRTC)
+	if (!g_priv->enabled || user < DISP_VIDLE_USER_CRTC) {
+		if (user == DISP_VIDLE_USER_DISP_VCORE)
+			atomic_set(&g_user_0, 1);
 		return ret;
+	}
 
 	switch (user) {
 	case DISP_VIDLE_USER_MML1:
@@ -1662,6 +1675,9 @@ static void dpc_vidle_power_release(const enum mtk_vidle_voter_user user)
 		return;
 
 	dpc_pm_ctrl(false);
+
+	if (user == DISP_VIDLE_USER_DISP_VCORE)
+		atomic_set(&g_user_0, 0);
 }
 
 static void dpc_clear_wfe_event(struct cmdq_pkt *pkt, enum mtk_vidle_voter_user user, int event)
@@ -1955,7 +1971,7 @@ static void process_dbg_opt(const char *opt)
 
 	if (strncmp(opt, "wr:", 3) == 0) {
 		ret = sscanf(opt, "wr:0x%x=0x%x\n", &v1, &v2);
-		if (ret != 2)
+		if (ret != 2 || v1 >= DPC_MEM_SIZE)
 			goto err;
 		DPCFUNC("(%pK)=(%x)", dpc_base + v1, v2);
 		writel(v2, dpc_base + v1);

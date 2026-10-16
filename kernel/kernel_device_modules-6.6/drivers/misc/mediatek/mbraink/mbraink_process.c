@@ -161,10 +161,10 @@ void mbraink_get_process_stat_info(pid_t current_pid, unsigned int cnt,
 			process_stat_buffer->drv_data[pid_count].priority = priority;
 			process_stat_buffer->pid_count++;
 			process_stat_buffer->current_cnt++;
-			put_cred_module(cred);
+			put_cred(cred);
 		} else {
 			process_stat_buffer->pid = (unsigned short)(t->pid);
-			put_cred_module(cred);
+			put_cred(cred);
 			break;
 		}
 	}
@@ -276,12 +276,12 @@ void mbraink_get_thread_stat_info(pid_t current_pid_idx, pid_t current_tid,
 					thread_stat_buffer->tid_count++;
 					thread_stat_buffer->current_cnt++;
 
-					put_cred_module(cred);
+					put_cred(cred);
 				} else {
 					ret = -1;
 					thread_stat_buffer->tid = (unsigned short)(s->pid);
 					thread_stat_buffer->pid_idx = index;
-					put_cred_module(cred);
+					put_cred(cred);
 					break;
 				}
 			}
@@ -488,7 +488,7 @@ void mbraink_show_process_info(void)
 					nsec_to_clock_t(cstime), "NULL");
 			}
 
-			put_cred_module(cred);
+			put_cred(cred);
 			for_each_thread(t, s) {
 				cred = get_task_cred(s);
 				cutime = cstime = stime = utime = 0;
@@ -501,7 +501,7 @@ void mbraink_show_process_info(void)
 					s->pid, cred->uid.val, priority, nsec_to_clock_t(utime),
 					nsec_to_clock_t(stime), nsec_to_clock_t(cutime),
 					nsec_to_clock_t(cstime), s->comm);
-				put_cred_module(cred);
+				put_cred(cred);
 			}
 		} else {
 			cred = get_task_cred(t);
@@ -513,7 +513,7 @@ void mbraink_show_process_info(void)
 				t->pid, cred->uid.val, priority, nsec_to_clock_t(utime),
 				nsec_to_clock_t(stime), nsec_to_clock_t(cutime),
 				nsec_to_clock_t(cstime), t->comm);
-			put_cred_module(cred);
+			put_cred(cred);
 		}
 	}
 	read_unlock(&tasklist_lock);
@@ -562,7 +562,7 @@ static u16 mbraink_get_specific_process_uid(struct task_struct *t)
 
 	cred = get_task_cred(t);
 	val = cred->uid.val;
-	put_cred_module(cred);
+	put_cred(cred);
 
 	return val;
 }

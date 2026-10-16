@@ -695,17 +695,19 @@ static inline bool is_csf_scheduler_protm_seq_completed(struct kbase_device *kbd
 	struct kbase_csf_protm_mem_pages_defer_ctrl *pages_defer_ctrl =
 		&kbdev->csf.scheduler.pages_defer_ctrl;
 	int cur_seq_nr;
+	int event_id;
 
 	/* By design, seq_nr >= 0, and is always <= MAX_PROTM_EVENT_SEQ_NR */
 	WARN_ONCE(seq_nr > MAX_PROTM_EVENT_SEQ_NR || seq_nr < 0,
 		  "Unexpected 'event_seq_number > MAX_PROTM_EVENT_SEQ_NR || event_seq_number < 0'");
 
-	cur_seq_nr = GET_PROTM_EVENT_ID_SEQ(atomic_read(&pages_defer_ctrl->protm_event_id));
+	event_id = atomic_read(&pages_defer_ctrl->protm_event_id);
+	cur_seq_nr = GET_PROTM_EVENT_ID_SEQ(event_id);
 	/* protm event sequence number is ever increasing, but could wrap back to 0 */
 	if (cur_seq_nr < seq_nr)
 		cur_seq_nr += MAX_PROTM_EVENT_SEQ_NR + 1;
 
-	return cur_seq_nr > seq_nr;
+	return ((cur_seq_nr > seq_nr) || !(event_id & CSF_SCHED_PROTM_EVENT_FLAGS_MASK));
 }
 
 /**

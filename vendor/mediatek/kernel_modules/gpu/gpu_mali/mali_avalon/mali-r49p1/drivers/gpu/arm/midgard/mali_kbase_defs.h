@@ -1814,6 +1814,7 @@ struct kbase_sub_alloc {
 	struct list_head link;
 	struct page *page;
 	DECLARE_BITMAP(sub_pages, NUM_PAGES_IN_2MB_LARGE_PAGE);
+	int group_id;
 };
 
 

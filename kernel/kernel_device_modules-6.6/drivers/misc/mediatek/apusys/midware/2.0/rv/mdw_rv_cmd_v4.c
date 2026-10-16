@@ -96,7 +96,7 @@ static void mdw_rv_cmd_print(struct mdw_rv_msg_cmd *rc)
 	mdw_cmd_debug("-------------------------\n");
 	mdw_cmd_debug("rc kid(0x%llx)\n", rc->cmd_id);
 	mdw_cmd_debug(" inference_id = 0x%llx\n", rc->inference_id);
-	mdw_cmd_debug(" session = 0x%llx\n", rc->session_id);
+	mdw_cmd_debug(" session_id = 0x%llx\n", rc->session_id);
 	mdw_cmd_debug(" priority = %u\n", rc->priority);
 	mdw_cmd_debug(" hardlimit = %u\n", rc->hardlimit);
 	mdw_cmd_debug(" softlimit = %u\n", rc->softlimit);
@@ -199,7 +199,7 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	if (!rc)
 		goto out;
 
-	c->rvid = (uint64_t)&rc->s_msg;
+	c->rvid = hash_ptr(&rc->s_msg, 64);
 	init_completion(&rc->s_msg.cmplt);
 
 	/* calc size and offset */
@@ -250,7 +250,7 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 
 	/* assign cmd info */
 	rmc = (struct mdw_rv_msg_cmd *)rc->cb->vaddr;
-	rmc->session_id = (uint64_t)c->mpriv;
+	rmc->session_id = c->mpriv->id;
 	rmc->cmd_id = c->kid;
 	rmc->pid = (uint32_t)c->pid;
 	rmc->tgid = (uint32_t)c->tgid;
@@ -360,7 +360,7 @@ reuse:
 
 	if (mdw_mem_flush(mpriv, rc->cb))
 		mdw_drv_warn("s(0x%llx) c(0x%llx/0x%llx) flush rv cbs(%llu) fail\n",
-			(uint64_t)c->mpriv, c->kid, c->rvid, rc->cb->size);
+			c->mpriv->id, c->kid, c->rvid, rc->cb->size);
 
 
 	goto out;
@@ -381,7 +381,7 @@ static void mdw_rv_cmd_cp_execinfo(struct mdw_rv_cmd *rc)
 	/* invalidate */
 	if (mdw_mem_invalidate(c->mpriv, rc->cb))
 		mdw_drv_warn("s(0x%llx) c(0x%llx/0x%llx/0x%llx) invalidate rcbs(%llu) fail\n",
-			(uint64_t)c->mpriv, c->uid, c->kid,
+			c->mpriv->id, c->uid, c->kid,
 			c->rvid, rc->cb->size);
 
 	/* copy exec infos */

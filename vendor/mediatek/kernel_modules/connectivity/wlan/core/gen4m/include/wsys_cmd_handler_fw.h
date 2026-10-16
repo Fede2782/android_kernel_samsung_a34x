@@ -391,6 +391,7 @@ enum ENUM_CMD_ID {
 #if (CFG_VOLT_INFO == 1)
 	CMD_ID_SEND_VOLT_INFO = 0xD7,
 #endif
+	CMD_ID_SET_SCREEN_STATE = 0xDB,  /* 0xDB (Set) */
 	CMD_ID_SET_RDD_CH           = 0xE1,
 
 	CMD_ID_SET_P2P_LO_START    = 0xE2, /* 0xE2 (Set) */
@@ -765,6 +766,13 @@ enum ENUM_WEP_STATUS {
 	ENUM_ENCRYPTION4_ENABLED, /* GCMP256/GCMP128(WPA2/WPA3) */
 	ENUM_ENCRYPTION4_KEY_ABSENT,
 	ENUM_ENCRYPTION_NUM
+};
+
+enum ENUM_RSN_OVERRIDE {
+	RSN_OVERRIDE_NOT_USED,
+	RSN_OVERRIDE_RSNE,
+	RSN_OVERRIDE_RSNE_OVERRIDE,
+	RSN_OVERRIDE_RSNE_OVERRIDE_2,
 };
 
 /*---------------------------------------------------------------------------*/

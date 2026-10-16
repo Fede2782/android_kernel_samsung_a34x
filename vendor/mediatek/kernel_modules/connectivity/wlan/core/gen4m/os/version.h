@@ -48,12 +48,12 @@
 
 /* Define our driver version */
 #define NIC_DRIVER_MAJOR_VERSION        8
-#define NIC_DRIVER_MINOR_VERSION        1188
+#define NIC_DRIVER_MINOR_VERSION        1314
 #define NIC_DRIVER_SERIAL_VERSION       0
 #define NIC_DRIVER_VERSION              (NIC_DRIVER_MAJOR_VERSION, \
 					 NIC_DRIVER_MINOR_VERSION, \
 					 NIC_DRIVER_SERIAL_VERSION)
-#define NIC_DRIVER_VERSION_STRING       "8.1188.0"
+#define NIC_DRIVER_VERSION_STRING       "8.1314.0"
 
 /*******************************************************************************
  *                             D A T A   T Y P E S
