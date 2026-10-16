@@ -28,7 +28,7 @@
 #define ST_LOG(fmt, ...)
 #endif
 
-#define SEC_BIGDATA_VERSION		(3)
+#define SEC_BIGDATA_VERSION		(4)
 
 static struct proc_dir_entry *f2fs_proc_root;
 
@@ -798,6 +798,7 @@ void f2fs_write_ddp_stats(struct f2fs_sb_info *sbi)
 	ret = submit_bio_wait(bio);
 	if (ret)
 		f2fs_warn(sbi, "extra_flag: Failed to submit bio, ret %d", ret);
+	bio_put(bio);
 	folio_end_writeback(folio);
 	folio_put(folio);
 }
@@ -1758,8 +1759,6 @@ F2FS_SBI_GENERAL_RW_ATTR(max_read_extent_count);
 F2FS_SBI_GENERAL_RO_ATTR(unusable_blocks_per_sec);
 F2FS_SBI_GENERAL_RW_ATTR(blkzone_alloc_policy);
 #endif
-/* enable sanity check to dump more metadata info */
-F2FS_SBI_GENERAL_RW_ATTR(sanity_check);
 F2FS_SBI_GENERAL_RW_ATTR(carve_out);
 F2FS_SBI_RW_ATTR_640(sec_gc_stat, sec_stat);
 F2FS_SBI_RW_ATTR_640(sec_io_stat, sec_stat);
@@ -2002,7 +2001,6 @@ static struct attribute *f2fs_attrs[] = {
 	ATTR_LIST(warm_data_age_threshold),
 	ATTR_LIST(last_age_weight),
 	ATTR_LIST(max_read_extent_count),
-	ATTR_LIST(sanity_check),
 	ATTR_LIST(carve_out),
 	NULL,
 };

@@ -163,10 +163,13 @@ extern inline void set_cred_subscribers(struct cred *cred, int n);
 extern void put_rocred_rcu(struct rcu_head *rcu);
 extern void kdp_put_cred_rcu(struct cred *cred, void *put_cred_rcu);
 extern unsigned int kdp_get_usecount(struct cred *cred);
-extern void kdp_usecount_inc(struct cred *cred);
 extern unsigned int kdp_usecount_inc_not_zero(struct cred *cred);
+
+#if !defined(MODULE)
+extern void kdp_usecount_inc(struct cred *cred);
 extern unsigned int kdp_usecount_dec_and_test(struct cred *cred);
 extern void kdp_set_cred_non_rcu(struct cred *cred, int val);
+#endif
 
 // linux/cred.h
 extern int security_integrity_current(void);

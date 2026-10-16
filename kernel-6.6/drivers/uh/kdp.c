@@ -159,7 +159,6 @@ void kdp_usecount_inc(struct cred *cred)
 	else
 		atomic_long_inc(&cred->usage);
 }
-EXPORT_SYMBOL(kdp_usecount_inc);
 
 unsigned int kdp_usecount_inc_not_zero(struct cred *cred)
 {
@@ -176,7 +175,6 @@ unsigned int kdp_usecount_dec_and_test(struct cred *cred)
 	else
 		return atomic_long_dec_and_test(&cred->usage);
 }
-EXPORT_SYMBOL(kdp_usecount_dec_and_test);
 
 void kdp_set_cred_non_rcu(struct cred *cred, int val)
 {
@@ -185,7 +183,6 @@ void kdp_set_cred_non_rcu(struct cred *cred, int val)
 	else
 		cred->non_rcu = val;
 }
-EXPORT_SYMBOL(kdp_set_cred_non_rcu);
 
 /* match for kernel/cred.c function */
 inline void set_kdp_cred_subscribers(struct cred *cred, int n)

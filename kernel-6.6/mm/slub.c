@@ -2030,7 +2030,7 @@ def_alloc:
 		va_page = (u64)__va(page_to_phys(folio_page(folio, 0)));
 
 		if (type) {
-			for (sc = 0; sc < (1 << oo_order(oo)); sc++) {
+			for (sc = 0; sc < ((u64)1 << oo_order(oo)); sc++) {
 				kdp_set_slab_ro(va_page, type);
 				va_page += PAGE_SIZE;
 			}
@@ -2282,7 +2282,7 @@ static void free_ro_pages(struct kmem_cache *s, struct page *page, int order)
 	va_page = (unsigned long long)__va(page_to_phys(page));
 #ifdef CONFIG_RKP
 	if (is_rkp_ro_buffer(va_page)) {
-		for (sc = 0; sc < (1 << order); sc++) {
+		for (sc = 0; sc < ((unsigned long long)1 << order); sc++) {
 			kdp_pgd_rwx(va_page);
 			rkp_ro_free((void *)va_page);
 			va_page += PAGE_SIZE;
@@ -2290,7 +2290,7 @@ static void free_ro_pages(struct kmem_cache *s, struct page *page, int order)
 		return;
 	}
 #endif
-	for (sc = 0; sc < (1 << order); sc++) {
+	for (sc = 0; sc < ((unsigned long long)1 << order); sc++) {
 		kdp_pgd_rwx(va_page);
 		va_page += PAGE_SIZE;
 	}

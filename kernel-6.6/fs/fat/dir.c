@@ -18,6 +18,7 @@
 #include <linux/compat.h>
 #include <linux/uaccess.h>
 #include <linux/iversion.h>
+#include <linux/blkdev.h>
 #include "fat.h"
 
 /*
@@ -52,6 +53,7 @@ static inline void fat_dir_readahead(struct inode *dir, sector_t iblock,
 	struct super_block *sb = dir->i_sb;
 	struct msdos_sb_info *sbi = MSDOS_SB(sb);
 	struct buffer_head *bh;
+	struct blk_plug plug;                                                   
 	int sec;
 
 	/* This is not a first sector of cluster, or sec_per_clus == 1 */
@@ -63,8 +65,10 @@ static inline void fat_dir_readahead(struct inode *dir, sector_t iblock,
 
 	bh = sb_find_get_block(sb, phys);
 	if (bh == NULL || !buffer_uptodate(bh)) {
+		blk_start_plug(&plug);                                                  
 		for (sec = 0; sec < sbi->sec_per_clus; sec++)
 			sb_breadahead(sb, phys + sec);
+		blk_finish_plug(&plug);
 	}
 	brelse(bh);
 }

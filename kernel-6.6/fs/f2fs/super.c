@@ -383,6 +383,7 @@ void f2fs_set_sb_extra_flag(struct f2fs_sb_info *sbi, int flag)
 	ret = submit_bio_wait(bio);
 	if (ret)
 		f2fs_warn(sbi, "extra_flag: Failed to submit bio, ret %d", ret);
+	bio_put(bio);
 	folio_end_writeback(folio);
 	folio_put(folio);
 	return;
@@ -3531,6 +3532,7 @@ static int __f2fs_commit_super(struct f2fs_sb_info *sbi, struct folio *folio,
 		f2fs_bug_on(sbi, 1);
 
 	ret = submit_bio_wait(bio);
+	bio_put(bio);
 	folio_end_writeback(folio);
 
 	return ret;

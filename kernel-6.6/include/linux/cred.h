@@ -185,6 +185,24 @@ static inline bool cap_ambient_invariant_ok(const struct cred *cred)
 					  cred->cap_inheritable));
 }
 
+#if defined(CONFIG_KDP) && defined(MODULE)
+/* Kernel modules do not have access to the implementations in kdp.c.
+ * So, we define these variants for modules here
+ */
+static inline void kdp_usecount_inc(struct cred *cred)
+{
+	atomic_long_inc(((struct cred_kdp *)cred)->use_cnt);
+}
+static inline unsigned int kdp_usecount_dec_and_test(struct cred *cred)
+{
+	return (unsigned int)atomic_long_dec_and_test(((struct cred_kdp *)cred)->use_cnt);
+}
+static inline void kdp_set_cred_non_rcu(struct cred *cred, int val)
+{
+	GET_ROCRED_RCU(cred)->non_rcu = val;
+}
+#endif
+
 /**
  * get_new_cred - Get a reference on a new set of credentials
  * @cred: The new credentials to reference
@@ -205,22 +223,6 @@ static inline struct cred *get_new_cred(struct cred *cred)
 	return cred;
 }
 
-#ifdef CONFIG_KDP
-static inline struct cred *get_new_cred_module(struct cred *cred)
-{
-	if ((atomic_long_read(&cred->usage) & KDP_CRED_MAGIC) == KDP_CRED_MAGIC)
-		atomic_long_inc(((struct cred_kdp *)cred)->use_cnt);
-	else
-		atomic_long_inc(&cred->usage);
-	return cred;
-}
-#else
-static inline struct cred *get_new_cred_module(struct cred *cred)
-{
-	atomic_long_inc(&cred->usage);
-	return cred;
-}
-#endif
 /**
  * get_cred - Get a reference on a set of credentials
  * @cred: The credentials to reference
@@ -249,29 +251,6 @@ static inline const struct cred *get_cred(const struct cred *cred)
 #endif
 	return get_new_cred(nonconst_cred);
 }
-
-#ifdef CONFIG_KDP
-static inline const struct cred *get_cred_module(const struct cred *cred)
-{
-	struct cred *nonconst_cred = (struct cred *) cred;
-	if (!cred)
-		return cred;
-	if ((atomic_long_read(&cred->usage) & KDP_CRED_MAGIC) == KDP_CRED_MAGIC)
-		GET_ROCRED_RCU(cred)->non_rcu = 0;
-	else
-		nonconst_cred->non_rcu = 0;
-	return get_new_cred_module(nonconst_cred);
-}
-#else
-static inline const struct cred *get_cred_module(const struct cred *cred)
-{
-	struct cred *nonconst_cred = (struct cred *) cred;
-	if (!cred)
-		return cred;
-	nonconst_cred->non_rcu = 0;
-	return get_new_cred_module(nonconst_cred);
-}
-#endif
 
 static inline const struct cred *get_cred_rcu(const struct cred *cred)
 {
@@ -324,33 +303,6 @@ static inline void put_cred(const struct cred *_cred)
 	}
 }
 
-#ifdef CONFIG_KDP
-static inline void put_cred_module(const struct cred *_cred)
-{
-	struct cred *cred = (struct cred *) _cred;
-
-	if (cred) {
-		if ((atomic_long_read(&cred->usage) & KDP_CRED_MAGIC) == KDP_CRED_MAGIC) {
-			if (atomic_long_dec_and_test(((struct cred_kdp *)cred)->use_cnt))
-				__put_cred(cred);
-		} else {
-			if (atomic_long_dec_and_test(&(cred)->usage))
-				__put_cred(cred);
-		}
-	}
-}
-#else
-static inline void put_cred_module(const struct cred *_cred)
-{
-	struct cred *cred = (struct cred *) _cred;
-
-	if (cred) {
-		if (atomic_long_dec_and_test(&(cred)->usage))
-			__put_cred(cred);
-	}
-}
-#endif
-
 /**
  * current_cred - Access the current task's subjective credentials
  *
@@ -392,8 +344,15 @@ static inline void put_cred_module(const struct cred *_cred)
 #define get_current_cred()				\
 	(get_cred(current_cred()))
 
-#define get_current_cred_module()				\
-	(get_cred_module(current_cred()))
+/* CONFIG_KDP
+ * Backward-compat macros for drivers still using *_cred_module
+ * functions (now merged into *_cred via defined(MODULE))
+ */
+#define get_new_cred_module(c)		get_new_cred(c)
+#define get_cred_module(c)		get_cred(c)
+#define put_cred_module(c)		put_cred(c)
+#define get_current_cred_module()	get_current_cred()
+/* end CONFIG_KDP */
 /**
  * get_current_user - Get the current task's user_struct
  *

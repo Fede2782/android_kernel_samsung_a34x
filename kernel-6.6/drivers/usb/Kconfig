@@ -26,6 +26,25 @@ config USB_UHCI_BIG_ENDIAN_MMIO
 config USB_UHCI_BIG_ENDIAN_DESC
 	bool
 
+config USB_HOST_SAMSUNG_FEATURE
+	bool "USB Host Samsung Feature"
+	depends on USB
+	default y
+	help
+	 USB Host Samsung Feature.
+	 It is different from LSI BSP code.
+	 If samsung engineer changes kernel code,
+	 use this feature,
+
+config USB_DEBUG_DETAILED_LOG
+	bool "USB detailed log for debugging"
+	depends on USB
+	default y
+	help
+	 Add detailed log for debugging.
+	 It is made by samsung.
+	 It is feature for usb host class drivers.
+
 menuconfig USB_SUPPORT
 	bool "USB support"
 	depends on HAS_IOMEM

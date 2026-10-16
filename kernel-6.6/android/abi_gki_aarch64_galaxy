@@ -250,6 +250,34 @@
   yield
   regulator_get_current_limit
   android_create_function_device
-  kdp_set_cred_non_rcu
-  kdp_usecount_dec_and_test
-  kdp_usecount_inc
+  usbnet_get_endpoints
+  usbnet_read_cmd
+  platform_get_ethdev_address
+  __irq_domain_alloc_fwnode
+  dummy_irq_chip
+  usbnet_write_cmd
+  usbnet_write_cmd_nopm
+  phy_get_pause
+  usbnet_defer_kevent
+  usbnet_write_cmd_async
+  usbnet_suspend
+  usbnet_resume
+  usbnet_open
+  usbnet_stop
+  usbnet_start_xmit
+  usbnet_change_mtu
+  irq_domain_free_fwnode
+  usbnet_tx_timeout
+  usbnet_get_drvinfo
+  usbnet_get_msglevel
+  usbnet_set_msglevel
+  mii_check_media
+  mii_ethtool_gset
+  usbnet_skb_return
+  usbnet_nway_reset
+  usbnet_get_link
+  usbnet_get_link_ksettings_mii
+  usbnet_set_link_ksettings_mii
+  usbnet_probe
+  usbnet_disconnect
+  usbnet_read_cmd_nopm
