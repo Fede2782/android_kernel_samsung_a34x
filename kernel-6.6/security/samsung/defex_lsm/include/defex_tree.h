@@ -80,7 +80,7 @@ enum feature_types_20 {
 	/* version 1.0 */
 	feature_is_file = (1 << 0),
 	feature_for_recovery = (1 << 1),
-	feature_ped_path = (1 << 2),
+	feature_only_for_recovery = (1 << 2),
 	feature_ped_exception = (1 << 3),
 	feature_ped_status = (1 << 4),
 	feature_safeplace_path = (1 << 5),

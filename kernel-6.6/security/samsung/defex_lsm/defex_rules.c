@@ -181,9 +181,11 @@
 	{feature_safeplace_path,"/system/system_ext/bin/dpmd"},
 	{feature_safeplace_path,"/system_ext/bin/dpmd"},
 	{feature_safeplace_path,"/system_ext/bin/qcrosvm"},
+	{feature_safeplace_path,"/vendor/bin/avf_qcvm_manager"},
 	{feature_safeplace_path,"/vendor/bin/energy-awareness"},
 	{feature_safeplace_path,"/vendor/bin/hw/android.hardware.boot-service.qti"},
 	{feature_safeplace_path,"/vendor/bin/hw/android.hardware.thermal@2.0-service.qti-v2"},
+	{feature_safeplace_path,"/vendor/bin/hw/android.hardware.thermal-service.qti"},
 	{feature_safeplace_path,"/vendor/bin/hw/vendor.qti.hardware.debugutils-service"},
 	{feature_safeplace_path,"/vendor/bin/hw/vendor.qti.hardware.limits@1.1-service"},
 	{feature_safeplace_path,"/vendor/bin/hw/vendor.qti.hardware.limits@1.2-service"},
@@ -258,6 +260,7 @@
 	{feature_safeplace_path,"/apex/com.android.tethering/bin/netbpfload"},
 	{feature_safeplace_path,"/apex/com.android.uprobestats/bin/uprobestatsbpfload"},
 	{feature_safeplace_path,"/apex/com.android.virt/bin/crosvm"},
+	{feature_safeplace_path,"/apex/com.android.virt/bin/early_virtmgr"},
 	{feature_safeplace_path,"/apex/com.android.virt/bin/virtmgr"},
 	{feature_safeplace_path,"/apex/com.android.virt/bin/vmnic"},
 	{feature_safeplace_path,"/product/bin/dmabuf_dump"},
@@ -472,6 +475,8 @@
 	{feature_immutable_root,"/system_ext/bin/aee_aed64_v2:/data/aee_exp/"},	/* DEFAULT */
 	{feature_immutable_root,"/system_ext/bin/aee_aed64_v2:/data/dumpsys/prepackages"},	/* DEFAULT */
 	{feature_immutable_root,"/system_ext/bin/aee_aed64_v2:/data/system/packages.list"},	/* DEFAULT */
+	{feature_immutable_root,"/vendor/bin/aee_aedv64_v2:/data/vendor/aee_exp/"},	/* DEFAULT */
+	{feature_immutable_root,"/vendor/bin/avf_qcvm_manager:/data/vendor/qtvm_dtbo/trustedvm.dtbo"},	/* DEFAULT */
 	{feature_immutable_root,"/vendor/bin/hw/vendor.mediatek.hardware.mtkpower-service.mediatek:/data/vendor/powerhal/powerdlttable.data"},	/* DEFAULT */
 	{feature_immutable_root,"/vendor/bin/hw/vendor.qti.hardware.perf2-hal-service:/data/vendor/"},	/* DEFAULT */
 	{feature_immutable_root,"/vendor/bin/hw/vendor.qti.hardware.perf-hal-service:/data/vendor/perfd/"},	/* DEFAULT */
@@ -515,11 +520,9 @@
 	{feature_immutable_src_exception,"/vendor/bin/snap_utility_64"},
 	{feature_immutable_src_exception,"/apex/com.android.runtime/bin/crash_dump32"},	/* DEFAULT */
 	{feature_immutable_src_exception,"/apex/com.android.runtime/bin/crash_dump64"},	/* DEFAULT */
-	{feature_immutable_src_exception,"/data/local/tests/unrestricted/CtsBionicTestCases/arm/CtsBionicTestCases"},	/* DEFAULT */
-	{feature_immutable_src_exception,"/data/local/tests/unrestricted/CtsBionicTestCases/arm64/CtsBionicTestCases"},	/* DEFAULT */
-	{feature_immutable_src_exception,"/data/local/tmp/CtsSimpleperfTestCases"},	/* DEFAULT */
 	{feature_immutable_tgt_exception,"/system/bin/app_process32"},
 	{feature_immutable_tgt_exception,"/system/bin/app_process64"},
+	{feature_immutable_tgt_exception,"/system/bin/toybox"},
 	{feature_integrity_check,"/vendor/bin/hw/android.hardware.gatekeeper@1.0-service"},
 	{feature_integrity_check,"/vendor/bin/hw/android.hardware.keymaster@4.0-service"},
 	{feature_integrity_check,"/vendor/bin/hw/android.hardware.security.keymint-service"},
@@ -528,6 +531,8 @@
 	{feature_integrity_check,"/vendor/bin/hw/vendor.samsung.hardware.tlc.kg@1.1-service"},
 	{feature_integrity_check,"/vendor/bin/vaultkeeperd"},
 	{feature_integrity_check,"/vendor/bin/vendor.samsung.hardware.security.wsm@1.0-service"},
+	{feature_only_for_recovery,"/tmp/update_binary"},
+	{feature_only_for_recovery,"/tmp/update-binary"},
 	/* Rules will be added here */
 	/* Never modify the above line. Rules will be added for buildtime */
 #endif /* __NEVER_DEFINED__ */

@@ -51,7 +51,7 @@ static int get_first_feature(int feature_type)
 
 	TEST_FEATURE(feature_is_file);
 	TEST_FEATURE(feature_for_recovery);
-	TEST_FEATURE(feature_ped_path);
+	TEST_FEATURE(feature_only_for_recovery);
 	TEST_FEATURE(feature_ped_exception);
 	TEST_FEATURE(feature_ped_status);
 	TEST_FEATURE(feature_safeplace_path);

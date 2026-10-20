@@ -645,7 +645,7 @@ __visible_for_testing int lookup_tree(const char *file_path,
 
 	if ((get_load_flags() & load_both_mask) != load_both_mask &&
 			!(get_load_flags() & LOAD_FLAG_TIMEOUT)) {
-		/* allow all requests if rules were not loaded for Recovery mode */
+		/* Allow all requests if rules are not loaded or in recovery mode */
 		if (!load_rules_late() || is_recovery) {
 			if (attr_def_one & attribute)
 				return 1;
@@ -670,6 +670,12 @@ try_next:
 	ctx.linked_offset = linked_offset;
 	offset = d_tree_lookup_path(&ctx, file_path, found_item);
 	if (offset > 0) {
+		if (!is_recovery && (found_item->features & feature_only_for_recovery)) {
+			defex_log_info("Rule for \"%s\" applies only in recovery mode", file_path);
+			if (attr_def_one & attribute)
+				return 0;
+			return 1;
+		}		
 #ifdef DEFEX_INTEGRITY_ENABLE
 		/* Integrity acceptable only for files */
 		if ((found_item->features & feature_integrity_check) &&

@@ -12,6 +12,7 @@ static int packfiles_size, global_data_size;
 
 
 const struct feature_match_entry feature_match[] = {
+	{"feature_only_for_recovery", feature_only_for_recovery},
 	{"feature_safeplace_path", feature_safeplace_path},
 	{"feature_ped_exception", feature_ped_exception},
 	{"feature_immutable_path_open", feature_immutable_path_open},
